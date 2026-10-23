@@ -1,4 +1,4 @@
-"""Chart calibration in the image editor: the chart, its samples, the fitted matrix, and its grade, splice, and exports."""
+"""Image editor chart calibration with grade, node, and file outputs."""
 
 from collections.abc import Callable
 from functools import partial
@@ -62,14 +62,14 @@ type Target = Reference | Sampled
 
 
 class Direction(Choice):
-    """Side of the fitted pair a row applies."""
+    """Fitted pair side."""
 
     FORWARD = 1, "Forward"
     INVERSE = 2, "Inverse"
 
 
 class Mirror(Choice):
-    """Axis a chart's patch order mirrors across."""
+    """Patch order mirror axis."""
 
     ACROSS = 1, "Left to Right"
     UPRIGHT = 2, "Top to Bottom"
@@ -85,7 +85,7 @@ class Mirror(Choice):
 
 
 class Pairing(Choice):
-    """Side of a calibration an image takes."""
+    """Calibration side of an image."""
 
     SOURCE = 1, "source image"
     TARGET = 2, "target image"
@@ -100,78 +100,78 @@ sampled_pointer = Definition[bpy.types.Image](poll=Some(lambda identity, _owner,
 
 
 class Reference(Case, frozen=True, kw_only=True, tag=1):
-    """Target of a chart's published values in a config colorspace."""
+    """Published chart values in a config colorspace."""
 
     title = "Reference"
-    space: Annotated[ColorSpace, msgspec.Meta(description="Colorspace the reference values take")] = PyOpenColorIO.ROLE_SCENE_LINEAR
+    space: Annotated[ColorSpace, msgspec.Meta(description="Reference value colorspace")] = PyOpenColorIO.ROLE_SCENE_LINEAR
 
 
 class Sampled(Case, frozen=True, kw_only=True, tag=2):
-    """Target of a second image's samples."""
+    """Second image's samples."""
 
     title = "Image"
-    image: Annotated[bpy.types.Image | None, msgspec.Meta(description="Image whose samples the source maps onto"), sampled_pointer] = None
+    image: Annotated[bpy.types.Image | None, msgspec.Meta(description="Image source samples map onto"), sampled_pointer] = None
 
 
 class ChartImage(msgspec.Struct, frozen=True, kw_only=True):
     """Chart placed on an image and its patch samples."""
 
-    shown: Annotated[bool, msgspec.Meta(title="Show Chart", description="Draw the chart and its handles over the image")] = True
-    placement: Annotated[ChartPlacement, msgspec.Meta(title="Chart", description="Chart placed in the image")] = ChartPlacement()
+    shown: Annotated[bool, msgspec.Meta(title="Show Chart", description="Draw chart and handles over image")] = True
+    placement: Annotated[ChartPlacement, msgspec.Meta(title="Chart", description="Placement in image")] = ChartPlacement()
     samples: Annotated[tuple[Rgb[float], ...], msgspec.Meta(title="Samples", description="Scene-linear patch means in grid order")] = ()
 
     @property
     def sampled(self) -> Option[tuple[Rgb[float], ...]]:
-        """Samples while one RGB value stands for every printed patch."""
+        """Samples when every printed patch holds one."""
         return Some(self.samples).filter(lambda held: len(held) == len(ChartReference.of(self.placement.chart).checker.data))
 
 
 class Charting(msgspec.Struct, frozen=True, kw_only=True):
-    """Chart, normalization, clamp, and overlay opacity one calibration takes."""
+    """Calibration chart, normalization, clamp, and overlay opacity."""
 
-    chart: Annotated[Chart, msgspec.Meta(title="Chart", description="Chart a placement lays out")] = Chart.COLORCHECKER_CLASSIC
-    normalized: Annotated[bool, msgspec.Meta(title="Normalize", description="Keep the source neutral's luma and hold the gain as exposure")] = True
-    clamped: Annotated[bool, msgspec.Meta(title="Clamp", description="Clip exported values to 0 to 1")] = False
-    opacity: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Opacity", description="Opacity of the patch fills")] = 0.5
+    chart: Annotated[Chart, msgspec.Meta(title="Chart", description="Placed chart")] = Chart.COLORCHECKER_CLASSIC
+    normalized: Annotated[bool, msgspec.Meta(title="Normalize", description="Keep source neutral luma, gain held as exposure")] = True
+    clamped: Annotated[bool, msgspec.Meta(title="Clamp", description="Clip exported values to [0, 1]")] = False
+    opacity: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Opacity", description="Patch fill opacity")] = 0.5
 
 
 class Calibrating(msgspec.Struct, frozen=True, kw_only=True):
     """Scene's calibration pairing and fit choices."""
 
-    source: Annotated[bpy.types.Image | None, msgspec.Meta(title="Source", description="Sampled image the calibration maps from"), sampled_pointer] = None
-    target: Annotated[Target, msgspec.Meta(title="Target", description="Colors the source's samples map onto")] = Reference()
-    direction: Annotated[Direction, msgspec.Meta(title="Direction", description="Source onto target, or target back onto source")] = Direction.FORWARD
-    gain: Annotated[bool, msgspec.Meta(title="Keep Gain", description="Fold the exposure gain into the applied and exported transform")] = False
+    source: Annotated[bpy.types.Image | None, msgspec.Meta(title="Source", description="Sampled source image"), sampled_pointer] = None
+    target: Annotated[Target, msgspec.Meta(title="Target", description="Colors samples map onto")] = Reference()
+    direction: Annotated[Direction, msgspec.Meta(title="Direction", description="Source to target or back")] = Direction.FORWARD
+    gain: Annotated[bool, msgspec.Meta(title="Keep Gain", description="Fold exposure gain into transform")] = False
     charting: Annotated[Charting, msgspec.Meta(title="Options", description="Chart, normalization, clamp, and opacity")] = Charting()
 
 
 class Framing(msgspec.Struct, frozen=True, kw_only=True):
-    """Share of the view a framed chart spans."""
+    """Framed chart view share."""
 
-    share: Annotated[float, msgspec.Meta(gt=0.0, le=1.0, title="Share", description="Share of the view's width the chart spans")] = 0.5
+    share: Annotated[float, msgspec.Meta(gt=0.0, le=1.0, title="Share", description="View width chart spans")] = 0.5
 
 
 class Flipping(msgspec.Struct, frozen=True, kw_only=True):
-    """Axis a flip mirrors across."""
+    """Flip axis."""
 
-    mirror: Annotated[Mirror, msgspec.Meta(title="Mirror", description="Axis the chart's patch order mirrors across")] = Mirror.ACROSS
+    mirror: Annotated[Mirror, msgspec.Meta(title="Mirror", description="Patch order mirror axis")] = Mirror.ACROSS
 
 
 class Drawn(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """One chart's fill batch and outline batches with their colors."""
+    """Chart fill batch and colored outline batches."""
 
     fills: gpu.types.GPUBatch
     edges: tuple[tuple[gpu.types.GPUBatch, tuple[float, float, float, float]], ...]
 
 
 class Patches(msgspec.Struct, frozen=True, kw_only=True):
-    """Chart overlay part: every chart's patches formed and batched once per refresh, the shown chart drawn."""
+    """Chart overlay batching patches per refresh and drawing shown chart."""
 
     stack: EffectStack
     identity: Identity
 
     def read(self, _metrics: Metrics, /) -> BlenderResult[Option[dict[Handle[bpy.types.Image], Drawn]]]:
-        """Forms and batches the fill triangles and outline strips of every image holding a chart, in frame fractions."""
+        """Batches formed patch fills and outlines in frame fractions per charted image."""
         fills, lines = gpu.shader.from_builtin("FLAT_COLOR"), gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
 
         def formed(scene: bpy.types.Scene, config: PyOpenColorIO.Config, image: bpy.types.Image) -> BlenderResult[Option[Callable[[npt.NDArray[np.float32]], BlenderResult[npt.NDArray[np.float32]]]]]:
@@ -241,7 +241,7 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def drawn(self, canvas: Canvas, state: dict[Handle[bpy.types.Image], Drawn]) -> None:
-        """Draws the shown chart's patches scaled through the frame."""
+        """Draws shown chart's patches scaled through frame."""
         context = bpy.context
         for chart in self.identity.reports.reported(charts.bound)(self.identity).to_list():
             for shown, frame in (
@@ -263,7 +263,7 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ChartCommands(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator rows of chart calibration, one field per row a section places."""
+    """Chart calibration operator rows."""
 
     place: Operator[Empty]
     sample: Operator[Empty]
@@ -281,7 +281,7 @@ class ChartCommands(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
-    """Row placing chart calibration: the chart records, the view images, the overlay, the handles, the operator rows, and their sections."""
+    """Row placing chart calibration declarations and sections."""
 
     imaged: ClassVar[Setting] = image_type(("IMAGE", "RENDER_RESULT"))
     shader: ClassVar[AllOf] = AllOf(
@@ -297,11 +297,11 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def page_rows(self) -> tuple[Registrable, ...]:
-        """Image charts and the scene's calibration, seeded from the settings reader when one is given, which the preferences page acquires."""
+        """Chart and calibration attachments for preferences page, seeded from settings reader."""
         return (charts, msgspec.structs.replace(calibrations, seed=self.settings.map(lambda read: lambda bound: read(bound).map(lambda charting: Calibrating(charting=charting)))))
 
     def operators(self, identity: Identity) -> ChartCommands:
-        """Builds the operator rows over the image editor and node editor conditions."""
+        """Builds calibration operator rows."""
 
         def unplaced(image: bpy.types.Image) -> BlenderFaults:
             return (BlenderUnmetFault(requirement=Unplaced(image=image.name)),)
@@ -408,14 +408,14 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                         return f"View spans {math.degrees(field_of_view):.0f} degrees"
                     case Clipped(patches=patches):
                         names = tuple(reference.checker.data)
-                        return f"Patches {', '.join(names[index] for index in patches)} leave the image"
+                        return f"Patches {', '.join(names[index] for index in patches)} leave image"
 
             return located(context).bind(
                 lambda found: aspect(context, found[0]).map(
                     lambda ratio: (
                         found[1]
                         .placement.findings(ratio, Limits())
-                        .map(lambda listed: ", ".join(map(partial(described, reference=ChartReference.of(found[1].placement.chart)), listed)) or "Chart placement reads no finding")
+                        .map(lambda listed: ", ".join(map(partial(described, reference=ChartReference.of(found[1].placement.chart)), listed)) or "No placement finding")
                         .default_value(Unplaced(image=found[0].name).message)
                     )
                 )
@@ -424,7 +424,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
         def clearing(call: Call[Empty]) -> BlenderResult[Outcome]:
             def cleared(image: bpy.types.Image, record: ChartImage, chart: Attached[ChartImage]) -> BlenderResult[Outcome]:
                 if not record.samples:
-                    return Ok(Unchanged(reason=f"The chart of {image.name} holds no samples"))
+                    return Ok(Unchanged(reason=f"{image.name} chart holds no samples"))
                 return chart.write(image, msgspec.structs.replace(record, samples=())).map(lambda _: Done())
 
             return located(call.context).bind(lambda found: cleared(*found))
@@ -476,7 +476,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                             for view in shown.to_list()
                         )
                     )
-                    .map(lambda _: Done(notes=(("INFO", f"Viewing the chart of {image.name}"),)))
+                    .map(lambda _: Done(notes=(("INFO", f"Viewing {image.name} chart"),)))
                 )
 
             return paired(located(context), self.stack.config()).bind(
@@ -509,7 +509,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
 
         def conditioned(fit: CalibrationFit[Calibration]) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
             ceiling = 1e4
-            return (("WARNING", f"Calculated transform is poorly conditioned ({fit.condition_number:.2e}), chart alignment needs a check"),) if fit.condition_number > ceiling else ()
+            return (("WARNING", f"Fitted transform poorly conditioned ({fit.condition_number:.2e}), check chart alignment"),) if fit.condition_number > ceiling else ()
 
         def grading(call: Call[Empty]) -> BlenderResult[Done]:
             return paired(fitting(call), call.root(bpy.types.Scene)).bind(
@@ -523,7 +523,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                 return (
                     matrix()
                     .bind(lambda group: inserted(chosen, group, identity, NodeSpacing(), inputs=matrix_inputs(made[1])))
-                    .map(lambda _: Done(notes=(*conditioned(made[2]), ("INFO", "Inserted the calibration matrix"))))
+                    .map(lambda _: Done(notes=(*conditioned(made[2]), ("INFO", "Inserted calibration matrix"))))
                 )
 
             return fitting(call).bind(lambda made: Chosen.of(call.context).bind(lambda chosen: spliced(chosen, made)))
@@ -537,11 +537,11 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
 
         shown = Some(ChartCalibration.imaged)
         return ChartCommands(
-            place=Operator(key="chart_place", title="Place Chart", description="Place a chart of square cells at the center of the shown image", condition=shown, form=Empty, run=placing),
+            place=Operator(key="chart_place", title="Place Chart", description="Places a square-cell chart at shown image center", condition=shown, form=Empty, run=placing),
             sample=Operator(
                 key="chart_sample",
                 title="Sample Chart",
-                description="Measure each patch's mean color under the chart",
+                description="Measures each patch's mean color",
                 condition=shown,
                 form=Empty,
                 run=sampling,
@@ -550,7 +550,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             clear=Operator(
                 key="chart_clear",
                 title="Clear Samples",
-                description="Remove the image's patch samples",
+                description="Removes patch samples",
                 condition=shown,
                 form=Empty,
                 run=clearing,
@@ -559,31 +559,24 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             flip=Operator(
                 key="chart_flip",
                 title="Flip Chart",
-                description="Mirror the chart's patch order inside its corners",
+                description="Mirrors patch order inside chart corners",
                 condition=shown,
                 form=Flipping,
                 run=edited(lambda call, samples: samples[list(call.record.mirror.order)]),
             ),
             turn=Operator(
-                key="chart_turn",
-                title="Turn Chart",
-                description="Turn the chart's patch order a quarter inside its corners",
-                condition=shown,
-                form=Empty,
-                run=edited(lambda _, samples: np.roll(samples, 1, axis=0)),
+                key="chart_turn", title="Turn Chart", description="Rotates patch order a quarter turn", condition=shown, form=Empty, run=edited(lambda _, samples: np.roll(samples, 1, axis=0))
             ),
-            center=Operator(key="chart_center", title="Center Chart", description="Move the chart to the center of the visible frame", condition=shown, form=Empty, run=centered),
-            reset=Operator(key="chart_reset", title="Reset Chart", description="Return the chart to its first layout", condition=shown, form=Empty, run=resetting),
-            frame=Operator(key="chart_frame", title="View Chart", description="Show the panorama's chart in a rectilinear view", condition=shown, form=Framing, run=framing, invoke=Some(Properties())),
-            leave=Operator(key="chart_leave", title="Leave View", description="Show the panorama the chart sits in", condition=shown, form=Empty, run=leaving),
-            grade=Operator(key="chart_grade", title="Apply Calibration", description="Write the calibration into the scene's primaries", form=Empty, run=grading),
-            node=Operator(
-                key="chart_node", title="Insert Calibration", description="Insert the calibration matrix after the active node", condition=Some(ChartCalibration.shader), form=Empty, run=splicing
-            ),
+            center=Operator(key="chart_center", title="Center Chart", description="Centers chart in visible frame", condition=shown, form=Empty, run=centered),
+            reset=Operator(key="chart_reset", title="Reset Chart", description="Resets chart layout", condition=shown, form=Empty, run=resetting),
+            frame=Operator(key="chart_frame", title="View Chart", description="Shows panorama chart in a rectilinear view", condition=shown, form=Framing, run=framing, invoke=Some(Properties())),
+            leave=Operator(key="chart_leave", title="Leave View", description="Shows panorama holding chart", condition=shown, form=Empty, run=leaving),
+            grade=Operator(key="chart_grade", title="Apply Calibration", description="Writes calibration into scene primaries", form=Empty, run=grading),
+            node=Operator(key="chart_node", title="Insert Calibration", description="Inserts calibration matrix after active node", condition=Some(ChartCalibration.shader), form=Empty, run=splicing),
             bake=Operator(
                 key="chart_bake",
                 title="Bake Calibration LUT",
-                description="Bake the forward and inverse calibration into LUT files",
+                description="Bakes forward and inverse calibration LUTs",
                 form=Baking,
                 run=exporting,
                 invoke=Some(Save[Baking](extensions=Baking.extensions, destinations=Some(lambda path, _record: export_paths(path)))),
@@ -593,7 +586,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             write=Operator(
                 key="chart_write",
                 title="Write Calibration",
-                description="Write the forward and inverse calibration matrices into transform files",
+                description="Writes forward and inverse calibration transform files",
                 form=Writing,
                 run=exporting,
                 invoke=Some(Save[Writing](extensions=Writing.extensions, destinations=Some(lambda path, _record: export_paths(path)))),
@@ -603,7 +596,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the view images, operators, corner region, handles, and overlay declarations, the page holding the attachments."""
+        """Returns declarations except `page_rows` attachments."""
         refreshes = (Updated(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)),)
 
         def rows(chart: Attached[ChartImage], commands: ChartCommands) -> tuple[Registrable, ...]:
@@ -650,11 +643,11 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
         return charts.bound(identity).map(lambda chart: rows(chart, self.operators(identity)))
 
     def section(self) -> Single:
-        """Image editor section: the shown image's chart, the scene's pairing and fit, and the operator buttons."""
+        """Image editor calibration section."""
         return Single(key="chart_calibration", title="Chart Calibration", rows=(Calibrator(row=self),))
 
     def node_section(self) -> Single:
-        """Node editor section: the source and direction beside the matrix splice, inactive outside an editable shader tree."""
+        """Node editor matrix splice section, inactive outside an editable shader tree."""
 
         def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
             return calibrations.bound(identity).map(
@@ -668,12 +661,12 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Calibrator(Line, frozen=True, kw_only=True):
-    """Chart calibration body: the shown image's chart fields while it holds a chart, the scene's calibration fields, and the operator buttons."""
+    """Chart calibration body with chart and scene fields and operator buttons."""
 
     row: ChartCalibration
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Binds both records, walks their fields, and realizes the operator buttons over one identity."""
+        """Places both records' fields and operator buttons."""
         commands = self.row.operators(identity)
         buttons: tuple[Row, ...] = (
             Caption(rows=tuple(OperatorButton(target=command) for command in (commands.place, commands.sample, commands.clear)), flow=Flow.ALIGNED),
@@ -719,25 +712,25 @@ class Calibrator(Line, frozen=True, kw_only=True):
 
 
 class Unplaced(msgspec.Struct, frozen=True, kw_only=True):
-    """Chart whose corners bound no convex quad inside its view."""
+    """Chart corners bounding no convex quad in view."""
 
     image: str
 
     @property
     def message(self) -> str:
-        """Poll message naming the image."""
-        return f"Requires a chart in {self.image} whose corners bound a convex quad inside its view"
+        """Poll message."""
+        return f"Requires {self.image} chart corners bounding a convex quad in view"
 
 
 class Unsampled(msgspec.Struct, frozen=True, kw_only=True):
-    """Image whose chart holds no sample of every patch."""
+    """Chart with an unsampled patch."""
 
     image: str
 
     @property
     def message(self) -> str:
-        """Poll message naming the image."""
-        return f"Requires a sample of every patch in {self.image}"
+        """Poll message."""
+        return f"Requires every {self.image} patch sampled"
 
 
 class Unchosen(msgspec.Struct, frozen=True, kw_only=True):
@@ -747,20 +740,20 @@ class Unchosen(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def message(self) -> str:
-        """Poll message naming the side."""
-        return f"Requires a {self.pairing.label} whose chart holds samples"
+        """Poll message."""
+        return f"Requires {self.pairing.label} with sampled chart"
 
 
 class Mismatched(msgspec.Struct, frozen=True, kw_only=True):
-    """Target image sampled on another chart than the source."""
+    """Target chart differing from source chart."""
 
     source: Chart
     target: Chart
 
     @property
     def message(self) -> str:
-        """Poll message naming both charts."""
-        return f"Requires a target sampled on the {self.source.label} of the source, not the {self.target.label}"
+        """Poll message."""
+        return f"Requires target on source chart {self.source.label}, got {self.target.label}"
 
 
 class Unlit(msgspec.Struct, frozen=True, kw_only=True):
@@ -770,25 +763,25 @@ class Unlit(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def message(self) -> str:
-        """Poll message naming the source image."""
-        return f"Requires light on the neutral patch of {self.image} and of its target"
+        """Poll message."""
+        return f"Requires lit neutral patch in {self.image} and target"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def sampled_image(identity: Identity, image: bpy.types.Image) -> bool:
-    """Whether an image's chart holds a sample of every patch, the poll of every image pointer."""
+    """Whether image chart has every patch sampled, polled by image pointers."""
     return charts.bound(identity).to_option().filter(lambda chart: chart.stored(image)).bind(lambda chart: chart.read(image).to_option()).bind(lambda record: record.sampled).is_some()
 
 
 def editor_image(context: bpy.types.Context) -> BlenderResult[bpy.types.Image]:
-    """Answers the image the context's image editor shows."""
+    """Returns image editor's shown image."""
     return editor(context).bind(lambda space: Option.of_optional(space.image).to_result_with(lambda: (BlenderAbsentFault(owner=repr(space), key="image"),)))
 
 
 def charted(context: bpy.types.Context, identity: Identity, chart: Attached[ChartImage]) -> BlenderResult[Option[tuple[bpy.types.Image, ChartImage]]]:
-    """Answers the chart the shown image displays: its own, or its panorama's while it is that panorama's view image."""
+    """Returns shown image's chart, its panorama's chart for a view image."""
     return (
         editor_image(context)
         .map(
@@ -812,7 +805,7 @@ def charted(context: bpy.types.Context, identity: Identity, chart: Attached[Char
 
 
 def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen: Calibrating) -> BlenderResult[tuple[Calibration, CalibrationFit[Calibration]]]:
-    """Returns the selected normalized calibration and its original native fit diagnostics."""
+    """Returns selected normalized calibration with original fit diagnostics."""
 
     def held(image: bpy.types.Image | None, pairing: Pairing) -> BlenderResult[tuple[bpy.types.Image, ChartImage]]:
         return (
@@ -867,7 +860,7 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
 
 
 def exported(output: LutOutput, calibration: Calibration, paths: tuple[Path, ...], *, direction: Direction, clamped: bool) -> BlenderResult[tuple[str, ...]]:
-    """Writes the forward and inverse calibration files with an optional output clamp."""
+    """Writes forward and inverse calibration files, optionally clamped."""
     clamp = (PyOpenColorIO.RangeTransform(minInValue=0.0, maxInValue=1.0, minOutValue=0.0, maxOutValue=1.0),) if clamped else ()
     transform = calibration.transform
     return lut_written(

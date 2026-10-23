@@ -42,7 +42,7 @@ public sealed partial class ConduitFilter {
 
     // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Option<bool> selectionFilter, ref Seq<Guid> objectIds, ref ObjectType geometryFilter, ref ActiveSpace spaceFilter) =>
-        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new ValidationError($"space filter {spaceFilter} is no model, page, or open space");
+        validationError = spaceFilter is ActiveSpace.None or ActiveSpace.ModelSpace or ActiveSpace.PageSpace ? null : new ValidationError($"space filter {spaceFilter} is not None, ModelSpace, or PageSpace");
 }
 
 [Union]

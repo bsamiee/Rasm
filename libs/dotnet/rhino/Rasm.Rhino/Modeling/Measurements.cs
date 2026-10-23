@@ -15,7 +15,7 @@ public static class Measurements {
     public static Fin<T> Valid<T>(T? geometry, string member) where T : GeometryBase =>
         geometry is null ? new Refused(member, Refused.Absent)
         : geometry.IsValidWithLog(out string log) ? geometry
-        : new Refused(member, $"answered an invalid {geometry.ObjectType}: {log}");
+        : new Refused(member, $"answered invalid {geometry.ObjectType}. {log}");
 
     public static Fin<Seq<T>> Valid<T>(Seq<T?> geometries, string member) where T : GeometryBase =>
         Callbacks.Each(geometries, (geometry, index) => geometry is { } present ? Element(present, member, index) : new Refused(member, Refused.Declined, index));
@@ -24,7 +24,7 @@ public static class Measurements {
         Callbacks.Each(geometries, (geometry, index) => geometry.Traverse(present => Element(present, member, index)).As());
 
     private static Fin<T> Element<T>(T geometry, string member, int index) where T : GeometryBase =>
-        geometry.IsValidWithLog(out string log) ? geometry : new Refused(member, $"answered an invalid {geometry.ObjectType}: {log}", index);
+        geometry.IsValidWithLog(out string log) ? geometry : new Refused(member, $"answered invalid {geometry.ObjectType}. {log}", index);
 
     // --- [PARTS]
     public static uint Checksum<T>(Seq<T> parts) where T : GeometryBase =>

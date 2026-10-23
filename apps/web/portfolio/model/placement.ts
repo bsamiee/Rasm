@@ -25,7 +25,7 @@ const film = Schema.Struct({
                     Assets.use((assets) =>
                         Match.value(assets[assetId]).pipe(
                             Match.when({ mime: Match.is(...ImageAsset.fields.mime.literals) }, Effect.succeed<ImageAsset>),
-                            Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'The poster image is missing or is not an image' }))),
+                            Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'Poster file is missing or not an image' }))),
                         ),
                     ),
                 ),
@@ -49,12 +49,12 @@ const Placement = StoredPlacement.pipe(
                     Match.when({ placement: { kind: 'pdf' }, asset: { mime: Match.is(...PdfAsset.fields.mime.literals) } }, ({ placement, asset }) =>
                         Effect.fromNullishOr(sheets(asset)[placement.page - 1]).pipe(
                             Effect.map((page) => ({ ...placement, asset, page })),
-                            Effect.mapError(() => new SchemaIssue.InvalidValue({ message: 'The PDF does not contain this sheet' })),
+                            Effect.mapError(() => new SchemaIssue.InvalidValue({ message: `PDF has no sheet ${placement.page}` })),
                         ),
                     ),
                     Match.when({ placement: { kind: 'video' }, asset: { mime: Match.is(...VideoAsset.fields.mime.literals) } }, ({ placement, asset }) => Effect.succeed({ ...placement, asset })),
                     Match.when({ placement: { kind: 'image' }, asset: { mime: Match.is(...ImageAsset.fields.mime.literals) } }, ({ placement, asset }) => Effect.succeed({ ...placement, asset })),
-                    Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'The referenced file is missing or has a different media type' }))),
+                    Match.orElse(() => Effect.fail(new SchemaIssue.InvalidValue({ message: 'File is missing or has another media type' }))),
                 );
             }),
         ),

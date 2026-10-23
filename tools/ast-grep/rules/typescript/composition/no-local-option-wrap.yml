@@ -96,8 +96,8 @@ rule:
 transform:
     DECLARED: {rewrite: {source: $DECLARATION, rewriters: [declared]}}
     TESTED: {rewrite: {source: $INLINE, rewriters: [inline-present, inline-absent]}}
-message: '`$O` wraps a value in an `Option` that its function unwraps without passing on'
-note: 'Read the value and test `<value> === undefined` inside one function, an `Option` carrying absence across a function boundary alone'
+message: '`$O` wraps a value in an `Option` its own function unwraps'
+note: 'Keep the plain value and compare it with `undefined`'
 fix:
     template: $DECLARED$TESTED
     expandEnd: {stopBy: end, pattern: $_LAST, inside: {kind: statement_block}, nthChild: {position: 1, reverse: true}}

@@ -24,7 +24,7 @@ public sealed partial class Tolerances {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double absolute, ref double relative, ref double angle, ref double meshCoefficient) =>
         validationError = absolute > 0 && relative is > 0 and < 1 && angle is > 0 and <= double.Pi
             ? null
-            : new ValidationError("tolerances need a positive absolute, a relative inside (0, 1), and an angle inside (0, pi]");
+            : new ValidationError("tolerances need absolute above 0, relative in (0, 1), angle in (0, pi]");
 
     // --- [DOCUMENT]
     public static IO<Tolerances> Read(RhinoDoc doc, bool modelUnits) =>
@@ -55,7 +55,7 @@ public sealed partial class DistanceDisplay {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref bool modelUnits, ref DistanceDisplayMode mode, ref int precision) =>
         validationError = Enum.IsDefined(mode) && precision >= 0 && precision <= (modelUnits ? 8 : 20)
             ? null
-            : new ValidationError("distance display needs a defined mode and a precision inside [0, 8] for model units or [0, 20] for page units");
+            : new ValidationError("distance display needs defined mode, precision in [0, 8] for model or [0, 20] for page units");
 
     // --- [DOCUMENT]
     public static IO<DistanceDisplay> Read(RhinoDoc doc, bool modelUnits) =>

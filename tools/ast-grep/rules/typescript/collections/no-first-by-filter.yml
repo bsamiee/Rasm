@@ -57,5 +57,5 @@ rewriters:
 transform:
     FOUND: rewrite($FIRST, rewriters=[find, find-last])
 fix: $FOUND
-message: '`$FILTER` builds every match of the list to take its first or last'
-note: 'Call `Array.findFirst(<list>, <f>)` or `Array.findLast`, with `<f>` a predicate, an `Option` mapper, or `flow(<filter>, Result.getSuccess)`'
+message: '`$FILTER` collects every match to read its first or last element'
+note: 'Call `Array.findFirst(<list>, <f>)` or `Array.findLast`, with `<f>` a predicate, `Option` mapper, or `flow(<filter>, Result.getSuccess)`'

@@ -29,7 +29,7 @@ const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof P
                                 <SelectField
                                     label="Image use"
                                     onChange={({ id }) => onChange({ ...image, role: id, framing: { mode: 'contain' } })}
-                                    options={Record.toEntries({ drawing: 'Drawing — complete sheet', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<typeof image.role, string>).map(([id, label]) => ({ id, label }))}
+                                    options={Record.toEntries({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<typeof image.role, string>).map(([id, label]) => ({ id, label }))}
                                     value={image.role}
                                 />
                                 {image.role === 'photograph' && (
@@ -39,7 +39,7 @@ const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof P
                                             onChange={({ framing }) => onChange({ ...image, framing })}
                                             options={
                                                 [
-                                                    { id: 'contain', label: 'Show complete image', framing: { mode: 'contain' } },
+                                                    { id: 'contain', label: 'Fit whole image', framing: { mode: 'contain' } },
                                                     { id: 'cover', label: 'Crop to frame', framing: { mode: 'cover', x: 50, y: 50 } },
                                                 ] as const
                                             }
@@ -47,8 +47,8 @@ const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof P
                                         />
                                         {cover && (
                                             <div className="field-pair">
-                                                <SliderField label="Focal point, horizontal" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(x) => onChange({ ...image, framing: { ...cover, x } })} value={cover.x} />
-                                                <SliderField label="Focal point, vertical" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(y) => onChange({ ...image, framing: { ...cover, y } })} value={cover.y} />
+                                                <SliderField label="Horizontal focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(x) => onChange({ ...image, framing: { ...cover, x } })} value={cover.x} />
+                                                <SliderField label="Vertical focal point" maxValue={percentBounds.maximum} minValue={percentBounds.minimum} onChange={(y) => onChange({ ...image, framing: { ...cover, y } })} value={cover.y} />
                                             </div>
                                         )}
                                     </>
@@ -65,19 +65,19 @@ const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof P
                                     .filter(Schema.is(ImageAsset))
                                     .map((asset) => ({ id: asset.id, label: asset.name, asset }))}
                             >
-                                {film.poster === undefined ? 'Choose poster image' : `Poster: ${film.poster.name}`}
+                                {film.poster === undefined ? 'Choose poster image' : `Poster · ${film.poster.name}`}
                             </MenuButton>
                             {film.poster && (
                                 <button className="button button-ghost self-start" onClick={() => onChange(Struct.omit(film, ['poster']))} type="button">
                                     Clear poster
                                 </button>
                             )}
-                            <p className="hint">Choose an uploaded image for the video’s still preview. For speech or meaningful audio, export the video with captions burned in. A transcript alone does not provide synchronized captions.</p>
+                            <p className="hint">Poster shows before playback. Videos with speech or meaningful audio need burned-in captions. Transcripts do not replace captions</p>
                         </div>
                     ),
                 }),
             )}
-            <Field label="Accessible description" onChange={(alt) => onChange({ ...value, alt })} placeholder="What does this image or sheet communicate?" value={value.alt ?? ''} />
+            <Field label="Accessible description" onChange={(alt) => onChange({ ...value, alt })} placeholder="What image or sheet conveys" value={value.alt ?? ''} />
             <Field label={descriptionLabel(value)} multiline={true} onChange={(description) => onChange({ ...value, description })} value={value.description ?? ''} />
             {entryId !== undefined && (
                 <div className="actions">
@@ -85,7 +85,7 @@ const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof P
                         Use as hero
                     </button>
                     <button className="button button-outline" onClick={() => setDraft(AsyncResult.map(updateEntry(entryId, (current) => ({ ...current, cover: value }))))} type="button">
-                        Use as chapter thumbnail
+                        Use as cover
                     </button>
                 </div>
             )}

@@ -11,7 +11,7 @@ use crate::{any_expr, expanded_externally, method_call_on};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(NEEDLESS_CELL: "local `Cell` and `RefCell` bindings that no closure captures and no call shares");
+lint!(NEEDLESS_CELL: "local `Cell` and `RefCell` bindings used only as method receivers and captured by no closure");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx LetStmt<'tcx>) {
@@ -22,8 +22,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !typeck.closure_min_captures.items().any(|(_, captures)| captures.contains_key(&binding))
             && get_enclosing_block(cx, local.hir_id).is_some_and(|block| !any_expr(cx.tcx, block, |used| used.res_local_id() == Some(binding) && method_call_on(cx, used).is_none()))
         {
-            span_lint_hir_and_then(cx, NEEDLESS_CELL, local.hir_id, local.span, format!("`{name}` wraps its value in `{cell}`, but no closure captures it and no call shares it"), |diag| {
-                diag.help("bind the value with `let mut` and read and write it in place");
+            span_lint_hir_and_then(cx, NEEDLESS_CELL, local.hir_id, local.span, format!("`{name}` does not need `{cell}`"), |diag| {
+                diag.note(format!("no closure captures `{name}` and every use is a method receiver"));
+                diag.help(format!("bind the value with `let mut {name}` and replace each `{cell}` method call with a direct read or write"));
             });
         }
     }

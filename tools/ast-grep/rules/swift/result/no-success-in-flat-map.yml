@@ -150,5 +150,5 @@ rewriters:
 transform:
     MAPPED_CALL: {rewrite: {source: $CALL, rewriters: [named-reference, success-case-reference, failure-case-reference, plain-method, unreturned-value, unlifted-value]}}
 fix: $MAPPED_CALL
-message: '`$METHOD` callback lifts its result back into the Result with `$LIFTED` in place of `map` or `mapError`'
-note: 'Call `map` for a `flatMap` lifting each branch into `.success`, `mapError` for a `flatMapError` into `.failure`, and pass a wrapper as a value'
+message: '`$METHOD` callback wraps its value back into a `Result` through `$LIFTED`'
+note: 'Call `map` for `flatMap` or `mapError` for `flatMapError` returning the unwrapped value, and pass a sole wrapper as a function (`map(<Type>.init)`)'

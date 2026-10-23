@@ -54,4 +54,4 @@ rule:
         - has: {field: type, kind: type_identifier, pattern: $T}
         - any: [{matches: rust-field-display}, {matches: field-display}]
 message: '`Display` for `$T` writes a literal format over its own fields'
-note: 'Replace the impl with `derive_more::Display` and `#[display("<format>")]` naming fields per enum variant, with no attribute on a single-field struct'
+note: 'Replace the impl with `derive_more::Display` and `#[display("<format>")]` on the type or each variant, omitting the attribute on a single-field struct'

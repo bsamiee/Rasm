@@ -14,5 +14,5 @@ rule:
                 - has: {stopBy: end, kind: assignment, regex: '\+=', has: {field: target, pattern: $WRITTEN}}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` repeats `write` until every byte of the buffer is written'
-note: 'Call `writeAll(_:)` on the `FileDescriptor`'
+message: '`$HEAD` loops `write` until `$WRITTEN` reaches the buffer count'
+note: 'Call `<descriptor>.writeAll(<buffer>)` and delete the loop'

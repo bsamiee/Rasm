@@ -1,4 +1,4 @@
-"""Native setting subscriptions renewed after each Blender file load."""
+"""Msgbus subscriptions renewed per file load."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -18,25 +18,25 @@ from blender.bpy.faults import BlenderResult
 
 
 class Subscription(msgspec.Struct, frozen=True, kw_only=True):
-    """Callback on one resolved native property of an owner type."""
+    """Msgbus callback on one owner type property."""
 
     owner: "type[bpy.types.bpy_struct[object]]"
     setting: bpy.types.Property
     body: Callable[[], BlenderResult[None]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds load renewal followed by the native message-bus acquisition.
+        """Builds subscription and load renewal acquisitions.
 
         Args:
-            identity: Extension whose reports hold notification failures.
+            identity: Extension with reports holding notification faults.
 
         Returns:
-            Ok of the app-handler renewal and subscription-band acquisitions.
+            Ok of app-handler renewal and subscription-band acquisitions.
         """
         body = identity.reports.reported(self.body)
 
         def notified() -> None:
-            """Reports the body while answering the native notification result."""
+            """Runs body through reports."""
             return body().to_optional()
 
         subscribe = partial(
@@ -48,12 +48,12 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def renewed(_: Option[Path]) -> BlenderResult[None]:
-            """Renews the subscription after Blender clears subscribers on file load."""
+            """Subscribes again after file load clears subscribers."""
             return Ok(subscribe())
 
         @contextmanager
         def held() -> Generator[None]:
-            """Subscribes once and clears this notification owner at release."""
+            """Subscribes once, clearing notification owner at release."""
             subscribe()
             try:
                 yield

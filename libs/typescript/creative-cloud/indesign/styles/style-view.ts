@@ -16,10 +16,10 @@ type Styled = InDesignDOMObject<unknown> & { readonly name: string; readonly bas
 
 class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique symbol }>()('Style', {
     ...Reference.fields,
-    group: Schema.Array(Schema.String).annotate({ description: 'Enclosing style group names, nearest first' }),
-    basedOn: Schema.Array(Reference).annotate({ description: 'Inheritance chain, nearest first, ending before the root style' }),
+    group: Schema.Array(Schema.String).annotate({ description: 'Enclosing group names, nearest first' }),
+    basedOn: Schema.Array(Reference).annotate({ description: 'Base styles nearest first, root style excluded' }),
     nextStyle: Schema.OptionFromOptionalKey(Reference),
-    own: Schema.JsonObject.annotate({ description: 'Attributes the style sets differently from its base, the root style for a style based on it' }),
+    own: Schema.JsonObject.annotate({ description: 'Attributes differing from base or root style' }),
     paragraphAttributes: Schema.OptionFromOptionalKey(ParagraphAttributes),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<Styled>('basedOn')), Option.map(StyleView.of));

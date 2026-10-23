@@ -264,7 +264,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 fn failing<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> bool {
     !error.is_privately_uninhabited(cx.tcx, cx.typing_env())
         && match untyped_kind(cx, error) {
-            Some(UntypedKind::Text | UntypedKind::Erased | UntypedKind::Report | UntypedKind::Many | UntypedKind::Messages | UntypedKind::NoError(_)) => true,
+            Some(UntypedKind::Text | UntypedKind::Erased | UntypedKind::Report | UntypedKind::Many(_) | UntypedKind::Messages | UntypedKind::NoError(_)) => true,
             Some(UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit) | None => is_error(cx, error) || error.ty_adt_def().is_some_and(|adt| workspace_def(cx, adt.did())),
         }
 }
@@ -273,14 +273,14 @@ fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, discard: Discar
     const HANDLED: &str = "match the `Result`, handle each error the caller acts on, and return the rest with `?`";
     let error = with_forced_trimmed_paths!(error.to_string());
     let (message, help) = match discard {
-        Discard::Fallback => (format!("`{label}` replaces `{error}` with a fallback value"), HANDLED),
-        Discard::Success => (format!("`{label}` turns `{error}` into success"), HANDLED),
-        Discard::Absence => (format!("`{label}` turns `{error}` into `None`"), "return the `Result` with `?`, or convert its error into a caller variant with `map_err`"),
-        Discard::Unmatched => (format!("pattern of `{label}` leaves `{error}` unmatched"), HANDLED),
-        Discard::View => (format!("`{label}` tests the `Result` and drops `{error}`"), "match the `Result` and handle `Err` in place of the test"),
-        Discard::Iterated => (format!("`{label}` iterates the `Result` and skips its `{error}`"), HANDLED),
-        Discard::Flattened => (format!("`{label}` iterates results and skips each `{error}`"), "collect into `validated::Validated<Vec<_>, _>` and call `.ok()` to keep every error"),
-        Discard::Statement => (format!("`{label}` drops a `Result` and its unhandled `{error}`"), "match the `Result`, or return it with `?`"),
+        Discard::Fallback => (format!("`{label}` replaces `{error}` with a fallback value"), String::from(HANDLED)),
+        Discard::Success => (format!("`{label}` turns `{error}` into success"), String::from(HANDLED)),
+        Discard::Absence => (format!("`{label}` turns `{error}` into `None`"), String::from("return the `Result` with `?`, or convert its error into a caller variant with `map_err`")),
+        Discard::Unmatched => (format!("pattern of `{label}` leaves `{error}` unmatched"), String::from(HANDLED)),
+        Discard::View => (format!("`{label}` tests the `Result` and drops `{error}`"), String::from("match the `Result` and handle `Err` in place of the test")),
+        Discard::Iterated => (format!("`{label}` iterates the `Result` and skips its `{error}`"), String::from(HANDLED)),
+        Discard::Flattened => (format!("`{label}` iterates results and skips each `{error}`"), format!("collect the results into `validated::Validated<Vec<_>, {error}>` and call `.ok()`")),
+        Discard::Statement => (format!("`{label}` drops a `Result` and its unhandled `{error}`"), String::from("match the `Result`, or return it with `?`")),
     };
     span_lint_hir_and_then(cx, DISCARDED_ERROR, node, span, message, |diag| {
         diag.help(help);

@@ -7,7 +7,7 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, Binder, Ty, TyCtxt};
+use rustc_middle::ty::{self, Binder, List, PolyExistentialPredicate, Ty, TyCtxt};
 
 use crate::{Place, cloned, enclosing_trait_impl, expanded_externally, impl_owner, parameter_of, path, pattern_fields, place};
 
@@ -109,7 +109,7 @@ fn cloned_into_binding(cx: &LateContext<'_>, expr: &Expr<'_>) -> bool {
 
 fn in_drop_impl(cx: &LateContext<'_>, node: HirId) -> bool { enclosing_trait_impl(cx, node).map(|implementation| cx.tcx.impl_trait_id(implementation)).is_lang_item(cx, LangItem::Drop) }
 
-fn boxed_future<'tcx>(cx: &LateContext<'tcx>, output: Ty<'tcx>) -> Option<bool> {
+fn boxed_future<'tcx>(cx: &LateContext<'tcx>, output: Ty<'tcx>) -> Option<&'tcx List<PolyExistentialPredicate<'tcx>>> {
     if let ty::Adt(pin, pinned) = output.kind()
         && pin.is_lang_item(cx, LangItem::Pin)
         && let ty::Adt(boxed, boxed_args) = pinned.type_at(0).kind()
@@ -117,7 +117,7 @@ fn boxed_future<'tcx>(cx: &LateContext<'tcx>, output: Ty<'tcx>) -> Option<bool> 
         && let ty::Dynamic(predicates, ..) = boxed_args.type_at(0).kind()
         && predicates.principal_def_id().is_lang_item(cx, LangItem::Future)
     {
-        Some(predicates.auto_traits().any(|auto| auto.is_diag_item(cx, sym::Send)))
+        Some(predicates)
     } else {
         None
     }

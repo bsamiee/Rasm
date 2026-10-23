@@ -1,4 +1,4 @@
-"""Native LUT formats, stack sampling, sequencer exports, and changed-file reads."""
+"""LUT formats, stack sampling, sequencer exports, and changed-file reads."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -38,7 +38,7 @@ from blender.imaging.hashing import content_hash, ContentHash
 
 
 class Enabled(Enum):
-    """Native compositor effect enable used by a stack evaluation."""
+    """Compositor effect enable flag a stack evaluation reads."""
 
     RENDER = bpy.types.SceneCompositorEffect.bl_rna.properties["enable_for_render"]
     PREVIEW = bpy.types.SceneCompositorEffect.bl_rna.properties["enable_for_preview"]
@@ -50,22 +50,22 @@ class Enabled(Enum):
 
 
 class Forming(Protocol):
-    """Scene's ordered effects and their complete native color formation."""
+    """Scene's ordered effects and their color formation."""
 
     def config(self) -> BlenderResult[PyOpenColorIO.Config]:
-        """Returns the current config admitted over the offered process spaces."""
+        """Returns config validated over offered process spaces."""
         ...
 
     def entries(self, identity: Identity, scene: bpy.types.Scene, selection: Stage | type[Effect]) -> tuple[bpy.types.SceneCompositorEffect, ...]:
-        """Returns owned entries of the stage or record type in stack order."""
+        """Returns owned stage or record entries in stack order."""
         ...
 
     def pointwise(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bpy.types.SceneCompositorEffect]:
-        """Admits a pointwise entry or returns its spatial dependency."""
+        """Returns entry when pointwise, else its spatial dependency fault."""
         ...
 
     def forming(self, identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config, enabled: Enabled) -> BlenderResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the enabled chain, absent when native sampling is required."""
+        """Returns enabled chain, Nothing when native sampling is needed."""
         ...
 
 
@@ -73,7 +73,7 @@ class Sampling(Protocol):
     """Native evaluation of an RGB plane through ordered scene entries."""
 
     def sampled(self, identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], plane: npt.NDArray[np.float32]) -> BlenderResult[npt.NDArray[np.float32]]:
-        """Returns the rendered top-first float32 plane or native sampling failures."""
+        """Returns rendered top-first float32 plane."""
         ...
 
 
@@ -92,33 +92,33 @@ matrices = _formats(LutFormat.matrices)
 
 
 class Formatted(msgspec.Struct, frozen=True, kw_only=True):
-    """Native format name with its operation's format provider."""
+    """Format name with its operation's format provider."""
 
     format: str
     formats: ClassVar[Callable[[], tuple[LutFormat, ...]]]
 
     def offered(self) -> LutFormat:
-        """Returns the selected format or the provider's first dialog item."""
+        """Returns selected format or provider's first dialog item."""
         rows = type(self).formats()
         return next((row for row in rows if row.name == self.format), rows[0])
 
     def chosen(self) -> BlenderResult[LutFormat]:
-        """Admits the requested format without substituting a script's selection."""
+        """Returns requested format, a choice fault when absent."""
         rows = type(self).formats()
         return Option.of_optional(next((row for row in rows if row.name == self.format), None)).to_result_with(
             lambda: (BlenderChoiceFault(path="format", identifier=self.format, accepted=tuple(row.name for row in rows)),)
         )
 
     def seeded(self, _event: bpy.types.Event) -> Self:
-        """Initializes the browser from the provider's offered row."""
+        """Seeds file browser with offered format."""
         return msgspec.structs.replace(self, format=self.offered().name)
 
     def extensions(self) -> tuple[str, *tuple[str, ...]]:
-        """Returns the offered format's native extension."""
+        """Returns offered format's extension."""
         return (f".{self.offered().extension}",)
 
     def output(self) -> BlenderResult[LutOutput]:
-        """Returns an exact writer for the admitted native format."""
+        """Returns exact writer for chosen native format."""
         return self.chosen().map(lambda row: Exact(format=row))
 
 
@@ -131,7 +131,7 @@ class Baking(Formatted, frozen=True, kw_only=True):
 
     @override
     def output(self) -> BlenderResult[LutOutput]:
-        """Keeps exact native operators when the format also supports direct writes."""
+        """Returns exact writer for a writable format, else a lattice bake."""
         return self.chosen().map(lambda row: Exact(format=row) if row in LutFormat.writable() else Bake(format=row, lattice=self.lattice))
 
 
@@ -152,7 +152,7 @@ class ToneView(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class LutExport(msgspec.Struct, frozen=True, kw_only=True):
-    """Formation, strip, and tone-view outputs over application-owned color ports."""
+    """Formation, strip, and tone-view LUT outputs."""
 
     stack: Forming
     sampling: Sampling
@@ -163,12 +163,12 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
     tone_view: ClassVar[Key] = "install_tone_view"
 
     def toned(self, identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], lattice: Lattice) -> BlenderResult[PyOpenColorIO.GroupTransform]:
-        """Samples every RGB channel over the lattice's declared native domain."""
+        """Samples every RGB channel over lattice domain."""
         samples: BlenderResult[npt.NDArray[np.float32]] = lattice.samples().map_error(BlenderImagingFault.lifted)
         return Result[npt.NDArray[np.float32], BlenderFaults].bind(samples, lambda plane: self.sampling.sampled(identity, scene, entries, plane)).map(lattice.transform)
 
     def formed(self, call: Call[Baking]) -> BlenderResult[Done]:
-        """Writes the scene's enabled formation through the native atomic LUT writer."""
+        """Writes enabled scene formation through atomic LUT writer."""
         scene, lattice = call.context.scene, call.record.lattice
         if scene is None:
             return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
@@ -189,7 +189,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def viewed(self, call: Call[ToneView]) -> BlenderResult[Done]:
-        """Installs a pointwise tone entry as a view activated at the next start."""
+        """Installs pointwise tone entry as a view read on restart."""
         scene, record = call.context.scene, call.record
         if scene is None:
             return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
@@ -204,12 +204,12 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
             .bind(lambda formation: self.install.extended(formation).written())
-            .map(lambda path: Done(notes=(("INFO", f"Installed {record.view} into {path}, read at the next Blender start"),)))
+            .map(lambda path: Done(notes=(("INFO", f"Installed view {record.view} into {path}, restart Blender to read it"),)))
         )
 
     @contextmanager
     def staged(self, identity: Identity) -> Generator[BlenderResult[bpy.types.Scene]]:
-        """Owns a marked runtime scene through every render and failure path."""
+        """Owns a marked runtime scene, removed on exit."""
         made = self.lattices.made(identity, lambda: Ok(bpy.data.scenes.new("LUT Lattice")))
         try:
             yield made
@@ -264,7 +264,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
             )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns nested ownership and original operator declarations once."""
+        """Returns ownership and original operator declarations."""
 
         def rows(modifiers: Descriptor[bpy.types.CollectionProperty]) -> Acquisitions:
             def stripped(call: Call[Baking]) -> BlenderResult[Done]:
@@ -293,7 +293,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
                 Operator(
                     key=self.strip_bake,
                     title="Bake Strip LUT",
-                    description="Bakes the active strip's modifiers in sequencer space",
+                    description="Bakes active strip modifiers in sequencer space",
                     form=Baking,
                     run=stripped,
                     condition=Some(AllOf(conditions=(Count(collection=modifiers), available))),
@@ -304,7 +304,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
                 Operator(
                     key=self.tone_view,
                     title="Install Tone View",
-                    description="Installs a sampled tone formation for the next Blender start",
+                    description="Installs sampled tone entry as a view read on restart",
                     form=ToneView,
                     run=self.viewed,
                     condition=ready,
@@ -329,12 +329,12 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class LutFiles(msgspec.Struct, frozen=True, kw_only=True):
-    """Last observed content of files in OCIO's process-wide native caches."""
+    """Last seen content of files in OCIO process-wide caches."""
 
     contents: dict[str, ContentHash] = msgspec.field(default_factory=dict)
 
     def current(self, path: str, config: PyOpenColorIO.Config) -> BlenderResult[str]:
-        """Reads current content and clears native caches when that path has changed."""
+        """Returns resolved path after clearing native caches on changed content."""
         resolved = str(Path(bpy.path.abspath(path)).resolve())
 
         def held(content: bytes) -> str:

@@ -7,5 +7,5 @@ rule:
     any:
         - pattern: '$DATA.base64EncodedString().replacing("+", with: "-")'
         - pattern: '$DATA.base64EncodedString().replacing("/", with: "_")'
-message: '`$DATA` encodes the standard base64 alphabet and rewrites it to the URL alphabet by text replacement'
-note: 'Call `<data>.base64EncodedString(options: [.base64URLAlphabet, .omitPaddingCharacter])`'
+message: 'Text replacement converts `$DATA.base64EncodedString()` to the URL alphabet'
+note: 'Call `<data>.base64EncodedString(options: .base64URLAlphabet)`, with `.omitPaddingCharacter` for a stripped `=`'

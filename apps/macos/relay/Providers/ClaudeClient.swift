@@ -64,7 +64,7 @@ actor ClaudeClient: ProviderClient {
             {
                 let store: ClaudeCredentialStore = privateStore(selected.id)
                 try await ClaudeLock.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in try await store.write(parked, over: store.readItem()) }
-                logger.notice("Saved the outgoing credential of account \(selected.id, privacy: .public) into its private store after an outside sign-in")
+                logger.notice("Saved account \(selected.id, privacy: .public) credential to private store after outside sign-in")
             }
             lastCredential = content[case: \.credential]
             return identity
@@ -104,7 +104,7 @@ actor ClaudeClient: ProviderClient {
             if let duplicate: ClaudeCredential = try await copy.read()[case: \.credential], duplicate.token.accessToken == current {
                 try await shared.writeAccount(duplicate.account)
                 try await copy.deleteItem()
-                logger.notice("Restored the live account file from the duplicate credential of account \(id, privacy: .public) and deleted its private item")
+                logger.notice("Restored live account file from account \(id, privacy: .public) duplicate and deleted it")
             }
         }
         try writePendingSwitch(nil)
@@ -143,9 +143,7 @@ actor ClaudeClient: ProviderClient {
                     try self.writePendingSwitch(nil)
                 }
                 if case .failure(let error) = moved { throw error.releasing(await Result { () async throws(ClaudeFailure) in try await self.settle(pending) }) }
-                self.logger.notice(
-                    "Moved credentials for the switch to account \(account.id, privacy: .public): parked outgoing \(parked != nil, privacy: .public), replaced the live item \(selected == nil, privacy: .public)"
-                )
+                self.logger.notice("Switched to account \(account.id, privacy: .public), outgoing saved \(parked != nil, privacy: .public), live item replaced \(selected == nil, privacy: .public)")
                 return entering
             }
             lastCredential = credential
@@ -209,7 +207,7 @@ actor ClaudeClient: ProviderClient {
             let stored: ClaudeCredential = try await credential(for: account, isSelected: isSelected, replacing: nil)
             let sent: Result<AccountUsage, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in try await send(verify(stored)) }
             guard sent[case: \.failure]?.cause[case: \.http]?.status == .unauthorized else { return try sent.get() }
-            logger.notice("Usage read of account \(account.id, privacy: .public) was unauthorized, refreshing its token and reading again")
+            logger.notice("Refreshing account \(account.id, privacy: .public) token after unauthorized usage read")
             verifiedIdentities[stored.token.accessToken] = nil
             return try await send(verify(credential(for: account, isSelected: isSelected, replacing: stored)))
         }
@@ -236,7 +234,7 @@ actor ClaudeClient: ProviderClient {
                     try await ClaudeLock.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in
                         let locked: ClaudeCredential = try await Self.matched(store.read(), to: stored.identity)
                         guard locked.token.accessToken == stored.token.accessToken else {
-                            self.logger.notice("Adopted the token another process refreshed for account \(account.id, privacy: .public)")
+                            self.logger.notice("Adopted token another process refreshed for account \(account.id, privacy: .public)")
                             return locked
                         }
                         return try await self.renew(locked, in: store)
@@ -269,13 +267,13 @@ actor ClaudeClient: ProviderClient {
                 let now: Date = Date()
                 let item: JSONDocument<ClaudeCredentialItem>? = try await store.readItem()
                 guard let held: String = item?.known.claudeAiOauth?.known.refreshToken, ["", posted].contains(held) else {
-                    logger.notice("Kept the token another process wrote during the refresh for Claude account \(current.identity.accountID, privacy: .public)")
+                    logger.notice("Kept token another process wrote for Claude account \(current.identity.accountID, privacy: .public)")
                     return try await Self.matched(store.read(), to: current.identity)
                 }
                 let token: ClaudeOAuthToken = try response.oauth(replacing: current.token, posted: posted, at: now)
                 try await store.writeOAuth(token.document, over: item)
                 if let identity: AccountIdentity = try response.identity(plan: token.document.known.subscriptionType) { verifiedIdentities[token.accessToken] = identity }
-                logger.notice("Refreshed the token of Claude account \(current.identity.accountID, privacy: .public), rotated refresh token \(response.refreshToken != nil, privacy: .public)")
+                logger.notice("Refreshed Claude account \(current.identity.accountID, privacy: .public) token, rotated \(response.refreshToken != nil, privacy: .public)")
                 return ClaudeCredential(token: token, account: current.account, identity: current.identity)
             case .failure(.signInRequired):
                 throw .signInRequired.releasing(
@@ -319,7 +317,7 @@ actor ClaudeClient: ProviderClient {
             ),
         )
         try await store.writeAccount(account)
-        logger.notice("Wrote the account file for an unidentified credential of Claude account \(identity.accountID, privacy: .public) \(identity.email, privacy: .private)")
+        logger.notice("Identified Claude account \(identity.accountID, privacy: .public) \(identity.email, privacy: .private), wrote account file")
         verifiedIdentities[token.accessToken] = identity
         return .credential(ClaudeCredential(token: token, account: account, identity: identity))
     }
@@ -353,7 +351,7 @@ actor ClaudeClient: ProviderClient {
                     guard let version: Substring = try await run(["--version"], store: shared, within: .seconds(15), output: .string(limit: 1 << 10)).split(whereSeparator: \.isWhitespace).first else {
                         throw .protocolFailure
                     }
-                    logger.info("Read the installed Claude Code version \(version, privacy: .public) for request User-Agents")
+                    logger.info("Read installed Claude Code version \(version, privacy: .public) for User-Agent header")
                     return version
                 }
             }

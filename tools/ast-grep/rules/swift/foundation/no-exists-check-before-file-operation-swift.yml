@@ -104,5 +104,5 @@ rule:
           all:
             - has: {kind: where_clause, has: {matches: exists-check}}
             - has: {kind: statements, has: {matches: operation, stopBy: end}}
-message: '`$CHECK` tests that a file exists or is executable before an operation that reports a missing file itself'
-note: 'Run the operation unconditionally in the function mapping a missing file to `.success(nil)`, and match `executableNotFound` for a spawn'
+message: '`$CHECK` tests that a file exists or is executable before an operation that reports it missing'
+note: 'Run the operation through `ifPresent { }` from `Files` for `.success(nil)` on a missing file, and match `executableNotFound` for a spawn'

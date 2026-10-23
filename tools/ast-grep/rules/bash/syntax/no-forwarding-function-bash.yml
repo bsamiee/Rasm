@@ -31,5 +31,5 @@ rule:
                     - has: {matches: arguments}
                     - not: {has: {not: {matches: literal}}}
                     - not: {has: {matches: arguments, follows: {matches: arguments, stopBy: end}}}
-message: '`$NAME` passes its arguments unchanged to `$CALL`'
-note: Call `<command> <words>` at each call site, a fixed option the tool reads from its configuration file goes there
+message: '`$NAME` forwards its arguments unchanged to `$CALL`'
+note: Call `<command> <words>` at each call site and move each fixed option the tool reads from configuration into its configuration file

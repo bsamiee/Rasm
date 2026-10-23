@@ -20,7 +20,7 @@ pub(crate) struct Pass {
     try_collect: Option<DefId>,
 }
 
-lint!(Pass; SHORT_CIRCUITED_JOIN: "joined or buffered futures with results that `?`, `try_*` adapters, or a `Result` collection cut short at the first error");
+lint!(Pass; SHORT_CIRCUITED_JOIN: "joined or buffered futures that `?`, `try_*` adapters, or a `Result` collection stop at the first error");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
@@ -68,13 +68,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 ControlFlow::Continue(())
             });
             if tried.len() > 1 {
+                let combine = match fallible.len() {
+                    count @ 2..=4 => format!("`map{count}`"),
+                    _ => String::from("`map2`..`map4`"),
+                };
                 report(
                     cx,
                     local.hir_id,
                     local.span,
-                    format!("`{join}` runs futures together, and `?` on its results keeps only the first error"),
+                    format!("`?` on `{join}` results keeps only the first error"),
                     tried,
-                    "combine the results with `validated::Validated::from(..).map2(..)` and `.ok()`, or race a future that outlives its partner through `select`",
+                    format!("convert each result with `validated::Validated::from`, combine them with {combine}, and call `.ok()`"),
                 );
             }
         }
@@ -93,7 +97,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 expr.span,
                 format!("`{}` after `{}` stops at the first error of the buffered futures", cx.tcx.item_name(stop), cx.tcx.item_name(buffer)),
                 Vec::new(),
-                "collect the stream into a `Vec`, then collect its results into `validated::Validated<_, _>` and call `.ok()`",
+                String::from("collect the stream into a `Vec`, then its results into `validated::Validated<_, _>`, and call `.ok()`"),
             ),
             None if matches!(expr.kind, ExprKind::MethodCall(..))
                 && (result_parts(cx, cx.typeck_results().expr_ty(expr)).is_some() && cx.tcx.is_diagnostic_item(sym::iterator_collect_fn, stop) || self.try_collect == Some(stop))
@@ -104,7 +108,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     expr.span,
                     format!("`{}` over `{}` keeps only the first error of the joined futures", cx.tcx.item_name(stop), cx.tcx.item_name(joined)),
                     Vec::new(),
-                    "collect the results into `validated::Validated<_, _>` and call `.ok()`",
+                    String::from("collect the results into `validated::Validated<_, _>` and call `.ok()`"),
                 ),
             None => {}
         }
@@ -113,7 +117,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn report(cx: &LateContext<'_>, node: HirId, span: Span, message: String, tried: Vec<Span>, help: &'static str) {
+fn report(cx: &LateContext<'_>, node: HirId, span: Span, message: String, tried: Vec<Span>, help: String) {
     span_lint_hir_and_then(cx, SHORT_CIRCUITED_JOIN, node, span, message, |diag| {
         if !tried.is_empty() {
             diag.span_note(tried, "each `?` returns here before the remaining results are read");

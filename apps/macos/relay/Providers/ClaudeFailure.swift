@@ -119,24 +119,24 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
         switch self {
             case .executableMissing: "Claude Code not installed"
             case .signInRequired: "Sign in required"
-            case .accountOnHold(let url): "Account on hold: \(url.absoluteString)"
+            case .accountOnHold(let url): "Account on hold, visit \(url.absoluteString)"
             case .process(let failure): failure.localizedDescription
             case .keychain(let failure): failure.localizedDescription
-            case .filesystem(let error): "Could not access Claude files: \(error.localizedDescription)"
+            case .filesystem(let error): "Claude file access failed. \(error.localizedDescription)"
             case .invalidCredentials: "Unreadable Claude credential"
             case .invalidIdentity: "Incomplete Claude account identity"
             case .invalidResponse(let endpoint, _): "Unreadable Claude \(endpoint) response"
             case .invalidQuota: "Unreadable Claude usage"
-            case .http(let endpoint, let status, .some(let error)): "Claude \(endpoint) request returned \(status): \(error.message)"
+            case .http(let endpoint, let status, .some(let error)): "Claude \(endpoint) request returned \(status). \(error.message)"
             case .http(let endpoint, let status, .none): "Claude \(endpoint) request returned \(status)"
-            case .rateLimited(let endpoint, _): "Claude \(endpoint) requests limited"
-            case .transport(let error): "Could not reach Claude: \(error.localizedDescription)"
-            case .accountChanged: "Signed in to a different Claude account"
+            case .rateLimited(let endpoint, _): "Claude \(endpoint) requests rate limited"
+            case .transport(let error): "Claude unreachable. \(error.localizedDescription)"
+            case .accountChanged: "Signed in to different Claude account"
             case .modelUnavailable: "Haiku model unavailable"
             case .greetingFailed: "Claude greeting failed"
             case .protocolFailure: "Unexpected Claude Code response"
             case .deadline(let deadline): "Claude Code \(deadline.localizedDescription)"
-            case .lock(.held): "Claude credential update in progress, try again when it finishes"
+            case .lock(.held): "Claude credential update in progress, retry after it finishes"
             case .lock(let failure): failure.localizedDescription
             case .cleanup(let operation, _): operation.localizedDescription
         }

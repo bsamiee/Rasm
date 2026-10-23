@@ -1,4 +1,4 @@
-"""Render queues of jobs over scenes, view layers, cameras, and frame ranges, and their stored records."""
+"""Render queue jobs and stored records."""
 
 from collections.abc import Callable
 from graphlib import TopologicalSorter
@@ -25,14 +25,14 @@ type JobCamera = Bound | Fixed
 
 
 class Frames(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame range a job renders and the step between its frames."""
+    """Frame range with step."""
 
     start: Annotated[Frame, msgspec.Meta(description="First frame rendered")]
-    end: Annotated[Frame, msgspec.Meta(description="Last frame of the range")]
-    step: Annotated[Frame, msgspec.Meta(description="Frames advanced between renders, 0 rendering the start frame alone")]
+    end: Annotated[Frame, msgspec.Meta(description="Last frame of range")]
+    step: Annotated[Frame, msgspec.Meta(description="Frames between renders, 0 renders start frame alone")]
 
     def __post_init__(self) -> None:
-        """Admits an ordered frame interval at construction."""
+        """Validates start at or before end."""
         if self.start > self.end:
             raise ValueError((self.start, self.end))
 
@@ -43,42 +43,42 @@ class Frames(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Marker(msgspec.Struct, frozen=True, kw_only=True):
-    """Timeline marker binding a camera from its frame on."""
+    """Timeline marker binding camera from its frame on."""
 
     frame: int
     camera: str
 
 
 class Bound(Case, frozen=True, kw_only=True, tag=1):
-    """Scene camera, switched at each timeline marker bound to a camera."""
+    """Scene camera switched at camera markers."""
 
     title = "Scene Camera"
     camera: str | None = None
     markers: tuple[Marker, ...] = ()
 
     def at(self, frame: int) -> Option[str]:
-        """Answers the camera rendering a frame."""
+        """Returns camera of last marker reached, else first marker, else scene camera."""
         preceding = tuple(marker for marker in self.markers if marker.frame <= frame)
         marker = max(preceding, key=lambda marker: marker.frame) if preceding else min(self.markers, key=lambda marker: marker.frame) if self.markers else None
         return Option.of_optional(marker).map(lambda marker: marker.camera).or_else_with(lambda: Option.of_optional(self.camera))
 
 
 class Fixed(Case, frozen=True, kw_only=True, tag=2):
-    """One camera for every frame of the job."""
+    """One camera for every job frame."""
 
     title = "Fixed Camera"
     camera: str
 
 
 class RenderFrames(msgspec.Struct, frozen=True, kw_only=True, tag=2):
-    """Frames of a saved scene rendered by a farm worker without local progress."""
+    """Scene frames a farm worker renders."""
 
     scene: str
     frames: Annotated[tuple[Frame, ...], msgspec.Meta(min_length=1)]
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene or view layer rendered from its own blend file over a frame range."""
+    """Scene or view layer render over frame range."""
 
     file: str
     digest: Annotated[bytes, msgspec.Meta(min_length=32, max_length=32)]
@@ -107,26 +107,26 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
-    """Jobs in render order with the Blender and extension versions that built them."""
+    """Jobs in render order with Blender and extension versions."""
 
     jobs: Annotated[tuple[Job, ...], msgspec.Meta(min_length=1)]
     blender: str
     extension: str
 
     def __post_init__(self) -> None:
-        """Admits a dependency graph over the queue's jobs at construction."""
+        """Validates prerequisites as acyclic job indices."""
         if unknown := ({prerequisite for job in self.jobs for prerequisite in job.prerequisites}.difference(range(len(self.jobs)))):
             raise ValueError(unknown)
         TopologicalSorter({part: job.prerequisites for part, job in enumerate(self.jobs)}).prepare()
 
     @property
     def key(self) -> ContentHash:
-        """Content hash identifying the queue."""
+        """Content hash identifying queue."""
         return content_hash(RenderQueue, self)
 
     @property
     def stem(self) -> str:
-        """Hex digest of the key, naming the queue's files and folders."""
+        """Hex key naming queue files and folders."""
         return self.key.hex()
 
     @property
@@ -139,7 +139,7 @@ class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def load[T](path: Path, kind: type[T]) -> RenderingResult[T]:
-    """Reads a stored record."""
+    """Reads and decodes stored record."""
     try:
         return Ok(msgspec.json.decode(path.read_bytes(), type=kind))
     except (OSError, msgspec.DecodeError) as error:
@@ -147,7 +147,7 @@ def load[T](path: Path, kind: type[T]) -> RenderingResult[T]:
 
 
 def store(path: Path, content: msgspec.Struct | bytes) -> RenderingResult[Path]:
-    """Writes a record, encoded in deterministic key order, or raw bytes in one rename over its path."""
+    """Writes sorted-key record or bytes through one rename."""
 
     def replaced() -> Path:
         staged = path.with_name(f"{path.name}.partial")
@@ -159,7 +159,7 @@ def store(path: Path, content: msgspec.Struct | bytes) -> RenderingResult[Path]:
 
 
 def revised[T: msgspec.Struct](path: Path, kind: type[T], change: Callable[[T], T]) -> RenderingResult[T]:
-    """Reads a stored record and stores its change, answering the changed record."""
+    """Stores change to stored record and returns it."""
     return load(path, kind).map(change).bind(lambda held: store(path, held).map(lambda _: held))
 
 

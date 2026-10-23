@@ -10,5 +10,5 @@ rule:
         - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
           follows: {regex: '^=$', follows: {regex: '^env$'}}
         - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((::)?(std::)?env::)?var(_os)?$'}}}
-message: '`$NAME` reads a color variable `anstream` reads itself'
-note: 'Delete the read and write through `anstream`, flattening `colorchoice_clap::Color` into the command with its `write_global` for an explicit choice'
+message: '`$NAME` names a color variable `anstream` or `anstyle_query` reads'
+note: 'Delete the read and write through `anstream`, with `anstyle_query::truecolor()` for RGB, `colorchoice_clap::Color::write_global()` for `--color`'

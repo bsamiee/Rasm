@@ -123,5 +123,5 @@ fix:
         matches: piped-join
         follows: {stopBy: {not: {regex: '^,$'}}, matches: piped-split}
         has: {field: arguments, has: {nthChild: 1, matches: plain-text}}
-message: '`$FIXABLE_CALLEE$KEPT_CALLEE$PIPED_CALLEE` replaces one fixed string through a fixed-string regex or `split` and `join`'
-note: 'Call `<text>.replaceAll(<search>, <replacement>)`'
+message: '`$FIXABLE_CALLEE$KEPT_CALLEE$PIPED_CALLEE` replaces a fixed string through a regular expression or `split` and `join`'
+note: 'Call `<text>.replaceAll(<search>, <replacement>)`, or `String.replaceAll(<search>, <replacement>)` inside a pipe'

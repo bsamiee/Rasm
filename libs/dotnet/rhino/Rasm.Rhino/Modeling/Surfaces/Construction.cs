@@ -34,7 +34,7 @@ public sealed partial class PointGrid {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<Point3d> points, ref int uCount) =>
         validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount is 0
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{points.Count} points form no grid of at least two rows of {uCount} at least two wide"));
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{points.Count} points form no grid of at least 2 by 2 with {uCount} in U"));
 }
 
 [Union<Cone, Cylinder, Sphere, Torus>(SkipEqualityComparison = true, SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]

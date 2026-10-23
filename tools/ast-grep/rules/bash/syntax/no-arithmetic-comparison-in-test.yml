@@ -99,4 +99,4 @@ transform:
     BODY: rewrite($EXPRESSION, rewriters=[compare])
 fix: (( $BODY ))
 message: '`$TEST` compares integers through a `test` operator'
-note: Compare with `(( <left> == <right> ))`
+note: Compare in `(( ))` with `==`, `!=`, `<`, `<=`, `>`, or `>=`

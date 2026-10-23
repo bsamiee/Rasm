@@ -39,7 +39,7 @@ public readonly partial struct BinRange {
     public bool Holds(double level) => !double.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int first, ref int last) =>
-        validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"bin range [{first}, {last}] must ascend within [0, {HistogramAxis.Bins - 1}]"));
+        validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Bin range [{first}, {last}] must ascend within [0, {HistogramAxis.Bins - 1}]"));
 }
 
 [SmartEnum<int>]

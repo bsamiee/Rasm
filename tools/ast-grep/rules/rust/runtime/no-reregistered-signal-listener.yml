@@ -39,5 +39,5 @@ rule:
                   inside: {kind: for_expression, field: body}
                 - kind: closure_expression
                   inside: {kind: arguments, inside: {matches: repeating-call}}
-message: '`$SITE` registers a new signal listener on each repetition'
-note: 'Register the listener before the loop and read `recv` or a `tokio_stream` wrapper, or pin one `ctrl_c()` future there when the first signal ends it'
+message: '`$SITE` registers a signal listener on each repetition'
+note: 'Register the listener before the loop and await `recv()` or a `tokio_stream::wrappers::SignalStream`, or pin one `ctrl_c()` when one signal ends it'

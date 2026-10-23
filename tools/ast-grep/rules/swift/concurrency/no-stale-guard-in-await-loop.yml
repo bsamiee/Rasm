@@ -57,4 +57,4 @@ rule:
 transform:
     HEAD: {replace: {source: $GUARD, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` reads `$STATE` from the previous iteration and awaits one more `$L` before exiting'
-note: 'End the loop body with `if <finished> { break }` after setting `<state>`, or finish its input sequence'
+note: 'End loop body with `if <finished> { break }` after setting `<state>`, or finish the input sequence'

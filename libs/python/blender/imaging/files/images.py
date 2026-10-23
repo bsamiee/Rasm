@@ -1,4 +1,4 @@
-"""Image files and native storage with colorspace tags and atomic publication."""
+"""Image files, storage settings, and atomic publication."""
 
 from collections.abc import Callable, Mapping
 import functools
@@ -24,12 +24,12 @@ from blender.imaging.parameters import Case, Choice
 
 
 class Writable(Choice):
-    """Closed set whose members name the writers that store them."""
+    """Choice naming writers that store each member."""
 
     writers: frozenset[str]
 
     def __init__(self, value: int, writers: tuple[str, ...], label: str | None = None) -> None:
-        """Sets the writers that store the member and its label."""
+        """Sets member writers and label."""
         super().__init__(value, label)
         self.writers = frozenset(writers)
 
@@ -43,7 +43,7 @@ class Depth(Writable):
     FLOAT = 4, ("dpx", "fits", "hdr", "openexr", "pnm", "rla", "tiff"), "32-bit Float"
 
     def coded(self, plane: npt.NDArray[np.float32]) -> npt.NDArray[np.uint8 | np.uint16 | np.float32]:
-        """Stores straight display values as this depth's channel values."""
+        """Returns display values coded at depth."""
         match self:
             case Depth.UINT8:
                 return codes(plane, 8)
@@ -54,7 +54,7 @@ class Depth(Writable):
 
 
 class Codec(Writable):
-    """Codec that takes no level."""
+    """Codec without level."""
 
     NONE = 1, ("openexr", "tiff")
     RLE = 2, ("openexr",), "RLE"
@@ -81,7 +81,7 @@ class Blocks(Choice):
 
 
 class Plain(Case, frozen=True, kw_only=True, tag=1):
-    """Codec that takes no level."""
+    """Codec without level."""
 
     writers = frozenset[str]().union(*(codec.writers for codec in Codec))
     margin = 0
@@ -89,7 +89,7 @@ class Plain(Case, frozen=True, kw_only=True, tag=1):
 
     @property
     def lossy(self) -> bool:
-        """Whether the codec discards information."""
+        """Whether codec discards data."""
         return self.codec in {Codec.PXR24, Codec.B44, Codec.B44A}
 
     @property
@@ -123,7 +123,7 @@ class Dwa(Case, frozen=True, kw_only=True, tag=3):
 
     @property
     def margin(self) -> int:
-        """Headroom below the half maximum the level's quantization takes."""
+        """Half-float headroom level quantization needs."""
         return 2048 + 32 * self.level if self.level <= 50 else 3624 + 128 * (self.level - 50)
 
     @property
@@ -150,31 +150,31 @@ type Compressions = Plain | Deflate | Dwa | Quality
 
 
 class Storage(msgspec.Struct, frozen=True, kw_only=True):
-    """Stored type of a float plane and compression of a write, integer codes storing at their dtype."""
+    """Float plane depth and compression, integer codes stored at their dtype."""
 
     depth: Literal[16, 32] = 32
     compression: Option[Compressions] = Nothing
 
     @property
     def attributes(self) -> tuple[tuple[str, OpenImageIO.TypeDesc, str | int], ...]:
-        """Spec attributes of the compression, none for the writer's own default."""
+        """Spec attributes of compression, none for writer default."""
         return self.compression.map(lambda compression: compression.attributes).default_value(())
 
     def clipped[D: np.float32 | np.uint8 | np.uint16](self, plane: npt.NDArray[D]) -> npt.NDArray[D]:
-        """Clips a plane to the magnitude half storage keeps under the compression's margin.
+        """Clips plane to half-float range less compression margin.
 
         Args:
             plane: Plane the write stores.
 
         Returns:
-            The plane clipped to 65504 less the margin at 16-bit storage, otherwise the plane itself.
+            Plane clipped to 65504 less margin at 16-bit depth, else plane unchanged.
         """
         bound = 65504.0 - self.compression.map(lambda compression: compression.margin).default_value(0)
         return np.clip(plane, -bound, bound) if self.depth == 16 else plane
 
 
 class Format(msgspec.Struct, frozen=True, kw_only=True):
-    """One entry of OpenImageIO's extension list."""
+    """OpenImageIO extension list entry."""
 
     name: str
     extensions: tuple[str, ...]
@@ -184,34 +184,34 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
         """Lists every format a reader exists for.
 
         Returns:
-            The extension list entries in OpenImageIO's order.
+            Extension list entries in OpenImageIO order.
         """
         entries = OpenImageIO.get_string_attribute("extension_list").split(";")
         return tuple(cls(name=name, extensions=tuple(suffixes.split(","))) for name, _, suffixes in (entry.partition(":") for entry in entries))
 
     @classmethod
     def writable(cls) -> tuple[Self, ...]:
-        """Lists every format a writer exists for that stores a depth.
+        """Lists formats with a writer for some depth.
 
         Returns:
-            The readable entries named by the output format list and holding a depth.
+            Readable entries the output format list names, each with a depth.
         """
         writers = frozenset(OpenImageIO.get_string_attribute("output_format_list").split(","))
         return tuple(row for row in cls.readable() if row.name in writers and row.depths)
 
     @property
     def depths(self) -> tuple[Depth, ...]:
-        """Depths the format's writer stores unchanged."""
+        """Depths format writer stores unchanged."""
         return tuple(depth for depth in Depth if self.name in depth.writers)
 
     @property
     def compressions(self) -> tuple[type[Compressions], ...]:
-        """Compression cases the format's writer reads."""
+        """Compression cases writer accepts."""
         return tuple(form for form in typing.get_args(Compressions.__value__) if self.name in form.writers)
 
 
 class Subimage[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """One subimage of a write: its spec, the attributes it takes, and its pixels on demand."""
+    """Written subimage with pixels on demand."""
 
     spec: OpenImageIO.ImageSpec
     attributes: tuple[tuple[str, OpenImageIO.TypeDesc, object], ...]
@@ -219,23 +219,23 @@ class Subimage[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True
 
 
 class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Pixels of an image file, their colorspace, and the header a read held."""
+    """Pixels, colorspace, and header of read file."""
 
     pixels: npt.NDArray[D]
     colorspace: str
     header: tuple[OpenImageIO.ParamValue, ...] = ()
 
     def write(self, path: str, storage: Storage, fields: Mapping[str, str], config: PyOpenColorIO.Config) -> ImagingResult[str]:
-        """Writes the pixels with the header, fields, storage, and color tags of their colorspace.
+        """Writes pixels with header, fields, storage, and colorspace tags.
 
         Args:
-            path: File to write, its suffix naming the writer.
+            path: File to write, suffix naming writer.
             storage: Stored channel type and compression.
             fields: Text fields stored by name.
             config: Config the colorspace resolves in.
 
         Returns:
-            The path; a `read` fault for profile IO, or a `write` fault holding the path and OpenImageIO's text or the `OSError`.
+            Path, `read` fault for profile IO, or `write` fault.
         """
         (height, width, channels), coded = self.pixels.shape, np.issubdtype(self.pixels.dtype, np.integer)
         interop = (
@@ -279,16 +279,16 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
 
 
 def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[ImageFile[np.float32]]:
-    """Reads every channel of a file's first subimage as float32 with its colorspace.
+    """Reads every channel of first subimage as float32 with its colorspace.
 
     Args:
         path: File to read.
         config: Config the colorspace resolves in.
-        colorspace: Explicit name, alias, or role, bypassing tags and file rules; `Nothing` infers from the file.
-        options: Native reader configuration; `Nothing` retains provider defaults.
+        colorspace: Name, alias, or role bypassing tags and file rules, inferred from file when `Nothing`.
+        options: Reader configuration, OpenImageIO defaults when `Nothing`.
 
     Returns:
-        The file; the `read` case holding the path and OpenImageIO's text, or `unresolved` holding the config and the explicit or inferred name.
+        File, or `read` or `unresolved` fault.
     """
 
     def decoded(image: OpenImageIO.ImageInput) -> ImagingResult[ImageFile[np.float32]]:
@@ -327,11 +327,11 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T
 
     Args:
         path: File to open.
-        use: Reader of the open input.
-        options: Native reader configuration; `Nothing` retains provider defaults.
+        use: Reader of open input.
+        options: Reader configuration, OpenImageIO defaults when `Nothing`.
 
     Returns:
-        The reader value; the `read` case holding the path and OpenImageIO's text for the open, the read, or the close.
+        Reader value, or `read` fault for open, read, or close.
     """
     image = options.map(lambda spec: OpenImageIO.ImageInput.open(path, spec)).default_with(lambda: OpenImageIO.ImageInput.open(path))
     return scoped(
@@ -342,14 +342,14 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T
 
 
 def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) -> Result[str, Faults[F | ImagingWriteFault]]:
-    """Publishes an encoded sibling after the encoder closes it successfully.
+    """Replaces file with encoded sibling.
 
     Args:
-        path: Final file to replace.
-        encode: Encoder of the supplied sibling, answering after its native resources close.
+        path: File to replace.
+        encode: Encoder of supplied sibling, returning after its resources close.
 
     Returns:
-        The final path; the encoder faults and any publication or cleanup `write` faults.
+        Path, or encoder faults with replace and cleanup `write` faults.
     """
     target = pathlib.Path(path)
 
@@ -364,7 +364,15 @@ def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) ->
 
 
 def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, Faults[F | ImagingWriteFault]]]) -> Result[T, Faults[F | ImagingWriteFault]]:
-    """Runs a use over a sibling of a target inside a scratch folder beside it, the folder removed on every path and each folder refusal a `write` fault naming the target."""
+    """Runs `use` on target-named path in temporary sibling folder removed on every path.
+
+    Args:
+        target: File the staged path takes its name from.
+        use: Work on staged path.
+
+    Returns:
+        `use` result, with `write` fault for folder creation or cleanup.
+    """
 
     def refused(error: OSError) -> Faults[F | ImagingWriteFault]:
         return (ImagingWriteFault(request=target, error=error),)
@@ -383,15 +391,15 @@ def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, 
 
 
 def streamed(path: str, stage: str, write: Callable[[BinaryIO], None]) -> ImagingResult[None]:
-    """Streams an encoder into a staged file and closes it on every path.
+    """Streams `write` into `stage`, closing it on every path.
 
     Args:
-        path: Final file the stage publishes, named by each fault.
+        path: File the stage replaces, named in faults.
         stage: Staged sibling `published` supplies.
-        write: Encoder writing the whole file into the open stream.
+        write: Encoder of whole file.
 
     Returns:
-        Nothing; the `write` case holding the native file error or the encoder's value, overflow, or packing error.
+        None, or `write` fault.
     """
 
     def refused(error: OSError | ValueError | OverflowError | struct.error) -> ImagingFaults:
@@ -408,14 +416,14 @@ def streamed(path: str, stage: str, write: Callable[[BinaryIO], None]) -> Imagin
 
 
 def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> ImagingResult[str]:
-    """Encodes and closes subimages through one output before publishing the file.
+    """Encodes subimages through one output, closing it before replacing file.
 
     Args:
-        path: File to write, its suffix naming the writer.
-        subimages: Subimages built for the writer the path names.
+        path: File to write, suffix naming writer.
+        subimages: Subimages built for writer of path.
 
     Returns:
-        The path; the `write` case holding the path and OpenImageIO's text or the `OSError`.
+        Path, or `write` fault.
     """
 
     def refused(error: str) -> ImagingFaults:
@@ -456,14 +464,14 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
 
 
 def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Option[bytes]]:
-    """Reads the ICC profile of a colorspace from the config's search path.
+    """Reads colorspace ICC profile from config search path.
 
     Args:
         config: Config the colorspace resolves in.
         colorspace: Colorspace name.
 
     Returns:
-        The profile bytes of the first resolved name, `Nothing` when none resolves, or a read fault for failed profile IO.
+        Profile of first resolved name, `Nothing` when none resolves, or `read` fault.
     """
     context = config.getCurrentContext()
 

@@ -30,4 +30,4 @@ rule:
         - kind: use_as_clause
           has: {field: alias, matches: generic-name, pattern: $NAME}
 message: '`$NAME` names a kind of item or a catch-all in place of a domain'
-note: 'Move each item into the module of the domain that uses it and name that module for its domain'
+note: 'Move each item into a module named for the domain that uses it'

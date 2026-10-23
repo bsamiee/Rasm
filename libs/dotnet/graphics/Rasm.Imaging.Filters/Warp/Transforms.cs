@@ -91,39 +91,39 @@ public sealed record AffineTransform(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AffineTransformParameter : IStateParameter<AffineTransform> {
     public static readonly AffineTransformParameter OffsetX = new("offset-x", StateParameter.Bounded(Lens<AffineTransform, ShortSideOffset>.New(static state => state.OffsetX, static offset => state => state with { OffsetX = offset })),
-        new("X", "Horizontal move as a share of the frame's short side"));
+        new("X", "Horizontal move in frame short sides"));
     public static readonly AffineTransformParameter OffsetY = new("offset-y", StateParameter.Bounded(Lens<AffineTransform, ShortSideOffset>.New(static state => state.OffsetY, static offset => state => state with { OffsetY = offset })),
-        new("Y", "Downward move as a share of the frame's short side"));
+        new("Y", "Downward move in frame short sides"));
     public static readonly AffineTransformParameter Rotation = new("rotation", StateParameter.Bounded(Lens<AffineTransform, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation })),
-        new("Angle", "Turn about the pivot, counterclockwise"));
+        new("Angle", "Counterclockwise turn about pivot"));
     public static readonly AffineTransformParameter ScaleX = new("scale-x", StateParameter.Bounded(Lens<AffineTransform, TransformScale>.New(static state => state.ScaleX, static scale => state => state with { ScaleX = scale })),
-        new("Scale X", "Horizontal scale about the pivot"));
+        new("Scale X", "Horizontal scale about pivot"));
     public static readonly AffineTransformParameter ScaleY = new("scale-y", StateParameter.Bounded(Lens<AffineTransform, TransformScale>.New(static state => state.ScaleY, static scale => state => state with { ScaleY = scale })),
-        new("Scale Y", "Vertical scale about the pivot"));
+        new("Scale Y", "Vertical scale about pivot"));
     public static readonly AffineTransformParameter SkewX = new("skew-x", StateParameter.Bounded(Lens<AffineTransform, SkewAngle>.New(static state => state.SkewX, static skew => state => state with { SkewX = skew })),
-        new("Skew X", "Horizontal shear about the pivot"));
+        new("Skew X", "Horizontal shear about pivot"));
     public static readonly AffineTransformParameter SkewY = new("skew-y", StateParameter.Bounded(Lens<AffineTransform, SkewAngle>.New(static state => state.SkewY, static skew => state => state with { SkewY = skew })),
-        new("Skew Y", "Vertical shear about the pivot"));
+        new("Skew Y", "Vertical shear about pivot"));
     public static readonly AffineTransformParameter Pivot = new("pivot", new StateParameter<AffineTransform>.Record<FramePosition>(Lens<AffineTransform, FramePosition>.New(static state => state.Pivot, static pivot => state => state with { Pivot = pivot })),
         new("Pivot", "Point the frame turns, scales, and shears about"));
     public static readonly AffineTransformParameter TravelX = new("travel-x", StateParameter.Bounded(Lens<AffineTransform, ShortSideOffset>.New(static state => state.TravelX, static travel => state => state with { TravelX = travel })),
-        new("Travel X", "Horizontal move across the exposure, blurring along it"));
+        new("Travel X", "Horizontal move across exposure, blurring along it"));
     public static readonly AffineTransformParameter TravelY = new("travel-y", StateParameter.Bounded(Lens<AffineTransform, ShortSideOffset>.New(static state => state.TravelY, static travel => state => state with { TravelY = travel })),
-        new("Travel Y", "Downward move across the exposure, blurring along it"));
+        new("Travel Y", "Downward move across exposure, blurring along it"));
     public static readonly AffineTransformParameter Turn = new("turn", StateParameter.Bounded(Lens<AffineTransform, SignedAngle>.New(static state => state.Turn, static turn => state => state with { Turn = turn })),
-        new("Spin", "Turn about the pivot across the exposure, counterclockwise"));
+        new("Spin", "Counterclockwise turn about pivot across exposure"));
     public static readonly AffineTransformParameter Zoom = new("zoom", StateParameter.Bounded(Lens<AffineTransform, TransformScale>.New(static state => state.Zoom, static zoom => state => state with { Zoom = zoom })),
-        new("Zoom", "Scale about the pivot the exposure reaches at its end"));
+        new("Zoom", "Scale about pivot at exposure end"));
     public static readonly AffineTransformParameter Shake = new("shake", new StateParameter<AffineTransform>.Record<Shake>(Lens<AffineTransform, Shake>.New(static state => state.Shake, static shake => state => state with { Shake = shake })),
         new("Shake", "Seeded camera motion over time"));
     public static readonly AffineTransformParameter Shutter = new("shutter", StateParameter.Bounded(Lens<AffineTransform, ShutterTime>.New(static state => state.Shutter, static shutter => state => state with { Shutter = shutter })),
         new("Shutter", "Seconds the exposure samples along its motion"));
     public static readonly AffineTransformParameter ShutterPosition = new("shutter-position", StateParameter.Bounded(Lens<AffineTransform, AxisFraction>.New(static state => state.ShutterPosition, static position => state => state with { ShutterPosition = position })),
-        new("Shutter position", "Share of the exposure before the current time, 0% opening now and 100% closing now"));
+        new("Shutter position", "Exposure share before current time, 0% opening and 100% closing now"));
     public static readonly AffineTransformParameter Sampling = new("sampling", new StateParameter<AffineTransform>.Choice<Sampling>(Lens<AffineTransform, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly AffineTransformParameter Wrap = new("wrap", new StateParameter<AffineTransform>.Choice<WrapMode>(Lens<AffineTransform, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<AffineTransform> Kind { get; }
     public ParameterText Text { get; }
@@ -153,17 +153,17 @@ public sealed record CornerPin(FramePosition TopLeft, FramePosition TopRight, Fr
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CornerPinParameter : IStateParameter<CornerPin> {
     public static readonly CornerPinParameter TopLeft = new("top-left", new StateParameter<CornerPin>.Record<FramePosition>(Lens<CornerPin, FramePosition>.New(static state => state.TopLeft, static corner => state => state with { TopLeft = corner })),
-        new("Upper left", "Upper left corner's place in the frame"));
+        new("Upper left", "Upper left corner position in frame"));
     public static readonly CornerPinParameter TopRight = new("top-right", new StateParameter<CornerPin>.Record<FramePosition>(Lens<CornerPin, FramePosition>.New(static state => state.TopRight, static corner => state => state with { TopRight = corner })),
-        new("Upper right", "Upper right corner's place in the frame"));
+        new("Upper right", "Upper right corner position in frame"));
     public static readonly CornerPinParameter BottomRight = new("bottom-right", new StateParameter<CornerPin>.Record<FramePosition>(Lens<CornerPin, FramePosition>.New(static state => state.BottomRight, static corner => state => state with { BottomRight = corner })),
-        new("Lower right", "Lower right corner's place in the frame"));
+        new("Lower right", "Lower right corner position in frame"));
     public static readonly CornerPinParameter BottomLeft = new("bottom-left", new StateParameter<CornerPin>.Record<FramePosition>(Lens<CornerPin, FramePosition>.New(static state => state.BottomLeft, static corner => state => state with { BottomLeft = corner })),
-        new("Lower left", "Lower left corner's place in the frame"));
+        new("Lower left", "Lower left corner position in frame"));
     public static readonly CornerPinParameter Sampling = new("sampling", new StateParameter<CornerPin>.Choice<Sampling>(Lens<CornerPin, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly CornerPinParameter Wrap = new("wrap", new StateParameter<CornerPin>.Choice<WrapMode>(Lens<CornerPin, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<CornerPin> Kind { get; }
     public ParameterText Text { get; }
@@ -191,9 +191,9 @@ public sealed partial class ShakeParameter : IStateParameter<Shake> {
     private static readonly Presentation<float> Amplitude = ShortSideLength.Presentation with { Soft = (0f, 0.1f) };
 
     public static readonly ShakeParameter AmplitudeX = new("amplitude-x", StateParameter.Bounded(Lens<Shake, ShortSideLength>.New(static state => state.AmplitudeX, static amplitude => state => state with { AmplitudeX = amplitude }), Amplitude),
-        new("Amplitude X", "Largest horizontal shake as a share of the frame's short side"));
+        new("Amplitude X", "Largest horizontal shake in frame short sides"));
     public static readonly ShakeParameter AmplitudeY = new("amplitude-y", StateParameter.Bounded(Lens<Shake, ShortSideLength>.New(static state => state.AmplitudeY, static amplitude => state => state with { AmplitudeY = amplitude }), Amplitude),
-        new("Amplitude Y", "Largest vertical shake as a share of the frame's short side"));
+        new("Amplitude Y", "Largest vertical shake in frame short sides"));
     public static readonly ShakeParameter Rotation = new("rotation", StateParameter.Bounded(Lens<Shake, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation }), SignedAngle.Presentation with { Soft = (0f, float.Pi) }),
         new("Rotation", "Largest shake turn"));
     public static readonly ShakeParameter Zoom = new("zoom", StateParameter.Bounded(Lens<Shake, TransformScale>.New(static state => state.Zoom, static zoom => state => state with { Zoom = zoom }), TransformScale.Presentation with { Soft = (1f, 2f) }),
@@ -201,13 +201,13 @@ public sealed partial class ShakeParameter : IStateParameter<Shake> {
     public static readonly ShakeParameter Rate = new("rate", StateParameter.Bounded(Lens<Shake, Frequency>.New(static state => state.Rate, static rate => state => state with { Rate = rate }), Frequency.Presentation with { Soft = (0.1f, 20f), Scale = TrackScale.Linear }),
         new("Frequency", "Shakes per second"));
     public static readonly ShakeParameter Octaves = new("octaves", new StateParameter<Shake>.Record<Octaves>(Lens<Shake, Octaves>.New(static state => state.Octaves, static octaves => state => state with { Octaves = octaves })),
-        new("Octaves", "Detail of the shake across scales"));
+        new("Octaves", "Shake detail across scales"));
     public static readonly ShakeParameter Seed = new("seed", StateParameter.Bounded(Lens<Shake, Seed>.New(static state => state.Seed, static seed => state => state with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly ShakeParameter Timing = new("timing", new StateParameter<Shake>.Record<Timing>(Lens<Shake, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
     public static readonly ShakeParameter Hold = new("hold", StateParameter.Bounded(Lens<Shake, Hold>.New(static state => state.Hold, static hold => state => state with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
 
     public StateParameter<Shake> Kind { get; }
     public ParameterText Text { get; }
@@ -236,11 +236,11 @@ public sealed partial class ShakeWarpParameter : IStateParameter<ShakeWarp> {
     public static readonly ShakeWarpParameter Shutter = new("shutter", StateParameter.Bounded(Lens<ShakeWarp, ShutterTime>.New(static state => state.Shutter, static shutter => state => state with { Shutter = shutter })),
         new("Shutter", "Seconds the exposure samples along its motion"));
     public static readonly ShakeWarpParameter ShutterPosition = new("shutter-position", StateParameter.Bounded(Lens<ShakeWarp, AxisFraction>.New(static state => state.ShutterPosition, static position => state => state with { ShutterPosition = position })),
-        new("Shutter position", "Share of the exposure before the current time, 0% opening now and 100% closing now"));
+        new("Shutter position", "Exposure share before current time, 0% opening and 100% closing now"));
     public static readonly ShakeWarpParameter Sampling = new("sampling", new StateParameter<ShakeWarp>.Choice<Sampling>(Lens<ShakeWarp, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly ShakeWarpParameter Wrap = new("wrap", new StateParameter<ShakeWarp>.Choice<WrapMode>(Lens<ShakeWarp, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<ShakeWarp> Kind { get; }
     public ParameterText Text { get; }

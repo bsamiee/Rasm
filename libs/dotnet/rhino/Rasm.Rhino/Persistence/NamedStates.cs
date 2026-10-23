@@ -100,15 +100,15 @@ public abstract partial class LayerStateRestoreParameter : IStateParameter<Layer
     public static readonly LayerStateRestoreParameter Properties = new Field<uint>(
         KeyName.Create("RestoreLayerProperties"), Lens<LayerStateRestore, uint>.New(static mask => mask.Properties, static properties => mask => mask with { Properties = properties }),
         static lens => new StateParameter<LayerStateRestore>.Raw<uint>(lens), SettingType.UnsignedInteger,
-        new("Layer settings to restore", "Layer properties a layer state restore applies"));
+        new("Layer settings to restore", "Layer properties a restore applies"));
     public static readonly LayerStateRestoreParameter ModelProperties = new Field<bool>(
         KeyName.Create("ModelPropertiesChecked"), Lens<LayerStateRestore, bool>.New(static mask => mask.ModelProperties, static enabled => mask => mask with { ModelProperties = enabled }),
         static lens => new StateParameter<LayerStateRestore>.Toggle(lens), SettingType.Bool,
-        new("Model layer settings", "Restore the checked layer settings"));
+        new("Model layer settings", "Restores checked settings in model"));
     public static readonly LayerStateRestoreParameter ViewportProperties = new Field<bool>(
         KeyName.Create("ViewportPropertiesChecked"), Lens<LayerStateRestore, bool>.New(static mask => mask.ViewportProperties, static enabled => mask => mask with { ViewportProperties = enabled }),
         static lens => new StateParameter<LayerStateRestore>.Toggle(lens), SettingType.Bool,
-        new("Layout or detail layer settings to restore", "Restore the checked layout and detail layer settings"));
+        new("Layout or detail layer settings to restore", "Restores checked settings in layouts and details"));
 
     public StateParameter<LayerStateRestore> Kind { get; }
     public ParameterText Text { get; }
@@ -159,7 +159,7 @@ public static class NamedStates {
         from restorable in IO.lift(state.Edits.Bind(static modify => modify.Edits)
             .Traverse(edit => edit.Restores is not RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope)
                 ? Fin.Succ(unit)
-                : Error.New(ErrorCodes.ValidationFailed, $"a layer state restore does not revert {edit.Member}")).As())
+                : Error.New(ErrorCodes.ValidationFailed, $"layer state restore does not revert {edit.Member}")).As())
         let edited = from changed in state.Edits.TraverseM(modify => Layers.Apply(doc, modify)).As()
                      from saved in Saved(doc, state.Name, scope)
                      select saved

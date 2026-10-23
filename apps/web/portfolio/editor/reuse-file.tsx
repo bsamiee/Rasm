@@ -20,9 +20,9 @@ const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { assets: typ
     const chosen = pages.length > 0 ? Array.getSomes(selected.map((index) => Array.get(pages, index))) : placements;
     return (
         <div className="flex min-w-0 flex-col gap-4">
-            {pages.length > 0 && <p className="hint">Select sheets in presentation order. Publishing a sheet makes the entire original PDF public, including unselected pages.</p>}
+            {pages.length > 0 && <p className="hint">Select sheets in presentation order. Publishing any sheet makes whole PDF public</p>}
             <MenuButton label="Source file" onAction={({ asset }) => onSource(Option.some(asset.id))} options={Object.values(assets).map((asset) => ({ id: asset.id, label: asset.name, asset }))}>
-                {Option.match(source, { onNone: () => 'Select a file', onSome: Struct.get('name') })}
+                {Option.match(source, { onNone: () => 'Select file', onSome: Struct.get('name') })}
             </MenuButton>
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="hint">{[`${chosen.length} selected`, ...(pages.length > 0 ? [quantity(pages.length, { one: 'sheet', other: 'sheets' })] : [])].join(' · ')}</p>

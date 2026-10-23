@@ -1,6 +1,6 @@
 {
     "name": "rasm",
-    "description": "Rasm monorepo's Claude Code and Codex plugins",
+    "description": "Claude Code and Codex plugins of Rasm monorepo",
     "owner": {
         "name": "Bardia Samiee"
     },

@@ -18,7 +18,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
         const response = HttpServerResponse.toWeb(yield* Effect.provideService(serveObject({ key, mime: object.mime }), HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, { headers }))));
         return { status: response.status, headers: response.headers, text: yield* Effect.promise(() => response.text()) };
     });
-    it.effect('serves byte ranges and answers If-None-Match and If-Match against the stored object', () =>
+    it.effect('serves byte ranges and answers If-None-Match and If-Match', () =>
         Effect.gen(function* () {
             yield* put(object.key, Stream.make(content), ignore);
             const full = yield* read(object.key, {});
@@ -46,7 +46,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
             assert.deepStrictEqual([ranged.headers.get('content-range'), full.headers.get('accept-ranges')], [`bytes 2-5/${object.size}`, 'bytes']);
         }).pipe(Effect.provide(storage)),
     );
-    it.effect('aborts an interrupted upload, serves no object, and leaves no upload resource', () =>
+    it.effect('aborts interrupted upload and leaves no object or upload resource', () =>
         Effect.gen(function* () {
             const [{ uploads }, token] = yield* Effect.all([ObjectStorage, Deferred.make<string>()]);
             const failed = yield* Effect.flip(put('media/interrupted', Stream.concat(Stream.make(content.subarray(1)), Stream.fail(new Cause.UnknownError(undefined))), (uploadToken) => Deferred.succeed(token, uploadToken)));
@@ -55,7 +55,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
             assert.deepStrictEqual([failed._tag, isUploadNotFoundError(missing.cause), (yield* read('media/interrupted', {})).status], ['BadRequest', true, code.missing]);
         }).pipe(Effect.provide(storage)),
     );
-    it.effect('refuses a body longer than its declared size and publishes nothing', () =>
+    it.effect('refuses body over declared size and publishes nothing', () =>
         Effect.gen(function* () {
             const refused = yield* Effect.flip(put('media/overrun', Stream.make(content, content), ignore));
             assert.deepStrictEqual([refused._tag, (yield* read('media/overrun', {})).status], ['BadRequest', code.missing]);
@@ -67,7 +67,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
             assert.oneOf((yield* read(object.key, {})).text, ['partial content bytes', 'PARTIAL CONTENT BYTES']);
         }).pipe(Effect.provide(storage)),
     );
-    it.effect('deletes a stored object and its upload resource', () =>
+    it.effect('deletes stored object and upload resource', () =>
         Effect.gen(function* () {
             const token = yield* Deferred.make<string>();
             yield* put(object.key, Stream.make(content), (uploadToken) => Deferred.succeed(token, uploadToken));
@@ -75,7 +75,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
             assert.strictEqual((yield* read(object.key, {})).status, code.missing);
         }).pipe(Effect.provide(storage)),
     );
-    it.effect('meets the partial-content read and resumable write contracts', () =>
+    it.effect('meets partial-content read and resumable write contracts', () =>
         Effect.gen(function* () {
             const { objects, uploads } = yield* ObjectStorage;
             yield* put(object.key, Stream.make(content), ignore);

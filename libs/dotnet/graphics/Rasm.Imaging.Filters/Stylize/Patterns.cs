@@ -49,11 +49,11 @@ public sealed record InkScreen(SignedAngle Angle, ProperFraction U, ProperFracti
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class InkScreenParameter : IStateParameter<InkScreen> {
     public static readonly InkScreenParameter Angle = new("angle", StateParameter.Bounded(Lens<InkScreen, SignedAngle>.New(static ink => ink.Angle, static angle => ink => ink with { Angle = angle })),
-        new("Angle", "Turn of this ink's screen, counterclockwise"));
+        new("Angle", "Counterclockwise turn of ink screen"));
     public static readonly InkScreenParameter U = new("u", StateParameter.Bounded(Lens<InkScreen, ProperFraction>.New(static ink => ink.U, static u => ink => ink with { U = u })),
-        new("Phase U", "Shift of this ink's screen along its first axis, in cells"));
+        new("Phase U", "Ink screen shift along its first axis in cells"));
     public static readonly InkScreenParameter V = new("v", StateParameter.Bounded(Lens<InkScreen, ProperFraction>.New(static ink => ink.V, static v => ink => ink with { V = v })),
-        new("Phase V", "Shift of this ink's screen along its second axis, in cells"));
+        new("Phase V", "Ink screen shift along its second axis in cells"));
 
     public StateParameter<InkScreen> Kind { get; }
     public ParameterText Text { get; }
@@ -171,27 +171,27 @@ public sealed record Halftone(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HalftoneParameter : IStateParameter<Halftone> {
     public static readonly HalftoneParameter Shape = new("shape", new StateParameter<Halftone>.Choice<ScreenShape>(Lens<Halftone, ScreenShape>.New(static halftone => halftone.Shape, static shape => halftone => halftone with { Shape = shape })),
-        new("Shape", "Spot each screen cell inks, its inked area the cell's tone"));
+        new("Shape", "Screen cell spot, inked area matching cell tone"));
     public static readonly HalftoneParameter Size = new("size", StateParameter.Bounded(Lens<Halftone, ShortSideExtent>.New(static halftone => halftone.Size, static size => halftone => halftone with { Size = size }), ShortSideExtent.Presentation with { Soft = (1f / (2f * 64f) * ReferenceFrame.GreaterSide, 0.25f) }),
-        new("Cell size", "Screen cell height as a share of the frame's short side"));
+        new("Cell size", "Screen cell height in frame short sides"));
     public static readonly HalftoneParameter Separation = new("separation", new StateParameter<Halftone>.Choice<Separation>(Lens<Halftone, Separation>.New(static halftone => halftone.Separation, static separation => halftone => halftone with { Separation = separation })),
         new("Separation", "One ink screened on luma, or cyan, magenta, yellow, and key screens"));
     public static readonly HalftoneParameter Cyan = new("cyan", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Cyan, static ink => halftone => halftone with { Cyan = ink })),
-        new("Cyan", "Angle and phase of this ink's screen"));
+        new("Cyan", "Ink screen angle and phase"));
     public static readonly HalftoneParameter Magenta = new("magenta", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Magenta, static ink => halftone => halftone with { Magenta = ink })),
-        new("Magenta", "Angle and phase of this ink's screen"));
+        new("Magenta", "Ink screen angle and phase"));
     public static readonly HalftoneParameter Yellow = new("yellow", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Yellow, static ink => halftone => halftone with { Yellow = ink })),
-        new("Yellow", "Angle and phase of this ink's screen"));
+        new("Yellow", "Ink screen angle and phase"));
     public static readonly HalftoneParameter KeyScreen = new("key", new StateParameter<Halftone>.Record<InkScreen>(Lens<Halftone, InkScreen>.New(static halftone => halftone.Key, static ink => halftone => halftone with { Key = ink })),
-        new("Key", "Angle and phase of this ink's screen"));
+        new("Key", "Ink screen angle and phase"));
     public static readonly HalftoneParameter CrossOnset = new("cross-onset", StateParameter.Bounded(Lens<Halftone, AxisFraction>.New(static halftone => halftone.CrossOnset, static onset => halftone => halftone with { CrossOnset = onset })),
         new("Crosshatch", "Ink level where a perpendicular screen joins, 100% drawing none"));
     public static readonly HalftoneParameter Ink = new("ink", new StateParameter<Halftone>.Color(Lens<Halftone, Swatch>.New(static halftone => halftone.Ink, static ink => halftone => halftone with { Ink = ink })),
         new("Ink", "Color the key screen prints"));
     public static readonly HalftoneParameter Paper = new("paper", new StateParameter<Halftone>.OptionalColor(Lens<Halftone, Gated<Swatch>>.New(static halftone => halftone.Paper, static paper => halftone => halftone with { Paper = paper })),
-        new("Paper", "Sheet color the inks print on, off printing over the image"));
+        new("Paper", "Color under inks, off printing over image"));
     public static readonly HalftoneParameter Mode = new("mode", new StateParameter<Halftone>.Choice<BlendingMode>(Lens<Halftone, BlendingMode>.New(static halftone => halftone.Mode, static mode => halftone => halftone with { Mode = mode })),
-        new("Blend mode", "How the drawn layer composites over the frame"));
+        new("Blend mode", "Drawn layer blend over frame"));
 
     public StateParameter<Halftone> Kind { get; }
     public ParameterText Text { get; }
@@ -253,17 +253,17 @@ public sealed record Mosaic(MosaicCell Cell, ShortSideExtent Size, Cellular Cell
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MosaicParameter : IStateParameter<Mosaic> {
     public static readonly MosaicParameter Cell = new("cell", new StateParameter<Mosaic>.Choice<MosaicCell>(Lens<Mosaic, MosaicCell>.New(static mosaic => mosaic.Cell, static cell => mosaic => mosaic with { Cell = cell })),
-        new("Cells", "Square blocks holding their mean color, or irregular cells holding the color at their site"));
+        new("Cells", "Square blocks of mean color, or irregular cells of site color"));
     public static readonly MosaicParameter Size = new("size", StateParameter.Bounded(Lens<Mosaic, ShortSideExtent>.New(static mosaic => mosaic.Size, static size => mosaic => mosaic with { Size = size }), ShortSideExtent.Presentation with { Soft = (0.001f, 0.1f * ReferenceFrame.GreaterSide) }),
-        new("Cell size", "Cell height as a share of the frame's short side"));
+        new("Cell size", "Cell height in frame short sides"));
     public static readonly MosaicParameter Cells = new("cells", new StateParameter<Mosaic>.Record<Cellular>(Lens<Mosaic, Cellular>.New(static mosaic => mosaic.Cells, static cells => mosaic => mosaic with { Cells = cells })),
         new("Cells", "Cell distance and site placement"));
     public static readonly MosaicParameter Seed = new("seed", StateParameter.Bounded(Lens<Mosaic, Seed>.New(static mosaic => mosaic.Seed, static seed => mosaic => mosaic with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly MosaicParameter Timing = new("timing", new StateParameter<Mosaic>.Record<Timing>(Lens<Mosaic, Timing>.New(static mosaic => mosaic.Timing, static timing => mosaic => mosaic with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
     public static readonly MosaicParameter Hold = new("hold", StateParameter.Bounded(Lens<Mosaic, Hold>.New(static mosaic => mosaic.Hold, static hold => mosaic => mosaic with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
 
     public StateParameter<Mosaic> Kind { get; }
     public ParameterText Text { get; }
@@ -353,7 +353,7 @@ public sealed record GlyphCells(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GlyphCellsParameter : IStateParameter<GlyphCells> {
     public static readonly GlyphCellsParameter Glyphs = new("glyphs", new StateParameter<GlyphCells>.Keyed<Glyphs, string>(Lens<GlyphCells, Glyphs>.New(static cells => cells.Glyphs, static glyphs => cells => cells with { Glyphs = glyphs })),
-        new("Characters", "Characters the cells draw, ranked by the ink each covers"));
+        new("Characters", "Cell characters ranked by ink coverage"));
     public static readonly GlyphCellsParameter Font = new("font", new StateParameter<GlyphCells>.Enumerated<HersheyFonts>(Lens<GlyphCells, HersheyFonts>.New(static cells => cells.Font, static font => cells => cells with { Font = font }),
         static font => font switch {
             HersheyFonts.Simplex => "Simplex",
@@ -365,9 +365,9 @@ public sealed partial class GlyphCellsParameter : IStateParameter<GlyphCells> {
             HersheyFonts.ScriptSimplex => "Script simplex",
             HersheyFonts.ScriptComplex => "Script complex",
         }),
-        new("Font", "Stroke font the characters draw in"));
+        new("Font", "Character stroke font"));
     public static readonly GlyphCellsParameter Size = new("size", StateParameter.Bounded(Lens<GlyphCells, ShortSideExtent>.New(static cells => cells.Size, static size => cells => cells with { Size = size }), ShortSideExtent.Presentation with { Soft = (1f / 128f, 0.25f) }),
-        new("Cell size", "Character cell height as a share of the frame's short side"));
+        new("Cell size", "Character cell height in frame short sides"));
     public static readonly GlyphCellsParameter Coloring = new("coloring", new StateParameter<GlyphCells>.Choice<GlyphColoring>(Lens<GlyphCells, GlyphColoring>.New(static cells => cells.Coloring, static coloring => cells => cells with { Coloring = coloring })),
         new("Coloring", "Color each character draws in"));
     public static readonly GlyphCellsParameter TextColor = new("text", new StateParameter<GlyphCells>.Color(Lens<GlyphCells, Swatch>.New(static cells => cells.Text, static text => cells => cells with { Text = text })),
@@ -377,15 +377,15 @@ public sealed partial class GlyphCellsParameter : IStateParameter<GlyphCells> {
     public static readonly GlyphCellsParameter Saturation = new("saturation", StateParameter.Bounded(Lens<GlyphCells, AxisFraction>.New(static cells => cells.Saturation, static saturation => cells => cells with { Saturation = saturation })),
         new("Saturation", "Saturation of random cell colors"));
     public static readonly GlyphCellsParameter Jitter = new("jitter", StateParameter.Bounded(Lens<GlyphCells, AxisFraction>.New(static cells => cells.Jitter, static jitter => cells => cells with { Jitter = jitter })),
-        new("Jitter", "Range of random offsets added to cell tones before choosing characters"));
+        new("Jitter", "Random offset range on cell tones before character choice"));
     public static readonly GlyphCellsParameter Seed = new("seed", StateParameter.Bounded(Lens<GlyphCells, Seed>.New(static cells => cells.Seed, static seed => cells => cells with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly GlyphCellsParameter Timing = new("timing", new StateParameter<GlyphCells>.Record<Timing>(Lens<GlyphCells, Timing>.New(static cells => cells.Timing, static timing => cells => cells with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
     public static readonly GlyphCellsParameter Hold = new("hold", StateParameter.Bounded(Lens<GlyphCells, Hold>.New(static cells => cells.Hold, static hold => cells => cells with { Hold = hold }), Generators.Hold.Presentation with { Soft = (Generators.Hold.MinValue, 120f / 24f) }),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
     public static readonly GlyphCellsParameter Mode = new("mode", new StateParameter<GlyphCells>.Choice<BlendingMode>(Lens<GlyphCells, BlendingMode>.New(static cells => cells.Mode, static mode => cells => cells with { Mode = mode })),
-        new("Blend mode", "How the drawn layer composites over the frame"));
+        new("Blend mode", "Drawn layer blend over frame"));
 
     public StateParameter<GlyphCells> Kind { get; }
     public ParameterText Text { get; }
@@ -460,7 +460,7 @@ public sealed partial class PixelSortParameter : IStateParameter<PixelSort> {
     public static readonly PixelSortParameter SortKey = new("key", new StateParameter<PixelSort>.Choice<SortKey>(Lens<PixelSort, SortKey>.New(static sort => sort.Key, static key => sort => sort with { Key = key })),
         new("Sort by", "Value each span sorts on"));
     public static readonly PixelSortParameter Low = new("low", StateParameter.Bounded(Lens<PixelSort, AxisFraction>.New(static sort => sort.Low, static low => sort => sort with { Low = low })),
-        new("Lower bound", "Key value where sorted spans start, above the upper bound wrapping the band"));
+        new("Lower bound", "Key value where sorted spans start, above upper bound wrapping the band"));
     public static readonly PixelSortParameter High = new("high", StateParameter.Bounded(Lens<PixelSort, AxisFraction>.New(static sort => sort.High, static high => sort => sort with { High = high })),
         new("Upper bound", "Key value where sorted spans end"));
     public static readonly PixelSortParameter Direction = new("direction", new StateParameter<PixelSort>.Choice<SortDirection>(Lens<PixelSort, SortDirection>.New(static sort => sort.Direction, static direction => sort => sort with { Direction = direction })),

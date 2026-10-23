@@ -13,7 +13,7 @@ fn async_lock_without_await(found: &str) {
        |
     29 |         let mut hits = self.hits.lock().await;
        |                        ^^^^^^^^^^^^^^^^
-       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex`
+       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex` and lock it with no `.await`
        = note: `#[warn(async_lock_without_await)]` on by default
 
     warning: no `tokio::sync::RwLock` guard of `samples` is held across an `.await`
@@ -30,7 +30,7 @@ fn async_lock_without_await(found: &str) {
     35 |
     36 |     async fn sum(&self) -> u64 { self.samples.read().await.iter().sum() }
        |                                  ^^^^^^^^^^^^^^^^^^^
-       = help: declare `std::sync::nonpoison::RwLock` in place of `tokio::sync::RwLock`
+       = help: declare `std::sync::nonpoison::RwLock` in place of `tokio::sync::RwLock` and lock it with no `.await`
 
     warning: no `tokio::sync::Mutex` guard of `count` is held across an `.await`
       --> tools/dylint/examples/async_lock_without_await.rs:41:5
@@ -43,7 +43,7 @@ fn async_lock_without_await(found: &str) {
        |
     51 |         let mut count = self.count.lock().await;
        |                         ^^^^^^^^^^^^^^^^^
-       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex`
+       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex` and lock it with no `.await`
 
     warning: no `tokio::sync::Mutex` guard of `total` is held across an `.await`
       --> tools/dylint/examples/async_lock_without_await.rs:42:5
@@ -56,7 +56,7 @@ fn async_lock_without_await(found: &str) {
        |
     57 |         let mut total = self.total.lock().await;
        |                         ^^^^^^^^^^^^^^^^^
-       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex`
+       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex` and lock it with no `.await`
 
     warning: no `tokio::sync::Mutex` guard of `count` is held across an `.await`
       --> tools/dylint/examples/async_lock_without_await.rs:92:5
@@ -69,7 +69,7 @@ fn async_lock_without_await(found: &str) {
        |
     98 |         let mut guard = count.lock().await;
        |                         ^^^^^^^^^^^^
-       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex`
+       = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex` and lock it with no `.await`
 
     warning: no `tokio::sync::Mutex` guard of `total` is held across an `.await`
        --> tools/dylint/examples/async_lock_without_await.rs:157:9
@@ -82,7 +82,7 @@ fn async_lock_without_await(found: &str) {
         |
     158 |     let mut held = total.lock().await;
         |                    ^^^^^^^^^^^^
-        = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex`
+        = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex` and lock it with no `.await`
 
     warning: no `tokio::sync::Mutex` guard of `TOTAL` is held across an `.await`
        --> tools/dylint/examples/async_lock_without_await.rs:19:1
@@ -98,62 +98,62 @@ fn async_lock_without_await(found: &str) {
     165 |
     166 | async fn current() -> u64 { *TOTAL.lock().await }
         |                              ^^^^^^^^^^^^
-        = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex`
+        = help: declare `std::sync::nonpoison::Mutex` in place of `tokio::sync::Mutex` and lock it with no `.await`
     ");
 }
 
 fn blocking_call_in_async(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `std::thread::sleep` blocks the worker thread polling its async body
+    warning: blocking call to `std::thread::sleep` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:22:20
        |
     22 | async fn slept() { thread::sleep(Duration::ZERO); }
        |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `tokio::time::sleep`
        = note: `#[warn(blocking_call_in_async)]` on by default
 
-    warning: `fs_err::read_to_string` blocks the worker thread polling its async body
+    warning: blocking call to `fs_err::read_to_string` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:24:63
        |
     24 | async fn module_function(path: &Path) -> io::Result<String> { fs_err::read_to_string(path) }
        |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `fs_err::tokio::read_to_string`
 
-    warning: `fs_err::PathExt::fs_err_metadata` blocks the worker thread polling its async body
+    warning: blocking call to `fs_err::PathExt::fs_err_metadata` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:26:54
        |
     26 | async fn described(path: &Path) -> io::Result<u64> { path.fs_err_metadata().map(|metadata| metadata.len()) }
        |                                                      ^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `fs_err::tokio::metadata`
 
-    warning: `std::io::BufRead::read_line` blocks the worker thread polling its async body
+    warning: blocking call to `std::io::BufRead::read_line` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:30:5
        |
     30 |     BufReader::new(file?).read_line(&mut line)?;
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `tokio::io::AsyncBufReadExt::read_line` on `tokio::io::BufReader<tokio::fs::File>`
 
-    warning: `fs_err::read` blocks the worker thread polling its async body
+    warning: blocking call to `fs_err::read` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:34:87
        |
     34 | async fn sizes(paths: &[PathBuf]) -> io::Result<Vec<usize>> { paths.iter().map(|path| fs_err::read(path).map(|bytes| bytes.len())).c...
        |                                                                                       ^^^^^^^^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `fs_err::tokio::read`
 
-    warning: `fs_err::read` blocks the worker thread polling its async body
+    warning: blocking call to `fs_err::read` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:36:56
        |
     36 | async fn doubled(path: &Path) -> io::Result<Vec<u8>> { both!(path) }
        |                                                        ^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `fs_err::tokio::read`
 
-    warning: `std::thread::scope` blocks the worker thread polling its async body
+    warning: blocking call to `std::thread::scope` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:41:5
        |
     41 | /     thread::scope(|scope| {
@@ -161,23 +161,23 @@ fn blocking_call_in_async(found: &str) {
     43 | |     });
        | |______^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await the call through `tokio::task::spawn_blocking`
 
-    warning: `std::sync::mpsc::Receiver::iter` blocks the worker thread polling its async body
+    warning: blocking call to `std::sync::mpsc::Receiver::iter` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:78:70
        |
     78 | async fn drained(received: std::sync::mpsc::Receiver<u8>) -> usize { received.iter().count() }
        |                                                                      ^^^^^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `tokio::sync::mpsc::Receiver::recv`
 
-    warning: `std::net::TcpListener::incoming` blocks the worker thread polling its async body
+    warning: blocking call to `std::net::TcpListener::incoming` in async body
       --> tools/dylint/examples/blocking_call_in_async.rs:80:61
        |
     80 | async fn served(listener: std::net::TcpListener) -> usize { listener.incoming().take(1).count() }
        |                                                             ^^^^^^^^^^^^^^^^^^^
        |
-       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+       = help: await `tokio::net::TcpListener::accept`
     ");
 }
 
@@ -189,7 +189,7 @@ fn detached_task(found: &str) {
     17 |     fn drop(&mut self) { tokio::spawn(async {}); }
        |                          ^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: spawn release work through `TaskTracker::spawn_on` with a `Handle` captured at construction, or hold a `DropGuard` with a token the release task awaits
+       = help: spawn through `tokio_util::task::TaskTracker::spawn_on` with `Handle` captured at construction
        = note: `#[warn(detached_task)]` on by default
 
     warning: dropping `tokio::task::JoinHandle` detaches its task
@@ -198,7 +198,7 @@ fn detached_task(found: &str) {
     30 | fn statement() { tokio::spawn(async {}); }
        |                  ^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: spawn on a `TaskTracker` or `JoinSet` that its owner waits on at shutdown
+       = help: spawn through `tokio_util::task::TaskTracker::spawn`, then `close` the tracker and await `wait` at shutdown
 
     warning: dropping `std::thread::JoinHandle` detaches its thread
       --> tools/dylint/examples/detached_task.rs:32:15
@@ -214,7 +214,7 @@ fn detached_task(found: &str) {
     34 | async fn threaded() { let _worker = thread::spawn(|| 1_i32); }
        |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: run the work in `tokio::task::spawn_blocking` and await its handle
+       = help: await the work through `tokio::task::spawn_blocking`
 
     warning: dropping `tokio::task::JoinHandle` detaches its task
       --> tools/dylint/examples/detached_task.rs:36:16
@@ -222,7 +222,7 @@ fn detached_task(found: &str) {
     36 | fn dropped() { drop(tokio::spawn(async {})); }
        |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: spawn on a `TaskTracker` or `JoinSet` that its owner waits on at shutdown
+       = help: spawn through `tokio_util::task::TaskTracker::spawn`, then `close` the tracker and await `wait` at shutdown
 
     warning: dropping `tokio::task::JoinHandle` detaches its task
       --> tools/dylint/examples/detached_task.rs:38:25
@@ -230,15 +230,15 @@ fn detached_task(found: &str) {
     38 | fn finished() -> bool { tokio::spawn(async {}).is_finished() }
        |                         ^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: spawn on a `TaskTracker` or `JoinSet` that its owner waits on at shutdown
+       = help: spawn through `tokio_util::task::TaskTracker::spawn`, then `close` the tracker and await `wait` at shutdown
 
-    warning: assignment drops the previous `tokio::task::JoinHandle` and detaches its task
+    warning: reassigning `tokio::task::JoinHandle` detaches its previous task
       --> tools/dylint/examples/detached_task.rs:40:35
        |
     40 | fn restart(worker: &mut Worker) { worker.task = tokio::spawn(async { 2 }); }
        |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: spawn on a `TaskTracker` or `JoinSet` that its owner waits on at shutdown
+       = help: store `worker.task` as `tokio_util::task::AbortOnDropHandle`
 
     warning: `tokio::task::JoinSet::detach_all` detaches every task in the set
       --> tools/dylint/examples/detached_task.rs:42:43
@@ -246,7 +246,7 @@ fn detached_task(found: &str) {
     42 | fn detached(set: &mut JoinSet<u64>) { set.detach_all(); }
        |                                           ^^^^^^^^^^^^
        |
-       = help: await `JoinSet::join_all`, or call `JoinSet::shutdown` where its owner stops
+       = help: await `tokio::task::JoinSet::join_all` in place of the call
 
     warning: dropping `tokio::task::JoinHandle` detaches its task
       --> tools/dylint/examples/detached_task.rs:45:5
@@ -254,7 +254,7 @@ fn detached_task(found: &str) {
     45 |     spawned!(async {});
        |     ^^^^^^^^^^^^^^^^^^
        |
-       = help: spawn on a `TaskTracker` or `JoinSet` that its owner waits on at shutdown
+       = help: spawn through `tokio_util::task::TaskTracker::spawn`, then `close` the tracker and await `wait` at shutdown
     ");
 }
 
@@ -266,7 +266,7 @@ fn manual_abort_on_drop(found: &str) {
     20 |         self.task.abort();
        |         ^^^^^^^^^^^^^^^^^
        |
-       = help: store the handle as `tokio_util::task::AbortOnDropHandle` to abort its task on drop
+       = help: store `task` as `tokio_util::task::AbortOnDropHandle` and delete the call
        = note: `#[warn(manual_abort_on_drop)]` on by default
 
     warning: `Drop::drop` calls `tokio::task::AbortHandle::abort` on field `abort`
@@ -275,7 +275,7 @@ fn manual_abort_on_drop(found: &str) {
     21 |         AbortHandle::abort(&self.abort);
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: store the handle as `tokio_util::task::AbortOnDrop` to abort its task on drop
+       = help: store `abort` as `tokio_util::task::AbortOnDrop` and delete the call
 
     warning: `Drop::drop` calls `tokio_util::sync::CancellationToken::cancel` on field `token`
       --> tools/dylint/examples/manual_abort_on_drop.rs:22:9
@@ -283,7 +283,7 @@ fn manual_abort_on_drop(found: &str) {
     22 |         self.token.cancel();
        |         ^^^^^^^^^^^^^^^^^^^
        |
-       = help: store the `DropGuard` from `CancellationToken::drop_guard` to cancel its token on drop
+       = help: store `token` as `tokio_util::sync::DropGuard` from `CancellationToken::drop_guard` and delete the call
 
     warning: `Drop::drop` calls `tokio::task::JoinHandle::abort` on field `task`
       --> tools/dylint/examples/manual_abort_on_drop.rs:57:13
@@ -291,7 +291,7 @@ fn manual_abort_on_drop(found: &str) {
     57 |             task.abort();
        |             ^^^^^^^^^^^^
        |
-       = help: store the handle as `tokio_util::task::AbortOnDropHandle` to abort its task on drop
+       = help: store `task` as `tokio_util::task::AbortOnDropHandle` and delete the call
 
     warning: `Drop::drop` calls `tokio::task::JoinSet::abort_all` on field `tasks`
       --> tools/dylint/examples/manual_abort_on_drop.rs:67:26
@@ -299,13 +299,14 @@ fn manual_abort_on_drop(found: &str) {
     67 |     fn drop(&mut self) { self.tasks.abort_all(); }
        |                          ^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete the call, dropping `JoinSet` aborts every task
+       = note: `tokio::task::JoinSet` aborts its tasks on drop
+       = help: delete the call
     ");
 }
 
 fn manual_arc_swap(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: every write to `snapshot` replaces its whole `Arc`
+    warning: every write replaces `snapshot` whole
       --> tools/dylint/examples/manual_arc_swap.rs:20:5
        |
     20 |     snapshot: RwLock<Arc<Config>>,
@@ -316,10 +317,10 @@ fn manual_arc_swap(found: &str) {
        |
     81 |     fn update(&self, next: Config) { *self.snapshot.write() = Arc::new(next); }
        |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
+       = help: declare `snapshot` as `arc_swap::ArcSwap<Config>`, read with `load_full()`, and write with `store(..)`
        = note: `#[warn(manual_arc_swap)]` on by default
 
-    warning: every write to `latest` replaces its whole `Arc`
+    warning: every write replaces `latest` whole
       --> tools/dylint/examples/manual_arc_swap.rs:25:5
        |
     25 |     latest: Mutex<Arc<Config>>,
@@ -330,9 +331,9 @@ fn manual_arc_swap(found: &str) {
        |
     87 |     fn update(&self, next: Config) { self.latest.set(Arc::new(next)); }
        |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
+       = help: declare `latest` as `arc_swap::ArcSwap<Config>`, read with `load_full()`, and write with `store(..)`
 
-    warning: every write to `current` replaces its whole value, and no receiver subscribes to it
+    warning: every write replaces `current` whole with no receiver subscribed
        --> tools/dylint/examples/manual_arc_swap.rs:40:5
         |
      40 |     current: watch::Sender<Config>,
@@ -343,9 +344,9 @@ fn manual_arc_swap(found: &str) {
         |
     107 |     fn update(&self, next: Config) -> Config { self.current.send_replace(next) }
         |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: declare `arc_swap::ArcSwap`, read with `load()`, and write with `store(Arc::new(..))`
+        = help: declare `current` as `arc_swap::ArcSwap<Config>`, read with `load()`, and write with `store(Arc::new(..))`
 
-    warning: every write to `current` replaces its whole value, and no receiver subscribes to it
+    warning: every write replaces `current` whole with no receiver subscribed
        --> tools/dylint/examples/manual_arc_swap.rs:45:5
         |
      45 |     current: watch::Sender<Config>,
@@ -356,9 +357,9 @@ fn manual_arc_swap(found: &str) {
         |
     115 |     fn update(&self, next: Config) { self.current.send_modify(|current| *current = next); }
         |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: declare `arc_swap::ArcSwap`, read with `load()`, and write with `store(Arc::new(..))`
+        = help: declare `current` as `arc_swap::ArcSwap<Config>`, read with `load()`, and write with `store(Arc::new(..))`
 
-    warning: every write to `snapshot` replaces its whole `Arc`
+    warning: every write replaces `snapshot` whole
        --> tools/dylint/examples/manual_arc_swap.rs:75:5
         |
      75 |     snapshot: RwLock<Arc<Config>>,
@@ -369,9 +370,9 @@ fn manual_arc_swap(found: &str) {
         |
     157 |     fn update(&self, next: Config) { self.snapshot.set(Arc::new(next)); }
         |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
+        = help: declare `snapshot` as `arc_swap::ArcSwap<Config>`, read with `load_full()`, and write with `store(..)`
 
-    warning: every write to `lock` replaces its whole `Arc`
+    warning: every write replaces `lock` whole
        --> tools/dylint/examples/manual_arc_swap.rs:163:9
         |
     163 |     let lock = Arc::new(Mutex::new(Arc::new(Config::default())));
@@ -382,9 +383,9 @@ fn manual_arc_swap(found: &str) {
         |
     165 |     writer.set(Arc::new(Config { port: 9 }));
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
+        = help: declare `lock` as `arc_swap::ArcSwap<Config>`, read with `load_full()`, and write with `store(..)`
 
-    warning: every write to `sender` replaces its whole value, and no receiver subscribes to it
+    warning: every write replaces `sender` whole with no receiver subscribed
        --> tools/dylint/examples/manual_arc_swap.rs:170:9
         |
     170 |     let sender = watch::Sender::new(Config::default());
@@ -395,7 +396,7 @@ fn manual_arc_swap(found: &str) {
         |
     171 |     sender.send_replace(Config { port: 10 });
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: declare `arc_swap::ArcSwap`, read with `load()`, and write with `store(Arc::new(..))`
+        = help: declare `sender` as `arc_swap::ArcSwap<Config>`, read with `load()`, and write with `store(Arc::new(..))`
     ");
 }
 
@@ -417,7 +418,7 @@ fn manual_cancellation_token(found: &str) {
        |
     35 |         while !self.stop.load(Ordering::Acquire) && steps < 8 {
        |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
+       = help: declare `stop` as `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and call `is_cancelled()` in place of each `load`
        = note: `#[warn(manual_cancellation_token)]` on by default
 
     warning: every write to `open` stores `true`, and a loop polls it as a stop flag
@@ -436,7 +437,7 @@ fn manual_cancellation_token(found: &str) {
        |
     77 |     while !gate.open.load(Ordering::Acquire) {
        |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
+       = help: declare `open` as `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and call `is_cancelled()` in place of each `load`
 
     warning: every write to `stop` stores `true`, and a loop polls it as a stop flag
       --> tools/dylint/examples/manual_cancellation_token.rs:83:9
@@ -454,7 +455,7 @@ fn manual_cancellation_token(found: &str) {
        |
     87 |         while !flag.load(Ordering::Acquire) {
        |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
+       = help: declare `stop` as `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and call `is_cancelled()` in place of each `load`
 
     warning: every write to `stop` stores `true`, and a loop polls it as a stop flag
        --> tools/dylint/examples/manual_cancellation_token.rs:121:9
@@ -472,7 +473,7 @@ fn manual_cancellation_token(found: &str) {
         |
     124 |     while !stop.load(Ordering::Acquire) && steps < 8 {
         |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and await `cancelled()` or run the loop through `run_until_cancelled(..)`
+        = help: declare `stop` as `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and call `is_cancelled()` in place of each `load`
 
     warning: every write to `stop` stores `true`, and a loop polls it as a stop flag
        --> tools/dylint/examples/manual_cancellation_token.rs:148:9
@@ -490,7 +491,7 @@ fn manual_cancellation_token(found: &str) {
         |
     152 |         if stop.load(Ordering::Acquire) {
         |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
+        = help: declare `stop` as `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and call `is_cancelled()` in place of each `load`
     ");
 }
 
@@ -502,7 +503,7 @@ fn manual_stream(found: &str) {
     23 |     while let Some(value) = received.recv().await {
        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: wrap `received` in `tokio_stream::wrappers::ReceiverStream` and replace the loop with `StreamExt` combinators
+       = help: wrap `received` in `tokio_stream::wrappers::ReceiverStream` and replace the loop with `futures::stream::StreamExt::for_each`
        = note: `#[warn(manual_stream)]` on by default
 
     warning: `while let` awaits `next_segment` on `lines` one item at a time
@@ -511,7 +512,7 @@ fn manual_stream(found: &str) {
     31 |     while let Some(line) = lines.next_segment().await.transpose() {
        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: wrap `lines` in `tokio_stream::wrappers::SplitStream` and replace the loop with `StreamExt` combinators
+       = help: wrap `lines` in `tokio_stream::wrappers::SplitStream` and replace the loop with `futures::stream::StreamExt::for_each`
 
     warning: `while let` awaits `next_line` on `lines` one item at a time
       --> tools/dylint/examples/manual_stream.rs:39:11
@@ -519,7 +520,7 @@ fn manual_stream(found: &str) {
     39 |     while let Some(line) = lines.next_line().await? {
        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: wrap `lines` in `tokio_stream::wrappers::LinesStream` and replace the loop with `StreamExt` combinators
+       = help: wrap `lines` in `tokio_stream::wrappers::LinesStream` and replace the loop with `futures::stream::TryStreamExt::try_for_each`
 
     warning: `while let` awaits `recv` on `received` one item at a time
       --> tools/dylint/examples/manual_stream.rs:46:11
@@ -527,7 +528,7 @@ fn manual_stream(found: &str) {
     46 |     while let Some(value) = received.recv().await {
        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: wrap `received` in `tokio_stream::wrappers::UnboundedReceiverStream` and replace the loop with `StreamExt` combinators
+       = help: wrap `received` in `tokio_stream::wrappers::UnboundedReceiverStream` and replace the loop with `futures::stream::StreamExt::for_each`
 
     warning: `while let` awaits `recv` on `received` one item at a time
       --> tools/dylint/examples/manual_stream.rs:56:11
@@ -535,7 +536,7 @@ fn manual_stream(found: &str) {
     56 |     while let Some(value) = received.recv().await {
        |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: wrap `received` in `tokio_stream::wrappers::ReceiverStream` and replace the loop with `StreamExt` combinators
+       = help: wrap `received` in `tokio_stream::wrappers::ReceiverStream` and replace the loop with `futures::stream::StreamExt::for_each`
     ");
 }
 
@@ -547,7 +548,7 @@ fn needless_boxed_future(found: &str) {
     78 |     type IntoFuture = Boxed;
        |                       ^^^^^
        |
-       = help: declare `type IntoFuture = impl Future` with the same bounds under `#![feature(impl_trait_in_assoc_type)]`
+       = help: declare `type IntoFuture = impl Future<Output = u64> + Send` under `#![feature(impl_trait_in_assoc_type)]`
        = note: `#[warn(needless_boxed_future)]` on by default
 
     warning: `Source::fetch` returns `Pin<Box<dyn Future>>` with no `dyn Source` use
@@ -564,7 +565,7 @@ fn needless_boxed_future(found: &str) {
     16 |     fn relay(&self) -> Pin<Box<dyn Future<Output = u64> + Send + '_>>;
        |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: declare `async fn relay` and require `Send` at call sites with `T: Relay<relay(..): Send>`
+       = help: return `impl Future<Output = u64> + Send`
 
     warning: `next` returns `Pin<Box<dyn Future>>` with no function pointer use
       --> tools/dylint/examples/needless_boxed_future.rs:34:23
@@ -572,7 +573,7 @@ fn needless_boxed_future(found: &str) {
     34 |     fn next(&self) -> Pin<Box<dyn Future<Output = u64> + '_>> { Box::pin(async move { self.start.strict_add(1) }) }
        |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: return `impl Future` with the same bounds
+       = help: return `impl Future<Output = u64>`
 
     warning: `countdown` returns `Pin<Box<dyn Future>>` with no function pointer use
       --> tools/dylint/examples/needless_boxed_future.rs:36:40
@@ -580,7 +581,7 @@ fn needless_boxed_future(found: &str) {
     36 |     fn countdown(&self, steps: u64) -> Pin<Box<dyn Future<Output = u64> + '_>> {
        |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: declare `async fn` and box the recursive call
+       = help: declare `async fn countdown` with the recursive call in `Box::pin`
 
     warning: `boxed` returns `Pin<Box<dyn Future>>` with no function pointer use
       --> tools/dylint/examples/needless_boxed_future.rs:86:24
@@ -588,7 +589,7 @@ fn needless_boxed_future(found: &str) {
     86 | fn boxed(work: u64) -> Boxed { Box::pin(async move { work }) }
        |                        ^^^^^
        |
-       = help: return `impl Future` with the same bounds
+       = help: return `impl Future<Output = u64> + Send`
 
     warning: `depth` returns `Pin<Box<dyn Future>>` with no function pointer use
       --> tools/dylint/examples/needless_boxed_future.rs:88:25
@@ -596,7 +597,7 @@ fn needless_boxed_future(found: &str) {
     88 | fn depth(level: u64) -> Pin<Box<dyn Future<Output = u64>>> {
        |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: declare `async fn` and box the recursive call
+       = help: declare `async fn depth` with the recursive call in `Box::pin`
 
     warning: `chosen` returns `Pin<Box<dyn Future>>` with no function pointer use
       --> tools/dylint/examples/needless_boxed_future.rs:97:26
@@ -604,13 +605,13 @@ fn needless_boxed_future(found: &str) {
     97 | fn chosen(fast: bool) -> Pin<Box<dyn Future<Output = u64>>> { if fast { Box::pin(async { 1 }) } else { Box::pin(future::ready(2)) } }
        |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: move the branches into one `async move` block and return `impl Future`
+       = help: return `impl Future<Output = u64>` from one `async move` block holding the branches
     ");
 }
 
 fn optional_channel_sender(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: every use of `0` tests its `Option` sender with `if let Some` and no `else`
+    warning: every use of `0` tests it with `if let Some` and no `else`
       --> tools/dylint/examples/optional_channel_sender.rs:8:17
        |
      8 | struct Progress(Option<watch::Sender<u32>>);
@@ -623,10 +624,10 @@ fn optional_channel_sender(found: &str) {
     29 | |             sent.send_modify(|step| *step = step.saturating_add(1));
     30 | |         }
        | |_________^
-       = help: hold the sender without `Option`, a sender with no receiver blocks nothing
+       = help: hold `tokio::sync::watch::Sender<u32>` without `Option`
        = note: `#[warn(optional_channel_sender)]` on by default
 
-    warning: every use of `sent` tests its `Option` sender with `if let Some` and no `else`
+    warning: every use of `sent` tests it with `if let Some` and no `else`
       --> tools/dylint/examples/optional_channel_sender.rs:59:9
        |
     59 |     let sent = tracked.then(|| watch::Sender::new(0_u32));
@@ -639,7 +640,7 @@ fn optional_channel_sender(found: &str) {
     61 | |         sent.send_replace(1);
     62 | |     }
        | |_____^
-       = help: hold the sender without `Option`, a sender with no receiver blocks nothing
+       = help: hold `tokio::sync::watch::Sender<u32>` without `Option`
     ");
 }
 
@@ -651,12 +652,12 @@ fn redundant_spawn(found: &str) {
     11 | fn rewrapped_direct(task: JoinHandle<u8>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(task) }
        |                                                                                  ^^^^^^^^^^^^^^^^^^
        |
-    note: `tokio::task::JoinHandle<u8>` awaited here
+    note: awaited here
       --> tools/dylint/examples/redundant_spawn.rs:11:95
        |
     11 | fn rewrapped_direct(task: JoinHandle<u8>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(task) }
        |                                                                                               ^^^^
-       = help: await `tokio::task::JoinHandle<u8>` where its result is read, with no task around it
+       = help: delete the call and await `task` where its result is read
        = note: `#[warn(redundant_spawn)]` on by default
 
     warning: `tokio::spawn` spawns a task that only awaits `tokio::task::JoinHandle<std::result::Result<u8, tokio::task::JoinError>>`
@@ -665,12 +666,12 @@ fn redundant_spawn(found: &str) {
     13 | ...r>>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(async move { task.await? }) }
        |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-    note: `tokio::task::JoinHandle<std::result::Result<u8, tokio::task::JoinError>>` awaited here
+    note: awaited here
       --> tools/dylint/examples/redundant_spawn.rs:13:126
        |
     13 | fn rewrapped_tried(task: JoinHandle<Result<u8, JoinError>>) -> JoinHandle<Result<u8, JoinError>> { tokio::spawn(async move { task.aw...
        |                                                                                                                              ^^^^
-       = help: await `tokio::task::JoinHandle<std::result::Result<u8, tokio::task::JoinError>>` where its result is read, with no task around it
+       = help: delete the call and await `task` where its result is read
 
     warning: `tokio::runtime::Handle::spawn` spawns a task that only awaits `tokio::task::JoinHandle<u8>`
       --> tools/dylint/examples/redundant_spawn.rs:15:96
@@ -678,12 +679,12 @@ fn redundant_spawn(found: &str) {
     15 | ...JoinHandle<Result<u16, JoinError>> { handle.spawn(async move { task.await.map(u16::from) }) }
        |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-    note: `tokio::task::JoinHandle<u8>` awaited here
+    note: awaited here
       --> tools/dylint/examples/redundant_spawn.rs:15:122
        |
     15 | fn rewrapped_on(task: JoinHandle<u8>, handle: &Handle) -> JoinHandle<Result<u16, JoinError>> { handle.spawn(async move { task.await....
        |                                                                                                                          ^^^^
-       = help: await `tokio::task::JoinHandle<u8>` where its result is read, with no task around it
+       = help: delete the call and await `task` where its result is read
     ");
 }
 
@@ -700,7 +701,7 @@ fn sequential_await(found: &str) {
        |
     50 |         replies.push(time::timeout(Duration::ZERO, receiver).await);
        |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: await `futures::future::join_all` over the futures, or `futures::stream::iter(..).buffered(n)` to bound concurrency, both keep input order
+       = help: await `futures::future::join_all(receivers.into_iter().map(..))`
        = note: `#[warn(sequential_await)]` on by default
 
     warning: `for` loop builds and awaits one independent future per item in sequence
@@ -714,13 +715,13 @@ fn sequential_await(found: &str) {
        |
     63 |         out.push(fetched(id).await);
        |                  ^^^^^^^^^^^^^^^^^
-       = help: await `futures::future::join_all` over the futures, or `futures::stream::iter(..).buffered(n)` to bound concurrency, both keep input order
+       = help: await `futures::stream::iter(ids).map(..).buffered(n).collect::<Vec<_>>()`
     ");
 }
 
 fn short_circuited_join(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `futures::future::join` runs futures together, and `?` on its results keeps only the first error
+    warning: `?` on `futures::future::join` results keeps only the first error
       --> tools/dylint/examples/short_circuited_join.rs:18:5
        |
     18 |     let (left, right) = future::join(fetch(1), fetch(2)).await;
@@ -731,10 +732,10 @@ fn short_circuited_join(found: &str) {
        |
     19 |     Ok(left?.strict_add(right?))
        |        ^^^^             ^^^^^
-       = help: combine the results with `validated::Validated::from(..).map2(..)` and `.ok()`, or race a future that outlives its partner through `select`
+       = help: convert each result with `validated::Validated::from`, combine them with `map2`, and call `.ok()`
        = note: `#[warn(short_circuited_join)]` on by default
 
-    warning: `join!` runs futures together, and `?` on its results keeps only the first error
+    warning: `?` on `join!` results keeps only the first error
       --> tools/dylint/examples/short_circuited_join.rs:23:5
        |
     23 |     let (left, right) = tokio::join!(fetch(1), fetch(2));
@@ -745,7 +746,7 @@ fn short_circuited_join(found: &str) {
        |
     24 |     Ok(left?.strict_add(right?))
        |        ^^^^             ^^^^^
-       = help: combine the results with `validated::Validated::from(..).map2(..)` and `.ok()`, or race a future that outlives its partner through `select`
+       = help: convert each result with `validated::Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `try_collect` after `buffered` stops at the first error of the buffered futures
       --> tools/dylint/examples/short_circuited_join.rs:43:67
@@ -753,7 +754,7 @@ fn short_circuited_join(found: &str) {
     43 | async fn buffered(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).try_collect().await }
        |                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: collect the stream into a `Vec`, then collect its results into `validated::Validated<_, _>` and call `.ok()`
+       = help: collect the stream into a `Vec`, then its results into `validated::Validated<_, _>`, and call `.ok()`
 
     warning: `collect` over `join_all` keeps only the first error of the joined futures
       --> tools/dylint/examples/short_circuited_join.rs:47:65
@@ -797,12 +798,12 @@ fn unbounded_pending_map(found: &str) {
     20 |     waiting: Mutex<BTreeMap<u64, oneshot::Sender<u32>>>,
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-    note: inserted here, an entry its caller never removes stays until the map drops
+    note: inserted here
       --> tools/dylint/examples/unbounded_pending_map.rs:83:9
        |
     83 |         self.waiting.lock().insert(key, sender);
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
+       = help: return a guard from each insert that removes its key from `waiting` on drop
        = note: `#[warn(unbounded_pending_map)]` on by default
 
     warning: `calls` holds `(Call, u32)` entries that only a keyed `remove` deletes
@@ -811,12 +812,12 @@ fn unbounded_pending_map(found: &str) {
     25 |     calls: Mutex<BTreeMap<u64, (Call, u32)>>,
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-    note: inserted here, an entry its caller never removes stays until the map drops
+    note: inserted here
       --> tools/dylint/examples/unbounded_pending_map.rs:91:67
        |
     91 | ...) -> Option<(Call, u32)> { self.calls.lock().insert(key, (Call { future: async { 0 }.boxed() }, step)) }
        |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
+       = help: return a guard from each insert that removes its key from `calls` on drop
 
     warning: `waiting` holds `tokio::sync::oneshot::Sender<u32>` entries that only a keyed `remove` deletes
       --> tools/dylint/examples/unbounded_pending_map.rs:30:5
@@ -824,12 +825,12 @@ fn unbounded_pending_map(found: &str) {
     30 |     waiting: Arc<Mutex<BTreeMap<u64, oneshot::Sender<u32>>>>,
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-    note: inserted here, an entry its caller never removes stays until the map drops
+    note: inserted here
       --> tools/dylint/examples/unbounded_pending_map.rs:99:9
        |
     99 |         waiting.insert(key, sender);
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
+       = help: return a guard from each insert that removes its key from `waiting` on drop
 
     warning: `waiting` holds `tokio::sync::oneshot::Sender<u32>` entries that only a keyed `remove` deletes
        --> tools/dylint/examples/unbounded_pending_map.rs:65:5
@@ -837,18 +838,18 @@ fn unbounded_pending_map(found: &str) {
      65 |     waiting: Mutex<BTreeMap<u64, oneshot::Sender<u32>>>,
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
-    note: inserted here, an entry its caller never removes stays until the map drops
+    note: inserted here
        --> tools/dylint/examples/unbounded_pending_map.rs:144:126
         |
     144 | ...t::Sender<u32>> { self.waiting.with_mut(|waiting| waiting.insert(key, sender)) }
         |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
+        = help: return a guard from each insert that removes its key from `waiting` on drop
     ");
 }
 
 fn unending_join(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `for_each` drains a `WatchStream` that ends only when every sender drops, and a sender outlives the join
+    warning: `for_each` over `WatchStream` never completes while a sender outlives `futures::future::join`
       --> tools/dylint/examples/unending_join.rs:21:13
        |
     21 | /             updates.for_each(|update| {
@@ -857,15 +858,15 @@ fn unending_join(found: &str) {
     24 | |             }),
        | |______________^
        |
-    note: sender held past the join
+    note: sender held here
       --> tools/dylint/examples/unending_join.rs:18:40
        |
     18 |         let updates = WatchStream::new(self.0.subscribe());
        |                                        ^^^^^^
-       = help: race the drain against its partner through `future::select` to drop the drain when its partner completes
+       = help: race `for_each` against the other futures through `futures::future::select` in place of `futures::future::join`
        = note: `#[warn(unending_join)]` on by default
 
-    warning: `try_for_each` drains a `WatchStream` that ends only when every sender drops, and a sender outlives the join
+    warning: `try_for_each` over `WatchStream` never completes while a sender outlives `futures::future::join`
       --> tools/dylint/examples/unending_join.rs:33:23
        |
     33 |   ...   let relayed = stream::iter(token.map(|token| updates.map(move |update| Ok::<_, Infallible>((token, update))))).flatten().try...
@@ -875,25 +876,25 @@ fn unending_join(found: &str) {
     36 | | ...   });
        | |________^
        |
-    note: sender held past the join
+    note: sender held here
       --> tools/dylint/examples/unending_join.rs:32:49
        |
     32 |         let updates = WatchStream::from_changes(self.0.subscribe());
        |                                                 ^^^^^^
-       = help: race the drain against its partner through `future::select` to drop the drain when its partner completes
+       = help: race `try_for_each` against the other futures through `futures::future::select` in place of `futures::future::join`
 
-    warning: `count` drains a `BroadcastStream` that ends only when every sender drops, and a sender outlives the join
+    warning: `count` over `BroadcastStream` never completes while a sender outlives `join!`
       --> tools/dylint/examples/unending_join.rs:63:35
        |
     63 |     let (seen, ()) = tokio::join!(BroadcastStream::new(received).count(), task::yield_now());
        |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-    note: sender held past the join
+    note: sender held here
       --> tools/dylint/examples/unending_join.rs:62:10
        |
     62 |     let (sender, received) = broadcast::channel::<u32>(4);
        |          ^^^^^^
-       = help: race the drain against its partner through `future::select` to drop the drain when its partner completes
+       = help: race `count` against the other futures through `futures::future::select` in place of `join!`
     ");
 }
 

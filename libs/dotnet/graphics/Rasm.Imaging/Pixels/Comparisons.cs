@@ -43,7 +43,7 @@ public sealed class FrameComparison {
     public PixelFrame Difference { get; }
 
     public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
-        reference.Size == test.Size ? Measured(reference, test) : Error.New($"reference size {reference.Size} differs from test size {test.Size}");
+        reference.Size == test.Size ? Measured(reference, test) : Error.New($"Reference size {reference.Size} differs from test size {test.Size}");
 
     public Verdict Graded(ComparisonBars bars) =>
         bars.Psnr.Graded(level => Psnr >= level)

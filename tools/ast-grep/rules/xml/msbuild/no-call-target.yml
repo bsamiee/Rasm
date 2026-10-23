@@ -10,5 +10,5 @@ rule:
             - matches: {msbuild-element: {name: {regex: '^MSBuild$', pattern: _TASK}}}
             - matches: {msbuild-metadata: {name: {regex: '^Projects$'}, value: {regex: '^["'']\s*\$\((MSBuildProjectFullPath|MSBuildProjectFile|MSBuildThisFileFullPath)\)\s*["'']$'}}}
             - not: {matches: {msbuild-metadata: {name: {regex: '^(Properties|RemoveProperties)$'}, value: {regex: '[^"''\s]'}}}}
-message: '`$TASK` runs a target of its own project, whose properties and items stay hidden until the calling target finishes'
+message: '`$TASK` runs a target of its own project with property and item changes hidden until the calling target finishes'
 note: Name the target in `DependsOnTargets`

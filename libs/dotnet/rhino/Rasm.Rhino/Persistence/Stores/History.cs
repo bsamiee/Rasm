@@ -95,7 +95,7 @@ public sealed record ValueHistory {
     private static Fin<Option<Seq<HistoryEntry>>> Entries(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from entries in Callbacks.Each(rows, static (row, _) =>
-            (StoredText.Parse<BigInteger>(row.Key).Bind(serial => serial >= BigInteger.Zero ? Fin.Succ(serial) : Errors.ParseError($"{row.Key} reads as no {nameof(BigInteger)}")),
+            (StoredText.Parse<BigInteger>(row.Key).Bind(serial => serial >= BigInteger.Zero ? Fin.Succ(serial) : Errors.ParseError($"history serial {row.Key} is negative")),
              ArchivableDictionaries.Required<long>(row.Value, AtKey),
              Nested(row.Value, BeforeKey),
              Nested(row.Value, AfterKey))

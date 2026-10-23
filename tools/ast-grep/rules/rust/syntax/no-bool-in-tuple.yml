@@ -31,5 +31,5 @@ rule:
 labels:
     NAME: {style: primary, message: 'Declares the tuple'}
     TUPLE: {style: secondary, message: 'Tuple holding the outcome'}
-message: '`$NAME` holds an outcome as an unnamed `bool` or an error option beside a value in `$TUPLE`'
-note: 'Return a `Result`, `Option`, or enum with a variant per outcome, and a struct with a named field for a `bool` describing the value'
+message: '`$NAME` holds an outcome in `$TUPLE` as an unnamed `bool` or error `Option` beside a value'
+note: 'Type the outcome as a `Result`, `Option`, or enum with a variant per outcome, and a `bool` describing the value as a named struct field'

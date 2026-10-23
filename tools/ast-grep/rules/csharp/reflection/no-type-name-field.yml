@@ -188,4 +188,4 @@ rule:
                     field: function
                     inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, all: [{matches: callee-parameters}, {matches: receiver-parameters}, {has: {nthChild: 1, matches: stored-parameter}}]}}
 message: '`$READ` stores a CLR type name in a field of `$CREATED`'
-note: 'Store the `Type` or the value itself, and format its name where a person reads it'
+note: 'Store the `Type` or the value in `<created>` and format the name where a person reads it'

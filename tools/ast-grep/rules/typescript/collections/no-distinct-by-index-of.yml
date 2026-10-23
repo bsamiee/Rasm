@@ -34,5 +34,5 @@ rule:
         - any:
             - has: {field: function, has: {field: object, pattern: $OWNER}}
             - has: {field: arguments, has: {has: {field: parameters, has: {nthChild: 3, has: {kind: identifier, pattern: $OWNER}}}}}
-message: '`$L` drops repeated values and every `NaN` through one `indexOf` scan per element'
-note: 'Spread `new Set(<list>)` into an array, or call `effect` `Array.dedupe(<list>)` to compare by `Equal`'
+message: '`$L.filter` drops repeated values and every `NaN` through one `indexOf` scan per element'
+note: 'Write `[...new Set(<list>)]`, or call `Array.dedupe(<list>)` to compare by `Equal`'

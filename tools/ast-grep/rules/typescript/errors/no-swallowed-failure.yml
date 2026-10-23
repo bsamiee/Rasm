@@ -51,4 +51,4 @@ rule:
                                 - has: {field: value, matches: boolean-handler}
                         - not: {has: {matches: boolean-pair}}
 message: '`$CALL` collapses a typed failure into a boolean'
-note: 'Return the effect with its typed failure for consumers to read by `_tag`'
+note: 'Return the effect with its typed failure for a `_tag` match'

@@ -8,4 +8,4 @@ rule:
         - pattern: $PATH
         - regex: '(^[$@]*"+|[\s=:;,]|file://)(~/|/(Applications|Users|home|root|Volumes|opt|nix/store|Library|System/Volumes|private|tmp|mnt|media|snap)(/|"|$)|/usr/local/|/var/folders/|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData|Windows)([\\/]|"|$))'
 message: '`$PATH` names a location in one machine''s install, user, or volume folders'
-note: Read the location at run time from its owner (host API, bundle id lookup, package resolver, special folder) or take it as a parameter
+note: 'Read the location at run time from its owner (host API, bundle id lookup, package resolver, `Environment.GetFolderPath`) or a parameter'

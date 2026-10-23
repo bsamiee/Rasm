@@ -224,13 +224,13 @@ where A: 'static
 #[derive(Debug, Serialize, thiserror::Error)]
 #[serde(tag = "_tag")]
 pub enum Unanswered {
-    #[error("user declined to answer, continue without the answer")]
+    #[error("user declined to answer, continue without answer")]
     Declined,
-    #[error("user dismissed the question, call again to ask again")]
+    #[error("user dismissed question, call again to ask again")]
     Dismissed,
-    #[error("user answered with no content, call again to ask again")]
+    #[error("user answer is empty, call again to ask again")]
     Empty,
-    #[error("client cannot ask the user, ask in conversation and pass the answer as arguments")]
+    #[error("client cannot ask user, ask in conversation and pass answer as arguments")]
     Unsupported,
     #[error("answer breaks requested form, call again to ask again")]
     Malformed {
@@ -238,7 +238,7 @@ pub enum Unanswered {
         #[serde(skip)]
         source: serde_path_to_error::Error<serde_json::Error>,
     },
-    #[error("requested form has no object schema, tool cannot ask this question")]
+    #[error("requested form has no object schema, tool cannot ask question")]
     Unaskable {
         #[serde(skip)]
         source: serde_json::Error,

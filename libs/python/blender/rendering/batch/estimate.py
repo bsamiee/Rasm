@@ -1,4 +1,4 @@
-"""Queue time and memory estimates from stage marks and a clock passed in."""
+"""Queue time and memory estimates from stage marks."""
 
 from collections import Counter
 from collections.abc import Iterable
@@ -17,7 +17,7 @@ from blender.rendering.batch.queue import RenderQueue
 
 
 class Work(msgspec.Struct, frozen=True, kw_only=True):
-    """Work one part has left: its weight per item and the items left."""
+    """Items left in one queue part."""
 
     part: Annotated[int, msgspec.Meta(ge=0)]
     weight: Annotated[int, msgspec.Meta(ge=1)]
@@ -25,7 +25,7 @@ class Work(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Estimate(msgspec.Struct, frozen=True, kw_only=True):
-    """Seconds left, the finish moment, and the greatest measured peak memory."""
+    """Time left with measured peak memory."""
 
     seconds: Fraction
     finish: Option[datetime.datetime]
@@ -33,7 +33,7 @@ class Estimate(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, marks: tuple[StageMark, ...], work: Iterable[Work], now: datetime.datetime) -> Option[Self]:
-        """Estimates the work left from measured marks."""
+        """Estimates from measured marks."""
         works = {row.part: row for row in work}
         timed = {part: times for part in works if (times := tuple(Fraction(mark.seconds) for mark in marks if mark.part == part))}
         rates = {part: mean(times[1:] or times) / works[part].weight for part, times in timed.items()}
@@ -51,7 +51,7 @@ class Estimate(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def queued(cls, progress: Progress, queue: RenderQueue, now: datetime.datetime) -> Option[Self]:
-        """Estimates the renders a queue's record leaves."""
+        """Estimates renders progress leaves."""
         counts = Counter(part for part, _ in progress.remaining(queue))
         return cls.of(progress.marks, (Work(part=index, weight=job.weight, count=counts[index]) for index, job in enumerate(queue.jobs)), now)
 

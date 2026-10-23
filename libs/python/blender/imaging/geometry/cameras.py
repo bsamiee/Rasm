@@ -11,13 +11,13 @@ from blender.imaging.geometry.panoramas import Rectilinear
 
 
 class Camera(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Perspective lens with a native rigid camera-to-world placement."""
+    """Perspective lens with rigid camera-to-world placement."""
 
     placement: "RigidTransform[tuple[()]]"
     lens: Rectilinear
 
     def to_screen(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Returns s, t, camera-space depth, and coverage, zero at and behind the camera."""
+        """Returns s, t, camera-space depth, and coverage, zero coverage at and behind camera."""
         local = self.placement.apply(points, inverse=True)
         positions = self.lens.to_image(np.concatenate((local, np.ones_like(local[..., :1])), axis=-1))
         return np.concatenate((positions[..., :2], -local[..., 2:], positions[..., 2:]), axis=-1)

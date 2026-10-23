@@ -71,4 +71,4 @@ rule:
         - not: {matches: rust-trait-or-extern-function}
         - not: {matches: {rust-attributed: {attribute: {not: {matches: plain-attribute}}}}}
 message: '`$NAME` forwards its parameters unchanged to `$F`'
-note: 'Call the callee at each call site, give it the visibility of the forwarding function, and delete the forwarding function'
+note: 'Call the callee at each call site, widen it to the function''s visibility, and delete the function'

@@ -16,10 +16,10 @@ internal static partial class BannerMapper {
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     [MapProperty(nameof(Notice.Description), nameof(Notification.Message))]
     [MapProperty(nameof(Notice.Reveal), nameof(Notification.UserData), Use = nameof(Revealed))]
-    [MapperIgnoreSource(nameof(Notice.Message), Justification = "Rhino's notification center holds the detail text")]
-    [MapperIgnoreSource(nameof(Notice.Severity), Justification = "The system banner states no severity")]
-    [MapperIgnoreSource(nameof(Notice.Glyph), Justification = "Notifications reads it as the content image")]
-    [MapperIgnoreTarget(nameof(Notification.ContentImage), Justification = "Notifications assigns the acquired glyph")]
+    [MapperIgnoreSource(nameof(Notice.Message), Justification = "Rhino notification center holds detail text")]
+    [MapperIgnoreSource(nameof(Notice.Severity), Justification = "System banner shows no severity")]
+    [MapperIgnoreSource(nameof(Notice.Glyph), Justification = "Notifications reads glyph as content image")]
+    [MapperIgnoreTarget(nameof(Notification.ContentImage), Justification = "Notifications assigns acquired glyph")]
     internal static partial void Update(Notice notice, Notification banner);
 
     [UserMapping(Default = false)]

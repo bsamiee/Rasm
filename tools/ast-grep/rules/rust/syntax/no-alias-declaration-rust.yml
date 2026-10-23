@@ -31,9 +31,9 @@ rule:
               matches: public
               has: {field: type, kind: primitive_type}
 transform:
-    RENAMED_TEXT: {replace: {source: $RENAMED, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` renames `$2`'}}
-    SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` re-exports `$2` as a type, write `pub use $2;`'}}
-    OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` re-exports `$2` as a type, write `pub use $2 as $1;`'}}
-    PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(\w+)\s*;$', by: '`$1` re-exports `$2` as a type, write `pub use core::primitive::$2 as $1;`'}}
+    RENAMED_TEXT: {replace: {source: $RENAMED, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: 'Type alias `$1` renames `$2`'}}
+    SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2;`'}}
+    OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2 as $1;`'}}
+    PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(\w+)\s*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use core::primitive::$2 as $1;`'}}
 message: '$RENAMED_TEXT$SAME_TEXT$OTHER_TEXT$PRIMITIVE_TEXT'
-note: 'Write a private alias''s target at each use, re-export a public alias''s target through `pub use`'
+note: 'Write the target at each use of a private alias and replace a public alias with `pub use <target>`'

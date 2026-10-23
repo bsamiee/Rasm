@@ -12,4 +12,4 @@ rule:
         - not: {has: {field: function, has: {stopBy: end, kind: field_identifier, regex: '^(into_)?par_|^par_bridge$'}}}
 fix: $R.try_collect::<$C>()
 message: '`collect` names the `Result` or `Option` wrapper around `$C` by hand'
-note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) and bind a named iterator with `let mut`'
+note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or a `let mut` binding'

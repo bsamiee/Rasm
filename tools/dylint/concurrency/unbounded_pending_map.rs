@@ -191,9 +191,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         for (place, entry, inserted) in self.usages.unescaped(cx).filter_map(|(place, usage)| Some((place, usage.entry, usage.inserted?))) {
-            span_lint_hir_and_then(cx, UNBOUNDED_PENDING_MAP, place.hir_id(cx), place.span(cx), format!("`{}` holds `{entry}` entries that only a keyed `remove` deletes", place.name(cx)), |diag| {
-                diag.span_note(inserted, "inserted here, an entry its caller never removes stays until the map drops");
-                diag.help("bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds");
+            let name = place.name(cx);
+            span_lint_hir_and_then(cx, UNBOUNDED_PENDING_MAP, place.hir_id(cx), place.span(cx), format!("`{name}` holds `{entry}` entries that only a keyed `remove` deletes"), |diag| {
+                diag.span_note(inserted, "inserted here");
+                diag.help(format!("return a guard from each insert that removes its key from `{name}` on drop"));
             });
         }
     }

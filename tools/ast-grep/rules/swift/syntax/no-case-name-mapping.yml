@@ -31,5 +31,5 @@ rule:
           all:
             - has: {matches: key, follows: {stopBy: end, matches: key}}
             - not: {has: {matches: key, not: {matches: own-name-key}}}
-message: 'Switch or table maps each enum case to its own name spelled as a string literal'
-note: 'Give the enum a `String` raw type and read `<value>.rawValue` or `<Enum>(rawValue: <text>)` where its raw values are its case names'
+message: 'Switch or dictionary maps each enum case to a string literal of its own name'
+note: 'Declare a `String` raw type on the enum and read `<value>.rawValue` or `<Enum>(rawValue: <text>)`'

@@ -18,5 +18,5 @@ rule:
         - inside: {stopBy: *owner, kind: 'equality_expression, comparison_expression'}
         - inside: {stopBy: *owner, kind: call_expression, has: {nthChild: 1, regex: '\.contains$'}}
     not: {inside: {stopBy: end, matches: read-if-present}}
-message: '`$SITE` classifies a missing file outside the read-if-present function'
-note: 'Read through one function that runs the throwing operation and returns `Result<Value?, any Error>`, `.success(nil)` for a missing file'
+message: '`$SITE` matches a missing-file error outside `ifPresent(_:)`'
+note: 'Run the throwing read through `ifPresent { }` from `Files` for `.success(nil)` on a missing file'

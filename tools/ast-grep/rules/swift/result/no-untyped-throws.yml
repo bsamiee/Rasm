@@ -51,4 +51,4 @@ rule:
             - not: {has: {field: body, has: {stopBy: {matches: swift-function-scope}, matches: propagation}}}
 fix: throws($T)
 message: '`$NAME` throws `$T` alone through an untyped `throws`'
-note: 'Declare `throws(<type>)` with the one type every `throw` names'
+note: 'Declare `throws(<Failure>)` with the one type every `throw` builds'

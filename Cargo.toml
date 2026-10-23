@@ -53,11 +53,11 @@ validated            = "1.0.0"                                     # Applicative
 
 # --- [DERIVES]
 auto_impl    = "1.4.0"                                                                                                                               # Capability traits implemented for references, Arc, and Box from one impl
-bon          = "3.10.2"                                                                                                                              # Compile-time-checked builders on functions and methods taking several optional arguments
-derive-where = { version = "1.7.0", features = ["safe"] }                                                                                            # Derives on generic and phantom-typed records without spurious bounds or `unsafe` blocks
+bon          = "3.10.2"                                                                                                                              # Compile-time-checked builders for optional arguments
+derive-where = { version = "1.7.0", features = ["safe"] }                                                                                            # Derives on generic and phantom-typed records without spurious bounds
 derive_more  = { version = "2.1.1", features = ["from", "into", "try_from", "display", "deref", "constructor", "is_variant", "from_str", "as_ref"] } # Display derives on fieldless enums, conversion and constructor derives on invariant-free newtypes
 dynosaur     = "0.3.1"                                                                                                                               # Dynamic dispatch over async capability traits swapped at composition
-o2o          = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                  # Field mappings between domain and contract records, default `syn1` compiles macros against syn 1 beside syn 2
+o2o          = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                  # Field mappings between domain and contract records, default `syn1` builds syn 1 beside syn 2
 strum        = { version = "0.28.0", features = ["derive"] }                                                                                         # Enum name tables, iteration, and discriminant enums
 
 # --- [COLLECTIONS]
@@ -164,8 +164,8 @@ xot          = "0.31.2"                                                         
 # --- [FILES]
 camino                = { version = "1.2.6", features = ["serde1"] }                                                                                                                                        # UTF-8 paths as construction invariant
 dunce                 = "1.0.5"                                                                                                                                                                             # Canonical Windows paths without verbatim prefix
-etcetera              = "0.11.0"                                                                                                                                                                            # Configuration, data, and cache directories under native or XDG conventions
-file-format           = { version = "0.29.0", features = ["reader-zip", "reader-xml", "reader-pdf", "reader-cfb", "reader-ebml", "reader-exe", "reader-mp4", "reader-rm", "reader-sqlite3", "reader-txt"] } # Format detection from leading bytes and container contents
+etcetera              = "0.11.0"                                                                                                                                                                            # Configuration, data, and cache directories under platform or XDG conventions
+file-format           = { version = "0.29.0", features = ["reader-zip", "reader-xml", "reader-pdf", "reader-cfb", "reader-ebml", "reader-exe", "reader-mp4", "reader-rm", "reader-sqlite3", "reader-txt"] } # Format detection from leading bytes and containers
 fs-err                = { version = "3.3.2", features = ["tokio"] }                                                                                                                                         # File calls with errors that name path
 globset               = "0.4.20"                                                                                                                                                                            # One path matched against many globs in one pass
 notify                = { version = "9.0.0-rc.6", features = ["tokio"] }                                                                                                                                    # File system change events
@@ -496,7 +496,7 @@ iced        = { version = "0.14.0", features = ["tokio"] } # Windows in The Elm 
 kurbo       = "0.13.1"                                     # 2D Bezier paths, affine transforms, offsets, and arc lengths
 tiny-skia   = "0.12.0"                                     # CPU rasterization of paths, gradients, and patterns
 wgpu        = "30.0.1"                                     # WebGPU compute and rendering over native backends
-winit       = "0.31.0-beta.3"                              # Native windows and input events
+winit       = "0.31.0-beta.3"                              # Platform windows and input events
 linesweeper = "0.5.0"                                      # Boolean operations on curved paths
 usvg        = "0.48.1"                                     # SVG parsing and normalization
 resvg       = "0.48.1"                                     # SVG rasterization

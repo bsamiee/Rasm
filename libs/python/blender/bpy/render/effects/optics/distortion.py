@@ -133,17 +133,17 @@ def radial() -> BlenderResult[NodeGroup]:
 
 
 def sampled(key: Key, source: Operand, frame: FrameSpace, extension: tuple[Fragment, End], position: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Samples a covered map through the once-built extension menu.
+    """Samples covered map through shared extension menu.
 
     Args:
-        key: Prefix of the sampler's native node keys.
+        key: Node key prefix.
         source: Associated source image.
-        frame: Displayed camera placement within the source's data window.
-        extension: Shared menu mapping Mirror to native Extend, with item booleans.
+        frame: Displayed camera placement within source data window.
+        extension: Shared menu mapping Mirror to Extend, with item booleans.
         position: Camera-frame fractions and geometric coverage in Z.
 
     Returns:
-        Bilinear source light and graph, or native construction faults.
+        Bilinear source light and graph, or graph faults.
     """
     fragment, selector = extension
     coverage = (
@@ -173,7 +173,7 @@ def distorted(shell: Shell[Distortion]) -> BlenderResult[tuple[Fragment, End]]:
         shell: Source image, displayed frame, lens sockets, and menu items.
 
     Returns:
-        The sampled image and graph, or accumulated native construction faults.
+        Sampled image and graph, or accumulated graph faults.
     """
     distortion_field, fit, direction, extension = Distortion.__struct_fields__
     coefficient = shell.socket(distortion_field)
@@ -219,7 +219,7 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
     """Integrates independent spectral maps and gathers red and blue axial light.
 
     Args:
-        shell: Spectral settings, displayed frame, and native lens inputs.
+        shell: Spectral settings, displayed frame, and lens inputs.
 
     Returns:
         Associated spectral light and graph, or every independent graph fault.
@@ -274,18 +274,18 @@ def aberrated(shell: Shell[Aberration]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def exported(call: Call[Named]) -> BlenderResult[Done]:
-    """Writes the selected lens map as a data RGBA float OpenEXR.
+    """Writes selected lens map as data RGBA float OpenEXR.
 
     Args:
-        call: Selected entry and native export browser path.
+        call: Selected entry and export path.
 
     Returns:
         Written path, or independent entry, framing, configuration, and file faults.
     """
 
     def written(config: PyOpenColorIO.Config, effect: Distortion, framing: Framing) -> BlenderResult[Done]:
-        def baked(admitted: tuple[Framing, tuple[int, int]]) -> BlenderResult[Done]:
-            _, (width, height) = admitted
+        def baked(validated: tuple[Framing, tuple[int, int]]) -> BlenderResult[Done]:
+            _, (width, height) = validated
             plane = StMap.bake(
                 width, height, effect.mapping(width * framing.pixel_aspect_x / (height * framing.pixel_aspect_y)), (effect.extension, effect.extension), source_size=(width, height)
             ).plane
@@ -315,13 +315,7 @@ def exported(call: Call[Named]) -> BlenderResult[Done]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 st_map_export = Operator(
-    key="export_st_map",
-    title="Export ST Map",
-    description="Writes the lens mapping as a float OpenEXR data image",
-    form=Named,
-    run=exported,
-    invoke=Some(Save(extensions=lambda _: (".exr",))),
-    undo=False,
+    key="export_st_map", title="Export ST Map", description="Write lens map as float OpenEXR data", form=Named, run=exported, invoke=Some(Save(extensions=lambda _: (".exr",))), undo=False
 )
 
 distortion = CompositorEffect(record=Distortion, graph=distorted, coverage=Coverage.RESULT, registrables=(st_map_export,))

@@ -1,3 +1,5 @@
+use core::iter;
+
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use itertools::Itertools as _;
 use rustc_errors::Applicability;
@@ -12,7 +14,7 @@ use crate::{expanded_externally, suggest, workspace_def};
 
 enum UnnamedFields {
     Named(Span, String),
-    Positional,
+    Positional(String),
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -31,8 +33,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     let whole = variant.fields.iter().all(accessible) && !variant.field_list_has_applicable_non_exhaustive();
                     (!unnamed.is_empty()).then(|| if whole { UnnamedFields::Named(rest, unnamed) } else { UnnamedFields::Named(rest.shrink_to_lo(), format!("{unnamed}, ")) })
                 }
-                PatKind::TupleStruct(_, fields, rest) =>
-                    (rest.as_opt_usize().is_some() && fields.len() < variant.fields.len() && variant.fields.iter().all(accessible)).then_some(UnnamedFields::Positional),
+                PatKind::TupleStruct(_, fields, rest) => (rest.as_opt_usize().is_some() && fields.len() < variant.fields.len() && variant.fields.iter().all(accessible))
+                    .then(|| UnnamedFields::Positional(iter::repeat_n("_", variant.fields.len().strict_sub(fields.len())).join(", "))),
                 _ => None,
             }
         }
@@ -48,8 +50,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 UnnamedFields::Named(span, replacement) => {
                     suggest(cx, pat.hir_id, diag, span, "name each field `..` covers as `field: _`", replacement, Applicability::MachineApplicable);
                 }
-                UnnamedFields::Positional => {
-                    diag.help("write `_` in place of `..` for each field it covers");
+                UnnamedFields::Positional(replacement) => {
+                    diag.help(format!("replace `..` with `{replacement}`"));
                 }
             });
         }

@@ -108,5 +108,5 @@ rule:
             - inside: {stopBy: {matches: owner}, matches: beside-rest-call}
             - inside: {stopBy: {matches: owner}, matches: after-rest-call}
             - inside: {stopBy: {matches: owner}, matches: before-rest-call}
-message: '`$NAME` appends `$REST` to each branch and walks it again per branch, the work doubles per branch level'
-note: 'Walk each branch alone and join the branch results in one shared continuation that runs the remaining work once'
+message: '`$NAME` appends `$REST` to every branch and recurses on each, walking `$REST` once per branch'
+note: 'Recurse on each branch alone and walk `<rest>` once after the branches join'

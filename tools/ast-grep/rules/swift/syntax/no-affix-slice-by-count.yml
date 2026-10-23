@@ -87,5 +87,5 @@ rewriters:
 transform:
     TRIMMED: {rewrite: {source: $SLICE, rewriters: [trimmed-copy, trimmed-in-place]}}
 fix: $TRIMMED
-message: '`$SLICE` removes the tested affix `$AFFIX` by a count that restates its length'
-note: 'Call `trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, `replacing(/<affix>\z/, with: "")`, or `wholeMatch(of: /<affix>(.*)/)?.1` for `nil` without it'
+message: '`$SLICE` removes tested affix `$AFFIX` by a count restating its length'
+note: 'Call `trimmingPrefix(<affix>)`, `trimPrefix(<affix>)` in place, `replacing(/<affix>\z/, with: "")` for a suffix, `wholeMatch(of:)?.1` for an optional'

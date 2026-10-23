@@ -1,4 +1,4 @@
-"""Native coded, transmitted, taped, received, and displayed video graphs."""
+"""Coded, transmitted, taped, received, and displayed video graphs."""
 
 from collections.abc import Mapping
 from enum import IntEnum
@@ -35,7 +35,7 @@ from blender.imaging.parameters import Gated, Motion
 
 
 class Noise(IntEnum):
-    """Persistent decorrelation identities of the video path's random fields."""
+    """Persistent decorrelation keys for video random fields."""
 
     CELLS = 0
     BOUNCE = 1
@@ -49,19 +49,18 @@ class Noise(IntEnum):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: Emulation, context: Context) -> BlenderResult[None]:
-    """Admits the finite Tape canvases at every rendered frame before native writes.
+def validated(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: Emulation, context: Context) -> BlenderResult[None]:
+    """Accepts finite Tape canvases at every rendered frame before writes.
 
     Args:
-        identity: Extension identity resolving the entry's native inputs.
+        identity: Identity resolving entry inputs.
         scene: Render range, animation owner, and compositor receiving capacity.
-        entry: Existing entry whose keyed channels override proposed scalar values.
+        entry: Existing entry with keyed channels overriding proposed scalar values.
         record: Proposed Emulation parameters.
         context: Evaluated entering raster dimensions and camera framing.
 
     Returns:
-        Admission, native animation or framing faults, missing entering raster
-        facts for enabled Tape, or the compositor's typed size requirement.
+        None when every Tape canvas fits, or animation, framing, missing raster, and compositor size faults.
     """
     frames = tuple(range(scene.frame_start, scene.frame_end + 1, scene.frame_step))
     _, _, tape, _, _, lines_field, _, _ = Emulation.__struct_fields__
@@ -111,21 +110,20 @@ def prepared(
     _frame: CameraFrame,
     _entry: bpy.types.SceneCompositorEffect,
 ) -> BlenderResult[tuple[Emulation, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Codes the captured associated display image before the remaining native sections.
+    """Codes captured display image before remaining sections.
 
     Args:
-        _identity: Stage job's extension owner.
-        _scene: Stage job's evaluated frame.
-        record: Evaluated compression and following-section parameters.
-        _config: Admitted color configuration; the capture already has the row's encoding.
-        source: Associated display RGBA with the captured data and display windows.
-        _precision: Numerical sampling policy; the native JPEG cycle has no sampled integral.
-        _frame: Evaluated original camera units; coded resize uses the captured full window.
-        _entry: Evaluated native stage entry.
+        _identity: Extension owning stage job.
+        _scene: Evaluated frame of stage job.
+        record: Evaluated compression and later section parameters.
+        _config: Validated color configuration, capture holds row encoding.
+        source: Associated display RGBA with captured data and display windows.
+        _precision: Sampling policy, unused by JPEG cycle.
+        _frame: Evaluated original camera units, coded resize reads captured full window.
+        _entry: Evaluated stage entry.
 
     Returns:
-        The same record and its published replacement image, or an empty mapping
-        when coding is disabled. Native imaging refusals retain their typed cause.
+        Unchanged record with published replacement image, empty mapping without compression, or imaging faults.
     """
     if not record.compression.enabled:
         return Ok((record, {}))
@@ -170,17 +168,18 @@ def prepared(
 
 
 def raster_noise(key: str, lattice: Operand, offset: Operand, pattern: Operand) -> BlenderResult[tuple[tuple[Fragment, End], ...]]:
-    """Constructs four Gaussian samples at one raster lattice and pattern.
+    """Builds four Gaussian samples at one raster lattice and pattern.
+
+    Enclosing row requests full compositor precision.
 
     Args:
-        key: Prefix for the raster field's native node keys.
+        key: Node key prefix.
         lattice: Raster sample or line coordinates in XY.
-        offset: Seed and noise identity offset from the owning origin operation.
-        pattern: Integer pattern index retained as the fourth noise coordinate.
+        offset: Seed and noise key offset from owning origin.
+        pattern: Integer pattern index as fourth noise coordinate.
 
     Returns:
-        Four normal fragment/end pairs in cosine/sine pair order, or accumulated
-        native graph faults. The enclosing row supplies full compositor precision.
+        Four normal fragment and end pairs in cosine and sine order, or accumulated graph faults.
     """
     return (
         vector(f"{key}_shifted", "ADD", lattice, offset)
@@ -200,13 +199,13 @@ def raster_noise(key: str, lattice: Operand, offset: Operand, pattern: Operand) 
 
 
 def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds corruption, tape, reception, and display after the native codec section.
+    """Builds corruption, tape, reception, and display after codec section.
 
     Args:
-        shell: Codec-processed image, camera frame, and native parameter endpoints.
+        shell: Codec-processed image, camera frame, and parameter endpoints.
 
     Returns:
-        Displayed color and complete graph, or accumulated native graph faults.
+        Displayed color with graph, or accumulated graph faults.
     """
     socket, source = shell.socket, shell.source
     _, value = Gated.__struct_fields__
@@ -681,10 +680,10 @@ def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 emulation: CompositorEffect[Emulation] = CompositorEffect(
-    record=Emulation, graph=emulated, straight=True, coverage=Coverage.INPUT, requested=Some(precise), native_admitted=Some(admitted), preparation=Some(prepared)
+    record=Emulation, graph=emulated, straight=True, coverage=Coverage.INPUT, requested=Some(precise), native_validated=Some(validated), preparation=Some(prepared)
 )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Noise", "admitted", "emulated", "emulation", "prepared", "raster_noise"]
+__all__ = ["Noise", "emulated", "emulation", "prepared", "raster_noise", "validated"]

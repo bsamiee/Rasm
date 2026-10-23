@@ -1,4 +1,4 @@
-"""Native drawing callbacks with cached reads and owned refresh lifetimes."""
+"""Draw callbacks with cached reads and owned refreshes."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -30,19 +30,19 @@ if TYPE_CHECKING:
 
 
 class Part[S](Protocol):
-    """Scale-dependent read and native draw of a part."""
+    """Scale-dependent read and draw of a part."""
 
     def read(self, metrics: Metrics, /) -> BlenderResult[Option[S]]:
-        """Returns the current draw state, or Nothing while there is none."""
+        """Returns draw state, Nothing while none exists."""
         ...
 
     def drawn(self, canvas: Canvas, state: S, /) -> None:
-        """Draws the state on the supplied canvas."""
+        """Draws state on canvas."""
         ...
 
 
 class _Phase(Enum):
-    """Unread and released phases outside a drawing's cached state."""
+    """Drawing phases with no cached state."""
 
     UNREAD = auto()
     RELEASED = auto()
@@ -55,14 +55,14 @@ type Refresh = Watch | Updated | Signal | list[Callable[[bpy.types.Scene], None]
 
 
 class Watch(msgspec.Struct, frozen=True, kw_only=True):
-    """Native property whose notifications invalidate a drawing's read."""
+    """Property invalidating cached read on each change."""
 
     owner: "type[bpy.types.bpy_struct[object]]"
     identifier: str
 
 
 class Updated(msgspec.Struct, frozen=True, kw_only=True):
-    """Dependency-graph updates filtered by ID types and change kinds."""
+    """Depsgraph updates filtered by ID type and change."""
 
     handlers: list[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]]
     ids: tuple[type[bpy.types.ID], ...]
@@ -70,14 +70,14 @@ class Updated(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class DrawState[S](msgspec.Struct, frozen=True, kw_only=True):
-    """Completed read and the interface metrics it was read at."""
+    """Completed read at its interface metrics."""
 
     metrics: Metrics
     state: Option[S]
 
 
 class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
-    """Drawn part, its admitted areas, and its refresh sources."""
+    """Part drawn in matching areas."""
 
     area: AreaQuery
     part: Part[S]
@@ -85,12 +85,12 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
     where: Option[Callable[[bpy.types.Context], bool]] = Nothing
 
     def acquired(self, identity: Identity) -> BlenderResult[tuple[tuple[tuple[Band, Acquisition], ...], Drew]]:
-        """Builds owned refresh acquisitions and one region or pointer draw callback."""
+        """Builds refresh acquisitions and draw callback."""
         held: DrawState[S] | _Phase = _Phase.UNREAD
         read = identity.reports.reported(self.part.read)
 
         def refreshed() -> BlenderResult[None]:
-            """Invalidates the held read and tags every admitted live area."""
+            """Invalidates held read and redraws matching areas."""
             nonlocal held
             held = _Phase.UNREAD
             for manager in Option.of_optional(bpy.context.window_manager).to_list():
@@ -99,18 +99,18 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
             return Ok(None)
 
         def deferred_refresh() -> BlenderResult[Option[str]]:
-            """Refreshes after native write restrictions end without an undo step."""
+            """Refreshes later with no undo step."""
             return refreshed().map(lambda _: Nothing)
 
         later: Callable[[], None]
 
         def deferring(*_: object) -> BlenderResult[None]:
-            """Schedules one refresh for handlers that can run outside the main thread."""
+            """Schedules main-thread refresh."""
             later()
             return Ok(None)
 
         def followed(refresh: Refresh) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-            """Builds the acquisition owned by one refresh source."""
+            """Builds acquisitions of one refresh source."""
             match refresh:
                 case Watch(owner=owner, identifier=identifier):
                     return Descriptor.resolve(owner, identifier, bpy.types.Property).bind(lambda found: Subscription(owner=owner, setting=found.prop, body=refreshed).acquisitions(identity))
@@ -122,12 +122,12 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
                     return SceneHandler(handlers=refresh, body=deferring).acquisitions(identity)
 
         def drew(pointer: Option[tuple[int, int]]) -> None:
-            """Reads on invalidation or scale changes and draws in admitted native regions."""
+            """Rereads on invalidation or scale change, then draws."""
             nonlocal held
             if held is _Phase.RELEASED:
                 return
             area, region = bpy.context.area, bpy.context.region
-            if area is None or region is None or not self.area.admits(area) or not all(admit(bpy.context) for admit in self.where.to_list()):
+            if area is None or region is None or not self.area.matches(area) or not all(check(bpy.context) for check in self.where.to_list()):
                 return
             canvas = Canvas.of(area, region, pointer)
             if isinstance(held, _Phase) or held.metrics != canvas.metrics:
@@ -138,7 +138,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
 
         @contextmanager
         def cleared() -> Generator[None]:
-            """Owns refresh admission and retires callbacks Blender may still retain."""
+            """Owns deferred refreshes, disabling stale callbacks at release."""
             nonlocal held, later
             try:
                 with identity.reports.deferred(deferred_refresh) as later:
@@ -154,7 +154,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
-    """Drawing placed in one native space's region and draw phase."""
+    """Drawing in one space region and draw phase."""
 
     drawing: Drawing[S]
     space: type[bpy.types.Space]
@@ -164,7 +164,7 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
     draw_type: Literal["PRE_VIEW", "POST_VIEW", "POST_PIXEL", "BACKDROP"] = "POST_PIXEL"
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Owns the region draw handle under the caller's overlay visibility policy."""
+        """Owns region draw handle."""
         switch = (
             Descriptor
             .resolve(self.space, "overlay.show_overlays", bpy.types.BoolProperty)
@@ -178,10 +178,10 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
 
         @contextmanager
         def added(drew: Drew) -> Generator[BlenderResult[None] | None]:
-            """Holds the native draw handle or returns its registration refusal."""
+            """Holds draw handle or yields its refusal."""
 
             def drawn() -> None:
-                """Enables clipping and restores the native pass's supplied scissor state."""
+                """Enables scissor test for the draw."""
                 gpu.state.scissor_test_set(True)
                 try:
                     drew(Nothing)
@@ -211,7 +211,7 @@ class Signal(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @contextmanager
     def followed(self, refresh: Callable[[], BlenderResult[None]]) -> Generator[None]:
-        """Holds one drawing's refresh until its acquisition is released."""
+        """Holds drawing refresh until release."""
         self.refreshes.append(refresh)
         try:
             yield None
@@ -219,7 +219,7 @@ class Signal(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             self.refreshes.remove(refresh)
 
     def fired(self) -> BlenderResult[None]:
-        """Refreshes every following drawing and accumulates their failures."""
+        """Refreshes every following drawing, accumulating failures."""
         return accumulated(refresh() for refresh in self.refreshes).map(lambda _: None)
 
 

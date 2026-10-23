@@ -22,7 +22,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (message, help) = match (cx.tcx.generics_require_sized_self(item.owner_id.to_def_id()), upcast) {
                 (true, Upcast::Supertrait(_) | Upcast::Any) => (
                     format!("`{method}` returns `self` as `dyn {supertrait}`, which an unsizing coercion converts"),
-                    format!("delete the method and coerce each receiver to `dyn {supertrait}` at each call site"),
+                    format!("delete the method and coerce the receiver to `dyn {supertrait}` at each call site"),
                 ),
                 (false, Upcast::Supertrait(_)) => (
                     format!("`{method}` returns `self` as `dyn {supertrait}`, which trait upcasting converts from `dyn {subtrait}`"),

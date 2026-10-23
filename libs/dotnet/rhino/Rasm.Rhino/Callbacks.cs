@@ -12,7 +12,7 @@ public sealed record CallbackSite(IPlugInSink Sink, Type Owner, string Member) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Callbacks {
-    // --- [SETTLING]
+    // --- [JOINING]
     private static readonly JoinableTaskContext Threading = Eto.Forms.Application.Instance.Invoke(static () =>
         Eto.Forms.Application.Instance.Properties.Create(typeof(JoinableTaskContext), static () => new JoinableTaskContext()));
 

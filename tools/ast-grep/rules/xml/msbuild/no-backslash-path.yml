@@ -19,5 +19,5 @@ rule:
             - all:
                 - has: {kind: Name, regex: '^Lines$', pattern: _PARAMETER}
                 - inside: {matches: msbuild-tag, has: {kind: Name, regex: '^WriteLinesToFile$', pattern: _TASK}}
-message: '`$TASK` `$PARAMETER` passes a backslash separator to the shell or the written file as text'
+message: '`$TASK` `$PARAMETER` passes a backslash separator verbatim to the shell or written file'
 note: Write `/` as the separator

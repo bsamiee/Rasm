@@ -28,5 +28,5 @@ rule:
             all:
                 - has: {stopBy: end, matches: blanket-impl}
                 - not: {has: {stopBy: end, kind: dynamic_type, has: {field: trait, matches: named-trait}}}
-message: 'Trait `$NAME` with an empty body and an empty blanket impl names a set of bounds'
+message: 'Empty trait `$NAME` and its empty blanket impl name a set of bounds by hand'
 note: 'Write `trait <name> = <bound> + <bound>;` (`#![feature(trait_alias)]`) and delete the trait and impl pair'

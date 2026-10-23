@@ -65,9 +65,9 @@ public readonly record struct WheelOffset(WheelHue Hue, AxisFraction Strength, W
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WheelOffsetParameter : IStateParameter<WheelOffset> {
     public static readonly WheelOffsetParameter Hue = new("hue", StateParameter.Bounded(WheelOffset.HueOf),
-        new("Hue", "Angle of the tint, zero on the positive horizontal axis growing counterclockwise"));
+        new("Hue", "Tint angle counterclockwise from right"));
     public static readonly WheelOffsetParameter Strength = new("strength", StateParameter.Bounded(WheelOffset.StrengthOf),
-        new("Strength", "Chroma of the tint"));
+        new("Strength", "Tint chroma"));
     public static readonly WheelOffsetParameter Luma = new("luma", StateParameter.Bounded(WheelOffset.LumaOf),
         new("Luma", "Gain in stops"));
 
@@ -133,17 +133,17 @@ public sealed partial class WheelsParameter : IStateParameter<WheelsState> {
     public static readonly WheelsParameter Global = new("global", new StateParameter<WheelsState>.Record<WheelOffset>(ToneWheel.Global.Lens),
         new("Global", "Tint over every tone"));
     public static readonly WheelsParameter Shadows = new("shadows", new StateParameter<WheelsState>.Record<WheelOffset>(ToneWheel.Shadows.Lens),
-        new("Shadows", "Tint over the dark tones"));
+        new("Shadows", "Tint over dark tones"));
     public static readonly WheelsParameter Midtones = new("midtones", new StateParameter<WheelsState>.Record<WheelOffset>(ToneWheel.Midtones.Lens),
-        new("Midtones", "Tint over the middle tones"));
+        new("Midtones", "Tint over middle tones"));
     public static readonly WheelsParameter Highlights = new("highlights", new StateParameter<WheelsState>.Record<WheelOffset>(ToneWheel.Highlights.Lens),
-        new("Highlights", "Tint over the bright tones"));
+        new("Highlights", "Tint over bright tones"));
     public static readonly WheelsParameter ShadowsEnd = new("shadows-end", StateParameter.Bounded(Lens<WheelsState, PositiveFraction>.New(static state => state.ShadowsEnd, static end => state => state with { ShadowsEnd = end })),
-        new("Shadows end", "Working luminance where the shadows weight reaches zero"));
+        new("Shadows end", "Working luminance ending shadows weight"));
     public static readonly WheelsParameter HighlightsStart = new("highlights-start", StateParameter.Bounded(Lens<WheelsState, AxisFraction>.New(static state => state.HighlightsStart, static start => state => state with { HighlightsStart = start })),
-        new("Highlights start", "Working luminance where the highlights weight begins"));
+        new("Highlights start", "Working luminance starting highlights weight"));
     public static readonly WheelsParameter HighlightsWidth = new("highlights-width", StateParameter.Bounded(Lens<WheelsState, PositiveFraction>.New(static state => state.HighlightsWidth, static width => state => state with { HighlightsWidth = width })),
-        new("Highlights width", "Luminance span over which the highlights weight reaches full"));
+        new("Highlights width", "Luminance span over which highlights weight reaches full"));
 
     public StateParameter<WheelsState> Kind { get; }
     public ParameterText Text { get; }

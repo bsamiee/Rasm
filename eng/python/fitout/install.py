@@ -1,4 +1,4 @@
-"""Installs an extension archive through Blender's native handler and records it enabled, in the GUI session holding the same user profile, else a background process."""
+"""Installs and enables extension archive in matching Blender GUI session, else background process."""
 
 import os
 import sys
@@ -17,7 +17,7 @@ import msgspec
 import psutil
 from pydantic import ValidationError
 
-# --- [MODELS]---------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _Manifest(msgspec.Struct, frozen=True):
@@ -38,7 +38,7 @@ class _Completed(msgspec.Struct, frozen=True, tag="ok", tag_field="status"):
 
 
 class RemoteFailure(msgspec.Struct, frozen=True, tag="error", tag_field="status"):
-    """Connected Blender process's execution traceback and captured output."""
+    """Traceback and output of code run in connected Blender."""
 
     message: str
     stdout: str = ""
@@ -54,19 +54,18 @@ type InstallError = OSError | msgspec.ValidationError | ExceptionGroup[OSError |
 async def install(
     directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, InstallError]:
-    """Install the archive `pack` built for this host into the user repository and keep its extension enabled.
+    """Installs archive `pack` built for host into user repository with extension enabled.
 
-    A GUI session holding the same profile loads it in place, and every later startup loads it with
-    its wheels extracted before any extension imports a distribution they share.
+    GUI sessions with same profile load extension in place.
+    Later startups extract its wheels before any extension imports a shared distribution.
 
     Args:
-        directory: Folder holding the extension's archive.
-        blender: Blender executable, supplied by BLENDER_PATH.
-        endpoint: Blender Lab service endpoint, supplied by BLENDER_MCP_URL.
+        directory: Folder with extension archive.
+        endpoint: Blender Lab MCP endpoint.
+        blender: Blender executable.
 
     Returns:
-        The native handler's status, or a process, transport,
-        response-decoding, or remote execution error. Native output is forwarded.
+        Handler status, or process, transport, decode, or remote execution error.
     """
     (archive,) = directory.glob("*.zip")
 
@@ -110,7 +109,7 @@ async def install(
         sys.stderr.write(response.stderr)
         return Error(response) if isinstance(response, RemoteFailure) else Ok(response.result.returncode)
 
-    code = f"import os\nif os.getpid() not in {pids!r}:\n    raise RuntimeError('The connected Blender is not a selected running process')\n{reconciled('--enable')}"
+    code = f"import os\nif os.getpid() not in {pids!r}:\n    raise RuntimeError('Connected Blender matches no GUI process')\n{reconciled('--enable')}"
     try:
         async with Client(endpoint) as client:
             called = await client.call_tool("execute_blender_code", {"code": code})

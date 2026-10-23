@@ -36,4 +36,4 @@ rule:
                 - pattern: '$I.enumerate().filter_map(|($IDX, $ITEM)| if $TEST { Some($IDX) } else { None })'
             - matches: index-free-test
 message: '`$CHAIN` enumerates `$I` to keep indexes of elements that pass a test'
-note: 'Call `Itertools::positions(<test>)` on the iterator (`use itertools::Itertools as _;`) with the test taking each element by value'
+note: 'Call `<iterator>.positions(<test>)` (`use itertools::Itertools as _;`) with the test taking each element by value'

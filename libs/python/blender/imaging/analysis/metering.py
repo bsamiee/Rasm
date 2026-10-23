@@ -18,7 +18,7 @@ from blender.imaging.parameters import Gated, Presentation, Quantity, Unit
 
 
 class Region(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame rectangle as bottom-left shares, with y increasing upward."""
+    """Frame rectangle in shares from bottom left."""
 
     left: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
     bottom: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
@@ -31,7 +31,7 @@ class Region(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Extent(msgspec.Struct, frozen=True, kw_only=True):
-    """Least covered working luminance and percentile frame white."""
+    """Lowest covered luminance and percentile frame white."""
 
     percentile: ClassVar[float] = 99.995
     low: float
@@ -48,21 +48,21 @@ class Samples(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def logarithm(cls, values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Returns base-two luminance with the measured black floor."""
+        """Returns log2 of values clamped to `floor`."""
         logarithms = np.log2(np.maximum(values, cls.floor))
         logarithms.setflags(write=False)
         return logarithms
 
     @property
     def finite(self) -> npt.NDArray[np.bool]:
-        """Mask of covered pixels with finite working luminance."""
+        """Covered pixels with finite luminance."""
         mask = self.covered & np.isfinite(self.luminance)
         mask.setflags(write=False)
         return mask
 
     @property
     def central(self) -> npt.NDArray[np.bool]:
-        """Mask of the middle half along both frame axes."""
+        """Middle half along both frame axes."""
         height, width = self.covered.shape
         rows, columns = np.arange(height, dtype=np.float64)[:, None], np.arange(width, dtype=np.float64)[None, :]
         mask = np.asarray((np.abs(rows + 0.5 - height / 2.0) < height / 4.0) & (np.abs(columns + 0.5 - width / 2.0) < width / 4.0), dtype=np.bool)
@@ -70,7 +70,7 @@ class Samples(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return mask
 
     def extent(self) -> Option[Extent]:
-        """Returns minimum and observed percentile white, or absence without coverage."""
+        """Returns covered luminance extent."""
         return (
             Some(self.luminance[self.finite])
             .filter(lambda found: found.size > 0)
@@ -78,16 +78,16 @@ class Samples(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         )
 
     def percentile(self, rank: Annotated[float, msgspec.Meta(ge=0.0, le=100.0)]) -> Option[float]:
-        """Returns an observed covered finite luminance at the requested percentile."""
+        """Returns covered luminance at `rank` percentile."""
         return Some(self.luminance[self.finite]).filter(lambda found: found.size > 0).map(lambda found: float(np.percentile(found, rank, method="inverted_cdf")))
 
     def log_statistics(self) -> Option[tuple[float, float, float]]:
-        """Returns mean, maximum, and minimum finite covered log luminance."""
+        """Returns mean, maximum, and minimum covered log luminance."""
         return Some(self.logarithm(self.luminance[self.finite])).filter(lambda found: found.size > 0).map(lambda found: (float(found.mean(dtype=np.float64)), float(found.max()), float(found.min())))
 
 
 def samples_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Samples]:
-    """Reads associated RGB or RGBA without counting uncovered pixels as black."""
+    """Reads associated RGB or RGBA as straight samples."""
 
     def sampled(coefficients: npt.NDArray[np.float32]) -> Samples:
         straight = unassociated(plane)
@@ -101,15 +101,15 @@ def samples_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> 
 
 
 class Meter(msgspec.Struct, frozen=True, kw_only=True):
-    """Percentile trims, central weighting, and region of an exposure reading."""
+    """Exposure percentile trims, center weight, and region."""
 
     low: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, title="Low Trim"), Presentation(step=Some(1.0), decimals=Some(1))] = 0.0
     high: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, title="High Trim"), Presentation(step=Some(1.0), decimals=Some(1))] = 100.0
-    centre: Annotated[Unit, msgspec.Meta(title="Centre Weight")] = 0.0
+    centre: Annotated[Unit, msgspec.Meta(title="Center Weight")] = 0.0
     region: Gated[Region] = Gated(enabled=False, value=Region())
 
     def stops(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Option[float]]:
-        """Returns stops to scene gray, or absence when covered samples have no weight."""
+        """Returns stops to scene gray, or absence without weighted samples."""
         box = self.region.value if self.region.enabled else Region()
 
         def metered(samples: Samples) -> Option[float]:
@@ -136,7 +136,7 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def peak(samples: Samples) -> Option[float]:
-    """Returns the observed percentile PQ peak in cd/m², or absence without coverage."""
+    """Returns covered percentile PQ peak in cd/m²."""
     decoder = PyOpenColorIO.Config().getProcessor(PyOpenColorIO.BuiltinTransform(style="CURVE - LINEAR_to_ST-2084"), PyOpenColorIO.TRANSFORM_DIR_INVERSE).getDefaultCPUProcessor()
     greatest = samples.color.max(axis=-1)
     return (
@@ -147,7 +147,7 @@ def peak(samples: Samples) -> Option[float]:
 
 
 def sample(plane: npt.NDArray[np.float32], position: tuple[int, int], radius: Annotated[int, msgspec.Meta(ge=0)] = 0) -> Option[npt.NDArray[np.float64]]:
-    """Returns the covered channel mean around a top-first (column, row) pixel."""
+    """Returns covered channel mean within `radius` of top-first (column, row)."""
     column, row = position
     height, width = plane.shape[:2]
     square = plane[max(0, min(height, row - radius)) : max(0, min(height, row + radius + 1)), max(0, min(width, column - radius)) : max(0, min(width, column + radius + 1))]

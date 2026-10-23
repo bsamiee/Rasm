@@ -46,5 +46,5 @@ rule:
     any:
         - matches: local-propagator
         - matches: header-name
-message: '`$SITE` propagates trace context by hand'
-note: 'Install `TraceContextPropagator` once through `global::set_text_map_propagator` and propagate through `HeaderInjector` and `HeaderExtractor`'
+message: '`$SITE` injects, extracts, or spells W3C trace context outside the global propagator'
+note: 'Inject or extract through `global::get_text_map_propagator` with `opentelemetry_http::HeaderInjector` or `HeaderExtractor`'

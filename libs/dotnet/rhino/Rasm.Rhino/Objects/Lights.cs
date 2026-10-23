@@ -160,18 +160,18 @@ internal static partial class LightMapper {
     [MapProperty(nameof(LightSpec.Enabled), nameof(Light.IsEnabled))]
     [MapProperty(nameof(LightSpec.Watts), nameof(Light.PowerWatts))]
     [MapperIgnoreSource(nameof(LightSpec.Shape), Justification = "Each shape case writes its own members")]
-    [MapperIgnoreSource(nameof(LightSpec.Color), Justification = "Written supplies the emitted diffuse and scaled intensity")]
+    [MapperIgnoreSource(nameof(LightSpec.Color), Justification = "Written sets emitted diffuse and scaled intensity")]
     internal static partial void Update(LightSpec spec, Light light, Color diffuse);
 
-    [MapperIgnoreSource(nameof(LightShape.PointLight.CameraRelative), Justification = "LightStyle carries the frame")]
+    [MapperIgnoreSource(nameof(LightShape.PointLight.CameraRelative), Justification = "LightStyle holds frame")]
     internal static partial void Update([MappingTarget] Light light, LightShape.PointLight point);
 
     [MapProperty(nameof(LightShape.SpotLight.Angle), nameof(Light.SpotAngleRadians))]
-    [MapperIgnoreSource(nameof(LightShape.SpotLight.CameraRelative), Justification = "LightStyle carries the frame")]
+    [MapperIgnoreSource(nameof(LightShape.SpotLight.CameraRelative), Justification = "LightStyle holds frame")]
     internal static partial void Update([MappingTarget] Light light, LightShape.SpotLight spot);
 
     [MapProperty(nameof(LightShape.DirectionalLight.Angle), nameof(Light.Radius), Use = nameof(Degrees))]
-    [MapperIgnoreSource(nameof(LightShape.DirectionalLight.CameraRelative), Justification = "LightStyle carries the frame")]
+    [MapperIgnoreSource(nameof(LightShape.DirectionalLight.CameraRelative), Justification = "LightStyle holds frame")]
     internal static partial void Update([MappingTarget] Light light, LightShape.DirectionalLight directional);
 
     internal static partial void Update([MappingTarget] Light light, LightShape.LinearLight linear);
@@ -262,7 +262,7 @@ public static class Lights {
             .Apply((shape, emission, watts, shadow) => new LightState(light.Id, new LightSpec(
                 Conversions.Present(light.Name), light.IsEnabled, shape, emission.Color, emission.Intensity, watts, shadow, light.AttenuationVector)))
             .As()
-            .MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"light {light.Id} holds a value outside its type", error));
+            .MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"light {light.Id} holds invalid value", error));
 
     private static Fin<LightShape> Shape(Light light) =>
         light.LightStyle switch {

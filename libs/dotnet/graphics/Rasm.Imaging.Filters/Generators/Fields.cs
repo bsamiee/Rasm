@@ -80,9 +80,9 @@ public sealed record GeneratedLayer(BlendingMode Mode, Exposure Exposure) : ISta
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GeneratedLayerParameter : IStateParameter<GeneratedLayer> {
     public static readonly GeneratedLayerParameter Mode = new("mode", new StateParameter<GeneratedLayer>.Choice<BlendingMode>(Lens<GeneratedLayer, BlendingMode>.New(static layer => layer.Mode, static mode => layer => layer with { Mode = mode })),
-        new("Blend", "Way the generated layer joins the frame, Mix covering it and Add adding light"));
+        new("Blend", "Mix covers frame, Add adds light"));
     public static readonly GeneratedLayerParameter Exposure = new("exposure", StateParameter.Bounded(Lens<GeneratedLayer, Exposure>.New(static layer => layer.Exposure, static exposure => layer => layer with { Exposure = exposure })),
-        new("Exposure", "Stops scaling the generated layer"));
+        new("Exposure", "Layer brightness in stops"));
 
     public StateParameter<GeneratedLayer> Kind { get; }
     public ParameterText Text { get; }
@@ -99,9 +99,9 @@ public sealed record Placement(FramePosition Center, SignedAngle Rotation) : ISt
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlacementParameter : IStateParameter<Placement> {
     public static readonly PlacementParameter Center = new("center", new StateParameter<Placement>.Record<FramePosition>(Lens<Placement, FramePosition>.New(static placement => placement.Center, static center => placement => placement with { Center = center })),
-        new("Center", "Point the layer centers on and turns about"));
+        new("Center", "Layer center and rotation pivot"));
     public static readonly PlacementParameter Rotation = new("rotation", StateParameter.Bounded(Lens<Placement, SignedAngle>.New(static placement => placement.Rotation, static rotation => placement => placement with { Rotation = rotation })),
-        new("Rotation", "Turn of the layer about its center, counterclockwise"));
+        new("Rotation", "Counterclockwise turn about center"));
 
     public StateParameter<Placement> Kind { get; }
     public ParameterText Text { get; }
@@ -145,13 +145,13 @@ public sealed partial class NoiseSourceParameter : IStateParameter<NoiseSource> 
     public static readonly NoiseSourceParameter Basis = new("basis", new StateParameter<NoiseSource>.Variant<NoiseBasis>(Lens<NoiseSource, NoiseBasis>.New(static noise => noise.Basis, static basis => noise => noise with { Basis = basis })),
         new("Basis", "Noise the field draws"));
     public static readonly NoiseSourceParameter ScaleX = new("scale-x", StateParameter.Bounded(Lens<NoiseSource, ShortSideExtent>.New(static noise => noise.ScaleX, static scale => noise => noise with { ScaleX = scale }), Tracks.Extent),
-        new("Scale X", "Feature width as a share of the frame's short side"));
+        new("Scale X", "Feature width in frame short sides"));
     public static readonly NoiseSourceParameter ScaleY = new("scale-y", StateParameter.Bounded(Lens<NoiseSource, ShortSideExtent>.New(static noise => noise.ScaleY, static scale => noise => noise with { ScaleY = scale }), Tracks.Extent),
-        new("Scale Y", "Feature height as a share of the frame's short side"));
+        new("Scale Y", "Feature height in frame short sides"));
     public static readonly NoiseSourceParameter DriftX = new("drift-x", StateParameter.Bounded(Lens<NoiseSource, Drift>.New(static noise => noise.DriftX, static drift => noise => noise with { DriftX = drift }), Travel),
-        new("Drift X", "Short sides per second the field moves rightward"));
+        new("Drift X", "Frame short sides per second the field moves right"));
     public static readonly NoiseSourceParameter DriftY = new("drift-y", StateParameter.Bounded(Lens<NoiseSource, Drift>.New(static noise => noise.DriftY, static drift => noise => noise with { DriftY = drift }), Travel),
-        new("Drift Y", "Short sides per second the field moves upward"));
+        new("Drift Y", "Frame short sides per second the field moves up"));
     public static readonly NoiseSourceParameter Evolution = new("evolution", StateParameter.Bounded(Lens<NoiseSource, Frequency>.New(static noise => noise.Evolution, static evolution => noise => noise with { Evolution = evolution }), Tracks.Rate),
         new("Evolution", "Noise units per second the field changes through"));
 
@@ -181,15 +181,15 @@ public sealed record VortexField(VortexArms Arms, SignedAngle Twist, ShortSideEx
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VortexFieldParameter : IStateParameter<VortexField> {
     public static readonly VortexFieldParameter Arms = new("arms", StateParameter.Bounded(Lens<VortexField, VortexArms>.New(static vortex => vortex.Arms, static arms => vortex => vortex with { Arms = arms }), new Presentation<int> { Step = 1 }),
-        new("Arms", "Repeats the field around each turn, 0 drawing concentric rings"));
+        new("Arms", "Field repeats per turn, 0 draws concentric rings"));
     public static readonly VortexFieldParameter Twist = new("twist", StateParameter.Bounded(Lens<VortexField, SignedAngle>.New(static vortex => vortex.Twist, static twist => vortex => vortex with { Twist = twist })),
-        new("Twist", "Turn at the center falling toward the vortex radius"));
+        new("Twist", "Turn at center, falling to 0 at vortex radius"));
     public static readonly VortexFieldParameter Radius = new("radius", StateParameter.Bounded(Lens<VortexField, ShortSideExtent>.New(static vortex => vortex.Radius, static radius => vortex => vortex with { Radius = radius }), Tracks.Extent),
-        new("Radius", "Distance where the tunnel stops deepening, as a share of the frame's short side"));
+        new("Radius", "Distance where tunnel stops deepening in frame short sides"));
     public static readonly VortexFieldParameter Tunnel = new("tunnel", StateParameter.Bounded(Lens<VortexField, Steepness>.New(static vortex => vortex.Tunnel, static tunnel => vortex => vortex with { Tunnel = tunnel }), new Presentation<float> { Soft = (0f, 4f) }),
-        new("Tunnel", "Depth sampled along the vortex axis per unit of radius"));
+        new("Tunnel", "Depth sampled along vortex axis per unit radius"));
     public static readonly VortexFieldParameter Spin = new("spin", StateParameter.Bounded(Lens<VortexField, Frequency>.New(static vortex => vortex.Spin, static spin => vortex => vortex with { Spin = spin }), Frequency.Presentation with { Soft = (-1f, 1f) }),
-        new("Spin", "Turns per second the field rotates about its center"));
+        new("Spin", "Turns per second about center"));
 
     public StateParameter<VortexField> Kind { get; }
     public ParameterText Text { get; }
@@ -208,9 +208,9 @@ public sealed partial class FieldEnvelopeParameter : IStateParameter<FieldEnvelo
     private static readonly Presentation<float> Size = Tracks.Extent with { Soft = (0.1f, 4f) };
 
     public static readonly FieldEnvelopeParameter Width = new("width", StateParameter.Bounded(Lens<FieldEnvelope, ShortSideExtent>.New(static envelope => envelope.Width, static width => envelope => envelope with { Width = width }), Size),
-        new("Width", "Half width of the envelope as a share of the frame's short side"));
+        new("Width", "Envelope half width in frame short sides"));
     public static readonly FieldEnvelopeParameter Height = new("height", StateParameter.Bounded(Lens<FieldEnvelope, ShortSideExtent>.New(static envelope => envelope.Height, static height => envelope => envelope with { Height = height }), Size),
-        new("Height", "Half height of the envelope as a share of the frame's short side"));
+        new("Height", "Envelope half height in frame short sides"));
 
     public StateParameter<FieldEnvelope> Kind { get; }
     public ParameterText Text { get; }
@@ -244,9 +244,9 @@ public sealed record Emission(ColorTemperature Cool, ColorTemperature Hot) : ISt
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EmissionParameter : IStateParameter<Emission> {
     public static readonly EmissionParameter Cool = new("cool", StateParameter.Bounded(Lens<Emission, ColorTemperature>.New(static emission => emission.Cool, static cool => emission => emission with { Cool = cool }), Emission.Presentation),
-        new("Cool", "Blackbody temperature at the low end of the field"));
+        new("Cool", "Blackbody temperature at field low end"));
     public static readonly EmissionParameter Hot = new("hot", StateParameter.Bounded(Lens<Emission, ColorTemperature>.New(static emission => emission.Hot, static hot => emission => emission with { Hot = hot }), Emission.Presentation),
-        new("Hot", "Blackbody temperature at the high end of the field"));
+        new("Hot", "Blackbody temperature at field high end"));
 
     public StateParameter<Emission> Kind { get; }
     public ParameterText Text { get; }
@@ -368,29 +368,29 @@ public sealed record NoiseTexture(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NoiseTextureParameter : IStateParameter<NoiseTexture> {
     public static readonly NoiseTextureParameter Noise = new("noise", new StateParameter<NoiseTexture>.Record<NoiseSource>(Lens<NoiseTexture, NoiseSource>.New(static texture => texture.Noise, static noise => texture => texture with { Noise = noise })),
-        new("Noise", "Pattern, feature size, and motion of the field"));
+        new("Noise", "Field pattern, feature size, and motion"));
     public static readonly NoiseTextureParameter Placement = new("placement", new StateParameter<NoiseTexture>.Record<Placement>(Lens<NoiseTexture, Placement>.New(static texture => texture.Placement, static placement => texture => texture with { Placement = placement })),
-        new("Placement", "Position and turn of the field"));
+        new("Placement", "Field position and turn"));
     public static readonly NoiseTextureParameter Vortex = new("vortex", new StateParameter<NoiseTexture>.OptionalRecord<VortexField>(Lens<NoiseTexture, Gated<VortexField>>.New(static texture => texture.VortexShape, static vortex => texture => texture with { VortexShape = vortex })),
-        new("Vortex", "Turns the field around its center and deepens its sampled axis"));
+        new("Vortex", "Swirls field around center into tunnel"));
     public static readonly NoiseTextureParameter Warp = new("warp", StateParameter.Bounded(Lens<NoiseTexture, ShortSideOffset>.New(static texture => texture.Warp, static warp => texture => texture with { Warp = warp })),
-        new("Warp", "Displacement by the warp noise as a share of the frame's short side"));
+        new("Warp", "Warp noise displacement in frame short sides"));
     public static readonly NoiseTextureParameter WarpBasis = new("warp-basis", new StateParameter<NoiseTexture>.Variant<NoiseBasis>(Lens<NoiseTexture, NoiseBasis>.New(static texture => texture.WarpBasis, static basis => texture => texture with { WarpBasis = basis })),
         new("Warp noise", "Pattern displacing the field"));
     public static readonly NoiseTextureParameter Colors = new("colors", new StateParameter<NoiseTexture>.Gradient(Lens<NoiseTexture, Ramp>.New(static texture => texture.Colors, static colors => texture => texture with { Colors = colors })),
-        new("Colors", "Light and coverage over the noise value, each stop a color and its coverage"));
+        new("Colors", "Color and coverage by noise value"));
     public static readonly NoiseTextureParameter Envelope = new("envelope", new StateParameter<NoiseTexture>.OptionalRecord<FieldEnvelope>(Lens<NoiseTexture, Gated<FieldEnvelope>>.New(static texture => texture.Envelope, static envelope => texture => texture with { Envelope = envelope })),
-        new("Envelope", "Elliptical falloff shaping the generated field"));
+        new("Envelope", "Elliptical falloff shaping field"));
     public static readonly NoiseTextureParameter Incandescence = new("incandescence", new StateParameter<NoiseTexture>.OptionalRecord<Emission>(Lens<NoiseTexture, Gated<Emission>>.New(static texture => texture.Incandescence, static emission => texture => texture with { Incandescence = emission })),
-        new("Blackbody", "Blackbody light between the cool and hot temperatures"));
+        new("Blackbody", "Blackbody light between cool and hot temperatures"));
     public static readonly NoiseTextureParameter Extinction = new("extinction", StateParameter.OptionalBounded(Lens<NoiseTexture, Gated<OpticalDepth>>.New(static texture => texture.Extinction, static extinction => texture => texture with { Extinction = extinction }), new Presentation<float> { Soft = (0f, 8f) }),
-        new("Extinction", "Optical depth at full coverage, the field absorbing light as smoke"));
+        new("Extinction", "Optical depth at full coverage, absorbing light like smoke"));
     public static readonly NoiseTextureParameter Layer = new("layer", new StateParameter<NoiseTexture>.Record<GeneratedLayer>(Lens<NoiseTexture, GeneratedLayer>.New(static texture => texture.Layer, static layer => texture => texture with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly NoiseTextureParameter Seed = new("seed", StateParameter.Bounded(Lens<NoiseTexture, Seed>.New(static texture => texture.Seed, static seed => texture => texture with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly NoiseTextureParameter Timing = new("timing", new StateParameter<NoiseTexture>.Record<Timing>(Lens<NoiseTexture, Timing>.New(static texture => texture.Timing, static timing => texture => texture with { Timing = timing })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
 
     public StateParameter<NoiseTexture> Kind { get; }
     public ParameterText Text { get; }
@@ -464,27 +464,27 @@ public sealed partial class FogParameter : IStateParameter<Fog> {
     private static readonly Presentation<float> Reach = new() { Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Scale = TrackScale.Cubic };
 
     public static readonly FogParameter Noise = new("noise", new StateParameter<Fog>.Record<NoiseSource>(Lens<Fog, NoiseSource>.New(static fog => fog.Noise, static noise => fog => fog with { Noise = noise })),
-        new("Wisps", "Pattern, feature size, and motion of the medium"));
+        new("Wisps", "Medium pattern, feature size, and motion"));
     public static readonly FogParameter Variation = new("variation", StateParameter.Bounded(Lens<Fog, AxisFraction>.New(static fog => fog.Variation, static variation => fog => fog with { Variation = variation })),
-        new("Variation", "Density the wisps vary by, 0% a uniform medium"));
+        new("Variation", "Wisp density variation, 0% uniform"));
     public static readonly FogParameter Start = new("start", StateParameter.Bounded(Lens<Fog, FogDistance>.New(static fog => fog.Start, static start => fog => fog with { Start = start }), Reach with { Soft = (0f, 100f) }),
-        new("Start", "Distance from the camera where the medium begins"));
+        new("Start", "Camera distance where medium begins"));
     public static readonly FogParameter Attenuation = new("attenuation", StateParameter.OptionalBounded(Lens<Fog, Gated<FogAttenuation>>.New(static fog => fog.Attenuation, static attenuation => fog => fog with { Attenuation = attenuation }), Reach with { Soft = (0.3f, 1000f), Scale = TrackScale.Log }),
-        new("Attenuation", "Distance through the medium that passes 1/e of the light behind it"));
+        new("Attenuation", "Distance through medium passing 1/e of light behind it"));
     public static readonly FogParameter Cutoff = new("cutoff", StateParameter.OptionalBounded(Lens<Fog, Gated<FogDistance>>.New(static fog => fog.Cutoff, static cutoff => fog => fog with { Cutoff = cutoff }), Reach with { Soft = (0f, 1000f) }),
-        new("Cutoff", "Distance past which a surface keeps its own light, the background clear"));
+        new("Cutoff", "Distance past which surfaces and background stay clear"));
     public static readonly FogParameter Diffusion = new("diffusion", StateParameter.OptionalBounded(Lens<Fog, Gated<ShortSideLength>>.New(static fog => fog.Diffusion, static diffusion => fog => fog with { Diffusion = diffusion }), ShortSideLength.Presentation with { Soft = (0f, 2f) }),
-        new("Diffusion", "Blur radius of the frame's own light the medium scatters, off for an evenly lit medium"));
+        new("Diffusion", "Blur radius of frame light the medium scatters, off lights medium evenly"));
     public static readonly FogParameter Amount = new("amount", StateParameter.Bounded(Lens<Fog, AxisFraction>.New(static fog => fog.Amount, static amount => fog => fog with { Amount = amount })),
-        new("Density", "Share of the medium's coverage before the layer joins the frame"));
+        new("Density", "Share of medium coverage drawn"));
     public static readonly FogParameter Colors = new("colors", new StateParameter<Fog>.Gradient(Lens<Fog, Ramp>.New(static fog => fog.Colors, static colors => fog => fog with { Colors = colors })),
-        new("Colors", "Light the medium scatters toward the camera, near to far by its optical depth"));
+        new("Colors", "Medium color and coverage, near to far by optical depth"));
     public static readonly FogParameter Layer = new("layer", new StateParameter<Fog>.Record<GeneratedLayer>(Lens<Fog, GeneratedLayer>.New(static fog => fog.Layer, static layer => fog => fog with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly FogParameter Seed = new("seed", StateParameter.Bounded(Lens<Fog, Seed>.New(static fog => fog.Seed, static seed => fog => fog with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly FogParameter Timing = new("timing", new StateParameter<Fog>.Record<Timing>(Lens<Fog, Timing>.New(static fog => fog.Timing, static timing => fog => fog with { Timing = timing })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
 
     public StateParameter<Fog> Kind { get; }
     public ParameterText Text { get; }
@@ -530,35 +530,35 @@ public sealed record Starfield(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StarfieldParameter : IStateParameter<Starfield> {
     public static readonly StarfieldParameter Placement = new("placement", new StateParameter<Starfield>.Record<Placement>(Lens<Starfield, Placement>.New(static sky => sky.Placement, static placement => sky => sky with { Placement = placement })),
-        new("Placement", "Position and turn of the field"));
+        new("Placement", "Field position and turn"));
     public static readonly StarfieldParameter Stars = new("stars", new StateParameter<Starfield>.Variant<NoiseBasis>(Lens<Starfield, NoiseBasis>.New(static sky => sky.Stars, static stars => sky => sky with { Stars = stars })),
-        new("Stars", "Cellular field of the bright stars"));
+        new("Stars", "Cellular noise placing bright stars"));
     public static readonly StarfieldParameter StarScale = new("star-scale", StateParameter.Bounded(Lens<Starfield, ShortSideExtent>.New(static sky => sky.StarScale, static scale => sky => sky with { StarScale = scale }), Tracks.Extent with { Soft = (0.04f, 1f) }),
-        new("Star scale", "Cell side of the bright stars as a share of the frame's short side"));
+        new("Star scale", "Bright star cell side in frame short sides"));
     public static readonly StarfieldParameter StarRadius = new("star-radius", StateParameter.Bounded(Lens<Starfield, ShortSideExtent>.New(static sky => sky.StarRadius, static radius => sky => sky with { StarRadius = radius }), Tracks.Extent with { Soft = (0.01f, 1f) }),
-        new("Star radius", "Reach of each bright star as a share of the frame's short side"));
+        new("Star radius", "Bright star reach in frame short sides"));
     public static readonly StarfieldParameter StarColors = new("star-colors", new StateParameter<Starfield>.Gradient(Lens<Starfield, Ramp>.New(static sky => sky.StarColors, static colors => sky => sky with { StarColors = colors })),
-        new("Star colors", "Colors the bright stars draw from"));
+        new("Star colors", "Colors bright stars draw from"));
     public static readonly StarfieldParameter StarExposure = new("star-exposure", StateParameter.Bounded(Lens<Starfield, Exposure>.New(static sky => sky.StarExposure, static exposure => sky => sky with { StarExposure = exposure })),
-        new("Star exposure", "Stops of the bright stars"));
+        new("Star exposure", "Star brightness in stops"));
     public static readonly StarfieldParameter Twinkle = new("twinkle", StateParameter.Bounded(Lens<Starfield, AxisFraction>.New(static sky => sky.Twinkle, static twinkle => sky => sky with { Twinkle = twinkle })),
-        new("Twinkle", "Share of each star's light the twinkle dims, 0% holding every star steady"));
+        new("Twinkle", "Share of star light twinkle dims, 0% steady"));
     public static readonly StarfieldParameter TwinkleRate = new("twinkle-rate", StateParameter.Bounded(Lens<Starfield, Frequency>.New(static sky => sky.TwinkleRate, static rate => sky => sky with { TwinkleRate = rate }), Tracks.Rate),
         new("Twinkle rate", "Twinkle periods per second"));
     public static readonly StarfieldParameter Nebula = new("nebula", new StateParameter<Starfield>.Record<NoiseSource>(Lens<Starfield, NoiseSource>.New(static sky => sky.Nebula, static nebula => sky => sky with { Nebula = nebula })),
-        new("Nebula", "Pattern, feature size, and motion of the nebula"));
+        new("Nebula", "Nebula pattern, feature size, and motion"));
     public static readonly StarfieldParameter NebulaDensity = new("nebula-density", StateParameter.Bounded(Lens<Starfield, AxisFraction>.New(static sky => sky.NebulaDensity, static density => sky => sky with { NebulaDensity = density })),
-        new("Nebula density", "Share of the noise axis the nebula covers"));
+        new("Nebula density", "Share of noise range nebula covers"));
     public static readonly StarfieldParameter NebulaColors = new("nebula-colors", new StateParameter<Starfield>.Gradient(Lens<Starfield, Ramp>.New(static sky => sky.NebulaColors, static colors => sky => sky with { NebulaColors = colors })),
-        new("Nebula colors", "Colors the nebula draws by its density"));
+        new("Nebula colors", "Nebula color and coverage by noise value"));
     public static readonly StarfieldParameter NebulaExposure = new("nebula-exposure", StateParameter.Bounded(Lens<Starfield, Exposure>.New(static sky => sky.NebulaExposure, static exposure => sky => sky with { NebulaExposure = exposure })),
-        new("Nebula exposure", "Stops of the nebula"));
+        new("Nebula exposure", "Nebula brightness in stops"));
     public static readonly StarfieldParameter Layer = new("layer", new StateParameter<Starfield>.Record<GeneratedLayer>(Lens<Starfield, GeneratedLayer>.New(static sky => sky.Layer, static layer => sky => sky with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly StarfieldParameter Seed = new("seed", StateParameter.Bounded(Lens<Starfield, Seed>.New(static sky => sky.Seed, static seed => sky => sky with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly StarfieldParameter Timing = new("timing", new StateParameter<Starfield>.Record<Timing>(Lens<Starfield, Timing>.New(static sky => sky.Timing, static timing => sky => sky with { Timing = timing })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
 
     public StateParameter<Starfield> Kind { get; }
     public ParameterText Text { get; }

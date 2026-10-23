@@ -33,5 +33,5 @@ rule:
             - not: {precedes: {stopBy: end, follows: {stopBy: end, matches: branching-statement}, matches: reading}}
         - kind: match_expression
           has: {field: value, matches: select}
-message: '`$SELECT!` hands its branch result to a `match` or `if let` that runs the branch work'
-note: 'Move each arm body into the handler of the `select!` branch that produces it and delete the intermediate value'
+message: '`$SELECT!` passes its branch result to a `match` or `if let` that dispatches on it'
+note: 'Move each arm body into the `select!` branch handler producing its value and delete any binding between them'

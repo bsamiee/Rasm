@@ -54,5 +54,5 @@ rule:
                     kind: class_declaration, record_declaration, struct_declaration
                     has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^(SmartEnum|Union|AdHocUnion)(Attribute)?$'}}}}}}
         - inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, pattern: $TYPE}}}
-message: '`$TYPE` overrides `ToString` with text its cases or key already state'
-note: 'Delete the override, read keyed items through `Key`, and map a shown case to its text through the generated `Map`'
+message: '`$TYPE` overrides `ToString` with text its cases or key state'
+note: 'Delete the override, read `Key` for a keyed item, and map a displayed case to text through the generated `Map`'

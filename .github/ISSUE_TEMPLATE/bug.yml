@@ -1,5 +1,5 @@
 name: Bug
-description: Report a product or library behaving differently from its documentation
+description: Report product or library behavior differing from documentation
 labels: [bug]
 body:
     - type: input
@@ -14,7 +14,7 @@ body:
       id: host
       attributes:
         label: Host and system
-        description: Host application, its version, and operating system version
+        description: Host application and operating system with versions
         placeholder: Rhino 9 WIP on macOS 27.0
       validations:
         required: true
@@ -22,7 +22,7 @@ body:
       id: steps
       attributes:
         label: Steps
-        description: Steps that reproduce the behavior from a fresh host session
+        description: Steps reproducing behavior from fresh host session
       validations:
         required: true
     - type: textarea

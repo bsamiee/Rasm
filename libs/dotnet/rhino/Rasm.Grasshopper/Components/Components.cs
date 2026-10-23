@@ -189,7 +189,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
         IO.lift(() => TSelf.Row.Help.Iter(topic =>
             panel.AddBar(drawCategoryLabels: false).AddPushButton(
                 icon: null,
-                new Nomen(RowText.Localize("Help"), RowText.Localize("Open help for this component.")),
+                new Nomen(RowText.Localize("Help"), RowText.Localize("Opens component help")),
                 () => Callbacks.Started(topic.Show, site)).Style = IconTextStyle.Text))
         .Bind(_ => IO.lift(() => TSelf.Row.Panel((TSelf)this))).Bind(rows => unless(rows.IsEmpty,
               from document in IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))

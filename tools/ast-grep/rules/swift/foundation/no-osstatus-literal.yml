@@ -50,5 +50,5 @@ rule:
             - has: {kind: switch_entry, has: {kind: switch_pattern, has: {kind: pattern, has: {matches: status-literal}}}}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` restates an SDK status code as a literal'
-note: 'Name the SDK constant (`errSecItemNotFound`, `noErr`), importing `Security` for the `errSec` codes'
+message: '`$HEAD` spells an SDK status code as an integer literal'
+note: 'Name the SDK constant (`noErr`, `errSecItemNotFound` from `Security`)'

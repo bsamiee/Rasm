@@ -1,4 +1,4 @@
-"""Emitter list with solo by stored prior, bulk power and emission edits, and emissive selection."""
+"""Emitter list with solo, bulk power edits, and emissive selection."""
 
 from collections.abc import Callable
 from typing import Annotated, ClassVar
@@ -28,32 +28,32 @@ from blender.imaging.parameters import Gated, NonNegative, Presentation, Quantit
 
 
 class Visibility(msgspec.Struct, frozen=True, kw_only=True):
-    """Render and viewport visibility of an emitter before a solo."""
+    """Emitter visibility before solo."""
 
-    render: Annotated[bool, msgspec.Meta(description="Shown in renders before the solo")] = True
-    viewport: Annotated[bool, msgspec.Meta(description="Shown in viewports before the solo")] = True
+    render: Annotated[bool, msgspec.Meta(description="Shown in renders")] = True
+    viewport: Annotated[bool, msgspec.Meta(description="Shown in viewports")] = True
 
 
 class Bulk(msgspec.Struct, frozen=True, kw_only=True):
-    """One multiplier on the power and emission of a scope's emitters."""
+    """Multiplier on power and emission of emitters in scope."""
 
-    scope: Annotated[Scope, msgspec.Meta(description="Owners whose emitters change")] = Scenes()
-    factor: Annotated[NonNegative, msgspec.Meta(description="Multiplier on each light's power and each emission strength"), Presentation(soft=Some((0.1, 10.0)), decimals=Some(3))] = 1.0
+    scope: Annotated[Scope, msgspec.Meta(description="Owners to change")] = Scenes()
+    factor: Annotated[NonNegative, msgspec.Meta(description="Power and emission strength multiplier"), Presentation(soft=Some((0.1, 10.0)), decimals=Some(3))] = 1.0
     temperature: Annotated[
         Gated[Annotated[float, msgspec.Meta(ge=800.0, le=20000.0)]],
-        msgspec.Meta(description="Blackbody color every light of the scope takes"),
+        msgspec.Meta(description="Blackbody color of every light"),
         Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE)),
     ] = Gated(enabled=False, value=6500.0)
 
 
 class Emissives(msgspec.Struct, frozen=True, kw_only=True):
-    """Scope whose emissive objects select."""
+    """Scope of emissive objects to select."""
 
-    scope: Annotated[Scope, msgspec.Meta(description="Owners whose emissive objects select")] = Scenes()
+    scope: Annotated[Scope, msgspec.Meta(description="Owners to select from")] = Scenes()
 
 
 class LightList(msgspec.Struct, frozen=True, kw_only=True):
-    """Row of the emitter list with its solo, bulk, and select operators."""
+    """Emitter list with solo, bulk, and select operators."""
 
     solo: ClassVar[Attachment[Gated[Visibility]]] = Attachment(key="solo", form=Gated[Visibility], owner=bpy.types.Object)
 
@@ -61,33 +61,29 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="light_solo",
             title="Solo Light",
-            description="Hide every other emitter of the scene, keeping each one's visibility to restore",
+            description="Hide every other scene emitter, storing visibility for Unsolo Lights",
             form=Empty,
             run=lambda call: paired(paired(call.root(bpy.types.ViewLayer).bind(focused), call.root(bpy.types.Scene)), LightList.solo.bound(call.identity)).bind(lambda pair: soloed(*pair[0], pair[1])),
         ),
         Operator(
             key="light_unsolo",
             title="Unsolo Lights",
-            description="Show every emitter a solo hid as it was",
+            description="Restore emitters solo hid",
             form=Empty,
             run=lambda call: paired(call.root(bpy.types.Scene), LightList.solo.bound(call.identity)).bind(lambda pair: unsoloed(*pair)),
         ),
-        Operator(key="light_bulk", title="Multiply Lights", description="Multiply the power and emission of a scope's emitters", form=Bulk, run=lambda call: multiplied(call.record, call.context)),
+        Operator(key="light_bulk", title="Multiply Lights", description="Multiply power and emission in scope", form=Bulk, run=lambda call: multiplied(call.record, call.context)),
         Operator(
             key="emissives_select",
             title="Select Emissive Objects",
-            description="Select every object whose material emits",
+            description="Select emissive objects in scope",
             form=Emissives,
             run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: emissives_selected(call.record.scope, call.context, layer)).map(lambda _: Done()),
         ),
     )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the solo attachment, the four operators, and the emissive select menu entry.
-
-        Returns:
-            `Ok` of the attachment, operators, append, and section declarations.
-        """
+        """Returns solo attachment, emissive select menu entry, and section."""
         *_, select = self.commands
         return Ok((
             LightList.solo,
@@ -96,7 +92,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
         ))
 
     def section(self) -> Section:
-        """Section drawing the emitter list with its solo buttons and the active light's own rows."""
+        """Returns emitter list, active light rows, and operator buttons."""
         solo, unsolo, bulk, select = self.commands
 
         def light[K: bpy.types.Light](kind: type[K]) -> Callable[[bpy.types.Context], Option[K]]:
@@ -137,15 +133,15 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Gated[Visibility]]) -> BlenderResult[Outcome]:
-    """Hides every other emitter of a scene, storing each one's prior visibility.
+    """Hides every other scene emitter, storing prior visibility.
 
     Args:
         chosen: Emitter left shown.
-        scene: Scene whose emitters hide.
+        scene: Scene with emitters to hide.
         solo: Bound solo attachment.
 
     Returns:
-        `Ok` of `Done` once every write landed, `Unchanged` where every other emitter is already hidden by a solo; `read` for a stored gate the record refuses and the `edit` faults of each refused write.
+        `Done`, `Unchanged` when solo hides every other emitter, or `read` and `edit` faults.
     """
 
     def hid(item: bpy.types.Object) -> BlenderResult[None]:
@@ -160,7 +156,7 @@ def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Gate
         restoring = tuple((item, held.value) for item, held in rows if held.enabled and (item == chosen or item not in reached))
         hiding = tuple(item for item, held in rows if item in reached and item != chosen and not held.enabled)
         if not (restoring or hiding):
-            return Ok(Unchanged(reason="Every other emitter is already hidden"))
+            return Ok(Unchanged(reason="Solo hides every other emitter"))
         return accumulated((*(_restored(item, prior, solo) for item, prior in restoring), *(hid(item) for item in hiding))).map(lambda _: Done())
 
     reached = frozenset(emitters(scene))
@@ -168,34 +164,33 @@ def soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Gate
 
 
 def unsoloed(scene: bpy.types.Scene, solo: Attached[Gated[Visibility]]) -> BlenderResult[Outcome]:
-    """Writes back the prior visibility of every emitter a solo hid.
+    """Restores prior visibility of every emitter solo hid.
 
     Args:
-        scene: Scene whose emitters return.
+        scene: Scene with emitters to restore.
         solo: Bound solo attachment.
 
     Returns:
-        `Ok` of `Done` once every write landed, `Unchanged` where no solo holds an emitter hidden; `read` for a stored gate the record refuses and the `edit` faults of each refused write.
+        `Done`, `Unchanged` when solo hides no emitter, or `read` and `edit` faults.
     """
 
     def edited(rows: tuple[tuple[bpy.types.Object, Gated[Visibility]], ...]) -> BlenderResult[Outcome]:
         if not (hidden := tuple((item, held.value) for item, held in rows if held.enabled)):
-            return Ok(Unchanged(reason="No solo holds an emitter hidden"))
+            return Ok(Unchanged(reason="Solo hides no emitter"))
         return accumulated(_restored(item, prior, solo) for item, prior in hidden).map(lambda _: Done())
 
     return accumulated(solo.read(item).map(lambda held: (item, held)) for item in scene.objects if solo.stored(item)).bind(edited)
 
 
 def multiplied(bulk: Bulk, context: bpy.types.Context) -> BlenderResult[Outcome]:
-    """Multiplies the power and emission strength of a scope's emitters.
+    """Multiplies emitter power and emission strength in scope.
 
     Args:
         bulk: Scope, factor, and gated temperature.
-        context: Context the scope's `owners` reads.
+        context: Context `scope.owners` reads.
 
     Returns:
-        `Ok` of `Done` holding the refusals of independent writes beside a changed value, `Unchanged` where no light or unlinked emission strength in scope takes a new
-        value; `absent` for a missing scope name and `edit` or `choice` per refused write where none changed.
+        `Done` with skipped faults when a write changed, `Unchanged` when no value changes, or `absent`, `edit`, and `choice` faults when none changed.
     """
 
     def powered(data: bpy.types.Light) -> Applied:
@@ -217,26 +212,17 @@ def multiplied(bulk: Bulk, context: bpy.types.Context) -> BlenderResult[Outcome]
 
 
 def emissives_selected(scope: Scope, context: bpy.types.Context, layer: bpy.types.ViewLayer) -> BlenderResult[None]:
-    """Selects every emissive object a scope reaches.
-
-    Args:
-        scope: Owners whose emissive objects select.
-        context: Context supplying the scope's owners.
-        layer: View layer receiving the selection.
-
-    Returns:
-        `Ok` once written; the faults of the scope's `owners` and of `picked`.
-    """
+    """Selects every emissive object in scope on layer."""
     return scope.owners(context).bind(lambda reached: picked(frozenset(item for owner in reached for item in emitters(owner) if not isinstance(item.data, bpy.types.Light)), layer))
 
 
 def _shown(visibility: Visibility) -> Snapshot:
-    """`Object` values snapshot showing an emitter in renders and viewports as a visibility states."""
+    """Returns `Object` snapshot writing render and viewport visibility."""
     return Snapshot.of(bpy.types.Object, {"hide_render": not visibility.render, "hide_viewport": not visibility.viewport})
 
 
 def _restored(item: bpy.types.Object, prior: Visibility, solo: Attached[Gated[Visibility]]) -> BlenderResult[None]:
-    """Writes an emitter's prior visibility back and stores its gate off with the prior kept."""
+    """Restores emitter prior visibility, storing it with gate off."""
     return reconciled(ObjectState(values=Some(_shown(prior))), item, ()).bind(lambda _: solo.write(item, Gated(enabled=False, value=prior)))
 
 

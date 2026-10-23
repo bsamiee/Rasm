@@ -1,4 +1,4 @@
-"""Native menus compiled from ordered rows or context-selected keyed content."""
+"""Menus of ordered rows, context-keyed rows, or pie slots."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
@@ -26,14 +26,14 @@ from blender.imaging.faults import accumulated
 
 
 class Dropdown(msgspec.Struct, frozen=True, kw_only=True):
-    """Ordered native rows with optional search on key press."""
+    """Ordered rows with search on key press."""
 
     entries: tuple[RowContent, ...]
     search: bool = False
 
 
 class Keyed[K: Hashable](msgspec.Struct, frozen=True, kw_only=True):
-    """Offered entries drawn in the context's current key order."""
+    """Entries drawn in key order a context returns."""
 
     entries: Mapping[K, RowContent]
     keys: Callable[[bpy.types.Context], Iterable[K]]
@@ -41,7 +41,7 @@ class Keyed[K: Hashable](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Pie(msgspec.Struct, frozen=True, kw_only=True):
-    """Eight typed or native callback slots in Blender's radial fill order."""
+    """Pie slots in Blender's radial fill order."""
 
     west: Option[OperatorButton | Pulldown | Property | RowDraw] = Nothing
     east: Option[OperatorButton | Pulldown | Property | RowDraw] = Nothing
@@ -54,7 +54,7 @@ class Pie(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
-    """Extension menu with native availability and acquired row content."""
+    """Extension menu with poll condition."""
 
     key: Key
     title: str
@@ -66,13 +66,13 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def popup(self) -> MenuPopup:
-        """Native call target for operators and keymaps."""
+        """Popup target operators and keymaps open."""
         return MenuPopup(menu=self.key, pie=isinstance(self.body, Pie))
 
     # --- [ACQUISITION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains nested content before the native menu's realization and registration."""
+        """Returns row acquisitions, then menu class."""
         match self.body:
             case Dropdown(entries=entries, search=search):
                 rows = entries
@@ -112,12 +112,12 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                     return shown
 
                 def slot(row: OperatorButton | Pulldown | Property | RowDraw) -> BlenderResult[RowDraw]:
-                    admitted = (
+                    checked = (
                         bound(((row.target, lambda held: fits(held, (bpy.types.BoolProperty, bpy.types.EnumProperty), (shapes.Flag, Enum))),), Ok(lambda _: lambda *_: None))
                         if isinstance(row, Property)
                         else Ok(None)
                     )
-                    return admitted.bind(lambda _: realized(row, identity))
+                    return checked.bind(lambda _: realized(row, identity))
 
                 def drawing() -> BlenderResult[SurfaceDraw]:
                     return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in slots).map(radial)
@@ -126,7 +126,7 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Captured(msgspec.Struct, frozen=True, kw_only=True):
-    """Selected native settings captured from the context and applied over a scope."""
+    """Selected settings captured from context and applied over a scope."""
 
     preset: Preset[Snapshot]
     scope: Scoped
@@ -134,11 +134,11 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def key(self) -> Key:
-        """Menu key shared with the acquired preset listing."""
+        """Menu key shared with preset listing."""
         return Listing.keyed(self.preset)
 
     def listing(self) -> BlenderResult[Listing[Snapshot]]:
-        """Resolves selected settings once into capture, match, and apply policies."""
+        """Resolves selected settings once into listing."""
 
         def listed(selected: tuple[Descriptor, ...]) -> Listing[Snapshot]:
             def captured(context: bpy.types.Context) -> "BlenderResult[tuple[bpy.types.bpy_struct[object], Snapshot]]":
@@ -149,7 +149,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
                 if not outcomes:
                     return Ok(Unchanged(reason=f"No {owner} in scope"))
                 absent = (Applied(outcome=Error((BlenderAbsentFault(owner=owner, key=path),))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
-                return answered(Applied.join((*outcomes, *absent)), "The settings already hold the preset")
+                return answered(Applied.join((*outcomes, *absent)), "Settings already hold preset")
 
             return Listing(
                 preset=self.preset,
@@ -162,13 +162,13 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_only=True):
-    """Searchable preset listing with optional trailing native content."""
+    """Searchable preset listing with trailing rows."""
 
     source: Store[T] | Listing[T] | Captured
     entries: tuple[RowContent, ...] = ()
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains the source's resources before realizing its preset menu."""
+        """Returns source acquisitions, then preset menu."""
 
         def listed[S: msgspec.Struct](listing: Listing[S], owned: tuple[RowContent, ...]) -> BlenderResult[Acquisitions]:
             return Ok((
@@ -207,7 +207,7 @@ class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_o
 def registered(
     identity: Identity, key: Key, title: str, description: str, drawing: Callable[[], BlenderResult[SurfaceDraw]], *, search: bool, condition: Option[Condition] = Nothing
 ) -> Generator[BlenderResult[None]]:
-    """Realizes and registers a menu after its nested declarations enter their native bands."""
+    """Registers menu class after nested rows."""
 
     def searched(draw: SurfaceDraw, heading: RowDraw) -> SurfaceDraw:
         def shown(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:

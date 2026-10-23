@@ -35,4 +35,4 @@ rule:
             - inside: {kind: protocol_body, inside: {kind: protocol_declaration, has: {field: name, pattern: $TYPE}}}
             - matches: sole-receiver
 message: '`$NAME` is a type member taking `$RECEIVER`, a value of the enclosing `$TYPE`'
-note: 'Drop `static` and `<receiver>`, read `self` in its body, add `mutating` for an `inout` receiver, and call the member on each value'
+note: 'Delete `static` and `<receiver>`, read `self` in its body, add `mutating` for an `inout` receiver, and call the member on each value'

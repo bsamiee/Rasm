@@ -42,4 +42,4 @@ rule:
                 - has: {kind: computed_modify, matches: open-accessor}
                 - has: {kind: statements, has: {kind: call_expression, matches: open-accessor}}
 message: '`$NAME` yields storage through an underscored coroutine accessor'
-note: 'Replace `get` and `_read` with `borrow { <value> }` and `set` and `_modify` with `mutate { &<storage> }`, with the two accessors paired'
+note: 'Replace `get` or `_read` with `borrow { <storage> }` and `set` or `_modify` with `mutate { &<storage> }`'

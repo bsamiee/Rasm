@@ -136,5 +136,5 @@ transform:
     CLOSE: {replace: {source: $CHAINED, replace: '(?s)^.*$', by: ')'}}
     HEAD: {replace: {source: $SOURCE, replace: '(?s)\n.*$', by: ''}}
 fix: $OPEN$SOURCE | @catch($PREDICATE, $HANDLER)$CLOSE
-message: '`Catch` on `$HEAD`, an `IO` that can fail at construction, runs its handler for every error and ignores its predicate'
-note: 'Write `<io> | @catch(<predicate>, <handler>)`, in parentheses inside a chain'
+message: '`Catch` on `$HEAD` ignores its predicate when the `IO` fails at construction'
+note: 'Write `<io> | @catch(<predicate>, <handler>)`, parenthesized inside a chain'

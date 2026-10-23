@@ -1,4 +1,4 @@
-"""Local supervision of a render queue in background Blender processes, its stop, and its files."""
+"""Local queue supervision in background Blender processes."""
 
 import base64
 import datetime
@@ -35,7 +35,7 @@ else:
 
 
 class RunFile(StrEnum):
-    """File one queue's run writes, by its suffix after the queue key."""
+    """Run file suffix after queue key."""
 
     QUEUE = ".json"
     PROGRESS = ".progress.json"
@@ -48,7 +48,7 @@ class RunFile(StrEnum):
 
 
 class Host(msgspec.Struct, frozen=True, kw_only=True):
-    """Blender binary, the extension's supervise and render command names, and its folder, read from the running host."""
+    """Running host binary, extension command names, and folder."""
 
     binary: str
     supervise_command: str
@@ -56,19 +56,19 @@ class Host(msgspec.Struct, frozen=True, kw_only=True):
     folder: str
 
     def path(self, queue: RenderQueue, file: RunFile) -> Path:
-        """Answers the path of one of a queue's run files."""
+        """Returns path of queue run file."""
         return Path(self.folder, f"{queue.stem}{file}")
 
 
 class LocalMachine(Case, frozen=True, kw_only=True, tag=4):
-    """Background Blender processes on this machine, one per run of a job's frames."""
+    """Background Blender process per run of job frames."""
 
     title = "This Machine"
-    retries: Annotated[int, msgspec.Meta(ge=0, description="Restarts of a crashed render from its remaining frames"), Presentation(soft=Some((0.0, 20.0)))] = 3
-    sampled: Annotated[bool, msgspec.Meta(title="Sample First Frames", description="Render the first two frames of each ready job before remaining ready work")] = True
+    retries: Annotated[int, msgspec.Meta(ge=0, description="Restarts of crashed render from remaining frames"), Presentation(soft=Some((0.0, 20.0)))] = 3
+    sampled: Annotated[bool, msgspec.Meta(title="Sample First Frames", description="Renders first two frames of each ready job before others")] = True
 
     def schedule(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
-        """Orders ready frames by sampled priority after their prerequisites."""
+        """Orders frames by prerequisites, sampled frames, job, then frame."""
         graph = TopologicalSorter[tuple[int, int]]()
         priorities: dict[tuple[int, int], tuple[bool, int, int]] = {}
         lead = 2 if self.sampled else 0
@@ -92,7 +92,7 @@ class LocalMachine(Case, frozen=True, kw_only=True, tag=4):
 
 
 class Run(msgspec.Struct, frozen=True, kw_only=True, tag=1):
-    """Job file and target settings the supervise and render commands decode."""
+    """Queue path and target settings commands decode."""
 
     queue: str
     target: LocalMachine
@@ -102,7 +102,7 @@ class Run(msgspec.Struct, frozen=True, kw_only=True, tag=1):
 
 
 def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: Heartbeat) -> RenderingResult[Progress]:
-    """Renders a queue's remaining frames in background Blender processes."""
+    """Renders remaining frames, restarting crashed renders."""
     milliseconds_per_second = 1000
     if sys.platform == "win32":
         infinite = _winapi.INFINITE  # ty: ignore[possibly-missing-attribute]
@@ -121,7 +121,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
             if not (pending := (progress.pending or next((tuple(group) for _, group in groupby((step for step in schedule if step in remaining), lambda step: step[0])), ()))):
                 return Ok(None)
             argv = host.binary, "--background", queue.jobs[pending[0][0]].file, "--command", host.render_command, run
-            admitted = msgspec.structs.replace(progress, pending=pending)
+            recorded = msgspec.structs.replace(progress, pending=pending)
 
             def waited(child: subprocess.Popen[bytes]) -> RenderingResult[int]:
                 while True:
@@ -142,7 +142,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
             def confirmed(code: int) -> RenderingResult[Progress]:
                 return revised(records, Progress, lambda held: msgspec.structs.replace(held, pending=())) if code == 0 else Error(refused(argv)(code))
 
-            match store(records, admitted).bind(launched).bind(confirmed):
+            match store(records, recorded).bind(launched).bind(confirmed):
                 case Result(tag="ok", ok=progress):
                     continue
                 case Result(error=faults):
@@ -170,14 +170,14 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
 
 
 def stop(progress: Progress) -> RenderingResult[None]:
-    """Ends a run's supervisor and its renders."""
+    """Stops supervisor and its renders."""
     if sys.platform == "win32":
         return ran(("taskkill", "/T", "/F", "/PID", str(progress.process)))
     return catch(lambda: killpg(progress.process, signal.SIGTERM), exception=OSError)().map_error(lambda error: (RenderingSystemFault(request=(Call.KILL_GROUP, progress.process), error=error),))
 
 
 def cleared(queue: RenderQueue, host: Host) -> RenderingResult[None]:
-    """Deletes the files of a finished run."""
+    """Deletes queue, progress, and log files of finished run."""
 
     def removed(file: RunFile) -> RenderingResult[None]:
         path = host.path(queue, file)

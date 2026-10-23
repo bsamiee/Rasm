@@ -28,7 +28,7 @@ struct Split<'tcx> {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(MANUAL_PARTITION: "two `filter` passes collecting one collection split on a predicate and its negation");
+lint!(MANUAL_PARTITION: "two `filter` passes that collect one source on a predicate and its negation");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx Body<'tcx>) {
@@ -113,17 +113,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             ControlFlow::Continue(())
         });
         for [left, right] in splits.iter().array_combinations::<2>().filter(|&[left, right]| complementary(cx, left, right)) {
-            span_lint_hir_and_then(
-                cx,
-                MANUAL_PARTITION,
-                right.site.hir_id,
-                right.span,
-                format!("two `filter` passes split `{}` on one predicate and its negation", snippet(cx, right.source.span, "..")),
-                |diag| {
-                    diag.span_note(left.span, "other pass here");
-                    diag.help("split once with `Iterator::partition` and read each side from its half");
-                },
-            );
+            let source = snippet(cx, right.source.span, "..");
+            span_lint_hir_and_then(cx, MANUAL_PARTITION, right.site.hir_id, right.span, format!("two `filter` passes split `{source}` on one predicate and its negation"), |diag| {
+                diag.span_note(left.span, "other pass here");
+                diag.help(format!("split `{source}` once with `Iterator::partition`"));
+            });
         }
     }
 }

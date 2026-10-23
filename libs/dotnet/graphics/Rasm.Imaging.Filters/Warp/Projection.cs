@@ -59,23 +59,23 @@ public sealed partial class PanoramaParameter : IStateParameter<Panorama> {
     public static readonly PanoramaParameter Output = new("output", new StateParameter<Panorama>.Choice<PanoramaOutput>(Lens<Panorama, PanoramaOutput>.New(static state => state.Output, static output => state => state with { Output = output })),
         new("Projection", "Projection the rendered view is placed into"));
     public static readonly PanoramaParameter View = new("view", new StateParameter<Panorama>.Record<PanoramaView>(Lens<Panorama, PanoramaView>.New(static state => state.View, static view => state => state with { View = view })),
-        new("View", "Orientation of the rendered view"));
+        new("View", "Rendered view orientation"));
     public static readonly PanoramaParameter Field = new("field", StateParameter.Bounded(Lens<Panorama, FieldOfView>.New(static state => state.Field, static field => state => state with { Field = field })),
-        new("Field of view", "Horizontal angle a Panini output spans across the frame"));
+        new("Field of view", "Horizontal angle Panini output spans across frame"));
     public static readonly PanoramaParameter Sweep = new("sweep", StateParameter.Bounded(Lens<Panorama, SweepAngle>.New(static state => state.Sweep, static sweep => state => state with { Sweep = sweep })),
-        new("Sweep", "Angle a cylindrical, fisheye, or stereographic output spans across the frame"));
+        new("Sweep", "Angle cylindrical, fisheye, or stereographic output spans across frame"));
     public static readonly PanoramaParameter FullTurn = new("full-turn", StateParameter.Bounded(Lens<Panorama, FullTurnRadius>.New(static state => state.FullTurn, static fullTurn => state => state with { FullTurn = fullTurn }), new Presentation<float> { Soft = (2f * 0.01f / 12f, 2f * 15f / 12f), Scale = TrackScale.Log }),
-        new("Full turn radius", "Radius of the equisolid projection's full turn as a share of the inscribed circle"));
+        new("Full turn radius", "Equisolid full-turn radius as a share of the inscribed circle"));
     public static readonly PanoramaParameter Height = new("height", StateParameter.Bounded(Lens<Panorama, CylinderHeight>.New(static state => state.Height, static height => state => state with { Height = height }), new Presentation<float> { Soft = (-10f, 10f) }),
-        new("Height", "Vertical offset of the cylindrical viewing window"));
+        new("Height", "Cylindrical viewing window vertical offset"));
     public static readonly PanoramaParameter Distance = new("distance", StateParameter.Bounded(Lens<Panorama, Magnitude>.New(static state => state.Distance, static distance => state => state with { Distance = distance }), new Presentation<float> { Soft = (0f, 1f) }),
-        new("Distance", "Panini distance, 0 rectilinear and 1 the Panini projection"));
+        new("Distance", "Panini distance, 0 rectilinear and 1 Panini"));
     public static readonly PanoramaParameter Compression = new("compression", StateParameter.Bounded(Lens<Panorama, AxisFraction>.New(static state => state.Compression, static compression => state => state with { Compression = compression })),
-        new("Compression", "Panini vertical compression straightening the verticals"));
+        new("Compression", "Panini compression straightening verticals"));
     public static readonly PanoramaParameter Sampling = new("sampling", new StateParameter<Panorama>.Choice<Sampling>(Lens<Panorama, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly PanoramaParameter Wrap = new("wrap", new StateParameter<Panorama>.Choice<WrapMode>(Lens<Panorama, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<Panorama> Kind { get; }
     public ParameterText Text { get; }
@@ -113,9 +113,9 @@ public sealed partial class PolarCoordinatesParameter : IStateParameter<PolarCoo
     public static readonly PolarCoordinatesParameter Conversion = new("conversion", new StateParameter<PolarCoordinates>.Choice<PolarConversion>(Lens<PolarCoordinates, PolarConversion>.New(static state => state.Conversion, static conversion => state => state with { Conversion = conversion })),
         new("Conversion", "Direction the frame converts between rows and rings"));
     public static readonly PolarCoordinatesParameter Sampling = new("sampling", new StateParameter<PolarCoordinates>.Choice<Sampling>(Lens<PolarCoordinates, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly PolarCoordinatesParameter Wrap = new("wrap", new StateParameter<PolarCoordinates>.Choice<WrapMode>(Lens<PolarCoordinates, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<PolarCoordinates> Kind { get; }
     public ParameterText Text { get; }

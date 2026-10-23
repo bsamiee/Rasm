@@ -53,5 +53,5 @@ rule:
             - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $BUFFER}}, {has: {field: field, regex: '^push_str$'}}]}
             - has: {field: arguments, has: {nthChild: 1, kind: reference_expression, has: {matches: space-repeat}}}
             - inside: {kind: expression_statement, precedes: {stopBy: end, matches: caret-push}}
-message: '`$SITE` underlines source text by hand'
-note: 'Render the span through `annotate_snippets::Renderer` with a `Snippet` annotated at `<range>`'
+message: '`$SITE` underlines source text with carets by hand'
+note: 'Render a `Snippet::source(<source>)` annotated with `AnnotationKind::Primary.span(<range>)` through `annotate_snippets::Renderer`'

@@ -17,10 +17,10 @@ dependencies = [
     "msgspec",           # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
     "numpy",             # Arrays for image planes, previews, and analysis
     "opencolorio",       # Color processing, config authoring, and LUT baking
-    "openimageio",       # Image IO and analysis through the native provider
+    "openimageio",       # Image IO and analysis
     "psdtags",           # Photoshop layer records for layered documents
     "scikit-image",      # Structural similarity over image comparison planes
-    "scipy",             # Colour algebra, vector quadrature, FFT sizing, and zoom transforms
+    "scipy",             # Color algebra, vector quadrature, FFT sizing, and zoom
     "structlog",         # Structured logging through typed bound loggers holding each extension's context
     "tenacity",          # Batch target retries over configured domain retry policies
     "tifffile",          # Linear Raw DNG and TIFF containers for layered documents
@@ -187,7 +187,7 @@ workspace = [
     "arro3-io",                                                                   # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
     "deltalake",                                                                  # Lakehouse tables
     "nanoarrow",                                                                  # Arrow C Data Interface interop
-    "pyarrow",                                                                    # Arrow C++ bridge built on Pixi's Arrow series under daft's <26 cap, which predates cp315 wheels
+    "pyarrow",                                                                    # Arrow C++ bridge on Pixi's Arrow, no cp315 wheels under daft's <26 cap
     "pyiceberg",                                                                  # Apache Iceberg tables
     "pylance",                                                                    # Lance columnar/vector format
 
@@ -333,7 +333,7 @@ workspace = [
     "pyelk",                                                                      # ELK layered and orthogonal diagram layout with ports and nesting
     "resvg-py",                                                                   # In-process SVG-to-PNG rasterization over resvg
     "rustworkx",                                                                  # Graph algorithms
-    "schemdraw",                                                                  # Native-SVG schematic diagrams
+    "schemdraw",                                                                  # SVG schematic diagrams
     "skia-pathops",                                                               # Vector booleans, offsets, and stroke outlines
     "svgelements",                                                                # SVG geometry, transform, and parse helpers
     "ziafont",                                                                    # Text to SVG glyph paths
@@ -425,7 +425,7 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-no-build-package         = ["epdx", "numpy"]                                                                                                                                         # `epdx` sdist omits `project.version`, numpy sdists fail under Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`) where a pin outruns its wheels
+no-build-package         = ["epdx", "numpy"]                                                                                                                                         # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
 constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
 extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 build-backend            = { module-name = ["blender"], module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
@@ -503,7 +503,7 @@ format         = { exclude = ["*.md"], line-ending = "lf", docstring-code-format
 [tool.ruff.lint]
 select                    = ["ALL"]
 ignore                    = [
-    "missing-trailing-comma",                                                                                                                                                                                        # Ruff format `skip-magic-trailing-comma` removes the commas COM812 adds
+    "missing-trailing-comma",                                                                                                                                                                                        # `skip-magic-trailing-comma` removes commas COM812 adds
     "too-many-public-methods",                                                                                                                                                                                       # Member counts push one-caller helper extraction
     "too-many-return-statements",                                                                                                                                                                                    # Return counts push one-caller helper extraction, `match` arms return per case
     "too-many-branches",                                                                                                                                                                                             # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
@@ -513,9 +513,9 @@ ignore                    = [
     "raw-string-in-exception",                                                                                                                                                                                       # Moves the message into a local the raise alone reads
     "f-string-in-exception",                                                                                                                                                                                         # Moves the message into a local the raise alone reads
     "raise-vanilla-args",                                                                                                                                                                                            # Pushes an exception class per message, raises stay for defects
-    "typing-only-first-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, and multi-name imports moved to `TYPE_CHECKING` raise `NameError` in cyclopts `App.command`
-    "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, and multi-name imports moved to `TYPE_CHECKING` raise `NameError` in cyclopts `App.command`
-    "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, and multi-name imports moved to `TYPE_CHECKING` raise `NameError` in cyclopts `App.command`
+    "typing-only-first-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
     "implicit-namespace-package",                                                                                                                                                                                    # Import roots under backend `module-root` are namespace packages
     "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
@@ -536,19 +536,19 @@ ignore                    = [
     "blocking-sleep-in-async-function",                                                                                                                                                                              # banned-api rejects `time.sleep`
     "request-without-timeout",                                                                                                                                                                                       # banned-api rejects every client it names
     "no-explicit-stacklevel",                                                                                                                                                                                        # banned-api rejects `warnings.warn`
-    "multiple-starts-ends-with",                                                                                                                                                                                     # refurb FURB102 reports the form on attribute receivers too
-    "repeated-append",                                                                                                                                                                                               # refurb FURB113 reports the form on attribute receivers too
+    "multiple-starts-ends-with",                                                                                                                                                                                     # refurb FURB102 covers attribute receivers
+    "repeated-append",                                                                                                                                                                                               # refurb FURB113 covers attribute receivers
     "len-test",                                                                                                                                                                                                      # refurb FURB115 reports every sized length test from its type
-    "for-loop-writes",                                                                                                                                                                                               # refurb FURB122 reports the form on `Path.open` handles too
-    "readlines-in-for",                                                                                                                                                                                              # refurb FURB129 reports the form on `Path.open` handles too
-    "delete-full-slice",                                                                                                                                                                                             # refurb FURB131 reports the form on attribute receivers too
-    "check-and-remove-from-set",                                                                                                                                                                                     # refurb FURB132 reports the form on attribute receivers too
-    "for-loop-set-mutations",                                                                                                                                                                                        # refurb FURB142 reports the form on attribute receivers too
-    "slice-copy",                                                                                                                                                                                                    # refurb FURB145 reports the form on attribute receivers too
-    "unnecessary-enumerate",                                                                                                                                                                                         # refurb FURB148 reports the form in comprehensions too
+    "for-loop-writes",                                                                                                                                                                                               # refurb FURB122 covers `Path.open` handles
+    "readlines-in-for",                                                                                                                                                                                              # refurb FURB129 covers `Path.open` handles
+    "delete-full-slice",                                                                                                                                                                                             # refurb FURB131 covers attribute receivers
+    "check-and-remove-from-set",                                                                                                                                                                                     # refurb FURB132 covers attribute receivers
+    "for-loop-set-mutations",                                                                                                                                                                                        # refurb FURB142 covers attribute receivers
+    "slice-copy",                                                                                                                                                                                                    # refurb FURB145 covers attribute receivers
+    "unnecessary-enumerate",                                                                                                                                                                                         # refurb FURB148 covers comprehensions
     "true-false-comparison",                                                                                                                                                                                         # refurb FURB149 reports `is` and `==` on bool-typed operands alone
-    "hashlib-digest-hex",                                                                                                                                                                                            # refurb FURB181 reports the form on attribute receivers too
-    "list-reverse-copy",                                                                                                                                                                                             # refurb FURB187 reports the form on attribute receivers too
+    "hashlib-digest-hex",                                                                                                                                                                                            # refurb FURB181 covers attribute receivers
+    "list-reverse-copy",                                                                                                                                                                                             # refurb FURB187 covers attribute receivers
 ]
 flake8-bandit             = { check-typed-exception = true }
 flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" }, banned-from = ["builtins"] }
@@ -594,14 +594,14 @@ require-lazy = [
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"asyncio".msg                      = "Use the anyio member"
-"collections.namedtuple".msg       = "Declare a frozen msgspec.Struct"
+"asyncio".msg                      = "Use anyio"
+"collections.namedtuple".msg       = "Use frozen msgspec.Struct"
 "concurrent.futures".msg           = "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
 "concurrent.interpreters".msg      = "Use anyio.to_interpreter.run_sync"
-"contextlib.suppress".msg          = "Return an expression.Result from the suppressed call"
-"dataclasses.dataclass".msg        = "Declare a frozen msgspec.Struct"
-"dataclasses.make_dataclass".msg   = "Declare a frozen msgspec.Struct"
-"expression.effect".msg            = "Chain Result.bind and Result.map, an effect builder returns its zero value for a RuntimeError its body raises"
+"contextlib.suppress".msg          = "Return expression.Result"
+"dataclasses.dataclass".msg        = "Use frozen msgspec.Struct"
+"dataclasses.make_dataclass".msg   = "Use frozen msgspec.Struct"
+"expression.effect".msg            = "Chain Result.bind and Result.map, builders return zero value on RuntimeError"
 "http.client".msg                  = "Use httpx2.Client or httpx2.AsyncClient"
 "httpx".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
 "json.JSONDecoder".msg             = "Use msgspec.json.decode with type="
@@ -612,62 +612,62 @@ require-lazy = [
 "json.encoder.JSONEncoder".msg     = "Use msgspec.json.encode"
 "json.load".msg                    = "Use msgspec.json.decode with type="
 "json.loads".msg                   = "Use msgspec.json.decode with type="
-"logging.Logger".msg               = "Type the logger as structlog.typing.FilteringBoundLogger"
-"logging.LoggerAdapter".msg        = "Bind context with structlog.get_logger(__name__).bind"
-"logging.RootLogger".msg           = "Type the logger as structlog.typing.FilteringBoundLogger"
-"logging.addLevelName".msg         = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.basicConfig".msg          = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.captureWarnings".msg      = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.config".msg               = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.critical".msg             = "Log through structlog.get_logger(__name__)"
-"logging.debug".msg                = "Log through structlog.get_logger(__name__)"
-"logging.disable".msg              = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.error".msg                = "Log through structlog.get_logger(__name__)"
-"logging.exception".msg            = "Log through structlog.get_logger(__name__)"
-"logging.fatal".msg                = "Log through structlog.get_logger(__name__)"
-"logging.getLogRecordFactory".msg  = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.getLogger".msg            = "Log through structlog.get_logger(__name__)"
-"logging.getLoggerClass".msg       = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.info".msg                 = "Log through structlog.get_logger(__name__)"
-"logging.lastResort".msg           = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.log".msg                  = "Log through structlog.get_logger(__name__)"
-"logging.raiseExceptions".msg      = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.root".msg                 = "Log through structlog.get_logger(__name__)"
-"logging.setLogRecordFactory".msg  = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.setLoggerClass".msg       = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
-"logging.shutdown".msg             = "Delete the call, logging registers its shutdown with atexit"
-"logging.warn".msg                 = "Log through structlog.get_logger(__name__)"
-"logging.warning".msg              = "Log through structlog.get_logger(__name__)"
-"nt.environ".msg                   = "Validate os.environ once at the boundary with a frozen settings model"
-"ntpath.expandvars".msg            = "Read a typed settings field validated once from the mapping the boundary passes"
-"operator.attrgetter".msg          = "Use a lambda, typeshed types the getter's result as Any"
-"operator.itemgetter".msg          = "Use a lambda, typeshed types the getter's result as Any"
-"operator.methodcaller".msg        = "Use a lambda, typeshed types the caller's result as Any"
-"os.getenv".msg                    = "Read a typed settings field validated once from the mapping the boundary passes"
-"os.getenvb".msg                   = "Read a typed settings field validated once from the mapping the boundary passes"
-"os.path.expandvars".msg           = "Read a typed settings field validated once from the mapping the boundary passes"
-"posix.environ".msg                = "Validate os.environ once at the boundary with a frozen settings model"
-"posixpath.expandvars".msg         = "Read a typed settings field validated once from the mapping the boundary passes"
+"logging.Logger".msg               = "Use structlog.typing.FilteringBoundLogger"
+"logging.LoggerAdapter".msg        = "Use structlog.get_logger(__name__).bind"
+"logging.RootLogger".msg           = "Use structlog.typing.FilteringBoundLogger"
+"logging.addLevelName".msg         = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.basicConfig".msg          = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.captureWarnings".msg      = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.config".msg               = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.critical".msg             = "Use structlog.get_logger(__name__)"
+"logging.debug".msg                = "Use structlog.get_logger(__name__)"
+"logging.disable".msg              = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.error".msg                = "Use structlog.get_logger(__name__)"
+"logging.exception".msg            = "Use structlog.get_logger(__name__)"
+"logging.fatal".msg                = "Use structlog.get_logger(__name__)"
+"logging.getLogRecordFactory".msg  = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.getLogger".msg            = "Use structlog.get_logger(__name__)"
+"logging.getLoggerClass".msg       = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.info".msg                 = "Use structlog.get_logger(__name__)"
+"logging.lastResort".msg           = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.log".msg                  = "Use structlog.get_logger(__name__)"
+"logging.raiseExceptions".msg      = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.root".msg                 = "Use structlog.get_logger(__name__)"
+"logging.setLogRecordFactory".msg  = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.setLoggerClass".msg       = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.shutdown".msg             = "Delete call, atexit runs it"
+"logging.warn".msg                 = "Use structlog.get_logger(__name__)"
+"logging.warning".msg              = "Use structlog.get_logger(__name__)"
+"nt.environ".msg                   = "Validate os.environ once at boundary into frozen settings"
+"ntpath.expandvars".msg            = "Read validated settings field"
+"operator.attrgetter".msg          = "Use lambda, typeshed types result as Any"
+"operator.itemgetter".msg          = "Use lambda, typeshed types result as Any"
+"operator.methodcaller".msg        = "Use lambda, typeshed types result as Any"
+"os.getenv".msg                    = "Read validated settings field"
+"os.getenvb".msg                   = "Read validated settings field"
+"os.path.expandvars".msg           = "Read validated settings field"
+"posix.environ".msg                = "Validate os.environ once at boundary into frozen settings"
+"posixpath.expandvars".msg         = "Read validated settings field"
 "requests".msg                     = "Use httpx2.Client or httpx2.AsyncClient"
-"sys.__excepthook__".msg           = "Log the exception through a configured logger with exc_info="
-"threading.__excepthook__".msg     = "Log the exception through a configured logger with exc_info="
+"sys.__excepthook__".msg           = "Log exception with exc_info="
+"threading.__excepthook__".msg     = "Log exception with exc_info="
 "time.sleep".msg                   = "Use await anyio.sleep"
-"traceback.print_exc".msg          = "Log through a configured logger with exception() in a handler"
-"traceback.print_exception".msg    = "Log the exception through a configured logger with exc_info="
-"traceback.print_last".msg         = "Log the exception through a configured logger with exc_info="
-"traceback.print_list".msg         = "Log the captured stack's exception through a configured logger with exc_info="
-"traceback.print_stack".msg        = "Log through a configured logger with stack_info=True"
-"traceback.print_tb".msg           = "Log the exception through a configured logger with exc_info="
-"typing.NamedTuple".msg            = "Declare a frozen msgspec.Struct"
-"typing.cast".msg                  = "Type the value where it is produced, or narrow it with a TypeIs function"
-"typing_extensions.NamedTuple".msg = "Declare a frozen msgspec.Struct"
-"typing_extensions.cast".msg       = "Type the value where it is produced, or narrow it with a TypeIs function"
-"typing_extensions.deprecated".msg = "Delete the replaced API"
+"traceback.print_exc".msg          = "Call logger.exception() in handler"
+"traceback.print_exception".msg    = "Log exception with exc_info="
+"traceback.print_last".msg         = "Log exception with exc_info="
+"traceback.print_list".msg         = "Log captured exception with exc_info="
+"traceback.print_stack".msg        = "Log with stack_info=True"
+"traceback.print_tb".msg           = "Log exception with exc_info="
+"typing.NamedTuple".msg            = "Use frozen msgspec.Struct"
+"typing.cast".msg                  = "Type value at source or narrow with TypeIs"
+"typing_extensions.NamedTuple".msg = "Use frozen msgspec.Struct"
+"typing_extensions.cast".msg       = "Type value at source or narrow with TypeIs"
+"typing_extensions.deprecated".msg = "Delete replaced API"
 "urllib.request".msg               = "Use httpx2.Client or httpx2.AsyncClient"
 "urllib3".msg                      = "Use httpx2.Client or httpx2.AsyncClient"
-"warnings.deprecated".msg          = "Delete the replaced API"
-"warnings.warn".msg                = "Return an expression.Result for an expected failure"
-"warnings.warn_explicit".msg       = "Return an expression.Result for an expected failure"
+"warnings.deprecated".msg          = "Delete replaced API"
+"warnings.warn".msg                = "Return expression.Result"
+"warnings.warn_explicit".msg       = "Return expression.Result"
 
 # --- [TY] -------------------------------------------------------------------------------
 
@@ -742,7 +742,7 @@ disable    = [
     "FURB141",                # Ruff PTH110 reports the form
     "FURB144",                # Ruff PTH107 and PTH108 report the form
     "FURB146",                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
-    "FURB147",                # Ruff PTH118 reports the form, and the check rejects `posixpath.join` on archive and URL paths
+    "FURB147",                # Ruff PTH118 reports the form. FURB147 rejects `posixpath.join` on archive and URL paths
     "FURB150",                # Ruff PTH102 and PTH103 report the form
     "FURB151",                # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
     "FURB152",                # Ruff runs FURB152

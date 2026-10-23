@@ -34,4 +34,4 @@ transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 fix: $RESULT
 message: '`$HEAD` tests a `TerminationStatus` for exit code 0 by pattern'
-note: 'Read `isSuccess` (exit code 0, `false` for a signal)'
+note: 'Read `<status>.isSuccess`'

@@ -187,7 +187,7 @@ nonisolated enum ClaudeSession {
                     if message.type == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds {
                         let reported: Date = Date(timeIntervalSince1970: seconds)
                         reset = reported
-                        logger.debug("Greeting rate limit event reports the session reset at \(reported, privacy: .public)")
+                        logger.debug("Greeting rate limit event reports session reset at \(reported, privacy: .public)")
                     }
                     phase = try await advance(phase, message)
                     if phase.is(\.finished) { return reset }

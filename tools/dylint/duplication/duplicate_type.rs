@@ -12,6 +12,7 @@ use clippy_utils::{
 use itertools::Itertools as _;
 use rustc_attr_ir::{AttrArgs, AttrItem, Attribute};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet};
+use rustc_errors::listify;
 use rustc_hir::{
     Arm, Expr, ExprKind, MatchSource, PatExpr, PatExprKind, PatKind,
     def::{CtorKind, DefKind},
@@ -70,8 +71,8 @@ enum Key {
 
 enum Duplicate {
     Same(DefId, String),
-    Generalized(DefId),
-    Subset(DefId, String, Vec<Span>),
+    Generalized(DefId, String),
+    Subset(DefId, String, String, Vec<Span>),
     Kind(DefId, String, Vec<Span>),
     Parallel(DefId, bool, Vec<Span>),
 }
@@ -88,7 +89,7 @@ pub(crate) struct Pass {
     copies: FxIndexMap<(DefId, DefId), Conversion>,
 }
 
-lint!(default Pass; DUPLICATE_TYPE: "local types and variants with a declared shape that duplicates a type in the crate or a dependency");
+lint!(default Pass; DUPLICATE_TYPE: "local types and variants that repeat another type's fields or variants, and variants that repeat each other's fields");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -315,11 +316,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let adt = tcx.adt_def(item);
             let held = shape.cases.iter().filter(|case| case.ctor.is_none() && case.fields.len() > 1).filter_map(|case| {
                 let records = index.get(&Key::Record(case.fields.iter().map(|field| field.name).collect()))?;
-                let record = records.iter().find(|record| unified_fields(&mut unifier(tcx, (shape.item, record.item), false), &case.fields, record.cases.first().map_or(&[], |held| &held.fields)))?;
+                let (record, held) = records.iter().find_map(|record| {
+                    let mut unifier = unifier(tcx, (shape.item, record.item), false);
+                    unified_fields(&mut unifier, &case.fields, record.cases.first().map_or(&[], |held| &held.fields)).then(|| Some((record, text(tcx, instance(&unifier, record.item))?)))?
+                })?;
                 let variant = adt.variants().iter().find(|variant| Some(variant.name) == case.name)?;
-                Some((variant.def_id.as_local()?, variant.name, path(tcx, record.item)?))
+                Some((variant.def_id.as_local()?, variant.name, path(tcx, record.item)?, held))
             });
-            for (variant, variant_name, record_name) in held {
+            for (variant, variant_name, record_name, record_type) in held {
                 span_lint_hir_and_then(
                     cx,
                     DUPLICATE_TYPE,
@@ -327,7 +331,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     tcx.def_span(variant),
                     format!("variant `{variant_name}` repeats the fields of `{record_name}`"),
                     |diag| {
-                        diag.help(format!("hold `{record_name}` in `{variant_name}` in place of its fields"));
+                        diag.help(format!("declare `{variant_name}({record_type})`"));
                     },
                 );
             }
@@ -346,7 +350,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     tcx.def_span(item),
                     format!("every variant of `{}` repeats the same fields", tcx.item_name(item)),
                     |diag| {
-                        diag.help("hold the shared fields once in a struct beside a fieldless kind enum");
+                        diag.help(format!("declare `{}` as a struct of the shared fields and a fieldless enum of its variants", tcx.item_name(item)));
                     },
                 );
             }
@@ -365,16 +369,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                             .collect::<Vec<_>>()
                     })
                     .find(|group| group.len() > 1)
+                && let Some(listed) = listify(&group, |variant| format!("`{}`", variant.name))
             {
                 span_lint_hir_and_then(
                     cx,
                     DUPLICATE_TYPE,
                     tcx.local_def_id_to_hir_id(item),
                     tcx.def_span(item),
-                    format!("error variants {} of `{}` repeat the same fields", group.iter().map(|variant| format!("`{}`", variant.name)).join(", "), tcx.item_name(item)),
+                    format!("error variants {listed} of `{}` repeat the same fields", tcx.item_name(item)),
                     |diag| {
                         diag.span_note(group.iter().map(|variant| tcx.def_span(variant.def_id)).collect::<Vec<_>>(), "repeated here");
-                        diag.help("declare one variant holding the shared fields and a fieldless kind enum with `derive_more::Display` messages");
+                        diag.help(format!("replace {listed} with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages"));
                     },
                 );
             }
@@ -385,8 +390,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let name = tcx.item_name(item);
             let message = match &duplicate {
                 Duplicate::Same(_, other) => format!("`{name}` duplicates `{other}`"),
-                Duplicate::Generalized(other) => format!("`{name}` repeats `{}` with other field types", tcx.item_name(*other)),
-                Duplicate::Subset(_, other, _) => format!("`{name}` repeats a subset of the fields of `{other}`"),
+                Duplicate::Generalized(other, varied) => format!("`{name}` repeats `{}` with {varied}", tcx.item_name(*other)),
+                Duplicate::Subset(_, other, copied, _) => format!("`{name}` repeats `{other}` fields {copied}"),
                 Duplicate::Kind(_, other, _) => format!("`{name}` repeats the variants of `{other}` without their fields"),
                 Duplicate::Parallel(other, _, _) => format!("`{name}` repeats `{}` member by member", tcx.item_name(*other)),
             };
@@ -397,14 +402,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     }
                     diag.help(format!("use `{text}` in place of `{name}`"));
                 }
-                Duplicate::Generalized(other) => {
+                Duplicate::Generalized(other, _) => {
                     let other_name = tcx.item_name(other);
                     diag.span_note(tcx.def_span(other), format!("`{other_name}` declared here"));
-                    diag.help(format!("make `{other_name}` generic over the field types that differ and use it in place of `{name}`"));
+                    diag.help(format!("use `{other_name}` generic over the differing field types in place of `{name}`"));
                 }
-                Duplicate::Subset(other, other_name, spans) => {
+                Duplicate::Subset(other, other_name, copied, spans) => {
                     diag.span_note(spans, format!("built from `{other_name}` fields here"));
-                    diag.help(if other.is_local() { format!("hold `{name}` in `{other_name}` in place of its fields") } else { format!("hold `{other_name}` in place of `{name}`") });
+                    diag.help(if other.is_local() { format!("hold `{name}` in `{other_name}` in place of {copied}") } else { format!("use `{other_name}` in place of `{name}`") });
                 }
                 Duplicate::Kind(other, other_name, spans) => {
                     diag.span_note(spans, format!("built from a match on `{other_name}` here"));
@@ -415,11 +420,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 }
                 Duplicate::Parallel(other, retyped, spans) => {
                     let other_name = tcx.item_name(other);
-                    diag.span_note(spans, format!("converted from `{other_name}` member by member here"));
+                    diag.span_note(spans, format!("converted from `{other_name}` here"));
                     diag.help(match (retyped, mapping.and_then(|mapping| path(tcx, mapping))) {
                         (false, _) => format!("use `{other_name}` in place of `{name}`"),
                         (true, Some(mapping)) => format!("derive the conversion of `{name}` from `{other_name}` with `{mapping}`"),
-                        (true, None) => format!("make `{other_name}` generic over the member types that differ and use it in place of `{name}`"),
+                        (true, None) => format!("use `{other_name}` generic over the differing member types in place of `{name}`"),
                     });
                 }
             });
@@ -567,11 +572,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let generalized = || {
                 candidates().filter(|right| right.item.is_local() && earlier(right)).find_map(|right| {
                     let mut unifier = unifier(tcx, (left.item, right.item), true);
-                    (unified_shapes(&mut unifier, left, right)
-                        && unifier.shared
-                        && unifier.differences.as_ref().is_some_and(|differences| !differences.is_empty())
-                        && right.item.as_local().is_some_and(|other| !distinct(item, other)))
-                    .then_some(Duplicate::Generalized(right.item))
+                    (unified_shapes(&mut unifier, left, right) && unifier.shared && right.item.as_local().is_some_and(|other| !distinct(item, other)))
+                        .then_some(unifier.differences)
+                        .flatten()
+                        .and_then(|differences| listify(&differences.into_iter().unique().collect::<Vec<_>>(), |(from, to)| format!("`{from}` in place of `{to}`")))
+                        .map(|varied| Duplicate::Generalized(right.item, varied))
                 })
             };
             let subset = || {
@@ -580,7 +585,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     let mut unifier = unifier(tcx, (left.item, source), false);
                     let copied = left.cases.iter().flat_map(|case| &case.fields).collect::<Vec<_>>();
                     let within = copied.iter().all(|field| held.iter().find(|other| other.name == field.name).is_some_and(|other| unified_fields(&mut unifier, &[**field], &[*other])));
-                    (copied.len() < held.len() && within).then(|| Some(Duplicate::Subset(source, path(tcx, source)?, conversion.spans.clone())))?
+                    (copied.len() < held.len() && within)
+                        .then(|| Some(Duplicate::Subset(source, path(tcx, source)?, listify(&copied, |field| format!("`{}`", field.name))?, conversion.spans.clone())))?
                 })
             };
             let kind = || {
@@ -622,7 +628,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         for item in checked {
             let left = owned.get(&item.to_def_id()).copied().filter(|left| left.record() || tcx.adt_def(item).is_enum());
             if let Some(duplicate) = left.and_then(|left| duplicate(item, left)).or_else(|| parallel(item))
-                && !matches!(duplicate, Duplicate::Generalized(other) if same.contains(&(other, item.to_def_id())))
+                && !matches!(duplicate, Duplicate::Generalized(other, _) if same.contains(&(other, item.to_def_id())))
             {
                 if let Duplicate::Same(other, _) = duplicate {
                     same.insert((item.to_def_id(), other));

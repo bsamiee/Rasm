@@ -23,5 +23,5 @@ rule:
             - has: {kind: call_suffix, has: {stopBy: end, matches: executable-test}}
         - kind: for_statement
           has: {stopBy: end, matches: executable-test}
-message: '`$TEST` tests each candidate directory to find an executable by hand'
-note: 'Run the child as `Executable.name(<name>)` to search its environment''s `PATH`, or resolve a path through `resolveExecutablePath(in:)`'
+message: '`$TEST` tests candidate directories to find an executable by hand'
+note: 'Run `Executable.name(<name>)` to search the child environment''s `PATH`, or call `resolveExecutablePath(in:)` for the path alone'

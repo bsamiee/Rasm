@@ -35,5 +35,5 @@ transform:
     GROUPED_A: {replace: {source: $AG, replace: '(?s)^(.+)$', by: '($1)'}}
     GROUPED_B: {replace: {source: $BG, replace: '(?s)^(.+)$', by: '($1)'}}
 fix: '$A$GROUPED_A is$NEGATION distinct from $B$GROUPED_B'
-message: '`$COMPARISON` compares `$LEFT` and `$RIGHT` through the shared default `$X`'
-note: 'Compare with `is not distinct from` or `is distinct from`'
+message: '`$COMPARISON` counts NULL equal to `$X`'
+note: 'Write `<a> is not distinct from <b>`, `<a> is distinct from <b>` for `<>` or `!=`'

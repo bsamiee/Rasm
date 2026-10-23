@@ -31,4 +31,4 @@ labels:
     JOIN: {style: primary, message: 'Joins collected items'}
     COLLECT: {style: secondary, message: 'Collects items only for the join'}
 message: '`$V` collects items into a `Vec` that only `$JOIN` reads'
-note: 'Call `Itertools::join(<separator>)` on the iterator that fills the binding (`use itertools::Itertools as _;`) and delete the binding'
+note: 'Call `.join(<separator>)` on the iterator that fills the binding (`use itertools::Itertools as _;`) and delete the binding'

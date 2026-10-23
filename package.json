@@ -1,7 +1,7 @@
 {
     "name": "rasm",
     "private": true,
-    "description": "Rasm monorepo workspace root, holding root Nx targets and every catalog package as a dev dependency",
+    "description": "Rasm root Nx targets and catalog dev dependencies",
     "type": "module",
     "imports": { "#/*": "./*.ts", "#/libs/typescript/web/ui/*": "./libs/typescript/web/ui/*.tsx", "#/package.json": "./package.json" },
     "scripts": { "postinstall": "effect-tsgo patch" },

@@ -116,5 +116,5 @@ constraints:
     BX: {regex: '(x|0)$'}
     AY: {regex: '(y|1)$'}
     BY: {regex: '(y|1)$'}
-message: '`$SITE` computes vector components by hand'
-note: 'Hold the components in the module''s vector type and call its method, `geo::Area::signed_area` for a polygon area'
+message: '`$SITE` computes a dot product, cross product, length, or distance over vector components by hand'
+note: 'Hold the components in a vector type (`glam::DVec2`, `nalgebra::Vector3`) and call its method, `geo::Area::signed_area` for a polygon area'

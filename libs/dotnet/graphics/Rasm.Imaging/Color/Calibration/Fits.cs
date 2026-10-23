@@ -32,7 +32,7 @@ public sealed record ChartFit {
     public Fin<double> Gain =>
         neutrals switch {
             ( > 0d, > 0d) and var (source, target) => target / source,
-            var (source, target) => Error.New(string.Create(CultureInfo.InvariantCulture, $"neutral patch luminance {source} to {target} holds no positive pair")),
+            var (source, target) => Error.New(string.Create(CultureInfo.InvariantCulture, $"gain needs positive neutral patch luminances, not {source} and {target}")),
         };
 
     public ChartTransform Transform(FitDirection direction) => direction.Of(this, 1d);

@@ -23,5 +23,5 @@ rule:
         - all:
             - has: {nthChild: 1, kind: simple_identifier, regex: '^(pipe|stat|lstat|fstat)$'}
             - has: {kind: call_suffix, has: {matches: arguments, has: {kind: value_argument, regex: '^&'}}}
-message: '`$SITE` calls the C descriptor API that `FileDescriptor` and `FilePath` from System wrap'
-note: 'Call the `FileDescriptor` or `FilePath` member from System that throws a typed `Errno` and retries an interrupted call'
+message: '`$SITE` calls a C descriptor function that System wraps in `FileDescriptor` or `FilePath`'
+note: 'Call the `FileDescriptor` or `FilePath` member from System'

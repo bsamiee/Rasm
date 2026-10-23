@@ -17,57 +17,59 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         "RASM1001",
         Domain,
         "Explicit result lift",
-        "`{0}` restates the implicit conversion of `{1}` to `{2}`",
-        "Write the value alone where its position fixes the `Fin` or `Validation` type, the implicit conversion builds the same case. Where only a lift fixes the type of sibling arms, the first lift stays and the later ones are reported.");
+        "`{0}` restates the implicit conversion of `{1}` to `{2}`. Replace with `{1}`",
+        "`Fin` or `Validation` factory call, case construction, or arm cast that an implicit conversion replaces with the same overloads and arm types.");
 
     public static readonly DiagnosticDescriptor TypeTest = Rule(
         "RASM1003",
         Domain,
         "Type test on Error",
-        "Type test on `Error` value `{0}` misses `ManyErrors` leaves",
-        "Test with `IsType<E>()`, `IsExpected`, or `IsExceptional`, and bind fields through `Filter<E>().Head is E <case>`. Type tests hold on a leaf from `Head`, `AsIterable`, `FoldM`, or `ForAllM`, and after a `ManyErrors` arm.");
+        "{0} misses errors inside `ManyErrors`. Call `{1}.IsType<{2}>()`, or bind fields through `{1}.Filter<{2}>().Head is {2} <name>`",
+        "Cast, type test, switch arm, or `GetType()` call on an `Error` value that can hold `ManyErrors`.");
 
     public static readonly DiagnosticDescriptor RoundTrip = Rule(
         "RASM1004",
         Domain,
         "Fin round trip through Validation",
-        "`{0}` round-trips `Fin` through `Validation`",
-        "Apply and traverse the `Fin` operands directly, `Fin` accumulates every error.");
+        "`{0}` round-trips `Fin` through `Validation`. Delete each `{1}()` and the closing `{2}()`",
+        "Parameterless `Validation` to `Fin` call over `Fin` operands converted to `Validation`, directly or through `Apply` or `Traverse`.");
 
     public static readonly DiagnosticDescriptor Spread = Rule(
         "RASM1005",
         Domain,
         "Seq accumulator copied per step",
-        "`{0}` copies `{1}` on every step",
-        "Append with `Seq.Add`, which shares the accumulated sequence where a spread copies it.");
+        "`{0}` copies `{1}` on every step. Replace with `{1}.Add({2})`",
+        "Collection expression `[.. <seq>, <item>]` appending to a `Seq` fold accumulator or loop local.");
 
     public static readonly DiagnosticDescriptor LiftedApply = Rule(
         "RASM1006",
         Domain,
         "IO Apply over lifted Fin values",
-        "`Apply` over {0} lifted `Fin` operands keeps one failure",
-        "Apply the `Fin` values inside one `IO.lift`, where `Fin` accumulates every failure and `IO` keeps the first.");
+        "`{0}` over {1} `IO.lift` operands keeps one `Fin` failure. Call `{0}` on the `Fin` values inside one `IO.lift`",
+        "`Apply` over a tuple of `IO.lift` calls that each lift a `Fin` value or `Fin` thunk.");
 
     public static readonly DiagnosticDescriptor Narrowed = Rule(
         "RASM1007",
         Domain,
         "Redundant As",
-        "`{0}` narrows `{1}` to itself",
-        "Delete the call, `As` narrows a `K<F, A>` trait value to its concrete type and its receiver holds that type.");
+        "`{0}()` narrows `{1}` to itself. Delete the call",
+        "Parameterless narrowing call on a `K<F, A>` conversion that returns the converted value's own type.");
 
     public static readonly DiagnosticDescriptor Passed = Rule(
         "RASM1008",
         Domain,
         "Match that passes one case through",
-        "`{0}` returns one case unchanged, `{1}` passes it through and handles the other",
-        "Call the named member, which takes the handler of the other case alone.");
+        "`{0}` returns the `{1}` value unchanged. Replace with `{2}`",
+        "`Match` with one identity handler where a member taking the other handler alone returns the same type.");
 
     public static readonly DiagnosticDescriptor Nullable = Rule(
         "RASM1009",
         Domain,
         "Option converted to a nullable by hand",
-        "`{0}` converts an `Option` to a nullable by hand, `{1}` states it",
-        "Call `ValueUnsafe()` from `LanguageExt.UnsafeValueAccess` for a reference element, `ToNullable()` for a value element, and `Map<T?>(<some>).ValueUnsafe()` where `Some` maps the value.");
+        "`Option` value `{0}` converted to a nullable by hand. Replace with `{1}`",
+        "`Option` converted to a nullable through `Match`, a `Case` cast, or an `IsSome` or `IsNone` conditional.");
+
+    private static readonly SymbolDisplayFormat Shown = SymbolDisplayFormat.MinimallyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, LiftedApply, Narrowed, Passed, Nullable];
 
@@ -142,7 +144,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                     foreach ((IOperation lift, INamedTypeSymbol target, _) in scope.Reverse().Aggregate(
                         ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>.Empty,
                         (removed, next) => Holds(root, [.. removed, next], block.CancellationToken) ? removed.Add(next) : removed))
-                        block.ReportDiagnostic(Diagnostic.Create(Lift, lift.Syntax.GetLocation(), lift.Syntax, Unlifted(lift.Syntax), target.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+                        block.ReportDiagnostic(Diagnostic.Create(Lift, lift.Syntax.GetLocation(), lift.Syntax, Unlifted(lift.Syntax), target.ToDisplayString(Shown)));
         });
     }
 
@@ -193,6 +195,8 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         bool Case(ITypeSymbol? type) => !Same(type, error) && !Derives(type, many) && Derives(type, error);
         bool Narrows(IOperation pattern, Func<ITypeSymbol?, bool> wanted) =>
             pattern.DescendantsAndSelf().OfType<IPatternOperation>().Any(nested => Same(nested.InputType, error) && wanted(nested.NarrowedType));
+        ITypeSymbol? Narrowed(IOperation pattern) =>
+            pattern.DescendantsAndSelf().OfType<IPatternOperation>().Where(nested => Same(nested.InputType, error)).Select(static nested => nested.NarrowedType).FirstOrDefault(Case);
         bool Visits(ISymbol? member) =>
             member is not null && (leaves.Any(leaf => Same(member, leaf)) || Visits(member switch { IMethodSymbol method => method.OverriddenMethod, IPropertySymbol property => property.OverriddenProperty, _ => null }));
         bool Iterated(IOperation? source) => source is not null && Stripped(source) is IInvocationOperation call && (Visits(call.TargetMethod) || Iterated(Receiver(call)));
@@ -205,21 +209,26 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 ILocalReferenceOperation reference => Ancestor<IForEachLoopOperation>(reference, loop => loop.Locals.Any(local => Same(local, reference.Local))) is { } loop && Iterated(loop.Collection),
                 _ => false,
             };
-        IEnumerable<(IOperation Site, IOperation Tested)> Tests(IOperation operation) =>
+        IEnumerable<(IOperation Site, IOperation Tested, ITypeSymbol? Type)> Tests(IOperation operation) =>
             operation switch {
-                IIsTypeOperation test when Typed(test.ValueOperand) && Case(test.TypeOperand) => [(test, test.ValueOperand)],
-                IIsPatternOperation test when Typed(test.Value) && Narrows(test.Pattern, Case) && !Narrows(test.Pattern, held => Derives(held, many)) => [(test, test.Value)],
-                IConversionOperation { IsImplicit: false } cast when Typed(cast.Operand) && Case(cast.Type) => [(cast, cast.Operand)],
-                IInvocationOperation { Instance: { } instance } call when Typed(instance) && Same(call.TargetMethod, runtime) => [(call, instance)],
+                IIsTypeOperation test when Typed(test.ValueOperand) && Case(test.TypeOperand) => [(test, test.ValueOperand, test.TypeOperand)],
+                IIsPatternOperation test when Typed(test.Value) && Narrowed(test.Pattern) is { } type && !Narrows(test.Pattern, held => Derives(held, many)) => [(test, test.Value, type)],
+                IConversionOperation { IsImplicit: false } cast when Typed(cast.Operand) && Case(cast.Type) => [(cast, cast.Operand, cast.Type)],
+                IInvocationOperation { Instance: { } instance } call when Typed(instance) && Same(call.TargetMethod, runtime) => [(call, instance, null)],
                 _ when Dispatch(operation) is ( { } subject, var arms) && Typed(subject) =>
                     arms.Select(static arm => arm.Test).OfType<IPatternOperation>().TakeWhile(pattern => !Narrows(pattern, held => Derives(held, many)))
-                        .Where(pattern => Narrows(pattern, Case)).Select(pattern => ((IOperation)pattern, subject)),
+                        .Select(pattern => (Site: (IOperation)pattern, Tested: subject, Type: Narrowed(pattern))).Where(static test => test.Type is not null),
                 _ => [],
             };
         context.RegisterOperationAction(
             analysis => {
-                foreach ((IOperation site, IOperation tested) in Tests(analysis.Operation).Where(test => !Leaf(test.Tested)))
-                    analysis.ReportDiagnostic(Diagnostic.Create(TypeTest, site.Syntax.GetLocation(), tested.Syntax));
+                foreach ((IOperation site, IOperation tested, ITypeSymbol? type) in Tests(analysis.Operation).Where(test => !Leaf(test.Tested)))
+                    analysis.ReportDiagnostic(Diagnostic.Create(
+                        TypeTest,
+                        site.Syntax.GetLocation(),
+                        type is null ? $"`{site.Syntax}`" : $"Narrowing `{tested.Syntax}` to `{type.ToDisplayString(Shown)}`",
+                        tested.Syntax,
+                        type?.ToDisplayString(Shown) ?? "<case>"));
             },
             OperationKind.IsType,
             OperationKind.IsPattern,
@@ -247,7 +256,13 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
             analysis => {
                 IInvocationOperation exit = (IInvocationOperation)analysis.Operation;
                 if (Source(exit, validation, fin) is { } inner && Hops(inner) is { IsEmpty: false } hops && (Source(inner, kind, validation) ?? inner) is IInvocationOperation named)
-                    analysis.ReportDiagnostic(Diagnostic.Create(RoundTrip, Named(exit), [.. hops.Select(static hop => hop.Syntax.GetLocation()), exit.Syntax.GetLocation()], named.TargetMethod.Name));
+                    analysis.ReportDiagnostic(Diagnostic.Create(
+                        RoundTrip,
+                        Named(exit),
+                        [.. hops.Select(static hop => hop.Syntax.GetLocation()), exit.Syntax.GetLocation()],
+                        named.TargetMethod.Name,
+                        ((IInvocationOperation)hops[0]).TargetMethod.Name,
+                        exit.TargetMethod.Name));
             },
             OperationKind.Invocation);
     }
@@ -274,7 +289,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 if (Same(collection.Type, seq) && collection.Elements is { Length: 2 } elements && elements[0] is ISpreadOperation { Operand: var spread } && elements[1] is not ISpreadOperation
                     && SymbolEqualityComparer.Default.Equals(spread.Type, collection.Type) && Held(spread) is { } held && Stepped(collection, held)
                     && (held is IParameterSymbol || (Consumer(collection) is ISimpleAssignmentOperation { Target: ILocalReferenceOperation target } && Same(target.Local, held))))
-                    analysis.ReportDiagnostic(Diagnostic.Create(Spread, collection.Syntax.GetLocation(), collection.Syntax, held.Name));
+                    analysis.ReportDiagnostic(Diagnostic.Create(Spread, collection.Syntax.GetLocation(), collection.Syntax, held.Name, elements[1].Syntax));
             },
             OperationKind.CollectionExpression);
     }
@@ -288,7 +303,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
             analysis => {
                 IInvocationOperation call = (IInvocationOperation)analysis.Operation;
                 if (Receiver(call) is { } receiver && Stripped(receiver) is ITupleOperation { Elements.Length: > 1 } tuple && tuple.Elements.All(Raised))
-                    analysis.ReportDiagnostic(Diagnostic.Create(LiftedApply, Named(call), tuple.Elements.Length));
+                    analysis.ReportDiagnostic(Diagnostic.Create(LiftedApply, Named(call), call.TargetMethod.Name, tuple.Elements.Length));
             },
             OperationKind.Invocation);
     }
@@ -300,7 +315,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 IInvocationOperation call = (IInvocationOperation)analysis.Operation;
                 if (Parameterless(call) && Receiver(call) is IConversionOperation { IsImplicit: true, Type: var trait, Operand.Type: { } held }
                     && Same(trait, kind) && SymbolEqualityComparer.Default.Equals(held, call.Type))
-                    analysis.ReportDiagnostic(Diagnostic.Create(Narrowed, Named(call), call.TargetMethod.Name, held.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+                    analysis.ReportDiagnostic(Diagnostic.Create(Narrowed, Named(call), call.TargetMethod.Name, held.ToDisplayString(Shown)));
             },
             OperationKind.Invocation);
 
@@ -327,7 +342,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
             };
         bool Nulled(ITypeSymbol element, ITypeSymbol? produced) =>
             element.IsReferenceType || (produced is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable && SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], element));
-        static string Read(ITypeSymbol element) => element.IsReferenceType ? "ValueUnsafe()" : "ToNullable()";
+        static object[] Read(IOperation holder, ITypeSymbol element) => [holder.Syntax, $"{holder.Syntax}.{(element.IsReferenceType ? "ValueUnsafe" : "ToNullable")}()"];
         bool Held(IOperation? first, IOperation? second) =>
             (first, second) switch {
                 (ILocalReferenceOperation one, ILocalReferenceOperation other) => Same(one.Local, other.Local),
@@ -338,41 +353,44 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 _ => false,
             };
         bool Unwraps(IOperation value, IOperation tested) => Stripped(value) is IConversionOperation { IsImplicit: false, Operand: var source } && Held(source, tested);
-        (DiagnosticDescriptor Rule, string Replacement)? Handled(IInvocationOperation call) {
+        (DiagnosticDescriptor Rule, object[] Arguments)? Handled(IInvocationOperation call) {
             if (Receiver(call) is not { Type: INamedTypeSymbol owner } receiver || !SymbolEqualityComparer.Default.Equals(owner.ContainingAssembly, fin.ContainingAssembly)) return null;
             ImmutableArray<IArgumentOperation> handled = [.. call.Arguments.Where(argument => argument.Value != receiver)];
             bool optional = Same(owner, option);
             ITypeSymbol element = owner.TypeArguments.FirstOrDefault() ?? owner;
-            string read = Read(element);
+            object[] unwrapped = Read(receiver, element);
             if (optional && handled.Length is 1 && Empty(handled[0].Value) && SymbolEqualityComparer.Default.Equals(call.Type?.WithNullableAnnotation(NullableAnnotation.NotAnnotated), element) && Nulled(element, call.Type))
-                return (Nullable, read);
+                return (Nullable, unwrapped);
             if (handled.Length is not 2 || !handled.All(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate)) return null;
             int kept = Identity(handled[0].Value) is not null ? 0 : Identity(handled[1].Value) is not null ? 1 : -1;
             IArgumentOperation other = handled[kept is 0 ? 1 : 0];
             return (kept, optional && Empty(other.Value) && Nulled(element, call.Type)) switch {
-                ( >= 0, true) => (Nullable, read),
-                (-1, _) when optional && handled.Any(static argument => Empty(argument.Value)) && call.Type is { IsReferenceType: true } or INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } => (Nullable, "Map<T?>(<some>).ValueUnsafe()"),
+                ( >= 0, true) => (Nullable, unwrapped),
+                (-1, _) when optional && handled.FirstOrDefault(static argument => !Empty(argument.Value)) is { } mapped && handled.Any(static argument => Empty(argument.Value))
+                    && call.Type is { IsReferenceType: true } or INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } =>
+                    (Nullable, [receiver.Syntax, $"{receiver.Syntax}.Map<{call.Type.ToDisplayString(Shown)}>({mapped.Value.Syntax}).ValueUnsafe()"]),
                 ( >= 0, false) when SymbolEqualityComparer.Default.Equals(Identity(handled[kept].Value), call.Type)
                     && owner.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(member => member is { IsStatic: false, Parameters.Length: 1 } && !Same(member, call.TargetMethod)
                         && SymbolEqualityComparer.IncludeNullability.Equals(member.Parameters[0].Type, other.Parameter!.Type)
-                        && SymbolEqualityComparer.IncludeNullability.Equals(member.ReturnType, call.Type)) is { } named => (Passed, named.Name),
+                        && SymbolEqualityComparer.IncludeNullability.Equals(member.ReturnType, call.Type)) is { } named =>
+                    (Passed, [call.TargetMethod.Name, handled[kept].Parameter!.Name, $"{receiver.Syntax}.{named.Name}({other.Value.Syntax})"]),
                 _ => null,
             };
         }
         context.RegisterOperationAction(
             analysis => {
-                (IOperation site, DiagnosticDescriptor rule, string replacement)? found = analysis.Operation switch {
-                    IInvocationOperation call when Handled(call) is { } handled => (call, handled.Rule, handled.Replacement),
-                    IConversionOperation { IsImplicit: false, Type: { } target } cast when Stripped(cast.Operand) is IPropertyReferenceOperation { Instance.Type: INamedTypeSymbol owner } read
+                (IOperation Site, DiagnosticDescriptor Rule, object[] Arguments)? found = analysis.Operation switch {
+                    IInvocationOperation call when Handled(call) is { } handled => (call, handled.Rule, handled.Arguments),
+                    IConversionOperation { IsImplicit: false, Type: { } target } cast when Stripped(cast.Operand) is IPropertyReferenceOperation { Instance: { Type: INamedTypeSymbol owner } holder } read
                         && Same(read.Property, matched) && SymbolEqualityComparer.Default.Equals(target.WithNullableAnnotation(NullableAnnotation.NotAnnotated), owner.TypeArguments[0]) =>
-                        (cast, Nullable, Read(owner.TypeArguments[0])),
+                        (cast, Nullable, Read(holder, owner.TypeArguments[0])),
                     IConditionalOperation { Condition: IPropertyReferenceOperation { Instance: { Type: INamedTypeSymbol owner } tested } test, WhenTrue: var present, WhenFalse: { } absent } conditional
                         when (Same(test.Property, some) && Unwraps(present, tested) && Empty(absent)) || (Same(test.Property, none) && Unwraps(absent, tested) && Empty(present)) =>
-                        (conditional, Nullable, Read(owner.TypeArguments[0])),
+                        (conditional, Nullable, Read(tested, owner.TypeArguments[0])),
                     _ => null,
                 };
-                if (found is ( { } site, { } rule, var replacement))
-                    analysis.ReportDiagnostic(Diagnostic.Create(rule, site.Syntax.GetLocation(), site.Syntax, replacement));
+                if (found is ( { } site, { } rule, var arguments))
+                    analysis.ReportDiagnostic(Diagnostic.Create(rule, site.Syntax.GetLocation(), arguments));
             },
             OperationKind.Invocation,
             OperationKind.Conversion,

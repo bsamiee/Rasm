@@ -9,7 +9,7 @@ import { Effect } from 'effect';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 beforeEach(reset);
-it.effect('saves and publishes a draft in one atomic batch, keeps an unchanged save at its revision, and rejects a stale revision', () =>
+it.effect('saves and publishes draft in one atomic batch, keeps revision on unchanged save, rejects stale revision', () =>
     Effect.gen(function* () {
         const draft = { name: 'Studio', introduction: '', email: 'studio@example.com', entries: [] };
         const empty = yield* readDocument('draft');

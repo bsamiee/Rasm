@@ -66,5 +66,5 @@ rule:
           follows: {regex: '^=$'}
 transform:
     HEAD: {replace: {source: $MATCH, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` classifies an error by comparing its code after a cast or through its raw value'
-note: 'Match codes as `switch`, `catch`, or `if case` patterns (`.noSuchFileOrDirectory as Errno`), and compare an `Errno` by case (`== .permissionDenied`)'
+message: '`$HEAD` compares an error code read through a cast or a raw value'
+note: 'Match the code as a `catch`, `switch`, or `if case` pattern (`.noSuchFileOrDirectory as Errno`), and an `Errno` by case (`== .permissionDenied`)'

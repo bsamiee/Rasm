@@ -204,7 +204,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 };
                 span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, held.hir_id(cx), held.span(cx), message, |diag| {
                     diag.span_note(branches.iter().map(|(site, _)| *site).collect::<Vec<_>>(), "branched on here");
-                    diag.help("declare an enum deriving `strum::EnumString` with a variant per value, parse the text once where it enters, and match the variants");
+                    diag.help(format!("declare `{name}` as a `strum::EnumString` enum with a variant per value and parse the text where it enters"));
                 });
             }
         }
@@ -212,9 +212,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let literals = keys.iter().map(|&(_, literal)| literal).collect::<FxIndexSet<_>>();
             if literals.len() > 1 {
                 let listed = literals.iter().format_with(", ", |literal, write| write(&format_args!("`\"{literal}\"`")));
-                span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, held.hir_id(cx), held.span(cx), format!("text-keyed `{}` is addressed by fixed keys {listed}", held.name(cx)), |diag| {
+                let name = held.name(cx);
+                span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, held.hir_id(cx), held.span(cx), format!("text-keyed `{name}` is addressed by fixed keys {listed}"), |diag| {
                     diag.span_note(keys.iter().map(|&(site, _)| site).collect::<Vec<_>>(), "addressed here");
-                    diag.help("key the collection by an enum with a variant per key, or hold a struct with a field per key");
+                    diag.help(format!("key `{name}` by an enum with a variant per key, or replace it with a struct holding a field per key"));
                 });
             }
         }

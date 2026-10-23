@@ -277,5 +277,5 @@ rewriters:
 fix:
     template: '$RETURN$BOOL_PREFIX$BOOL_COND$BOOL_THEN$BOOL_VALUE$BOOL_OTHERWISE$BOOL_ELSE$TRY$OPEN$OPT$CLOSE$MAP_OPEN$X$MAP_IN$VALUE$THROWING$MAP_CLOSE$COALESCE$ELSE$IF_EXPRESSION$CHAIN_EXPRESSION$IF_HEAD_EXPRESSION'
     expandEnd: {kind: control_transfer_statement}
-message: '`guard`, `if`, or `switch` returns each case by statements where one expression selects the result'
-note: 'Return `<condition> ? <value> : <else>`, `<optional>.map { <value> in <expression> } ?? <else>`, or an `if` or `switch` expression'
+message: 'Branch statements return each case where one expression selects the value'
+note: 'Return one `<condition> ? <then> : <else>`, `<optional>.map { <value> in <expression> } ?? <else>`, or `if` or `switch` expression'

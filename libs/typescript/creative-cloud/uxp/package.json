@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Effect in Adobe UXP hosts: clock, host modules, the plug-in manifest, plug-in and script entries, the dialed link serving a contract, and the local listener calling linked plug-ins",
+    "description": "Effect runtime, manifest schema, entries, and WebSocket RPC for Adobe UXP plugins and scripts",
     "sideEffects": false,
     "type": "module",
     "imports": {

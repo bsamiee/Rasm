@@ -29,4 +29,4 @@ rule:
             - has: {kind: string_content, regex: '""'}
             - not: {regex: '\n'}
 message: '`$LITERAL` escapes quotes a raw string literal holds as written'
-note: 'Write `"""<text>"""`, `"""` lines around quote-edged text, `$$"""` for braces, `\n` where a multi-line literal takes the file''s line ending'
+note: 'Write `"""<text>"""`, `$"""` when interpolated, `$$"""` when the text holds braces, and `"""` on own lines around quote-edged text'

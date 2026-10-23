@@ -34,5 +34,5 @@ rule:
             - all:
                 - has: {field: function, matches: effect-pipe-function}
                 - has: {field: arguments, has: {nthChild: 2, matches: codec}}
-message: '`$M.$FN` runs over a literal and checks nothing at run time'
-note: 'Write the `Schema.<operation>` output as a literal of its output type inside its result type''s success constructor'
+message: '`$M.$FN` runs over a literal the compiler checks'
+note: 'Write the literal as `typeof <schema>.Type`, `Encoded` for an encode, in the success constructor of the codec result type (`Option.some`)'

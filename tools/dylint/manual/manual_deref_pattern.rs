@@ -50,9 +50,10 @@ impl Pass {
             let mut applicability = Applicability::MaybeIncorrect;
             let borrowed = typeck.expr_ty(receiver).is_ref();
             let receiver = Sugg::hir_with_context(cx, receiver, scrutinee.span.ctxt(), "..", &mut applicability);
-            let receiver = if borrowed { receiver } else { receiver.addr() };
-            span_lint_hir_and_then(cx, MANUAL_DEREF_PATTERN, scrutinee.hir_id, scrutinee.span, format!("{view} derefs `{receiver}` for its patterns"), |diag| {
-                suggest(cx, scrutinee.hir_id, diag, scrutinee.span, "match a reference to the value under `#![feature(deref_patterns)]`", receiver.to_string(), applicability);
+            let message = format!("{view} derefs `{receiver}` for its patterns");
+            let matched = if borrowed { receiver } else { receiver.addr() };
+            span_lint_hir_and_then(cx, MANUAL_DEREF_PATTERN, scrutinee.hir_id, scrutinee.span, message, |diag| {
+                suggest(cx, scrutinee.hir_id, diag, scrutinee.span, format!("match `{matched}` under `#![feature(deref_patterns)]`"), matched, applicability);
             });
         }
     }

@@ -50,7 +50,7 @@ rule:
                 matches: level
                 stopBy: {matches: boundary}
                 not: {inside: {matches: level, stopBy: {kind: function_definition}}}
-message: Nesting reaches a fourth level
-note: Rebuild nested decisions, loops, or comprehensions as one match or pipeline over their inputs
+message: 'Control flow or closure opens a fourth nesting level'
+note: 'Rebuild the nested levels as one `match` or one pipeline over their inputs'
 labels:
     SCOPE: {style: primary, message: Fourth nesting level}

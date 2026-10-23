@@ -1,4 +1,4 @@
-"""Native gain and offset wheels, signed contrast, and working-space vibrance."""
+"""Gain and offset wheels, signed contrast, and working-space vibrance."""
 
 import bpy
 from expression import Result
@@ -17,7 +17,7 @@ from blender.imaging.effects.grade.primary import Contrast, Primary, Saturation,
 
 
 def graded(shell: Shell[Primary]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns additive offset followed by gain in stops."""
+    """Returns additive offset, then gain in stops."""
     red, green, blue, master = Wheel.__struct_fields__
     channels = (("X", red), ("Y", green), ("Z", blue))
     gain, offset = Primary.__struct_fields__
@@ -39,7 +39,7 @@ def graded(shell: Shell[Primary]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def contrasted(shell: Shell[Contrast]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns signed power contrast about the scene-linear grey pivot."""
+    """Returns signed power contrast around grey pivot."""
     pivot, power = End(node="pivot"), End(node="pivot_power")
     red, green, blue, _ = Wheel.__struct_fields__
     channels = (("X", red), ("Y", green), ("Z", blue))
@@ -75,7 +75,7 @@ def saturated(shell: Shell[Saturation]) -> BlenderResult[tuple[Fragment, End]]:
         shell: Entry inputs and working configuration supplying luminance coefficients.
 
     Returns:
-        Native body and result endpoint, or imaging and graph construction faults.
+        Body and result endpoint, or imaging and graph faults.
     """
     entering = shell.source
     scale, vibrance = (End(node=INPUTS, socket=item_key(field)) for field in Saturation.__struct_fields__)

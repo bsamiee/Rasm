@@ -1,21 +1,26 @@
-"""Partial case reads of expression `Result` and `Option` values outside a `match` on the value."""
+"""Attribute reads of one expression `Result` or `Option` case outside a `match` on the value."""
 
-from typing import override
+from typing import override, Protocol
 
 from expression import Option, Result
 from mypy.nodes import Expression, MatchStmt, MemberExpr, MypyFile, TupleExpr
-from mypy.types import get_proper_type, Instance, Type
-from refurb.checks.common import get_mypy_type, is_equivalent
+from mypy.types import get_proper_type, Instance, NoneType, Type
+from refurb.checks.common import get_mypy_type, is_equivalent, stringify
 from refurb.error import Error
 from refurb.visitor import TraverserVisitor
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class _Named(Protocol):
+    __name__: str
+
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
 class ErrorPartialCaseReadError(Error):
-    """Reading one case of a `Result` or `Option` raises on every other case.
-
-    A `match` on the value binds each case in its pattern, a combinator (`map`, `bind`, `default_value`) reads it in one call:
+    """Attribute read of one `Result` or `Option` case outside a `match` on the value.
 
     Bad:
 
@@ -40,8 +45,18 @@ class ErrorPartialCaseReadError(Error):
 
 
 def check(node: MypyFile, errors: list[Error]) -> None:
-    """Reports each case read whose receiver no enclosing `match` takes as its subject."""
-    cases = {f"{union.__module__}.{union.__qualname__}": frozenset({*union.__match_args__, *properties}) - {"tag"} for union, properties in ((Result, ()), (Option, ("value",)))}
+    """Reports each case read on a receiver no enclosing `match` takes as subject."""
+
+    def listed(*readers: _Named) -> str:
+        return f"{', '.join(f'`{reader.__name__}`' for reader in readers[:-1])}, or `{readers[-1].__name__}`"
+
+    cases = {
+        f"{union.__module__}.{union.__qualname__}": {attribute: (case, readers[case]) for attribute, case in (*((field, field) for field in union.__match_args__ if field != "tag"), *properties)}
+        for union, properties, readers in (
+            (Result, (), {"ok": listed(Result.map, Result.bind, Result.default_value), "error": listed(Result.map_error, Result.or_else_with, Result.default_with)}),
+            (Option, (("value", "some"),), {"some": listed(Option.map, Option.bind, Option.default_value), "none": listed(Option.default_value, Option.default_with, Option.or_else_with)}),
+        )
+    }
 
     class Reads(TraverserVisitor):
         def __init__(self, subjects: tuple[Expression, ...]) -> None:
@@ -59,8 +74,15 @@ def check(node: MypyFile, errors: list[Error]) -> None:
         def visit_member_expr(self, o: MemberExpr) -> None:
             receiver = get_mypy_type(o.expr)
             found = get_proper_type(receiver) if isinstance(receiver, Type) else None
-            if isinstance(found, Instance) and o.name in cases.get(found.type.fullname, frozenset()) and not any(is_equivalent(o.expr, subject) for subject in self.subjects):
-                errors.append(ErrorPartialCaseReadError.from_node(o, f"`.{o.name}` reads one case of `{found.type.name}`, bind it in a `case` pattern or read it through a combinator"))
+            if isinstance(found, Instance) and (read := cases.get(found.type.fullname, {}).get(o.name)) is not None and not any(is_equivalent(o.expr, subject) for subject in self.subjects):
+                case, readers = read
+                subject, field = stringify(o.expr), found.type.get(case)
+                binding = "" if field is not None and isinstance(get_proper_type(field.type), NoneType) else f", {case}=<name>"
+                errors.append(
+                    ErrorPartialCaseReadError.from_node(
+                        o, f'`{subject}.{o.name}` raises unless `{subject}` is the `{case}` case, match it with `case {found.type.name}(tag="{case}"{binding})` or read it through {readers}'
+                    )
+                )
             super().visit_member_expr(o)
 
     Reads(()).accept(node)

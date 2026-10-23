@@ -4,7 +4,7 @@ from typing import override
 
 from mypy.nodes import ArgKind, BytesExpr, CallExpr, Decorator, Expression, FloatExpr, FuncDef, IntExpr, MemberExpr, MypyFile, NameExpr, StrExpr, SymbolNode, TypeInfo, UnaryExpr
 from mypy.types import Instance
-from refurb.checks.common import get_mypy_type, is_equivalent
+from refurb.checks.common import get_mypy_type, is_equivalent, stringify
 from refurb.error import Error
 from refurb.visitor import TraverserVisitor
 
@@ -12,9 +12,7 @@ from refurb.visitor import TraverserVisitor
 
 
 class ErrorRestatedDefaultError(Error):
-    """A keyword argument equal to its parameter's literal default restates the default.
-
-    The call omits the argument, and a call meaning a value other than the default passes that value:
+    """Keyword argument equal to the literal default its callee declares.
 
     Bad:
 
@@ -42,7 +40,7 @@ class ErrorRestatedDefaultError(Error):
 
 
 def check(node: MypyFile, errors: list[Error]) -> None:
-    """Reports each keyword argument equal to the literal default of a function or method this module defines."""
+    """Reports each keyword argument equal to the literal default of a function or method the module defines."""
 
     def literal(expression: Expression) -> bool:
         match expression:
@@ -79,7 +77,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
                 case (FuncDef() as function) | Decorator(func=FuncDef() as function) if function in defined.functions:
                     defaults = {argument.variable.name: argument.initializer for argument in function.arguments if argument.initializer is not None and literal(argument.initializer)}
                     errors.extend(
-                        ErrorRestatedDefaultError.from_node(value, f"`{name}` passes the default `{function.name}` declares, omit the argument")
+                        ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{function.name}` declares, remove the argument")
                         for name, value, kind in zip(o.arg_names, o.args, o.arg_kinds)
                         if kind is ArgKind.ARG_NAMED and name is not None and (default := defaults.get(name)) is not None and is_equivalent(value, default)
                     )

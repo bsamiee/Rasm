@@ -7,7 +7,7 @@ use crate::expanded_externally;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(BORROWED_INDEXING: "index expressions through a reference to a type with an inherent `get` returning `Option`, which panic when the entry is absent and `clippy::indexing_slicing` skips");
+lint!(BORROWED_INDEXING: "index expressions through a reference to a type with an inherent `get` returning `Option`");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -19,9 +19,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && get_adt_inherent_method(cx, held, sym::get)
                 .is_some_and(|get| matches!(cx.tcx.fn_sig(get.def_id).skip_binder().output().skip_binder().kind(), ty::Adt(option, _) if option.is_diag_item(cx, sym::Option)))
         {
-            let (held, key) = (with_forced_trimmed_paths!(held.to_string()), snippet(cx, key.span, ".."));
+            let (held, receiver, key) = (with_forced_trimmed_paths!(held.to_string()), snippet(cx, base.span, ".."), snippet(cx, key.span, ".."));
             span_lint_hir_and_then(cx, BORROWED_INDEXING, expr.hir_id, expr.span, format!("indexing `{held}` by `{key}` panics when the entry is absent"), |diag| {
-                diag.help("call `get` and handle `None`");
+                diag.help(format!("call `{receiver}.get({key})` and handle `None`"));
             });
         }
     }

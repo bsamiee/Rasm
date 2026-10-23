@@ -105,7 +105,7 @@ public static partial class Mappings {
     public static IO<Unit> Assign(RhinoObject rhinoObject, int channel, Option<TextureMapping> mapping, Option<Transform> objectTransform = default) =>
         from accepted in IO.lift(() => mapping.Traverse(held => (held.MappingType is TextureMappingType.OcsMapping) == (channel == ObjectAttributes.OCSMappingChannelId)
             ? Fin.Succ(unit)
-            : Error.New(string.Create(CultureInfo.InvariantCulture, $"Channel {channel} cannot hold a {held.MappingType} mapping"))).As())
+            : Error.New(string.Create(CultureInfo.InvariantCulture, $"channel {channel} cannot hold {held.MappingType} mapping"))).As())
         let held = mapping.ValueUnsafe()
         from assigned in IO.lift(() => Refused.Unless(objectTransform.Match(
             Some: xform => rhinoObject.SetTextureMapping(channel, held, xform),

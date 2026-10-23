@@ -48,7 +48,7 @@ public enum JSONRPCFailure<Method: RawRepresentable & Sendable>: CustomNSError, 
             case .closed: "Connection closed"
             case .invalidMessage(.some(let method), _): "Unreadable \(method.rawValue) message"
             case .invalidMessage(.none, _): "Unreadable message"
-            case .error(let method, let error): "\(method?.rawValue ?? "Request") error \(error.code): \(error.message)"
+            case .error(let method, let error): "\(method?.rawValue ?? "Request") error \(error.code) \(error.message)"
         }
     }
 

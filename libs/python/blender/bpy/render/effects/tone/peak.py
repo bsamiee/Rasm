@@ -23,7 +23,7 @@ from blender.imaging.files.images import ImageFile
 
 
 def peaked(shell: Shell[PeakMapping]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds the forward-only EETF, retaining black adaptation without compression."""
+    """Builds forward-only EETF, black adaptation kept without peak compression."""
     source = shell.source
     source_peak, target_peak, black, knee_offset = (shell.socket(field) for field in PeakMapping.__struct_fields__)
     m1, m2, c1, c2, c3 = 2610.0 / 16384.0, 2523.0 / 32.0, 3424.0 / 4096.0, 2413.0 / 128.0, 2392.0 / 128.0
@@ -77,7 +77,7 @@ def peaked(shell: Shell[PeakMapping]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def formed_view(context: bpy.types.Context) -> Option[DisplayView]:
-    """Returns the enabled compositor formation or the scene's display view."""
+    """Returns preview-enabled formation view, else scene display view."""
     return Option.of_optional(context.scene).map(
         lambda scene: (
             Option
@@ -101,7 +101,7 @@ def formed_view(context: bpy.types.Context) -> Option[DisplayView]:
 
 
 def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-    """Writes the observed PQ peak while preserving mapping parameters and blend, naming an undo step where the peak changed."""
+    """Writes observed PQ peak, keeping mapping parameters and blend, naming undo step on change."""
     found = config_of().bind(lambda config: metering.samples_of(config, file.pixels).map(metering.peak).map_error(BlenderImagingFault.lifted))
     return (
         paired(found, peak_mapping.read(identity, entry))
@@ -122,7 +122,7 @@ reading = ViewerRead(consume=measured)
 measure_peak = Operator(
     key="measure_peak",
     title="Measure Source Peak",
-    description="Measures the frame's peak luminance into the source peak",
+    description="Measure source peak from stage input",
     form=Named,
     undo=False,
     condition=Some(AllOf(conditions=(Job(kind="RENDER"), HdrWindow(formed=formed_view)))),
@@ -131,7 +131,7 @@ measure_peak = Operator(
         .root(bpy.types.Scene)
         .bind(lambda scene: peak_mapping.named(call.identity, scene, call.record.name))
         .bind(lambda entry: reading.entering(call.identity, entry))
-        .map(lambda _: Done(notes=(("INFO", "Measuring the frame entering peak mapping"),)))
+        .map(lambda _: Done(notes=(("INFO", "Measuring source peak from stage input"),)))
     ),
 )
 peak_mapping: CompositorEffect[PeakMapping] = CompositorEffect(record=PeakMapping, graph=peaked, registrables=(measure_peak, reading))

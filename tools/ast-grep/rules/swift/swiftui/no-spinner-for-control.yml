@@ -84,5 +84,5 @@ rewriters:
 transform:
     KEPT: {rewrite: {source: $BRANCH, rewriters: [spinner-on-true, spinner-on-negation, spinner-on-false]}}
 fix: $KEPT
-message: '`$SPINNER` removes `$CONTROL` while its operation runs and resets the control''s identity'
+message: '`$SPINNER` replaces `$CONTROL` while its operation runs and resets the control''s identity'
 note: 'Keep `<control>` in place under `.disabled(<condition>).overlay { if <condition> { ProgressView() } }`'

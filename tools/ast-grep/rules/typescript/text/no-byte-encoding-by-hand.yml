@@ -129,5 +129,5 @@ transform:
     HEX: {replace: {source: $FROM_BASE64, replace: '(?s)^.*\btoString\(.*$', by: '<bytes>.toHex()'}}
     METHOD: {replace: {source: $HEX, replace: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', by: 'Uint8Array.fromHex(<text>)'}}
     OP_HEAD: {replace: {source: $OP, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-message: '`$OP_HEAD` converts bytes and text by hand where `$METHOD` converts in one call'
-note: 'Call the `Uint8Array` base64 or hex method on bytes or `TextEncoder` output, with `{ alphabet: ''base64url'' }` for URLs, or `effect/encoding` in UXP'
+message: '`$OP_HEAD` converts between bytes and text by hand in place of `$METHOD`'
+note: 'Call the `Uint8Array` base64 or hex method on bytes or `TextEncoder` output, `{ alphabet: ''base64url'' }` for URL text, or `effect/encoding` in UXP'

@@ -83,5 +83,5 @@ rule:
 labels:
     WIDTH: {style: primary, message: 'Measures the column'}
     FORMAT: {style: secondary, message: 'Pads by the measured width'}
-message: '`$WIDTH` measures a column width for a width format by hand'
+message: '`$WIDTH` measures a column width by hand for a padded format'
 note: 'Add the rows to a `comfy_table::Table` and print it'

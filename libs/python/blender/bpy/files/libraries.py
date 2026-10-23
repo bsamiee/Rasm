@@ -1,4 +1,4 @@
-"""Native library imports, durable import snapshots, overrides, and library publication."""
+"""Library imports, import records, overrides, and library writes."""
 
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -28,14 +28,14 @@ type OverrideChange = Reset | Destroy | Resync
 
 
 class Linked(msgspec.Struct, frozen=True, kw_only=True):
-    """Linked data with optional packing and relative paths."""
+    """Library link import."""
 
     pack: bool = False
     relative: bool = True
 
 
 class Overrides(msgspec.Struct, frozen=True, kw_only=True):
-    """Unpacked linked data with optional reuse and runtime override creation."""
+    """Link import with library overrides."""
 
     relative: bool = True
     reuse_liboverrides: bool = False
@@ -43,7 +43,7 @@ class Overrides(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class LocalCopy(msgspec.Struct, frozen=True, kw_only=True):
-    """Appended data with native reuse, persistence, dependency, and asset choices."""
+    """Append import."""
 
     relative: bool = False
     reuse_local_id: bool = False
@@ -53,13 +53,13 @@ class LocalCopy(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Isolated(msgspec.Struct, frozen=True, kw_only=True):
-    """Single override, optionally replacing local usages of its linked reference."""
+    """Single-ID override."""
 
     remap_local_usages: bool = False
 
 
 class Hierarchy(msgspec.Struct, frozen=True, kw_only=True):
-    """Override hierarchy instantiated in a scene and view layer."""
+    """Override hierarchy instantiated in scene and view layer."""
 
     scene: bpy.types.Scene
     view_layer: bpy.types.ViewLayer
@@ -68,7 +68,7 @@ class Hierarchy(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Reset(msgspec.Struct, frozen=True, kw_only=True):
-    """Override reset to reference values, optionally across its dependencies."""
+    """Override reset to reference values."""
 
     do_hierarchy: bool = True
     set_system_override: bool = False
@@ -81,7 +81,7 @@ class Destroy(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Resync(msgspec.Struct, frozen=True, kw_only=True):
-    """Override hierarchy rebuilt against linked references in a scene."""
+    """Override hierarchy rebuilt against linked references in scene."""
 
     scene: bpy.types.Scene
     view_layer: bpy.types.ViewLayer
@@ -91,7 +91,7 @@ class Resync(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ImportItem(msgspec.Struct, frozen=True, kw_only=True):
-    """Import item metadata and durable identities of its referenced data-blocks."""
+    """Import item metadata with ID handles."""
 
     name: str
     kind: "rna_enums.IdTypeItems"
@@ -104,7 +104,7 @@ class ImportItem(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Imported(msgspec.Struct, frozen=True, kw_only=True):
-    """Import metadata retained beyond the native handler context's lifetime."""
+    """Import metadata that outlives handler context."""
 
     stage: str
     options: frozenset[str]
@@ -112,7 +112,7 @@ class Imported(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, context: bpy.types.BlendImportContext) -> Self:
-        """Returns a durable snapshot of a native import context during its handler."""
+        """Copies import context during its handler."""
         return cls(
             stage=context.process_stage,
             options=frozenset(context.options),
@@ -133,17 +133,17 @@ class Imported(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Stale(msgspec.Struct, frozen=True, kw_only=True):
-    """Libraries requiring resaving after resync and objects left without a collection."""
+    """Libraries to resave after resync, with resync leftover objects."""
 
     libraries: tuple[Handle[bpy.types.Library], ...]
-    parked: tuple[Handle[bpy.types.Object], ...]
+    leftovers: tuple[Handle[bpy.types.Object], ...]
 
     @classmethod
     def read(cls) -> Self:
-        """Returns native library resync flags and residual collection object handles."""
+        """Returns resync-flagged libraries and `OVERRIDE_RESYNC_LEFTOVERS` objects."""
         return cls(
             libraries=tuple(Handle.of(library) for library in bpy.data.libraries if library.needs_liboverride_resync),
-            parked=catch(lambda: bpy.data.collections["OVERRIDE_RESYNC_LEFTOVERS"].all_objects, exception=KeyError)()
+            leftovers=catch(lambda: bpy.data.collections["OVERRIDE_RESYNC_LEFTOVERS"].all_objects, exception=KeyError)()
             .map(lambda objects: tuple(Handle.of(block) for block in objects))
             .default_value(()),
         )
@@ -161,12 +161,12 @@ def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> BlenderRes
 
 
 def listed(path: Path, kind: type[bpy.types.ID], *, assets_only: bool = False) -> BlenderResult[tuple[str, ...]]:
-    """Returns source-store names, absent store, or the native blend-file read refusal."""
+    """Returns names in blend file store of kind."""
     return sourced(bpy.data, path, lambda source: (_listing(source, kind, path), {}), assets_only=assets_only).bind(lambda answer: answer[0].map(lambda listing: tuple(listing[1])))
 
 
 def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, ...], link: LibraryLink) -> BlenderResult[tuple[T, ...]]:
-    """Returns linked or appended blocks, every absent name or kind, or a read refusal."""
+    """Links or appends named blocks, absent fault per missing name or kind."""
 
     def chosen(source: object) -> tuple[BlenderResult[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
         found = _listing(source, kind, path).bind(
@@ -192,7 +192,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 def library_written(
     path: Path, blocks: frozenset[bpy.types.ID], *, remap: Literal["NONE", "RELATIVE", "RELATIVE_ALL", "ABSOLUTE"] = "RELATIVE_ALL", fake_user: bool = True, compress: bool = False
 ) -> BlenderResult[Path]:
-    """Returns the replaced library path, or its parent-folder or native write refusal."""
+    """Writes blocks to library file, returning path."""
     return folder_made(path.parent).bind(
         lambda _: (
             catch(lambda: bpy.data.libraries.write(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress), exception=OSError)()
@@ -206,7 +206,7 @@ def library_written(
 
 
 def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> BlenderResult[bpy.types.Library]:
-    """Returns the relocated or reloaded library, or the native edit refusal."""
+    """Reloads library, relocating it to path when given."""
     try:
         for target in path.to_list():
             library.filepath = str(target)
@@ -220,7 +220,7 @@ def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> Blende
 
 
 def overridden(block: bpy.types.ID, scope: OverrideScope) -> BlenderResult[bpy.types.ID]:
-    """Returns the created override, or absence when the native ID is not overridable."""
+    """Creates override, absent fault when ID takes none."""
     match scope:
         case Isolated(remap_local_usages=remap):
             made = block.override_create(remap_local_usages=remap)
@@ -230,12 +230,12 @@ def overridden(block: bpy.types.ID, scope: OverrideScope) -> BlenderResult[bpy.t
 
 
 def overriding(block: bpy.types.ID) -> BlenderResult[bpy.types.IDOverrideLibrary]:
-    """Returns native override data, or absence for a data-block without an override."""
+    """Returns override data of ID."""
     return Option.of_optional(block.override_library).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="override_library"),))
 
 
 def override_changed(block: bpy.types.ID, change: OverrideChange) -> BlenderResult[None]:
-    """Returns success, absent override/reference, or the native reset/destroy/resync refusal."""
+    """Resets, destroys, or resyncs override, absent fault for missing reference."""
 
     def changed(held: bpy.types.IDOverrideLibrary) -> BlenderResult[None]:
         request = repr(held)
@@ -257,7 +257,7 @@ def override_changed(block: bpy.types.ID, change: OverrideChange) -> BlenderResu
 
 
 def edits(block: bpy.types.ID) -> BlenderResult[tuple[Descriptor[bpy.types.Property], ...]]:
-    """Returns every override property descriptor, or absent override and property faults."""
+    """Returns descriptor per override property."""
     return overriding(block).bind(lambda held: accumulated(Descriptor.resolve(type(block), item.rna_path, bpy.types.Property) for item in held.properties))
 
 

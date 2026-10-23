@@ -66,5 +66,5 @@ rule:
           not: {inside: {stopBy: end, matches: unit-sequence}}
 transform:
     HEAD: {replace: {source: $VALUE, replace: '(?s)^[(\s]*([@\w.]+).*$', by: '$1'}}
-message: '`$HEAD` spells statements as a `Unit` value'
-note: 'Write the effects as statements of a block body, with `IO.lift(<action>)` where an `IO<Unit>` is needed and a direct call for an `Action`'
+message: '`$HEAD` sequences statements through `Unit` values'
+note: 'Write each call as a block statement, `IO.lift(<action>)` where an `IO<Unit>` is required, `<action>()` in place of `fun(<action>)()`'

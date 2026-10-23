@@ -1,4 +1,4 @@
-"""Blend file saves, scoped reads, dependency packs, projects, and saved-data comparison."""
+"""Blend file saves, loads, dependency packs, projects, and comparison."""
 
 from collections import Counter
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
@@ -33,7 +33,7 @@ type Relink = Mirrored | Rebased | Mapping[tuple[Handle[bpy.types.ID], str], str
 
 
 class SaveMode(Enum):
-    """Active file, independent copy, or native numbered save."""
+    """Save to active, copied, or numbered file."""
 
     ACTIVE = auto()
     COPY = auto()
@@ -44,7 +44,7 @@ class SaveMode(Enum):
 
 
 class BlendFile(msgspec.Struct, frozen=True, kw_only=True):
-    """Session file state without references invalidated by a load."""
+    """Session file state safe across loads."""
 
     path: Option[Path]
     dirty: bool
@@ -54,7 +54,7 @@ class BlendFile(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls) -> Self:
-        """Returns current file state and any script blocked during loading."""
+        """Returns current file state."""
         return cls(
             path=Option.of_optional(bpy.data.filepath or None).map(Path),
             dirty=bpy.data.is_dirty,
@@ -65,7 +65,7 @@ class BlendFile(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class OpenFile(msgspec.Struct, frozen=True, kw_only=True):
-    """File replacing session data, with optional UI and script choices."""
+    """File replacing session data."""
 
     path: Path
     ui: Option[bool] = Nothing
@@ -73,19 +73,19 @@ class OpenFile(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Revert(msgspec.Struct, frozen=True, kw_only=True):
-    """Session's saved file loaded again."""
+    """Revert to saved file."""
 
     scripts: Option[bool] = Nothing
 
 
 class Recover(msgspec.Struct, frozen=True, kw_only=True):
-    """Last session's quit file loaded."""
+    """Last session quit file."""
 
     scripts: Option[bool] = Nothing
 
 
 class Home(msgspec.Struct, frozen=True, kw_only=True):
-    """Startup file, optionally factory data or empty data."""
+    """Startup file, optionally factory or empty."""
 
     factory: bool = False
     empty: bool = False
@@ -93,7 +93,7 @@ class Home(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Dependency(msgspec.Struct, frozen=True, kw_only=True):
-    """External file with its original data-block owner and current presence."""
+    """External file of original ID."""
 
     owner: Handle[bpy.types.ID]
     path: Path
@@ -101,21 +101,21 @@ class Dependency(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Mirrored(msgspec.Struct, frozen=True, kw_only=True):
-    """Absolute local paths rewritten between mirrored file locations."""
+    """Absolute paths made relative to mirrored source under root."""
 
     root: Path
     source: Path
 
 
 class Rebased(msgspec.Struct, frozen=True, kw_only=True):
-    """Paths under a source directory moved under another directory."""
+    """Paths under source directory moved under another directory."""
 
     source: Path
     target: Path
 
 
 class Pack(msgspec.Struct, frozen=True, kw_only=True):
-    """Written blend copy, copied dependencies, and missing dependencies."""
+    """Dependency pack result."""
 
     blend: Path
     files: tuple[Path, ...]
@@ -123,14 +123,14 @@ class Pack(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class TemplateVariable(msgspec.Struct, frozen=True, kw_only=True):
-    """Project value and description; its Python type determines native storage."""
+    """Project variable, value type choosing variable type."""
 
     value: Path | str | int | float
     description: str = ""
 
 
 class Project(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired project name, root, variables, and asset libraries."""
+    """Desired project state."""
 
     name: str
     root: Path
@@ -153,12 +153,12 @@ class Difference(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def folder_made(folder: Path) -> BlenderResult[Path]:
-    """Returns an existing or created folder, or its native write refusal."""
+    """Returns existing or created folder, or write fault."""
     return catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map(lambda _: folder).map_error(lambda error: (BlenderWriteFault(request=folder, error=error),))
 
 
 def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path, ...]]:
-    """Returns distinct copied targets in path order, or every independent write refusal."""
+    """Copies distinct pairs, returning targets in path order."""
 
     def copy(source: Path, target: Path) -> Path:
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
@@ -172,7 +172,7 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path
 def sourced[T](
     data: bpy.types.BlendData, path: Path, take: Callable[[object], tuple[T, Mapping[str, Sequence[str]]]], **keywords: bool
 ) -> BlenderResult[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
-    """Returns a source selection and native destination slots, or a file-read refusal."""
+    """Returns source selection with loaded destination slots."""
     try:
         with data.libraries.load(str(path), **keywords) as (source, target):  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[invalid-context-manager]
             value, chosen = take(source)
@@ -187,7 +187,7 @@ def sourced[T](
 
 
 def saved(path: Path, kind: SaveMode, *, compress: Option[bool] = Nothing, remap: Option[bool] = Nothing) -> BlenderResult[Path]:
-    """Returns the native saved path, or folder and operator refusals."""
+    """Saves file, returning saved path."""
     relative = remap.default_with(lambda: bpy.context.preferences.filepaths.use_relative_paths)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
     def written() -> BlenderResult[Path]:
@@ -203,7 +203,7 @@ def saved(path: Path, kind: SaveMode, *, compress: Option[bool] = Nothing, remap
 
 
 def snapshot(path: Path) -> BlenderResult[Path]:
-    """Returns an uncompressed comparison copy with unchanged paths, or save refusals."""
+    """Saves uncompressed comparison copy with unchanged paths."""
     return saved(path, SaveMode.COPY, compress=Some(False), remap=Some(False))
 
 
@@ -211,7 +211,7 @@ def snapshot(path: Path) -> BlenderResult[Path]:
 
 
 def session_loaded(load: Load) -> BlenderResult[BlendFile]:
-    """Returns file state after replacing session data, or the native operator refusal."""
+    """Replaces session data, returning file state."""
     match load:
         case OpenFile(path=path, ui=ui, scripts=scripts):
             answer = called(bpy.ops.wm.open_mainfile, {"filepath": str(path), "load_ui": ui, "use_scripts": scripts})
@@ -226,7 +226,7 @@ def session_loaded(load: Load) -> BlenderResult[BlendFile]:
 
 @contextmanager
 def inspected(path: Path) -> Generator[BlenderResult[bpy.types.BlendData]]:
-    """Yields another file's temporary native store, or its read refusal, until scope exit."""
+    """Yields temporary BlendData of another file until scope exit."""
     with bpy.data.temp_data(filepath="") as data:  # type: ignore[var-annotated]
         stores = frozenset(
             prop.identifier
@@ -240,13 +240,13 @@ def inspected(path: Path) -> Generator[BlenderResult[bpy.types.BlendData]]:
 
 
 def mirrored(root: Path, path: Path) -> Path:
-    """Returns a path under a mirror root, retaining its drive as a directory."""
+    """Returns path under mirror root, drive kept as directory."""
     normal = Path(os.path.abspath(path))
     return root / normal.drive.removesuffix(":").lstrip("\\/") / normal.relative_to(normal.anchor)
 
 
 def dependencies() -> tuple[Dependency, ...]:
-    """Returns absolute external files, expanding image tiles and sequences, with their presence."""
+    """Returns absolute external files, tiles and sequences expanded."""
     found: list[Dependency] = []
 
     def visited(owner: bpy.types.ID, path: str, _: bpy.types.BlendDataPathMeta) -> None:
@@ -258,7 +258,7 @@ def dependencies() -> tuple[Dependency, ...]:
 
 
 def relinked(relink: Relink) -> dict[tuple[Handle[bpy.types.ID], str], str]:
-    """Returns original local writable paths keyed by owner and rewritten path."""
+    """Rewrites local writable paths, returning relink that restores them."""
     changes: dict[tuple[Handle[bpy.types.ID], str], str] = {}
 
     def rewritten(owner: bpy.types.ID, path: str) -> Option[str]:
@@ -286,7 +286,7 @@ def relinked(relink: Relink) -> dict[tuple[Handle[bpy.types.ID], str], str]:
 
 
 def packed(root: Path, *, compress: Option[bool] = Nothing) -> BlenderResult[Pack]:
-    """Returns a dependency pack, unsaved-file absence, or every save and copy refusal."""
+    """Packs file and dependencies under root, absent fault for unsaved file."""
 
     def written(source: Path) -> BlenderResult[Path]:
         changes = relinked(Mirrored(root=root, source=source))
@@ -309,7 +309,7 @@ def packed(root: Path, *, compress: Option[bool] = Nothing) -> BlenderResult[Pac
 
 
 def projected(project: Project) -> BlenderResult[None]:
-    """Returns success after reconciling declared project entries, or native edit/save refusals."""
+    """Reconciles open project with desired state."""
 
     def initialized() -> BlenderResult[bpy.types.BlenderProject]:
         try:
@@ -383,7 +383,7 @@ def projected(project: Project) -> BlenderResult[None]:
 
 
 def compared(left: Path, right: Path) -> BlenderResult[tuple[Difference, ...]]:
-    """Returns unequal normalized block counts, or independent file-read/header refusals."""
+    """Returns unequal normalized block counts of both files."""
     type BlockKey = tuple[bytes, bytes, int]
     type Normal = bytes | tuple[BlockKey | None, ...]
     type Canonical = tuple[str, str, bytes | tuple[Normal, ...]]

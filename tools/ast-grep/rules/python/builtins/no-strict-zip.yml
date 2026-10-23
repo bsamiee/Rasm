@@ -17,5 +17,5 @@ rule:
                     any:
                         - matches: {python-builtin-name: {name: {regex: '^(zip|map)$'}}}
                         - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^batched$'}}}
-message: '`$CALLEE` takes `strict=$VALUE`'
-note: 'Delete `strict=False` and `strict=True`, validating input lengths at the boundary into a type that fixes them'
+message: '`$CALLEE` receives `strict=$VALUE` in place of inputs validated to one length'
+note: 'Delete `strict=<value>` and validate input lengths at the boundary into a type that fixes them'

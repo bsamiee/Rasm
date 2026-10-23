@@ -11,7 +11,7 @@ pub(crate) struct Pass {
     recorded: Recorded,
 }
 
-lint!(Pass; ERROR_FIELD_WITHOUT_SOURCES: "tracing fields recording an error through `Display`, `Debug`, or `dyn Error` in place of a `Report` naming each source");
+lint!(Pass; ERROR_FIELD_WITHOUT_SOURCES: "tracing fields recording an error outside `std::error::Report`");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { recorded: Recorded::new(tcx) } }
@@ -25,7 +25,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let span = walk_span_to_context(value.span, call.ctxt()).unwrap_or(call)
         {
             span_lint_hir_and_then(cx, ERROR_FIELD_WITHOUT_SOURCES, expr.hir_id, span, format!("tracing field records error `{}` outside `Report`", held.peel_refs()), |diag| {
-                diag.help("record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source");
+                diag.help("record `std::error::Report::new(error)` with `%` or `field::display` under `#![feature(error_reporter)]`");
             });
         }
     }

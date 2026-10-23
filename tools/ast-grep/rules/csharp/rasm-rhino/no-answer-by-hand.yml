@@ -264,4 +264,4 @@ transform:
             by: '$1'
 fix: Callbacks.Answer($EFFECT$FIN$DISCARD, $STATIC_THUNK$UNIT_THUNK() => $UNPARENTHESIZED$LAZY$UNIT_FALLBACK, $SITE$NEW_SITE$SITE_OWNER$SITE_MEMBER)
 message: '`$EFFECT_HEAD$FIN` reports its failure through `Sink.Report` by hand'
-note: 'Use `Callbacks.Answer(<effect or fin>, () => <fallback>, <site>)`'
+note: 'Call `Callbacks.Answer(<effect or fin>, () => <fallback>, <site>)`'

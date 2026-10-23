@@ -1,4 +1,4 @@
-"""Native asset shelves with actions, active references, and acquired menu content."""
+"""Asset shelves with actions, active asset, and context menu rows."""
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -22,14 +22,14 @@ if TYPE_CHECKING:
 
 
 class Action(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator body receiving the tile's native asset representation."""
+    """Operator body over tile's asset."""
 
     title: str
     description: str
     use: Callable[[Call[Empty], bpy.types.AssetRepresentation], BlenderResult[Outcome]]
 
     def row(self, key: Key) -> Operator[Empty]:
-        """Returns an internal operator over the context's selected asset."""
+        """Returns internal operator over context asset."""
         return Operator(
             key=key,
             title=self.title,
@@ -41,7 +41,7 @@ class Action(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Shelf(msgspec.Struct, frozen=True, kw_only=True):
-    """Asset shelf in an editor region or popup, filtered by extension metadata."""
+    """Asset shelf filtered by extension marks."""
 
     key: Key
     space: "rna_enums.SpaceTypeItems"
@@ -56,13 +56,13 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
     condition: Option[Condition] = Nothing
 
     def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
-        """Returns the shelf class and its nested action and menu declarations.
+        """Returns shelf class with its action operators and menu rows.
 
         Args:
-            identity: Extension owning the class names and asset metadata marks.
+            identity: Extension owning class names and asset marks.
 
         Returns:
-            Native acquisition declarations, or every refused name, absent filter, and menu construction fault.
+            Acquisitions, or fault per refused name, absent filter, and failed menu row.
         """
         struct = bpy.types.AssetShelf.bl_rna
         actions = tuple(

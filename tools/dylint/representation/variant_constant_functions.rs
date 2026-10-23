@@ -67,7 +67,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         for (local, listed, functions) in tables {
             let name = cx.tcx.item_name(local);
             let help = if self.reads.contains(&local.to_def_id()) {
-                format!("return every value from one match on `{name}`")
+                format!("return the values of {listed} from one match on `{name}`")
             } else {
                 format!("replace `{name}` with a struct holding {listed} and one `const` per variant")
             };

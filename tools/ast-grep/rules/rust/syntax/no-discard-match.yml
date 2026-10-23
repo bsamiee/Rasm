@@ -27,5 +27,5 @@ rule:
                         - has: {field: pattern, kind: match_pattern, all: [{has: {nthChild: 1, kind: or_pattern, pattern: $PATTERN}}, {not: {has: {field: condition, pattern: $_}}}, {not: {has: {stopBy: end, matches: binding}}}]}
                         - has: {field: value, matches: plain-value}
                 - not: {has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}}
-message: '`match $VALUE` holds one arm `$PATTERN` that discards the value'
+message: '`match $VALUE` discards the value through one arm `$PATTERN`'
 note: 'Write `let (<pattern>) = <value>;` and keep the arm value as the next expression'

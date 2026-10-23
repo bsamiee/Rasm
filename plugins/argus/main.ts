@@ -87,7 +87,7 @@ const Server = Schema.Struct({
     shutdownTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.infinity))),
     requestTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.minutes(1)))),
 });
-const File = Schema.Struct({ file: Schema.String.annotate({ description: 'File path, absolute or relative to project root' }) });
+const File = Schema.Struct({ file: Schema.String.annotate({ description: 'Absolute or project-relative path' }) });
 const Coordinate = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
 const Position = Schema.Struct({ ...File.fields, line: Coordinate.annotate({ description: '1-based line' }), column: Coordinate.annotate({ description: '1-based UTF-16 column' }) });
 const Lines = Schema.Struct({ lines: Schema.Array(Schema.String) });
@@ -224,7 +224,7 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
     yield* notify(InitializedNotification.type, {});
     yield* config.settings === undefined ? Effect.void : notify(DidChangeConfigurationNotification.type, { settings: config.settings });
     yield* Effect.addFinalizer(() =>
-        Effect.tryPromise(() => connection.sendRequest(ShutdownRequest.type)).pipe(Effect.andThen(Effect.tryPromise(() => connection.sendNotification(ExitNotification.type))), Effect.andThen(child.exitCode), Effect.timeout(config.shutdownTimeout), Effect.ignore({ log: 'Warn', message: 'shutdown did not complete' })),
+        Effect.tryPromise(() => connection.sendRequest(ShutdownRequest.type)).pipe(Effect.andThen(Effect.tryPromise(() => connection.sendNotification(ExitNotification.type))), Effect.andThen(child.exitCode), Effect.timeout(config.shutdownTimeout), Effect.ignore({ log: 'Warn', message: 'shutdown failed' })),
     );
     const synchronize = Effect.fn('synchronize')(function* (uri: string, languageId: string) {
         const text = yield* fs.readFileString(fileURLToPath(uri));
@@ -349,7 +349,7 @@ const initialize = Effect.fn('initialize')(function* () {
     yield* Effect.all(
         [
             registerTool(
-                query('diagnostics', 'Language server diagnostics of a file, one `path:line:column severity source(code): message` line each with indented related locations', File),
+                query('diagnostics', 'Language server diagnostics as `path:line:column severity source(code): message` lines, related locations indented', File),
                 Effect.fnUntraced(function* ({ file }: typeof File.Type) {
                     const { server, item } = yield* serve(file);
                     const diagnostics = Array.dedupe(yield* server.diagnose(item));
@@ -370,21 +370,21 @@ const initialize = Effect.fn('initialize')(function* () {
                 }, Effect.scoped),
             ),
             registerTool(
-                query('definition', 'Definition locations of the symbol at a line and column, one `path:line:column` line each', Position),
+                query('definition', 'Symbol definition locations as `path:line:column` lines', Position),
                 Effect.fnUntraced(function* (position: typeof Position.Type) {
                     const { server, item } = yield* serve(position.file);
                     return locations(yield* server.ask(DefinitionRequest.type, point(item, position)));
                 }, Effect.scoped),
             ),
             registerTool(
-                query('references', 'Reference locations of the symbol at a line and column, declaration included, one `path:line:column` line each', Position),
+                query('references', 'Symbol reference and declaration locations as `path:line:column` lines', Position),
                 Effect.fnUntraced(function* (position: typeof Position.Type) {
                     const { server, item } = yield* serve(position.file);
                     return locations(yield* server.ask(ReferencesRequest.type, { ...point(item, position), context: { includeDeclaration: true } }));
                 }, Effect.scoped),
             ),
             registerTool(
-                query('hover', 'Type signature and documentation of the symbol at a line and column', Position),
+                query('hover', 'Symbol type signature and documentation', Position),
                 Effect.fnUntraced(function* (position: typeof Position.Type) {
                     const { server, item } = yield* serve(position.file);
                     const hover = yield* server.ask(HoverRequest.type, point(item, position));

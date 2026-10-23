@@ -48,7 +48,7 @@ public sealed record CdlState(
 
     public static Fin<IterableNE<(Option<string> Id, CdlState State)>> Read(string text) =>
         Try.lift(() => XDocument.Parse(text)).Run()
-            .MapFail(static error => error.Exception.Case is XmlException xml ? Errors.ParseError($"CDL text is unreadable: {xml.Message}") : error)
+            .MapFail(static error => error.Exception.Case is XmlException xml ? Errors.ParseError($"CDL text did not parse, {xml.Message}") : error)
             .Bind(static document => toSeq(document.Descendants()).Filter(static element => element.Name.LocalName is CorrectionNode)
                 .Traverse(static correction => Corrected(correction).Map(state => (Optional(correction.Attribute(IdAttribute)?.Value), state))).As())
             .Bind(static corrections => corrections.AsIterableNE().ToFin(Errors.ParseError($"CDL text holds no {CorrectionNode}")));
@@ -59,7 +59,7 @@ public sealed record CdlState(
             static (inner, ancestor) => new XElement(Asc + ancestor, inner))}\n";
 
     private static Fin<CdlState> Corrected(XElement correction) =>
-        LutFiles.CorrectionValues(correction, static name => Error.New($"CDL correction misstates {name}"))
+        LutFiles.CorrectionValues(correction, static name => Error.New($"CDL correction holds no readable {name}"))
             .Bind(static keys => (
                     Magnitude.Validated(keys.Slope.X), Magnitude.Validated(keys.Slope.Y), Magnitude.Validated(keys.Slope.Z),
                     SignedMagnitude.Validated(keys.Offset.X), SignedMagnitude.Validated(keys.Offset.Y), SignedMagnitude.Validated(keys.Offset.Z),
@@ -79,11 +79,11 @@ public sealed partial class CdlParameter : IStateParameter<CdlState> {
     private static Presentation<float> Power { get; } = new() { Soft = ((float)PositiveMagnitude.MinValue, 2f), Origin = (float)PositiveMagnitude.Unit };
 
     public static readonly CdlParameter SlopeRed = new("slope-red", StateParameter.Bounded(Lens<CdlState, Magnitude>.New(static state => state.SlopeRed, static slope => state => state with { SlopeRed = slope }), Slope),
-        new("Red slope", "Multiplier on red ahead of offset and power"));
+        new("Red slope", "Red multiplier before offset"));
     public static readonly CdlParameter SlopeGreen = new("slope-green", StateParameter.Bounded(Lens<CdlState, Magnitude>.New(static state => state.SlopeGreen, static slope => state => state with { SlopeGreen = slope }), Slope),
-        new("Green slope", "Multiplier on green ahead of offset and power"));
+        new("Green slope", "Green multiplier before offset"));
     public static readonly CdlParameter SlopeBlue = new("slope-blue", StateParameter.Bounded(Lens<CdlState, Magnitude>.New(static state => state.SlopeBlue, static slope => state => state with { SlopeBlue = slope }), Slope),
-        new("Blue slope", "Multiplier on blue ahead of offset and power"));
+        new("Blue slope", "Blue multiplier before offset"));
     public static readonly CdlParameter OffsetRed = new("offset-red", StateParameter.Bounded(Lens<CdlState, SignedMagnitude>.New(static state => state.OffsetRed, static offset => state => state with { OffsetRed = offset }), Offset),
         new("Red offset", "Value added to red after slope"));
     public static readonly CdlParameter OffsetGreen = new("offset-green", StateParameter.Bounded(Lens<CdlState, SignedMagnitude>.New(static state => state.OffsetGreen, static offset => state => state with { OffsetGreen = offset }), Offset),

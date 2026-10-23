@@ -1,4 +1,4 @@
-"""Pytest configuration for tests/python."""
+"""Registers packages for public-API test coverage."""
 
 from pathlib import Path
 
@@ -30,7 +30,7 @@ class _Root(msgspec.Struct, frozen=True):
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register every import root under uv's ``module-root`` for public-API coverage, each suite mirroring its package under this directory."""
+    """Register each uv ``module-root`` package with its mirrored ``tests/python`` suite."""
     module_root = Path(msgspec.toml.decode((config.rootpath / "pyproject.toml").read_bytes(), type=_Root).tool.uv.build_backend.module_root)
     register_package_tree(config.stash, config.rootpath / module_root, Path(__file__).resolve().parent / module_root.parent)
 

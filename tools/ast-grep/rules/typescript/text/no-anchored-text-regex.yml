@@ -78,5 +78,5 @@ transform:
     NEGATED: {replace: {source: $NODE, replace: '(?s)^.*\s(?:===?\s*-\s*1|!==?\s*0|<\s*0)$', by: '!'}}
     NEGATION: {replace: {source: $NEGATED, replace: '(?s)^(?:[^!].*|!.+)$', by: ''}}
 fix: $NEGATION$RECEIVER$ACCESS$METHOD('$TEXT')
-message: '`$NODE` tests a fixed string at one end of the text through a regular expression'
+message: '`$NODE` tests a fixed prefix or suffix through a regular expression'
 note: 'Call `<text>.startsWith(<string>)` or `<text>.endsWith(<string>)`'

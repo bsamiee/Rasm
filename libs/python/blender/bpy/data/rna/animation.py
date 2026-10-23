@@ -1,4 +1,4 @@
-"""Declared keyframes, drivers, modifiers, and sampling of RNA channels."""
+"""RNA channel keyframes, drivers, modifiers, and sampling."""
 
 from collections.abc import Callable, Iterable
 from typing import Annotated, TYPE_CHECKING
@@ -34,14 +34,14 @@ class Keys(Case, frozen=True, kw_only=True, tag=1):
 
 
 class Variable(msgspec.Struct, frozen=True, kw_only=True):
-    """Driver variable reading a property of the animated data-block."""
+    """Driver variable over animated ID property."""
 
     name: str
     path: str
 
 
 class Driven(Case, frozen=True, kw_only=True, tag=2):
-    """Scripted driver over variables from its animated data-block."""
+    """Scripted driver over variables."""
 
     title = "Driver"
     expression: str
@@ -49,7 +49,7 @@ class Driven(Case, frozen=True, kw_only=True, tag=2):
 
 
 class Modifier(msgspec.Struct, frozen=True, kw_only=True):
-    """Native F-curve modifier type and its property values."""
+    """F-curve modifier type and property values."""
 
     kind: "rna_enums.FmodifierTypeItems"
     values: dict[str, Value] = msgspec.field(default_factory=dict)
@@ -68,11 +68,11 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def path(self) -> str:
-        """RNA data path of the channel without its array index."""
+        """RNA data path of channel without array index."""
         return member_path(self.struct, self.member)
 
     def channel(self, owner: bpy.types.ID) -> BlenderResult[bpy.types.Property]:
-        """Resolves the live animatable property, returning absence or an invalid index."""
+        """Returns animatable property at member and index."""
 
         def fits(prop: bpy.types.Property) -> bool:
             match prop, self.index:
@@ -95,7 +95,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
     # --- [CHANNELS]
 
     def apply(self, owner: bpy.types.ID, context: bpy.types.Context) -> BlenderResult[bool]:
-        """Reconciles the declared channel, retaining equal native state and unrelated channels, and answers whether it wrote."""
+        """Reconciles channel, returning whether it wrote."""
         path, index = self.path, Option.of_optional(self.index).default_value(0)
 
         def matching(curve: bpy.types.FCurve, source: NDArray[np.float32] | Driven) -> BlenderResult[bool]:
@@ -252,16 +252,16 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             case Driven() as driver:
                 coordinates = Ok(driver)
         return paired(accumulated((self.channel(owner).map(lambda _: None), *map(read, variables))), coordinates).bind(
-            lambda admitted: (
+            lambda checked: (
                 Option
                 .of_optional(owner.animation_data_create())
-                .map(lambda data: replaced(data, admitted[1]))
+                .map(lambda data: replaced(data, checked[1]))
                 .default_with(lambda: Result[bool, BlenderFaults](error=(BlenderAbsentFault(owner=repr(owner), key=path),)))
             )
         )
 
     def clear(self, owner: bpy.types.ID) -> BlenderResult[None]:
-        """Removes the declared source's channel, returning an unresolved property's fault."""
+        """Removes channel's F-curve or driver."""
         path, index = self.path, Option.of_optional(self.index).default_value(0)
 
         def cleared(_: bpy.types.Property) -> BlenderResult[None]:
@@ -284,7 +284,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> BlenderResult[tuple[float, ...]]:
-    """Samples rendered RNA values, or repeats the proposed or stored unkeyed value."""
+    """Samples keyed channel at frames, repeating proposed or stored value when unkeyed."""
 
     def keyed(curve: bpy.types.FCurve) -> BlenderResult[tuple[float, ...]]:
         def projected(descriptor: Descriptor) -> BlenderResult[tuple[float, ...]]:

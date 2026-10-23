@@ -124,9 +124,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     NEEDLESS_IMPORT_RENAME,
                     rename.node,
                     rename.span,
-                    format!("`{}` renames `{}`, which collides with no other item in scope", rename.alias, rename.original),
+                    format!("`{}` renamed to `{}` with no other `{}` in scope", rename.original, rename.alias, rename.original),
                     |diag| {
-                        diag.help(format!("import `{}` under its own name", rename.original));
+                        diag.help(format!("remove `as {}` and name `{}` at each use", rename.alias, rename.original));
                     },
                 );
             }

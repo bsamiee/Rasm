@@ -124,4 +124,4 @@ transform:
     IMPORTED_OUT: rewrite($IMPORTED_FORM, rewriters=[imported-call])
 fix: $MODULE_OUT$IMPORTED_OUT$UNFIXED
 message: '`$CALL` builds a codec for one call'
-note: 'Call `msgspec.<format>.encode` or `decode(<value>, type=<type>)`, else hold one module-level codec or pydantic `TypeAdapter` for an option they lack'
+note: 'Call `msgspec.<format>.encode` or `.decode(<value>, type=<type>)`, else hold a module-level codec or `TypeAdapter` for an option they lack'

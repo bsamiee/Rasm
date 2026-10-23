@@ -32,5 +32,5 @@ rule:
                     stopBy: end
                     kind: call_suffix
                     inside: {kind: call_expression, has: {kind: navigation_expression, has: {stopBy: end, matches: delete-command}}}
-message: '`$ADD` recreates a deleted keychain item without the attributes it omits, and a file keychain item with the writer''s access and partition list'
-note: 'Drop the delete and update data in place through `add-generic-password -U` or `SecItemUpdate`'
+message: '`$ADD` recreates a deleted keychain item, losing attributes it omits and resetting access and partition list to the writer''s'
+note: 'Remove the delete call and update item data in place through `add-generic-password -U` or `SecItemUpdate`'

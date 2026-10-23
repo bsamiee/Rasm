@@ -36,4 +36,4 @@ rule:
             - not: {inside: {stopBy: end, matches: entry}}
             - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: removal, not: {has: {field: arguments, has: {matches: inline}}}}}}
 message: '`$METHOD` leaves a listener attached'
-note: 'Remove a listener added to a static target with the added instance when its owner closes, a new lambda, method reference, or object removing none'
+note: Store the added listener in a field and pass it to its remove method when its owner closes

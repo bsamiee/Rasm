@@ -25,7 +25,7 @@ public enum ProcessFailure: DeadlineFailure, CustomNSError, LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .subprocess(let error): error.description
-            case .io(let error): "Process I/O failed: \(error.localizedDescription)"
+            case .io(let error): "Process I/O failed. \(error.localizedDescription)"
             case .exit(.exited(let code)): "Process exited with status \(code)"
             case .exit(.signaled(let signal)): "Process terminated by signal \(signal)"
             case .deadline(let deadline): "Process \(deadline.localizedDescription)"

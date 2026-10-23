@@ -107,4 +107,4 @@ rule:
                     - has: {field: function, kind: member_access_expression, has: {field: expression, regex: '^Array$'}}
                     - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: varies}}
 message: '`$METHOD` scans `$SOURCE` once per `$ITEM`'
-note: 'Index scanned sequence once before loop (`ToDictionary`, `ToLookup`, `ToHashSet`, `toHashMap`), or pair both sides through `Join` or `GroupJoin`'
+note: 'Index `<source>` once before the loop (`ToDictionary`, `ToLookup`, `ToHashSet`, `toHashMap`), or pair both sides through `Join` or `GroupJoin`'

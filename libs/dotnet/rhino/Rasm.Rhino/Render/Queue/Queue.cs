@@ -77,7 +77,7 @@ public sealed partial class FrameSpan {
             .Bind(static span => ValidationResults.ToFin(Validate(span.From, span.Until, out FrameSpan? spanned), spanned));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SequenceNumber first, ref SequenceNumber last) =>
-        validationError = first <= last && (long)(int)last - (int)first + 1 <= int.MaxValue ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"frame span {first} to {last} is reversed or longer than {int.MaxValue} frames"));
+        validationError = first <= last && (long)(int)last - (int)first + 1 <= int.MaxValue ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Frame span {first} to {last} is reversed or longer than {int.MaxValue} frames"));
 }
 
 public sealed record QueueOutput<TPath>(OutputTarget Target, OutputName Name, TPath Path);
@@ -117,7 +117,7 @@ public sealed record QueueEntry<TPath>(
 
     public Fin<Option<SunMoment>> Moment(SequenceNumber frame) =>
         Sun.Traverse(window => window.Frames switch {
-            var moments => moments.At((int)frame).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"Frame {frame} lies past the {moments.Count} moments of the sun study")))
+            var moments => moments.At((int)frame).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"Frame {frame} lies past sun study's {moments.Count} moments")))
                 .Bind(ValidationResults.Validated<SunMoment, LocalDateTime>),
         }).As();
 
@@ -157,23 +157,23 @@ public sealed record QueueSettingRows(
     PlugInSetting<Option<NoticeTopic>, string> Topic,
     FlamencoSettingRows Flamenco) {
     public static QueueSettingRows Default { get; } = new(
-        Retries: new(ValueKey.Numeric("QueueRetries", "Retries", "Times a crashed queue reopens Rhino and resumes", QueueSettings.Default.Retries,
+        Retries: new(ValueKey.Numeric("QueueRetries", "Retries", "Rhino restarts to resume crashed queue", QueueSettings.Default.Retries,
             NumericDomain.Bounded<RetryCount, int>(new() { Form = NumberForm.Field })), SettingType.Integer),
-        Delay: new(ValueKey.Numeric("QueueRetryDelay", "Retry delay", "Wait before a crashed queue reopens", QueueSettings.Default.Delay,
+        Delay: new(ValueKey.Numeric("QueueRetryDelay", "Retry delay", "Wait before each restart", QueueSettings.Default.Delay,
             NumericDomain.Bounded<RetryDelay, int>(RetryDelay.Presentation)), SettingType.Integer),
         SampleEstimate: new(ValueKey.Raw("QueueSampleEstimate", "Estimate from first frames",
-            "Renders each entry's first two frames ahead of the rest and posts the finish they estimate", QueueSettings.Default.SampleEstimate), SettingType.Bool),
-        KeepAwake: new(ValueKey.Raw("KeepAwake", "Keep computer awake", "Holds off system sleep from the first queued render to the last", QueueSettings.Default.KeepAwake), SettingType.Bool),
-        ShutDownAfterSuccess: new(ValueKey.Raw("ShutDownAfterSuccess", "Shut down when done", "Shuts the computer down 60 seconds after every queued render succeeds",
+            "Renders 2 frames per entry first to post estimated finish", QueueSettings.Default.SampleEstimate), SettingType.Bool),
+        KeepAwake: new(ValueKey.Raw("KeepAwake", "Keep computer awake", "Prevents system sleep while queue renders", QueueSettings.Default.KeepAwake), SettingType.Bool),
+        ShutDownAfterSuccess: new(ValueKey.Raw("ShutDownAfterSuccess", "Shut down when done", "Shuts computer down 60 seconds after queue succeeds",
             QueueSettings.Default.ShutDownAfterSuccess), SettingType.Bool),
-        HeartbeatInterval: new(ValueKey.Numeric("QueueHeartbeatInterval", "Heartbeat interval", "Time between queue heartbeat updates", QueueHeartbeat.Default.Interval,
+        HeartbeatInterval: new(ValueKey.Numeric("QueueHeartbeatInterval", "Heartbeat interval", "Time between heartbeat writes to queue record", QueueHeartbeat.Default.Interval,
             new NumericDomain<Duration, double>(static seconds => Duration.FromSeconds(seconds), static value => value.TotalSeconds,
                 (QueueHeartbeat.Intervals.Low.TotalSeconds, QueueHeartbeat.Intervals.High.TotalSeconds), new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Second) })),
             SettingType.Double),
-        HeartbeatMisses: new(ValueKey.Numeric("QueueHeartbeatMisses", "Missed heartbeats", "Missed heartbeat intervals before a queue is considered crashed", QueueHeartbeat.Default.Misses,
+        HeartbeatMisses: new(ValueKey.Numeric("QueueHeartbeatMisses", "Missed heartbeats", "Missed intervals before queue counts as crashed", QueueHeartbeat.Default.Misses,
             new NumericDomain<int, int>(Fin.Succ, identity, QueueHeartbeat.MissedIntervals, new() { Form = NumberForm.Field })), SettingType.Integer),
-        Server: new(ValueKey.Of<NoticeServer, string>("NtfyServer", "Server", "ntfy server the render queue posts notices to", NoticeSettings.Default.Server), SettingType.String),
-        Topic: new(ValueKey.Optional<NoticeTopic>("NtfyTopic", "Topic", "ntfy topic the render queue posts notices to, empty for none"), SettingType.String),
+        Server: new(ValueKey.Of<NoticeServer, string>("NtfyServer", "Server", "ntfy server for queue notices", NoticeSettings.Default.Server), SettingType.String),
+        Topic: new(ValueKey.Optional<NoticeTopic>("NtfyTopic", "Topic", "ntfy topic for queue notices, empty sends none"), SettingType.String),
         Flamenco: FlamencoSettingRows.Default);
 
     public Seq<PlugInSetting> Rows => [Retries, Delay, SampleEstimate, KeepAwake, ShutDownAfterSuccess, HeartbeatInterval, HeartbeatMisses, Server, Topic, .. Flamenco.Rows];
@@ -485,7 +485,7 @@ public static class Queues {
             DisposalOps.Found(source.GetViewInfo, nameof(RenderSourceView.GetViewInfo),
                 view => RenderRuns.Framing(scope.Doc, view, rendered.Padded, entry.Frames.Time(frame),
                     error => IO.lift(() => scope.Context.Sink.Report(error, typeof(Queues), nameof(Frame))))))
-        let lost = string.Create(CultureInfo.InvariantCulture, $"Frame {frame} ended without a saved rendering")
+        let lost = string.Create(CultureInfo.InvariantCulture, $"Frame {frame} ended without saved rendering")
         let render = from launched in Documents.RunScript(scope.Doc, $"_-{RenderCommand}", echo: false, display: None)
                      from heard in scope.Heard.ValueIO
                      from ended in IO.lift(heard.Ended.ToFin(Error.New(lost))
@@ -583,7 +583,7 @@ public static class Queues {
             select unit, retain);
 
     private static Fin<string> Named<TCommand>(Seq<Command> commands) where TCommand : Command =>
-        commands.Find(static command => command is TCommand).Map(static command => command.EnglishName).ToFin(Error.New($"the plug-in registers no {typeof(TCommand).Name}"));
+        commands.Find(static command => command is TCommand).Map(static command => command.EnglishName).ToFin(Error.New($"Plug-in registers no {typeof(TCommand).Name}"));
 
     // --- [ROWS]
     private const string Owner = "render-queue";
@@ -632,7 +632,7 @@ public static class Queues {
         ];
         return [
             new ControlRow.Group("Entries", RowRules.Always) { Wording = Wording.Library },
-            ListRows.List("Entries", "Renders of this document's queue, in add order", new ListRow<QueuedEntry, QueuedEntry>(
+            ListRows.List("Entries", "Queued renders of document, in add order", new ListRow<QueuedEntry, QueuedEntry>(
                     IterableNE.create<ListColumn<QueuedEntry>>(
                         new ListColumn<QueuedEntry>.Label(Some(entryCaption), static entry => entry.Name.IfNone(static () => RowText.Localize("Active viewport")), None, None),
                         new ListColumn<QueuedEntry>.Label(Some("Frames"), static entry => entry.Frames.Count > 1
@@ -645,31 +645,31 @@ public static class Queues {
                 AllowMultipleSelection = true,
                 Wording = Wording.Library,
                 Pair = Some((
-                        new CommandRow.Run(Face("render-queue-add-view", "Add Active Viewport", "Queue the active viewport at the document's render size"), None,
+                        new CommandRow.Run(Face("render-queue-add-view", "Add Active Viewport", "Queue active viewport at document render size"), None,
                             static scope => Added(scope, static _ => IO.pure(Seq(Placement.Active)))),
-                        new CommandRow.Run(Face("render-queue-remove", "Remove Entries", "Remove the selected entries"), None, static scope =>
+                        new CommandRow.Run(Face("render-queue-remove", "Remove Entries", "Remove selected entries"), None, static scope =>
                             from doc in scope.DocumentIO
                             from picked in scope.Read(Picked.Source)
                             from removed in Change(doc, RowText.Localize("Remove Entries"), was => was.Removed(picked))
                             select unit))),
                 Commands = _ => [
-                    new CommandRow.Run(Face("render-queue-add-named-views", "Add Named Views", "Queue every named view of the document"), None, static scope => Added(scope, NamedViewEntries)),
-                    new CommandRow.Run(Face("render-queue-add-snapshots", "Add Snapshots", "Queue every snapshot of the document"), None, static scope => Added(scope, SnapshotEntries)),
+                    new CommandRow.Run(Face("render-queue-add-named-views", "Add Named Views", "Queue every named view"), None, static scope => Added(scope, NamedViewEntries)),
+                    new CommandRow.Run(Face("render-queue-add-snapshots", "Add Snapshots", "Queue every snapshot"), None, static scope => Added(scope, SnapshotEntries)),
                     new CommandRow.Run(Face("render-queue-add-sets", "Add Render Sets", "Queue every render set that renders"), None, static scope => Added(scope, SetEntries)),
-                    new CommandRow.Run(Face("render-queue-add-study", "Add Sun Study", "Queue the document's sun study, one frame per moment"), None, static scope => Added(scope, StudyEntries)),
-                    new CommandRow.Check(Face("render-queue-clay", "Clay", "Render each entry added next with every object in clay"), None,
+                    new CommandRow.Run(Face("render-queue-add-study", "Add Sun Study", "Queue sun study, one frame per moment"), None, static scope => Added(scope, StudyEntries)),
+                    new CommandRow.Check(Face("render-queue-clay", "Clay", "Render entries added next with every object in clay"), None,
                         static scope => scope.Read(Clayed.Source), static (scope, on) => scope.Store(Clayed.Source).Put(Some(on)).Map(unit)),
-                    new CommandRow.Run(Face("render-queue-check", "Check", "Check the queue before it renders"), None, static scope => Checked(scope, Local)),
-                    new CommandRow.Run(Face("render-queue-render", "Render", "Render the queue in this Rhino"), Some(ready), static scope => Sent(scope, Local, Fresh)),
-                    new CommandRow.Run(Face("render-queue-handoff", "Render in New Rhino", "Save, quit, and render the queue in a new Rhino behind the frontmost window"), Some(ready),
+                    new CommandRow.Run(Face("render-queue-check", "Check", "Check queue for refusals and cautions"), None, static scope => Checked(scope, Local)),
+                    new CommandRow.Run(Face("render-queue-render", "Render", "Render queue in running Rhino"), Some(ready), static scope => Sent(scope, Local, Fresh)),
+                    new CommandRow.Run(Face("render-queue-handoff", "Render in New Rhino", "Save, quit, then render queue in new Rhino behind frontmost window"), Some(ready),
                         static scope => Sent(scope, Packaged(static package => IO.pure<QueueTarget>(new QueueTarget.Handoff(package))), Fresh)),
-                    new CommandRow.Run(Face("render-queue-job", "Write Job", "Write the copy, the job, and its schema beside the outputs"), Some(ready),
+                    new CommandRow.Run(Face("render-queue-job", "Write Job", "Write document copy, job, and job schema to output jobs folder"), Some(ready),
                         static scope => Sent(scope, Packaged(static package => IO.pure<QueueTarget>(new QueueTarget.JobFile(package))), Fresh)),
-                    new CommandRow.Run(Face("render-queue-flamenco", "Submit to Flamenco", "Package the queue and submit it to the configured Flamenco Manager"), Some(ready),
+                    new CommandRow.Run(Face("render-queue-flamenco", "Submit to Flamenco", "Package queue and submit to Flamenco Manager"), Some(ready),
                         scope => Sent(scope, Packaged(package => settings.Flamenco.Target(((IPlugInViews)scope.Sink).Settings, package)), Fresh)),
-                    new CommandRow.Run(Face("render-queue-resume", "Resume", "Render the stopped, failed, or crashed queue from its last frame"), Some(resumable),
+                    new CommandRow.Run(Face("render-queue-resume", "Resume", "Render stopped, failed, or crashed queue from last finished frame"), Some(resumable),
                         static scope => Sent(scope, Local, static context => QueueProgress.Read(context.Record).Map(static prior => prior.Filter(static record => !record.Succeeded)))),
-                    new CommandRow.Run(Face("render-queue-test-notice", "Send Test Notice", "Post a test notice to Rhino, the system, and the ntfy topic"), None, static scope =>
+                    new CommandRow.Run(Face("render-queue-test-notice", "Send Test Notice", "Post test notice to Rhino, system, and ntfy topic"), None, static scope =>
                         QueueContext.Current.Of(scope.Sink)
                             .Bind(static context => DisposalOps.Fork(context.Notify(new QueueEvent.Test()), context.Retain))
                             .Map(unit)),
@@ -677,19 +677,19 @@ public static class Queues {
             },
                 RowRules.Always),
             new ControlRow.Group("Run", RowRules.Always) { Wording = Wording.Library },
-            TextRows.Progress("Progress", "Frames rendered of the queue's total", new ReadoutSource<WorkState>.Scoped(static scope =>
+            TextRows.Progress("Progress", "Frames rendered of queue total", new ReadoutSource<WorkState>.Scoped(static scope =>
                 QueueContext.Current.Of(scope.Sink).Bind(static context => context.Estimate.ValueIO).Map(static estimate => estimate.Work)), RowRules.Always) with { Wording = Wording.Library, },
-            TextRows.Readout("State", "The queue record's state", stated, static shown => Stated(shown.State, shown.Zone), RowRules.Always) with { Wording = Wording.Library },
-            TextRows.Readout("Remaining", "Time left and finish, from the frames rendered", Zoned, static shown => shown.Estimate.Description(shown.Zone), RowRules.Always) with { Wording = Wording.Library },
+            TextRows.Readout("State", "Queue record state", stated, static shown => Stated(shown.State, shown.Zone), RowRules.Always) with { Wording = Wording.Library },
+            TextRows.Readout("Remaining", "Time left and finish time, from rendered frames", Zoned, static shown => shown.Estimate.Description(shown.Zone), RowRules.Always) with { Wording = Wording.Library },
             .. toSeq(FrameStage.Items).Map(static stage => TextRows.Readout(stage.Caption,
-                "Time spent in this stage of the last completed frame", Zoned,
+                "Time last finished frame spent in stage", Zoned,
                 shown => shown.Estimate.Last.Map<string>(mark => RowText.Localize("{0:N3} s", arguments: [stage.Of(mark, shown.Clock).TotalSeconds])).IfNone(""),
                 RowRules.Always) with { Wording = Wording.Library, }),
-            TextRows.Readout("Peak memory", "Peak process memory after the last completed frame", Zoned,
+            TextRows.Readout("Peak memory", "Peak process memory at last finished frame", Zoned,
                 static shown => shown.Estimate.Last.Map<string>(static mark => RowText.Localize(bytes, arguments: [mark.PeakWorkingSet])).IfNone(""), RowRules.Always) with { Wording = Wording.Library, },
-            .. measures.Map(measure => TextRows.Readout(measure.Caption, "Measured in the last queue check", check,
+            .. measures.Map(measure => TextRows.Readout(measure.Caption, "From last queue check", check,
                 report => report.Bind(measure.Value).Map<string>(value => RowText.Localize(measure.Format, arguments: [value])).IfNone(""), RowRules.Always) with { Wording = Wording.Library, }),
-            ListRows.List("Estimated memory", "Scene and requested render channels per queue entry, from the last check", new ListRow<(int Entry, ulong Memory), int>(
+            ListRows.List("Estimated memory", "Scene and render channel memory per entry, from last check", new ListRow<(int Entry, ulong Memory), int>(
                     IterableNE.create<ListColumn<(int Entry, ulong Memory)>>(
                         new ListColumn<(int Entry, ulong Memory)>.Label(Some(entryCaption), static entry => (entry.Entry + 1).ToString(RowText.Culture), None, None),
                         new ListColumn<(int Entry, ulong Memory)>.Label(Some("Memory"), static entry => RowText.Localize(bytes, arguments: [entry.Memory]), None, None)),
@@ -698,7 +698,7 @@ public static class Queues {
                         scope.Read(Report.Source).Map(static report => report.Map(static held => toSeq(held.Memory.AsIterable()).Map(static entry => (Entry: entry.Key, Memory: entry.Value))).IfNone(Seq<(int Entry, ulong Memory)>())),
                         None)),
                     RowSource.Opaque(Owner, "memory-picked", LanguageExt.HashSet<int>.Empty)) { Wording = Wording.Library }, RowRules.Always),
-            ListRows.List("Check", "Refusals and cautions of the last check", new ListRow<PreflightFinding, PreflightFinding>(
+            ListRows.List("Check", "Refusals and cautions from last check", new ListRow<PreflightFinding, PreflightFinding>(
                     IterableNE.create<ListColumn<PreflightFinding>>(new ListColumn<PreflightFinding>.Label(None, static finding => ErrorOps.Localize(finding.Error), None, None)),
                     static finding => finding,
                     RowSource.Opaque(Owner, "findings", Seq<PreflightFinding>(), static scope => ValueStore.Readout(

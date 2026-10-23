@@ -13,4 +13,4 @@ rule:
             - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}}
             - matches: {msbuild-metadata: {name: {regex: '^NoWarn$', pattern: _PROPERTY}, value: {regex: '[^"''\s]'}}}
 message: '`$PROPERTY` in a project file silences diagnostics of that project'
-note: Fix the code each diagnostic reports, a warning no fix at the cause clears takes a row in `Directory.Build.props`
+note: Fix the code each diagnostic reports, a warning with no fix at its cause goes in `Directory.Build.props` `NoWarn`

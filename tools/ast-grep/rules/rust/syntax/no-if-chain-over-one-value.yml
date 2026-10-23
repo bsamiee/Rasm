@@ -83,4 +83,4 @@ rule:
                     - has: {field: consequence, matches: variant-value}
         - not: {inside: {kind: else_clause, inside: {kind: if_expression, any: [{matches: constant-test}, {matches: text-test}]}}}
 message: '`if` chain tests `$VALUE` branch by branch'
-note: 'Write one `match` over the value with an arm per constant or pattern, and turn a `let` chain link into an arm guard (`<pattern> if <test> =>`)'
+note: 'Write one `match <value>` with an arm per constant or pattern, moving a `let` chain test into an arm guard (`<pattern> if <test> =>`)'

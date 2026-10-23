@@ -140,5 +140,5 @@ rule:
         kind: 'function_definition, module'
         stopBy: end
         has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: combined-binding}
-message: '`$READ` reads digits back from the numbers `$S` renders into one string'
-note: 'Index, count, split, and test membership over a `list[int]` holding the values'
+message: '`$READ` reads digits back from `$S`, a string of rendered numbers'
+note: 'Hold numbers in a `list[int]` in place of the string and index, slice, count, or test membership on it'

@@ -2,7 +2,7 @@
     "name": "@rasm/atelier",
     "version": "1.0.0",
     "private": true,
-    "description": "Drives installed Adobe applications through their scripting dictionaries and a UXP script it runs in InDesign",
+    "description": "Drives Adobe applications through scripting dictionaries and UXP script in InDesign",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",

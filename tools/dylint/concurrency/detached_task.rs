@@ -5,6 +5,7 @@ use clippy_utils::{
     expr_or_init, fn_def_id, get_enclosing_block, is_expr_temporary_value, local_is_initialized,
     paths::PathNS,
     res::{MaybeDef as _, MaybeResPath as _},
+    source::snippet,
     visitors::is_local_used,
 };
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
@@ -27,10 +28,12 @@ enum Spawned {
     Thread,
 }
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 #[derive(Clone, Copy)]
 enum Detachment {
     Dropped,
-    Replaced,
+    Replaced(Span),
     Every,
 }
 
@@ -72,16 +75,17 @@ impl Pass {
         };
         let message = match detachment {
             Detachment::Dropped => format!("dropping `{name}` detaches its {work}"),
-            Detachment::Replaced => format!("assignment drops the previous `{name}` and detaches its {work}"),
+            Detachment::Replaced(_) => format!("reassigning `{name}` detaches its previous {work}"),
             Detachment::Every => format!("`{name}::detach_all` detaches every task in the set"),
         };
         let help = match (detachment, spawned, in_drop_impl(cx, node), self.async_context.is_async(cx, cx.tcx.hir_enclosing_body_owner(node))) {
-            (Detachment::Every, ..) => "await `JoinSet::join_all`, or call `JoinSet::shutdown` where its owner stops",
-            (Detachment::Dropped | Detachment::Replaced, Spawned::Task, false, _) => "spawn on a `TaskTracker` or `JoinSet` that its owner waits on at shutdown",
-            (Detachment::Dropped | Detachment::Replaced, Spawned::Task, true, _) =>
-                "spawn release work through `TaskTracker::spawn_on` with a `Handle` captured at construction, or hold a `DropGuard` with a token the release task awaits",
-            (Detachment::Dropped | Detachment::Replaced, Spawned::Thread, false, true) => "run the work in `tokio::task::spawn_blocking` and await its handle",
-            (Detachment::Dropped | Detachment::Replaced, Spawned::Thread, _, _) => "spawn the thread in `std::thread::scope`",
+            (Detachment::Every, ..) => format!("await `{name}::join_all` in place of the call"),
+            (Detachment::Replaced(place), Spawned::Task, ..) => format!("store `{}` as `tokio_util::task::AbortOnDropHandle`", snippet(cx, place, "..")),
+            (Detachment::Replaced(place), Spawned::Thread, ..) => format!("join `{}` before the assignment", snippet(cx, place, "..")),
+            (Detachment::Dropped, Spawned::Task, false, _) => String::from("spawn through `tokio_util::task::TaskTracker::spawn`, then `close` the tracker and await `wait` at shutdown"),
+            (Detachment::Dropped, Spawned::Task, true, _) => String::from("spawn through `tokio_util::task::TaskTracker::spawn_on` with `Handle` captured at construction"),
+            (Detachment::Dropped, Spawned::Thread, false, true) => String::from("await the work through `tokio::task::spawn_blocking`"),
+            (Detachment::Dropped, Spawned::Thread, ..) => String::from("spawn the thread in `std::thread::scope`"),
         };
         span_lint_hir_and_then(cx, DETACHED_TASK, node, span, message, |diag| {
             diag.help(help);
@@ -131,7 +135,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let Some(handle) = self.detached(cx, place)
             && place.res_local_id().is_none_or(|local| local_is_initialized(cx, local))
         {
-            self.report(cx, handle, expr.hir_id, expr.span, Detachment::Replaced);
+            self.report(cx, handle, expr.hir_id, expr.span, Detachment::Replaced(place.span));
         }
         if let ExprKind::MethodCall(segment, ..) = expr.kind
             && let Some(called) = fn_def_id(cx, expr).filter(|&called| Some(called) == self.detach_all)

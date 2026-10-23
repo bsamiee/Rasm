@@ -23,19 +23,19 @@ type Query = Ray | Near
 
 
 class Update(msgspec.Struct, frozen=True, kw_only=True):
-    """Original data-block identity and change kinds retained beyond a handler call."""
+    """Original ID changes kept past handler call."""
 
     handle: Handle[bpy.types.ID]
     changes: Change
 
     @classmethod
     def of(cls, item: bpy.types.DepsgraphUpdate) -> Self:
-        """Returns the original handle and change kinds while the native update is valid."""
+        """Copies native update during handler call."""
         return cls(handle=Handle.of(item.id), changes=changed(item))  # type: ignore[arg-type]
 
 
 class Instancing(msgspec.Struct, frozen=True, kw_only=True):
-    """Instancer, persistent identity, generated coordinates, and optional particle system."""
+    """Instancer data of generated instance."""
 
     instancer: bpy.types.Object
     persistent_id: tuple[int, ...]
@@ -46,7 +46,7 @@ class Instancing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Instance(msgspec.Struct, frozen=True, kw_only=True):
-    """Original object, copied placement, visibility, and instancing metadata."""
+    """Copied depsgraph instance."""
 
     source: bpy.types.Object
     matrix: Matrix
@@ -56,7 +56,7 @@ class Instance(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls, depsgraph: bpy.types.Depsgraph) -> tuple[Self, ...]:
-        """Returns copied instances in native iterator order without retaining iterator items."""
+        """Copies object instances in iterator order."""
         return tuple(
             cls(
                 source=item.object.original,  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
@@ -79,7 +79,7 @@ class Instance(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Ray(msgspec.Struct, frozen=True, kw_only=True):
-    """Object-space ray origin, direction, and maximum distance."""
+    """Object-space ray cast query."""
 
     origin: Vector
     direction: Vector
@@ -87,14 +87,14 @@ class Ray(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Near(msgspec.Struct, frozen=True, kw_only=True):
-    """Object-space nearest-surface origin and maximum distance."""
+    """Object-space nearest-surface query."""
 
     origin: Vector
     distance: float
 
 
 class Hit(msgspec.Struct, frozen=True, kw_only=True):
-    """Found object-space location, surface normal, and native face index."""
+    """Object-space surface hit."""
 
     location: Vector
     normal: Vector
@@ -105,7 +105,7 @@ class Hit(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def evaluated(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Depsgraph]:
-    """Returns the updated layer graph, an edit fault when evaluation is already running, or the layer's absent graph."""
+    """Returns updated layer depsgraph, edit fault while evaluation runs."""
     return Result[None, BlenderFaults].bind(
         BlenderEditFault.attempted(repr(view_layer), view_layer.update),
         lambda _: Option.of_optional(view_layer.depsgraph).to_result_with(lambda: (BlenderAbsentFault(owner=repr(view_layer), key="depsgraph"),)),
@@ -114,7 +114,7 @@ def evaluated(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Depsgr
 
 @contextmanager
 def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve_all_data_layers: bool = False) -> Generator[BlenderResult[bpy.types.Mesh]]:
-    """Yields an evaluated mesh or typed refusal, clearing the native mesh when the scope ends."""
+    """Yields evaluated mesh, cleared at scope exit."""
     copy = source.evaluated_get(depsgraph)
     with ExitStack() as lifetime:
         lifetime.callback(copy.to_mesh_clear)
@@ -124,10 +124,10 @@ def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve
 
 
 def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, query: Query) -> BlenderResult[Option[Hit]]:
-    """Returns a found surface hit or Nothing, preserving the native geometry refusal."""
+    """Returns surface hit, Nothing on miss."""
 
     def answered() -> Option[Hit]:
-        """Lifts the native found flag into an optional hit."""
+        """Lifts native found flag into optional hit."""
         match query:
             case Ray(origin=origin, direction=direction, distance=distance):
                 answer = source.ray_cast(origin, direction, distance=distance, depsgraph=depsgraph)

@@ -1,4 +1,4 @@
-"""Native asset metadata, catalogs, extension libraries, imports, and publication."""
+"""Asset metadata, catalogs, extension libraries, imports, and publication."""
 
 from collections.abc import Generator
 from contextlib import contextmanager, ExitStack
@@ -31,7 +31,7 @@ type LinkOrAppend = Literal["LINK", "APPEND"]
 
 
 class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
-    """Metadata, catalog, import preference, and extension identity of an asset."""
+    """Asset metadata under extension key."""
 
     key: Key
     catalog: CatalogPath
@@ -43,15 +43,15 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
     method: Option[LinkOrAppend] = Nothing
 
     def marked[T: bpy.types.ID](self, identity: Identity, block: T, uid: UUID) -> BlenderResult[T]:
-        """Marks a data-block and replaces its asset metadata.
+        """Marks block as asset, replacing its metadata.
 
         Args:
-            identity: Extension whose manifest id owns the metadata mark.
-            block: Data-block receiving the metadata.
-            uid: Catalog UUID read or created by publication.
+            identity: Extension with manifest ID keying mark.
+            block: ID to mark.
+            uid: Catalog UUID publication read or created.
 
         Returns:
-            The block, or an absent fault when Blender cannot mark it and an edit fault for refused metadata.
+            Marked block, absent fault for unmarkable block.
         """
 
         def applied(data: bpy.types.AssetMetaData) -> T:
@@ -80,29 +80,29 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension library held as a preference row while the extension is enabled."""
+    """Asset library preference row held while extension is enabled."""
 
     title: str
     folder: Key
     method: Option[LinkOrAppend] = Nothing
 
     def located(self, identity: Identity) -> Path:
-        """Returns the library folder beneath the extension's user folder."""
+        """Returns library folder under extension user folder."""
         return identity.folder / "assets" / self.folder
 
     def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
-        """Returns the preference row acquisition."""
+        """Returns row acquisition."""
         return Ok(((Band.RESOURCES, self.acquired(identity)),))
 
     @contextmanager
     def acquired(self, identity: Identity) -> Generator[BlenderResult[None]]:
-        """Places the library row, or takes the row an earlier session's preference save kept, and removes it on release.
+        """Holds library row, reusing saved one, until release.
 
         Args:
-            identity: Extension owning the library folder.
+            identity: Extension owning library folder.
 
         Yields:
-            Success while the row is acquired, the folder's write fault, or the absent row Blender refused to add.
+            Success while row is held, absent fault when Blender adds none.
         """
         with ExitStack() as lifetime:
 
@@ -128,17 +128,17 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[bpy.types.ID, AssetMark], ...], *, kept: bool = False) -> BlenderResult[Path]:
-    """Writes marked data-blocks into a library with their catalogs.
+    """Writes marked blocks and catalogs into library.
 
     Args:
-        identity: Extension whose manifest id owns each mark and seeds catalog UUIDs.
-        folder: Library folder receiving the catalog and blend files.
-        stem: Blend filename without its suffix.
-        entries: Data-blocks paired with their asset metadata.
-        kept: Whether newly added asset marks survive publication.
+        identity: Extension with manifest ID keying each mark and seeding catalog UUIDs.
+        folder: Library folder for catalog and blend files.
+        stem: Blend file name without suffix.
+        entries: IDs with asset metadata.
+        kept: Whether added asset marks stay.
 
     Returns:
-        The written file, or catalog read faults, write faults, and every refused asset mark.
+        Written blend file, accumulating catalog and mark faults.
     """
     target = folder / "blender_assets.cats.txt"
     fresh = () if kept else tuple(block for block, _ in entries if block.asset_data is None)
@@ -179,7 +179,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
 
 
 def linking(method: "rna_enums.AssetImportMethodItems", *, relative: bool) -> LibraryLink:
-    """Returns the native library operation for an asset import method."""
+    """Returns library link mode for asset import method."""
     match method:
         case "LINK":
             return Linked(relative=relative)
@@ -192,20 +192,20 @@ def linking(method: "rna_enums.AssetImportMethodItems", *, relative: bool) -> Li
 
 
 def essential() -> "rna_enums.AssetImportMethodItems":
-    """Returns Blender's Essentials import method under its packing preference."""
+    """Returns Essentials import method for packing preference."""
     return "APPEND_REUSE" if bpy.context.preferences.experimental.no_data_block_packing else "PACK"  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
 def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T], library: Option[bpy.types.UserAssetLibrary] = Nothing) -> BlenderResult[T]:
-    """Returns an asset's local data or imports it by Blender's asset method.
+    """Returns local asset data, else imports it by import method.
 
     Args:
-        asset: Representation supplied by an asset shelf, browser, or menu.
-        kind: Native data-block type expected by the consumer.
-        library: Selected native preferences or project library for an external custom asset.
+        asset: Representation from asset shelf, browser, or menu.
+        kind: Expected ID type.
+        library: Selected preferences or project library of external custom asset.
 
     Returns:
-        The local or imported block, or an absent fault and the native library load faults.
+        Local or imported block, absent fault for another kind or missing library.
     """
     match Option.of_optional(asset.local_id):
         case Option(tag="some", some=block):
@@ -224,14 +224,14 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
 
 
 def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
-    """Imports a named asset from Blender's bundled libraries.
+    """Imports named asset from bundled asset libraries.
 
     Args:
-        kind: Native data-block type to list and import.
-        name: Asset name contained in a bundled blend file.
+        kind: ID type to list and import.
+        name: Asset name in bundled blend file.
 
     Returns:
-        The imported block, or every listing read fault, an absent fault, and native load faults.
+        Imported block, absent fault for missing name.
     """
     root = Path(bpy.utils.system_resource("DATAFILES", path="assets"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     try:

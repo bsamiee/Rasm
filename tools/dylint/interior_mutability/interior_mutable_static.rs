@@ -30,7 +30,7 @@ pub(crate) struct Pass<'tcx> {
     uses: FxHashMap<LocalDefId, Vec<Option<Span>>>,
 }
 
-lint!(Pass<'_>; INTERIOR_MUTABLE_STATIC: "`static` items, `thread_local!` statics included, with a type that mutates through a shared reference");
+lint!(Pass<'_>; INTERIOR_MUTABLE_STATIC: "`static` items and `thread_local!` statics holding an interior mutable type");
 
 impl<'tcx> Pass<'tcx> {
     pub(crate) fn new(tcx: TyCtxt<'tcx>) -> Self {
@@ -91,16 +91,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 cx.tcx.local_def_id_to_hir_id(item),
                 ident.span,
                 with_forced_trimmed_paths!(if link == held {
-                    format!("`static {ident}` holds `{held}`, which mutates through a shared reference")
+                    format!("`static {ident}` holds interior mutable `{held}`")
                 } else {
-                    format!("`static {ident}` holds `{held}`, and its `{link}` mutates through a shared reference")
+                    format!("`static {ident}` holds interior mutable `{link}` in `{held}`")
                 }),
                 |diag| {
                     match once.zip(initializer) {
-                        Some((value, initializer)) => diag.help(with_forced_trimmed_paths!(format!(
-                            "declare `static {ident}: LazyLock<{value}> = LazyLock::new({})`, its only use initializes it from no input",
-                            snippet(cx, initializer, "..")
-                        ))),
+                        Some((value, initializer)) => diag.help(with_forced_trimmed_paths!(format!("declare `static {ident}: LazyLock<{value}> = LazyLock::new({})`", snippet(cx, initializer, "..")))),
                         None => diag.help("build the value in `main` and pass it to each operation that reads or writes it"),
                     };
                 },

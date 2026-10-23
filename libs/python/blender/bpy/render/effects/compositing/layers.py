@@ -1,4 +1,4 @@
-"""Owned native layer stacks, source graphs, edits, and layered documents."""
+"""Owned layer stacks, source graphs, edits, and documents."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -91,7 +91,7 @@ type Source = Adjustment | RenderPass | NodeSource | Recombined
 
 
 class Edit(Enum):
-    """Native stack, layer, effect, and mask editing intentions."""
+    """Edit actions on layers, effects, and masks."""
 
     REMOVE = auto()
     DUPLICATE = auto()
@@ -100,7 +100,7 @@ class Edit(Enum):
     RESET = auto()
 
 
-# --- [ROSTERS] --------------------------------------------------------------------------
+# --- [CHOICES] --------------------------------------------------------------------------
 
 
 stack_names = Choices(lambda identity, _owner, _context: ((tree.name, tree.name, "") for tree, _ in LayerStacks.ownership.held(identity)))
@@ -126,7 +126,7 @@ node_types = Choices(
 
 
 class RenderPass(Case, frozen=True, kw_only=True, tag=2):
-    """One native output of a scene view layer."""
+    """One output of scene view layer."""
 
     title = "Render Pass"
     layer: Annotated[str, msgspec.Meta(title="View Layer"), views]
@@ -134,7 +134,7 @@ class RenderPass(Case, frozen=True, kw_only=True, tag=2):
 
 
 class NodeSource(Case, frozen=True, kw_only=True, tag=3):
-    """Owned compositor source node whose native settings remain editable."""
+    """Owned compositor source node with editable settings."""
 
     title = "Node"
     node: Annotated[str, msgspec.Meta(title="Node Type")]
@@ -142,26 +142,26 @@ class NodeSource(Case, frozen=True, kw_only=True, tag=3):
 
 
 class StackView(msgspec.Struct, frozen=True, kw_only=True):
-    """Workspace selection in bottom-first layer order."""
+    """Screen selection, bottom-first layer order."""
 
     active: Annotated[int, msgspec.Meta(ge=0)] = 0
 
 
 class Switched(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned stack selected by its native data-block name."""
+    """Owned stack selected by node group name."""
 
     stack: Annotated[str, stack_names]
 
 
 class Copied(msgspec.Struct, frozen=True, kw_only=True):
-    """One explicitly selected layer of another native stack."""
+    """One layer of another stack."""
 
     stack: Annotated[str, stack_names]
     layer: Annotated[str, layer_names]
 
 
 class NodeKind(msgspec.Struct, frozen=True, kw_only=True):
-    """Native source node to create before choosing its enabled output."""
+    """Source node class to create."""
 
     node: Annotated[str, node_types]
 
@@ -199,20 +199,20 @@ class EffectMaskAt(Case, frozen=True, kw_only=True, tag=4):
 
 
 class Addressed(msgspec.Struct, frozen=True, kw_only=True):
-    """Native operator's algebraic layer, effect, or mask location."""
+    """Layer, effect, or mask an edit operator targets."""
 
     target: LayerAt | EffectAt | LayerMaskAt | EffectMaskAt
 
 
 class OutputChoice(msgspec.Struct, frozen=True, kw_only=True):
-    """Enabled native source output chosen for one layer."""
+    """Enabled source output chosen for one layer."""
 
     layer: Annotated[int, msgspec.Meta(ge=0)]
     output: str
 
 
 class Dragged[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
-    """Native entry and complete initial values of a layer drag."""
+    """Entry and initial values of layer drag."""
 
     entry: bpy.types.SceneCompositorEffect
     record: LayerStack[Source, E]
@@ -221,7 +221,7 @@ class Dragged[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Planning(msgspec.Struct, frozen=True, kw_only=True):
-    """Actual source outputs and native dependencies of one graph construction."""
+    """Source outputs and dependencies of one graph build."""
 
     identity: Identity
     scene: bpy.types.Scene
@@ -260,7 +260,7 @@ class LayerStacking[E: Effect]:
         routed: PassRouting,
         framing: Derived[Effect, CameraFrame],
     ) -> None:
-        """Builds the stack, source, layer, effect, mask, and drag operators, preset listings, and layer list of one registered binding."""
+        """Builds stack, source, layer, effect, mask, and drag operators, preset listings, and layer list."""
         self.identity, self.form, self.stack = identity, form, stack
         self.attached, self.view, self.flags = attached, view, flags
         self.routed, self.framing = routed, framing
@@ -345,7 +345,7 @@ class LayerStacking[E: Effect]:
                 self
                 .selected(call.context)
                 .bind(lambda held: self.replaced(call.context, held[0], held[1], structs.replace(held[1], layers=()), 0))
-                .map(lambda wrote: Done() if wrote else Unchanged(reason="The stack holds no layers"))
+                .map(lambda wrote: Done() if wrote else Unchanged(reason="Stack holds no layers"))
             )
 
         def nested(call: Call[Empty]) -> BlenderResult[Done]:
@@ -379,7 +379,7 @@ class LayerStacking[E: Effect]:
             )
 
         def edit(action: Edit, call: Call[Addressed]) -> BlenderResult[Outcome]:
-            return self.edited(call.context, action, call.record.target).map(lambda wrote: Done() if wrote else Unchanged(reason=f"{action.name.title()} leaves the stack as it is"))
+            return self.edited(call.context, action, call.record.target).map(lambda wrote: Done() if wrote else Unchanged(reason=f"{action.name.title()} changes nothing"))
 
         def changed(context: bpy.types.Context, transform: Callable[[Layer[Source, E]], BlenderResult[Layer[Source, E]]], at: Option[int] = Nothing) -> BlenderResult[bool]:
             def applied(entry: bpy.types.SceneCompositorEffect, record: LayerStack[Source, E], view: StackView, _tree: bpy.types.NodeTree) -> BlenderResult[bool]:
@@ -444,7 +444,7 @@ class LayerStacking[E: Effect]:
                     case Adjustment() | Recombined():
                         return Error((BlenderAbsentFault(owner=layer.name, key=output_choice),))
 
-            return changed(call.context, chosen, Some(call.record.layer)).map(lambda wrote: Done() if wrote else Unchanged(reason=f"The layer already reads {call.record.output}"))
+            return changed(call.context, chosen, Some(call.record.layer)).map(lambda wrote: Done() if wrote else Unchanged(reason=f"Layer reads {call.record.output}"))
 
         def dragged(context: bpy.types.Context, _travel: Travel) -> BlenderResult[Dragged[E]]:
             return self.selected(context).map(lambda held: Dragged(entry=held[0], record=held[1], index=held[2].active, pitch=Metrics.read().unit))
@@ -456,36 +456,32 @@ class LayerStacking[E: Effect]:
             return self.written_selection(context, state.entry, structs.replace(state.record, layers=(*rest[:target], *layers[index : index + 1], *rest[target:])), target).map(lambda _: Nothing)
 
         (node_field,) = structs.fields(NodeKind)
-        self.output = Operator(key="layer_output", title="Select Output", description="Select an enabled native source output", form=OutputChoice, run=output)
-        self.masking = Operator(key="layer_mask_add", title="Add Mask", description="Append a mask to the chosen layer or effect blend", form=Addressed, run=mask)
+        self.output = Operator(key="layer_output", title="Select Output", description="Set layer source output", form=OutputChoice, run=output)
+        self.masking = Operator(key="layer_mask_add", title="Add Mask", description="Add mask to layer or effect blend", form=Addressed, run=mask)
         self.editing = {
             action: Operator(
-                key=f"layer_edit_{action.name.lower()}",
-                title=action.name.title(),
-                description=f"{action.name.title()} the chosen layer, effect, or mask",
-                form=Addressed,
-                run=functools.partial(edit, action),
+                key=f"layer_edit_{action.name.lower()}", title=action.name.title(), description=f"{action.name.title()} layer, effect, or mask", form=Addressed, run=functools.partial(edit, action)
             )
             for action in Edit
         }
         self.commands = (
-            Operator(key="layer_stack_new", title="New Stack", description="Create a named native layer stack", form=Empty, run=created),
-            Operator(key="layer_stack_duplicate", title="Duplicate Stack", description="Copy the complete stack and native source settings", form=Empty, run=duplicated),
-            Operator(key="layer_stack_remove", title="Remove Stack", description="Remove this owned stack and its native users", form=Empty, run=removed),
+            Operator(key="layer_stack_new", title="New Stack", description="Create layer stack", form=Empty, run=created),
+            Operator(key="layer_stack_duplicate", title="Duplicate Stack", description="Copy stack with source settings", form=Empty, run=duplicated),
+            Operator(key="layer_stack_remove", title="Remove Stack", description="Remove stack and its effect entry", form=Empty, run=removed),
             Operator(
                 key="layer_stack_switch",
                 title="Switch Stack",
-                description="Edit another named stack",
+                description="Edit another stack",
                 form=Switched,
                 run=lambda call: tree(call.record.stack).bind(lambda group: self.switched(call.context, group)).map(lambda _: Done()),
                 invoke=Some(InvokePopup.SEARCH),
             ),
-            Operator(key="layer_stack_nested", title="Edit Nested Stack", description="Open the selected layer's nested stack", form=Empty, run=nested),
-            Operator(key="layer_stack_clear", title="Clear Layers", description="Remove every layer of the selected stack", form=Empty, run=clear),
+            Operator(key="layer_stack_nested", title="Edit Nested Stack", description="Edit selected layer's stack", form=Empty, run=nested),
+            Operator(key="layer_stack_clear", title="Clear Layers", description="Remove every layer", form=Empty, run=clear),
             Operator(
                 key="layer_copy_all",
                 title="Copy All Layers",
-                description="Copy every layer of another stack with its native settings",
+                description="Copy layers of another stack with source settings",
                 form=Switched,
                 run=lambda call: copied(call.context, call.record.stack, Nothing),
                 invoke=Some(InvokePopup.SEARCH),
@@ -493,28 +489,28 @@ class LayerStacking[E: Effect]:
             Operator(
                 key="layer_copy",
                 title="Copy Layer",
-                description="Copy a selected layer of another stack",
+                description="Copy one layer of another stack",
                 form=Copied,
                 run=lambda call: copied(call.context, call.record.stack, Some(call.record.layer)),
                 invoke=Some(Properties()),
             ),
-            Operator(key="layer_add_adjustment", title=Adjustment.title, description="Process the composite beneath", form=Adjustment, run=added),
-            Operator(key="layer_add_render_pass", title=RenderPass.title, description="Add a view layer output", form=RenderPass, run=added, invoke=Some(Properties())),
-            Operator(key="layer_add_recombined", title=Recombined.title, description="Recombine a view layer's native passes", form=Recombined, run=added, invoke=Some(Properties())),
+            Operator(key="layer_add_adjustment", title=Adjustment.title, description="Add layer processing composite beneath", form=Adjustment, run=added),
+            Operator(key="layer_add_render_pass", title=RenderPass.title, description="Add view layer output", form=RenderPass, run=added, invoke=Some(Properties())),
+            Operator(key="layer_add_recombined", title=Recombined.title, description="Add beauty from view layer light", form=Recombined, run=added, invoke=Some(Properties())),
             Operator(
                 key="layer_add_node",
                 title="Node",
-                description="Create a native source and select its enabled output",
+                description="Add source node at first enabled output",
                 form=NodeKind,
                 run=lambda call: node_kind(call.record.node).bind(lambda kind: self.add_node(call.context, kind, lambda _: Ok(None))).map(lambda _: Done()),
                 invoke=Some(InvokePopup.SEARCH),
                 primary=Some(node_field),
             ),
-            Operator(key="layer_add_nested", title="Nested Stack", description="Use another owned stack as a source", form=Switched, run=group, invoke=Some(InvokePopup.SEARCH)),
+            Operator(key="layer_add_nested", title="Nested Stack", description="Add stack as source", form=Switched, run=group, invoke=Some(InvokePopup.SEARCH)),
             Operator(
                 key="layer_add_media",
                 title="Media",
-                description="Load image and movie footage",
+                description="Add image or movie files",
                 form=Empty,
                 run=media,
                 invoke=Some(Open(extensions=lambda _: (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie)))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -524,7 +520,7 @@ class LayerStacking[E: Effect]:
             Operator[Empty, Dragged[E]](
                 key="layer_drag",
                 title="Drag Layer",
-                description="Move the selected layer by native row heights",
+                description="Drag selected layer by list rows",
                 form=Empty,
                 run=lambda _: Ok(Done()),
                 invoke=Some(
@@ -533,7 +529,7 @@ class LayerStacking[E: Effect]:
             ),
             *self.editing.values(),
             *(
-                Operator(key=f"layer_effect_add_{row.kind}", title=row.record.title, description=f"Add {row.record.title} to the selected layer", form=Empty, run=functools.partial(effect, row))
+                Operator(key=f"layer_effect_add_{row.kind}", title=row.record.title, description=f"Add {row.record.title} to layer", form=Empty, run=functools.partial(effect, row))
                 for row in self.stack.effects
                 if row.record.stage < Stage.FORMATION
             ),
@@ -575,7 +571,7 @@ class LayerStacking[E: Effect]:
                         )
                         return Result[Layer[Source, E], BlenderFaults].bind(prior, functools.partial(changed, value))
 
-            return self.selected(context).bind(edited).map(lambda wrote: Done() if wrote else Unchanged(reason="The stack already holds that preset"))
+            return self.selected(context).bind(edited).map(lambda wrote: Done() if wrote else Unchanged(reason="Stack matches preset"))
 
         def listing[T: msgspec.Struct](read: Callable[[bpy.types.Context], BlenderResult[T]], preset: Preset[T], apply: Callable[[bpy.types.Context, T], BlenderResult[Outcome]]) -> Listing[T]:
             def matches(context: bpy.types.Context, values: tuple[T, ...]) -> BlenderResult[tuple[bool, ...]]:
@@ -606,13 +602,13 @@ class LayerStacking[E: Effect]:
     # --- [GRAPH]
 
     def head(self, scene: bpy.types.Scene) -> BlenderResult[bpy.types.SceneCompositorEffect]:
-        """Returns the first owned native stack entry or its actual absence."""
+        """Returns first entry holding an owned stack."""
         return Option.of_optional(next((entry for entry in scene.compositor_effects if stacked_by(self.identity, entry).is_some()), None)).to_result_with(
             lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=LayerStacks.ownership.key),)
         )
 
     def sources(self, scene: bpy.types.Scene, layers: LayerStack[Source, E], tree: Option[bpy.types.NodeTree] = Nothing) -> BlenderResult[dict[Key, dict[str, str]]]:
-        """Reads enabled outputs on an isolated native source graph with copied settings."""
+        """Reads enabled source outputs from scratch graph with copied settings."""
         with ExitStack() as release:
             scratch: bpy.types.CompositorNodeTree = bpy.data.node_groups.new("Layer Sources", "CompositorNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             release.callback(bpy.data.node_groups.remove, scratch)
@@ -634,7 +630,7 @@ class LayerStacking[E: Effect]:
             )
 
     def requests(self, layers: LayerStack[Source, E]) -> BlenderResult[tuple[PassRequest, ...]]:
-        """Accumulates source, effect, and actual denoising guide requests."""
+        """Accumulates source pass and denoising guide requests."""
 
         def layer_requests(layer: Layer[Source, E]) -> BlenderResult[tuple[PassRequest, ...]]:
             source: tuple[PassRequest, ...]
@@ -655,7 +651,7 @@ class LayerStacking[E: Effect]:
         return accumulated(layer_requests(layer) for layer in layers.layers).map(lambda groups: tuple(itertools.chain.from_iterable(groups)))
 
     def reconciled(self, scene: bpy.types.Scene, tree: bpy.types.NodeTree, context: bpy.types.Context, *, record: Option[LayerStack[Source, E]] = Nothing) -> BlenderResult[bool]:
-        """Enables requests, constructs the complete graph, and writes its frame inputs, answering whether the graph or a frame input changed."""
+        """Enables requests, builds graph, and writes frame inputs, answering whether any changed."""
 
         def built(layers: LayerStack[Source, E], config: PyOpenColorIO.Config, path: OutputPath) -> BlenderResult[bool]:
             names = tuple(sorted(used(scene)))
@@ -715,7 +711,7 @@ class LayerStacking[E: Effect]:
         return paired(paired(desired, self.stack.config()), path).bind(lambda parts: built(*parts[0], parts[1]))
 
     def refreshed(self) -> BlenderResult[Option[str]]:
-        """Reconciles each distinct scene stack while retaining all independent refusals, naming an undo step where a stack changed."""
+        """Reconciles each scene stack, naming undo step when any changed."""
         return accumulated(
             self.reconciled(scene, tree, bpy.context)
             for scene in bpy.data.scenes
@@ -725,7 +721,7 @@ class LayerStacking[E: Effect]:
     # --- [VALUES]
 
     def read(self, entry: bpy.types.SceneCompositorEffect, *, baseline: Option[LayerStack[Source, E]] = Nothing) -> BlenderResult[LayerStack[Source, E]]:
-        """Reads current inputs or overlays graph edits on supplied structural changes."""
+        """Reads entry inputs, or overlays graph edits on given baseline."""
 
         def toggle(path: KeyPath) -> BlenderResult[bool]:
             return entry_input(self.identity, entry, item_key(*path)).map(lambda owner: bool(owner.path_resolve("value")))
@@ -793,7 +789,7 @@ class LayerStacking[E: Effect]:
         return baseline.map(Ok).default_with(lambda: Result[bpy.types.NodeTree, BlenderFaults].bind(tree, self.attached.read)).bind(read)
 
     def written(self, entry: bpy.types.SceneCompositorEffect, record: LayerStack[Source, E], context: bpy.types.Context) -> BlenderResult[None]:
-        """Rebuilds structure before writing every desired value into its native input."""
+        """Rebuilds graph, then writes record values into entry inputs."""
 
         def toggle(at: KeyPath, *, enabled: bool) -> BlenderResult[None]:
             return entry_input(self.identity, entry, item_key(*at)).bind(lambda owner: written(owner, "value", enabled)).map(lambda _: None)
@@ -820,7 +816,7 @@ class LayerStacking[E: Effect]:
         )
 
     def selected(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.SceneCompositorEffect, LayerStack[Source, E], StackView, bpy.types.NodeTree]]:
-        """Returns the editor entry, current values, workspace selection, and owned tree."""
+        """Returns entry, record, screen selection, and owned tree."""
         screen = rooted(bpy.types.Screen, context)
         scene = rooted(bpy.types.Scene, context)
         return scene.bind(self.head).bind(
@@ -830,18 +826,18 @@ class LayerStacking[E: Effect]:
         )
 
     def written_selection(self, context: bpy.types.Context, entry: bpy.types.SceneCompositorEffect, record: LayerStack[Source, E], active: int) -> BlenderResult[None]:
-        """Writes an edited stack and its construction-selected active index."""
+        """Writes edited stack and active layer index."""
         screen = rooted(bpy.types.Screen, context)
         return paired(self.written(entry, record, context), screen.bind(lambda screen: self.view.write(screen, StackView(active=active)))).map(lambda _: None)
 
     def replaced(self, context: bpy.types.Context, entry: bpy.types.SceneCompositorEffect, current: LayerStack[Source, E], desired: LayerStack[Source, E], active: int) -> BlenderResult[bool]:
-        """Writes a desired stack differing from the current one with its selected index, answering whether the layers differed."""
+        """Writes desired stack and active index, answering whether stack changed."""
         return Ok(False) if desired == current else self.written_selection(context, entry, desired, active).map(lambda _: True)
 
     # --- [STACKS]
 
     def switched(self, context: bpy.types.Context, tree: bpy.types.NodeTree) -> BlenderResult[None]:
-        """Places or replaces the pinned native stack entry at the head."""
+        """Places stack in head entry, creating it when absent."""
 
         def switched(scene: bpy.types.Scene) -> BlenderResult[None]:
             held = Option.of_optional(next((entry for entry in scene.compositor_effects if stacked_by(self.identity, entry).is_some()), None))
@@ -860,7 +856,7 @@ class LayerStacking[E: Effect]:
         return rooted(bpy.types.Scene, context).bind(switched)
 
     def inserted(self, context: bpy.types.Context, layers: tuple[Layer[Source, E], ...], source_tree: Option[bpy.types.NodeTree] = Nothing) -> BlenderResult[bool]:
-        """Copies complete source-node settings while giving inserted layers fresh keys, answering whether any layer was given."""
+        """Inserts layers after active layer under fresh keys with copied source settings, answering whether any was given."""
 
         def insert(entry: bpy.types.SceneCompositorEffect, record: LayerStack[Source, E], view: StackView, target_tree: bpy.types.NodeTree) -> BlenderResult[bool]:
             held = frozenset(layer.key for layer in record.layers)
@@ -890,7 +886,7 @@ class LayerStacking[E: Effect]:
         return self.selected(context).bind(lambda selected: insert(*selected))
 
     def add_node[T](self, context: bpy.types.Context, kind: type[bpy.types.Node], setup: Callable[[bpy.types.Node], BlenderResult[T]]) -> BlenderResult[None]:
-        """Creates the actual source once and selects its first enabled native output."""
+        """Adds source node layer at first enabled output."""
         identifier = kind.__name__
 
         def added(entry: bpy.types.SceneCompositorEffect, record: LayerStack[Source, E], view: StackView, tree: bpy.types.NodeTree) -> BlenderResult[None]:
@@ -923,7 +919,7 @@ class LayerStacking[E: Effect]:
         return self.selected(context).bind(lambda selected: added(*selected))
 
     def edited(self, context: bpy.types.Context, action: Edit, target: LayerAt | EffectAt | LayerMaskAt | EffectMaskAt) -> BlenderResult[bool]:
-        """Applies one tuple edit to the selected layer, effect, or mask, answering whether the edit changed the stack."""
+        """Applies edit to target, answering whether stack changed."""
 
         def changed[T](items: tuple[T, ...], index: int, fresh: Callable[[T], BlenderResult[T]]) -> BlenderResult[tuple[tuple[T, ...], int]]:
             selected: BlenderResult[T] = Option.of_optional(next(iter(items[index : index + 1]), None)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(items), key=str(index)),))
@@ -1004,7 +1000,7 @@ class LayerStacking[E: Effect]:
     # --- [EDITOR]
 
     def drawn(self) -> BlenderResult[RowDraw]:
-        """Draws native collection selection, source settings, inputs, and graph widgets."""
+        """Returns draw of layer list, source settings, inputs, and graph widgets."""
         commands = {command.key: command for command in self.commands}
 
         def draw(listing: RowDraw) -> RowDraw:
@@ -1077,7 +1073,7 @@ class LayerStacking[E: Effect]:
     # --- [DOCUMENTS]
 
     def layered(self, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
-        """Exports formed color and raw scalar coverage, retaining nested stack groups."""
+        """Builds document of formed color and raw mask coverage, nested stacks as groups."""
         number = Result[str, BlenderFaults].bind(
             Option.of_optional(next((part.header.get("Frame") for part in frame.parts[:1]), None)).to_result_with(lambda: (BlenderAbsentFault(owner=frame.path, key="Frame"),)),
             lambda text: catch(lambda: int(text), exception=ValueError)().map_error(lambda error: (BlenderEditFault(request=frame.path, error=error),)),
@@ -1182,12 +1178,12 @@ class LayerStacking[E: Effect]:
 
 
 def stacked_by(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Option[bpy.types.NodeTree]:
-    """Returns an entry's group only when it carries the stack ownership mark."""
+    """Returns entry node group when it holds stack ownership mark."""
     return Option.of_optional(entry.node_group).filter(lambda group: LayerStacks.ownership.marked(identity, group).is_some())
 
 
 def nested_tree[E: Effect](identity: Identity, tree: bpy.types.NodeTree, layer: Layer[Source, E]) -> Option[bpy.types.NodeTree]:
-    """Returns an owned nested stack from the layer's actual group node."""
+    """Returns owned stack of layer source group node."""
     match owned(tree, identity).get(f"{layer.key}_source"):
         case bpy.types.CompositorNodeGroup(node_tree=inner) if inner is not None:
             return Some(inner).filter(lambda tree: LayerStacks.ownership.marked(identity, tree).is_some())
@@ -1196,7 +1192,7 @@ def nested_tree[E: Effect](identity: Identity, tree: bpy.types.NodeTree, layer: 
 
 
 def layer_conditions(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[dict[Key, Condition]]:
-    """Restricts denoise targets to terms actually owned by each layer source."""
+    """Restricts denoise targets to terms each layer source offers."""
 
     def found(tree: bpy.types.NodeTree, name: str) -> BlenderResult[dict[Key, Condition]]:
         def accepted(source: bpy.types.PropertyGroup) -> tuple[str, ...]:
@@ -1224,12 +1220,12 @@ def layer_conditions(identity: Identity, entry: bpy.types.SceneCompositorEffect)
 
 
 def node_kind(identifier: str) -> BlenderResult[type[bpy.types.Node]]:
-    """Returns the registered node class an identifier names, or its absence."""
+    """Returns registered node class of an identifier."""
     return Option.of_optional(bpy.types.Node.bl_rna_get_subclass_py(identifier)).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.types.Node", key=identifier),))
 
 
 def sourced[E: Effect](layer: Layer[Source, E], scene: bpy.types.Scene) -> BlenderResult[Fragment]:
-    """Constructs one original native source without mirroring its settings."""
+    """Builds layer source node with default settings."""
     match layer.source:
         case RenderPass(layer=name):
             return node(f"{layer.key}_source", bpy.types.CompositorNodeRLayers, {}, {"scene": IdName.of(scene), "layer": name})
@@ -1242,7 +1238,7 @@ def sourced[E: Effect](layer: Layer[Source, E], scene: bpy.types.Scene) -> Blend
 
 
 def inlined(prefix: Key, group: NodeGroup, outer: Callable[[Key], End]) -> BlenderResult[tuple[Fragment, End]]:
-    """Relays native group inputs and preserves original ordered link multiplicity."""
+    """Inlines group nodes under prefix, relaying inputs, keeping link order."""
 
     def mapped(end: End) -> End:
         return outer(end.socket) if end.node == INPUTS else structs.replace(end, node=f"{prefix}_{end.node}")
@@ -1264,7 +1260,7 @@ def inlined(prefix: Key, group: NodeGroup, outer: Callable[[Key], End]) -> Blend
 
 
 def unit[E: Effect](layer: Layer[Source, E], below: End, base: End, planning: Planning, *, mixes: bool) -> BlenderResult[tuple[Fragment, InterfacePanel, tuple[tuple[FileItem, End], ...]]]:
-    """Constructs a source, gated effects, affine sampling, masks, and covered content."""
+    """Builds layer source, gated effects, affine sampling, masks, and coverage."""
     key = layer.key
     context = {key: End(node=INPUTS, socket=key) for field in structs.fields(CameraFrame) for key in (item_key(Shell.frame, field.name),)}
     frame = context[item_key(Shell.frame, "aspect")], context[item_key(Shell.frame, "scale")]
@@ -1460,7 +1456,7 @@ def planned[E: Effect](record: LayerStack[Source, E], planning: Planning) -> Ble
 
 
 class LayerStacks[E: Effect]:
-    """Native named stack ownership and the complete editor row an application places."""
+    """Stack ownership and editor row an application places."""
 
     form: type[LayerStack[Source, E]]
     stack: EffectStack
@@ -1472,24 +1468,24 @@ class LayerStacks[E: Effect]:
     pinned: ClassVar[Pinned] = Pinned(ownership=ownership, edge=Edge.HEAD, conditions=Some(layer_conditions))
 
     def __init__(self, *, form: type[LayerStack[Source, E]], stack: EffectStack) -> None:
-        """Retains original attachment identity and per-registration native resources."""
+        """Stores form, stack, and attachment, with bindings per identity."""
         self.form, self.stack = form, stack
         self.attachment = Attachment(key=self.ownership.key, form=form, owner=bpy.types.NodeTree, changed=Some(self.changed))
         self._bindings: dict[int, LayerStacking[E]] = {}
 
     @property
     def page_rows(self) -> tuple[Attachment[LayerStack[Source, E]], Attachment[StackView]]:
-        """Exposes original attachment rows directly to the application's preferences."""
+        """Attachment rows for application preferences."""
         return self.attachment, self.view
 
     @contextmanager
     def changed(self, identity: Identity) -> Generator[Changed]:
-        """Retains deferred reconciliation for exactly the attachment's native lifetime."""
+        """Defers stack refresh for attachment lifetime."""
         with identity.reports.deferred(lambda: self.bound(identity).bind(lambda stacking: stacking.refreshed())) as refresh:
             yield lambda _owner, _context, _property: refresh()
 
     def bound(self, identity: Identity) -> BlenderResult[LayerStacking[E]]:
-        """Binds independent native stores, pass descriptors, routing, and frame metadata."""
+        """Binds stores, pass descriptors, routing, and framing once per identity."""
 
         def retained(values: tuple[tuple[Attached[LayerStack[Source, E]], Attached[StackView]], tuple[tuple[RecombinationFlags, PassRouting], Derived[Effect, CameraFrame]]]) -> LayerStacking[E]:
             (attached, view), ((flags, routed), frame) = values
@@ -1507,28 +1503,28 @@ class LayerStacks[E: Effect]:
         )
 
     def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
-        """Implements the output owner's native layered-document protocol."""
+        """Returns layered document of scene stack at frame."""
         return self.bound(identity).bind(lambda stacking: stacking.layered(scene, frame, depth))
 
     def section(self, header: tuple[RowContent, ...] = ()) -> Single:
-        """Places the native editor under a reusable application-supplied header."""
+        """Returns editor section under application header rows."""
         return Single(key=self.ownership.key, title=self.title, header=(Popover(panel=self.presets().key, text=Some(""), icon=Some("PRESET")), *header), rows=(self,))
 
     def presets(self) -> Single:
-        """Places native stack, selected-layer, and selected-effect recipe listings."""
+        """Returns section of stack, layer, and effect preset listings."""
         return Single(key=f"{self.ownership.key}_presets", title=f"{self.title} Presets", rows=((self, self.presets_drawn),))
 
     def presets_drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires and composes the complete native recipe listings."""
+        """Returns joined preset listing draws."""
         return self.bound(identity).bind(lambda stacking: accumulated(listing.drawn(identity) for listing in stacking.listings)).map(joined)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the native editor through its actual registered stack binding."""
+        """Returns editor draw of bound stack."""
         return self.bound(identity).bind(lambda stacking: stacking.drawn())
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Holds deferred native changes while publishing commands and subscriptions."""
+        """Yields commands, listings, handlers, and subscriptions with deferred refresh."""
         with identity.reports.deferred(lambda: self.bound(identity).bind(lambda stacking: stacking.refreshed())) as refresh:
 
             def updated() -> BlenderResult[None]:

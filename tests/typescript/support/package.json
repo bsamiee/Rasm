@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-support",
     "private": true,
-    "description": "Reusable test support: Storybook addons that fail stories on axe violations, and Playwright suite settings with one app instance per worker",
+    "description": "Storybook addons failing stories on axe violations, Playwright settings with one app instance per worker",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

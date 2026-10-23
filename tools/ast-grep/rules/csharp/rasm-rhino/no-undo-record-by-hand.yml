@@ -11,4 +11,4 @@ rule:
         - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
         - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Commits$'}}}
 message: '`$CALL` opens or closes a document undo record by hand'
-note: 'Run the document edit as the body of `Commits.Commit`'
+note: 'Pass the document edit as `body` of `Commits.Commit(<doc>, <name>, <redraw>, <body>)`'

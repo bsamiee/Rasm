@@ -31,4 +31,4 @@ labels:
     NAME: {style: primary, message: Member deriving a part}
     OTHER: {style: secondary, message: Member deriving from the same value}
 message: '`$NAME` and another member each derive from `$DERIVATION`'
-note: Declare one member returning the whole value, a tuple or record when the value has parts, and read each part from it at the consumer
+note: 'Declare one member returning the shared value, a tuple or record when it has parts, and read each part at the consumer'

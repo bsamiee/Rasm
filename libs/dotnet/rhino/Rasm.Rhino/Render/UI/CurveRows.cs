@@ -77,7 +77,7 @@ public static class CurveRows {
                     Some: record => toSeq(lanes).TraverseM(lane => editor.Receive(Some(lane.Curve(record)))).As().Map(unit),
                     None: () => editor.Receive(None)),
                 scope, site, retain)
-        from pick in stage.Traverse(input => PreviewRows.Pick(input, "Pick a point from the frame", mean => scope.Read(source).Bind(record => editor.Pick(key => keyed[key].Input(record, mean, input.Context))), scope, retain)).As()
+        from pick in stage.Traverse(input => PreviewRows.Pick(input, "Pick point from frame", mean => scope.Read(source).Bind(record => editor.Pick(key => keyed[key].Input(record, mean, input.Context))), scope, retain)).As()
         from input in Coordinate(Input, lanes, source.Default, anchor.ValueIO, editor, pick.Map(static button => (Control)button), scope.Sink, retain)
         from output in Coordinate(Output, lanes, source.Default, anchor.ValueIO, editor, None, scope.Sink, retain)
         from anchored in Subscriptions.Attach(
@@ -204,7 +204,7 @@ public static class CurveRows {
             string shown = RowText.Localize("Auto").Local;
             command.MenuText = shown;
             command.ToolBarText = shown;
-            command.ToolTip = RowText.Localize("Set the black and white points from the frame").Local;
+            command.ToolTip = RowText.Localize("Set black and white points from frame").Local;
         })
         from executed in Subscriptions.Attach(
                 h => command.Executed += h, h => command.Executed -= h,

@@ -15,22 +15,22 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         "RASM1101",
         Domain,
         "Catch-all arm over smart enum or union",
-        "Catch-all arm in `switch` over `{0}` hides cases without an arm",
-        "Call the generated exhaustive `Switch` or `Map`, which fails to compile when a case gains no arm.");
+        "Catch-all arm over `{0}` hides unhandled cases. Call generated `Switch` or `Map` with one argument per case",
+        "Catch-all arm in a `switch` over a Thinktecture union or smart enum whose other arms name a case.");
 
     public static readonly DiagnosticDescriptor Validation = Rule(
         "RASM1102",
         Domain,
         "Thinktecture validation outside Validated",
-        "`{0}` validates outside `Validated` and returns no `Fin`",
-        "Call `<type>.Validated(<raw>)`, or `ValidationResults.Validated<T, TKey>(<raw>)` in generic code and for a type with more than one object factory. Direct calls belong in a validation hook, object factory, or `ValidationResults`.");
+        "`{0}` validates outside `Validated` and returns no `Fin`. Call `{1}`",
+        "Thinktecture `Validate` or `TryCreate` call outside a validation hook, object factory, or `ValidationResults`.");
 
     public static readonly DiagnosticDescriptor Conversion = Rule(
         "RASM1103",
         Domain,
         "ValidationError converted to Error by hand",
-        "`{0}` converts a `ValidationError` message into an `Error` by hand",
-        "Call `ValidationResults.ToFin(<validation error>, <value>)`, the conversion `<type>.Validated(<raw>)` runs.");
+        "`{0}` converts a `ValidationError` message to an `Error` by hand. Call `ValidationResults.ToFin({1}, <value>)`",
+        "`ValidationError.Message` passed to an `Error` factory or constructor outside `ValidationResults`.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [CatchAll, Validation, Conversion];
 
@@ -110,11 +110,15 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
             owner is IMethodSymbol method
             && ((method.ReturnType is { NullableAnnotation: NullableAnnotation.Annotated } returned && Same(returned, invalid))
                 || method.Parameters.Any(parameter => parameter.RefKind is RefKind.Ref && Same(parameter.Type, invalid)));
+        string Validated(IInvocationOperation call) =>
+            (call.TargetMethod.ContainingType, call.Arguments[0].Value.Syntax) is var (owner, raw) && !Same(owner, factory) && Factories(owner).Count() is 1
+                ? $"{owner.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}.Validated({raw})"
+                : $"ValidationResults.Validated<{(Same(owner, factory) ? owner.TypeArguments[0] : owner).ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}, {call.TargetMethod.Parameters[0].Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}>({raw})";
         context.RegisterOperationAction(
             analysis => {
                 IInvocationOperation invocation = (IInvocationOperation)analysis.Operation;
                 if (Crosses(invocation.TargetMethod) && !Hooked(analysis.ContainingSymbol) && !Within(analysis.ContainingSymbol, results))
-                    analysis.ReportDiagnostic(Diagnostic.Create(Validation, invocation.Syntax.GetLocation(), invocation.Syntax));
+                    analysis.ReportDiagnostic(Diagnostic.Create(Validation, invocation.Syntax.GetLocation(), invocation.Syntax, Validated(invocation)));
             },
             OperationKind.Invocation);
     }
@@ -125,9 +129,9 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         context.RegisterOperationAction(
             analysis => {
                 IPropertyReferenceOperation reference = (IPropertyReferenceOperation)analysis.Operation;
-                if (Same(reference.Property, message) && !Within(analysis.ContainingSymbol, results)
+                if (reference is { Instance: { } source } && Same(reference.Property, message) && !Within(analysis.ContainingSymbol, results)
                     && Consumer(reference) is IArgumentOperation { Parent: IInvocationOperation or IObjectCreationOperation } argument && argument.Parent is { } site && Derives(site.Type, error))
-                    analysis.ReportDiagnostic(Diagnostic.Create(Conversion, site.Syntax.GetLocation(), site.Syntax));
+                    analysis.ReportDiagnostic(Diagnostic.Create(Conversion, site.Syntax.GetLocation(), site.Syntax, source.Syntax));
             },
             OperationKind.PropertyReference);
     }

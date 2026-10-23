@@ -1,4 +1,4 @@
-"""Native sidebar sections for compositor entries, graph fields, and inspection actions."""
+"""Sidebar section for compositor effect entries."""
 
 from collections.abc import Callable, Mapping
 from typing import Annotated, get_origin
@@ -62,22 +62,22 @@ spaces = Choices(lambda _identity, _owner, _context: ((space.getName(), space.ge
 
 
 class SpaceField(Named, frozen=True, kw_only=True):
-    """Entry graph field and its selected OCIO colorspace."""
+    """Entry graph field and OCIO colorspace."""
 
     field: str
     space: Annotated[str, spaces] = ""
 
 
 class EffectButtons(Line, frozen=True, kw_only=True):
-    """Entry movement, reset, binding actions, and removal in native header order."""
+    """Entry header buttons."""
 
     stack: EffectStack
     locks: Option[Callable[[Option[tuple[Key | int, ...]]], RowContent]] = Nothing
 
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
-        """Binds commands once and fills their real records from each supplied entry."""
+        """Returns header draw with command records from each entry."""
         operators = self.stack.operators
-        admissions = tuple((enabled, field) for field in msgspec.structs.fields(Configured) for enabled in markers(field.type, Enabled))
+        enables = tuple((enabled, field) for field in msgspec.structs.fields(Configured) for enabled in markers(field.type, Enabled))
 
         def shown(layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
             if isinstance(holder, bpy.types.SceneCompositorEffect) and isinstance(scene := holder.id_data, bpy.types.Scene):
@@ -91,7 +91,7 @@ class EffectButtons(Line, frozen=True, kw_only=True):
                             icon_only=True,
                             action=self.locks.filter(lambda _: row.is_some()).map(lambda action: action(Some((field.name,)))),
                         )
-                        for enabled, field in admissions
+                        for enabled, field in enables
                     ),
                     *(locks(Nothing) for locks in self.locks.to_list() if row.is_some()),
                     OperatorButton(target=Own(command=operators.moving, values=Shift(name=holder.name, toward=Toward.UP)), text=Some(""), icon=Some("TRIA_UP")),
@@ -111,18 +111,18 @@ class EffectButtons(Line, frozen=True, kw_only=True):
 
 
 class EffectBody(Line, frozen=True, kw_only=True):
-    """Native inputs, attached records, graph templates, and viewer actions of an entry."""
+    """Entry inputs, attachments, graph templates, and Viewer buttons."""
 
     viewer: EffectViewer
     colorspace: Operator[SpaceField]
     locks: Option[Callable[[Option[tuple[Key | int, ...]]], RowContent]] = Nothing
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains the actual shared viewer and colorspace declarations."""
+        """Returns viewer, colorspace command, and lock rows."""
         return Ok((self.viewer, self.colorspace, *acquired(tuple(locks(Nothing) for locks in self.locks.to_list()))))
 
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
-        """Realizes entry drawing against native input and marked-node owners."""
+        """Returns entry body draw over group inputs and owned nodes."""
         stack = self.viewer.stack
         record_key = next(field.name for field in msgspec.structs.fields(Configured) if get_origin(field.type) is Entry)
         entry_fields = msgspec.structs.fields(Entry)
@@ -289,7 +289,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
             native = tuple(scene.compositor_effects)
             formed = stack.entries(identity, scene, DisplayView)
             if row.record.stage.domain is Domain.DISPLAY and (not formed or native.index(entry) < native.index(formed[0])):
-                layout.label(text="Requires a formation before display effects", icon="STATUS_ERROR_FILLED")
+                layout.label(text="Needs earlier Display View entry", icon="STATUS_ERROR_FILLED")
 
             def shown(config: PyOpenColorIO.Config, view: DisplayView) -> BlenderResult[None]:
                 if row.record.stage is Stage.TONE:
@@ -297,14 +297,14 @@ class EffectBody(Line, frozen=True, kw_only=True):
                         DisplayView
                         .for_encoding(config, view.display, Some(view.view))
                         .map_error(BlenderImagingFault.lifted)
-                        .map(lambda encoded: layout.label(text="Requires an encoding-only formation", icon="STATUS_ERROR_FILLED") if encoded.is_none() else None)
+                        .map(lambda encoded: layout.label(text="Needs encoding-only Display View", icon="STATUS_ERROR_FILLED") if encoded.is_none() else None)
                     )
                 if (
                     isinstance(record.effect, DisplayView)
                     and any(dynamic_range_of(space) is DynamicRange.HIGH for space in record.effect.colorspace(config).to_list())
                     and not any(window.support_hdr_color for window in Option.of_optional(context.window).to_list())
                 ):
-                    split(layout)[1].label(text="HDR not supported with OpenGL backend" if gpu.platform.backend_type_get() == "OPENGL" else "HDR display not supported", icon="STATUS_INFO_FILLED")
+                    split(layout)[1].label(text="OpenGL backend cannot show HDR" if gpu.platform.backend_type_get() == "OPENGL" else "Window cannot show HDR", icon="STATUS_INFO_FILLED")
                 return Ok(None)
 
             return paired(stack.config(), formation.current(identity, scene)).bind(lambda parts: shown(parts[0], parts[1].default_value(viewed(scene))))
@@ -312,7 +312,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
         def shown(layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
             match holder:
                 case bpy.types.SceneCompositorEffect(node_group=None):
-                    layout.label(text="Requires an effect node group", icon="STATUS_ERROR_FILLED")
+                    layout.label(text="Needs node group", icon="STATUS_ERROR_FILLED")
                 case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, node_group=bpy.types.NodeTree() as group) as entry:
                     row = next((held.row for held in stack.held(identity, scene) if held.entry == entry), Nothing)
                     for offered in row.to_list():
@@ -345,7 +345,7 @@ class EffectBody(Line, frozen=True, kw_only=True):
 
 
 def effect_section(viewer: EffectViewer, title: str = "Effects", *, thumbnail: Row | RowDraw, locks: Option[Callable[[Option[tuple[Key | int, ...]]], RowContent]] = Nothing) -> Each:
-    """Constructs the native section and its stable colorspace and viewer declarations."""
+    """Builds effects section with its colorspace command and viewer."""
 
     def changed(call: Call[SpaceField]) -> BlenderResult[Outcome]:
         def wrote(scene: bpy.types.Scene, held: StackEntry) -> BlenderResult[Outcome]:
@@ -355,7 +355,7 @@ def effect_section(viewer: EffectViewer, title: str = "Effects", *, thumbnail: R
                     held.row.to_result_with(lambda: (BlenderAbsentFault(owner=repr(held.entry), key=call.record.field),)),
                     lambda row: row.read(call.identity, held.entry, graphs={call.record.field: call.record.space}).bind(lambda record: row.write(call.identity, scene, held.entry, record)),
                 )
-                .map(lambda changed: Done() if changed else Unchanged(reason=f"{held.entry.name} already reads {call.record.space}"))
+                .map(lambda changed: Done() if changed else Unchanged(reason=f"{held.entry.name} reads {call.record.space}"))
             )
 
         return call.root(bpy.types.Scene).bind(lambda scene: viewer.stack.found(call.identity, scene, call.record.name).bind(lambda held: wrote(scene, held)))
@@ -363,7 +363,7 @@ def effect_section(viewer: EffectViewer, title: str = "Effects", *, thumbnail: R
     colorspace = Operator(
         key="effect_colorspace",
         title="Choose Color Space",
-        description="Changes the effect's graph colorspace",
+        description="Set graph field color space",
         form=SpaceField,
         run=changed,
         invoke=Some(InvokePopup.SEARCH),

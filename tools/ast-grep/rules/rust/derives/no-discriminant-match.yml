@@ -57,5 +57,5 @@ rule:
             - has: {field: body, all: [{has: {matches: named-arm}}, {not: {has: {kind: match_arm, not: {any: [{matches: named-arm}, {matches: fallback-arm}]}}}}]}
         - has: {field: body, matches: decode-arms}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
-message: '`$T` decodes an integer through a literal arm per variant'
-note: 'Set the arm literals as `#[repr(<int>)]` discriminants and derive `strum::FromRepr` or `derive_more::TryFrom` with `#[try_from(repr)]`'
+message: '`match` decodes an integer into `$T` through one literal arm per variant'
+note: 'Set the arm literals as `#[repr(<int>)]` discriminants and derive `strum::FromRepr`, or `derive_more::TryFrom` with `#[try_from(repr)]`'

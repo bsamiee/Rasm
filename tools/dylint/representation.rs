@@ -14,9 +14,9 @@ use crate::{expanded_externally, impl_owner, parameter_bindings};
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum VariantCollection {
+enum VariantCollection<'tcx> {
     Array,
-    Map(DefId),
+    Map(DefId, Ty<'tcx>),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -25,7 +25,7 @@ fn fieldless_local_enum(held: Ty<'_>) -> Option<AdtDef<'_>> {
     held.peel_refs().ty_adt_def().filter(|adt| adt.is_enum() && adt.did().is_local() && adt.variants().len() > 1 && adt.all_fields().next().is_none())
 }
 
-fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<(VariantCollection, AdtDef<'tcx>)> {
+fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<(VariantCollection<'tcx>, AdtDef<'tcx>)> {
     let typeck = cx.typeck_results();
     if expanded_externally(cx, expr.span) {
         return None;
@@ -35,7 +35,8 @@ fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> O
         return itertools::equal(elements.iter().map(|element| element.res(typeck).opt_def_id()), keyed.variants().iter().map(VariantDef::ctor_def_id)).then_some((VariantCollection::Array, keyed));
     }
     let ty::Adt(map, args) = typeck.expr_ty(expr).kind() else { return None };
-    let keyed = fieldless_local_enum(args.types().next()?)?;
+    let mut held = args.types();
+    let (keyed, value) = (fieldless_local_enum(held.next()?)?, held.next()?);
     let pairs = match expr.kind {
         ExprKind::Call(_, [pairs]) => pairs,
         ExprKind::MethodCall(collected, pairs, [], _) if collected.ident.name == sym::collect => pairs,
@@ -77,7 +78,7 @@ fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> O
         ExprKind::Array(entries) => listed(entries),
         _ => false,
     }
-    .then_some((VariantCollection::Map(map.did()), keyed))
+    .then_some((VariantCollection::Map(map.did(), value), keyed))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

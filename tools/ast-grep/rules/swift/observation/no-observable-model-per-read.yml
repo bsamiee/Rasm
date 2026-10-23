@@ -53,4 +53,4 @@ rule:
                 - matches: built
                 - matches: inferred
 message: 'Computed member builds a new untracked `@Observable` `$T` on every read'
-note: 'Store each `<model>` once and update it in place when its source changes'
+note: 'Store one `<model>` and update it in place when its source changes'

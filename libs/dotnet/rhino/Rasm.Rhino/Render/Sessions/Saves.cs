@@ -193,7 +193,7 @@ public static class Saves {
         Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)> source,
         OutputTarget target, OutputDepth depth, Derivations derivations) =>
         from dithered in when(TargetVerdict.Dithered(depth, target.Dithering) is TargetVerdict.NoLevels,
-            IO.fail<Unit>(Error.New($"{target.Dithering} holds no levels to dither at a float depth"))).As()
+            IO.fail<Unit>(Error.New($"{target.Dithering} dither needs integer depth"))).As()
         from extent in IO.lift(source.Match(
             Left: static captured => (captured.Run.Scene || captured.Run.Formed).Map(static frame => frame.Extent).ToFin(new NotFound("formed frame", $"{captured.Rendering}")),
             Right: static recorded => recorded.Scene.Extent))

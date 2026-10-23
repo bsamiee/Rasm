@@ -1,4 +1,4 @@
-"""Native collection lists with computed selection, attached fields, filtering, sorting, and side rows."""
+"""Collection lists with computed selection, filtering, and sorting."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -25,7 +25,7 @@ type Where[O: "bpy.types.bpy_struct[object]"] = Condition | Callable[[bpy.types.
 
 
 class Listed(msgspec.Struct, frozen=True, kw_only=True):
-    """List with every host name resolved and its rows realized."""
+    """List with host names resolved and rows realized."""
 
     name: str
     label: str
@@ -40,7 +40,7 @@ class Listed(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[object]" = "bpy.types.bpy_struct[object]"](Line, frozen=True, kw_only=True):
-    """`UIList` over a host collection, the fields of a record attached to its items drawn ahead of its columns."""
+    """`UIList` over host collection, attached fields before item columns."""
 
     key: Key
     collection: Member
@@ -57,13 +57,13 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
     side: tuple[RowContent, ...] = ()
 
     def selection(self, identity: Identity) -> BlenderResult[Member]:
-        """Names computed selection on a shared native owner or the contextual manager."""
+        """Names selection property on shared owner or window manager."""
         shared = self.active.root is self.collection.root and self.active.reach == self.collection.reach and isinstance(self.active.root, bpy.types.bpy_struct_meta_idprop)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         root, reach = (self.active.root, self.active.reach) if shared else (bpy.types.WindowManager, Nothing)
         return identity.name(Name.ATTACHMENT, self.key).map(lambda name: Member(root=root, path=name, reach=reach))
 
     def resolved(self, identity: Identity) -> BlenderResult[Listed]:
-        """Resolves native selection, attached fields, and composed drawing rows."""
+        """Resolves selection, attached fields, and row draws."""
 
         def itemized(bound: ResolvedMember[bpy.types.CollectionProperty]) -> BlenderResult[tuple[ResolvedMember[bpy.types.CollectionProperty], O, str]]:
             item = bound.descriptor.prop.fixed_type
@@ -164,9 +164,9 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
         return paired(identity.name(Name.LIST, self.key), held).bind(over)
 
     def uilist(self, listed: Listed) -> type[bpy.types.UIList]:
-        """Builds the list class with its item draw and, while `where` or `order` is set, its filter."""
+        """Builds list class, filtering when `where` or `order` is set."""
 
-        def admits(where: Where[O], context: bpy.types.Context, item: O) -> bool:
+        def accepts(where: Where[O], context: bpy.types.Context, item: O) -> bool:
             match where:
                 case Callable():
                     return where(context, item)
@@ -203,7 +203,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
         def filter_items(ui: bpy.types.UIList, context: bpy.types.Context, data: "bpy.types.bpy_struct[object]", propname: str) -> tuple[list[int], list[int]]:
             items, shown = getattr(data, propname), ui.bitflag_filter_item
             named = bpy.types.UI_UL_list.filter_items_by_name(ui.filter_name, shown, items, listed.label, reverse=ui.use_filter_invert) or [shown] * len(items)
-            flags = [flag if all(admits(where, context, item) for where in self.where.to_list()) else 0 for flag, item in zip(named, items)]
+            flags = [flag if all(accepts(where, context, item) for where in self.where.to_list()) else 0 for flag, item in zip(named, items)]
             if ui.use_filter_sort_lock:
                 return flags, []
             match listed.order:
@@ -219,7 +219,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
         return type(listed.name, (bpy.types.UIList,), {"bl_idname": listed.name, "draw_item": draw_item} | filtered)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains the native selection property and deferred list class lifetime."""
+        """Acquires selection property and deferred list class."""
 
         @contextmanager
         def registered() -> Generator[BlenderResult[None]]:
@@ -256,7 +256,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
         return self.active.resolved().bind(schema).map(lambda pairs: (*self.attachment.to_list(), *acquired((*self.columns, *self.side)), *pairs, (Band.INTERFACE, registered())))
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Realizes the list's draw with its side column."""
+        """Draws list with its side column."""
 
         def draw(listed: Listed) -> RowDraw:
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -288,7 +288,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
 
 
 def keyed(struct: Native) -> str:
-    """Key an ID holds across renames, its `session_uid`, a named struct's name, and a nameless struct's address for the session."""
+    """Returns ID `session_uid`, struct name, or nameless struct address."""
     if isinstance(struct, bpy.types.bpy_prop_collection):
         return keyed(struct.data)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     match struct, struct.bl_rna.name_property:  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]

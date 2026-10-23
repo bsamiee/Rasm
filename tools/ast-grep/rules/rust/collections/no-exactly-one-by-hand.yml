@@ -9,4 +9,4 @@ rule:
         kind: let_condition
         has: {field: pattern, kind: tuple_pattern, regex: '^\(\s*Some\(\s*\w+\s*\)\s*,\s*None\s*\)$'}
 message: '`$I` reads two items to test for exactly one'
-note: 'Match `Itertools::exactly_one()` on `Ok(<item>)` (`use itertools::Itertools as _;`)'
+note: 'Match `<iterator>.exactly_one()` against `Ok(<item>)` (`use itertools::Itertools as _;`)'

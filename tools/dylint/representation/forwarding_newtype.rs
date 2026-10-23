@@ -75,8 +75,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && matches!(tcx.as_lang_item(implemented), Some(LangItem::Deref | LangItem::DerefMut))
                     && (derived || tcx.associated_items(implementation).in_definition_order().filter(|associated| associated.is_fn()).all(|associated| returns_field(cx, associated.def_id, inner)))
                 {
-                    let message = with_forced_trimmed_paths!(format!("`impl {} for {name}` exposes every method of the wrapped `{held}` on `{name}`", tcx.item_name(implemented)));
-                    Some((implementation, message, with_forced_trimmed_paths!(format!("use `{held}` in place of `{name}`, or give `{name}` methods that keep an invariant of its own"))))
+                    let exposing = tcx.item_name(implemented);
+                    Some((
+                        implementation,
+                        with_forced_trimmed_paths!(format!("`impl {exposing} for {name}` exposes every method of the wrapped `{held}` on `{name}`")),
+                        with_forced_trimmed_paths!(format!("use `{held}` in place of `{name}`, or remove the `{exposing}` impl and give `{name}` methods that keep its invariant")),
+                    ))
                 } else if !derived
                     && matches!(implemented.opt_diag_name(cx), Some(sym::AsRef | sym::AsMut))
                     && let [method] = tcx.associated_item_def_ids(implementation)
@@ -126,9 +130,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     FORWARDING_NEWTYPE,
                     tcx.local_def_id_to_hir_id(wrapper),
                     tcx.def_span(wrapper),
-                    with_forced_trimmed_paths!(format!("newtype `{name}` wraps `{held}`, and every inherent method other than a constructor forwards to it")),
+                    with_forced_trimmed_paths!(format!("every non-constructor method of newtype `{name}` forwards to the wrapped `{held}`")),
                     |diag| {
-                        diag.span_note(forwards, with_forced_trimmed_paths!(format!("forwards to `{held}`")));
+                        diag.span_note(forwards, "forwards here");
                         diag.help(with_forced_trimmed_paths!(format!("use `{held}` in place of `{name}`")));
                     },
                 );

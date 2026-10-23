@@ -1,4 +1,4 @@
-"""Authored-domain native LUT sampling and tetrahedral compositor tables."""
+"""Authored-domain LUT sampling and tetrahedral compositor tables."""
 
 from collections.abc import Mapping
 import functools
@@ -36,11 +36,10 @@ from blender.imaging.hashing import content_hash
 
 @functools.cache
 def tetrahedral() -> BlenderResult[NodeGroup]:
-    """Builds the shared interpolation group over a table's native cube size.
+    """Builds shared tetrahedral interpolation group over table cube size.
 
     Returns:
-        The group carrying ordered tetrahedral vertex samples, or every native
-        node construction failure.
+        Group of ordered tetrahedral vertex samples, or node faults.
     """
     encoded, tile, size = (End(node=INPUTS, socket=key) for key in ("encoded", "tile", "size"))
     (
@@ -175,18 +174,18 @@ def tetrahedral() -> BlenderResult[NodeGroup]:
 
 
 def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32], source: Operand, config: PyOpenColorIO.Config) -> BlenderResult[tuple[Fragment, End]]:
-    """Samples packed outputs at coordinates encoded by an authored lattice.
+    """Samples packed outputs at lattice-encoded coordinates.
 
     Args:
-        key: Native node prefix and image address.
+        key: Node prefix and image address.
         name: Generated image name.
         lattice: Table size and input encoding.
         plane: Top-first RGB table outputs in blue, green, red node order.
-        source: Straight RGB entering the table.
-        config: Configuration supplying the data image role.
+        source: Straight RGB input.
+        config: Configuration with data image role.
 
     Returns:
-        Tetrahedral table output, or native image and graph construction faults.
+        Tetrahedral table output, or image and graph faults.
     """
 
     def encoded() -> BlenderResult[tuple[Fragment, End]]:
@@ -235,7 +234,7 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
 
 
 def looked_up(shell: Shell[Lookup]) -> BlenderResult[tuple[Fragment, End]]:
-    """Samples every native prefix operation on its authored domain, then its suffix."""
+    """Samples prefix on its authored domain, then suffix table."""
     record = shell.record
     name = Path(record.source).name
 
@@ -267,7 +266,7 @@ def prepared(
     _frame: CameraFrame,
     _entry: bpy.types.SceneCompositorEffect,
 ) -> BlenderResult[tuple[Lookup, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Applies an unbounded native prefix to actual entering pixels before suffix sampling."""
+    """Applies unbounded prefix to entering pixels before suffix sampling."""
 
     def processed(head: PyOpenColorIO.GroupTransform) -> BlenderResult[tuple[Lookup, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
         if not len(head) or record.prefix.enabled:
@@ -303,21 +302,21 @@ def prepared(
 
 
 def reloaded(call: Call[Named]) -> BlenderResult[Outcome]:
-    """Rebuilds a named LUT entry from current file content."""
+    """Rebuilds named LUT entry from current file."""
     return (
         call
         .root(bpy.types.Scene)
         .bind(
             lambda scene: lookup.named(call.identity, scene, call.record.name).bind(lambda entry: lookup.read(call.identity, entry).bind(lambda held: lookup.write(call.identity, scene, entry, held)))
         )
-        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.record.name} already holds the file's content"))
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.record.name} matches current file"))
     )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 tiles = Ownership(kind=bpy.types.Image, key="lookup", saved=Saved.USED)
-reloading = Operator(key="lookup_reload", title="Reload LUT", description="Rebuilds the entry from its current LUT file", form=Named, run=reloaded)
+reloading = Operator(key="lookup_reload", title="Reload LUT", description="Rebuild entry from LUT file", form=Named, run=reloaded)
 lookup: CompositorEffect[Lookup] = CompositorEffect(
     record=Lookup,
     graph=looked_up,

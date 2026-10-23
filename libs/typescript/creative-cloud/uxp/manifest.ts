@@ -7,7 +7,7 @@ const VERSION = 5;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Command = Schema.Struct({ type: Schema.Literal('command'), id: Schema.String, label: Schema.Struct({ default: Schema.String }) });
-const Version = Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+$/u)).annotate({ description: 'Version in major.minor.patch form' });
+const Version = Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+$/u)).annotate({ description: 'major.minor.patch' });
 
 class Manifest extends Schema.Class<Manifest, { readonly brand: unique symbol }>('Manifest')({
     manifestVersion: Schema.tag(VERSION),

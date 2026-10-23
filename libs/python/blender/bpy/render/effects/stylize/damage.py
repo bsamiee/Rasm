@@ -1,4 +1,4 @@
-"""Staged footprint-filtered film damage and native lamp flicker."""
+"""Staged footprint-filtered film damage and lamp flicker."""
 
 from collections.abc import Mapping
 from fractions import Fraction
@@ -33,21 +33,20 @@ def prepared(
     frame: CameraFrame,
     _entry: bpy.types.SceneCompositorEffect,
 ) -> BlenderResult[tuple[Damage, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Filters the captured film in original camera units and publishes its damage key.
+    """Filters captured film in original camera units and publishes damage key.
 
     Args:
-        _identity: Native stage job owner.
-        scene: Evaluated scene supplying the film clock.
+        _identity: Stage job owner.
+        scene: Evaluated scene supplying film clock.
         record: Evaluated film marks, weave, and stationary gate.
-        _config: Stage color configuration; film uses associated scene-linear RGBA.
-        source: Top-first native DATA image with its retained FULL window.
+        _config: Stage color configuration, film reads associated scene-linear RGBA.
+        source: Top-first DATA image with retained FULL window.
         precision: Caller-selected integration resolution and error replicates.
         frame: Original camera pixel aspect and retained overscan scale.
-        _entry: Evaluated native stage entry.
+        _entry: Evaluated stage entry.
 
     Returns:
-        The same record and jointly estimated image and scalar damage key,
-        or the original typed imaging refusal at the native package boundary.
+        Unchanged record with jointly estimated image and damage key, or lifted imaging faults.
     """
     bounds, extent = frame.window(source.spec())
     time = Fraction(scene.frame_current) + Fraction(scene.frame_subframe)
@@ -66,13 +65,13 @@ def prepared(
 
 
 def flickered(shell: Shell[Flicker]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a spatially uniform lamp variation in scene-linear exposure stops.
+    """Builds uniform lamp variation in scene-linear stops.
 
     Args:
-        shell: Entry color and native input endpoints of the Flicker record.
+        shell: Entry color and Flicker input endpoints.
 
     Returns:
-        Exposed scene-linear color with its graph, or accumulated native graph faults.
+        Exposed scene-linear color with graph, or accumulated graph faults.
     """
     motion, seed, amplitude, rate = Flicker.__struct_fields__
     speed, hold = Motion.__struct_fields__
@@ -99,7 +98,7 @@ damage: CompositorEffect[Damage] = CompositorEffect(
     coverage=Coverage.RESULT,
     requested=Some(precise),
     preparation=Some(prepared),
-    registrables=(inspection(lambda: damage, "damage_key", "View Damage", "Shows the integrated film marks and stationary aperture", lambda: End(node="damage", socket="Image")),),
+    registrables=(inspection(lambda: damage, "damage_key", "View Damage", "Integrated film marks and stationary gate", lambda: End(node="damage", socket="Image")),),
 )
 flicker = CompositorEffect(record=Flicker, graph=flickered, requested=Some(lambda _record, layer: Ok(PassRequest(layer=layer, precise=True))))
 

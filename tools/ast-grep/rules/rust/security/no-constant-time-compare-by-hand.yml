@@ -112,5 +112,5 @@ rule:
     kind: 'call_expression, compound_assignment_expr, assignment_expression'
     pattern: $COMPARE
     matches: xor-or-fold
-message: '`$COMPARE` compares two byte sequences by OR-ing their XOR by hand'
-note: 'Call `aws_lc_rs::constant_time::verify_slices_are_equal(<a>, <b>)`, it returns `Err` for unequal lengths that `zip` truncates'
+message: '`$COMPARE` compares two byte sequences through an XOR-OR fold by hand'
+note: 'Call `aws_lc_rs::constant_time::verify_slices_are_equal(<a>, <b>)` and treat `Err` as unequal bytes or lengths'

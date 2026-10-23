@@ -12,7 +12,7 @@ use clippy_utils::{
 };
 use rustc_ast::LitKind;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{Block, Expr, ExprKind, HirId, LoopSource, Pat, StmtKind, def_id::DefId};
+use rustc_hir::{Block, Expr, ExprKind, HirId, LoopSource, MatchSource, Pat, StmtKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::{Span, Spanned};
@@ -99,10 +99,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if let Some((condition, body)) = polled
             && !waits(body)
         {
-            let help = if self.async_context.is_async(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id)) {
-                "await `cancelled()` or run the loop through `run_until_cancelled(..)`"
+            let awaits =
+                for_each_expr_without_closures(body, |inner| if matches!(inner.kind, ExprKind::Match(_, _, MatchSource::AwaitDesugar)) { ControlFlow::Break(()) } else { ControlFlow::Continue(()) })
+                    .is_some();
+            let help = if awaits && self.async_context.is_async(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id)) {
+                "await the loop inside `run_until_cancelled`"
             } else {
-                "poll `is_cancelled()` in the loop condition"
+                "call `is_cancelled()` in place of each `load`"
             };
             let _: Option<()> = for_each_expr_without_closures(condition, |inner| {
                 if let ExprKind::MethodCall(_, receiver, ..) = inner.kind
@@ -138,18 +141,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         for (flag, written, (polled, help)) in self.flags.unescaped(cx).filter_map(|(flag, usage)| Some((flag, usage.written?, usage.polled?))) {
-            span_lint_hir_and_then(
-                cx,
-                MANUAL_CANCELLATION_TOKEN,
-                flag.hir_id(cx),
-                flag.span(cx),
-                format!("every write to `{}` stores `true`, and a loop polls it as a stop flag", flag.name(cx)),
-                |diag| {
-                    diag.span_note(written, "set here");
-                    diag.span_note(cx.tcx.hir_span(polled), "polled here");
-                    diag.help(format!("declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and {help}"));
-                },
-            );
+            let name = flag.name(cx);
+            span_lint_hir_and_then(cx, MANUAL_CANCELLATION_TOKEN, flag.hir_id(cx), flag.span(cx), format!("every write to `{name}` stores `true`, and a loop polls it as a stop flag"), |diag| {
+                diag.span_note(written, "set here");
+                diag.span_note(cx.tcx.hir_span(polled), "polled here");
+                diag.help(format!("declare `{name}` as `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and {help}"));
+            });
         }
     }
 }

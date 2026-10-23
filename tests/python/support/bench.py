@@ -1,4 +1,4 @@
-"""Benchmark cases with absolute performance budgets over the pytest-benchmark fixture."""
+"""Benchmark cases with time budgets over pytest-benchmark fixture."""
 
 from collections.abc import Callable, Sequence
 from typing import Literal
@@ -12,7 +12,7 @@ from pytest_benchmark.fixture import BenchmarkFixture
 
 
 class BenchmarkCase(msgspec.Struct, frozen=True):
-    """Benchmark subject, workload generator, sizes, and absolute performance budget over one timing statistic."""
+    """Benchmark subject, workload generator, sizes, and time budget over one timing statistic."""
 
     label: str
     subject: Callable[[tuple[object, ...]], object]
@@ -26,13 +26,13 @@ class BenchmarkCase(msgspec.Struct, frozen=True):
 
 
 def benchmark_parameters(cases: Sequence[BenchmarkCase]) -> pytest.MarkDecorator:
-    """Build the ``(case, size)`` parametrization with stable ``"{label}-{size}"`` ids."""
+    """Build ``(case, size)`` parametrization with ``"{label}-{size}"`` IDs."""
     parameters = [(case, size) for case in cases for size in case.sizes]
     return pytest.mark.parametrize("case,size", parameters, ids=[f"{case.label}-{size}" for case, size in parameters])
 
 
 def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -> object:
-    """Measure a benchmark case, record its resident memory growth, and assert its performance budget."""
+    """Measure ``case`` at ``size``, record resident memory growth, and fail past its time budget."""
     process = psutil.Process()
     benchmark.group = case.label
     arguments = case.workload(size)

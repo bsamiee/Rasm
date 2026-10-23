@@ -28,15 +28,10 @@ fn manual_default_field_values(found: &str) {
     30 |     fn default() -> Self { Self { attempts: 3, label: String::new() } }
        |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-    note: fields built here
-      --> tools/dylint/examples/manual_default_field_values.rs:30:28
-       |
-    30 |     fn default() -> Self { Self { attempts: 3, label: String::new() } }
-       |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare each value on its field as `field: T = value` and derive `Default` under `#![feature(default_field_values)]`
+       = help: declare `attempts: u8 = 3` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
        = note: `#[warn(manual_default_field_values)]` on by default
 
-    warning: `Default` for `Config` calls `new`, which builds each field from its type's default
+    warning: `Default` for `Config` builds each field from its type's default through `new`
       --> tools/dylint/examples/manual_default_field_values.rs:55:28
        |
     55 |     fn default() -> Self { Self::new() }
@@ -47,9 +42,9 @@ fn manual_default_field_values(found: &str) {
        |
     51 |     fn new() -> Self { Self { depth: 0, name: String::new(), enabled: false, label: "", parent: None } }
        |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: derive `Default` and delete the hand-written impl
+       = help: derive `Default` and delete the impl
 
-    warning: `Default` for `Limits` calls `new`, which builds each field from a constant
+    warning: `Default` for `Limits` builds each field from a constant through `new`
       --> tools/dylint/examples/manual_default_field_values.rs:72:28
        |
     72 |     fn default() -> Self { Self::new() }
@@ -60,7 +55,7 @@ fn manual_default_field_values(found: &str) {
        |
     68 |     fn new() -> Self { Self { depth: 4, name: String::new(), enabled: false, label: "", parent: None } }
        |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare each value on its field as `field: T = value` and derive `Default` under `#![feature(default_field_values)]`
+       = help: declare `depth: u8 = 4` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
 
     warning: `Default` for `Attributed` builds each field from a constant
       --> tools/dylint/examples/manual_default_field_values.rs:82:28
@@ -68,95 +63,90 @@ fn manual_default_field_values(found: &str) {
     82 |     fn default() -> Self { Self { attempts: 3 } }
        |                            ^^^^^^^^^^^^^^^^^^^^
        |
-    note: fields built here
-      --> tools/dylint/examples/manual_default_field_values.rs:82:28
-       |
-    82 |     fn default() -> Self { Self { attempts: 3 } }
-       |                            ^^^^^^^^^^^^^^^^^^^^
-       = help: declare each value on its field as `field: T = value` and derive `Default` under `#![feature(default_field_values)]`
+       = help: declare `attempts: u8 = 3` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
     "#);
 }
 
 fn manual_deref_pattern(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `as_str` derefs `&owned` for its patterns
+    warning: `as_str` derefs `owned` for its patterns
       --> tools/dylint/examples/manual_deref_pattern.rs:15:11
        |
     15 |     match owned.as_str() {
-       |           ^^^^^^^^^^^^^^ help: match a reference to the value under `#![feature(deref_patterns)]`: `&owned`
+       |           ^^^^^^^^^^^^^^ help: match `&owned` under `#![feature(deref_patterns)]`: `&owned`
        |
        = note: `#[warn(manual_deref_pattern)]` on by default
-    applicability MaybeIncorrect: match a reference to the value under `#![feature(deref_patterns)]`
+    applicability MaybeIncorrect: match `&owned` under `#![feature(deref_patterns)]`
 
-    warning: `as_slice` derefs `&owned` for its patterns
+    warning: `as_slice` derefs `owned` for its patterns
       --> tools/dylint/examples/manual_deref_pattern.rs:24:30
        |
     24 |     if let [first, second] = owned.as_slice() { first.strict_add(*second) } else { 0 }
-       |                              ^^^^^^^^^^^^^^^^ help: match a reference to the value under `#![feature(deref_patterns)]`: `&owned`
-    applicability MaybeIncorrect: match a reference to the value under `#![feature(deref_patterns)]`
+       |                              ^^^^^^^^^^^^^^^^ help: match `&owned` under `#![feature(deref_patterns)]`: `&owned`
+    applicability MaybeIncorrect: match `&owned` under `#![feature(deref_patterns)]`
 
-    warning: `as_slice` derefs `&owned` for its patterns
+    warning: `as_slice` derefs `owned` for its patterns
       --> tools/dylint/examples/manual_deref_pattern.rs:29:23
        |
     29 |     let [first, ..] = owned.as_slice() else { return 0 };
-       |                       ^^^^^^^^^^^^^^^^ help: match a reference to the value under `#![feature(deref_patterns)]`: `&owned`
-    applicability MaybeIncorrect: match a reference to the value under `#![feature(deref_patterns)]`
+       |                       ^^^^^^^^^^^^^^^^ help: match `&owned` under `#![feature(deref_patterns)]`: `&owned`
+    applicability MaybeIncorrect: match `&owned` under `#![feature(deref_patterns)]`
 
-    warning: `as_deref` derefs `&profile.name` for its patterns
+    warning: `as_deref` derefs `profile.name` for its patterns
       --> tools/dylint/examples/manual_deref_pattern.rs:34:11
        |
     34 |     match profile.name.as_deref() {
-       |           ^^^^^^^^^^^^^^^^^^^^^^^ help: match a reference to the value under `#![feature(deref_patterns)]`: `&profile.name`
-    applicability MaybeIncorrect: match a reference to the value under `#![feature(deref_patterns)]`
+       |           ^^^^^^^^^^^^^^^^^^^^^^^ help: match `&profile.name` under `#![feature(deref_patterns)]`: `&profile.name`
+    applicability MaybeIncorrect: match `&profile.name` under `#![feature(deref_patterns)]`
 
     warning: `&*` derefs `value` for its patterns
       --> tools/dylint/examples/manual_deref_pattern.rs:42:11
        |
     42 |     match &**value {
-       |           ^^^^^^^^ help: match a reference to the value under `#![feature(deref_patterns)]`: `value`
-    applicability MaybeIncorrect: match a reference to the value under `#![feature(deref_patterns)]`
+       |           ^^^^^^^^ help: match `value` under `#![feature(deref_patterns)]`: `value`
+    applicability MaybeIncorrect: match `value` under `#![feature(deref_patterns)]`
 
-    warning: `&*` derefs `&held` for its patterns
+    warning: `&*` derefs `held` for its patterns
       --> tools/dylint/examples/manual_deref_pattern.rs:51:11
        |
     51 |     match &*held {
-       |           ^^^^^^ help: match a reference to the value under `#![feature(deref_patterns)]`: `&held`
-    applicability MaybeIncorrect: match a reference to the value under `#![feature(deref_patterns)]`
+       |           ^^^^^^ help: match `&held` under `#![feature(deref_patterns)]`: `&held`
+    applicability MaybeIncorrect: match `&held` under `#![feature(deref_patterns)]`
     ");
 }
 
 fn manual_drop_guard(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `Guard` runs its closure field `F` on drop
+    warning: `Drop` for `Guard` calls the closure `F` it holds
      --> tools/dylint/examples/manual_drop_guard.rs:5:1
       |
     5 | struct Guard<F>(Option<F>)
       | ^^^^^^^^^^^^^^^
       |
-      = help: hold `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where the guard is disarmed
+      = help: replace `Guard` with `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where code disarms the guard
       = note: `#[warn(manual_drop_guard)]` on by default
 
-    warning: `Deferred` runs its closure field `F` on drop
+    warning: `Drop` for `Deferred` calls the closure `F` it holds
       --> tools/dylint/examples/manual_drop_guard.rs:18:1
        |
     18 | struct Deferred<F>(F)
        | ^^^^^^^^^^^^^^^^^^
        |
-       = help: hold `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where the guard is disarmed
+       = help: replace `Deferred` with `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where code disarms the guard
 
-    warning: `Manual` runs its closure field `F` on drop
+    warning: `Drop` for `Manual` calls the closure `F` it holds
       --> tools/dylint/examples/manual_drop_guard.rs:40:1
        |
     40 | struct Manual<F>(ManuallyDrop<F>)
        | ^^^^^^^^^^^^^^^^
        |
-       = help: hold `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where the guard is disarmed
+       = help: replace `Manual` with `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where code disarms the guard
     ");
 }
 
 fn manual_fmt_from_fn(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `Joined` only formats a value at its one construction site
+    warning: `Joined` is built at one site and implements only `Display`
       --> tools/dylint/examples/manual_fmt_from_fn.rs:5:8
        |
      5 | struct Joined<'items>(&'items [u8]);
@@ -167,7 +157,7 @@ fn manual_fmt_from_fn(found: &str) {
        |
     44 |     let joined = format!("{}", Joined(&values));
        |                                ^^^^^^
-       = help: format at that site with `fmt::from_fn(move |formatter| ..)`
+       = help: replace `Joined` with `fmt::from_fn(move |formatter| ..)` at its construction site
        = note: `#[warn(manual_fmt_from_fn)]` on by default
     "#);
 }
@@ -194,7 +184,7 @@ fn manual_from_utf8_lossy_owned(found: &str) {
 
 fn manual_gen_block(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `Countdown` only holds iterator state for its one construction site
+    warning: `Countdown` is built at one site and implements only `Iterator`
       --> tools/dylint/examples/manual_gen_block.rs:5:8
        |
      5 | struct Countdown {
@@ -205,10 +195,10 @@ fn manual_gen_block(found: &str) {
        |
     48 |     let counted: u8 = Countdown { left: 3 }.sum();
        |                       ^^^^^^^^^^^^^^^^^^^^^
-       = help: write the iteration at that site as a `gen move { .. }` block under `#![feature(gen_blocks)]`
+       = help: replace `Countdown` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`
        = note: `#[warn(manual_gen_block)]` on by default
 
-    warning: `Restart` only holds iterator state for its one construction site
+    warning: `Restart` is built at one site and implements only `Iterator`
       --> tools/dylint/examples/manual_gen_block.rs:14:8
        |
     14 | struct Restart {
@@ -219,7 +209,7 @@ fn manual_gen_block(found: &str) {
        |
     50 |     let restarted: u8 = Restart { left: 4 }.sum();
        |                         ^^^^^^^^^^^^^^^^^^^
-       = help: write the iteration at that site as a `gen move { .. }` block under `#![feature(gen_blocks)]`
+       = help: replace `Restart` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`
     ");
 }
 
@@ -236,7 +226,7 @@ fn manual_partition(found: &str) {
        |
     45 |     let blank = words.iter().filter(|word| word.trim().is_empty()).copied().collect::<Vec<_>>();
        |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: split once with `Iterator::partition` and read each side from its half
+       = help: split `words.iter()` once with `Iterator::partition`
        = note: `#[warn(manual_partition)]` on by default
     ");
 }
@@ -404,10 +394,10 @@ fn manual_slice_as_array(found: &str) {
     5 | fn viewed(slice: &[u8]) -> Option<&[u8; 4]> { <&[u8; 4]>::try_from(slice).ok() }
       |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
       |                                               |
-      |                                               help: view the slice with the `Option`-returning method: `slice.as_array()`
+      |                                               help: call `<[T]>::as_array`: `slice.as_array()`
       |
       = note: `#[warn(manual_slice_as_array)]` on by default
-    applicability MachineApplicable: view the slice with the `Option`-returning method
+    applicability MachineApplicable: call `<[T]>::as_array`
 
     warning: fallible conversion checks the length of `slice` to view it as `&mut [u8; 2]`
      --> tools/dylint/examples/manual_slice_as_array.rs:7:59
@@ -415,8 +405,8 @@ fn manual_slice_as_array(found: &str) {
     7 | fn viewed_mut(slice: &mut [u8]) -> Option<&mut [u8; 2]> { slice.try_into().ok() }
       |                                                           ^^^^^^^^^^^^^^^^-----
       |                                                           |
-      |                                                           help: view the slice with the `Option`-returning method: `slice.as_mut_array()`
-    applicability MachineApplicable: view the slice with the `Option`-returning method
+      |                                                           help: call `<[T]>::as_mut_array`: `slice.as_mut_array()`
+    applicability MachineApplicable: call `<[T]>::as_mut_array`
 
     warning: fallible conversion checks the length of `slice[..2]` to view it as `[u8; 2]`
      --> tools/dylint/examples/manual_slice_as_array.rs:9:46
@@ -424,8 +414,8 @@ fn manual_slice_as_array(found: &str) {
     9 | fn prefix(slice: &[u8]) -> Option<[u8; 2]> { slice[..2].try_into().ok() }
       |                                              ^^^^^^^^^^^^^^^^^^^^^-----
       |                                              |
-      |                                              help: view the slice with the `Option`-returning method: `slice.first_chunk().copied()`
-    applicability MaybeIncorrect: view the slice with the `Option`-returning method
+      |                                              help: call `<[T]>::first_chunk`: `slice.first_chunk().copied()`
+    applicability MaybeIncorrect: call `<[T]>::first_chunk`
 
     warning: fallible conversion checks the length of `slice[slice.len() - 2..]` to view it as `[u8; 2]`
       --> tools/dylint/examples/manual_slice_as_array.rs:11:46
@@ -433,28 +423,28 @@ fn manual_slice_as_array(found: &str) {
     11 | fn suffix(slice: &[u8]) -> Option<[u8; 2]> { slice[slice.len() - 2..].try_into().ok() }
        |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
        |                                              |
-       |                                              help: view the slice with the `Option`-returning method: `slice.last_chunk().copied()`
-    applicability MaybeIncorrect: view the slice with the `Option`-returning method
+       |                                              help: call `<[T]>::last_chunk`: `slice.last_chunk().copied()`
+    applicability MaybeIncorrect: call `<[T]>::last_chunk`
 
     warning: fallible conversion checks the length of `slice` to view it as `[u8; 2]`
       --> tools/dylint/examples/manual_slice_as_array.rs:13:67
        |
     13 | fn required(slice: &[u8]) -> Result<[u8; 2], TryFromSliceError> { slice.try_into() }
-       |                                                                   ^^^^^^^^^^^^^^^^ help: view the slice with the `Option`-returning method: `slice.as_array().copied()`
-    applicability MaybeIncorrect: view the slice with the `Option`-returning method
+       |                                                                   ^^^^^^^^^^^^^^^^ help: call `<[T]>::as_array` and handle `None`: `slice.as_array().copied()`
+    applicability MaybeIncorrect: call `<[T]>::as_array` and handle `None`
     ");
 }
 
 fn manual_type_changing_struct_update(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `Message` copies each field of `self` to change its type arguments
+    warning: `Message` literal copies each unchanged field of `self` to change its type arguments
       --> tools/dylint/examples/manual_type_changing_struct_update.rs:19:38
        |
     19 |     fn send(self) -> Message<Sent> { Message { state: PhantomData, body: self.body, id: self.id } }
-       |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the changed fields and `..base` under `#![feature(type_changing_struct_update)]`: `Message { state: PhantomData, ..self }`
+       |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the changed fields and `..self` under `#![feature(type_changing_struct_update)]`: `Message { state: PhantomData, ..self }`
        |
        = note: `#[warn(manual_type_changing_struct_update)]` on by default
-    applicability MaybeIncorrect: write the changed fields and `..base` under `#![feature(type_changing_struct_update)]`
+    applicability MaybeIncorrect: write the changed fields and `..self` under `#![feature(type_changing_struct_update)]`
     ");
 }
 
@@ -499,7 +489,7 @@ fn manual_upcast(found: &str) {
     40 |     fn as_shown(&self) -> &dyn Display
        |                           ^^^^^^^^^^^^
        |
-       = help: delete the method and coerce each receiver to `dyn Display` at each call site
+       = help: delete the method and coerce the receiver to `dyn Display` at each call site
     ");
 }
 

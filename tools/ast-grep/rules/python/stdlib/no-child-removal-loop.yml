@@ -110,5 +110,5 @@ transform:
     BATCHED: {rewrite: {source: $BATCH, rewriters: [batch-remove]}}
     CLEARED: {rewrite: {source: $EMPTY, rewriters: [clear]}}
 fix: $DELETED$BATCHED$CLEARED$KEPT
-message: '`$O.remove` removes members of `$O` one at a time, each call searching the collection'
-note: 'Remove members in one bulk operation (`del <element>[:]`, `<collection>[:] = [<kept>]`, `bpy.data.batch_remove`, `clear()`)'
+message: '`$O.remove` removes `$O` members one call at a time'
+note: 'Remove members in one bulk call (`del <element>[:]`, `<collection>[:] = [<kept>]`, `bpy.data.batch_remove(<ids>)`, `<collection>.clear()`)'

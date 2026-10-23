@@ -1,4 +1,4 @@
-"""Native runtime preview scenes, staged subjects, compositor chains, and readback."""
+"""Runtime preview scenes, compositor chains, and readback."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
@@ -50,19 +50,19 @@ from blender.rendering.outputs.naming import Output
 
 
 class PreviewEngine(Enum):
-    """Native preview engines and their sample-setting owner and member."""
+    """Preview engines with their sample setting path."""
 
     BLENDER_EEVEE = "eevee", "taa_render_samples"
     CYCLES = "cycles", "samples"
 
     @classmethod
     def of(cls, scene: bpy.types.Scene) -> "PreviewEngine":
-        """Chooses the source engine where supported, otherwise EEVEE."""
+        """Returns source engine when listed, else EEVEE."""
         return cls.__members__.get(scene.render.engine, cls.BLENDER_EEVEE)
 
 
 class Shape(Choice):
-    """Surface receiving a shader preview."""
+    """Shader preview surface."""
 
     SPHERE = 1, "Sphere"
     CUBE = 2, "Cube"
@@ -70,7 +70,7 @@ class Shape(Choice):
 
 
 class Rig(Enum):
-    """Native camera and key-light pieces shared by scene renders."""
+    """Shared camera and key light pieces."""
 
     CAMERA = "camera"
     LAMP = "lamp"
@@ -85,20 +85,20 @@ type View = Top | Framed | Panorama | Interior
 
 
 class White(Case, frozen=True, tag=1):
-    """Uniform white ambient illumination."""
+    """Uniform white ambient light."""
 
     title = "White"
 
 
 class Studio(Case, frozen=True, kw_only=True, tag=2):
-    """One of Blender's native studio-light environments."""
+    """Blender studio light environment."""
 
     title = "Studio Light"
     name: Annotated[str, msgspec.Meta(title="World"), studios] = "forest.exr"
 
 
 class Lamp(msgspec.Struct, frozen=True, kw_only=True):
-    """Key light's energy, native kind, and transform for one staging."""
+    """Key light energy, type, and transform."""
 
     energy: float
     kind: Literal["SUN", "POINT"] = "SUN"
@@ -107,7 +107,7 @@ class Lamp(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Lighting(msgspec.Struct, frozen=True, kw_only=True):
-    """Surface, ambient environment, and key strength for a preview."""
+    """Preview surface, ambient, and key strength."""
 
     shape: Shape = Shape.SPHERE
     ambient: Ambient = Studio()
@@ -116,7 +116,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def environment(self) -> BlenderResult[Environment]:
-        """Builds the world through the native studio or flat-color integration."""
+        """Environment lit by studio light or flat white backdrop."""
         match self.ambient:
             case White():
                 return Ok(Environment(lighting=Backdrop(mode=FlatColor(color=Rgb(red=1.0, green=1.0, blue=1.0)), strength=self.strength)))
@@ -125,20 +125,20 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def lamp(self) -> Lamp:
-        """Key sun at the requested energy."""
+        """Key sun at key strength."""
         return Lamp(energy=self.key)
 
 
 class Top(msgspec.Struct, frozen=True, kw_only=True):
-    """Orthographic camera above the preview surface."""
+    """Orthographic camera above surface."""
 
 
 class Framed(msgspec.Struct, frozen=True, kw_only=True):
-    """Orthographic camera fitted to the subject's evaluated bounds."""
+    """Orthographic camera fitted to subject bounds."""
 
 
 class Panorama(msgspec.Struct, frozen=True, kw_only=True):
-    """Camera at the world center sampling every direction."""
+    """Panoramic camera at world origin."""
 
 
 class Interior(msgspec.Struct, frozen=True, kw_only=True):
@@ -146,7 +146,7 @@ class Interior(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Mirrored(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Source entry repeated through its native or routed group."""
+    """Source effect entry with own or routed group."""
 
     entry: bpy.types.SceneCompositorEffect
     group: bpy.types.NodeTree
@@ -154,14 +154,14 @@ class Mirrored(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Offered(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Typed effect placed among the mirrored entries at its processing rank."""
+    """Typed effect placed among mirrored entries in stack order."""
 
     row: Placeable
     record: Entry[Effect]
 
 
 class Chain(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Input plane, ordered native mirrors, and typed additions for one render."""
+    """Render input plane, ordered mirrored entries, and typed effects."""
 
     head: Option[npt.NDArray[np.float32]] = Nothing
     mirrored: tuple[Mirrored, ...] = ()
@@ -170,13 +170,13 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, source: bpy.types.Scene, head: Option[npt.NDArray[np.float32]], mirrored: tuple[Mirrored, ...], offered: tuple[Offered, ...]) -> Self:
-        """Adds the source's native formation only where the chain contains none."""
+        """Builds chain, adding source formation when chain holds none."""
         formed = any(held.row.filter(lambda row: row.record is DisplayView).is_some() for held in mirrored) or any(isinstance(item.record.effect, DisplayView) for item in offered)
         return cls(head=head, mirrored=mirrored, offered=offered if formed else (Offered(row=formation, record=Entry(effect=viewed(source))), *offered))
 
 
 class Staging(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Complete desired preview scene for one native render."""
+    """Preview scene state of one render."""
 
     source: bpy.types.Scene
     size: tuple[int, int]
@@ -194,7 +194,7 @@ class Staging(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Readback(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Formed associated display pixels and covered scalar AOV samples."""
+    """Display-formed associated pixels with covered value AOV samples."""
 
     plane: npt.NDArray[np.float32]
     values: Option[npt.NDArray[np.float32]] = Nothing
@@ -205,7 +205,7 @@ class Readback(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned native preview scene and the reusable data its renders stage."""
+    """Owned preview scene and reused data its renders stage."""
 
     stack: EffectStack
     scene: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="preview_scene", saved=Saved.NEVER)
@@ -218,13 +218,13 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     samples: ClassVar[int] = 16
 
     def made(self, identity: Identity) -> BlenderResult[bpy.types.Scene]:
-        """Returns this extension's runtime preview scene."""
+        """Returns extension runtime preview scene."""
         return self.scene.made(
             identity, lambda: catch(lambda: bpy.data.scenes.new("Preview"), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=self.scene.key, error=error),))
         )
 
     def headed(self, identity: Identity, plane: npt.NDArray[np.float32]) -> BlenderResult[bpy.types.NodeTree]:
-        """Fills a runtime image and returns a compositor-only head group."""
+        """Returns head group reading plane through a runtime image."""
         height, width, _ = plane.shape
         tag = Tag(space=Some(PyOpenColorIO.GetCurrentConfig().getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()), alpha=Some("PREMUL"))
 
@@ -258,7 +258,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         return self.image.made(identity, built).bind(graphed)
 
     def held(self, identity: Identity, source: bpy.types.Scene, enabled: Enabled) -> tuple[Mirrored, ...]:
-        """Returns enabled source entries that consume no scene-render pass."""
+        """Returns enabled source entries with groups reading no scene render."""
         return tuple(
             Mirrored(entry=held.entry, group=group, row=held.row)
             for held in self.stack.held(identity, source)
@@ -267,7 +267,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def chained(self, identity: Identity, scene: bpy.types.Scene, chain: Chain, *, context: Context = Nothing) -> BlenderResult[None]:
-        """Appends the head and mirrors, then places effects or applies a named recipe."""
+        """Appends head and mirrored entries, then offered or named effects."""
 
         def appended(group: bpy.types.NodeTree, source: Option[bpy.types.SceneCompositorEffect]) -> BlenderResult[None]:
             def made() -> bpy.types.SceneCompositorEffect:
@@ -312,7 +312,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def staged(self, identity: Identity, staging: Staging) -> Generator[BlenderResult[bpy.types.Scene]]:
-        """Stages one render and releases subjects, mirrors, additions, and route copies."""
+        """Stages one render, releasing staged state on exit."""
         subjects = ExitStack()
         cleanup: list[BlenderResult[None]] = []
 
@@ -483,7 +483,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                     identity.reports.hold(faults)
 
     def rendered(self, identity: Identity, staging: Staging) -> BlenderResult[Readback]:
-        """Captures the chain's native domain and covered value AOV through declared outputs."""
+        """Renders staging and reads image and value AOV from File Output files."""
         files: list[Path] = []
 
         def removed() -> BlenderResult[None]:
@@ -594,7 +594,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 identity.reports.hold(faults)
 
     def sampled(self, identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], plane: npt.NDArray[np.float32]) -> BlenderResult[npt.NDArray[np.float32]]:
-        """Samples a float plane through the supplied entries without adding a formation."""
+        """Renders float plane through entries without adding formation."""
         height, width, channels = plane.shape
         lighting = Lighting()
         carrier = paired(
@@ -620,7 +620,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns native ownership and the world attachment used by preview staging."""
+        """Returns owned data rows and world attachment."""
         return Ok((self.scene, self.world, self.image, self.head, self.capture, self.routes, WorldEnvironment.attachment, *(row for piece in (*Shape, *Rig) for row in piece_ownership(piece))))
 
 
@@ -628,7 +628,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def piece_ownership(piece: Piece) -> tuple[Ownership[bpy.types.Object], Ownership[bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]]:
-    """Derives the object and native data ownership from one preview piece."""
+    """Returns object and data ownership of a preview piece."""
     key = f"preview_{piece.name.lower()}"
     kind = bpy.types.Mesh if isinstance(piece, Shape) else bpy.types.Camera if piece is Rig.CAMERA else bpy.types.Light
     return Ownership(kind=bpy.types.Object, key=key, saved=Saved.NEVER), Ownership(kind=kind, key=key, saved=Saved.NEVER)
@@ -647,7 +647,7 @@ def piece(identity: Identity, kind: Literal[Rig.LAMP], scene: bpy.types.Scene) -
 
 
 def piece(identity: Identity, kind: Piece, scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]]:
-    """Owns a native mesh, camera, or light and links its object exactly once."""
+    """Returns owned piece data with its object linked once."""
     objects, data = piece_ownership(kind)
 
     def built() -> BlenderResult[bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]:
@@ -704,7 +704,7 @@ def piece(identity: Identity, kind: Piece, scene: bpy.types.Scene) -> BlenderRes
 
 
 def rendering(group: bpy.types.NodeTree) -> bool:
-    """Reads whether the group or a nested group requests a scene render."""
+    """Checks group and nested groups for a scene render read."""
     return any(
         isinstance(node, bpy.types.CompositorNodeRLayers)
         or (isinstance(node, bpy.types.CompositorNodeCryptomatteV2) and node.source == "RENDER")

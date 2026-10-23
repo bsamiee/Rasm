@@ -57,5 +57,5 @@ transform:
     NARROWED: {replace: {source: $NAME, replace: '^Catch(\s*<.+>)?$', by: '.As()'}}
     CLOSE: {replace: {source: $NARROWED, replace: '(?s)^[^.].*$', by: ''}}
 fix: $RECEIVER_DOT$NAME($HANDLER)$CLOSE
-message: '`$NAME` takes a predicate that accepts every error'
-note: 'Use `Catch(<handler>).As()`, `CatchIO(<handler>)`, or `@catch(<handler>)`'
+message: '`$NAME` takes a predicate that returns `true` for every error'
+note: 'Pass the handler alone to `Catch`, `CatchIO`, or `@catch`, with `.As()` after `Catch`'

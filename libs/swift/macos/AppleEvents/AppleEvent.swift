@@ -11,10 +11,10 @@ public enum AppleEventFailure: LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .undelivered(OSStatus(errAEEventNotPermitted)):
-                "Automation permission denied, nothing ran. Allow this process in System Settings > Privacy & Security > Automation"
-            case .undelivered(let status): "Apple Event undelivered (\(status)), nothing ran"
-            case .unanswered(let status): "Application sent no reply (\(status)), event outcome unknown"
-            case .replied(let status, let message): "\(message ?? "Application replied with an error") (\(status))"
+                "Automation permission denied. Grant in System Settings > Privacy & Security > Automation"
+            case .undelivered(let status): "Apple Event undelivered (\(status))"
+            case .unanswered(let status): "Application sent no reply (\(status)). Event may have run"
+            case .replied(let status, let message): "\(message ?? "Application replied with error") (\(status))"
         }
     }
 }

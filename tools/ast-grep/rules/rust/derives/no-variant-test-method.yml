@@ -29,4 +29,4 @@ rule:
         - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
 message: '`$NAME` tests one variant of `$T` by hand'
-note: 'Derive `derive_more::IsVariant` on the enum, call the generated `is_<variant>()` at each use, and delete the method'
+note: 'Delete the method, derive `derive_more::IsVariant` on its enum, and call `is_<variant>()` at each use'

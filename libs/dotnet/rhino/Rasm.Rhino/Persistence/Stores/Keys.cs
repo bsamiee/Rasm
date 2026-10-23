@@ -68,7 +68,7 @@ public static class StoredText {
             using StringReader input = new(text);
             using XmlReader reader = XmlReader.Create(input);
             return (TValue)new DataContractSerializer(typeof(TValue)).ReadObject(reader)!;
-        }).Run().MapFail(error => Error.New(ErrorCodes.ParseError, $"{text} reads as no {typeof(TValue).Name}", error));
+        }).Run().MapFail(error => Error.New(ErrorCodes.ParseError, $"{text} is no {typeof(TValue).Name}", error));
 
     public static string Capture<TValue, TKey>(TValue value, Func<TValue, TKey> key) where TKey : notnull =>
         typeof(IQuantity).IsAssignableFrom(typeof(TValue)) ? Serialize(value) : Format(key(value));
@@ -84,10 +84,10 @@ public static class StoredText {
         Convert.ToString(raw, CultureInfo.InvariantCulture)!;
 
     public static Fin<TRaw> Parse<TRaw>(string text) where TRaw : ISpanParsable<TRaw> =>
-        TRaw.TryParse(text, CultureInfo.InvariantCulture, out TRaw? raw) ? raw : Errors.ParseError($"{text} reads as no {typeof(TRaw).Name}");
+        TRaw.TryParse(text, CultureInfo.InvariantCulture, out TRaw? raw) ? raw : Errors.ParseError($"{text} is no {typeof(TRaw).Name}");
 
     public static Fin<TEnum> Member<TEnum>(string text) where TEnum : struct, Enum =>
-        Enum.GetNames<TEnum>().Contains(text, StringComparer.Ordinal) ? Enum.Parse<TEnum>(text) : Errors.ParseError($"{text} reads as no {typeof(TEnum).Name}");
+        Enum.GetNames<TEnum>().Contains(text, StringComparer.Ordinal) ? Enum.Parse<TEnum>(text) : Errors.ParseError($"{text} is no {typeof(TEnum).Name}");
 
     public static string Capture<TValue, TRaw>(TValue value)
         where TValue : IConvertible<TRaw>

@@ -25,7 +25,7 @@ const encoder = Effect.map(
                         (entry) => String(entry.url),
                     ),
                     Match.when(Predicate.isPromise, () => {
-                        throw new TypeError(`${key} holds a promise, which settles after a synchronous script answers`);
+                        throw new TypeError(`${key} holds a promise, scripts answer before it settles`);
                     }),
                     Match.when(Predicate.isError, flow(Schema.encodeOption(Schema.Defect()), Option.getOrUndefined)),
                     Match.when(Predicate.isMap, Object.fromEntries),

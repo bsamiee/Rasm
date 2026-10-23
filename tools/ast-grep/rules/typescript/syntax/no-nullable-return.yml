@@ -98,4 +98,4 @@ rule:
             - has: {field: return_type, matches: value-annotation}
             - not: {matches: host-contract}
 message: 'Function returns absence through `$VALUE`'
-note: 'Return an `Option` built with `Option.fromNullishOr` or `Option.liftPredicate` at the boundary'
+note: 'Return an `Option`, with `Option.fromNullishOr` or `Option.liftPredicate` lifting a host value at its boundary'

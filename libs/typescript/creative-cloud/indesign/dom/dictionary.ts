@@ -47,14 +47,14 @@ const unavailable = (kind: string, field: string, observed: Option.Option<InDesi
         Struct.get('id'),
     );
     return Match.value({ kind, field, writing, stylistic: !Option.exists(id, Predicate.not(Number.between({ minimum: first, maximum: last }))) }).pipe(
-        Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', 'properties') }, () => 'The native Transparency provider crashes for this Find/Change shadow accessor'),
-        Match.when({ kind: 'EventListener', field: Match.is('handler', 'properties'), writing: false }, () => 'Reading an event handler whose UXP context has ended crashes InDesign; the DOM exposes no context lifetime'),
-        Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', 'properties'), writing: false, stylistic: true }, () => 'The native CharacterPanel provider crashes when reading Stylistic Set action state'),
+        Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', 'properties') }, () => 'Shadow fields crash native Transparency provider'),
+        Match.when({ kind: 'EventListener', field: Match.is('handler', 'properties'), writing: false }, () => 'Ended UXP context handlers crash InDesign'),
+        Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', 'properties'), writing: false, stylistic: true }, () => 'Stylistic Set state crashes native CharacterPanel provider'),
         Match.option,
     );
 };
-const bare = (name: string) => Effect.orDie(Schema.decodeEffect(Field)({ name, settable: false }));
+const undeclared = (name: string) => Effect.orDie(Schema.decodeEffect(Field)({ name, settable: false }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { bare, Class, declared, Field, Member, Method, unavailable };
+export { Class, declared, Field, Member, Method, unavailable, undeclared };

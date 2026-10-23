@@ -1,4 +1,4 @@
-"""Native glyph previews, optional source tint, and workspace-tool icon paths."""
+"""Tinted glyph previews from staged images and tool icon paths."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -35,7 +35,7 @@ type Glyph = rna_enums.IconItems | Path
 
 
 class IconSet(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Stable native previews with each source's original pixels and applied tint."""
+    """Preview collection with original pixels and tint per source."""
 
     collection: bpy.utils.previews.ImagePreviewCollection
     sources: dict[Path, tuple[npt.NDArray[np.float32], Option[Color]]]
@@ -45,25 +45,25 @@ class IconSet(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     # --- [READING]
 
     def value(self, source: Path) -> int:
-        """Returns a source's stable preview ID."""
+        """Returns stable preview icon ID."""
         return self.collection[source.as_posix()].icon_id
 
     # --- [WRITING]
 
     def reinked(self) -> bool:
-        """Returns whether changed tints wrote pixels, retaining each source's native alpha."""
-        changed = {source: (native, current) for source, (native, applied) in self.sources.items() if applied != (current := self.tint(source))}
-        for source, (native, current) in changed.items():
+        """Writes changed tints over source alpha, returning whether one changed."""
+        changed = {source: (original, current) for source, (original, applied) in self.sources.items() if applied != (current := self.tint(source))}
+        for source, (original, current) in changed.items():
             preview = self.collection[source.as_posix()]
-            pixels = current.map(lambda rgb: np.concatenate((native[:, 3:] * np.asarray(rgb[:3], dtype=np.float32), native[:, 3:]), axis=1)).default_value(native).reshape(-1)
+            pixels = current.map(lambda rgb: np.concatenate((original[:, 3:] * np.asarray(rgb[:3], dtype=np.float32), original[:, 3:]), axis=1)).default_value(original).reshape(-1)
             preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
             preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
-            self.sources[source] = (native, current)
+            self.sources[source] = (original, current)
         return bool(changed)
 
 
 class Icons(msgspec.Struct, frozen=True, kw_only=True):
-    """One extension's staged image glyphs and declared optional brand."""
+    """Staged image glyphs of one extension."""
 
     tint: Callable[[Path], Option[Color]] = lambda _: Nothing
     brand: Option[Path] = Nothing
@@ -72,18 +72,18 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
     # --- [ACQUISITION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds native preview and theme-subscription acquisitions."""
+        """Builds preview collection and theme color subscriptions."""
         folder = Icons.folder(identity)
 
         def reinked() -> BlenderResult[Option[str]]:
-            """Updates the held set and redraws only when source colors changed."""
+            """Writes changed tints, redrawing when one changed."""
             return redrawn() if Icons.held[identity.package].reinked() else Ok(Nothing)
 
         pending: Callable[[], None]
 
         @contextmanager
         def loaded() -> Generator[None]:
-            """Holds full-size previews and retires write admission before releasing them."""
+            """Holds full-size previews, ending tint writes before removal."""
             nonlocal pending
             with ExitStack() as scope, identity.reports.deferred(reinked) as pending:
                 collection = bpy.utils.previews.new()
@@ -105,7 +105,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                 yield
 
         def scheduled() -> BlenderResult[None]:
-            """Admits a scoped write and answers the subscription's successful notification."""
+            """Schedules tint write on theme color change."""
             pending()
             return Ok(None)
 
@@ -117,22 +117,22 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def folder(identity: Identity) -> Traversable:
-        """Returns the enabled extension's staged icon folder."""
+        """Returns staged icon folder."""
         return importlib.resources.files(identity.package) / "icons"
 
     @classmethod
     def value(cls, identity: Identity, glyph: Glyph) -> int:
-        """Returns a native RNA icon value or the declared source preview ID."""
+        """Returns built-in icon value or image preview icon ID."""
         return cls.held[identity.package].value(glyph) if isinstance(glyph, Path) else bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items[glyph].value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     @classmethod
     def mark(cls, identity: Identity) -> Option[int]:
-        """Returns the declared brand's stable ID, absent without a brand or icon row."""
+        """Returns brand glyph icon ID, Nothing without brand or icon set."""
         return Option.of_optional(cls.held.get(identity.package)).bind(lambda icons: icons.brand.map(icons.value))
 
     @classmethod
     def path(cls, identity: Identity, source: Path) -> str:
-        """Returns the absolute suffixless path Blender's native tool loader consumes."""
+        """Returns suffixless absolute path for tool `bl_icon`."""
         return str(cls.folder(identity).joinpath(source.with_suffix("").as_posix()))
 
 
@@ -140,7 +140,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def ink() -> Color:
-    """Returns Blender's regular-widget text color in display RGBA."""
+    """Returns regular widget text color in display RGBA."""
     return color(bpy.context.preferences.themes[0].user_interface.wcol_regular.text)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 

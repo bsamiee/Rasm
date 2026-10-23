@@ -187,7 +187,7 @@ public static class HostDialogs {
     public static IO<Suppressible<T>> Suppressing<T>(SettingsNode node, PlugInSetting<bool, bool> row, Func<Eto.Forms.CheckBox, IO<(T Value, bool Suppress)>> show) =>
         from shows in IO.lift(() => node.Current(row))
         from asked in shows
-            ? DisposalOps.Within(static () => new Eto.Forms.CheckBox { Text = RowText.Localize("Do not show this dialog again").Local }, box =>
+            ? DisposalOps.Within(static () => new Eto.Forms.CheckBox { Text = RowText.Localize("Do not show again").Local }, box =>
                 from answer in show(box)
                 from kept in when(answer.Suppress, PlugInSettings.Store(node, row).Write(Some(value: false)).Map(unit)).As()
                 select (Suppressible<T>)new Suppressible<T>.Shown(answer.Value))

@@ -23,34 +23,34 @@ type Remap = Mixer | Conversion
 class Weights(msgspec.Struct, frozen=True, kw_only=True):
     """Input-channel weights summed by one output channel."""
 
-    red: Annotated[Weight, msgspec.Meta(description="Weight of the input red channel")]
-    green: Annotated[Weight, msgspec.Meta(description="Weight of the input green channel")]
-    blue: Annotated[Weight, msgspec.Meta(description="Weight of the input blue channel")]
+    red: Annotated[Weight, msgspec.Meta(description="Red input weight")]
+    green: Annotated[Weight, msgspec.Meta(description="Green input weight")]
+    blue: Annotated[Weight, msgspec.Meta(description="Blue input weight")]
 
 
 class Mixer(Case, frozen=True, kw_only=True, tag=1):
     """Linear channel mixing with signed weights and unclamped output."""
 
-    red: Annotated[Weights, msgspec.Meta(description="Weights summed by the output red channel")] = Weights(red=1.0, green=0.0, blue=0.0)
-    green: Annotated[Weights, msgspec.Meta(description="Weights summed by the output green channel")] = Weights(red=0.0, green=1.0, blue=0.0)
-    blue: Annotated[Weights, msgspec.Meta(description="Weights summed by the output blue channel")] = Weights(red=0.0, green=0.0, blue=1.0)
+    red: Annotated[Weights, msgspec.Meta(description="Weights summing into output red")] = Weights(red=1.0, green=0.0, blue=0.0)
+    green: Annotated[Weights, msgspec.Meta(description="Weights summing into output green")] = Weights(red=0.0, green=1.0, blue=0.0)
+    blue: Annotated[Weights, msgspec.Meta(description="Weights summing into output blue")] = Weights(red=0.0, green=0.0, blue=1.0)
 
     @classmethod
     def of(cls, rows: tuple[Rgb, Rgb, Rgb]) -> Self:
-        """Constructs output-channel weights from three structural RGB rows."""
+        """Constructs output-channel weights from RGB rows."""
         return cls(**{name: Weights(**msgspec.structs.asdict(row)) for name, row in zip(cls.__struct_fields__, rows)})
 
     @property
     def transform(self) -> PyOpenColorIO.MatrixTransform:
-        """Fresh matrix transform retaining alpha unchanged."""
+        """Fresh matrix transform keeping alpha."""
         return matrix(np.array(msgspec.structs.astuple(self), dtype=np.float64))
 
 
 class Conversion(Case, frozen=True, kw_only=True, tag=2):
-    """Color-space interpretation and conversion using the supplied OCIO configuration."""
+    """Colorspace interpretation and conversion through OCIO config."""
 
-    source: Annotated[ColorSpace, msgspec.Meta(description="Colorspace the values are read as")] = PyOpenColorIO.ROLE_SCENE_LINEAR
-    target: Annotated[ColorSpace, msgspec.Meta(description="Colorspace the values convert to")] = PyOpenColorIO.ROLE_SCENE_LINEAR
+    source: Annotated[ColorSpace, msgspec.Meta(description="Colorspace values read as")] = PyOpenColorIO.ROLE_SCENE_LINEAR
+    target: Annotated[ColorSpace, msgspec.Meta(description="Colorspace values convert to")] = PyOpenColorIO.ROLE_SCENE_LINEAR
 
     @property
     def transform(self) -> PyOpenColorIO.ColorSpaceTransform:
@@ -67,7 +67,7 @@ class Primaries(Effect, frozen=True, kw_only=True, tag=9):
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the remap's exact OCIO operation."""
+        """Returns remap OCIO operation."""
         return Ok(Some(self.remap.transform))
 
 

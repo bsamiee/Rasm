@@ -40,6 +40,6 @@ rule:
                     - has: {kind: variable_declarator, all: [{has: {field: name, kind: identifier, pattern: $FRAGMENT}}, {has: {field: value, matches: tagged, has: {field: arguments, has: {matches: uses-read}}}}]}
                     - precedes: {stopBy: end, has: {stopBy: end, matches: write, pattern: $WRITE, has: {field: arguments, has: {matches: value-substitution, has: {kind: identifier, pattern: $FRAGMENT}}}}}
 labels:
-    WRITE: {style: secondary, message: Write that depends on the read}
-message: '`$READ` holds a read that a later write takes a value from'
+    WRITE: {style: secondary, message: Write taking a value from the read}
+message: '`$READ` holds a read the later write takes a value from'
 note: 'Compute the value in the write (`set <column> = <column> + 1`, `on conflict (<key>) do update`), or guard it with `where revision = <expected>`'

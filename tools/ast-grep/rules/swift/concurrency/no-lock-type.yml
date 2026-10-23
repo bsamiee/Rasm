@@ -17,4 +17,4 @@ rule:
                 kind: call_expression
                 follows: {stopBy: {kind: parameter}, kind: parameter, has: {stopBy: end, kind: type_identifier, pattern: $LOCK}}
 message: '`$LOCK` guards state through a lock type'
-note: 'Hold state that tasks share in an actor its readers receive, and a synchronous holder''s state in `Mutex<State>` with each access in one `withLock`'
+note: 'Hold shared state in an actor, and synchronous state in `Mutex<State>` from `Synchronization` with each access in one `withLock`'

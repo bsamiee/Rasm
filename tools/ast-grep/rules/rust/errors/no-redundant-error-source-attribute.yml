@@ -62,5 +62,5 @@ transform:
 fix:
     template: '$NEXT$LIST$STRUCT_STRIPPED$ATTRIBUTED_STRIPPED$PLAIN_CLOSED'
     expandEnd: {pattern: $_, follows: {kind: attribute_item, regex: '^#\[\s*source\s*\]$'}}
-message: '`#[source]` restates what thiserror reads from `#[from]` or the field name `source`'
+message: '`#[source]` restates the source thiserror reads from `#[from]` or a field named `source`'
 note: 'Delete the `#[source]` attribute'

@@ -24,7 +24,7 @@ public readonly record struct EntryKey(string Owner, Seq<string> Path) : ICompar
 
     public Fin<TValue> Read<TValue>(string text, Func<string, Fin<TValue>> read) {
         string entry = $"{Owner}{Separator}{Name(Path)}";
-        return read(text).MapFail(cause => Error.New($"entry {entry} refuses text {text}", cause));
+        return read(text).MapFail(cause => Error.New($"entry {entry} text {text} did not parse", cause));
     }
 
     public static bool operator <(EntryKey left, EntryKey right) => left.CompareTo(right) < 0;
@@ -56,8 +56,8 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
 
     public static Fin<ValueSet> Read(string text) =>
         Try.lift(() => JsonSerializer.Deserialize(text, ValueSetContext.Default.ValueSet)).Run()
-            .BindFail(error => error.HasException<JsonException>() ? Error.New(ErrorCodes.ParseError, $"{text} reads as no {nameof(ValueSet)}", error) : error)
-            .Bind(read => Optional(read).ToFin(Errors.ParseError($"{text} reads as no {nameof(ValueSet)}")));
+            .BindFail(error => error.HasException<JsonException>() ? Error.New(ErrorCodes.ParseError, $"{text} is no {nameof(ValueSet)}", error) : error)
+            .Bind(read => Optional(read).ToFin(Errors.ParseError($"{text} is no {nameof(ValueSet)}")));
 
     public ValueSet Scoped(Option<IterableNE<EntryKey>> keys) =>
         keys.Match(Some: held => new ValueSet(Entries.Intersect(held)), None: () => this);

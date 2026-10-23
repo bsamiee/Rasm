@@ -12,7 +12,7 @@ const Settings = <A extends Feature | Variation>(host: { new (tag: string, value
     Schema.Array(
         Schema.String.annotate({ description }).pipe(
             Schema.decodeTo(Schema.instanceOf(host), {
-                decode: SchemaGetter.transformEffect((given: string, options) => Effect.fromOption(Option.fromNullishOr(host.fromString(given)), () => new SchemaIssue.InvalidValue({ message: `Not a setting in HarfBuzz syntax: ${given}` }, given, options))),
+                decode: SchemaGetter.transformEffect((given: string, options) => Effect.fromOption(Option.fromNullishOr(host.fromString(given)), () => new SchemaIssue.InvalidValue({ message: `Invalid HarfBuzz setting ${given}` }, given, options))),
                 encode: SchemaGetter.transform((setting: A) => setting.toString()),
             }),
         ),

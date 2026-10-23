@@ -1,4 +1,4 @@
-"""Native scene-linear scope charts and false-color legends."""
+"""Scene-linear scope charts and false-color legends."""
 
 from collections.abc import Callable, Iterable
 import math
@@ -28,19 +28,19 @@ from blender.imaging.faults import paired
 
 
 class ChartFrame(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Scene-linear pixels or a native image, with the view forming them."""
+    """Scene-linear pixels or image under a view."""
 
     pixels: npt.NDArray[np.float32] | bpy.types.Image
     view: DisplayView
 
     def plane(self, config: PyOpenColorIO.Config) -> BlenderResult[npt.NDArray[np.float32]]:
-        """Returns scene-linear RGB or RGBA, expanding a native scalar pass to RGB.
+        """Returns scene-linear RGB or RGBA, scalar passes as RGB.
 
         Args:
-            config: Admitted config owning the image's colorspace and scene-linear role.
+            config: OCIO config with image colorspace and scene-linear role.
 
         Returns:
-            The plane, or the native image read and color processor faults.
+            Scene-linear plane, or image read and processor faults.
         """
         match self.pixels:
             case bpy.types.Image() as image:
@@ -56,7 +56,7 @@ class ChartFrame(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Well(msgspec.Struct, frozen=True, kw_only=True):
-    """Blender's stock scope styling and a plot one pixel inside its well."""
+    """Stock scope styling and well size."""
 
     back: ClassVar[Color] = (0.0, 0.0, 0.0, 1.0)
     rim: ClassVar[Color] = (0.0, 0.0, 0.0, 0.5)
@@ -76,24 +76,24 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def scope(cls, metrics: Metrics) -> Self:
-        """Returns a well at the stock histogram's scaled dimensions."""
+        """Returns well at stock histogram size."""
         return cls(width=float(metrics.unit * 10), height=float(math.floor(float(metrics.scaled(100.0)) + 0.5)))
 
     @classmethod
     def gamut(cls, metrics: Metrics) -> Self:
-        """Returns a ten-unit well whose plot follows the spectral locus aspect."""
+        """Returns ten-unit well at spectral locus aspect."""
         span = np.ptp(observer.locus(), axis=0)
         width = float(metrics.unit * 10)
         return cls(width=width, height=(width - 2.0) * float(span[1] / span[0]) + 2.0)
 
     @classmethod
     def inset(cls, metrics: Metrics) -> float:
-        """Returns the well's margin from the visible region's edges."""
+        """Returns well margin from region edges."""
         return metrics.unit * cls.margin
 
     @classmethod
     def label(cls, metrics: Metrics) -> float:
-        """Returns the stock scope label size in device pixels."""
+        """Returns label size in device pixels."""
         return float(metrics.scaled(cls.points))
 
     @property
@@ -104,16 +104,16 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
     # --- [DRAWING]
 
     def under(self, canvas: Canvas) -> None:
-        """Draws the stock scope's rounded black background."""
+        """Draws rounded black background."""
         canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.back, self.clear, self.radius)
 
     def over(self, canvas: Canvas) -> None:
-        """Draws the stock scope's closing outline above its lower edge."""
+        """Draws outline above lower edge."""
         canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), self.clear, self.rim, self.radius)
 
 
 class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Cached line traces, guides, ticks, and captions in a shared chart well."""
+    """Cached line chart geometry in a well."""
 
     well: Well
     grid: gpu.types.GPUBatch
@@ -136,7 +136,7 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         ticks: tuple[float, ...] = (),
         majors: tuple[float, ...] = (),
     ) -> Self:
-        """Builds chart geometry from normalized positions and caller-owned axis labels."""
+        """Builds chart geometry from normalized positions."""
         well, shader = Well.scope(metrics), gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
         plot = well.plot
         right, top = plot.x + plot.width, plot.y + plot.height
@@ -144,7 +144,7 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         rows = tuple(plot.y + position * plot.height for position in horizontals)
 
         def lines(points: Iterable[tuple[float, float]]) -> gpu.types.GPUBatch:
-            """Builds the line pairs used by this plot's grid and ticks."""
+            """Builds grid and tick line pairs."""
             return batch_for_shader(shader, "LINES", {"pos": tuple(points)})
 
         return cls(
@@ -170,12 +170,12 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Outline(msgspec.Struct, frozen=True, kw_only=True):
-    """Read-only line chart with cached preparation and shared drawing policy."""
+    """Read-only line chart over cached trace geometry."""
 
     read: Callable[[Metrics], BlenderResult[Option[TracePlot]]]
 
     def drawn(self, canvas: Canvas, geometry: TracePlot) -> None:
-        """Draws the outline at the visible extent's lower-left corner."""
+        """Draws chart at lower-left corner."""
         inset, points, plot = Well.inset(canvas.metrics), Well.label(canvas.metrics), geometry.well.plot
         x, y = canvas.extent.x + inset, canvas.extent.y + inset
         with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
@@ -199,7 +199,7 @@ class Outline(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Cached chromaticity batches and gamut captions at one interface scale."""
+    """Cached chromaticity geometry at one interface scale."""
 
     well: Well
     grid: gpu.types.GPUBatch
@@ -212,7 +212,7 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, metrics: Metrics, reading: Chromaticity, space: str, display_space: Option[PyOpenColorIO.ColorSpace]) -> Self:
-        """Builds locus, density, gamut edges, white-point marks, and captions."""
+        """Builds chromaticity diagram geometry."""
         counts = reading.trace
         working = space, reading.working
         display = reading.display.map2(lambda rows, native: (native.getName(), rows), display_space)
@@ -229,21 +229,21 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         tenth = np.flatnonzero(observer.table()[:, 0] % 10 == 0)
 
         def placed(xy: npt.ArrayLike) -> npt.NDArray[np.float32]:
-            """Maps each chromaticity axis through its own bounds and plot dimension."""
+            """Maps chromaticity onto plot per axis."""
             return ((np.asarray(xy) - low) / span * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32)
 
         def gamut(rows: npt.NDArray[np.float64]) -> gpu.types.GPUBatch:
-            """Builds one gamut triangle and a device-sized square at its white point."""
+            """Builds gamut triangle with white-point square."""
             square = np.array(((-1, -1), (1, -1), (1, -1), (1, 1), (1, 1), (-1, 1), (-1, 1), (-1, -1)), np.float32) * side
             return batch_for_shader(line_shader, "LINES", {"pos": np.vstack((placed(rows[[0, 1, 1, 2, 2, 0]]), placed(rows[3]) + square))})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
         def block(named: tuple[str, npt.NDArray[np.float64]], color: Color) -> tuple[tuple[str, Color], ...]:
-            """Formats a gamut's name and RGBW coordinates together."""
+            """Formats gamut name and RGBW coordinates."""
             name, rows = named
             return ((name, color), *((f"{letter} {x:.4f} {y:.4f}", color) for letter, x, y in zip("RGBW", rows[:, 0], rows[:, 1])))
 
         def traced(found: npt.NDArray[np.intp]) -> gpu.types.GPUBatch:
-            """Builds occupied cell centers with logarithmic peak-normalized opacity."""
+            """Builds occupied cells at log peak-normalized opacity."""
             alpha = Well.trace[3] * np.log1p(counts[tuple(found.T)]) / np.log1p(counts.max())
             positions = ((found + 0.5) / counts.shape * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32)
             return batch_for_shader(point_shader, "POINTS", {"pos": positions, "color": np.column_stack((np.ones((len(found), 3)), alpha)).astype(np.float32)})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
@@ -262,16 +262,16 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
-    """Chromaticity density with the frame's working and display gamuts."""
+    """Chromaticity density with working and display gamuts."""
 
     source: Callable[[], BlenderResult[Option[ChartFrame]]]
 
     def read(self, metrics: Metrics) -> BlenderResult[Option[GamutPlot]]:
-        """Reads chromaticities at the plot's cell dimensions and retains native faults."""
+        """Reads chromaticities at plot cell size."""
         config, plot = PyOpenColorIO.GetCurrentConfig(), Well.gamut(metrics).plot
 
         def charted(frame: ChartFrame) -> BlenderResult[GamutPlot]:
-            """Builds the density and gamut geometry from the scene-linear frame."""
+            """Builds diagram from scene-linear frame."""
             return (
                 frame
                 .plane(config)
@@ -282,7 +282,7 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
         return self.source().bind(lambda frame: frame.map(lambda held: charted(held).map(Some)).default_value(Ok(Nothing)))
 
     def drawn(self, canvas: Canvas, geometry: GamutPlot) -> None:
-        """Draws the diagram within its well at the visible extent's lower right."""
+        """Draws diagram at lower-right corner."""
         inset, points, plot = Well.inset(canvas.metrics), Well.label(canvas.metrics), geometry.well.plot
         x, y = canvas.extent.x + canvas.extent.width - inset - geometry.well.width, canvas.extent.y + inset
         pitch = points + canvas.metrics.spacing.button_y
@@ -310,7 +310,7 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class KeyPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """False-color legend with a native band texture and exposure labels."""
+    """False-color legend with exposure labels."""
 
     well: Well
     bar: Rect
@@ -319,7 +319,7 @@ class KeyPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @staticmethod
     def of(metrics: Metrics, bands: Bands) -> "BlenderResult[KeyPlot]":
-        """Builds a nearest-filtered key, retaining native texture allocation faults."""
+        """Builds nearest-filtered key."""
         points, pad, width = Well.label(metrics), float(metrics.spacing.template), float(metrics.unit * 20)
         stops = np.log2(bands.edges / GREY)
         low, high = np.min(stops, initial=0.0) - 1.0, np.max(stops, initial=0.0) + 1.0
@@ -341,16 +341,16 @@ class KeyPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class FalseColor(msgspec.Struct, frozen=True, kw_only=True):
-    """View's false-color bands labeled in stops from middle grey."""
+    """False-color bands in stops from middle gray."""
 
     source: Callable[[], BlenderResult[Option[DisplayView]]]
 
     def read(self, metrics: Metrics) -> BlenderResult[Option[KeyPlot]]:
-        """Forms the default-display key and retains view or GPU allocation faults."""
+        """Builds key at default display."""
         config = PyOpenColorIO.GetCurrentConfig()
 
         def keyed(view: DisplayView) -> BlenderResult[Option[KeyPlot]]:
-            """Builds the key only when the selected view has constant bands."""
+            """Builds key when view has constant bands."""
             return (
                 Bands
                 .of(config, msgspec.structs.replace(view, display=config.getDefaultDisplay()))
@@ -361,7 +361,7 @@ class FalseColor(msgspec.Struct, frozen=True, kw_only=True):
         return self.source().bind(lambda view: view.map(keyed).default_value(Ok(Nothing)))
 
     def drawn(self, canvas: Canvas, geometry: KeyPlot) -> None:
-        """Draws the key inside the visible extent's upper-left corner."""
+        """Draws key at upper-left corner."""
         inset, points = Well.inset(canvas.metrics), Well.label(canvas.metrics)
         with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
             gpu.matrix.translate((canvas.extent.x + inset, canvas.extent.y + canvas.extent.height - inset - geometry.well.height))
@@ -376,7 +376,7 @@ class FalseColor(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def histogram(source: Callable[[], BlenderResult[Option[ChartFrame]]], metrics: Metrics) -> BlenderResult[Option[TracePlot]]:
-    """Returns the scene-linear histogram with its view's exposure-band ticks."""
+    """Returns scene-linear histogram with exposure-band ticks."""
     config = PyOpenColorIO.GetCurrentConfig()
 
     def traced(frame: ChartFrame) -> BlenderResult[TracePlot]:

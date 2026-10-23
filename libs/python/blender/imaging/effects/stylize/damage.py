@@ -39,18 +39,16 @@ class Noise(IntEnum):
 class Speckles(msgspec.Struct, frozen=True, kw_only=True):
     """Independent opaque or translucent black and white film spots."""
 
-    population: Annotated[Population, msgspec.Meta(description="Spot cells, diameter, spread, and radial softness")] = Population(
-        spacing=0.02, density=0.02, size=0.2, variation=1.0, spread=0.0, softness=0.3
-    )
-    white: Annotated[Unit, msgspec.Meta(description="Fraction of spots that are white")] = 0.5
+    population: Annotated[Population, msgspec.Meta(description="Spot placement and size")] = Population(spacing=0.02, density=0.02, size=0.2, variation=1.0, spread=0.0, softness=0.3)
+    white: Annotated[Unit, msgspec.Meta(description="Share of white spots")] = 0.5
 
 
 class Scratches(msgspec.Struct, frozen=True, kw_only=True):
     """Vertical film scratches with fixed horizontal sites and evolving presence."""
 
-    count: Annotated[AtLeastOne, msgspec.Meta(description="Scratch cells across the frame width"), Presentation(soft=Some((1.0, 20.0)))] = 3.0
-    width: Annotated[FrameLength, msgspec.Meta(description="Width of a scratch"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4))] = 0.0008
-    white: Annotated[Unit, msgspec.Meta(description="Fraction of scratches that are white")] = 0.7
+    count: Annotated[AtLeastOne, msgspec.Meta(description="Scratch cells across frame width"), Presentation(soft=Some((1.0, 20.0)))] = 3.0
+    width: Annotated[FrameLength, msgspec.Meta(description="Scratch width"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4))] = 0.0008
+    white: Annotated[Unit, msgspec.Meta(description="Share of white scratches")] = 0.7
     rate: Annotated[NonNegative, msgspec.Meta(description="Presence evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.05
 
     def sampled(self, points: npt.NDArray[np.float64], extent: tuple[float, float], clock: float, *, seed: Seed) -> ImagingResult[npt.NDArray[np.float64]]:
@@ -63,7 +61,7 @@ class Scratches(msgspec.Struct, frozen=True, kw_only=True):
             seed: Shot's explicit random origin.
 
         Returns:
-            Coverage and covered ink columns, or the numerical provider's refusal.
+            Coverage and covered ink columns, or numerical provider refusal.
         """
         scale = self.count / extent[0]
         at = np.zeros((len(points), 4), dtype=np.float64)
@@ -125,13 +123,13 @@ class Scratches(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Hairs(msgspec.Struct, frozen=True, kw_only=True):
-    """Curled, trimmed cell edges selected as hair strands on the film."""
+    """Curled, trimmed cell edges drawn as film hairs."""
 
-    count: Annotated[NonNegative, msgspec.Meta(description="Nominal strand density through cell selection"), Presentation(soft=Some((0.0, 20.0)))] = 1.0
-    width: Annotated[FrameLength, msgspec.Meta(description="Width of a hair"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4))] = 0.0012
-    white: Annotated[Unit, msgspec.Meta(description="Fraction of hairs that are white")] = 0.0
-    length: Annotated[FrameExtent, msgspec.Meta(description="Scale of the cells that form strands"), Presentation(soft=Some((0.001, 0.2)), decimals=Some(3))] = 0.08
-    curl: Annotated[NonNegative, msgspec.Meta(description="Coordinate displacement as a multiple of strand length"), Presentation(soft=Some((0.0, 5.0)))] = 1.0
+    count: Annotated[NonNegative, msgspec.Meta(description="Nominal strand density"), Presentation(soft=Some((0.0, 20.0)))] = 1.0
+    width: Annotated[FrameLength, msgspec.Meta(description="Hair width"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4))] = 0.0012
+    white: Annotated[Unit, msgspec.Meta(description="Share of white hairs")] = 0.0
+    length: Annotated[FrameExtent, msgspec.Meta(description="Strand cell scale"), Presentation(soft=Some((0.001, 0.2)), decimals=Some(3))] = 0.08
+    curl: Annotated[NonNegative, msgspec.Meta(description="Curl displacement in strand lengths"), Presentation(soft=Some((0.0, 5.0)))] = 1.0
     rate: Annotated[NonNegative, msgspec.Meta(description="Strand evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.1
 
     def sampled(self, points: npt.NDArray[np.float64], extent: tuple[float, float], clock: float, *, seed: Seed) -> ImagingResult[npt.NDArray[np.float64]]:
@@ -169,12 +167,10 @@ class Hairs(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Weave(msgspec.Struct, frozen=True, kw_only=True):
-    """Horizontal and vertical film displacement through the projector gate."""
+    """Film displacement through projector gate."""
 
     amplitude: Annotated[
-        tuple[NonNegative, NonNegative],
-        msgspec.Meta(description="Maximum horizontal and vertical displacement"),
-        Presentation(soft=Some((0.0, 0.005)), decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER)),
+        tuple[NonNegative, NonNegative], msgspec.Meta(description="Largest displacement per axis"), Presentation(soft=Some((0.0, 0.005)), decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER))
     ] = (0.0006, 0.0006)
     rate: Annotated[NonNegative, msgspec.Meta(description="Displacement evolution in cells per motion frame"), Presentation(soft=Some((0.0, 1.0)))] = 0.125
 
@@ -198,11 +194,11 @@ class Weave(msgspec.Struct, frozen=True, kw_only=True):
 class Gate(msgspec.Struct, frozen=True, kw_only=True):
     """Stationary rounded projector aperture with a rough, feathered edge."""
 
-    inset: Annotated[FrameLength, msgspec.Meta(description="Aperture inset from each frame edge"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(3))] = 0.02
-    radius: Annotated[FrameLength, msgspec.Meta(description="Corner radius within the remaining aperture"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(3))] = 0.02
-    feather: Annotated[FrameLength, msgspec.Meta(description="Transition width at the aperture edge"), Presentation(soft=Some((0.0, 0.02)), decimals=Some(4))] = 0.005
-    roughness: Annotated[FrameLength, msgspec.Meta(description="Maximum displacement of the aperture edge"), Presentation(soft=Some((0.0, 0.02)), decimals=Some(4))] = 0.003
-    color: Annotated[Rgb[Finite], msgspec.Meta(description="Display color outside the aperture")] = Rgb(red=0.0, green=0.0, blue=0.0)
+    inset: Annotated[FrameLength, msgspec.Meta(description="Inset from each frame edge"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(3))] = 0.02
+    radius: Annotated[FrameLength, msgspec.Meta(description="Corner radius inside inset"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(3))] = 0.02
+    feather: Annotated[FrameLength, msgspec.Meta(description="Edge transition width"), Presentation(soft=Some((0.0, 0.02)), decimals=Some(4))] = 0.005
+    roughness: Annotated[FrameLength, msgspec.Meta(description="Largest edge displacement"), Presentation(soft=Some((0.0, 0.02)), decimals=Some(4))] = 0.003
+    color: Annotated[Rgb[Finite], msgspec.Meta(description="Display color outside aperture")] = Rgb(red=0.0, green=0.0, blue=0.0)
 
     def sampled(self, points: npt.NDArray[np.float64], extent: tuple[float, float], *, seed: Seed) -> ImagingResult[npt.NDArray[np.float64]]:
         """Returns continuous rough rounded-aperture coverage before pixel integration.
@@ -213,7 +209,7 @@ class Gate(msgspec.Struct, frozen=True, kw_only=True):
             seed: Shot's explicit random origin.
 
         Returns:
-            Aperture coverage, or the native edge field's numerical refusal.
+            Aperture coverage, or native edge field refusal.
         """
         center = np.asarray(extent) / 2.0
         remaining = center - self.inset
@@ -265,7 +261,7 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
             precision: Caller-selected Sobol resolution and independent error replicates.
 
         Returns:
-            Speck, scratch, hair coverage/ink pairs and gate coverage, with numerical error.
+            Speck, scratch, and hair coverage and ink pairs with gate coverage and numerical error.
         """
 
         def computed() -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
@@ -356,7 +352,7 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
                     result[..., 4:] = 1.0 - (1.0 - result[..., 4:]) * gate
                     estimate = Estimate.of(result, precision)
                     return paired(ImagingBufferFault.located(estimate.value[..., :4].astype(np.float32), source), ImagingBufferFault.located(estimate.value[..., 4:].astype(np.float32), source)).map(
-                        estimate.carrying
+                        estimate.holding
                     )
 
                 return moved.bind(gated)
@@ -367,13 +363,13 @@ class Damage(Effect, frozen=True, kw_only=True, tag=44):
 
 
 class Flicker(Effect, frozen=True, kw_only=True, tag=47):
-    """Lamp variation as a spatially uniform scene-linear exposure in stops."""
+    """Uniform scene-linear lamp exposure variation in stops."""
 
     stage = Stage.EXPOSURE
     pointwise = True
     motion: Motion = Motion()
     seed: Seed = 0
-    amplitude: Annotated[Stops, msgspec.Meta(description="Signed maximum exposure variation in stops")] = 0.05
+    amplitude: Annotated[Stops, msgspec.Meta(description="Largest signed variation in stops")] = 0.05
     rate: Annotated[NonNegative, msgspec.Meta(description="Lamp evolution in cells per motion frame"), Presentation(soft=Some((0.0, 10.0)))] = 2.5
 
 

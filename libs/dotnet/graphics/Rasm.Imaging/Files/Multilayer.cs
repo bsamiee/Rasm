@@ -93,7 +93,7 @@ public sealed partial class PassName {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value.Length > 0 && !value.Contains('\0', StringComparison.Ordinal) && Encoding.UTF8.GetByteCount(value) + 2 <= NameBytes ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"pass name '{value}' must be non-empty, free of NUL, and at most {NameBytes - 2} UTF-8 bytes"));
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Pass name '{value}' must be 1 to {NameBytes - 2} UTF-8 bytes without NUL"));
 }
 
 public sealed record IdentityLayer(ushort Id, PassName Name, Vector3 Color) {
@@ -132,7 +132,7 @@ public abstract partial record ReaderConvention {
     internal Fin<Func<Vector3, Vector3>> Normal(Option<Camera> camera) =>
         Normals.Switch((Convention: this, Camera: camera),
             world: static state => Fin.Succ(state.Convention.Axes),
-            view: static state => state.Camera.ToFin(Error.New("view-space normals require the frame's camera")).Map(held => {
+            view: static state => state.Camera.ToFin(Error.New("View-space normals need frame camera")).Map(held => {
                 Quaternion toView = Quaternion.Conjugate(held.Orientation);
                 return (Func<Vector3, Vector3>)(normal => state.Convention.Screen(Vector3.Transform(normal, toView)));
             }));
@@ -174,7 +174,7 @@ public abstract partial record ExrPass {
 
     public sealed record Position(PixelFrame Distance) : ExrPass {
         internal override Fin<Seq<ExrLayer>> Layers(ReaderConvention convention, Option<Camera> camera) =>
-            camera.ToFin(Error.New("position pass requires the frame's camera")).Map(held => Seq(new ExrLayer(convention.Position, PassKind.Xyz, Distance, (source, first, part) => {
+            camera.ToFin(Error.New("Position pass needs frame camera")).Map(held => Seq(new ExrLayer(convention.Position, PassKind.Xyz, Distance, (source, first, part) => {
                 for (int x = 0; x < source.Length; x++)
                     part[x] = new Vector4(convention.Axes(held.WorldPoint((first.X + x + 0.5d, first.Y + 0.5d), source[x].X)), 1f);
             })));
@@ -218,7 +218,7 @@ public sealed record PassSet {
         from groups in passes.Traverse(pass => pass.Layers(convention, camera)).As()
         let layers = groups.Flatten().Strict()
         from names in toSeq(convention.Beauty.Cons(layers.Map(static layer => layer.Name).Somes()).CountBy(static name => name))
-            .Traverse(static count => count.Value is 1 ? Fin.Succ(unit) : Error.New($"pass name {count.Key} repeats in one pass set"))
+            .Traverse(static count => count.Value is 1 ? Fin.Succ(unit) : Error.New($"Pass name {count.Key} repeats in pass set"))
             .As()
         select new PassSet(convention, layout, layers);
 
@@ -226,7 +226,7 @@ public sealed record PassSet {
         Layers.Map(static (layer, index) => (Frame: layer.Source, Index: index + 1))
             .Traverse(entry => entry.Frame.Extent == beauty.Extent && Layout.Map(parts: true, interleaved: entry.Frame.Window == beauty.Window)
                 ? Fin.Succ(unit)
-                : Error.New(string.Create(CultureInfo.InvariantCulture, $"pass layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from the beauty canvas")))
+                : Error.New(string.Create(CultureInfo.InvariantCulture, $"Pass layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from beauty canvas")))
             .As()
             .Map(static _ => unit);
 }
@@ -247,7 +247,7 @@ internal static class ExrParts {
 
         static Fin<Part> Part(StillFormat.ExrRaster exr, Seq<HeaderAttribute> attributes, Option<PassName> name, (long Left, long Top, long Right, long Bottom) window, Seq<ExrLayer> layers) {
             if (window.Right - 1L > int.MaxValue || window.Bottom - 1L > int.MaxValue)
-                return Error.New($"EXR window {window} exceeds the coordinates EXR holds");
+                return Error.New($"EXR window {window} exceeds EXR coordinate range");
             Seq<ChannelBuffer> buffers = layers.Bind(layer => Buffers(exr.Layout, layer)).Strict();
             Header header = new(
                 PartType.Scanline,

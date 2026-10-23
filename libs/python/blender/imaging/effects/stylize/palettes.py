@@ -25,16 +25,16 @@ class Posterize(msgspec.Struct, frozen=True, kw_only=True):
     """Rounds display values to evenly spaced levels with hue retention and Bayer dithering."""
 
     levels: Annotated[int, msgspec.Meta(ge=2, description="Values each channel rounds to, evenly spaced from 0 to 1"), Presentation(soft=Some((2.0, 256.0)))] = 9
-    channels: Annotated[Channels, msgspec.Meta(description="Each RGB channel or luminance as grey")] = Channels.RGB
-    retain_hue: Annotated[Unit, msgspec.Meta(description="Blend rounded RGB toward the input hue at rounded HSY saturation and luminance")] = 0.0
-    dither: Annotated[Gated[Unit], msgspec.Meta(description="Ordered 8-by-8 Bayer offset of the rounding threshold in levels")] = Gated(enabled=False, value=1.0)
-    dither_cell: Annotated[Gated[Annotated[FrameLength, Presentation(soft=Some((0.0, 0.01)))]], msgspec.Meta(description="Square Bayer cell size; disabled or below one pixel uses one pixel")] = Gated(
+    channels: Annotated[Channels, msgspec.Meta(description="Each RGB channel or luminance as gray")] = Channels.RGB
+    retain_hue: Annotated[Unit, msgspec.Meta(description="Blend toward input hue at rounded HSY saturation and luminance")] = 0.0
+    dither: Annotated[Gated[Unit], msgspec.Meta(description="Ordered 8-by-8 Bayer offset of rounding threshold in levels")] = Gated(enabled=False, value=1.0)
+    dither_cell: Annotated[Gated[Annotated[FrameLength, Presentation(soft=Some((0.0, 0.01)))]], msgspec.Meta(description="Square Bayer cell size, one pixel when off or smaller")] = Gated(
         enabled=False, value=0.0
     )
 
 
 class Palette(Effect, frozen=True, kw_only=True, tag=43):
-    """Reduces display colors to evenly spaced levels, then maps their luminance through a color ramp."""
+    """Rounds display colors to evenly spaced levels, then maps luminance through a color ramp."""
 
     stage = Stage.PALETTE
     pointwise = False

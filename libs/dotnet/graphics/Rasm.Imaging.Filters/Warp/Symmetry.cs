@@ -36,15 +36,15 @@ public sealed partial class KaleidoscopeParameter : IStateParameter<Kaleidoscope
     public static readonly KaleidoscopeParameter Mirrors = new("mirrors", StateParameter.Bounded(Lens<Kaleidoscope, MirrorCount>.New(static state => state.Mirrors, static mirrors => state => state with { Mirrors = mirrors }), new Presentation<int> { Soft = (1, 16) }),
         new("Mirrors", "Mirror lines through the center, drawing twice as many wedges"));
     public static readonly KaleidoscopeParameter Rotation = new("rotation", StateParameter.Bounded(Lens<Kaleidoscope, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation })),
-        new("Angle", "Turn of the first mirror line, counterclockwise"));
+        new("Angle", "First mirror line turn, counterclockwise"));
     public static readonly KaleidoscopeParameter Center = new("center", new StateParameter<Kaleidoscope>.Record<FramePosition>(Lens<Kaleidoscope, FramePosition>.New(static state => state.Center, static center => state => state with { Center = center })),
         new("Center", "Point the warp centers on"));
     public static readonly KaleidoscopeParameter Zoom = new("zoom", StateParameter.Bounded(Lens<Kaleidoscope, TransformScale>.New(static state => state.Zoom, static zoom => state => state with { Zoom = zoom })),
-        new("Zoom", "Magnification of the wedges' source about the center"));
+        new("Zoom", "Wedge source magnification about the center"));
     public static readonly KaleidoscopeParameter Sampling = new("sampling", new StateParameter<Kaleidoscope>.Choice<Sampling>(Lens<Kaleidoscope, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly KaleidoscopeParameter Wrap = new("wrap", new StateParameter<Kaleidoscope>.Choice<WrapMode>(Lens<Kaleidoscope, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<Kaleidoscope> Kind { get; }
     public ParameterText Text { get; }

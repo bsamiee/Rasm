@@ -1,4 +1,4 @@
-"""LUT formats, encoded lattices, and native text and image interchange."""
+"""LUT formats, encoded lattices, and text and image LUT files."""
 
 from collections.abc import Iterable, Mapping
 import math
@@ -32,64 +32,64 @@ class LutLayout(Choice):
 
 
 class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
-    """Provider's format name and file extension stored together."""
+    """OCIO format name with file extension."""
 
     name: str
     extension: str
 
     @classmethod
     def of(cls, formats: Iterable[tuple[str, str]]) -> tuple[Self, ...]:
-        """Converts native format pairs into persistent format records in provider order."""
+        """Returns records of format pairs in input order."""
         return tuple(cls(name=name, extension=extension) for name, extension in formats)
 
     @classmethod
     def bakeable(cls) -> tuple[Self, ...]:
-        """Formats the native baker writes."""
+        """Returns formats `Baker` writes."""
         return cls.of(PyOpenColorIO.Baker.getFormats())
 
     @classmethod
     def writable(cls) -> tuple[Self, ...]:
-        """Formats a native transform group writes exactly."""
+        """Returns formats `GroupTransform` writes exactly."""
         return cls.of(PyOpenColorIO.GroupTransform.GetWriteFormats())
 
     @classmethod
     def readable(cls) -> tuple[Self, ...]:
-        """Formats a native file transform reads."""
+        """Returns formats `FileTransform` reads."""
         return cls.of(PyOpenColorIO.FileTransform.getFormats())
 
     @classmethod
     def matrices(cls) -> tuple[Self, ...]:
-        """Exactly written formats the native baker also writes."""
+        """Returns formats both `GroupTransform` and `Baker` write."""
         return tuple(row for row in cls.writable() if row in cls.bakeable())
 
 
 class Uniform(Case, frozen=True, kw_only=True, tag=1):
-    """Nodes evenly spaced between native allocation endpoints."""
+    """Nodes evenly spaced between allocation endpoints."""
 
     limit: ClassVar[float] = float(np.nextafter(np.float32(np.inf), np.float32(0)))
-    low: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at the first uniform node")] = 0.0
-    high: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at the last uniform node")] = 1.0
+    low: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at first node")] = 0.0
+    high: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at last node")] = 1.0
 
 
 class Logarithmic(Case, frozen=True, kw_only=True, tag=2):
-    """Nodes evenly spaced in stops with scene zero on the first node."""
+    """Nodes evenly spaced in stops, scene zero on first node."""
 
-    low: Annotated[float, msgspec.Meta(ge=-24.0, le=16.0, description="Stops from 1.0 to the first node above zero")] = -10.0
-    span: Annotated[float, msgspec.Meta(gt=0.0, le=40.0, description="Stops from the low allocation to the high allocation")] = 20.0
+    low: Annotated[float, msgspec.Meta(ge=-24.0, le=16.0, description="Stops from 1.0 to first nonzero node")] = -10.0
+    span: Annotated[float, msgspec.Meta(gt=0.0, le=40.0, description="Stops from low to high allocation")] = 20.0
 
 
 class Rational(Case, frozen=True, tag=3):
-    """Nodes encoded by x / (x + 1) over the nonnegative half-float domain."""
+    """Nodes encoded by x / (x + 1) over nonnegative half floats."""
 
 
 type Spacing = Uniform | Logarithmic | Rational
 
 
 class Lattice(msgspec.Struct, frozen=True, kw_only=True):
-    """Cube's edge length and node encoding."""
+    """Cube edge length and node encoding."""
 
     size: Annotated[int, msgspec.Meta(ge=2, le=129, description="Nodes along each axis")] = 33
-    spacing: Annotated[Spacing, msgspec.Meta(description="Encoding ahead of the table")] = Uniform()
+    spacing: Annotated[Spacing, msgspec.Meta(description="Encoding before table")] = Uniform()
 
     @property
     def head(self) -> Option[PyOpenColorIO.Transform]:
@@ -109,7 +109,7 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
                 return Some(table)
 
     def samples(self) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Returns decoded RGB node inputs, or a native encoding processor refusal."""
+        """Returns decoded RGB node inputs, or color fault."""
         grid = (
             np.linspace(self.spacing.low, self.spacing.high, self.size, dtype=np.float64).astype(np.float32)
             if isinstance(self.spacing, Uniform)
@@ -124,21 +124,21 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
         ).default_value(Ok(plane))
 
     def transform(self, outputs: npt.NDArray[np.float32]) -> PyOpenColorIO.GroupTransform:
-        """Builds a tetrahedral table from sampled outputs and its node encoding."""
+        """Builds tetrahedral table of `outputs` after node encoding."""
         table = PyOpenColorIO.Lut3DTransform(gridSize=self.size, interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)
         table.setData(np.ascontiguousarray(outputs.reshape(self.size, self.size, self.size, 3).transpose(2, 1, 0, 3)).reshape(-1))
         return PyOpenColorIO.GroupTransform(transforms=[*self.head.to_list(), table])
 
 
 class Bake(Case, frozen=True, kw_only=True, tag=1):
-    """Source resampled into native format tables at encoded lattice nodes."""
+    """Source resampled at encoded lattice nodes."""
 
     format: LutFormat
     lattice: Lattice = Lattice()
 
 
 class Exact(Case, frozen=True, kw_only=True, tag=2):
-    """Source's operators written without resampling."""
+    """Source operators written without resampling."""
 
     format: LutFormat
 
@@ -152,14 +152,14 @@ type LutOutput = Bake | Exact
 
 
 def image_read(path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenColorIO.GroupTransform]:
-    """Reads a Hald or KeyShot image as a native uniform cube.
+    """Reads Hald or KeyShot image as uniform cube.
 
     Args:
-        path: Image to read, its dimensions selecting the layout.
-        config: Config resolving the data role without a color conversion.
+        path: Image with dimensions selecting layout.
+        config: Config resolving `data` role.
 
     Returns:
-        The native table group; image IO, unsupported shape, or native table refusals.
+        Table group, or `read`, LUT shape, and `color` faults.
     """
 
     def decoded(image: ImageFile[np.float32]) -> ImagingResult[PyOpenColorIO.GroupTransform]:
@@ -185,15 +185,15 @@ def image_read(path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenC
 
 
 def image_written(layout: LutLayout, table: PyOpenColorIO.Lut3DTransform, path: str) -> ImagingResult[str]:
-    """Exports a native cube's stored nodes through a 16-bit image spec.
+    """Writes stored cube nodes as 16-bit image.
 
     Args:
-        layout: Arrangement of the cube's nodes in the image.
-        table: Uniform cube whose stored values are exported.
-        path: Final image path, using a writer that preserves UINT16 for 16-bit nodes.
+        layout: Node arrangement in image.
+        table: Uniform cube to write.
+        path: Image path with suffix of a UINT16 writer.
 
     Returns:
-        The final path; an incompatible Hald edge or native image write refusal.
+        Path, LUT shape fault when Hald size is no perfect square, or `write` fault.
     """
     size = table.getGridSize()
     cube = table.getData().reshape(size, size, size, 3).transpose(2, 1, 0, 3)

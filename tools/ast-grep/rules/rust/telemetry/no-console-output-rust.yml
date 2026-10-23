@@ -42,5 +42,5 @@ rule:
                 - has: {kind: token_tree, has: {matches: stream-token, regex: '^stderr$'}}
                 - not: {matches: entry}
         - not: {matches: sink-crate}
-message: '`$OUT` writes a diagnostic outside the tracing subscriber or a result outside `main`'
-note: 'Emit a diagnostic as `tracing::<level>!(<fields>, "<message>")` and write a command-line result to stdout from `main`'
+message: '`$OUT` writes to stderr outside the tracing subscriber or to stdout outside `main`'
+note: 'Emit diagnostics through `tracing::<level>!(<fields>, "<message>")` and write results to stdout from `main`'

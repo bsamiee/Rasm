@@ -7,5 +7,5 @@ rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^(ArtifactsPath|UseArtifactsOutput|ArtifactsProjectName|BaseIntermediateOutputPath|MSBuildProjectExtensionsPath)$', pattern: _PROPERTY}}}
         - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}}}
-message: '`$PROPERTY` in a project file arrives after the SDK read it before the project body'
-note: Assign the property in `Directory.Build.props`
+message: '`$PROPERTY` in a project file sets a value the SDK read before the project body'
+note: Set the property in `Directory.Build.props`

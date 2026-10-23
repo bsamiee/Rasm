@@ -84,7 +84,7 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
                 <p className="chapter-lead empty:hidden">{entry.description}</p>
             </div>
             {entry.compositions.length > 0 ? (
-                <section aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
+                <section aria-label={`${title} views`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
                     <div className={carousel ? 'grid-cols-trailing-pair grid items-center gap-x-3 gap-y-2' : ''}>
                         {carousel && (
                             <>
@@ -113,8 +113,7 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
                 </section>
             ) : (
                 <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                    <h4 className="text-xl">No compositions yet</h4>
-                    <p className="hint">Drawings and images will appear here as they are published.</p>
+                    <h4 className="text-xl">No views yet</h4>
                 </div>
             )}
             {details.length > 0 && (

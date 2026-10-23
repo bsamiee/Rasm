@@ -1,4 +1,4 @@
-"""HTTP exchanges with a server endpoint inside one client scope."""
+"""HTTP exchanges inside one client scope."""
 
 from collections.abc import Callable
 from http import HTTPMethod
@@ -17,17 +17,17 @@ from blender.rendering.faults import Cause, RenderingResult, RenderingSendFault
 
 
 class Endpoint(msgspec.Struct, frozen=True, kw_only=True):
-    """Server address and the seconds each socket wait allows."""
+    """Server address with socket timeout."""
 
-    url: Annotated[str, msgspec.Meta(title="URL", description="Server address with its scheme")]
-    timeout: Annotated[Positive, msgspec.Meta(description="Seconds each connect, read, and write waits"), Presentation(quantity=Some(Quantity.DURATION))] = 10.0
+    url: Annotated[str, msgspec.Meta(title="URL", description="Server address with scheme")]
+    timeout: Annotated[Positive, msgspec.Meta(description="Seconds per connect, read, and write"), Presentation(quantity=Some(Quantity.DURATION))] = 10.0
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def opened[T](endpoint: Endpoint, operation: Callable[[httpx2.Client], RenderingResult[T]]) -> RenderingResult[T]:
-    """Runs an operation inside one client scope over an endpoint."""
+    """Runs operation inside one client scope."""
     try:
         client = httpx2.Client(base_url=httpx2.URL(endpoint.url), timeout=httpx2.Timeout(endpoint.timeout))
     except (httpx2.InvalidURL, ValueError):
@@ -46,7 +46,7 @@ def opened[T](endpoint: Endpoint, operation: Callable[[httpx2.Client], Rendering
 
 
 def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[msgspec.Struct | bytes] = Nothing) -> RenderingResult[httpx2.Response]:
-    """Sends a request on the client base URL and answers its successful response."""
+    """Sends request, non-success status as fault."""
     match body.to_optional():
         case msgspec.Struct() as content:
             request = client.build_request(method, path, content=msgspec.json.encode(content), headers={"Content-Type": "application/json"})
@@ -69,7 +69,7 @@ def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[msgs
 
 
 def exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: type[T], body: Option[msgspec.Struct | bytes] = Nothing) -> RenderingResult[T]:
-    """Sends a request on the client base URL and decodes its JSON reply."""
+    """Sends request and decodes JSON reply."""
     return sent(client, method, path, body).bind(
         lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(
             lambda _: (RenderingSendFault(request=str(response.request.url), error=Cause.UNREADABLE),)

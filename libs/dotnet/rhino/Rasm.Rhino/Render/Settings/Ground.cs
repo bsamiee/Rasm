@@ -84,18 +84,18 @@ public sealed partial class GroundPlaneParameter : IStateParameter<GroundPlaneSt
 
     public static readonly GroundPlaneParameter Enabled = new("enabled", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
-        new("Show ground plane", "Renders the ground plane"));
+        new("Show ground plane", "Renders ground plane"));
     public static readonly GroundPlaneParameter ShowUnderside = new("show-underside", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.ShowUnderside, static on => state => state with { ShowUnderside = on })),
-        new("Show underside", "Renders the plane's underside, off renders it single-sided"));
+        new("Show underside", "Renders plane underside"));
     public static readonly GroundPlaneParameter Altitude = new("altitude", new StateParameter<GroundPlaneState>.OptionalNumeric<Length, double>(Lens<GroundPlaneState, Gated<Length>>.New(
         static state => state.Altitude.Match(Some: static height => new Gated<Length>(Enabled: true, height), None: static () => new Gated<Length>(Enabled: false, Length.Zero)),
         static gate => state => state with { Altitude = gate.Active }),
         Height),
-        new("Height above world XY", "Fixed height of the plane, off places it at the automatic height below the lowest object"));
+        new("Height above world XY", "Fixed plane height, off places plane below lowest object"));
     public static readonly GroundPlaneParameter ShadowOnly = new("shadow-only", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.ShadowOnly, static on => state => state with { ShadowOnly = on })),
-        new("Show shadows only", "Catches shadows alone, off renders the plane's material"));
+        new("Show shadows only", "Catches shadows alone, off renders plane material"));
     public static readonly GroundPlaneParameter TextureOffsetLocked = new("texture-offset-locked", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.TextureOffsetLocked, static locked => state => state with { TextureOffsetLocked = locked })),
         new("Lock offset", "Moves both offset axes together"));
@@ -112,10 +112,10 @@ public sealed partial class GroundPlaneParameter : IStateParameter<GroundPlaneSt
         new("Size Y", "Texture repeat size along world Y"));
     public static readonly GroundPlaneParameter TextureRotation = new("texture-rotation", StateParameter.Bounded(Lens<GroundPlaneState, NorthAngle>.New(static state => state.TextureRotation, static rotation => state => state with { TextureRotation = rotation }),
         new Presentation<double> { Unit = Quantity.GetUnitInfo(UnitsNet.Units.AngleUnit.Degree), Step = 1d, Decimals = 0 }),
-        new("Rotation", "Texture rotation about the world origin plus the offset"));
+        new("Rotation", "Texture rotation about world origin moved by offset"));
     public static readonly GroundPlaneParameter MaterialInstanceId = new("material-instance-id", new StateParameter<GroundPlaneState>.OptionalRaw<Guid>(
         Lens<GroundPlaneState, Option<Guid>>.New(static state => state.MaterialInstanceId, static material => state => state with { MaterialInstanceId = material })),
-        new("Material", "The render material instance assigned to the ground plane"));
+        new("Material", "Render material assigned to ground plane"));
 
     public StateParameter<GroundPlaneState> Kind { get; }
 

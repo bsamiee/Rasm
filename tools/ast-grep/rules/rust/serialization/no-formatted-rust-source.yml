@@ -52,5 +52,5 @@ rule:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(concat|join)$'}}, {has: {field: value, kind: array_expression, has: {nthChild: 1, matches: item-head}}}]}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: item-text}}]}
-message: '`$SOURCE` writes Rust source as text'
+message: '`$SOURCE` builds Rust source as text'
 note: 'Build the item as `quote!` tokens, parse them with `syn::parse2::<syn::File>`, and print with `prettyplease::unparse`'

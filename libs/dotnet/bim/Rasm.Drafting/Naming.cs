@@ -236,7 +236,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
             .IfNone(this);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref NamingStandard standard, ref HashMap<NameField, string> fields) =>
-        validationError = Accepts(standard, fields) ? null : new ValidationError($"fields must fit the {standard} naming standard");
+        validationError = Accepts(standard, fields) ? null : new ValidationError($"fields break naming standard {standard}");
 
     private static bool Accepts(NamingStandard standard, HashMap<NameField, string> fields) =>
         standard.Fields.ForAll(field => fields.Find(field).Match(Some: field.Allows, None: () => !field.Required))

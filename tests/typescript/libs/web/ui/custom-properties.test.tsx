@@ -4,12 +4,12 @@ import { render } from 'vitest-browser-react';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('resolves each declared property on the element its scope attribute selects', async () => {
+it('resolves declared properties on element with scope attribute', async () => {
     const screen = await render(<CustomProperties properties={{ '--ratio': 1.5, '--tone': 'red' }}>{(scope) => <p {...scope}>Scoped</p>}</CustomProperties>);
     const style = getComputedStyle(screen.getByText('Scoped').element());
     expect([style.getPropertyValue('--ratio'), style.getPropertyValue('--tone')]).toEqual(['1.5', 'red']);
 });
-it('hoists one shared rule into the head for scopes with equal declarations', async () => {
+it('hoists one shared head rule for scopes with equal declarations', async () => {
     const screen = await render(
         <>
             <CustomProperties properties={{ '--ratio': 2 }}>{(scope) => <p {...scope}>First</p>}</CustomProperties>

@@ -63,7 +63,7 @@ enum Signal {
 enum Exporter {
     #[default]
     None,
-    #[value(help = "OTLP over HTTP/protobuf to the endpoint, headers, timeout, and gzip compression the OTEL_EXPORTER_OTLP_* variables name")]
+    #[value(help = "OTLP over HTTP/protobuf, settings from OTEL_EXPORTER_OTLP_* variables")]
     Otlp,
 }
 
@@ -81,12 +81,12 @@ enum Propagator {
 #[group(skip)]
 #[command(next_help_heading = "Telemetry")]
 pub struct Options {
-    #[arg(long, global = true, env = EnvFilter::DEFAULT_ENV, value_name = "DIRECTIVE", value_delimiter = ',', help = "Tracing filter directives over the program's defaults")]
+    #[arg(long, global = true, env = EnvFilter::DEFAULT_ENV, value_name = "DIRECTIVE", value_delimiter = ',', help = "Tracing filter directives over program defaults")]
     log: Vec<Directive>,
-    #[arg(long, global = true, env = "OTEL_SERVICE_NAME", value_name = "NAME", help = "Service name over the program name, its attributes, and OTEL_RESOURCE_ATTRIBUTES")]
+    #[arg(long, global = true, env = "OTEL_SERVICE_NAME", value_name = "NAME", help = "Service name over program defaults and OTEL_RESOURCE_ATTRIBUTES")]
     service_name: Option<String>,
     #[arg(long, global = true, env = "OTEL_PROPAGATORS", value_name = "PROPAGATOR", value_enum, value_delimiter = ',', default_values_t = [Propagator::TraceContext, Propagator::Baggage])]
-    #[arg(help = "Context propagators every carrier injects and extracts")]
+    #[arg(help = "Propagators injecting and extracting context")]
     propagators: Vec<Propagator>,
     #[arg(long, global = true, env = "OTEL_TRACES_EXPORTER", value_name = "EXPORTER", value_enum, default_value_t, help = "Exporter receiving spans")]
     traces_exporter: Exporter,
@@ -225,7 +225,7 @@ impl Options {
 
 #[derive(Debug, thiserror::Error)]
 enum Failed {
-    #[error("cannot parse the program's filter directives")]
+    #[error("program filter directives did not parse")]
     Filter(#[source] ParseError),
     #[error("cannot build OTLP {signal} exporter")]
     Build { signal: Signal, source: ExporterBuildError },

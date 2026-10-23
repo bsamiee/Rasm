@@ -108,4 +108,4 @@ rule:
         - matches: percent-encoding
         - matches: query-split
 message: '`$URL` builds or parses URL text by hand'
-note: 'Build and read the URL through `url::Url` methods, encoding values through `url::form_urlencoded`'
+note: 'Extend a `url::Url` through `path_segments_mut` and `query_pairs_mut().append_pair`, read a query through `url::form_urlencoded::parse`'

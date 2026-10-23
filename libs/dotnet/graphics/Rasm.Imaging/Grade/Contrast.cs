@@ -58,13 +58,13 @@ public sealed partial class ContrastGradeParameter : IStateParameter<ContrastGra
     };
 
     public static readonly ContrastGradeParameter Contrast = new("contrast", StateParameter.Bounded(Lens<ContrastGrade, Contrast>.New(static grade => grade.Contrast, static contrast => grade => grade with { Contrast = contrast }), new Presentation<float> { Origin = (float)Grade.Contrast.Neutral }),
-        new("Contrast", "Exponent about the pivot gray, one leaving the image unchanged"));
+        new("Contrast", "Exponent about pivot gray, image unchanged at one"));
     public static readonly ContrastGradeParameter Pivot = new("pivot", StateParameter.Bounded(Lens<ContrastGrade, ContrastPivot>.New(static grade => grade.Pivot, static pivot => grade => grade with { Pivot = pivot }), new Presentation<float> { Origin = (float)ContrastPivot.MiddleGray }),
-        new("Pivot", "Gray the contrast turns about, in stops from middle gray"));
+        new("Pivot", "Stops from middle gray"));
     public static readonly ContrastGradeParameter Vibrance = new("vibrance", StateParameter.Bounded(Lens<ContrastGrade, SignedFraction>.New(static grade => grade.Vibrance, static vibrance => grade => grade with { Vibrance = vibrance })),
-        new("Vibrance", "Saturation gain that falls as a pixel's saturation rises"));
+        new("Vibrance", "Saturation gain falling as saturation rises"));
     public static readonly ContrastGradeParameter Saturation = new("saturation", StateParameter.Bounded(Lens<ContrastGrade, Magnitude>.New(static grade => grade.Saturation, static saturation => grade => grade with { Saturation = saturation }), Chroma),
-        new("Saturation", "Distance from working luminance, zero rendering gray"));
+        new("Saturation", "Distance from working luminance, gray at zero"));
 
     public StateParameter<ContrastGrade> Kind { get; }
     public ParameterText Text { get; }

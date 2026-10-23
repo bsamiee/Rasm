@@ -40,7 +40,7 @@ rule:
     all:
         - has: {field: condition, pattern: $TEST, matches: absence-test}
         - has: {field: consequence, matches: throwing}
-message: '`if $TEST` throws in place of the failure case of an absent value'
+message: '`if $TEST` throws on an absent value in place of a typed failure'
 note: 'Fail through `Effect.fromOption` or `Effect.fail` with a tagged variant, or call `Option.getOrThrow` where construction rules out absence'
 labels:
     IF: {style: primary}

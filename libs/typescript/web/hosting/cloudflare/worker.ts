@@ -9,7 +9,7 @@ const worker = <Env extends object, A, E>(routes: (env: Env) => Layer.Layer<A, E
     return {
         fetch: Effect.fn('fetch')(function* (request: Request, env: Env & Partial<Record<typeof accessBinding, Access>>) {
             const { [accessBinding]: access } = env;
-            const forward = (admitted: Request) => Effect.promise(() => serve(env)(admitted, Context.empty()));
+            const forward = (inbound: Request) => Effect.promise(() => serve(env)(inbound, Context.empty()));
             const response = yield* access === undefined ? forward(request) : authenticate(request, access, forward);
             const length = response.headers.get('Content-Length');
             return response.body === null || length === null ? response : new Response(response.body.pipeThrough(new FixedLengthStream(Number(length))), response);

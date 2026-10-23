@@ -68,4 +68,4 @@ transform:
     QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '${1}.'}}
 fix: "'$QUALIFIER$NAME'"
 message: '`Effect.fn($SPAN)` names the span of `$QUALIFIER$NAME` with another name'
-note: 'Name the span `<name>` for a variable, `<Class>.<member>` for a class field, and `<Service>.<key>` for a service implementation key'
+note: 'Name the span after its binding, `<Class>.<member>` for a class field and `<Service>.<key>` for a service key'

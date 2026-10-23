@@ -44,8 +44,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let viewed = source.peel_borrows();
             let bounded = if let ExprKind::Index(base, index, _) = viewed.kind { Some((base, Range::hir(cx, index))) } else { None };
             let suffix = if mutable { "_mut" } else { "" };
-            let (replacement, exact) = match bounded {
-                Some((base, Some(Range { ty: RangeTy::OpsTo, start: None, end: Some(_), .. }))) => (format!("{}.first_chunk{suffix}(){copied}", text(base)), false),
+            let (receiver, method, exact) = match bounded {
+                Some((base, Some(Range { ty: RangeTy::OpsTo, start: None, end: Some(_), .. }))) => (base, format!("first_chunk{suffix}"), false),
                 Some((base, Some(Range { ty: RangeTy::OpsFrom, start: Some(start), end: None, .. })))
                     if let ExprKind::Binary(
                         Spanned { node: BinOpKind::Sub, .. },
@@ -53,18 +53,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         _,
                     ) = start.kind
                         && eq_expr_value(cx, expr.span.ctxt(), measured, base) =>
-                    (format!("{}.last_chunk{suffix}(){copied}", text(base)), false),
-                Some(_) | None => (format!("{}.as{suffix}_array(){copied}", text(viewed)), true),
+                    (base, format!("last_chunk{suffix}"), false),
+                Some(_) | None => (viewed, format!("as{suffix}_array"), true),
             };
             let converted = method_call_on(cx, expr).filter(|&(_, ok)| ok.is_diag_item(cx, sym::result_ok_method)).map(|(call, _)| call);
+            let help = if converted.is_some() { format!("call `<[T]>::{method}`") } else { format!("call `<[T]>::{method}` and handle `None`") };
             span_lint_hir_and_then(cx, MANUAL_SLICE_AS_ARRAY, expr.hir_id, expr.span, format!("fallible conversion checks the length of `{}` to view it as `{target}`", text(viewed)), |diag| {
                 suggest(
                     cx,
                     expr.hir_id,
                     diag,
                     converted.map_or(expr.span, |ok| ok.span),
-                    "view the slice with the `Option`-returning method",
-                    replacement,
+                    help,
+                    format!("{}.{method}(){copied}", text(receiver)),
                     if exact && converted.is_some() { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect },
                 );
             });

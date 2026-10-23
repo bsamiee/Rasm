@@ -20,14 +20,14 @@ class PeakMapping(Effect, frozen=True, kw_only=True, tag=7):
 
     stage = Stage.PEAK
     pointwise = True
-    source_peak: Annotated[Luminance, msgspec.Meta(description="Brightest luminance the frame holds")] = 10000.0
-    target_peak: Annotated[Luminance, msgspec.Meta(description="Peak luminance the display reaches")] = 1000.0
+    source_peak: Annotated[Luminance, msgspec.Meta(description="Brightest frame luminance")] = 10000.0
+    target_peak: Annotated[Luminance, msgspec.Meta(description="Display peak luminance")] = 1000.0
     black: Annotated[
         Unit,
-        msgspec.Meta(title="Display Black", description="Display black as a share of the fitted peak's luminance, the inverse of the display's contrast ratio"),
+        msgspec.Meta(title="Display Black", description="Share of fitted peak luminance, inverse of display contrast ratio"),
         Presentation(soft=Some((0.0, 0.001)), step=Some(0.00001), decimals=Some(6)),
     ] = 0.0
-    knee_offset: Annotated[float, msgspec.Meta(ge=0.5, le=2.0, description="Offset from the fitted peak down to the knee, 0.5 in BT.2390"), Presentation(step=Some(0.01), decimals=Some(2))] = 0.5
+    knee_offset: Annotated[float, msgspec.Meta(ge=0.5, le=2.0, description="Offset from fitted peak down to knee, 0.5 in BT.2390"), Presentation(step=Some(0.01), decimals=Some(2))] = 0.5
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

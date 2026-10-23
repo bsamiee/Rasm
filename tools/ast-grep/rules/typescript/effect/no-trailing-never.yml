@@ -57,4 +57,4 @@ rule:
                         kind: call_expression
                         has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^sleep$'}}}}
 message: '`$NEVER` holds the program open after its last step'
-note: 'Run the program as `Layer.launch(Layer.effectDiscard(<program>))`, a layer open until interruption with its scope closing with the runtime'
+note: 'Remove the trailing wait and run the program as `Layer.launch(Layer.effectDiscard(<program>))`'

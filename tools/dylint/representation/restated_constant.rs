@@ -23,7 +23,7 @@ pub(crate) struct Pass {
     named: FxHashMap<Symbol, DefId>,
 }
 
-lint!(Pass; RESTATED_CONSTANT: "string literals spelling a constant that a direct dependency the crate already names declares after the string");
+lint!(Pass; RESTATED_CONSTANT: "string literals equal to a public `&str` constant of a direct dependency named after the uppercased literal");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
@@ -74,7 +74,7 @@ impl Pass {
         {
             let named = cx.tcx.def_path_str(constant);
             span_lint_hir_and_then(cx, RESTATED_CONSTANT, node, span, format!("`\"{text}\"` spells `{named}`"), |diag| {
-                suggest(cx, node, diag, span, "name the constant its crate declares for the string", &named, Applicability::MaybeIncorrect);
+                suggest(cx, node, diag, span, "replace the literal with the constant", &named, Applicability::MaybeIncorrect);
             });
         }
     }

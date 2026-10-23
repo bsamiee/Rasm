@@ -18,5 +18,5 @@ utils:
 rule:
     kind: attribute_item
     has: {kind: attribute, has: {stopBy: end, matches: rust-instrument-fields, has: {matches: rendering-call, pattern: $FORMAT}}}
-message: '`$FORMAT` renders a value to text before the `#[instrument]` span records it'
-note: 'Record each value as its own field (`<name> = %<value>`, `<name> = ?<value>`)'
+message: '`$FORMAT` renders an `#[instrument]` field value to text before the span records it'
+note: 'Record the value as `<name> = %<value>` for `Display` or `<name> = ?<value>` for `Debug`'

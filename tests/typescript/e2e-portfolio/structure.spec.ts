@@ -2,7 +2,7 @@ import { expect, test } from '#/fixtures';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-test('editor dialog holds its actions, status, and tabs', async ({ owner }) => {
+test('editor dialog holds actions, status, and tabs', async ({ owner }) => {
     await expect(owner.getByRole('dialog', { name: 'Portfolio editor.' })).toMatchAriaSnapshot(`
       - dialog "Portfolio editor.":
         - heading "Portfolio editor." [level=2]
@@ -22,18 +22,18 @@ test('editor dialog holds its actions, status, and tabs', async ({ owner }) => {
             - grid "Projects and studies"
     `);
 });
-test('entry removal asks for confirmation and returns focus to the kept entry', async ({ owner }, { testId }) => {
+test('entry removal asks for confirmation, Keep returns focus to entry', async ({ owner }, { testId }) => {
     const editor = owner.getByRole('dialog', { name: 'Portfolio editor.' });
     const title = `Harbor Library ${testId}`;
     const entry = editor.getByRole('grid', { name: 'Projects and studies' }).getByRole('row', { name: title });
     await editor.getByRole('button', { name: 'New project' }).click();
     await editor.getByRole('textbox', { name: 'Title' }).fill(title);
-    await editor.getByRole('button', { name: 'Change project' }).click();
+    await editor.getByRole('button', { name: 'Back to entries' }).click();
     await entry.getByRole('button', { name: 'Remove entry' }).click();
     await expect(owner.getByRole('alertdialog', { name: 'Remove entry?' })).toMatchAriaSnapshot(`
       - alertdialog "Remove entry?":
         - heading "Remove entry?" [level=2]
-        - paragraph: Remove this entry from your draft. Source files remain in the library. Publish to apply this change to the public site.
+        - paragraph: Source files stay in library. Published work changes on next publish
         - button "Keep"
         - button "Remove entry"
     `);

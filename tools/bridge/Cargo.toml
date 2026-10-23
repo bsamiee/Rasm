@@ -9,7 +9,7 @@ edition.workspace    = true
 keywords             = ["mcp", "modelcontextprotocol", "stdio", "streamable-http", "proxy"]
 license.workspace    = true
 repository.workspace = true
-description          = "Bridges a stdio MCP server to Streamable HTTP"
+description          = "Serves a stdio MCP server over Streamable HTTP"
 
 # --- [NX]
 [package.metadata.nx.targets."test:integration"]

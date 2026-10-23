@@ -37,4 +37,4 @@ transform:
     TAIL2: {replace: {source: $C, replace: '^(.*)$', by: '.$1'}}
     TAIL3: {replace: {source: $D, replace: '^(.*)$', by: '.$1'}}
 message: 'Event or span records `$NAME$TAIL$TAIL2$TAIL3` twice'
-note: 'Record each value under its own field name, counting a trailing format string as field `message`'
+note: 'Delete or rename the repeated field, a trailing format string records field `message`'

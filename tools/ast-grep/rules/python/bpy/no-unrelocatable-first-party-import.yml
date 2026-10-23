@@ -10,5 +10,5 @@ rule:
     matches: python-imported-module
     regex: '^blender(\.|$)'
     not: {inside: {kind: import_from_statement, field: module_name}}
-message: '`$MODULE` imports a first-party root in a form the extension pack leaves absolute, resolving to nothing inside an installed extension'
-note: 'Write `from <import root>.<module> import <member>`'
+message: '`$MODULE` import stays absolute through extension packing and resolves to nothing in an installed extension'
+note: 'Write `from blender.<module> import <member>`'

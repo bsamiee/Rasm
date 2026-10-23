@@ -49,5 +49,5 @@ rule:
                         - has: {field: left, has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: '^-$'}}}
 constraints:
     Y: {not: {kind: 'integer_literal, float_literal, unary_expression'}}
-message: 'Ray-casting crossing test checks by hand whether `$A` and `$B` straddle `$Y`'
-note: 'Build a `geo::Polygon` and call `geo::Contains::contains(&polygon, &point)`, or `geo::Intersects::intersects` when a boundary point counts as inside'
+message: 'Crossing test of `$A` and `$B` against `$Y` runs a point-in-polygon ray cast by hand'
+note: 'Build a `geo::Polygon` and call `geo::Contains::contains(&polygon, &point)`, or `geo::Intersects::intersects` to count a boundary point as inside'

@@ -1,11 +1,11 @@
 import sqlite from 'tree-sitter-sqlite3/grammar.js';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const keyword = (word) => alias(new RegExp([...word].map((c) => `[${c.toUpperCase()}${c.toLowerCase()}]`).join(''), 'u'), word.toUpperCase());
 const balanced = (depth) => (depth === 0 ? '[^{}]' : `(?:[^{}]|\\{${balanced(depth - 1)}*\\})`);
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export default grammar(sqlite, {
     name: sqlite.grammar.name,

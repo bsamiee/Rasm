@@ -124,5 +124,5 @@ rule:
         - not: {matches: host-arguments-dropped}
 transform:
     HEAD: {replace: {source: $BODY, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-message: 'Function forwards its parameters unchanged into `$HEAD`'
-note: 'Pass `<callee>`, `flow(<inner>, <callee>)`, data-last `<Module>.<op>(<args>)`, or `Function.identity` where `<callee>` reads only forwarded arguments'
+message: 'Function forwards its parameters unchanged to `$HEAD`'
+note: 'Pass `<callee>` itself, `flow(<inner>, <callee>)` for a nested call, data-last `<Module>.<op>(<args>)`, or `Function.identity`'

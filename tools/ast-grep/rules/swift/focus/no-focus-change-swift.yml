@@ -49,4 +49,4 @@ rule:
             - has: {field: target, regex: '\.activates$'}
             - has: {field: result, regex: '^true$'}
 message: '`$SITE` takes focus from the frontmost application'
-note: 'Launch and open through an `OpenConfiguration` holding `activates = false`, act on windows by Accessibility actions other than `AXRaise`, and send no `activate` event or script'
+note: 'Open through an `OpenConfiguration` with `activates = false`, act on windows by Accessibility actions except `AXRaise`, and delete each activation'

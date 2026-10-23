@@ -1,4 +1,4 @@
-"""Native channel mixing and color-space interpretation selected by a union menu."""
+"""Channel mixing or color-space conversion by union menu."""
 
 import bpy
 from expression import Ok
@@ -14,13 +14,13 @@ from blender.imaging.faults import paired
 
 
 def remapped(shell: Shell[Primaries]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns both remap branches with an animatable native union menu.
+    """Returns both remap branches behind animatable union menu.
 
     Args:
-        shell: Native entry inputs, menu items, and retained conversion parameters.
+        shell: Entry inputs, menu items, and retained conversion parameters.
 
     Returns:
-        Native body and result endpoint, or accumulated space and graph faults.
+        Body and result endpoint, or accumulated space and graph faults.
     """
     (remap,) = Primaries.__struct_fields__
     entering = shell.source

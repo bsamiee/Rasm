@@ -202,7 +202,7 @@ public abstract partial record Transfer : IConvertible<string> {
             [GammaForm, var exponent] => PositiveMagnitude.TryParse(exponent, CultureInfo.InvariantCulture, out PositiveMagnitude parsed) ? new Gamma(parsed) : null,
             _ => TransferCurve.TryGet(value, out TransferCurve? curve) ? new Standard(curve) : CameraLog.TryGet(value, out CameraLog? log) ? new Camera(log) : null,
         };
-        return value is not null && item is null ? new ValidationError($"transfer '{value}' must name a transfer curve, a camera log, or {GammaForm}:<exponent>") : null;
+        return value is not null && item is null ? new ValidationError($"transfer '{value}' must name transfer curve, camera log, or {GammaForm}:<exponent>") : null;
     }
 
     public string ToValue() => Switch(
@@ -259,7 +259,7 @@ public abstract partial record Transfer : IConvertible<string> {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StandardTransferParameter : IStateParameter<Transfer.Standard> {
     public static readonly StandardTransferParameter Curve = new("curve", new StateParameter<Transfer.Standard>.Choice<TransferCurve>(Lens<Transfer.Standard, TransferCurve>.New(static transfer => transfer.Curve, static curve => transfer => transfer with { Curve = curve })),
-        new("Curve", "Transfer function of the table's input and output"));
+        new("Curve", "Table input and output transfer function"));
 
     public StateParameter<Transfer.Standard> Kind { get; }
     public ParameterText Text { get; }
@@ -281,7 +281,7 @@ public sealed partial class GammaTransferParameter : IStateParameter<Transfer.Ga
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CameraTransferParameter : IStateParameter<Transfer.Camera> {
     public static readonly CameraTransferParameter Log = new("log", new StateParameter<Transfer.Camera>.Choice<CameraLog>(Lens<Transfer.Camera, CameraLog>.New(static transfer => transfer.Log, static log => transfer => transfer with { Log = log })),
-        new("Camera log", "Camera encoding of the table's input and output"));
+        new("Camera log", "Table input and output camera encoding"));
 
     public StateParameter<Transfer.Camera> Kind { get; }
     public ParameterText Text { get; }
@@ -396,11 +396,11 @@ public sealed partial class GamutCompressionParameter : IStateParameter<GamutCom
     public static readonly GamutCompressionParameter Target = new("target", new StateParameter<GamutCompression>.OptionalChoice<Gamut>(Lens<GamutCompression, Option<Gamut>>.New(static state => state.Target, static value => state => state with { Target = value }), "Working"),
         new("Gamut", "Primaries the compression measures distances in"));
     public static readonly GamutCompressionParameter CyanThreshold = new("cyan-threshold", StateParameter.Bounded(Lens<GamutCompression, CompressionThreshold>.New(static state => state.CyanThreshold, static value => state => state with { CyanThreshold = value }), ThresholdTrack),
-        new("Cyan threshold", "Red distance from the achromatic axis where compression begins"));
+        new("Cyan threshold", "Red distance from achromatic axis where compression begins"));
     public static readonly GamutCompressionParameter MagentaThreshold = new("magenta-threshold", StateParameter.Bounded(Lens<GamutCompression, CompressionThreshold>.New(static state => state.MagentaThreshold, static value => state => state with { MagentaThreshold = value }), ThresholdTrack),
-        new("Magenta threshold", "Green distance from the achromatic axis where compression begins"));
+        new("Magenta threshold", "Green distance from achromatic axis where compression begins"));
     public static readonly GamutCompressionParameter YellowThreshold = new("yellow-threshold", StateParameter.Bounded(Lens<GamutCompression, CompressionThreshold>.New(static state => state.YellowThreshold, static value => state => state with { YellowThreshold = value }), ThresholdTrack),
-        new("Yellow threshold", "Blue distance from the achromatic axis where compression begins"));
+        new("Yellow threshold", "Blue distance from achromatic axis where compression begins"));
     public static readonly GamutCompressionParameter CyanLimit = new("cyan-limit", StateParameter.Bounded(Lens<GamutCompression, CompressionLimit>.New(static state => state.CyanLimit, static value => state => state with { CyanLimit = value }), LimitTrack),
         new("Cyan limit", "Red distance compressed onto the gamut boundary"));
     public static readonly GamutCompressionParameter MagentaLimit = new("magenta-limit", StateParameter.Bounded(Lens<GamutCompression, CompressionLimit>.New(static state => state.MagentaLimit, static value => state => state with { MagentaLimit = value }), LimitTrack),
@@ -408,7 +408,7 @@ public sealed partial class GamutCompressionParameter : IStateParameter<GamutCom
     public static readonly GamutCompressionParameter YellowLimit = new("yellow-limit", StateParameter.Bounded(Lens<GamutCompression, CompressionLimit>.New(static state => state.YellowLimit, static value => state => state with { YellowLimit = value }), LimitTrack),
         new("Yellow limit", "Blue distance compressed onto the gamut boundary"));
     public static readonly GamutCompressionParameter Power = new("power", StateParameter.Bounded(Lens<GamutCompression, CompressionPower>.New(static state => state.Power, static value => state => state with { Power = value }), new Presentation<float> { Soft = (CompressionPower.MinValue, 2f) }),
-        new("Power", "Exponent of the compression curve"));
+        new("Power", "Compression curve exponent"));
 
     public StateParameter<GamutCompression> Kind { get; }
     public ParameterText Text { get; }

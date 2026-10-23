@@ -1,7 +1,7 @@
 {
     "name": "@rasm/hosting",
     "private": true,
-    "description": "Foundation for web apps served from an edge Worker or a Node server: server-rendered pages with schema-encoded hydration data, one signed-in user header contract served by OpenAI Sites, Cloudflare Access, or an authenticating proxy, R2 or S3 object storage, the Worker config schema every hosting target maps, and HTTP API boundaries",
+    "description": "Web app hosting on edge Worker or Node server with server-rendered pages, schema-encoded hydration data, one signed-in user header from OpenAI Sites, Cloudflare Access, or authenticating proxy, R2 or S3 object storage, Worker config schema every hosting target maps, and HTTP API boundaries",
     "sideEffects": false,
     "type": "module",
     "imports": {

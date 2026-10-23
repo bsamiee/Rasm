@@ -33,5 +33,5 @@ rule:
     all:
         - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|Where|Find|Exists|Filter)$', pattern: $METHOD}}, {has: {field: expression, matches: thinktecture-smart-enum-items, has: {field: expression, pattern: $TYPE}}}]}
         - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: key-predicate}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
-message: '`$METHOD` scans every `$TYPE` item for the one holding a key'
-note: 'Read the item through generated `Get(key)`, or `TryGet(key, out item)` where the key can miss'
+message: '`$METHOD` scans every `$TYPE` item for a key'
+note: 'Call the generated `<type>.Get(<key>)`, or `<type>.TryGet(<key>, out var <item>)` where the key can miss'

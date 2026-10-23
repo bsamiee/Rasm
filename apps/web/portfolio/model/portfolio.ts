@@ -21,14 +21,12 @@ const Entry = Schema.Struct({
 const PortfolioStructure = Schema.Struct({
     name: text,
     introduction: text,
-    email: Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'a complete email address or an empty field' })).pipe(Schema.withConstructorDefault(Effect.succeed(''))),
+    email: Schema.String.check(Schema.makeFilter((value) => value === '' || isEmail(value), { expected: 'email address or empty string' })).pipe(Schema.withConstructorDefault(Effect.succeed(''))),
     hero: Schema.optionalKey(Placement),
     entries: Schema.Array(Entry).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
 });
 const uniqueIds = Schema.makeFilter((document: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
-    [{ path: ['entries'], ids: document.entries.map(({ id }) => id) }, ...document.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
-        new Set(ids).size === ids.length ? [] : [{ path, issue: 'Each item needs a unique ID' }],
-    ),
+    [{ path: ['entries'], ids: document.entries.map(({ id }) => id) }, ...document.entries.map((entry, index) => ({ path: ['entries', index, 'compositions'], ids: entry.compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) => (new Set(ids).size === ids.length ? [] : [{ path, issue: 'Duplicate IDs' }])),
 );
 const Portfolio = PortfolioStructure.check(uniqueIds);
 const StoredPortfolio = Schema.toEncoded(PortfolioStructure).check(uniqueIds);

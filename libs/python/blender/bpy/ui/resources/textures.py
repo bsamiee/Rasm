@@ -1,4 +1,4 @@
-"""Native RGBA texture uploads and package-scoped preview caches."""
+"""GPU texture uploads and preview texture caches."""
 
 from collections import OrderedDict
 from collections.abc import Hashable
@@ -18,7 +18,7 @@ from blender.imaging.color.processors import unassociated
 
 
 class TextureCache(msgspec.Struct, frozen=True, kw_only=True):
-    """Package preview textures acquired once by their registration scope."""
+    """Preview textures of one package."""
 
     identity: Identity
     held: ClassVar[dict[str, OrderedDict[Hashable, gpu.types.GPUTexture]]] = {}
@@ -26,49 +26,41 @@ class TextureCache(msgspec.Struct, frozen=True, kw_only=True):
     # --- [LIFECYCLE]
 
     def __enter__(self) -> None:
-        """Creates the package's cache for the registration lifetime."""
+        """Creates package texture cache."""
         TextureCache.held[self.identity.package] = OrderedDict()
 
     def __exit__(self, *_: object) -> None:
-        """Drops the package's owned texture references at release."""
+        """Drops package texture references."""
         del TextureCache.held[self.identity.package]
 
     # --- [CACHING]
 
     @property
     def memory(self) -> int:
-        """Estimated base-level RGBA16F pixel bytes, excluding mipmaps and driver storage."""
+        """Estimated RGBA16F base-level pixel bytes."""
         return sum(texture.width * texture.height for texture in TextureCache.held[self.identity.package].values()) * 4 * np.dtype(np.float16).itemsize
 
     def shown(self, key: Hashable) -> Option[gpu.types.GPUTexture]:
-        """Reads a texture and marks it most recently shown.
-
-        Args:
-            key: Content digest or retained request identity of the preview.
-
-        Returns:
-            Some of the held native texture, or Nothing when absent.
-        """
+        """Reads texture by content digest or request key, marking it most recent."""
         if (texture := (textures := (TextureCache.held[self.identity.package])).get(key)) is not None:
             textures.move_to_end(key)
         return Option.of_optional(texture)
 
     def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable]) -> BlenderResult[gpu.types.GPUTexture]:
-        """Uploads straight display colors and evicts the oldest unpinned previews past the limit.
+        """Uploads unassociated display colors, evicting oldest unpinned textures past limit.
 
         Args:
-            key: Content digest including color transfer, or retained render demand.
-            plane: Top-first float32 RGBA pixels with associated display colors.
-            limit: Caller-owned cache preference.
-            kept: Preview keys retained by open editors.
+            key: Content digest with color transfer, or render request key.
+            plane: Top-first RGBA with associated display colors.
+            limit: Texture count past which eviction starts.
+            kept: Keys open editors pin.
 
         Returns:
-            Ok of the uploaded texture, including when eviction removed its cache reference,
-            or Error of the native GPU initialization or allocation refusal.
+            Uploaded texture, even when evicted, or GPU fault.
         """
 
         def published(texture: gpu.types.GPUTexture) -> gpu.types.GPUTexture:
-            """Publishes a completed upload and releases excess cache references."""
+            """Caches upload, evicting entries past limit."""
             textures = TextureCache.held[self.identity.package]
             textures[key] = texture
             textures.move_to_end(key)
@@ -83,15 +75,7 @@ class TextureCache(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def uploaded(plane: npt.NDArray[np.float32]) -> BlenderResult[gpu.types.GPUTexture]:
-    """Uploads RGBA pixels into a native half-float texture.
-
-    Args:
-        plane: Top-first float32 RGBA pixels in the caller's color space.
-
-    Returns:
-        Ok of an RGBA16F texture with bottom-first rows and the supplied alpha,
-        or Error of the native GPU initialization or allocation refusal.
-    """
+    """Uploads top-first RGBA into RGBA16F texture with bottom-first rows."""
     pixels = np.ascontiguousarray(plane[::-1])
     try:
         gpu.init()

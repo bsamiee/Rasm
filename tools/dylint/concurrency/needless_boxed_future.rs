@@ -1,4 +1,9 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, peel_blocks, res::MaybeQPath as _};
+use clippy_utils::{
+    diagnostics::span_lint_hir_and_then,
+    peel_blocks,
+    res::{MaybeDef as _, MaybeQPath as _},
+    sym,
+};
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_hir::{
     AmbigArg, Body, Expr, ExprKind, FnDecl, FnRetTy, ImplItem, ImplItemKind, MatchSource, TraitItem, TraitItemKind, TyKind,
@@ -6,18 +11,34 @@ use rustc_hir::{
     intravisit::FnKind,
 };
 use rustc_lint::{LateContext, LateLintPass};
+use rustc_middle::ty::{Ty, print::with_forced_trimmed_paths};
 use rustc_span::Span;
 
 use super::boxed_future;
 use crate::{any_expr, expanded_externally, exported, fn_item_value, signature};
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+struct Boxed {
+    output: Span,
+    bounds: String,
+    send: bool,
+}
+
+impl Boxed {
+    fn new<'tcx>(cx: &LateContext<'tcx>, output: Span, boxed: Ty<'tcx>) -> Option<Self> {
+        let predicates = boxed_future(cx, boxed)?;
+        Some(Self { output, bounds: with_forced_trimmed_paths!(predicates.to_string()), send: predicates.auto_traits().any(|auto| auto.is_diag_item(cx, sym::Send)) })
+    }
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 #[derive(Default)]
 pub(crate) struct Pass {
-    returns: FxIndexMap<LocalDefId, Span>,
+    returns: FxIndexMap<LocalDefId, Boxed>,
     pointers: FxHashSet<LocalDefId>,
-    declared: FxIndexMap<LocalDefId, Span>,
+    declared: FxIndexMap<LocalDefId, Boxed>,
     objects: FxHashSet<DefId>,
 }
 
@@ -32,9 +53,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         } && !expanded_externally(cx, span)
             && let FnRetTy::Return(output) = declaration.output
             && !exported(cx, item)
-            && boxed_future(cx, signature(cx.tcx, item.to_def_id()).output()).is_some()
+            && let Some(boxed) = Boxed::new(cx, output.span, signature(cx.tcx, item.to_def_id()).output())
         {
-            self.returns.insert(item, output.span);
+            self.returns.insert(item, boxed);
         }
     }
 
@@ -43,9 +64,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !expanded_externally(cx, item.span)
             && let FnRetTy::Return(output) = declared.decl.output
             && !exported(cx, item.owner_id.def_id)
-            && boxed_future(cx, signature(cx.tcx, item.owner_id.to_def_id()).output()).is_some()
+            && let Some(boxed) = Boxed::new(cx, output.span, signature(cx.tcx, item.owner_id.to_def_id()).output())
         {
-            self.declared.insert(item.owner_id.def_id, output.span);
+            self.declared.insert(item.owner_id.def_id, boxed);
         }
     }
 
@@ -53,10 +74,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if let ImplItemKind::Type(declared) = item.kind
             && !expanded_externally(cx, item.span)
             && !exported(cx, item.owner_id.def_id)
-            && boxed_future(cx, cx.tcx.normalize_erasing_regions(cx.typing_env(), cx.tcx.type_of(item.owner_id).instantiate_identity())).is_some()
+            && let Some(boxed) = Boxed::new(cx, declared.span, cx.tcx.normalize_erasing_regions(cx.typing_env(), cx.tcx.type_of(item.owner_id).instantiate_identity()))
         {
-            span_lint_hir_and_then(cx, NEEDLESS_BOXED_FUTURE, item.hir_id(), declared.span, format!("associated type `{}` is `Pin<Box<dyn Future>>`", item.ident), |diag| {
-                diag.help(format!("declare `type {} = impl Future` with the same bounds under `#![feature(impl_trait_in_assoc_type)]`", item.ident));
+            span_lint_hir_and_then(cx, NEEDLESS_BOXED_FUTURE, item.hir_id(), boxed.output, format!("associated type `{}` is `Pin<Box<dyn Future>>`", item.ident), |diag| {
+                diag.help(format!("declare `type {} = impl {}` under `#![feature(impl_trait_in_assoc_type)]`", item.ident, boxed.bounds));
             });
         }
     }
@@ -74,40 +95,36 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
-        for (&method, &output) in self.declared.iter().filter(|(method, _)| !self.objects.contains(&cx.tcx.parent(method.to_def_id()))) {
+        for (&method, boxed) in self.declared.iter().filter(|(method, _)| !self.objects.contains(&cx.tcx.parent(method.to_def_id()))) {
             let (name, declared) = (cx.tcx.item_name(method), cx.tcx.item_name(cx.tcx.parent(method.to_def_id())));
             span_lint_hir_and_then(
                 cx,
                 NEEDLESS_BOXED_FUTURE,
                 cx.tcx.local_def_id_to_hir_id(method),
-                output,
+                boxed.output,
                 format!("`{declared}::{name}` returns `Pin<Box<dyn Future>>` with no `dyn {declared}` use"),
                 |diag| {
-                    diag.help(if boxed_future(cx, signature(cx.tcx, method.to_def_id()).output()) == Some(true) {
-                        format!("declare `async fn {name}` and require `Send` at call sites with `T: {declared}<{name}(..): Send>`")
-                    } else {
-                        format!("declare `async fn {name}`")
-                    });
+                    diag.help(if boxed.send { format!("return `impl {}`", boxed.bounds) } else { format!("declare `async fn {name}`") });
                 },
             );
         }
-        for (&function, &output) in self.returns.iter().filter(|(function, _)| !self.pointers.contains(function)) {
+        for (&function, boxed) in self.returns.iter().filter(|(function, _)| !self.pointers.contains(function)) {
             let body = &cx.tcx.hir_body_owned_by(function).value;
             let typeck = cx.tcx.typeck(function);
             let recursive = any_expr(cx.tcx, body, |called| called.res(typeck).opt_def_id().or_else(|| typeck.type_dependent_def_id(called.hir_id)) == Some(function.to_def_id()));
             let name = cx.tcx.item_name(function);
             let help = if recursive {
-                "declare `async fn` and box the recursive call"
+                format!("declare `async fn {name}` with the recursive call in `Box::pin`")
             } else if matches!(peel_blocks(body).kind, ExprKind::If(..) | ExprKind::Match(_, _, MatchSource::Normal)) {
-                "move the branches into one `async move` block and return `impl Future`"
+                format!("return `impl {}` from one `async move` block holding the branches", boxed.bounds)
             } else {
-                "return `impl Future` with the same bounds"
+                format!("return `impl {}`", boxed.bounds)
             };
             span_lint_hir_and_then(
                 cx,
                 NEEDLESS_BOXED_FUTURE,
                 cx.tcx.local_def_id_to_hir_id(function),
-                output,
+                boxed.output,
                 format!("`{name}` returns `Pin<Box<dyn Future>>` with no function pointer use"),
                 |diag| {
                     diag.help(help);

@@ -28,7 +28,7 @@ fn refused_install_keeps_process_globals() -> Result<(), clap::Error> {
     assert_eq!(
         (held.is_ok(), code, worked, global::get_text_map_propagator(|propagator| propagator.fields().count()), log::max_level()),
         (true, ExitCode::FAILURE, false, 0, log::LevelFilter::Off),
-        "refused install touched the process"
+        "refused install changed process globals"
     );
     Ok(())
 }

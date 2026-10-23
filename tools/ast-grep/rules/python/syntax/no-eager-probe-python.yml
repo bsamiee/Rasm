@@ -46,5 +46,5 @@ rule:
             - has: {field: operators, regex: '^(not\s+)?in$'}
             - has: {nthChild: 2, matches: materialized}
             - not: {matches: python-invariant-index-test}
-message: '`$TEST` builds every match to learn whether one exists'
-note: 'Use `any(<test> for <item> in <source>)`, or `any(<value> == <needle> for ...)` for membership'
+message: '`$TEST` builds every match to test whether one exists'
+note: 'Call `any(<test> for <item> in <source>)`, negated for an emptiness test, with `<needle> == <item>` as `<test>` for membership'

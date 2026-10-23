@@ -117,5 +117,5 @@ transform:
     PRESENT: {rewrite: {source: $SEARCH, rewriters: [instance-presence, array-presence, array-contains]}}
     NOT: {replace: {source: $ABSENT, replace: '(?s).+', by: '!'}}
 fix: $NOT$PRESENT
-message: '`$SEARCH` compares an index against the not-found sentinel to test presence'
-note: 'Call `Contains`, `ContainsAny`, or `Exists` in place of the index comparison'
+message: 'Presence test compares `$SEARCH` against the not-found index sentinel'
+note: 'Call `Contains`, `ContainsAny`, or `Exists`, negated with `!` for an absence test'

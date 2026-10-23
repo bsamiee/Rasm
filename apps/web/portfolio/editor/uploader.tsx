@@ -28,7 +28,7 @@ const uppy = Atom.make((get) => {
         onBeforeFileAdded: (file, queued) => {
             const target = get.registry.get(destination);
             if (target.kind === 'hero' && Object.values(queued).some((item) => item.meta.destination.kind === 'hero' && item.progress.uploadComplete !== true)) {
-                uploader.info('Finish or remove the queued hero file before adding another.', 'info');
+                uploader.info('Finish or remove queued hero file first', 'info');
                 return false;
             }
             return { ...file, meta: { ...file.meta, destination: target } };
@@ -37,7 +37,7 @@ const uppy = Atom.make((get) => {
     preprocess(
         uploader,
         Effect.fnUntraced(function* ({ meta: { destination: target }, name, type }, data) {
-            const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file'), catch: (cause) => new Cause.UnknownError(cause, 'The file reader could not load, so the file was not added. Retry it.') });
+            const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file'), catch: (cause) => new Cause.UnknownError(cause, 'File reader failed to load. Retry file') });
             const { asset, renditions } = yield* inspectFile({ data, id: yield* identifier, name, mime: type });
             const compositions = yield* Effect.forEach(
                 target.kind === 'entry' && !Schema.is(PdfAsset)(asset) ? placementsFor(asset) : [],

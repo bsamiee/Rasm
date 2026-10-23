@@ -22,7 +22,7 @@ public sealed partial class QueueHeartbeat {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Duration interval, ref int misses) =>
         validationError = interval >= Intervals.Low && interval <= Intervals.High && misses >= MissedIntervals.Low
             ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"progress needs an interval inside [{Intervals.Low}, {Intervals.High}] and at least {MissedIntervals.Low} missed intervals"));
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Heartbeat needs interval in [{Intervals.Low}, {Intervals.High}] and at least {MissedIntervals.Low} missed intervals"));
 }
 
 [SmartEnum<string>]
@@ -137,7 +137,7 @@ internal static class ProgressMapper {
     internal static Fin<T> Parsed<T>(ParseResult<T> parsed, string text) =>
         parsed.Success ? parsed.Value : Unparsed(text);
 
-    private static Error Unparsed(string text) => Errors.ParseError($"Render queue record text {text} is unreadable");
+    private static Error Unparsed(string text) => Errors.ParseError($"Render queue record text {text} did not parse");
 
     private static Fin<(ContentKey Key, EntryProgress Progress)> Entry(ProgressRecord.Entry entry) =>
         (

@@ -27,5 +27,5 @@ rule:
         - all:
             - has: {stopBy: *member, matches: primitive, regex: '^boolean$'}
             - has: {stopBy: *member, matches: literal, has: {kind: 'true, false'}}
-message: '`$UNION` holds a constituent redundant beside `$WIDE`'
-note: 'Drop the constituent the wider one includes, or write `string & {}` in place of `string` to keep a literal for editor completion'
+message: '`$UNION` reduces to fewer constituents through `$WIDE`'
+note: 'Remove each constituent the union reduces away, or write `string & {}` in place of `string` to keep literal completions'

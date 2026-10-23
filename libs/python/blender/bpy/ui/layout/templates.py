@@ -1,4 +1,4 @@
-"""Native template binding policy and data-block preview rows."""
+"""Rows drawn through UILayout templates."""
 
 from collections.abc import Callable, Mapping
 
@@ -21,13 +21,13 @@ from blender.imaging.parameters import Choice, heading, Rgb
 
 
 class Wheel(Line, frozen=True, kw_only=True):
-    """Grading picker with an optional luma slider and aligned RGB components."""
+    """Grading color picker with luma slider and RGB components."""
 
     color: Binding
     luma: Option[Binding] = Nothing
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the color and luma bindings, drawing the picker while a reached luma source is absent."""
+        """Binds color and luma, skipping absent luma source."""
 
         def slider(parts: tuple[Resolved, ...]) -> RowDraw:
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -57,13 +57,13 @@ class Wheel(Line, frozen=True, kw_only=True):
 
 
 class Ranged(Line, frozen=True, kw_only=True):
-    """Expanded range choice with the selected member's acquired grading wheel."""
+    """Range choice with selected range's grading wheel."""
 
     chooser: FieldInfo
     wheels: Mapping[Choice, Wheel]
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires every declared range in enum order and retains each wheel's condition."""
+        """Realizes wheel per range with its condition."""
 
         def draw(choices: type[Choice], draws: Mapping[Choice, RowDraw]) -> RowDraw:
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -90,7 +90,7 @@ class Ranged(Line, frozen=True, kw_only=True):
 
 
 class IconView(Line, frozen=True, kw_only=True):
-    """Enum thumbnail browser at the caller's chosen native widget scale."""
+    """Enum thumbnail picker at caller widget scale."""
 
     choice: Binding
     scale: float
@@ -98,7 +98,7 @@ class IconView(Line, frozen=True, kw_only=True):
     scale_popup: float = 5.0
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the enum binding and draws native preview IDs at each redraw."""
+        """Binds enum and draws its preview icons each redraw."""
         return templated(
             self.choice,
             (bpy.types.EnumProperty,),
@@ -110,7 +110,7 @@ class IconView(Line, frozen=True, kw_only=True):
 
 
 class Preview(Line, frozen=True, kw_only=True):
-    """Shaded data-block preview or its existing native icon at the caller's scale."""
+    """Shaded data-block preview or its preview icon."""
 
     block: Binding
     scale: float
@@ -120,7 +120,7 @@ class Preview(Line, frozen=True, kw_only=True):
     preview_id: str = ""
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the ID binding without creating or writing a preview during drawing."""
+        """Binds ID, drawing without creating or writing a preview."""
 
         def place(layout: bpy.types.UILayout, owner: Native, key: str, _context: bpy.types.Context) -> None:
             match getattr(owner, key):
@@ -135,14 +135,14 @@ class Preview(Line, frozen=True, kw_only=True):
 
 
 class ShelfPopover(Line, frozen=True, kw_only=True):
-    """Registered shelf button resolving its package glyph at each redraw."""
+    """Asset shelf popover button."""
 
     popup: ShelfPopup
     name: Option[str] = Nothing
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the native shelf name and retains draw-time icon refresh."""
+        """Resolves shelf idname, reading glyph each draw."""
 
         def draw(idname: str) -> RowDraw:
             return lambda layout, _holder, _context: layout.template_asset_shelf_popover(idname, name=self.name.default_value(""), icon_value=iconed(identity, self.icon))
@@ -152,13 +152,13 @@ class ShelfPopover(Line, frozen=True, kw_only=True):
 
 
 class ImageFormat(Line, frozen=True, kw_only=True):
-    """Image encoding settings followed by their native multiview controls."""
+    """Image encoding settings followed by multiview controls."""
 
     settings: Binding
     color_management: bool = False
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the image format pointer and composes its format and views blocks."""
+        """Binds image format, adding view settings under multiview."""
 
         def place(layout: bpy.types.UILayout, owner: Native, key: str, context: bpy.types.Context) -> None:
             settings = getattr(owner, key)
@@ -170,12 +170,12 @@ class ImageFormat(Line, frozen=True, kw_only=True):
 
 
 class Shortcut(Line, frozen=True, kw_only=True):
-    """Current user's keymap counterparts rendered as named key caps."""
+    """User keymap items as key caps."""
 
     keymap: Keymap
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns live key caps without capturing replaceable user keymap items."""
+        """Returns key caps reading user keymap items each draw."""
 
         def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for _, item in self.keymap.counterparts(context):
@@ -190,7 +190,7 @@ class Shortcut(Line, frozen=True, kw_only=True):
 def templated(
     binding: Binding, kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]", forms: tuple[type[object], ...], place: Callable[[bpy.types.UILayout, Native, str, bpy.types.Context], None]
 ) -> BlenderResult[RowDraw]:
-    """Admits static or reached native metadata and places the template at each located owner."""
+    """Validates property metadata and places template at each owner."""
 
     def draw(held: tuple[Resolved, ...]) -> RowDraw:
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:

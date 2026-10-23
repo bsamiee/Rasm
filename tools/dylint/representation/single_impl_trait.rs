@@ -1,6 +1,7 @@
-use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::{diagnostics::span_lint_hir_and_then, source::snippet};
 use itertools::Itertools as _;
 use rustc_data_structures::fx::FxIndexMap;
+use rustc_errors::listify;
 use rustc_hir::{AmbigArg, Ty, TyKind, def::DefKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, AssocKind, AssocTypeData, print::with_forced_trimmed_paths};
@@ -38,24 +39,34 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && let Some(single) = tcx.all_impls(declared).exactly_one().ok()
                 && !(tcx.generics_of(single).requires_monomorphization(tcx) && self.objects.contains_key(&declared))
             {
-                Some((item.hir_id(), declared, tcx.type_of(single).instantiate_identity().skip_normalization()))
+                Some((item.hir_id(), declared, single, tcx.type_of(single).instantiate_identity().skip_normalization()))
             } else {
                 None
             }
         });
-        for (node, declared, implementor) in singles {
+        for (node, declared, single, implementor) in singles {
             let name = tcx.def_path_str(declared);
             let local = implementor.ty_adt_def().is_some_and(|adt| adt.did().is_local());
+            let bound = if let ty::Param(param) = implementor.kind()
+                && let Some(generics) = single.as_local().and_then(|implementation| tcx.hir_get_generics(implementation))
+                && let Some(param) = tcx.generics_of(single).type_param(*param, tcx).def_id.as_local()
+            {
+                generics.bounds_for_param(param).flat_map(|predicate| predicate.bounds).map(|bound| snippet(cx, bound.span(), "..")).join(" + ")
+            } else {
+                String::new()
+            };
+            let called = listify(&tcx.associated_items(declared).in_definition_order().filter(|associated| associated.is_fn()).collect::<Vec<_>>(), |method| format!("`{}`", method.name()))
+                .map_or_default(|methods| format!(" and call the bound in place of {methods}"));
             span_lint_hir_and_then(cx, SINGLE_IMPL_TRAIT, node, tcx.def_span(declared), with_forced_trimmed_paths!(format!("trait `{name}` is implemented only for `{implementor}`")), |diag| {
                 if let Some(objects) = self.objects.get(&declared).map(|objects| objects.iter().copied().filter(|&object| !expanded_externally(cx, object)).collect::<Vec<_>>())
                     && !objects.is_empty()
                 {
                     diag.span_note(objects, with_forced_trimmed_paths!(format!("`dyn {name}` always holds `{implementor}`")));
                 }
-                diag.help(match (local, matches!(implementor.kind(), ty::Param(_))) {
-                    (true, _) => with_forced_trimmed_paths!(format!("replace the trait with an inherent `impl {implementor}` block")),
-                    (false, true) => with_forced_trimmed_paths!(format!("replace `{name}` with the bound on `{implementor}`, named as `trait {name} = <bound>;` under `#![feature(trait_alias)]`")),
-                    (false, false) => with_forced_trimmed_paths!(format!("delete the trait and declare each method as a function taking the `{implementor}`")),
+                diag.help(match (local, bound.is_empty()) {
+                    (true, _) => with_forced_trimmed_paths!(format!("replace `{name}` with an inherent `impl {implementor}` block")),
+                    (false, false) => format!("replace `{name}` with `trait {name} = {bound};` under `#![feature(trait_alias)]`{called}"),
+                    (false, true) => with_forced_trimmed_paths!(format!("delete `{name}` and declare each method as a function taking `{implementor}`")),
                 });
             });
         }

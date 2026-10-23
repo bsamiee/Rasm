@@ -19,7 +19,7 @@ type Side = Annotated[int, msgspec.Meta(ge=1)]
 
 
 class Fit(Choice):
-    """Camera axis the sensor size spans."""
+    """Camera axis sensor size spans."""
 
     AUTO = 1
     HORIZONTAL = 2
@@ -27,7 +27,7 @@ class Fit(Choice):
 
 
 class Broadcast(Choice):
-    """Broadcast standard of a safe area preset."""
+    """Broadcast standard of safe area preset."""
 
     WIDE = 1, "16:9"
     PROTECTED = 2, "14:9 in 16:9"
@@ -38,45 +38,41 @@ class Broadcast(Choice):
 
 
 class Whole(Case, frozen=True, kw_only=True, tag=5):
-    """Whole frame, grown on each side by the overscan."""
+    """Whole frame grown on each side by overscan."""
 
     title = "Whole Frame"
-    overscan: Annotated[
-        NonNegative, msgspec.Meta(description="Fraction of each frame side added beyond each edge, the camera grown to keep the frame's view"), Presentation(soft=Some((0.0, 0.25)), decimals=Some(3))
-    ] = 0.0
+    overscan: Annotated[NonNegative, msgspec.Meta(description="Share of frame side added past each edge, camera widened to keep view"), Presentation(soft=Some((0.0, 0.25)), decimals=Some(3))] = 0.0
 
 
 class Region(Case, frozen=True, kw_only=True, tag=6):
-    """Rectangle of the frame measured from its bottom-left corner, rendered alone."""
+    """Frame rectangle from bottom-left, rendered alone."""
 
-    left: Annotated[Unit, msgspec.Meta(description="Left edge as a fraction of the frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
-    bottom: Annotated[Unit, msgspec.Meta(description="Bottom edge as a fraction of the frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
-    right: Annotated[Unit, msgspec.Meta(description="Right edge as a fraction of the frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 1.0
-    top: Annotated[Unit, msgspec.Meta(description="Top edge as a fraction of the frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0
-    crop: Annotated[bool, msgspec.Meta(description="Write the region's pixels alone in place of the whole frame")] = False
+    left: Annotated[Unit, msgspec.Meta(description="Share of frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
+    bottom: Annotated[Unit, msgspec.Meta(description="Share of frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
+    right: Annotated[Unit, msgspec.Meta(description="Share of frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 1.0
+    top: Annotated[Unit, msgspec.Meta(description="Share of frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0
+    crop: Annotated[bool, msgspec.Meta(description="Writes region pixels alone")] = False
 
 
 class Framing(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame size, pixel aspect, pixel density, and the extent a render covers."""
+    """Frame size, aspect, density, and render extent."""
 
     resolution_x: Annotated[Side, msgspec.Meta(description="Horizontal pixels at full scale")] = 1920
     resolution_y: Annotated[Side, msgspec.Meta(description="Vertical pixels at full scale")] = 1080
-    resolution_percentage: Annotated[int, msgspec.Meta(ge=1, title="Resolution Scale", description="Percentage of the full size rendered"), Presentation(soft=Some((1.0, 100.0)), step=Some(10.0))] = (
-        100
-    )
-    pixel_aspect_x: Annotated[Positive, msgspec.Meta(description="Horizontal pixel aspect")] = 1.0
-    pixel_aspect_y: Annotated[Positive, msgspec.Meta(description="Vertical pixel aspect")] = 1.0
-    density: Annotated[Positive, msgspec.Meta(title="Pixel Density", description="Pixels per meter written into files that store a density")] = 72 / 0.0254
-    extent: Annotated[Extents, msgspec.Meta(description="Whole frame with its overscan, or a region rendered alone")] = Whole()
+    resolution_percentage: Annotated[int, msgspec.Meta(ge=1, title="Resolution Scale", description="Percentage of full size rendered"), Presentation(soft=Some((1.0, 100.0)), step=Some(10.0))] = 100
+    pixel_aspect_x: Positive = 1.0
+    pixel_aspect_y: Positive = 1.0
+    density: Annotated[Positive, msgspec.Meta(title="Pixel Density", description="Pixels per meter in file metadata")] = 72 / 0.0254
+    extent: Annotated[Extents, msgspec.Meta(description="Whole frame with overscan, or region rendered alone")] = Whole()
 
     @property
     def size(self) -> tuple[int, int]:
-        """Frame pixels after the percentage, each axis floored."""
+        """Frame pixels after percentage, each axis floored."""
         return self.resolution_x * self.resolution_percentage // 100, self.resolution_y * self.resolution_percentage // 100
 
     @property
     def padding(self) -> tuple[int, int]:
-        """Pixels the overscan adds beyond each edge per axis."""
+        """Overscan pixels beyond each edge per axis."""
         width, height = self.size
         match self.extent:
             case Whole(overscan=overscan):
@@ -86,7 +82,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
                 return 0, 0
 
     def pixels(self) -> RenderingResult[tuple[int, int]]:
-        """Answers covered pixels or the native region representation refusal."""
+        """Returns covered pixels, or arithmetic fault of float32 region bounds."""
         (width, height), (pad_x, pad_y) = self.size, self.padding
         match self.extent:
             case Whole():
@@ -100,9 +96,9 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
                 return guarded(RenderingArithmeticFault, (width, height), counted)
 
     def rendered(self, bounds: tuple[int, int]) -> RenderingResult[tuple[Self, tuple[Side, Side]]]:
-        """Admits covered pixels and fits overscan within the receiving renderer's bounds."""
+        """Validates pixels, folding overscan into resolution within renderer bounds."""
 
-        def admitted(pixels: tuple[int, int]) -> RenderingResult[tuple[Self, tuple[Side, Side]]]:
+        def validated(pixels: tuple[int, int]) -> RenderingResult[tuple[Self, tuple[Side, Side]]]:
             if any(side < 1 for side in pixels):
                 return Error((RenderingSizeFault(request=pixels, error=Nothing),))
             pad_x, pad_y = self.padding
@@ -116,26 +112,26 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
                 else Error((RenderingSizeFault(request=pixels, error=Some(bounds)),))
             )
 
-        return self.pixels().bind(admitted)
+        return self.pixels().bind(validated)
 
     def growth(self, fit: Fit) -> Option[Fraction]:
-        """Returns exact camera growth on the fit axis, absent for a zero-pixel axis."""
+        """Returns exact camera growth on fit axis, Nothing for zero-pixel axis."""
         (width, height), (pad_x, pad_y) = self.size, self.padding
         pad, side = (pad_x, width) if fit is Fit.HORIZONTAL or (fit is Fit.AUTO and width * Fraction(self.pixel_aspect_x) >= height * Fraction(self.pixel_aspect_y)) else (pad_y, height)
         return Some(Fraction(side + 2 * pad, side)) if side else Nothing
 
 
 class SafeAreas(msgspec.Struct, frozen=True, kw_only=True):
-    """Title and action safe margins of the frame and its center cut."""
+    """Title and action safe margins of frame and center cut."""
 
-    title: Annotated[Inset, msgspec.Meta(title="Title Safe", description="Fraction of each frame side outside the area for text and graphics, half beyond each edge")] = (0.1, 0.05)
-    action: Annotated[Inset, msgspec.Meta(title="Action Safe", description="Fraction of each frame side outside the area for general elements, half beyond each edge")] = (0.035, 0.035)
-    title_center: Annotated[Inset, msgspec.Meta(title="Center-Cut Title Safe", description="Title safe margins of the center-cut frame")] = (0.175, 0.05)
-    action_center: Annotated[Inset, msgspec.Meta(title="Center-Cut Action Safe", description="Action safe margins of the center-cut frame")] = (0.15, 0.05)
+    title: Annotated[Inset, msgspec.Meta(title="Title Safe", description="Share of frame side outside text area, half per edge")] = (0.1, 0.05)
+    action: Annotated[Inset, msgspec.Meta(title="Action Safe", description="Share of frame side outside action area, half per edge")] = (0.035, 0.035)
+    title_center: Annotated[Inset, msgspec.Meta(title="Center-Cut Title Safe")] = (0.175, 0.05)
+    action_center: Annotated[Inset, msgspec.Meta(title="Center-Cut Action Safe")] = (0.15, 0.05)
 
     @classmethod
     def broadcast(cls, standard: Broadcast) -> Self:
-        """Returns factory safe margins with the broadcast standard's center-cut margins."""
+        """Returns safe margins with center-cut margins of standard."""
         match standard:
             case Broadcast.WIDE:
                 return cls(title_center=(0.0, 0.0), action_center=(0.0, 0.0))

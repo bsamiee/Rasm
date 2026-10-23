@@ -7,5 +7,5 @@ rule:
     all:
         - matches: python-invariant-index-test
         - has: {nthChild: 2, pattern: $INDEX}
-message: 'Loop rebuilds `$INDEX` for every item from a source that does not change between items'
-note: 'Build the set or mapping once before the loop and test each item against it'
+message: 'Loop rebuilds `$INDEX` per item from a source it leaves unchanged'
+note: 'Bind a set or mapping `<index>` once before the loop and test each item `in <index>`'

@@ -1,4 +1,4 @@
-"""Scoped native offscreen drawing and framebuffer pixel reads."""
+"""Scoped offscreen drawing and framebuffer pixel reads."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -23,7 +23,7 @@ from blender.imaging.faults import paired
 
 
 class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
-    """Native color buffer with a caller's device-pixel size and precision."""
+    """Color buffer at caller device-pixel size and precision."""
 
     width: int
     height: int
@@ -31,7 +31,7 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def allocated(self) -> Generator[BlenderResult[gpu.types.GPUOffScreen]]:
-        """Initializes the GPU and owns a native buffer until scope exit, refusing a side past the device texture limit that aborts Blender at its first clear."""
+        """Initializes GPU and owns buffer, refusing sizes past texture limit."""
         held: gpu.types.GPUOffScreen | ValueError | RuntimeError | SystemError
         try:
             gpu.init()
@@ -39,7 +39,7 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
             held = (
                 gpu.types.GPUOffScreen(self.width, self.height, format=self.format)
                 if max(self.width, self.height) <= limit
-                else ValueError(f"{self.width}x{self.height} passes the {limit} pixel texture limit")
+                else ValueError(f"{self.width}x{self.height} exceeds {limit}px texture limit")
             )
         except (RuntimeError, SystemError) as error:
             held = error
@@ -53,10 +53,10 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
                 yield Result[gpu.types.GPUOffScreen, BlenderFaults].Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=refused),))
 
     def drawn(self, theme: Theme, metrics: Metrics, draw: Callable[[Canvas], None]) -> BlenderResult[npt.NDArray[np.float32]]:
-        """Draws on a pixel canvas and returns top-first float32 RGBA pixels."""
+        """Draws on pixel canvas, returning top-first RGBA."""
 
         def rendered(buffer: gpu.types.GPUOffScreen) -> npt.NDArray[np.float32]:
-            """Owns the framebuffer and 2D state while the callback draws."""
+            """Draws callback under pixel projection."""
             width, height = buffer.width, buffer.height
             canvas = Canvas(theme=theme, metrics=metrics, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)))
             depth = gpu.state.depth_test_get()
@@ -79,16 +79,16 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
     def viewed(
         self, located: Located, camera: bpy.types.Object, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, *, do_color_management: bool = True, draw_background: bool = True
     ) -> BlenderResult[npt.NDArray[np.float32]]:
-        """Returns a camera view with overlays and gizmos restored after drawing."""
+        """Draws camera view with overlays and gizmos off."""
         space = located.area.spaces.active
         if not isinstance(space, bpy.types.SpaceView3D):
             return Error((BlenderAbsentFault(owner=repr(located.area), key=bpy.types.SpaceView3D.__name__),))
 
         def restored(region: bpy.types.Region, prior: Option[EditorState]) -> BlenderResult[npt.NDArray[np.float32]]:
-            """Reads the native view and restores changed editor values on every exit."""
+            """Reads view pixels, restoring editor values."""
 
             def rendered(buffer: gpu.types.GPUOffScreen) -> BlenderResult[npt.NDArray[np.float32]]:
-                """Draws the native camera and retains its allocation refusals."""
+                """Draws camera view into buffer."""
                 try:
                     buffer.draw_view3d(
                         scene,
@@ -120,14 +120,14 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def unpacked(read: gpu.types.Buffer) -> npt.NDArray[np.float32]:
-    """Converts native bottom-first pixels to a top-first float32 plane."""
+    """Converts bottom-first pixels to top-first float32 plane."""
     pixels = np.asarray(read)
     scaled = np.divide(pixels, np.iinfo(pixels.dtype).max, dtype=np.float32) if np.issubdtype(pixels.dtype, np.integer) else pixels
     return np.ascontiguousarray(scaled[::-1], dtype=np.float32)
 
 
 def captured(rect: Rect) -> BlenderResult[npt.NDArray[np.float32]]:
-    """Reads float RGBA from the active framebuffer inside a draw callback."""
+    """Reads float RGBA from active framebuffer inside a draw callback."""
     try:
         read = gpu.state.active_framebuffer_get().read_color(round(rect.x), round(rect.y), round(rect.width), round(rect.height), 4, 0, "FLOAT")
     except ValueError as error:

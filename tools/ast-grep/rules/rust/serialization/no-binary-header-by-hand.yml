@@ -56,5 +56,5 @@ rule:
     kind: 'string_literal, array_expression, identifier, call_expression, scoped_identifier'
     pattern: $SITE
     matches: header-read
-message: '`$SITE` tests a magic number beside endian field reads to decode a binary header by hand'
+message: '`$SITE` decodes a binary header by hand through a magic number test and endian reads'
 note: 'Declare the header as a record deriving `binrw::BinRead` with `#[br(<endian>, magic = <bytes>)]` and read it through `BinReaderExt`'

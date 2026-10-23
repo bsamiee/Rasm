@@ -14,5 +14,5 @@ transform:
     EVERY_OTHER: {replace: {source: $LISTED, replace: '(?m)((?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password)((?:[ \t]+(?:(?:[^\n\\ \t"]|\\[^n]){3,}|(?:[^\n\\ \t"-]|\\[^n])(?:[^\n\\ \t"]|\\[^n])|-(?:[^\n\\ \t"U]|\\[^n])|[^\n\\ \t"]|\\[^n]))+[ \t]*(?:"|\\n|$))', by: '$1 -U$2'}}
     UPDATED: {replace: {source: $EVERY_OTHER, replace: '(?m)((?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password)((?:[ \t]+(?:(?:[^\n\\ \t"]|\\[^n]){3,}|(?:[^\n\\ \t"-]|\\[^n])(?:[^\n\\ \t"]|\\[^n])|-(?:[^\n\\ \t"U]|\\[^n])|[^\n\\ \t"]|\\[^n]))+[ \t]*(?:"|\\n|$))', by: '$1 -U$2'}}
 fix: $UPDATED
-message: '`$ARGS` adds a keychain item without `-U` and exits 45 with errSecDuplicateItem once the item exists'
-note: 'Pass `-U` to update an existing item in place with its ACL and partition list'
+message: '`$ARGS` adds a keychain item without `-U`, exiting 45 (`errSecDuplicateItem`) on an existing item'
+note: 'Pass `-U` after the subcommand to update an existing item and keep its ACL and partition list'

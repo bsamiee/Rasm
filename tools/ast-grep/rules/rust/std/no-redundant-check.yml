@@ -93,4 +93,4 @@ rule:
             - has: {field: consequence, matches: {rust-single-statement: {first: {matches: diverging}}}}
             - inside: {kind: expression_statement, precedes: {stopBy: end, any: [{matches: keyed-read}, {has: {stopBy: end, matches: keyed-read}}]}}
 message: '`$CONDITION` repeats a fact the next pattern or lookup states'
-note: 'Delete the guard: a loop over an empty collection runs no body, an `if let` without `else` reads the case, and `get` returns `None` for a missing key'
+note: 'Delete an emptiness or presence guard, and replace a `contains_key` guard with `if let` or `let else` over `<map>.get(<key>)`'

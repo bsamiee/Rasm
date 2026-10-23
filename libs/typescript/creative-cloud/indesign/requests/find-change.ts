@@ -13,21 +13,16 @@ import { Change } from '#/requests/change';
 class FindChange extends Mutation.extend<FindChange>('FindChange')(
     {
         mode: Schema.Literals(['Text', 'Grep', 'Glyph', 'Object', 'Color']),
-        find: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: "Fields of the mode's find preferences: the pattern and the format criteria" })),
-        change: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: "Fields of the mode's change preferences applied to every match; absent, the call only finds" })),
-        options: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: "Fields of the mode's find/change options" })),
-        scope: Schema.OptionFromOptionalKey(Specifier.annotate({ description: 'Specifier of the document, story, text, or page item to search; the active document when absent' })),
+        find: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: 'Find preference fields (pattern, format criteria)' })),
+        change: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: 'Change preference fields for every match, absent to find only' })),
+        options: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: 'Find/change option fields' })),
+        scope: Schema.OptionFromOptionalKey(Specifier.annotate({ description: 'Document, story, text, or page item to search, active document when absent' })),
     },
-    {
-        description:
-            "Finds or changes native text, GREP, glyph, object, or color matches in one undo step. Search preferences restore after each call. Values decode as change decodes them: enumeration members and named objects by name, {type, specifier} for native objects. Inspect the mode's preference class for its fields",
-    },
+    { description: 'Finds or changes matches in one undo step and restores search preferences. Values take change forms, kind lists preference fields' },
 ) {
     static readonly Result = Schema.Struct({
-        count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Native numeric change result, returned by Color operations. Absent for array returns and search-only calls; array length does not count edits' })) }),
-        matches: Schema.Array(Schema.Struct({ specifier: Specifier, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({
-            description: 'Native matches with their text before changes; inspect their specifiers for surrounding content. Color returns counts alone',
-        }),
+        count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Color mode change count, absent otherwise' })) }),
+        matches: Schema.Array(Schema.Struct({ specifier: Specifier, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({ description: 'Matches with text before changes, empty for Color' }),
     });
 
     override get label(): string {
@@ -49,13 +44,13 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
             const owners = { find: `${find}Preferences`, change: `${change}Preferences`, options: `findChange${mode}Options` } as const;
             const search = SearchModes[`${String.toLowerCase(mode)}search` as const];
             const held = `find-change-${yield* Effect.fiberId}`;
-            yield* Effect.acquireRelease(Effect.try({ try: () => app.saveFindChangeQuery(held, search), catch: (cause) => new Cause.UnknownError(cause, `${mode} preferences held as query ${held}`) }), () =>
+            yield* Effect.acquireRelease(Effect.try({ try: () => app.saveFindChangeQuery(held, search), catch: (cause) => new Cause.UnknownError(cause, `save of ${mode} preferences as query ${held}`) }), () =>
                 Effect.sync(() => {
                     app.loadFindChangeQuery(held, search);
                     app.deleteFindChangeQuery(held, search);
                 }),
             );
-            yield* Effect.try({ try: () => Record.map(owners, (field) => Object.assign(app, { [field]: NothingEnum.NOTHING })), catch: (cause) => new Cause.UnknownError(cause, `${mode} preference reset`) });
+            yield* Effect.try({ try: () => Record.map(owners, (field) => Object.assign(app, { [field]: NothingEnum.NOTHING })), catch: (cause) => new Cause.UnknownError(cause, `reset of ${mode} preferences`) });
             const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (each instanceof Enumerator ? `<${globalThis.String(each)}>` : globalThis.String(each))).join('');
             const scopes = yield* Effect.forEach(
                 Array.ensure(located),

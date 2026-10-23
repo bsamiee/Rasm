@@ -42,4 +42,4 @@ fix:
     template: return $OPEN$V$CLOSE
     expandEnd: {matches: local-return, stopBy: {not: {regex: '^;$'}}}
 message: 'Local `$N` annotated `$T` serves only the `return` after it'
-note: 'Return `<value>` directly, converted with `msgspec.convert(<value>, <type>)` where the callee returns an untyped value'
+note: 'Return `<value>` directly, through `msgspec.convert(<value>, <type>)` when the callee returns an untyped value'

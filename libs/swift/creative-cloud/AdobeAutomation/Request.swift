@@ -146,7 +146,7 @@ public enum RequestFailure: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-            case .unscripted(let installation): "\(installation.name) declares no script command in its dictionary, nothing was sent"
+            case .unscripted(let installation): "\(installation.name) scripting dictionary declares no script command"
         }
     }
 }

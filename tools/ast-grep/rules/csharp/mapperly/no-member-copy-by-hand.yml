@@ -294,5 +294,5 @@ rule:
                     has: {stopBy: end, any: [{matches: source-addressed}, {matches: same-type-pair}]}
 constraints:
     SRC: {not: {matches: bound-source}}
-message: '`$TARGET` takes the members of `$SRC` one by one'
-note: 'Declare a `partial` Mapperly mapping, under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` where it updates a caller-owned host value'
+message: '`$TARGET` copies the members of `$SRC` by hand'
+note: 'Declare a `partial` Mapperly mapping, a `void` update under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned host value'

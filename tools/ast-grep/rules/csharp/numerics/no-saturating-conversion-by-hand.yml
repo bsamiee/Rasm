@@ -106,5 +106,5 @@ rule:
                     - all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: maximum}}, {has: {field: alternative, kind: conditional_expression, all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: minimum}}]}}]
             - matches: own-minimum
         - matches: literal-range
-message: '`$CLAMP` saturates a value into the range of `$TYPE` by hand'
-note: 'Convert with `<type>.CreateSaturating(<value>)`'
+message: '`$CLAMP` saturates a value into `$TYPE` range by hand'
+note: 'Convert through `<type>.CreateSaturating(<value>)`'

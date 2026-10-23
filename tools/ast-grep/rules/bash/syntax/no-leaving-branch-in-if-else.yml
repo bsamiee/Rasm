@@ -54,4 +54,4 @@ fix: |-
     }
     $REST_THEN$REST_ELSE
 message: '`if $COND` nests one branch while the other ends in `$LEAVE`'
-note: 'Short-circuit the leaving branch, `<condition> || { <else body>; }` or `<condition> && { <then body>; }`, and unnest the other branch below it'
+note: 'Short-circuit leaving branch as `<condition> || { <else body>; }` or `<condition> && { <then body>; }` and unnest the other branch'

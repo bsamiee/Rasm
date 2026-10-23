@@ -18,7 +18,7 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
     intent: Schema.String,
     facingPages: Schema.Boolean,
     size: Schema.Struct({ width: Schema.Finite, height: Schema.Finite }).annotate({ description: 'Default page size in points' }),
-    units: Schema.Struct({ horizontal: Schema.String, vertical: Schema.String, origin: Schema.String }).annotate({ description: 'Ruler units and origin the user sees; values this library returns stay in points' }),
+    units: Schema.Struct({ horizontal: Schema.String, vertical: Schema.String, origin: Schema.String }).annotate({ description: 'Ruler units and origin, results stay in points' }),
     pages: Schema.Int,
     spreads: Schema.Int,
     parents: Schema.Array(Reference.mapFields(Struct.assign({ pages: Schema.Int }))).annotate({ description: 'Parent (master) spreads' }),
@@ -26,15 +26,15 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
     layers: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(LayerView.fields, ['visible', 'locked', 'printable'])))),
     stories: Schema.Struct({ count: Schema.Int, overset: Schema.Array(Specifier) }),
     links: Schema.Record(Schema.String, Schema.Int).annotate({ description: 'Link count per LinkStatus member' }),
-    fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })).annotate({ description: 'Fonts the document uses with their FontStatus' }),
+    fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })).annotate({ description: 'Document fonts with FontStatus' }),
     swatches: Schema.Array(Reference),
     styles: Schema.Struct(Struct.Record(['paragraph', 'character', 'object', 'table', 'cell'], Schema.Int)).annotate({ description: 'Style counts, grouped styles included' }),
     preflightOptions: Schema.Struct({
         ...Struct.Record(['preflightOff', 'preflightIncludeObjectsOnPasteboard', 'preflightIncludeNonprintingObjects'], Schema.Boolean),
         ...Struct.Record(['preflightProfilePolicy', 'preflightWorkingProfile', 'preflightScope', 'preflightWhichLayers'], Schema.String),
     }),
-    activeProcess: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Live preflight process, absent while live preflight is off' }),
-    textDefaults: ParagraphAttributes.annotate({ description: 'Paragraph attributes of the document text defaults: tab stops, GREP, nested, and line styles, bullets and numbering' }),
+    activeProcess: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Absent while live preflight is off' }),
+    textDefaults: ParagraphAttributes,
 }) {
     static readonly Row = Schema.Struct(Struct.pick(DocumentView.fields, ['type', 'specifier', 'name', 'valid', 'saved', 'modified', 'path', 'windows']));
     static readonly viewed = ({ document }: Model['Service']) => flow(Option.liftPredicate(document), Option.map(DocumentView.of));

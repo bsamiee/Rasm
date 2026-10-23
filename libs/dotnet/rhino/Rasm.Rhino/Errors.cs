@@ -5,9 +5,9 @@ namespace Rasm.Rhino;
 
 // --- [ERRORS] --------------------------------------------------------------------------
 public sealed record Refused(string Member, string Reason) : Expected($"{Member} {Reason}", 0) {
-    public const string Declined = "refused the call";
-    public const string Absent = "answered nothing";
-    public const string Invalid = "answered a value outside its contract";
+    public const string Declined = "returned failure";
+    public const string Absent = "returned nothing";
+    public const string Invalid = "returned invalid value";
 
     public Refused(string member, string reason, int index) : this(member, string.Create(CultureInfo.InvariantCulture, $"{reason} at index {index}")) { }
 

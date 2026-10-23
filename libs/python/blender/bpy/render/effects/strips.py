@@ -1,4 +1,4 @@
-"""Native sequencer groups around the offered compositor effects."""
+"""Sequencer strip modifiers running standalone effects."""
 
 from contextlib import ExitStack
 
@@ -24,7 +24,7 @@ from blender.imaging.parameters import Choice
 
 
 class Placing(Choice):
-    """Native sequencer operation receiving a compositor group."""
+    """Sequencer holder receiving effect group."""
 
     MODIFIER = 1, "Modifier"
     STRIP = 2, "Compositor Strip"
@@ -34,7 +34,7 @@ class Placing(Choice):
 
 
 class Striping(msgspec.Struct, frozen=True, kw_only=True):
-    """Placement of an offered effect on the active sequencer strip."""
+    """Effect placement on active sequencer strip."""
 
     placement: Placing = Placing.MODIFIER
 
@@ -43,13 +43,13 @@ class Striping(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class StripEffect:
-    """Native strip placement for the stack's standalone rows."""
+    """Strip placement commands for standalone rows."""
 
     stack: EffectStack
     operators: tuple[Operator[Striping], ...]
 
     def __init__(self, *, stack: EffectStack) -> None:
-        """Declares one native placement command per offered standalone row."""
+        """Declares one placement command per standalone stack row."""
         self.stack = stack
 
         def offered(row: Placeable) -> Operator[Striping]:
@@ -95,12 +95,12 @@ class StripEffect:
 
                 return paired(target, self.stack.config()).bind(lambda pair: built(*pair))
 
-            return Operator(key=f"strip_{row.kind}", title=f"Add {row.record.title}", description=f"Runs {row.record.title} on the active sequencer strip", form=Striping, run=run)
+            return Operator(key=f"strip_{row.kind}", title=f"Add {row.record.title}", description=f"Run {row.record.title} on active strip", form=Striping, run=run)
 
         self.operators = tuple(map(offered, stack.standalone))
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains strip ownership and placement commands."""
+        """Returns group ownerships and placement commands."""
         return Ok((*(msgspec.structs.replace(owner, key=f"{owner.key}_strip") for row in self.stack.standalone for owner in ownerships(row.record)), *self.operators))
 
 
@@ -108,7 +108,7 @@ class StripEffect:
 
 
 def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: PyOpenColorIO.Config, *, context: Context = Nothing) -> BlenderResult[NodeGroup]:
-    """Builds the effect group as a strip group, sequencer groups taking and returning scene-linear values whatever the sequencer space."""
+    """Builds effect group as strip modifier group, scene-linear in any sequencer space."""
     return (
         row
         .seeded(scene)
@@ -122,7 +122,7 @@ def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: 
 
 
 def active(context: bpy.types.Context) -> Option[bpy.types.CompositorStrip]:
-    """Returns the sequencer scene's active native compositor strip."""
+    """Returns active compositor strip of sequencer scene."""
     scene = Option.of_optional(context.workspace).bind(lambda workspace: Option.of_optional(workspace.sequencer_scene))
     return (
         scene

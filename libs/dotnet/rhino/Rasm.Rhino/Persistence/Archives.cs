@@ -16,7 +16,7 @@ public abstract partial record ArchiveSource {
             from path in IO.lift(() => Exchange.ExistingPath(Path))
             from read in IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(path, Tables, Objects, out string log) is { } model
                 ? new ArchiveRead(model, Conversions.Present(log))
-                : new FileRefused(path, $"was rejected by {nameof(File3dm.ReadWithLog)}: {log}"))
+                : new FileRefused(path, $"failed {nameof(File3dm.ReadWithLog)}. {log}"))
             select read;
     }
 
@@ -157,6 +157,6 @@ public static partial class Archives {
     public static IO<StepOutcome> Persist(File3dm archive, string path, File3dmWriteOptions options) =>
         from qualified in IO.lift(() => Exchange.QualifiedPath(path))
         from outcome in StepOutcome.Land(qualified, target => IO.lift(() =>
-            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new FileRefused(target, $"was rejected by {nameof(File3dm.WriteWithLog)}: {log}")))
+            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new FileRefused(target, $"failed {nameof(File3dm.WriteWithLog)}. {log}")))
         select outcome;
 }

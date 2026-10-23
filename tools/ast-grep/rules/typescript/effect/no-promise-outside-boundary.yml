@@ -206,5 +206,5 @@ transform:
     REJECT: {replace: {source: $RESOLVE, replace: '^reject$', by: 'Effect.fail'}}
     RESOLVERS: {replace: {source: $REJECT, replace: '^withResolvers$', by: 'Deferred.make'}}
     FORM: {replace: {source: $RESOLVERS, replace: '^try$', by: 'Effect.try'}}
-message: '`$AWAITED_HEAD$ITERABLE_HEAD$CALLEE` runs as a promise outside a host or promise conversion callback, where `$TRY$STREAM$FORM` converts it'
-note: 'Convert each promise once through `Effect.tryPromise(<thunk>)` and compose the rest as effects'
+message: '`$AWAITED_HEAD$ITERABLE_HEAD$CALLEE` runs as a promise outside a promise conversion or host callback in place of `$TRY$STREAM$FORM`'
+note: 'Convert the promise once to its effect form and compose the rest as effects'

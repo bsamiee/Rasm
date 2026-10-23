@@ -1,4 +1,4 @@
-"""Native screen coverage and sampled structures for display stylization."""
+"""Screen coverage and sampled structures for display stylization."""
 
 from enum import IntEnum
 import functools
@@ -36,11 +36,10 @@ class Noise(IntEnum):
 
 @functools.cache
 def halftone_screen() -> BlenderResult[NodeGroup]:
-    """Builds shared unit-square ink coverage with a pixel derivative antialias width.
+    """Builds shared unit-square ink coverage antialiased over pixel derivative width.
 
     Returns:
-        Screen group with coordinate, offset, angle, pitch, jitter, and tone inputs,
-        or accumulated native graph faults.
+        Screen group with coordinate, offset, angle, pitch, jitter, and tone inputs, or accumulated graph faults.
     """
     coordinate = End(node=INPUTS, socket="coordinate")
     angle, pitch, tone = (End(node=INPUTS, socket=name) for name in ("angle", "pitch", "tone"))
@@ -127,7 +126,7 @@ def halftone_screen() -> BlenderResult[NodeGroup]:
 
 
 def block_mean(key: str, frame: FrameSpace, source: Operand, length: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Averages occupied displayed-square bins through native rectangular convolution."""
+    """Averages occupied displayed-square bins through rectangular convolution."""
     dimensions = node(f"{key}_info", bpy.types.CompositorNodeImageInfo, {"Image": source}, {}).map(ended(f"{key}_info", "Dimensions"))
     span = pixels(f"{key}_span", frame, length, "VECTOR").bind(
         lambda span: math(f"{key}_positive", "GREATER_THAN", length, 0.0).bind(lambda positive: switched(f"{key}_working_span", "VECTOR", positive, (1.0, 1.0, 0.0), span))
@@ -221,7 +220,7 @@ def block_mean(key: str, frame: FrameSpace, source: Operand, length: Operand) ->
 
 
 def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds the selected native display structure with its own color and coverage."""
+    """Builds selected display structure with own color and coverage."""
     match shell.record:
         case Pixelation():
             structure_field, motion, seed = Pixelation.__struct_fields__
@@ -545,14 +544,14 @@ pixelation: CompositorEffect[Pixelation] = CompositorEffect(
     graph=patterned,
     coverage=Coverage.RESULT,
     requested=Some(precise),
-    registrables=(inspection(lambda: pixelation, "pixelation_weight", "Pixelation Weight", "Inspect the structure's replacement weight", lambda: End(node="structure_weight", socket="Alpha")),),
+    registrables=(inspection(lambda: pixelation, "pixelation_weight", "View Weight", "Structure replacement weight", lambda: End(node="structure_weight", socket="Alpha")),),
 )
 pattern: CompositorEffect[Pattern] = CompositorEffect(
     record=Pattern,
     graph=patterned,
     straight=True,
     requested=Some(precise),
-    registrables=(inspection(lambda: pattern, "pattern_weight", "Pattern Weight", "Inspect the selected structure's coverage", lambda: End(node="structure_weight", socket="Alpha")),),
+    registrables=(inspection(lambda: pattern, "pattern_weight", "View Weight", "Selected structure coverage", lambda: End(node="structure_weight", socket="Alpha")),),
 )
 
 

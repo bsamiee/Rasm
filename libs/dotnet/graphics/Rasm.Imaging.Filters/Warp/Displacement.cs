@@ -176,21 +176,21 @@ public sealed record Twirl(TwirlAngle Angle, ShortSideLength Radius, FalloffPowe
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TwirlParameter : IStateParameter<Twirl> {
     public static readonly TwirlParameter Angle = new("angle", StateParameter.Bounded(Lens<Twirl, TwirlAngle>.New(static state => state.Angle, static angle => state => state with { Angle = angle }), new Presentation<float> { Unit = UnitsNet.Quantity.GetUnitInfo(AngleUnit.Radian), Soft = (-float.Tau, float.Tau), Origin = (float)TwirlAngle.Off }),
-        new("Angle", "Turn at the center, falling to none at the radius, counterclockwise"));
+        new("Angle", "Counterclockwise turn at center, none at radius"));
     public static readonly TwirlParameter Radius = new("radius", StateParameter.Bounded(Lens<Twirl, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius })),
-        new("Radius", "Reach of the twirl as a share of the frame's short side"));
+        new("Radius", "Twirl reach in frame short sides"));
     public static readonly TwirlParameter Falloff = new("falloff", StateParameter.Bounded(Lens<Twirl, FalloffPower>.New(static state => state.Falloff, static falloff => state => state with { Falloff = falloff }), new Presentation<float> { Soft = (0.25f, 4f), Scale = TrackScale.Log }),
-        new("Falloff", "Exponent of the turn's fall from center to radius, 1 linear"));
+        new("Falloff", "Turn falloff exponent, 1 linear"));
     public static readonly TwirlParameter Arms = new("arms", StateParameter.Bounded(Lens<Twirl, ArmCount>.New(static state => state.Arms, static arms => state => state with { Arms = arms }), new Presentation<int> { Soft = (0, 8) }),
         new("Arms", "Spiral arms the turn gathers into, 0 turning every direction alike"));
     public static readonly TwirlParameter ArmOffset = new("arm-offset", StateParameter.Bounded(Lens<Twirl, SignedAngle>.New(static state => state.ArmOffset, static offset => state => state with { ArmOffset = offset })),
-        new("Arm offset", "Turn of the arms about the center"));
+        new("Arm offset", "Arm turn about center"));
     public static readonly TwirlParameter Center = new("center", new StateParameter<Twirl>.Record<FramePosition>(Lens<Twirl, FramePosition>.New(static state => state.Center, static center => state => state with { Center = center })),
         new("Center", "Point the warp centers on"));
     public static readonly TwirlParameter Sampling = new("sampling", new StateParameter<Twirl>.Choice<Sampling>(Lens<Twirl, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly TwirlParameter Wrap = new("wrap", new StateParameter<Twirl>.Choice<WrapMode>(Lens<Twirl, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<Twirl> Kind { get; }
     public ParameterText Text { get; }
@@ -216,17 +216,17 @@ public sealed record Bulge(SignedFraction Amount, BulgeMode Mode, ShortSideLengt
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BulgeParameter : IStateParameter<Bulge> {
     public static readonly BulgeParameter Amount = new("amount", StateParameter.Bounded(Lens<Bulge, SignedFraction>.New(static state => state.Amount, static amount => state => state with { Amount = amount })),
-        new("Amount", "Bulge toward the viewer above 0 and pinch below, 1 and −1 a full hemisphere"));
+        new("Amount", "Bulge above 0 and pinch below, ±1 a full hemisphere"));
     public static readonly BulgeParameter Mode = new("mode", new StateParameter<Bulge>.Choice<BulgeMode>(Lens<Bulge, BulgeMode>.New(static state => state.Mode, static mode => state => state with { Mode = mode })),
         new("Mode", "Axes the bulge acts along"));
     public static readonly BulgeParameter Radius = new("radius", StateParameter.Bounded(Lens<Bulge, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius })),
-        new("Radius", "Radius of the bulged disc as a share of the frame's short side"));
+        new("Radius", "Bulged disc radius in frame short sides"));
     public static readonly BulgeParameter Center = new("center", new StateParameter<Bulge>.Record<FramePosition>(Lens<Bulge, FramePosition>.New(static state => state.Center, static center => state => state with { Center = center })),
         new("Center", "Point the warp centers on"));
     public static readonly BulgeParameter Sampling = new("sampling", new StateParameter<Bulge>.Choice<Sampling>(Lens<Bulge, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly BulgeParameter Wrap = new("wrap", new StateParameter<Bulge>.Choice<WrapMode>(Lens<Bulge, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<Bulge> Kind { get; }
     public ParameterText Text { get; }
@@ -278,45 +278,45 @@ public sealed partial class WaveParameter : IStateParameter<Wave> {
     private static readonly Presentation<float> Wavelength = ShortSideExtent.Presentation with { Soft = (0.005f, 1f) };
 
     public static readonly WaveParameter Front = new("front", new StateParameter<Wave>.Choice<WaveFront>(Lens<Wave, WaveFront>.New(static state => state.Front, static front => state => state with { Front = front })),
-        new("Form", "Straight waves, or rings about the center moving outward, around it, or both"));
+        new("Form", "Straight waves or center rings moving outward, around, or both"));
     public static readonly WaveParameter Profile = new("profile", new StateParameter<Wave>.Choice<WaveProfile>(Lens<Wave, WaveProfile>.New(static state => state.Profile, static profile => state => state with { Profile = profile })),
         new("Profile", "Shape of each wave period"));
     public static readonly WaveParameter Count = new("count", StateParameter.Bounded(Lens<Wave, WaveCount>.New(static state => state.Count, static count => state => state with { Count = count }), new Presentation<int> { Soft = (1, 16) }),
         new("Generators", "Waves summed into the field"));
     public static readonly WaveParameter MinWavelength = new("min-wavelength", StateParameter.Bounded(Lens<Wave, ShortSideExtent>.New(static state => state.MinWavelength, static wavelength => state => state with { MinWavelength = wavelength }), Wavelength),
-        new("Wavelength min", "Shortest wave as a share of the frame's short side"));
+        new("Wavelength min", "Shortest wave in frame short sides"));
     public static readonly WaveParameter MaxWavelength = new("max-wavelength", StateParameter.Bounded(Lens<Wave, ShortSideExtent>.New(static state => state.MaxWavelength, static wavelength => state => state with { MaxWavelength = wavelength }), Wavelength),
-        new("Wavelength max", "Longest wave as a share of the frame's short side"));
+        new("Wavelength max", "Longest wave in frame short sides"));
     public static readonly WaveParameter MinAmplitude = new("min-amplitude", StateParameter.Bounded(Lens<Wave, AxisFraction>.New(static state => state.MinAmplitude, static amplitude => state => state with { MinAmplitude = amplitude })),
-        new("Amplitude min", "Weakest wave as a share of the amounts"));
+        new("Amplitude min", "Weakest wave as share of amounts"));
     public static readonly WaveParameter MaxAmplitude = new("max-amplitude", StateParameter.Bounded(Lens<Wave, AxisFraction>.New(static state => state.MaxAmplitude, static amplitude => state => state with { MaxAmplitude = amplitude })),
-        new("Amplitude max", "Strongest wave as a share of the amounts"));
+        new("Amplitude max", "Strongest wave as share of amounts"));
     public static readonly WaveParameter Horizontal = new("horizontal", StateParameter.Bounded(Lens<Wave, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Displacements.Shift),
-        new("Amount X", "Horizontal move at full field strength, a share of the frame's short side"));
+        new("Amount X", "Horizontal move at full strength in frame short sides"));
     public static readonly WaveParameter Vertical = new("vertical", StateParameter.Bounded(Lens<Wave, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Displacements.Shift),
-        new("Amount Y", "Vertical move at full field strength, a share of the frame's short side"));
+        new("Amount Y", "Vertical move at full strength in frame short sides"));
     public static readonly WaveParameter Direction = new("direction", StateParameter.Bounded(Lens<Wave, SignedAngle>.New(static state => state.Direction, static direction => state => state with { Direction = direction })),
-        new("Direction", "Travel of straight waves, counterclockwise from rightward"));
+        new("Direction", "Straight wave angle counterclockwise from right"));
     public static readonly WaveParameter Spread = new("spread", StateParameter.Bounded(Lens<Wave, SignedAngle>.New(static state => state.Spread, static spread => state => state with { Spread = spread }), SignedAngle.Presentation with { Soft = (0f, float.Pi) }),
-        new("Spread", "Fan of directions the waves take about the direction"));
+        new("Spread", "Wave direction fan about travel direction"));
     public static readonly WaveParameter Phase = new("phase", StateParameter.Bounded(Lens<Wave, SignedAngle>.New(static state => state.Phase, static phase => state => state with { Phase = phase })),
         new("Phase", "Turn added to every wave period"));
     public static readonly WaveParameter Radius = new("radius", StateParameter.Bounded(Lens<Wave, ShortSideLength>.New(static state => state.Radius, static radius => state => state with { Radius = radius })),
-        new("Radius", "Reach of rings as a share of the frame's short side, fading to none there"));
+        new("Radius", "Ring reach in frame short sides, fading to none"));
     public static readonly WaveParameter Center = new("center", new StateParameter<Wave>.Record<FramePosition>(Lens<Wave, FramePosition>.New(static state => state.Center, static center => state => state with { Center = center })),
         new("Center", "Point the warp centers on"));
     public static readonly WaveParameter Rate = new("rate", StateParameter.Bounded(Lens<Wave, Frequency>.New(static state => state.Rate, static rate => state => state with { Rate = rate }), Frequency.Presentation with { Soft = (-2f, 2f) }),
         new("Rate", "Wave periods traveled per second"));
     public static readonly WaveParameter Seed = new("seed", StateParameter.Bounded(Lens<Wave, Seed>.New(static state => state.Seed, static seed => state => state with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly WaveParameter Timing = new("timing", new StateParameter<Wave>.Record<Timing>(Lens<Wave, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
     public static readonly WaveParameter Hold = new("hold", StateParameter.Bounded(Lens<Wave, Hold>.New(static state => state.Hold, static hold => state => state with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
     public static readonly WaveParameter Sampling = new("sampling", new StateParameter<Wave>.Choice<Sampling>(Lens<Wave, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly WaveParameter Wrap = new("wrap", new StateParameter<Wave>.Choice<WrapMode>(Lens<Wave, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<Wave> Kind { get; }
     public ParameterText Text { get; }
@@ -353,27 +353,27 @@ public sealed partial class TurbulenceParameter : IStateParameter<Turbulence> {
     private static readonly Presentation<float> Feature = ShortSideExtent.Presentation with { Soft = (0.01f, 2f) };
 
     public static readonly TurbulenceParameter Basis = new("basis", new StateParameter<Turbulence>.Variant<NoiseBasis>(Lens<Turbulence, NoiseBasis>.New(static state => state.Basis, static basis => state => state with { Basis = basis })),
-        new("Noise", "Basis of the displacement field"));
+        new("Noise", "Displacement field basis"));
     public static readonly TurbulenceParameter ScaleX = new("scale-x", StateParameter.Bounded(Lens<Turbulence, ShortSideExtent>.New(static state => state.ScaleX, static scale => state => state with { ScaleX = scale }), Feature),
-        new("Size X", "Horizontal noise feature size as a share of the frame's short side"));
+        new("Size X", "Horizontal noise feature size in frame short sides"));
     public static readonly TurbulenceParameter ScaleY = new("scale-y", StateParameter.Bounded(Lens<Turbulence, ShortSideExtent>.New(static state => state.ScaleY, static scale => state => state with { ScaleY = scale }), Feature),
-        new("Size Y", "Vertical noise feature size as a share of the frame's short side"));
+        new("Size Y", "Vertical noise feature size in frame short sides"));
     public static readonly TurbulenceParameter Horizontal = new("horizontal", StateParameter.Bounded(Lens<Turbulence, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Displacements.Shift),
-        new("Amount X", "Horizontal move at full field strength, a share of the frame's short side"));
+        new("Amount X", "Horizontal move at full strength in frame short sides"));
     public static readonly TurbulenceParameter Vertical = new("vertical", StateParameter.Bounded(Lens<Turbulence, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Displacements.Shift),
-        new("Amount Y", "Vertical move at full field strength, a share of the frame's short side"));
+        new("Amount Y", "Vertical move at full strength in frame short sides"));
     public static readonly TurbulenceParameter Rate = new("rate", StateParameter.Bounded(Lens<Turbulence, Frequency>.New(static state => state.Rate, static rate => state => state with { Rate = rate }), Frequency.Presentation with { Soft = (-2f, 2f) }),
         new("Evolution", "Noise units the field evolves per second"));
     public static readonly TurbulenceParameter Seed = new("seed", StateParameter.Bounded(Lens<Turbulence, Seed>.New(static state => state.Seed, static seed => state => state with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly TurbulenceParameter Timing = new("timing", new StateParameter<Turbulence>.Record<Timing>(Lens<Turbulence, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
     public static readonly TurbulenceParameter Hold = new("hold", StateParameter.Bounded(Lens<Turbulence, Hold>.New(static state => state.Hold, static hold => state => state with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
     public static readonly TurbulenceParameter Sampling = new("sampling", new StateParameter<Turbulence>.Choice<Sampling>(Lens<Turbulence, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly TurbulenceParameter Wrap = new("wrap", new StateParameter<Turbulence>.Choice<WrapMode>(Lens<Turbulence, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<Turbulence> Kind { get; }
     public ParameterText Text { get; }
@@ -422,23 +422,23 @@ public sealed record MapDisplacement(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MapDisplacementParameter : IStateParameter<MapDisplacement> {
     public static readonly MapDisplacementParameter Source = new("source", new StateParameter<MapDisplacement>.Loaded<ImageFile, ImagePath, string>(Lens<MapDisplacement, Option<ImageFile>>.New(static state => state.Source, static source => state => state with { Source = source }), ImageFile.Load, static image => image.Path),
-        new("Map image", "Image file the map reads, the frame itself while empty"));
+        new("Map image", "Image file, frame itself when empty"));
     public static readonly MapDisplacementParameter Reading = new("reading", new StateParameter<MapDisplacement>.Choice<MapReading>(Lens<MapDisplacement, MapReading>.New(static state => state.Reading, static reading => state => state with { Reading = reading })),
-        new("Reading", "How the map moves the frame"));
+        new("Reading", "Map values moving frame"));
     public static readonly MapDisplacementParameter TileSize = new("tile-size", StateParameter.OptionalBounded(Lens<MapDisplacement, Gated<ShortSideExtent>>.New(static state => state.TileSize, static size => state => state with { TileSize = size }), ShortSideExtent.Presentation with { Soft = (0.05f, 2f) }),
-        new("Tile size", "Height of one map tile as a share of the frame's short side, off stretching the image to fit"));
+        new("Tile size", "Map tile height in frame short sides, off stretching to fit"));
     public static readonly MapDisplacementParameter Softness = new("softness", StateParameter.Bounded(Lens<MapDisplacement, ShortSideExtent>.New(static state => state.Softness, static softness => state => state with { Softness = softness }), ShortSideExtent.Presentation with { Soft = (0.001f, 0.1f), Scale = TrackScale.Linear }),
-        new("Softness", "Blur of the map's luma before it moves the frame"));
+        new("Softness", "Map luma blur before moving frame"));
     public static readonly MapDisplacementParameter Horizontal = new("horizontal", StateParameter.Bounded(Lens<MapDisplacement, ShortSideOffset>.New(static state => state.Horizontal, static amount => state => state with { Horizontal = amount }), Displacements.Shift),
-        new("Amount X", "Horizontal move at full field strength, a share of the frame's short side"));
+        new("Amount X", "Horizontal move at full strength in frame short sides"));
     public static readonly MapDisplacementParameter Vertical = new("vertical", StateParameter.Bounded(Lens<MapDisplacement, ShortSideOffset>.New(static state => state.Vertical, static amount => state => state with { Vertical = amount }), Displacements.Shift),
-        new("Amount Y", "Vertical move at full field strength, a share of the frame's short side"));
+        new("Amount Y", "Vertical move at full strength in frame short sides"));
     public static readonly MapDisplacementParameter Rotation = new("rotation", StateParameter.Bounded(Lens<MapDisplacement, SignedAngle>.New(static state => state.Rotation, static rotation => state => state with { Rotation = rotation })),
-        new("Rotation", "Turn of the moves the map reads, counterclockwise"));
+        new("Rotation", "Counterclockwise turn of map moves"));
     public static readonly MapDisplacementParameter Sampling = new("sampling", new StateParameter<MapDisplacement>.Choice<Sampling>(Lens<MapDisplacement, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly MapDisplacementParameter Wrap = new("wrap", new StateParameter<MapDisplacement>.Choice<WrapMode>(Lens<MapDisplacement, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<MapDisplacement> Kind { get; }
     public ParameterText Text { get; }
@@ -496,39 +496,39 @@ public sealed partial class RefractionParameter : IStateParameter<Refraction> {
     public static readonly RefractionParameter Field = new("field", new StateParameter<Refraction>.Choice<RefractionField>(Lens<Refraction, RefractionField>.New(static state => state.Field, static field => state => state with { Field = field })),
         new("Texture", "Surface the frame is seen through"));
     public static readonly RefractionParameter Scale = new("scale", StateParameter.Bounded(Lens<Refraction, ShortSideExtent>.New(static state => state.Scale, static scale => state => state with { Scale = scale }), ShortSideExtent.Presentation with { Soft = (0.005f, 1f) }),
-        new("Scale", "Texture cell size as a share of the frame's short side"));
+        new("Scale", "Texture cell size in frame short sides"));
     public static readonly RefractionParameter Strength = new("strength", StateParameter.Bounded(Lens<Refraction, ShortSideOffset>.New(static state => state.Strength, static strength => state => state with { Strength = strength }), Displacements.Shift),
-        new("Distortion", "Bend of the frame through the surface, below 0 inverting it"));
+        new("Distortion", "Frame bend through surface, below 0 inverting"));
     public static readonly RefractionParameter Smoothness = new("smoothness", StateParameter.Bounded(Lens<Refraction, ShortSideExtent>.New(static state => state.Smoothness, static smoothness => state => state with { Smoothness = smoothness }), ShortSideExtent.Presentation with { Soft = (0.001f, 0.05f) }),
-        new("Smoothness", "Blur of the surface before its slope bends the frame"));
+        new("Smoothness", "Surface blur before slope bends frame"));
     public static readonly RefractionParameter Blur = new("blur", StateParameter.Bounded(Lens<Refraction, ShortSideLength>.New(static state => state.Blur, static blur => state => state with { Blur = blur }), ShortSideLength.Presentation with { Soft = (0f, 0.05f) }),
-        new("Blur", "Softening of the frame seen through the surface"));
+        new("Blur", "Frame softening through surface"));
     public static readonly RefractionParameter Density = new("density", StateParameter.Bounded(Lens<Refraction, AxisFraction>.New(static state => state.Density, static density => state => state with { Density = density })),
         new("Density", "Share of cells holding a raindrop"));
     public static readonly RefractionParameter Size = new("size", StateParameter.Bounded(Lens<Refraction, DropSize>.New(static state => state.Size, static size => state => state with { Size = size }), new Presentation<float>()),
-        new("Drop size", "Largest raindrop radius as a share of its texture cell"));
+        new("Drop size", "Largest raindrop radius as texture cell share"));
     public static readonly RefractionParameter Variation = new("variation", StateParameter.Bounded(Lens<Refraction, AxisFraction>.New(static state => state.Variation, static variation => state => state with { Variation = variation })),
-        new("Variation", "Share by which the seed reduces each raindrop's radius"));
+        new("Variation", "Seeded raindrop radius reduction share"));
     public static readonly RefractionParameter Softness = new("softness", StateParameter.Bounded(Lens<Refraction, AxisFraction>.New(static state => state.Softness, static softness => state => state with { Softness = softness })),
-        new("Drop softness", "Share of each raindrop's radius blending its rim"));
+        new("Drop softness", "Raindrop radius share blending rim"));
     public static readonly RefractionParameter Lens = new("lens", StateParameter.Bounded(Lens<Refraction, Steepness>.New(static state => state.Lens, static lens => state => state with { Lens = lens }), new Presentation<float>()),
-        new("Lens", "Magnification of the frame through each raindrop"));
+        new("Lens", "Raindrop magnification"));
     public static readonly RefractionParameter Trails = new("trails", StateParameter.Bounded(Lens<Refraction, AxisFraction>.New(static state => state.Trails, static trails => state => state with { Trails = trails })),
-        new("Trails", "Height of the trail behind each raindrop against the drop"));
+        new("Trails", "Raindrop trail height relative to drop"));
     public static readonly RefractionParameter Direction = new("direction", StateParameter.Bounded(Lens<Refraction, SignedAngle>.New(static state => state.Direction, static direction => state => state with { Direction = direction })),
-        new("Direction", "Way the raindrops run, counterclockwise from rightward"));
+        new("Direction", "Raindrop run angle counterclockwise from right"));
     public static readonly RefractionParameter Fall = new("fall", StateParameter.Bounded(Lens<Refraction, Drift>.New(static state => state.Fall, static fall => state => state with { Fall = fall }), Drift.Presentation with { Soft = (-1f, 1f) }),
-        new("Fall", "Raindrop travel per second as a share of the frame's short side"));
+        new("Fall", "Raindrop travel per second in frame short sides"));
     public static readonly RefractionParameter Seed = new("seed", StateParameter.Bounded(Lens<Refraction, Seed>.New(static state => state.Seed, static seed => state => state with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly RefractionParameter Timing = new("timing", new StateParameter<Refraction>.Record<Timing>(Lens<Refraction, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
     public static readonly RefractionParameter Hold = new("hold", StateParameter.Bounded(Lens<Refraction, Hold>.New(static state => state.Hold, static hold => state => state with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
     public static readonly RefractionParameter Sampling = new("sampling", new StateParameter<Refraction>.Choice<Sampling>(Lens<Refraction, Sampling>.New(static state => state.Sampling, static sampling => state => state with { Sampling = sampling })),
-        new("Interpolation", "Filter reading the source between its pixels"));
+        new("Interpolation", "Filter between source pixels"));
     public static readonly RefractionParameter Wrap = new("wrap", new StateParameter<Refraction>.Choice<WrapMode>(Lens<Refraction, WrapMode>.New(static state => state.Wrap, static wrap => state => state with { Wrap = wrap })),
-        new("Extension", "Source read past the frame's edge"));
+        new("Extension", "Sampling past frame edges"));
 
     public StateParameter<Refraction> Kind { get; }
     public ParameterText Text { get; }

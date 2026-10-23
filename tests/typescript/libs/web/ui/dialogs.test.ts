@@ -4,7 +4,7 @@ import { expect, it } from 'vitest';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('opens and closes each dialog id apart from the others in the page-wide set', () => {
+it('toggles each dialog ID independently in page-wide set', () => {
     const registry = AtomRegistry.make();
     registry.set(dialogOpen('editor'), true);
     registry.set(dialogOpen('uploads'), true);

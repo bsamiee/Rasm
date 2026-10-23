@@ -1,4 +1,4 @@
-"""Per-node previews: targets, routed isolated renders, change keys, editor tracking, and thumbnails over the node editor."""
+"""Per-node preview targets, isolated renders, change keys, and node editor thumbnails."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable
 from contextlib import contextmanager, ExitStack
@@ -107,7 +107,7 @@ class RenderKind(Choice):
 
 
 class Status(Enum):
-    """State of a cell's thumbnail."""
+    """Cell thumbnail state."""
 
     READY = auto()
     QUEUED = auto()
@@ -117,7 +117,7 @@ class Status(Enum):
 type Source = MaterialSource | LightSource | WorldSource | GeometrySource | CompositorSource
 
 
-# --- [ROSTERS] --------------------------------------------------------------------------
+# --- [CHOICES] --------------------------------------------------------------------------
 
 outputs = Choices(
     lambda identity, owner, _: identity.reports.reported(
@@ -139,20 +139,20 @@ outputs = Choices(
 
 
 class Display(msgspec.Struct, frozen=True, kw_only=True):
-    """How thumbnails draw over the node editor."""
+    """Node editor thumbnail drawing."""
 
-    scale: Annotated[float, msgspec.Meta(ge=0.25, le=3.0, title="Thumbnail Size", description="Thumbnail width over the node's width")] = 1.0
-    position: Annotated[Position, msgspec.Meta(description="Side of the node the thumbnail sits on")] = Position.ABOVE
-    enlarged: Annotated[bool, msgspec.Meta(title="Enlarge Active Node", description="Active node's thumbnail drawn larger, on top")] = False
-    enlarge: Annotated[float, msgspec.Meta(ge=1.25, le=6.0, description="Active node's thumbnail size while enlarged")] = 2.5
+    scale: Annotated[float, msgspec.Meta(ge=0.25, le=3.0, title="Thumbnail Size", description="Share of node width")] = 1.0
+    position: Annotated[Position, msgspec.Meta(description="Node side holding thumbnail")] = Position.ABOVE
+    enlarged: Annotated[bool, msgspec.Meta(title="Enlarge Active Node", description="Active node thumbnail larger on top")] = False
+    enlarge: Annotated[float, msgspec.Meta(ge=1.25, le=6.0, description="Active node scale while enlarged")] = 2.5
     checker: Annotated[bool, msgspec.Meta(title="Checkerboard", description="Theme checker behind thumbnails")] = False
     status: Annotated[bool, msgspec.Meta(title="Status Marks", description="Queued and failed marks on thumbnails")] = True
-    values: Annotated[bool, msgspec.Meta(title="Show Values", description="Number written on a swatch of one value")] = True
+    values: Annotated[bool, msgspec.Meta(title="Show Values", description="Number on uniform swatches")] = True
     limit: Annotated[int, msgspec.Meta(ge=16, le=4096, title="Cached Thumbnails", description="Thumbnails kept in GPU memory and on disk")] = 256
 
 
 class NodePreviews(msgspec.Struct, frozen=True, kw_only=True):
-    """Node preview settings of the extension's preference record."""
+    """Node preview settings of extension preferences."""
 
     enabled: Annotated[bool, msgspec.Meta(title="Show Previews", description="Thumbnails over node editor nodes")] = True
     automatic: Annotated[bool, msgspec.Meta(title="Auto Update", description="Changed nodes render again")] = True
@@ -161,22 +161,22 @@ class NodePreviews(msgspec.Struct, frozen=True, kw_only=True):
     frames: Annotated[bool, msgspec.Meta(title="Follow Frame", description="Render again on frame change and during playback")] = False
     fields: Annotated[bool, msgspec.Meta(title="Field Nodes", description="Shader nodes of geometry trees as flat swatches")] = True
     trees: Annotated[frozenset[TreeKind], msgspec.Meta(description="Trees that take thumbnails")] = frozenset({TreeKind.MATERIAL, TreeKind.LIGHT, TreeKind.WORLD})
-    lighting: Annotated[Lighting, msgspec.Meta(description="Preview scene light of shader previews")] = Lighting()
+    lighting: Annotated[Lighting, msgspec.Meta(description="Shader preview lighting")] = Lighting()
     display: Annotated[Display, msgspec.Meta(description="Thumbnail drawing")] = Display()
 
 
 class NodeSetting(msgspec.Struct, frozen=True, kw_only=True):
-    """One node's thumbnail settings."""
+    """Node thumbnail settings."""
 
-    show: Annotated[bool, msgspec.Meta(title="Show Preview", description="Thumbnail of this node under the Marked scope")] = True
-    output: Annotated[Gated[Annotated[str, outputs]], msgspec.Meta(description="Output the thumbnail shows, the first linked one while off")] = Gated(enabled=False, value="")
+    show: Annotated[bool, msgspec.Meta(title="Show Preview", description="Thumbnail under Marked scope")] = True
+    output: Annotated[Gated[Annotated[str, outputs]], msgspec.Meta(description="Shown output, first linked when off")] = Gated(enabled=False, value="")
 
 
 class Export(msgspec.Struct, frozen=True, kw_only=True):
-    """Size of an exported thumbnail and whether the file opens after the write."""
+    """Exported thumbnail size and image load after write."""
 
-    size: Annotated[int, msgspec.Meta(ge=256, le=2048, description="Exported image side")] = 512
-    opened: Annotated[bool, msgspec.Meta(title="Open Image", description="Loads the written file as an image")] = True
+    size: Annotated[int, msgspec.Meta(ge=256, le=2048, description="Image side in pixels")] = 512
+    opened: Annotated[bool, msgspec.Meta(title="Open Image", description="Load written image")] = True
 
 
 class MaterialSource(msgspec.Struct, frozen=True, kw_only=True):
@@ -224,13 +224,13 @@ class Editor(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, space: bpy.types.SpaceNodeEditor) -> Option[Self]:
-        """Reads the source and group path a node editor shows, `Nothing` for a tree no previewed data-block holds."""
+        """Reads shown source and group path, `Nothing` outside previewed data-blocks."""
         nested = enclosing(space)
         groups = tuple(node.name for found in nested for node in found.to_list())
         return Option.of_optional(space.node_tree).bind(lambda root: sourced(space, root)).filter(lambda _: len(groups) == len(nested)).map(lambda found: cls(source=found, groups=groups))
 
     def tree(self, root: bpy.types.NodeTree) -> Option[bpy.types.NodeTree]:
-        """Answers the tree the group path reaches from a root tree."""
+        """Returns tree group path reaches from root."""
         return reduce(
             lambda held, name: held.bind(lambda tree: Option.of_optional(tree.nodes.get(name))).bind(lambda node: Option.of_optional(node.node_tree) if isinstance(node, GroupNode) else Nothing),
             self.groups,
@@ -248,14 +248,14 @@ class Target(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Routed[H: Holder](msgspec.Struct, frozen=True, kw_only=True):
-    """Copied holder and its carried output, or the retained shader output node's input."""
+    """Copied holder and routed socket, or kept output node's input."""
 
     holder: H
     socket: bpy.types.NodeSocket
 
 
 class Render(msgspec.Struct, frozen=True, kw_only=True):
-    """Isolated render of a target, its kind, whether it reads a value, and the shape a material swatch renders on."""
+    """Isolated target render with kind, value read, and swatch shape."""
 
     target: Target
     kind: RenderKind
@@ -264,7 +264,7 @@ class Render(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Staged(msgspec.Struct, frozen=True, kw_only=True):
-    """Render settings a change key folds."""
+    """Settings a change key hashes."""
 
     kind: RenderKind
     socket: str
@@ -278,14 +278,14 @@ class Staged(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Demand(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Retained native render request and its observable content identity."""
+    """Held render request and its content hash."""
 
     staged: Staged
     content: Option[ContentHash]
 
 
 class Planned(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """One target of one editor in a feed pass: its view, node, render, size, and change key."""
+    """Editor target of one feed pass."""
 
     editor: Editor
     region: bpy.types.Region
@@ -298,7 +298,7 @@ class Planned(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Cell(msgspec.Struct, frozen=True, kw_only=True):
-    """One thumbnail of a node: its key, label, status, and uniform value."""
+    """Node thumbnail cell."""
 
     node: str
     key: Hashable
@@ -308,14 +308,14 @@ class Cell(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Shown(msgspec.Struct, frozen=True, kw_only=True):
-    """Display settings and the cells each editor view draws."""
+    """Display settings and cells each editor draws."""
 
     display: Display
     cells: dict[Editor, tuple[Cell, ...]]
 
 
 class NodeState(msgspec.Struct, kw_only=True):
-    """One package's keys, values, held data keys, drawn cells, and the signal its drawing follows."""
+    """Per-package preview state."""
 
     signal: Signal
     keys: dict[Hashable, Demand] = msgspec.field(default_factory=dict)
@@ -326,11 +326,11 @@ class NodeState(msgspec.Struct, kw_only=True):
 
 
 class Counts(Line, frozen=True):
-    """Queued, failed, and cached thumbnail counts with estimated cached base-pixel memory."""
+    """Queued, failed, and cached thumbnail counts with cache memory."""
 
     @staticmethod
     def drawn(identity: Identity, /) -> BlenderResult[RowDraw]:
-        """Answers the label reading the queue backlog and the texture cache at each draw."""
+        """Returns label reading backlog and cache per draw."""
 
         def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
             backlog = PreviewQueue.held[identity.package]
@@ -342,17 +342,17 @@ class Counts(Line, frozen=True):
 
 
 class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
-    """Drawn part placing each editor's cells over its nodes."""
+    """Drawn part placing cells beside nodes."""
 
     identity: Identity
     settings: Callable[[Identity], BlenderResult[NodePreviews]]
 
     def read(self, _metrics: Metrics, /) -> BlenderResult[Option[Shown]]:
-        """Reads the display settings and every editor's cells while previews show, cells holding no GPU geometry."""
+        """Reads display settings and editor cells while previews show."""
         return self.settings(self.identity).map(lambda settings: Some(Shown(display=settings.display, cells=NodePreview.state[self.identity.package].cells)) if settings.enabled else Nothing)
 
     def drawn(self, canvas: Canvas, state: Shown) -> None:
-        """Draws each node's cells beside it in the editor the canvas draws, the active node's grid last."""
+        """Draws cells beside nodes, active node grid last."""
         metrics, display, theme, style = canvas.metrics, state.display, bpy.context.preferences.themes[0], bpy.context.preferences.ui_styles[0].widget  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         cache, points, pad, gap, checker = TextureCache(identity=self.identity), metrics.text(style), metrics.spacing.button_y, metrics.spacing.template, metrics.checker()
         shader = gpu.shader.from_builtin("IMAGE_COLOR")
@@ -437,13 +437,13 @@ class NodePreview:
         stored: Callable[[Identity, NodePreviews], BlenderResult[None]],
         retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing,
     ) -> None:
-        """Retains native command declarations once for every registration placement."""
+        """Builds operators once for every registration placement."""
         self.stack, self.tiles, self.settings, self.stored, self.retention = stack, tiles, settings, stored, retention
 
         self.toggle = Operator(
             key="toggle_node_previews",
             title="Toggle Node Previews",
-            description="Show or hide thumbnails over node editor nodes",
+            description="Toggle node editor thumbnails",
             form=Empty,
             undo=False,
             run=lambda call: (
@@ -458,7 +458,7 @@ class NodePreview:
         self.enlarge = Operator(
             key="enlarge_node_preview",
             title="Enlarge Active Node Preview",
-            description="Draw the active node's thumbnails larger, on top",
+            description="Toggle larger active node thumbnails on top",
             form=Empty,
             undo=False,
             run=lambda call: (
@@ -482,7 +482,7 @@ class NodePreview:
         self.clear = Operator(
             key="clear_node_previews",
             title="Clear Node Previews",
-            description="Remove every cached and stored node thumbnail and render them again",
+            description="Remove cached and stored thumbnails and render again",
             form=Empty,
             undo=False,
             run=lambda call: cleared(call.identity).map(lambda count: Done(notes=(("INFO", f"Removed {count} stored thumbnails"),))),
@@ -490,15 +490,15 @@ class NodePreview:
 
         def marking(call: Call[Empty]) -> BlenderResult[Outcome]:
             if not (nodes := tuple(call.context.selected_nodes)):
-                return Ok(Unchanged(reason="No node is selected"))
+                return Ok(Unchanged(reason="No node selected"))
 
             def flipping(attached: Attached[NodeSetting]) -> BlenderResult[Done]:
                 edits = tuple(attached.read(node).bind(lambda held: attached.write(node, msgspec.structs.replace(held, show=not held.show))) for node in nodes)
-                return tallied(edits, (("INFO", f"Flipped {sum(edit.is_ok() for edit in edits)} nodes"),))
+                return tallied(edits, (("INFO", f"Toggled {sum(edit.is_ok() for edit in edits)} node marks"),))
 
             return NodePreview.setting.bound(call.identity).bind(flipping)
 
-        self.mark = Operator(key="mark_node_previews", title="Mark Node Previews", description="Flip whether the selected nodes take a thumbnail under the Marked scope", form=Empty, run=marking)
+        self.mark = Operator(key="mark_node_previews", title="Mark Node Previews", description="Toggle selected node thumbnails under Marked scope", form=Empty, run=marking)
 
         writable = Format.writable()
         suffixes = tuple(f".{extension}" for row in writable for extension in row.extensions)
@@ -559,7 +559,7 @@ class NodePreview:
         self.export = Operator(
             key="export_node_preview",
             title="Export Node Preview",
-            description="Write the active node's thumbnail at a chosen size into an image file",
+            description="Write active node thumbnail to an image file",
             form=Export,
             undo=False,
             invoke=Some(Save(extensions=lambda _: (".exr", *(suffix for suffix in suffixes if suffix != ".exr")))),
@@ -567,7 +567,7 @@ class NodePreview:
         )
 
     def rendered(self, identity: Identity, render: Render, size: int, settings: NodePreviews, *, scene: bpy.types.Scene) -> BlenderResult[Readback]:
-        """Renders a target isolated through routed copies in the preview scene as its source stages it."""
+        """Renders target through routed copies in preview scene, staged per source kind."""
         lighting, target = settings.lighting, render.target
         aov: BlenderResult[Option[str]] = identity.name(Name.ATTACHMENT, PreviewScene.value).map(Some) if render.valued else Ok(Nothing)
         environment = lighting.environment
@@ -721,7 +721,7 @@ class NodePreview:
             return staging.bind(lambda desired: PreviewScene(stack=self.stack).rendered(identity, desired))
 
     def effected(self, identity: Identity, scene: bpy.types.Scene, target: Target, size: int, resources: ExitStack) -> BlenderResult[tuple[Chain, tuple[int, int]]]:
-        """Chains a routed effect group copy after the preview-enabled entries ahead of its entry, over the tile proxy."""
+        """Chains routed effect group copy after earlier preview-enabled entries, over tile proxy."""
         preview = PreviewScene(stack=self.stack)
 
         def chained(entry: bpy.types.SceneCompositorEffect, carried: Routed[bpy.types.NodeTree], head: Option[npt.NDArray[np.float32]]) -> BlenderResult[tuple[Chain, tuple[int, int]]]:
@@ -754,7 +754,7 @@ class NodePreview:
                 return Error((BlenderAbsentFault(owner=repr(target.source), key=target.node),))
 
     def thumbnailed(self, identity: Identity, render: Render, demand: Demand, size: int, kept: frozenset[Hashable], settings: NodePreviews, *, scene: bpy.types.Scene) -> BlenderResult[None]:
-        """Renders a target, stores its plane in the texture cache and the previews folder, and holds its uniform value."""
+        """Renders a target into texture cache and previews folder, holding uniform value."""
         state, folder, limit = NodePreview.state[identity.package], identity.folder / "previews", settings.display.limit
         key = demand.content.default_value(demand)
 
@@ -813,7 +813,7 @@ class NodePreview:
         )
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
-        """Keys every target of every node editor, reads stored thumbnails, writes each editor's cells, and answers a job per key neither holds."""
+        """Writes editor cells and returns a job per target key neither cache nor folder holds."""
         state, metrics = NodePreview.state[identity.package], Metrics.read()
         prior_keys = state.keys.copy()
         state.keys.clear()
@@ -1155,7 +1155,7 @@ class NodePreview:
 
     @property
     def page_rows(self) -> tuple[Registrable, ...]:
-        """Chords of the toggle, enlarge, and refresh rows in the Node Editor keymap, and the per-node setting attachment."""
+        """Toggle, enlarge, and refresh chords with per-node setting attachment."""
         return (
             Keymap(keymap="Node Editor", bindings={Chord(type="P", ctrl=1, alt=1): self.toggle}),
             Keymap(keymap="Node Editor", bindings={Chord(type="Z", ctrl=1, alt=1): self.enlarge}),
@@ -1164,7 +1164,7 @@ class NodePreview:
         )
 
     def section(self, header: tuple[Row, ...] = ()) -> Single:
-        """Section of the toggle, refresh, clear, and export rows, the queue and cache counts, and the active node's setting."""
+        """Returns node previews section."""
         return Single(
             key="node_previews",
             title="Node Previews",
@@ -1182,7 +1182,7 @@ class NodePreview:
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the state scope, the texture cache, the queue feed, the operator rows, the context menu, the overlay, and the update and frame rows."""
+        """Returns preview declarations, resources, overlay, and handlers."""
         signal = Signal()
         stores = tuple(
             kind
@@ -1249,16 +1249,16 @@ class NodePreview:
 
 
 class StageThumbnail(Line, frozen=True, kw_only=True):
-    """Inline native preview of an entry's complete stage output."""
+    """Inline preview of effect entry stage output."""
 
     preview: NodePreview
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains the preview producer whose queue owns the inline requests."""
+        """Returns preview producer owning inline request queue."""
         return Ok((self.preview,))
 
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
-        """Records the original Group Output target and draws its published icon."""
+        """Records Group Output target and draws its published icon."""
 
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             if isinstance(holder, bpy.types.SceneCompositorEffect) and isinstance(holder.id_data, bpy.types.Scene) and isinstance(holder.node_group, bpy.types.NodeTree):
@@ -1282,7 +1282,7 @@ class StageThumbnail(Line, frozen=True, kw_only=True):
 
 
 def targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settings: NodePreviews) -> BlenderResult[tuple[tuple[bpy.types.Node, Target], ...]]:
-    """Answers each node of a tree under the scope beside the targets its outputs and setting choose."""
+    """Returns in-scope tree nodes with targets their outputs and setting choose."""
     zones = zoned(tree)
 
     def chosen(node: bpy.types.Node, setting: NodeSetting) -> tuple[str, ...]:
@@ -1327,7 +1327,7 @@ def targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settin
 
 
 def isolated(node: bpy.types.Node, target: Target, settings: NodePreviews) -> Option[Render]:
-    """Answers the isolated render a target's socket takes in its source's tree."""
+    """Returns isolated render of a target socket."""
     inputs, outputs = node.inputs, node.outputs
 
     def kind(socket: bpy.types.NodeSocket) -> Option[RenderKind]:
@@ -1356,7 +1356,7 @@ def isolated(node: bpy.types.Node, target: Target, settings: NodePreviews) -> Op
 
 
 def sourced(space: bpy.types.SpaceNodeEditor, root: bpy.types.NodeTree) -> Option[Source]:
-    """Answers the data-block whose tree a node editor shows, a geometry group's object modifier and an effect group's entry among them."""
+    """Returns data-block a node editor shows, with modifier for geometry groups and entry for effect groups."""
     match space.id, space.id_from, root:
         case bpy.types.Material() as material, _, bpy.types.ShaderNodeTree():
             return Some(MaterialSource(material=Handle.of(material)))
@@ -1378,7 +1378,7 @@ def sourced(space: bpy.types.SpaceNodeEditor, root: bpy.types.NodeTree) -> Optio
 
 
 def enclosing(space: bpy.types.SpaceNodeEditor) -> tuple[Option[bpy.types.Node], ...]:
-    """Answers the group node each tree down a node editor's path enters through, the parent's active node where it uses the tree."""
+    """Returns group node entering each tree down editor path, parent active node first."""
     trees = tuple(item.node_tree for item in space.path)
     return tuple(
         Option.of_optional(next((node for node in (parent.nodes.active, *parent.nodes) if isinstance(node, GroupNode) and node.node_tree == child), None)) if parent is not None else Nothing
@@ -1387,7 +1387,7 @@ def enclosing(space: bpy.types.SpaceNodeEditor) -> tuple[Option[bpy.types.Node],
 
 
 def held(target: Target) -> BlenderResult[Holder]:
-    """Resolves the data-block or group a target's source previews through."""
+    """Resolves target source's data-block or group."""
     match target.source:
         case MaterialSource(material=handle):
             return handle.resolve()
@@ -1417,15 +1417,15 @@ def held(target: Target) -> BlenderResult[Holder]:
 
 @contextmanager
 def routed[H: Holder](identity: Identity, holder: H, target: Target) -> Generator[BlenderResult[Routed[H]]]:
-    """Scopes copied preview resources, exposing a target's output or retaining a shader output node whole.
+    """Scopes preview copies, exposing target output or keeping a shader output node whole.
 
     Args:
         identity: Extension whose marks the copies hold.
-        holder: Group, material, world, or light whose tree nests the target's node.
-        target: Group node names, node name, and socket identifier the copies route; an output node names its linked input.
+        holder: Tree holder nesting target node.
+        target: Route of copies, an output node naming its linked input.
 
     Yields:
-        The copied holder and output, or missing-node, socket, link, or native-edit faults. Every copy releases when the context exits.
+        Copied holder and output, copies removed at scope exit.
     """
 
     def found(tree: bpy.types.NodeTree, name: str) -> BlenderResult[bpy.types.Node]:
@@ -1483,7 +1483,7 @@ def routed[H: Holder](identity: Identity, holder: H, target: Target) -> Generato
 
 
 def outputs_of(node: bpy.types.Node) -> tuple[bpy.types.NodeSocket, ...]:
-    """Answers a node's enabled, shown outputs whose socket type its tree previews."""
+    """Returns shown outputs with a socket type the tree previews."""
     shown = tuple(socket for socket in node.outputs if socket.enabled and not socket.hide and not socket.is_unavailable)
     fields = frozenset({"RGBA", "VECTOR", "VALUE"})
     match node.id_data:
@@ -1498,7 +1498,7 @@ def outputs_of(node: bpy.types.Node) -> tuple[bpy.types.NodeSocket, ...]:
 
 
 def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
-    """Answers the names of the nodes inside every repeat, simulation, for-each, and closure zone of a tree."""
+    """Returns names of nodes inside paired zones."""
     pairs = sorted((link.from_node.name, link.to_node.name) for link in tree.links)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     following = {name: frozenset(target for _, target in group) for name, group in itertools.groupby(pairs, key=lambda pair: pair[0])}
 
@@ -1520,7 +1520,7 @@ def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
 
 
 def outlet(tree: bpy.types.NodeTree, socket: bpy.types.NodeSocket, output: type[bpy.types.Node], aov: Option[str]) -> BlenderResult[None]:
-    """Adds the output node, the Emission or Background node, and the value AOV a routed socket drives a copy's render through."""
+    """Adds output, Emission or Background, and value AOV nodes a routed socket drives."""
     emitter, emitted = (bpy.types.ShaderNodeBackground, "Background") if output is bpy.types.ShaderNodeOutputWorld else (bpy.types.ShaderNodeEmission, "Emission")
 
     def surfaced(sink: bpy.types.Node) -> BlenderResult[None]:
@@ -1551,7 +1551,7 @@ def outlet(tree: bpy.types.NodeTree, socket: bpy.types.NodeSocket, output: type[
 
 
 def refreshed(identity: Identity) -> BlenderResult[None]:
-    """Drops every target key and its held failure, so each editor's targets key and render again."""
+    """Drops target keys and held failures for a full rerender."""
     state = NodePreview.state[identity.package]
     PreviewQueue.forced(identity, tuple(state.keys))
     state.keys.clear()
@@ -1559,7 +1559,7 @@ def refreshed(identity: Identity) -> BlenderResult[None]:
 
 
 def cleared(identity: Identity) -> BlenderResult[int]:
-    """Empties the texture cache, the held values, and the previews folder, then refreshes every target."""
+    """Empties texture cache, held values, and previews folder, then refreshes every target."""
     files = tuple((identity.folder / "previews").glob("*.exr"))
     TextureCache.held[identity.package].clear()
     NodePreview.state[identity.package].values.clear()
@@ -1567,7 +1567,7 @@ def cleared(identity: Identity) -> BlenderResult[int]:
 
 
 def value(values: npt.NDArray[np.float32]) -> Option[float]:
-    """Mean of values spanning at most a thousandth of their magnitude, `Nothing` for a varying or empty field."""
+    """Returns mean of a field within a thousandth of its magnitude, `Nothing` when varying or empty."""
     return Option.of_optional(values if values.size else None).filter(lambda held: float(np.ptp(held)) <= 1e-3 * max(1.0, float(np.abs(held).max()))).map(lambda held: float(held.mean()))
 
 

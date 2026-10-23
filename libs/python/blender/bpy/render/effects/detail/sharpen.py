@@ -1,4 +1,4 @@
-"""Step-gated adaptive sharpening in native frame-pixel coordinates."""
+"""Step-gated adaptive sharpening in pixel coordinates."""
 
 from itertools import starmap
 
@@ -20,13 +20,13 @@ from blender.imaging.faults import accumulated, paired
 
 
 def sharpened(shell: Shell[Sharpen]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds an exposure-gated four-neighbor Laplacian.
+    """Builds exposure-gated four-neighbor Laplacian sharpening.
 
     Args:
         shell: Associated image, sharpness, working config, and later exposure gain.
 
     Returns:
-        The sharpened color with its graph, or accumulated node faults.
+        Sharpened color with its graph, or accumulated node faults.
     """
     axes = {"horizontal": {"right": (1.0, 0.0, 0.0), "left": (-1.0, 0.0, 0.0)}, "vertical": {"up": (0.0, 1.0, 0.0), "down": (0.0, -1.0, 0.0)}}
     fetching = {"Interpolation": "Nearest", "Extension X": "Extend", "Extension Y": "Extend"}

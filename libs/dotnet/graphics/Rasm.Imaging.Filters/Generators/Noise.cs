@@ -295,9 +295,9 @@ public sealed record Timing(Clock Clock, Magnitude Pace) : IStateRecord<Timing, 
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TimingParameter : IStateParameter<Timing> {
     public static readonly TimingParameter Clock = new("clock", StateParameter.Bounded(Lens<Timing, Clock>.New(static timing => timing.Clock, static clock => timing => timing with { Clock = clock }), new Presentation<float> { Unit = Quantity.GetUnitInfo(DurationUnit.Second) }),
-        new("Time", "Seconds of the moment a still draws, each recorded frame drawing at its own time"));
+        new("Time", "Seconds a still draws at, recorded frames advancing from it"));
     public static readonly TimingParameter Pace = new("pace", StateParameter.Bounded(Lens<Timing, Magnitude>.New(static timing => timing.Pace, static pace => timing => timing with { Pace = pace }), new Presentation<float> { Soft = (0f, 4f) }),
-        new("Pace", "Rate effective time advances with recorded frame time"));
+        new("Pace", "Effective seconds per recorded second"));
 
     public StateParameter<Timing> Kind { get; }
     public ParameterText Text { get; }
@@ -319,9 +319,9 @@ public sealed partial class OctavesParameter : IStateParameter<Octaves> {
     public static readonly OctavesParameter Detail = new("detail", StateParameter.Bounded(Lens<Octaves, FractalDetail>.New(static octaves => octaves.Detail, static detail => octaves => octaves with { Detail = detail }), new Presentation<float>()),
         new("Detail", "Octaves added past the first"));
     public static readonly OctavesParameter Roughness = new("roughness", StateParameter.Bounded(Lens<Octaves, AxisFraction>.New(static octaves => octaves.Roughness, static roughness => octaves => octaves with { Roughness = roughness })),
-        new("Roughness", "Strength of each octave against the one before"));
+        new("Roughness", "Strength of each octave relative to previous"));
     public static readonly OctavesParameter Lacunarity = new("lacunarity", StateParameter.Bounded(Lens<Octaves, FractalLacunarity>.New(static octaves => octaves.Lacunarity, static lacunarity => octaves => octaves with { Lacunarity = lacunarity }), new Presentation<float>()),
-        new("Lacunarity", "Frequency of each octave against the one before"));
+        new("Lacunarity", "Frequency of each octave relative to previous"));
 
     public StateParameter<Octaves> Kind { get; }
     public ParameterText Text { get; }
@@ -338,7 +338,7 @@ public sealed partial class CellularParameter : IStateParameter<Cellular> {
     public static readonly CellularParameter Metric = new("metric", new StateParameter<Cellular>.Choice<CellMetric>(Lens<Cellular, CellMetric>.New(static cells => cells.Metric, static metric => cells => cells with { Metric = metric })),
         new("Metric", "Distance the cells measure"));
     public static readonly CellularParameter Exponent = new("exponent", StateParameter.Bounded(Lens<Cellular, MinkowskiExponent>.New(static cells => cells.Exponent, static exponent => cells => cells with { Exponent = exponent }), new Presentation<float> { Scale = TrackScale.Log }),
-        new("Exponent", "Exponent of the Minkowski distance"));
+        new("Exponent", "Minkowski distance exponent"));
     public static readonly CellularParameter Randomness = new("randomness", StateParameter.Bounded(Lens<Cellular, AxisFraction>.New(static cells => cells.Randomness, static randomness => cells => cells with { Randomness = randomness })),
         new("Randomness", "Share of its cell each site wanders over"));
 
@@ -362,7 +362,7 @@ public abstract partial record NoiseBasis {
             fbm: static _ => false, multifractal: static _ => false, heteroTerrain: static _ => false, hybridMultifractal: static _ => false, ridgedMultifractal: static _ => false,
             f1: static basis => basis.Octaves.Degenerate, f2: static basis => basis.Octaves.Degenerate, smoothF1: static basis => basis.Octaves.Degenerate,
             edgeDistance: static _ => false, gabor: static _ => false, magic: static _ => false, wave: static _ => false, white: static _ => false)
-            ? Error.New(ErrorCodes.ValidationFailed, "cell site noise needs non-degenerate octaves") : Sampler;
+            ? Error.New(ErrorCodes.ValidationFailed, "Cell site noise needs non-degenerate octaves") : Sampler;
 
     public sealed record Fbm(NoiseDimensions Dimensions, Octaves Octaves, NoiseDistortion Distortion) : NoiseBasis, IStateRecord<Fbm, FbmBasisParameter> {
         public static new Fbm Default { get; } = new(NoiseDimensions.Three, Octaves.Default, NoiseDistortion.Neutral);
@@ -444,7 +444,7 @@ public abstract partial record NoiseBasis {
         internal override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => new(Dimensions.EdgeDistance(point, Octaves, Randomness, hash), point);
 
         internal override Fin<(float Lower, float Upper)> Range =>
-            Octaves.Degenerate ? Error.New(ErrorCodes.ValidationFailed, "edge-distance noise needs non-degenerate octaves") : Dimensions.EdgeRange(Octaves, Randomness);
+            Octaves.Degenerate ? Error.New(ErrorCodes.ValidationFailed, "Edge distance noise needs non-degenerate octaves") : Dimensions.EdgeRange(Octaves, Randomness);
     }
 
     public sealed record Gabor(NoiseDimensions Dimensions, GaborFrequency Frequency, AxisFraction Anisotropy, SignedAngle Orientation) : NoiseBasis, IStateRecord<Gabor, GaborBasisParameter> {
@@ -496,11 +496,11 @@ public abstract partial record NoiseBasis {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FbmBasisParameter : IStateParameter<NoiseBasis.Fbm> {
     public static readonly FbmBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.Fbm>.Choice<NoiseDimensions>(Lens<NoiseBasis.Fbm, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly FbmBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.Fbm>.Record<Octaves>(Lens<NoiseBasis.Fbm, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly FbmBasisParameter Distortion = new("distortion", StateParameter.Bounded(Lens<NoiseBasis.Fbm, NoiseDistortion>.New(static basis => basis.Distortion, static distortion => basis => basis with { Distortion = distortion })),
-        new("Distortion", "Warp of the noise by its own signal"));
+        new("Distortion", "Warps noise by its own signal"));
 
     public StateParameter<NoiseBasis.Fbm> Kind { get; }
     public ParameterText Text { get; }
@@ -511,11 +511,11 @@ public sealed partial class FbmBasisParameter : IStateParameter<NoiseBasis.Fbm> 
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MultifractalBasisParameter : IStateParameter<NoiseBasis.Multifractal> {
     public static readonly MultifractalBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.Multifractal>.Choice<NoiseDimensions>(Lens<NoiseBasis.Multifractal, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly MultifractalBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.Multifractal>.Record<Octaves>(Lens<NoiseBasis.Multifractal, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly MultifractalBasisParameter Distortion = new("distortion", StateParameter.Bounded(Lens<NoiseBasis.Multifractal, NoiseDistortion>.New(static basis => basis.Distortion, static distortion => basis => basis with { Distortion = distortion })),
-        new("Distortion", "Warp of the noise by its own signal"));
+        new("Distortion", "Warps noise by its own signal"));
 
     public StateParameter<NoiseBasis.Multifractal> Kind { get; }
     public ParameterText Text { get; }
@@ -526,11 +526,11 @@ public sealed partial class MultifractalBasisParameter : IStateParameter<NoiseBa
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HeteroTerrainBasisParameter : IStateParameter<NoiseBasis.HeteroTerrain> {
     public static readonly HeteroTerrainBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.HeteroTerrain>.Choice<NoiseDimensions>(Lens<NoiseBasis.HeteroTerrain, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly HeteroTerrainBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.HeteroTerrain>.Record<Octaves>(Lens<NoiseBasis.HeteroTerrain, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly HeteroTerrainBasisParameter Distortion = new("distortion", StateParameter.Bounded(Lens<NoiseBasis.HeteroTerrain, NoiseDistortion>.New(static basis => basis.Distortion, static distortion => basis => basis with { Distortion = distortion })),
-        new("Distortion", "Warp of the noise by its own signal"));
+        new("Distortion", "Warps noise by its own signal"));
     public static readonly HeteroTerrainBasisParameter Offset = new("offset", StateParameter.Bounded(Lens<NoiseBasis.HeteroTerrain, FractalOffset>.New(static basis => basis.Offset, static offset => basis => basis with { Offset = offset })),
         new("Offset", "Value added to each multifractal octave"));
 
@@ -543,11 +543,11 @@ public sealed partial class HeteroTerrainBasisParameter : IStateParameter<NoiseB
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HybridMultifractalBasisParameter : IStateParameter<NoiseBasis.HybridMultifractal> {
     public static readonly HybridMultifractalBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.HybridMultifractal>.Choice<NoiseDimensions>(Lens<NoiseBasis.HybridMultifractal, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly HybridMultifractalBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.HybridMultifractal>.Record<Octaves>(Lens<NoiseBasis.HybridMultifractal, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly HybridMultifractalBasisParameter Distortion = new("distortion", StateParameter.Bounded(Lens<NoiseBasis.HybridMultifractal, NoiseDistortion>.New(static basis => basis.Distortion, static distortion => basis => basis with { Distortion = distortion })),
-        new("Distortion", "Warp of the noise by its own signal"));
+        new("Distortion", "Warps noise by its own signal"));
     public static readonly HybridMultifractalBasisParameter Offset = new("offset", StateParameter.Bounded(Lens<NoiseBasis.HybridMultifractal, FractalOffset>.New(static basis => basis.Offset, static offset => basis => basis with { Offset = offset })),
         new("Offset", "Value added to each multifractal octave"));
     public static readonly HybridMultifractalBasisParameter Gain = new("gain", StateParameter.Bounded(Lens<NoiseBasis.HybridMultifractal, NoiseGain>.New(static basis => basis.Gain, static gain => basis => basis with { Gain = gain })),
@@ -562,11 +562,11 @@ public sealed partial class HybridMultifractalBasisParameter : IStateParameter<N
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RidgedMultifractalBasisParameter : IStateParameter<NoiseBasis.RidgedMultifractal> {
     public static readonly RidgedMultifractalBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.RidgedMultifractal>.Choice<NoiseDimensions>(Lens<NoiseBasis.RidgedMultifractal, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly RidgedMultifractalBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.RidgedMultifractal>.Record<Octaves>(Lens<NoiseBasis.RidgedMultifractal, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly RidgedMultifractalBasisParameter Distortion = new("distortion", StateParameter.Bounded(Lens<NoiseBasis.RidgedMultifractal, NoiseDistortion>.New(static basis => basis.Distortion, static distortion => basis => basis with { Distortion = distortion })),
-        new("Distortion", "Warp of the noise by its own signal"));
+        new("Distortion", "Warps noise by its own signal"));
     public static readonly RidgedMultifractalBasisParameter Offset = new("offset", StateParameter.Bounded(Lens<NoiseBasis.RidgedMultifractal, FractalOffset>.New(static basis => basis.Offset, static offset => basis => basis with { Offset = offset })),
         new("Offset", "Value added to each multifractal octave"));
     public static readonly RidgedMultifractalBasisParameter Gain = new("gain", StateParameter.Bounded(Lens<NoiseBasis.RidgedMultifractal, NoiseGain>.New(static basis => basis.Gain, static gain => basis => basis with { Gain = gain })),
@@ -581,9 +581,9 @@ public sealed partial class RidgedMultifractalBasisParameter : IStateParameter<N
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class F1BasisParameter : IStateParameter<NoiseBasis.F1> {
     public static readonly F1BasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.F1>.Choice<NoiseDimensions>(Lens<NoiseBasis.F1, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly F1BasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.F1>.Record<Octaves>(Lens<NoiseBasis.F1, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly F1BasisParameter Cellular = new("cellular", new StateParameter<NoiseBasis.F1>.Record<Cellular>(Lens<NoiseBasis.F1, Cellular>.New(static basis => basis.Cellular, static cells => basis => basis with { Cellular = cells })),
         new("Cells", "Cell distance and site placement"));
 
@@ -596,9 +596,9 @@ public sealed partial class F1BasisParameter : IStateParameter<NoiseBasis.F1> {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class F2BasisParameter : IStateParameter<NoiseBasis.F2> {
     public static readonly F2BasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.F2>.Choice<NoiseDimensions>(Lens<NoiseBasis.F2, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly F2BasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.F2>.Record<Octaves>(Lens<NoiseBasis.F2, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly F2BasisParameter Cellular = new("cellular", new StateParameter<NoiseBasis.F2>.Record<Cellular>(Lens<NoiseBasis.F2, Cellular>.New(static basis => basis.Cellular, static cells => basis => basis with { Cellular = cells })),
         new("Cells", "Cell distance and site placement"));
 
@@ -611,9 +611,9 @@ public sealed partial class F2BasisParameter : IStateParameter<NoiseBasis.F2> {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SmoothF1BasisParameter : IStateParameter<NoiseBasis.SmoothF1> {
     public static readonly SmoothF1BasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.SmoothF1>.Choice<NoiseDimensions>(Lens<NoiseBasis.SmoothF1, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly SmoothF1BasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.SmoothF1>.Record<Octaves>(Lens<NoiseBasis.SmoothF1, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly SmoothF1BasisParameter Cellular = new("cellular", new StateParameter<NoiseBasis.SmoothF1>.Record<Cellular>(Lens<NoiseBasis.SmoothF1, Cellular>.New(static basis => basis.Cellular, static cells => basis => basis with { Cellular = cells })),
         new("Cells", "Cell distance and site placement"));
     public static readonly SmoothF1BasisParameter Smoothness = new("smoothness", StateParameter.Bounded(Lens<NoiseBasis.SmoothF1, AxisFraction>.New(static basis => basis.Smoothness, static smoothness => basis => basis with { Smoothness = smoothness })),
@@ -628,9 +628,9 @@ public sealed partial class SmoothF1BasisParameter : IStateParameter<NoiseBasis.
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EdgeDistanceBasisParameter : IStateParameter<NoiseBasis.EdgeDistance> {
     public static readonly EdgeDistanceBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.EdgeDistance>.Choice<NoiseDimensions>(Lens<NoiseBasis.EdgeDistance, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly EdgeDistanceBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.EdgeDistance>.Record<Octaves>(Lens<NoiseBasis.EdgeDistance, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly EdgeDistanceBasisParameter Randomness = new("randomness", StateParameter.Bounded(Lens<NoiseBasis.EdgeDistance, AxisFraction>.New(static basis => basis.Randomness, static randomness => basis => basis with { Randomness = randomness })),
         new("Randomness", "Share of its cell each site wanders over"));
 
@@ -643,13 +643,13 @@ public sealed partial class EdgeDistanceBasisParameter : IStateParameter<NoiseBa
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GaborBasisParameter : IStateParameter<NoiseBasis.Gabor> {
     public static readonly GaborBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.Gabor>.Choice<NoiseDimensions>(Lens<NoiseBasis.Gabor, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly GaborBasisParameter Frequency = new("frequency", StateParameter.Bounded(Lens<NoiseBasis.Gabor, GaborFrequency>.New(static basis => basis.Frequency, static frequency => basis => basis with { Frequency = frequency }), new Presentation<float> { Scale = TrackScale.Log }),
         new("Frequency", "Gabor cycles per noise unit"));
     public static readonly GaborBasisParameter Anisotropy = new("anisotropy", StateParameter.Bounded(Lens<NoiseBasis.Gabor, AxisFraction>.New(static basis => basis.Anisotropy, static anisotropy => basis => basis with { Anisotropy = anisotropy })),
         new("Anisotropy", "Share of Gabor impulses held at the orientation"));
     public static readonly GaborBasisParameter Orientation = new("orientation", StateParameter.Bounded(Lens<NoiseBasis.Gabor, SignedAngle>.New(static basis => basis.Orientation, static orientation => basis => basis with { Orientation = orientation })),
-        new("Orientation", "Base angle of the Gabor impulses"));
+        new("Orientation", "Base angle of Gabor impulses"));
 
     public StateParameter<NoiseBasis.Gabor> Kind { get; }
     public ParameterText Text { get; }
@@ -660,9 +660,9 @@ public sealed partial class GaborBasisParameter : IStateParameter<NoiseBasis.Gab
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MagicBasisParameter : IStateParameter<NoiseBasis.Magic> {
     public static readonly MagicBasisParameter Depth = new("depth", StateParameter.Bounded(Lens<NoiseBasis.Magic, MagicDepth>.New(static basis => basis.Depth, static depth => basis => basis with { Depth = depth }), new Presentation<int> { Step = 1 }),
-        new("Depth", "Turbulence steps of the magic noise"));
+        new("Depth", "Turbulence steps of magic noise"));
     public static readonly MagicBasisParameter Distortion = new("distortion", StateParameter.Bounded(Lens<NoiseBasis.Magic, NoiseDistortion>.New(static basis => basis.Distortion, static distortion => basis => basis with { Distortion = distortion })),
-        new("Distortion", "Warp of the noise by its own signal"));
+        new("Distortion", "Warps noise by its own signal"));
 
     public StateParameter<NoiseBasis.Magic> Kind { get; }
     public ParameterText Text { get; }
@@ -673,19 +673,19 @@ public sealed partial class MagicBasisParameter : IStateParameter<NoiseBasis.Mag
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WaveBasisParameter : IStateParameter<NoiseBasis.Wave> {
     public static readonly WaveBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.Wave>.Choice<NoiseDimensions>(Lens<NoiseBasis.Wave, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
     public static readonly WaveBasisParameter Octaves = new("octaves", new StateParameter<NoiseBasis.Wave>.Record<Octaves>(Lens<NoiseBasis.Wave, Octaves>.New(static basis => basis.Octaves, static octaves => basis => basis with { Octaves = octaves })),
-        new("Octaves", "Detail of the noise across scales"));
+        new("Octaves", "Noise detail across scales"));
     public static readonly WaveBasisParameter Distortion = new("distortion", StateParameter.Bounded(Lens<NoiseBasis.Wave, NoiseDistortion>.New(static basis => basis.Distortion, static distortion => basis => basis with { Distortion = distortion })),
-        new("Distortion", "Warp of the noise by its own signal"));
+        new("Distortion", "Warps noise by its own signal"));
     public static readonly WaveBasisParameter Form = new("form", new StateParameter<NoiseBasis.Wave>.Choice<WaveForm>(Lens<NoiseBasis.Wave, WaveForm>.New(static basis => basis.Form, static form => basis => basis with { Form = form })),
-        new("Type", "Bands or rings the wave noise draws"));
+        new("Type", "Bands or rings the wave draws"));
     public static readonly WaveBasisParameter Profile = new("profile", new StateParameter<NoiseBasis.Wave>.Choice<WaveProfile>(Lens<NoiseBasis.Wave, WaveProfile>.New(static basis => basis.Profile, static profile => basis => basis with { Profile = profile })),
         new("Profile", "Shape of each wave period"));
     public static readonly WaveBasisParameter Phase = new("phase", StateParameter.Bounded(Lens<NoiseBasis.Wave, SignedAngle>.New(static basis => basis.Phase, static phase => basis => basis with { Phase = phase })),
-        new("Phase offset", "Turn added to the wave's argument"));
+        new("Phase offset", "Turn added to wave argument"));
     public static readonly WaveBasisParameter DetailScale = new("detail-scale", StateParameter.Bounded(Lens<NoiseBasis.Wave, NoiseGain>.New(static basis => basis.DetailScale, static scale => basis => basis with { DetailScale = scale })),
-        new("Detail scale", "Frequency of the wave's distortion noise against the wave's"));
+        new("Detail scale", "Distortion noise frequency relative to wave"));
 
     public StateParameter<NoiseBasis.Wave> Kind { get; }
     public ParameterText Text { get; }
@@ -696,7 +696,7 @@ public sealed partial class WaveBasisParameter : IStateParameter<NoiseBasis.Wave
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WhiteBasisParameter : IStateParameter<NoiseBasis.White> {
     public static readonly WhiteBasisParameter Dimensions = new("dimensions", new StateParameter<NoiseBasis.White>.Choice<NoiseDimensions>(Lens<NoiseBasis.White, NoiseDimensions>.New(static basis => basis.Dimensions, static dimensions => basis => basis with { Dimensions = dimensions })),
-        new("Dimensions", "Number of coordinate axes the noise reads"));
+        new("Dimensions", "Coordinate axes the noise reads"));
 
     public StateParameter<NoiseBasis.White> Kind { get; }
     public ParameterText Text { get; }
@@ -899,7 +899,7 @@ internal static class NoiseFunctions {
         Vector3 peak = Vector3.Create(depth == MagicDepth.MinValue ? 1f : float.Abs(distortion));
         (float first, float second) = (Vector3.Sum(Magic(peak, distortion)) / 3f, Vector3.Sum(Magic(-peak, distortion)) / 3f);
         return float.IsFinite(first) && float.IsFinite(second) ? (float.Min(first, second), float.Max(first, second))
-            : Error.New(string.Create(CultureInfo.InvariantCulture, $"magic noise at depth {depth} and distortion {distortion} has no finite range"));
+            : Error.New(string.Create(CultureInfo.InvariantCulture, $"Magic noise at depth {depth} and distortion {distortion} has no finite range"));
     }
 
     extension(NoiseDimensions lattice) {

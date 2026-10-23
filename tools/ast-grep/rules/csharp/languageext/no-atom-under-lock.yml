@@ -104,7 +104,7 @@ rule:
             matches: lock-region
             pattern: $REGION
 labels:
-    WRITE: {style: primary, message: 'Changes the atomic cell'}
-    REGION: {style: secondary, message: 'Runs while the lock is held'}
-message: '`$WRITE` changes an atomic cell under a lock that serializes it a second time'
-note: 'Use the atomic cell''s operations alone or a lock over a plain field'
+    WRITE: {style: primary, message: 'Writes the atom'}
+    REGION: {style: secondary, message: 'Holds the lock'}
+message: '`$WRITE` writes an atom under a lock that serializes the write a second time'
+note: 'Write through `Atom` operations without a lock, or hold state in a plain field under the lock'

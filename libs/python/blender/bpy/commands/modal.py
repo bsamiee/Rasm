@@ -1,4 +1,4 @@
-"""Interactive operator gestures, preview, rollback, timers, and native status drawing."""
+"""Modal operator gestures with preview and rollback."""
 
 from collections.abc import Callable
 from contextlib import ExitStack
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class Gesture(Enum):
-    """Pointer movement with native cursor and optional continuous grab."""
+    """Pointer movement with modal cursor and grab."""
 
     DRAG = (Some("SCROLL_XY"), Some("GRAB_CURSOR"))
     DRAG_X = (Some("SCROLL_X"), Some("GRAB_CURSOR_X"))
@@ -29,18 +29,18 @@ class Gesture(Enum):
     TIMED = (Nothing, Nothing)
 
     def __init__(self, cursor: Option["rna_enums.WindowCursorItems"], grab: Option["rna_enums.OperatorTypeFlagItems"]) -> None:
-        """Stores native cursor and grab flags for a gesture."""
+        """Stores cursor and grab flag."""
         self.cursor = cursor
         self.grab = grab
 
     @property
     def options(self) -> frozenset["rna_enums.OperatorTypeFlagItems"]:
-        """Native pointer blocking and wrapping flags."""
+        """Blocking and grab operator flags."""
         return frozenset["rna_enums.OperatorTypeFlagItems"]({"BLOCKING"} if self.cursor.is_some() else ()) | frozenset(self.grab.to_list())
 
     @property
     def relative(self) -> bool:
-        """Whether pointer movement uses a continuously grabbed cursor."""
+        """Whether cursor stays grabbed."""
         return self.grab.is_some()
 
 
@@ -53,7 +53,7 @@ MODAL_KEYMAP = "Standard Modal Map"
 
 
 class Travel(msgspec.Struct, frozen=True, kw_only=True):
-    """Region position, press displacement, drag threshold, precision, and snapping."""
+    """Pointer travel since press."""
 
     x: int
     y: int
@@ -72,20 +72,20 @@ class Press(msgspec.Struct, frozen=True, kw_only=True):
     threshold: int
 
     def travel(self, event: bpy.types.Event, *, snapped: bool) -> Travel:
-        """Returns current travel from a captured press and snap state."""
+        """Returns travel from press to event."""
         dx, dy = event.mouse_x - self.x, event.mouse_y - self.y
         return Travel(x=event.mouse_region_x, y=event.mouse_region_y, dx=dx, dy=dy, dragged=max(abs(dx), abs(dy)) > self.threshold, precise=event.shift, snapped=snapped)
 
 
 class Tick[S](msgspec.Struct, frozen=True, kw_only=True):
-    """Interval and state transition over elapsed seconds, with Nothing finishing."""
+    """Timer interval and state step, Nothing finishing."""
 
     interval: float
     body: Callable[[bpy.types.Context, S, float], BlenderResult[Option[S]]]
 
 
 class Run[S](msgspec.Struct, frozen=True, kw_only=True):
-    """Rollback snapshot, current state, invoking context, and acquired modal resources."""
+    """Live run with rollback snapshot and held resources."""
 
     initial: S
     state: S
@@ -101,7 +101,7 @@ class Run[S](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
-    """Gesture, begin snapshot, live preview, rollback, and optional timer and status."""
+    """Modal operator body with preview and rollback."""
 
     gesture: Gesture
     begin: Callable[[bpy.types.Context, Travel], BlenderResult[S]]
@@ -117,11 +117,11 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def options(self) -> frozenset["rna_enums.OperatorTypeFlagItems"]:
-        """Gesture options with native modal priority when requested."""
+        """Gesture flags with `MODAL_PRIORITY` when `priority` is set."""
         return self.gesture.options | (frozenset["rna_enums.OperatorTypeFlagItems"]({"MODAL_PRIORITY"}) if self.priority else frozenset())
 
     def began(self, operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
-        """Returns RUNNING_MODAL after beginning, or begin faults and an absent window before acquiring resources."""
+        """Returns RUNNING_MODAL once begun, faulting before resource acquisition."""
 
         def started(run: Run[S]) -> "rna_enums.OperatorReturnItems":
             vars(operator)["running"] = run
@@ -156,7 +156,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 return Error((BlenderAbsentFault(owner=repr(context), key="window"),))
 
     def ended(self, operator: bpy.types.Operator, context: bpy.types.Context, *, cancelled: bool) -> BlenderResult[None]:
-        """Releases a live run and restores its original snapshot when cancelled."""
+        """Releases live run, restoring initial snapshot when cancelled."""
         ending: Option[Run[S]] = Option.of_optional(vars(operator).pop("running", None))
 
         def released(action: Callable[[], None]) -> BlenderResult[None]:
@@ -188,7 +188,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
     # --- [EVENTS]
 
     def handled(self, operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
-        """Returns an event outcome or preview or timer faults for the operator boundary."""
+        """Returns event outcome."""
         run: Run[S] = vars(operator)["running"]
 
         def previewed(current: Run[S]) -> BlenderResult["rna_enums.OperatorReturnItems"]:
@@ -240,10 +240,10 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
     # --- [STATUS]
 
     def _hinted(self, operator: bpy.types.Operator) -> Callable[[bpy.types.Header, bpy.types.Context], None]:
-        """Returns a draw using current user chords, precision, and current body state."""
+        """Returns status bar callback drawing user chords and run state."""
 
         def drawn(header: bpy.types.Header, _context: bpy.types.Context) -> None:
-            """Draws current user items in action order without retaining keymap references."""
+            """Draws user modal items in action order, holding no keymap reference."""
             run: Run[S] = vars(operator)["running"]
             items = (
                 item
@@ -267,7 +267,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
 
 def matched(item: bpy.types.KeyMapItem, event: bpy.types.Event) -> bool:
-    """Matches active user modal chords against raw event members exposed by Blender."""
+    """Checks whether active modal item matches event."""
     return (
         item.active  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
         and (item.repeat or not event.is_repeat)

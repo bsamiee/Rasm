@@ -40,4 +40,4 @@ rule:
 transform:
     HEAD: {replace: {source: $DECLARATION, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 message: '`$HEAD` declares ambient types or values the compiler takes on trust'
-note: 'Take each type from its owner (package or `paths` types, merged `interface <Name> { … }`, bundler `import.meta.env` types) or decode with `Schema`'
+note: 'Import types from their owning package, `paths` mapping, or bundler client types, merge into `interface <Name>`, or decode with `Schema`'

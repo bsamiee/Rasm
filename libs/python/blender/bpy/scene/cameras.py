@@ -1,4 +1,4 @@
-"""Render cameras, native framing, saved requirements, display rows, and render views."""
+"""Camera framing, requirements, display rows, and render views."""
 
 from collections import Counter
 from collections.abc import Callable
@@ -40,42 +40,42 @@ type ViewSet = Stereo | Multiview
 
 
 class View(msgspec.Struct, frozen=True, kw_only=True):
-    """Named render view and suffix of its camera and image files."""
+    """Render view with camera and image file suffix."""
 
     name: Annotated[str, msgspec.Meta(min_length=1, title="View", description="Render view name")]
-    suffix: Annotated[str, msgspec.Meta(description="Suffix of the camera name and image files")]
-    use: Annotated[bool, msgspec.Meta(title="Render", description="Render this view")] = True
+    suffix: Annotated[str, msgspec.Meta(description="Camera name and image file suffix")]
+    use: Annotated[bool, msgspec.Meta(title="Render", description="Renders view")] = True
 
 
 class Stereo(Case, frozen=True, kw_only=True, tag=1):
-    """Left and right views from the camera's stereo settings."""
+    """Left and right camera stereo views."""
 
     title = "Stereo 3D"
 
 
 class Multiview(Case, frozen=True, kw_only=True, tag=2):
-    """Named views reading cameras by their suffixes."""
+    """Named views reading cameras by suffix."""
 
     title = "Multi-View"
     views: Annotated[tuple[View, ...], msgspec.Meta(description="Views rendered beside left and right")] = ()
 
 
 class RenderViews(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene's retained render views, rendering one view while disabled."""
+    """Scene render views, one view rendering while disabled."""
 
     views: Annotated[Gated[ViewSet], msgspec.Meta(description="Views each frame renders")] = Gated(enabled=False, value=Stereo())
 
 
 class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
-    """Native scene-camera display controls and their context-menu entry."""
+    """Scene camera display rows with context menu entry."""
 
     @property
     def passepartout(self) -> tuple[Property, Property]:
-        """Passepartout switch and its enabled alpha control."""
+        """Passepartout switch gating alpha row."""
         return _camera_row("show_passepartout"), _camera_row("passepartout_alpha", Some("show_passepartout"))
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns the retained passepartout append for camera views."""
+        """Returns passepartout rows on object context menu in camera view."""
         perspective = Descriptor(root=bpy.types.RegionView3D, owner="", prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"])
         camera = Descriptor(root=bpy.types.Scene, owner="camera", prop=bpy.types.Object.bl_rna.properties["type"])
         return Ok((
@@ -87,7 +87,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
         ))
 
     def section(self) -> Section:
-        """Returns lens, safe-area, guide, and display rows under native sensor presets."""
+        """Returns display rows under sensor preset popover."""
         guides = tuple(prop.identifier for prop in bpy.types.Camera.bl_rna.properties if prop.identifier.startswith("show_composition_"))
         return Single(
             key="camera_display",
@@ -106,23 +106,23 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
-    """Render-view attachment and native stereo controls over the current scene."""
+    """Render view attachment and stereo rows of current scene."""
 
     retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
 
     @staticmethod
     def synced(scene: Handle[bpy.types.Scene], identity: Identity) -> BlenderResult[Option[str]]:
-        """Reconciles the scene's current attached views, returning no undo label."""
+        """Reconciles scene render views to stored views, naming no undo step."""
         return paired(scene.resolve(), CameraViews.attachment.bound(identity)).bind(lambda pair: pair[1].read(pair[0]).bind(lambda views: reconciled(views, pair[0]))).map(lambda _: Nothing)
 
     attachment: ClassVar[Attachment[RenderViews]] = Attachment(key="render_views", form=RenderViews, owner=bpy.types.Scene, changed=Some(reconciling(bpy.types.Scene, synced)))
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns the original attachment declaration for scoped construction."""
+        """Returns unbound attachment for registration scope."""
         return Ok((self.attachment,))
 
     def section(self) -> Section:
-        """Returns the attached views and the camera's native stereo members."""
+        """Returns attached views and camera stereo rows."""
         stereo = tuple(f"stereo.{prop.identifier}" for prop in bpy.types.CameraStereoData.bl_rna.properties if not prop.is_hidden)
         multiview = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="render", prop=bpy.types.RenderSettings.bl_rna.properties["use_multiview"]))
         return Single(
@@ -138,7 +138,7 @@ class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def render_cameras(scene: bpy.types.Scene) -> dict[bpy.types.Object, bpy.types.Camera]:
-    """Returns native camera objects and their data in scene and marker order, once each."""
+    """Returns camera objects and data in scene and marker order, once each."""
     return {
         item: camera
         for item in dict.fromkeys((scene.camera, *(marker.camera for marker in sorted(scene.timeline_markers, key=lambda marker: marker.frame))))
@@ -149,7 +149,7 @@ def render_cameras(scene: bpy.types.Scene) -> dict[bpy.types.Object, bpy.types.C
 
 
 def widened(camera: bpy.types.Camera, factor: float) -> Option[Snapshot]:
-    """Returns the grown fit-axis snapshot, or absence for panoramic and custom cameras."""
+    """Returns snapshot scaling fit axis, `Nothing` for panoramic and custom cameras."""
     match camera.type:
         case "ORTHO":
             return Some(Snapshot.of(bpy.types.Camera, {"ortho_scale": camera.ortho_scale * factor}))
@@ -160,7 +160,7 @@ def widened(camera: bpy.types.Camera, factor: float) -> Option[Snapshot]:
 
 
 def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgraph: bpy.types.Depsgraph) -> BlenderResult[None]:
-    """Fits a native camera to world coordinates, returning absent or write refusals."""
+    """Fits camera object to two or more finite world coordinates."""
     match item.data:
         case bpy.types.Camera() as camera:
             try:
@@ -187,12 +187,12 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
 
 
 def camera_type(*accepted: str) -> Setting:
-    """Returns the condition accepting the scene camera's native type identifiers."""
+    """Returns condition on scene camera type."""
     return Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="camera.data", prop=bpy.types.Camera.bl_rna.properties["type"]), accepted=accepted)
 
 
 def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
-    """Applies requirements with persistent earliest and actual final native values."""
+    """Applies requirements to render cameras, storing earliest prior and final values."""
 
     def applied(stored: Stored[Endpoints]) -> BlenderResult[None]:
         def prepared(camera: bpy.types.Camera) -> BlenderResult[tuple[bpy.types.Camera, Persisted, Tree[NativeValue], Option[Tree[NativeValue]]]]:
@@ -224,7 +224,7 @@ def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> Bl
 
 
 def released(identity: Identity) -> BlenderResult[None]:
-    """Restores requirements still equal to their actual final values, preserving edits."""
+    """Restores prior camera values unless later edits changed them."""
 
     def restored(stored: Stored[Endpoints]) -> BlenderResult[None]:
         def camera_back(camera: bpy.types.Camera) -> BlenderResult[None]:
@@ -240,7 +240,7 @@ def released(identity: Identity) -> BlenderResult[None]:
 
 
 def _priors(identity: Identity) -> BlenderResult[Stored[Endpoints]]:
-    """Camera storage of the requirements endpoints under the extension name."""
+    """Returns camera storage of requirement endpoints."""
     return identity.name(Name.ATTACHMENT, "camera_prior").map(endpoints)
 
 
@@ -248,7 +248,7 @@ def _priors(identity: Identity) -> BlenderResult[Stored[Endpoints]]:
 
 
 def reconciled(views: RenderViews, scene: bpy.types.Scene) -> BlenderResult[None]:
-    """Writes native view settings and named views, accumulating independent refusals."""
+    """Writes view settings and named views, accumulating independent faults."""
     render = scene.render
     match views.views.value:
         case Multiview(views=named):
@@ -283,7 +283,7 @@ def reconciled(views: RenderViews, scene: bpy.types.Scene) -> BlenderResult[None
             paired(
                 accumulated(Error((fault,)) for fault in collisions),
                 Descriptor.resolve(bpy.types.SceneRenderView, "name", bpy.types.StringProperty).bind(
-                    lambda name: accumulated(Descriptor.admitted(name.prop, view.name) for view in (*missing, *named))
+                    lambda name: accumulated(Descriptor.validated(name.prop, view.name) for view in (*missing, *named))
                 ),
             )
             .bind(lambda _: paired(written(render, "use_multiview", views.views.enabled), written(render, "views_format", form)))

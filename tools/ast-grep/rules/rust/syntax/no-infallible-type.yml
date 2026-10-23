@@ -10,5 +10,5 @@ rule:
         - kind: scoped_type_identifier
           regex: '^((::)?(std|core)::)?convert::Infallible$'
 fix: '!'
-message: '`Infallible` names the never type through its alias'
-note: 'Write `!` and delete the `Infallible` import the last use leaves unused'
+message: '`Infallible` stands in for the never type `!`'
+note: 'Write `!` (`#![feature(never_type)]`) and delete the unused `Infallible` import'

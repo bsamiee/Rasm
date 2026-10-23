@@ -13,7 +13,7 @@ public enum AdobeFailure: LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .notAdobe(let url): "\(url.path(percentEncoded: false)) has no bundle identifier starting \(Adobe.identifierPrefix)"
-            case .noProcess(let pid): "No running application bundle has pid \(pid)"
+            case .noProcess(let pid): "No running application has Process ID \(pid)"
         }
     }
 }

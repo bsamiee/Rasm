@@ -2,7 +2,7 @@ import { expect, test } from '#/fixtures';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-test('owner reorders entries from the keyboard and the saved order survives reload', async ({ owner }, { testId }) => {
+test('keyboard reorder survives save and reload', async ({ owner }, { testId }) => {
     const editor = owner.getByRole('dialog', { name: 'Portfolio editor.' });
     const entries = editor.getByRole('grid', { name: 'Projects and studies' });
     const plan = `Plan ${testId}`;
@@ -11,9 +11,9 @@ test('owner reorders entries from the keyboard and the saved order survives relo
     const create = async (title: string) => {
         await editor.getByRole('button', { name: 'New project' }).click();
         await editor.getByRole('textbox', { name: 'Title' }).fill(title);
-        await editor.getByRole('button', { name: 'Change project' }).click();
+        await editor.getByRole('button', { name: 'Back to entries' }).click();
     };
-    await test.step('add the entries to reorder', async () => {
+    await test.step('add entries', async () => {
         await create(plan);
         await create(section);
         await create(detail);
@@ -24,7 +24,7 @@ test('owner reorders entries from the keyboard and the saved order survives relo
             - row "${detail}"
         `);
     });
-    await test.step('drag an entry one position down from its drag button', async () => {
+    await test.step('drag entry down one row with drag button', async () => {
         await entries.getByRole('button', { name: `Drag ${plan}` }).focus();
         await owner.keyboard.press('Enter');
         await owner.keyboard.press('ArrowDown');
@@ -36,7 +36,7 @@ test('owner reorders entries from the keyboard and the saved order survives relo
             - row "${detail}"
         `);
     });
-    await test.step('move an entry to the top through its move menu', async () => {
+    await test.step('move entry to top with move menu', async () => {
         await entries.getByRole('row', { name: detail }).getByRole('button', { name: 'Move', exact: true }).click();
         await owner.getByRole('menu', { name: 'Move' }).getByRole('menuitem', { name: section }).click();
         await expect(owner.getByRole('menu', { name: 'Move' })).toBeHidden();
@@ -48,9 +48,9 @@ test('owner reorders entries from the keyboard and the saved order survives relo
             - row "${plan}"
         `);
     });
-    await test.step('save the order and reload', async () => {
+    await test.step('save order and reload', async () => {
         await editor.getByRole('button', { name: 'Save draft' }).click();
-        await expect(editor.getByRole('status')).toHaveText('Draft saved. Published work is unchanged.');
+        await expect(editor.getByRole('status')).toHaveText('Draft saved. Published work unchanged');
         await owner.reload();
         await expect(entries).toMatchAriaSnapshot(`
           - grid:

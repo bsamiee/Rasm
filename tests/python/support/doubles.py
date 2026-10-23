@@ -1,4 +1,4 @@
-"""Recording call stubs, an autojumping virtual clock, fixture file writers, and NDJSON line-count assertions."""
+"""Call-recording stubs, Trio autojump clock, fixture writer, and NDJSON line-count check."""
 
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
@@ -29,7 +29,7 @@ class Async[R](msgspec.Struct, frozen=True):
 
 
 class Factory[R](msgspec.Struct, frozen=True):
-    """Curried double, ``(*bind) -> (*call) -> value``, the inner call records under ``<member>()``."""
+    """Curried double ``(*bind) -> (*call) -> value`` logging its inner call as ``<member>()``."""
 
     value: R
 
@@ -41,7 +41,7 @@ type Stub[R] = Sync[R] | Async[R] | Factory[R]
 
 
 def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str, Stub[object]]) -> Sequence[CallRecord]:
-    """Replace each ``target.member`` with its stub and return the one log of ``(member, args, kwargs)`` every call appends in call order."""
+    """Replace each ``target.member`` with its stub and return shared call log in call order."""
     calls: list[CallRecord] = []
 
     def runner(member: str, stub: Stub[object]) -> object:
@@ -69,7 +69,7 @@ def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str,
 
 
 def autojump_backend() -> tuple[str, dict[str, object]]:
-    """Return the ``anyio_backend`` parameter for Trio's autojumping clock."""
+    """Return ``anyio_backend`` parameter for Trio autojumping clock."""
     return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=0)})
 
 
@@ -77,7 +77,7 @@ def autojump_backend() -> tuple[str, dict[str, object]]:
 
 
 def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callable[[object], bytes] = msgspec.json.encode) -> dict[str, Path]:
-    """Write each named file under ``directory``, raw bytes as given and any other content through ``encode``, and return the paths by name."""
+    """Write each file under ``directory``, non-bytes content through ``encode``, and return paths by name."""
     paths = {name: directory / name for name in files}
     for name, path in paths.items():
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,9 +89,9 @@ def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callabl
 
 
 def decoded_lines[T](decoder: msgspec.json.Decoder[T], raw: bytes | str, count: int) -> list[T]:
-    """Decode newline-delimited JSON and assert the exact line count."""
+    """Decode newline-delimited JSON and assert ``count`` lines."""
     rows = decoder.decode_lines(raw)
-    assert len(rows) == count, f"expected exactly {count} NDJSON line(s), got {len(rows)}: {raw!r}"
+    assert len(rows) == count, f"expected {count} NDJSON lines, got {len(rows)} in {raw!r}"
     return rows
 
 

@@ -45,5 +45,5 @@ rule:
           all:
             - has: {field: function, pattern: bpy.msgbus.subscribe_rna}
             - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^owner$'}}, {has: {field: value, not: {kind: 'identifier, attribute, subscript'}}}]}}
-message: '`$CALL` attaches or detaches a handler with no held name pairing it with its release'
-note: 'Bind the callable, draw handle, or msgbus owner to a name and release that name at scope exit (`remove`, `draw_handler_remove`, `clear_by_owner`)'
+message: '`$CALL` passes a handler or owner no held name pairs with its release'
+note: 'Bind the callable, draw handle, or msgbus owner to a name released through `remove`, `draw_handler_remove`, or `clear_by_owner`'

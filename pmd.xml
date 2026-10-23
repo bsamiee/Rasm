@@ -62,8 +62,8 @@
     </rule>
 
     <!-- [GHIDRA] -->
-    <rule name="UncheckedDecompilerOpen" language="java" message="Decompiler program open ignores its result" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
-        <description>`DecompInterface.openProgram` returns false with the cause in `getLastMessage`, and the `DecompilerCallback` pool ignores that false, so open the program in the configurer and fail on false</description>
+    <rule name="UncheckedDecompilerOpen" language="java" message="Decompiler program open result unchecked" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>`DecompilerCallback` discards false from `DecompInterface.openProgram`, open program in configurer and fail with `getLastMessage`</description>
         <priority>1</priority>
         <properties>
             <property name="xpath">

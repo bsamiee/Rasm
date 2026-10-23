@@ -25,4 +25,4 @@ rule:
                 - not: {has: {stopBy: {kind: 'function_declaration, lambda_literal'}, kind: await_expression}}
                 - has: {stopBy: end, matches: descriptor-binding}
 message: '`defer` closes `$DESCRIPTOR` around a synchronous body'
-note: 'Run the body through `<descriptor>.closeAfter { }`'
+note: 'Run the body inside `<descriptor>.closeAfter { }`'

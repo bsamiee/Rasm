@@ -30,18 +30,17 @@ def content_hash(
     config: Option[PyOpenColorIO.Config] = Nothing,
     providers: tuple[ModuleType, ...] = (),
 ) -> ContentHash:
-    """Hashes portable records, canonical arrays, configuration, and providers.
+    """Hashes records, arrays, configuration, and providers.
 
     Args:
-        scope: Type identifying the content domain.
-        *records: Native record values, including naive and aware datetimes;
-            MessagePack Raw and Ext wire controls are excluded.
-        arrays: Fixed-width real arrays retaining shape and canonical bytes.
-        config: Configuration whose native cache identity shapes the content.
-        providers: Modules whose names and versions shape the content.
+        scope: Type naming content domain.
+        *records: Records with naive or aware datetimes, no MessagePack Raw or Ext.
+        arrays: Fixed-width real arrays hashed with shape and canonical bytes.
+        config: Configuration hashed by its cache ID.
+        providers: Modules hashed by name and version.
 
     Returns:
-        The framed content digest.
+        Framed BLAKE2b digest.
     """
     wide = tuple(np.asarray(array, dtype=np.promote_types(array.dtype, np.int64 if np.can_cast(array.dtype, np.int64) else np.uint64).newbyteorder("<"), order="C") for array in arrays)
     configs = config.to_list()
@@ -72,7 +71,7 @@ def content_hash(
 
 
 def rng(content: ContentHash, *key: int) -> np.random.Generator:
-    """Seeds an independent generator for the content and integer key tuple."""
+    """Seeds independent generator from content hash and key."""
     return np.random.default_rng(np.random.SeedSequence(int.from_bytes(content, "little"), spawn_key=key))
 
 

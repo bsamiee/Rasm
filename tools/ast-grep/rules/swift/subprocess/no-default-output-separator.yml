@@ -17,5 +17,5 @@ rule:
                         - has: {kind: value_argument, has: {field: name, regex: '^bufferingPolicy$'}}
         - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import\s+Subprocess$'}}
         - not: {inside: {stopBy: {kind: for_statement}, matches: swift-output-discarding-loop}}
-message: '`$READ` reads child output under the default separator set and 128 KiB line limit'
-note: 'Pass the protocol''s separator and limit as `separatedBy:` and `bufferingPolicy:`, `.unicodeScalarSequence(["\n"])` and `.unbounded` for a newline-delimited stream'
+message: '`$READ` splits child output by the default `.lineBreaks` separator or `.maxLineLength(128 * 1024)` policy'
+note: 'Pass the output protocol''s `separatedBy:` and `bufferingPolicy:`, `.unicodeScalarSequence(["\n"])` and `.unbounded` for newline-delimited output'

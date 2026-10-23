@@ -8,7 +8,7 @@ edition.workspace    = true
 keywords             = ["mcp", "modelcontextprotocol", "rmcp", "streamable-http"]
 license.workspace    = true
 repository.workspace = true
-description          = "MCP server foundation over Streamable HTTP: routers, resources, validation, request spans and metrics"
+description          = "Streamable HTTP MCP server with routers, argument validation, and request telemetry"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

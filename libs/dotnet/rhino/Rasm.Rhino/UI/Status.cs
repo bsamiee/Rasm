@@ -39,8 +39,8 @@ public sealed class WorkProgress(Atom<WorkState> work, int total) : IProgress<in
 internal static partial class NoticeMapper {
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     [MapProperty(nameof(Notice.Severity), nameof(Notification.SeverityLevel))]
-    [MapperIgnoreSource(nameof(Notice.Glyph), Justification = "Notifications draws it on the system banner")]
-    [MapperIgnoreSource(nameof(Notice.Reveal), Justification = "Notifications opens it from the system banner")]
+    [MapperIgnoreSource(nameof(Notice.Glyph), Justification = "Notifications draws glyph on system banner")]
+    [MapperIgnoreSource(nameof(Notice.Reveal), Justification = "Notifications opens panel from system banner")]
     internal static partial void Update(Notice notice, Notification raised);
 }
 

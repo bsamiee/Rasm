@@ -1,4 +1,4 @@
-"""Dispatch targets of a render queue as a closed union and the send over it."""
+"""Render queue targets and sends."""
 
 import base64
 from pathlib import Path, PurePath
@@ -24,22 +24,22 @@ type Target = LocalMachine | Flamenco | Renderon | JobFile
 
 
 class Renderon(Case, frozen=True, kw_only=True, tag=5):
-    """Jobs written as a B-Renderon queue and opened in B-Renderon."""
+    """Jobs written as B-Renderon queue."""
 
     title = "B-Renderon"
-    executable: Annotated[Gated[str], msgspec.Meta(description="B-Renderon program opening the queue, the queue file written alone while off")] = Gated(enabled=False, value="")
-    blender: Annotated[str, msgspec.Meta(title="Blender Tag", description="B-Renderon's name for the Blender that renders")] = "Default"
+    executable: Annotated[Gated[str], msgspec.Meta(description="B-Renderon program, queue file alone when off")] = Gated(enabled=False, value="")
+    blender: Annotated[str, msgspec.Meta(title="Blender Tag", description="B-Renderon name of rendering Blender")] = "Default"
 
 
 class JobFile(Case, frozen=True, kw_only=True, tag=6):
-    """Queue written as a job file and passed to a submission command when one is set."""
+    """Queue job file passed to submission command."""
 
-    folder: Annotated[Gated[str], msgspec.Meta(description="Folder of the job file, the extension folder while off")] = Gated(enabled=False, value="")
-    command: Annotated[Gated[str], msgspec.Meta(description="Submission program run with the job file's path as its argument, the job file written alone while off")] = Gated(enabled=False, value="")
+    folder: Annotated[Gated[str], msgspec.Meta(description="Job file folder, extension folder when off")] = Gated(enabled=False, value="")
+    command: Annotated[Gated[str], msgspec.Meta(description="Program taking job file path, job file alone when off")] = Gated(enabled=False, value="")
 
 
 class QueueItem(msgspec.Struct, frozen=True, kw_only=True):
-    """One job as a B-Renderon queue line."""
+    """Job as B-Renderon queue line."""
 
     folder: str = msgspec.field(name="ruta_blend")
     file: str = msgspec.field(name="nombre_blend")
@@ -61,7 +61,7 @@ class QueueItem(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def send(target: Target, queue: RenderQueue, host: Host) -> RenderingResult[tuple[RenderingResult[str], ...]]:
-    """Sends a queue to a target."""
+    """Sends queue, returning each path or farm job ID."""
 
     def acknowledged(found: RenderingResult[Path]) -> RenderingResult[tuple[RenderingResult[str], ...]]:
         return found.map(lambda path: (Ok(str(path)),))

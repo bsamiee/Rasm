@@ -1,4 +1,4 @@
-"""Native image pixels, file readings, owned images, proxies, and render-result export."""
+"""Image pixels, readings, proxies, and render result export."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -38,19 +38,19 @@ type Downscale = Scaled | Bounded
 
 
 class ImageFrames(msgspec.Struct, frozen=True, kw_only=True):
-    """Native frame window shared by sequence users and compositor image nodes."""
+    """Frame window of image users and compositor image nodes."""
 
     frame_start: int = 1
     frame_duration: Annotated[int, msgspec.Meta(ge=1)] = 1
     frame_offset: int = 0
 
     def applied(self, user: bpy.types.ImageUser | bpy.types.CompositorNodeImage) -> BlenderResult[None]:
-        """Writes frame fields, retaining every independent RNA refusal."""
+        """Writes frame fields, accumulating faults."""
         return accumulated(written(user, name, value) for name, value in msgspec.structs.asdict(self).items()).map(lambda _: None)
 
 
 class Production(msgspec.Struct, frozen=True, kw_only=True):
-    """Completed image's producing scene, actual encoding, and native result layer."""
+    """Completed image origin and encoding colorspace."""
 
     scene: Handle[bpy.types.Scene]
     space: str
@@ -59,7 +59,7 @@ class Production(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Tag(msgspec.Struct, frozen=True, kw_only=True):
-    """Requested reading, with absent values retaining the native image's settings."""
+    """Requested image reading, absent values keeping image settings."""
 
     space: Option[str] = Nothing
     alpha: Option[str] = Nothing
@@ -67,7 +67,7 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
     sequence: bool = False
 
     def applied(self, image: bpy.types.Image) -> BlenderResult[None]:
-        """Sets the source before accumulating independent color and display writes."""
+        """Sets sequence source, then accumulates color and display writes."""
         source = written(image, "source", "SEQUENCE").map(lambda _: None) if self.sequence else Ok(None)
         return source.bind(
             lambda _: accumulated(
@@ -84,42 +84,42 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Scaled(Case, frozen=True, kw_only=True, tag=1):
-    """Proxy at a fraction of each source side."""
+    """Proxy at fraction of each source side."""
 
     factor: Annotated[float, msgspec.Meta(gt=0.0, lt=1.0, description="Proxy side over source side")] = 0.5
 
     def fitted(self, width: int, height: int) -> Option[tuple[int, int]]:
-        """Returns each scaled side rounded up to a whole pixel."""
+        """Returns each scaled side rounded up to whole pixel."""
         return Some((math.ceil(width * self.factor), math.ceil(height * self.factor)))
 
 
 class Bounded(Case, frozen=True, kw_only=True, tag=2):
-    """Proxy bounded by its longest side."""
+    """Longest-side proxy bound."""
 
     title = "Longest Side"
     pixels: Annotated[int, msgspec.Meta(ge=1, le=2**31 - 1, description="Longest proxy side")] = 2048
 
     def fitted(self, width: int, height: int) -> Option[tuple[int, int]]:
-        """Returns exact upward-rounded sides, or absence for a source within the bound."""
+        """Returns sides rounded up, or Nothing for source within bound."""
         longest = max(width, height)
         fitted_width, fitted_height = ((side * self.pixels + longest - 1) // longest for side in (width, height))
         return Some((fitted_width, fitted_height)) if longest > self.pixels else Nothing
 
 
 class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
-    """Completed-render consumer receiving a multilayer file on the main thread."""
+    """Completed-render consumer receiving multilayer file on main thread."""
 
     consume: Callable[[bpy.types.Scene, str], BlenderResult[Option[str]]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Returns the native completion handler using reports' deferred resource scope."""
+        """Returns render completion handler deferring consumption."""
 
         def consumed(handle: Handle[bpy.types.Scene]) -> BlenderResult[Option[str]]:
             return handle.resolve().bind(lambda scene: saved(scene).bind(lambda path: self.consume(scene, path)))
 
         @contextmanager
         def acquired() -> Generator[BlenderResult[None]]:
-            """Retires deferred writes after removing their native completion handler."""
+            """Removes completion handler, then retires deferred writes."""
             with ExitStack() as stack:
                 deferred = stack.enter_context(identity.reports.deferred(consumed))
                 yield (
@@ -135,17 +135,17 @@ class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Productions(msgspec.Struct, frozen=True, eq=False):
-    """Completed image facts keyed by image session identity and displayed render slot index, which undo keeps and a file load replaces."""
+    """Completed image facts per displayed slot, kept across undo until file load."""
 
     held: dict[tuple[int, int], Option[Production]] = msgspec.field(default_factory=dict)
 
     @staticmethod
     def key(image: bpy.types.Image) -> tuple[int, int]:
-        """Returns the image's session identity and displayed render slot index."""
+        """Returns session UID and displayed render slot."""
         return image.session_uid, image.render_slots.active_index  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds the load handler forgetting the replaced images' facts."""
+        """Returns load handler clearing facts."""
 
         def forgotten(_: Option[Path]) -> BlenderResult[None]:
             self.held.clear()
@@ -160,7 +160,7 @@ productions = Productions()
 
 @contextmanager
 def intermediate(scene: bpy.types.Scene) -> Generator[None]:
-    """Holds native captures outside completed-image consumers for the render scope."""
+    """Hides scene renders from completed-image consumers during scope."""
     intermediates.add(scene.session_uid)
     try:
         yield
@@ -174,17 +174,17 @@ def intermediate(scene: bpy.types.Scene) -> Generator[None]:
 
 
 def produced(image: bpy.types.Image, production: Option[Production]) -> None:
-    """Records production facts against a native image and its displayed slot."""
+    """Records production facts of displayed slot."""
     productions.held[Productions.key(image)] = production
 
 
 def production(image: bpy.types.Image) -> BlenderResult[Production]:
-    """Returns completed production facts for the displayed native slot."""
-    return productions.held.get(Productions.key(image), Nothing).to_result_with(lambda: (BlenderAbsentFault(owner=repr(image), key="completed image formation and encoding"),))
+    """Returns recorded production facts of displayed slot."""
+    return productions.held.get(Productions.key(image), Nothing).to_result_with(lambda: (BlenderAbsentFault(owner=repr(image), key="production facts"),))
 
 
 def loaded(path: str, tag: Tag) -> BlenderResult[bpy.types.Image]:
-    """Loads or reuses the native file image, then applies its requested reading."""
+    """Loads or reuses file image, then applies tag."""
     return BlenderEditFault.attempted(path, lambda: bpy.data.images.load(path, check_existing=True)).bind(lambda image: tag.applied(image).map(lambda _: image))
 
 
@@ -192,15 +192,13 @@ def loaded(path: str, tag: Tag) -> BlenderResult[bpy.types.Image]:
 
 
 def fingerprinted(image: bpy.types.Image) -> BlenderResult[Option[ContentHash]]:
-    """Hashes complete observable image content, retaining unobservable selection as absence.
+    """Hashes image settings, pixels, and packed bytes.
 
     Args:
-        image: Native image whose current buffers supply graph content.
+        image: Image with current buffers as content.
 
     Returns:
-        Persistent settings, raw shaped pixels, and packed bytes as a content
-        digest, or absence for frame, tile, view, layer, or unavailable buffers.
-        Native capture faults retain their Blender variants.
+        Content hash, Nothing for movie, sequence, tiled, multilayer, render result, multiview, empty, or unloaded viewer image.
     """
     if (source := (image.source)) in {"MOVIE", "SEQUENCE", "TILED"} or (source == "VIEWER" and not image.has_data):
         return Ok(Nothing)
@@ -220,7 +218,7 @@ def fingerprinted(image: bpy.types.Image) -> BlenderResult[Option[ContentHash]]:
 
 
 def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
-    """Returns associated float32 pixels top first and their native buffer colorspace."""
+    """Returns associated float32 pixels top row first, absent fault when empty."""
     (width, height), channels, settings = np.asarray(image.size), image.channels, image.colorspace_settings
     if not width * height:
         return Error((BlenderAbsentFault(owner=repr(image), key=image.filepath),))
@@ -236,7 +234,7 @@ def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[
 
 
 def filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> BlenderResult[None]:
-    """Writes associated pixels, scalar RGB, or XY data into the native image's components."""
+    """Writes associated plane into pixels, widening gray and padding channels."""
 
     def write() -> None:
         straight = unassociated(plane) if _associated(image) else plane
@@ -260,7 +258,7 @@ def generated(
     *,
     of: Option[bpy.types.ID] = Nothing,
 ) -> BlenderResult[Option[bpy.types.Image]]:
-    """Reuses content before reading pixels, packing a present plane and retaining absence."""
+    """Reuses equal-content image before reading plane, else packs plane into new image."""
 
     def built(values: npt.NDArray[np.float32]) -> BlenderResult[bpy.types.Image]:
         height, width, channels = values.shape
@@ -274,7 +272,7 @@ def generated(
 
 
 def _associated(image: bpy.types.Image) -> bool:
-    """Returns whether the native byte buffer stores straight color with alpha."""
+    """Whether image byte buffer stores straight color with alpha."""
     return not image.is_float and image.channels == 4 and not image.colorspace_settings.is_data and image.alpha_mode in {"STRAIGHT", "PREMUL"}  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
@@ -282,7 +280,7 @@ def _associated(image: bpy.types.Image) -> bool:
 
 
 def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, config: PyOpenColorIO.Config) -> BlenderResult[Option[str]]:
-    """Publishes a linear-light proxy beside the original and switches the native image."""
+    """Points image at linear-light proxy beside source file, Nothing when source fits."""
 
     def resampled(file: ImageFile[np.float32], width: int, height: int) -> ImagingResult[npt.NDArray[np.float32]]:
         def linear(values: npt.NDArray[np.float32], direction: PyOpenColorIO.TransformDirection) -> ImagingResult[npt.NDArray[np.float32]]:
@@ -343,7 +341,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
 
 
 def restored(image: bpy.types.Image, identity: Identity) -> BlenderResult[None]:
-    """Restores a stored source path and removes its proxy property after the switch."""
+    """Points image back at stored source path and removes proxy property."""
 
     def back(key: str) -> BlenderResult[None]:
         match image.get(key):
@@ -359,12 +357,15 @@ def restored(image: bpy.types.Image, identity: Identity) -> BlenderResult[None]:
 
 
 def built(kind: Literal["RENDER_RESULT", "COMPOSITING"]) -> BlenderResult[bpy.types.Image]:
-    """Returns the native image Blender generates of one kind, the Render Result or the shared compositor Viewer whose completion pixels must be read before deferral, or its absence before Blender builds it."""
+    """Returns Render Result or shared compositor Viewer image, or absent fault before Blender creates it.
+
+    Callers read Viewer completion pixels before deferring.
+    """
     return Option.of_optional(next((image for image in bpy.data.images if image.type == kind), None)).to_result_with(lambda: (BlenderAbsentFault(owner=type(bpy.data.images).__name__, key=kind),))
 
 
 def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
-    """Exports the scene's displayed result and all passes, restoring every direct member of its format, the members the export writes."""
+    """Exports displayed render result passes to temporary multilayer EXR."""
     settings, path = scene.render.image_settings, str(Path(bpy.app.tempdir, f"{scene.session_uid}.exr"))
     form: dict[str, Value] = {"media_type": "MULTI_LAYER_IMAGE", "color_depth": "32", "exr_codec": "ZIP", "use_exr_interleave": False, "views_format": "MULTIVIEW", "color_management": "FOLLOW_SCENE"}
 

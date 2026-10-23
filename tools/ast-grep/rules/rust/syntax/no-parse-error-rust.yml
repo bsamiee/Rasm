@@ -111,5 +111,5 @@ rule:
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Grammar failed to parse the span
-note: 'Write a form the grammar parses, calling a macro named after a primitive type by its path (`<crate>::str![..]`)'
+message: 'Grammar failed to parse the span'
+note: 'Rewrite the span in a form the grammar parses, calling a macro named for a primitive type by path (`<crate>::str![..]`)'

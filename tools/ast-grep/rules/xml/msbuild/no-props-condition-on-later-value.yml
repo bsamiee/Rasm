@@ -18,5 +18,5 @@ rule:
         - has: {kind: AttValue, regex: '\$\((TargetFramework|TargetFrameworkIdentifier|TargetFrameworkVersion|TargetPlatformIdentifier|OutputType|TargetExt|TargetPath|TargetDir|OutDir|OutputPath|IntermediateOutputPath|ProjectAssetsFile)\b'}
         - inside: {matches: msbuild-tag, inside: {matches: property-scope}}
         - not: {inside: {stopBy: end, matches: {msbuild-element: {name: {regex: '^Target$'}}}}}
-message: '`$CONDITION` reads a value the project body or SDK assigns after this props file evaluates'
-note: Move the condition to `Directory.Build.targets`, or key it on `$(MSBuildProjectName)` or the project directory
+message: '`$CONDITION` reads a property the project body or SDK sets after props files evaluate'
+note: Move the condition to `Directory.Build.targets`, or condition on `$(MSBuildProjectName)` or `$(MSBuildProjectDirectory)`

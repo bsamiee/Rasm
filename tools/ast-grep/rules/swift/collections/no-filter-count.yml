@@ -38,5 +38,5 @@ rule:
 transform:
     TRIED: {replace: {source: $TRY, replace: '(?s)^(.+)$', by: '$1 '}}
 fix: '$TRIED$C.count(where: $TEST)'
-message: '`filter` over `$C` builds a collection to count its elements'
+message: '`$C.filter` builds a collection only to count its elements'
 note: 'Call `<sequence>.count(where: <test>)`'

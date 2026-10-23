@@ -70,5 +70,5 @@ rule:
                 matches: row
                 precedes: {stopBy: {matches: sibling}, matches: row}
             - not: {follows: {stopBy: {matches: sibling}, matches: row}}
-message: 'Rows restate their owner once per member name'
-note: 'Use one owner mapping `{<owner>: {**dict.fromkeys((<names>), <value>), <name>: <value>}}` read by one comprehension'
+message: 'Rows repeat one owner per member name'
+note: 'Declare `{<owner>: {**dict.fromkeys((<names>), <value>), <name>: <value>}}` and read it in one comprehension'

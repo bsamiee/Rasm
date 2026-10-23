@@ -153,5 +153,5 @@ transform:
     RIGHT_OUT: rewrite($RIGHT_JUSTIFIED, rewriters=[rjust])
     FIELD_OUT: rewrite($FIELDS, rewriters=[ljust-field, rjust-field, dropped-run])
 fix: $LEFT_OUT$RIGHT_OUT$FIELD_OUT$UNFIXED
-message: 'Expression pads `$TEXT` by hand with `$FILL`'
-note: 'Call `<text>.ljust(<width>, <fill>)` or `<text>.rjust(<width>, <fill>)`'
+message: 'Repeated `$FILL` pads `$TEXT` by hand'
+note: 'Call `<text>.ljust(<width>, <fill>)`, `<text>.rjust(<width>, <fill>)`, or `<text>.center(<width>, <fill>)`'

@@ -129,5 +129,5 @@ rule:
                     - has: {kind: argument, nthChild: 2, has: {matches: offset}}
                     - not: {has: {kind: argument, nthChild: 3}}
             - matches: vector-write
-message: '`$SOURCE` is copied to or from `Vector$WIDTH` values one `$WIDTH`-wide slice at a time'
-note: 'View the buffer in place as vectors through `MemoryMarshal.Cast<float, <vector>>(<buffer>)`'
+message: 'Copies between `$SOURCE` and `Vector$WIDTH` values run one slice at a time'
+note: 'Reinterpret the buffer as vectors in place through `MemoryMarshal.Cast<float, <vector>>(<buffer>)`'

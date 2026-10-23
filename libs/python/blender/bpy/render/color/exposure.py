@@ -40,19 +40,19 @@ type Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEff
 
 
 class Gain(Protocol):
-    """Owned exposure effect's absolute stops and native write operation."""
+    """Owned exposure effect stops with native write."""
 
     @property
     def record(self) -> type[Effect]:
-        """Record identifying exposure entries in the stack."""
+        """Exposure entry record."""
         ...
 
     def stops(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[float]:
-        """Returns the earliest owned exposure entry's absolute stops."""
+        """Returns earliest owned entry's absolute stops."""
         ...
 
     def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[bool]:
-        """Writes absolute stops into the earliest owned entry, answering whether a native value changed."""
+        """Writes earliest owned entry's absolute stops, true on change."""
         ...
 
 
@@ -60,15 +60,15 @@ class Read(Registrable, Protocol):
     """Scoped viewer read armed on one effect's entering plane."""
 
     def entering(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[None]:
-        """Arms the entry's input and retires its viewer after consumption."""
+        """Arms entry input under a viewer removed after consumption."""
         ...
 
 
 class Reading(Protocol):
-    """Construction of a viewer read with its deferred plane consumer."""
+    """Viewer read factory over a deferred plane consumer."""
 
     def __call__(self, *, consume: Consume) -> Read:
-        """Returns the original viewer declaration for central registration."""
+        """Returns original viewer declaration to register."""
         ...
 
 
@@ -78,9 +78,9 @@ class Reading(Protocol):
 class Follow(msgspec.Struct, frozen=True, kw_only=True):
     """Viewport response speed, dead band, and agreement between readings."""
 
-    speed: Annotated[float, msgspec.Meta(ge=0.02, le=1.0, description="Share of the remaining step taken per update")] = 0.5
+    speed: Annotated[float, msgspec.Meta(ge=0.02, le=1.0, description="Share of remaining step per update")] = 0.5
     band: Annotated[float, msgspec.Meta(ge=0.0, le=2.0, title="Dead Band"), Presentation(soft=Some((0.0, 1.0)), step=Some(0.01), decimals=Some(2))] = 0.1
-    tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=2.0, description="Agreement in stops before following"), Presentation(soft=Some((0.0, 1.0)), step=Some(0.01), decimals=Some(2))] = 0.1
+    tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=2.0, description="Stops between agreeing readings"), Presentation(soft=Some((0.0, 1.0)), step=Some(0.01), decimals=Some(2))] = 0.1
 
 
 class Metering(msgspec.Struct, frozen=True, kw_only=True):
@@ -92,7 +92,7 @@ class Metering(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Following(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Admitted viewport meter and optional inverse of its preview chain."""
+    """Enabled viewport meter with optional preview inverse."""
 
     scene: Handle[bpy.types.Scene]
     meter: Meter
@@ -103,7 +103,7 @@ class Following(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Exposing(msgspec.Struct, frozen=True, kw_only=True):
-    """Bound metering storage, stack, and exposure destination for every reading."""
+    """Bound metering storage, stack, and exposure destination."""
 
     identity: Identity
     attached: Attached[Metering]
@@ -112,7 +112,7 @@ class Exposing(msgspec.Struct, frozen=True, kw_only=True):
     title: ClassVar[str] = "Meter Exposure"
 
     def consumed(self, identity: Identity, scene: bpy.types.Scene, _entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-        """Writes absolute metered stops and names one undo step when the stops changed."""
+        """Writes metered absolute stops and names undo step on change."""
         return paired(self.stack.config(), self.attached.read(scene)).bind(
             lambda pair: Result[Option[float], BlenderFaults].bind(
                 pair[1].meter.stops(pair[0], file.pixels).map_error(BlenderImagingFault.lifted),
@@ -143,7 +143,7 @@ class Follower(msgspec.Struct, kw_only=True):
     previous: Option[tuple[Handle[bpy.types.Scene], float]] = Nothing
 
     def read(self, _metrics: Metrics) -> BlenderResult[Option[Following]]:
-        """Returns enabled metering with the current preview inverse or its refusal."""
+        """Returns enabled metering with current preview inverse."""
         if (scene := bpy.context.scene) is None:
             return Ok(Nothing)
 
@@ -164,7 +164,7 @@ class Follower(msgspec.Struct, kw_only=True):
         return paired(self.exposing.stack.config(), self.exposing.attached.read(scene)).bind(lambda pair: followed(*pair).map(Some) if pair[1].follow.enabled else Ok(Nothing))
 
     def drawn(self, canvas: Canvas, state: Following) -> None:
-        """Meters the visible camera frame and defers targets agreeing in one scene."""
+        """Meters visible camera frame and defers targets consecutive readings agree on."""
         scene = bpy.context.scene
 
         def framed(region: bpy.types.Region, view: bpy.types.RegionView3D, camera: bpy.types.Object, lens: bpy.types.Camera) -> Option[Rect]:
@@ -209,7 +209,7 @@ class Follower(msgspec.Struct, kw_only=True):
 
 
 class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
-    """Rendered-frame meter and viewport following over original scoped declarations."""
+    """Rendered-frame meter and viewport following."""
 
     stack: Forming
     gain: Gain
@@ -237,7 +237,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                     return (
                         Result[bpy.types.SceneCompositorEffect, BlenderFaults]
                         .bind(entry, lambda item: read.entering(call.identity, item))
-                        .map(lambda _: Done(notes=(("INFO", "Metering the frame entering the exposure entry"),)))
+                        .map(lambda _: Done(notes=(("INFO", "Metering exposure entry input"),)))
                     )
 
                 with identity.reports.deferred(exposing.stepped) as step:
@@ -245,7 +245,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                         Operator(
                             key=self.key,
                             title=Exposing.title,
-                            description="Meters the frame entering exposure and writes absolute stops",
+                            description="Meters exposure entry input and writes absolute stops",
                             form=Empty,
                             run=metered,
                             condition=Some(Job(kind="RENDER")),

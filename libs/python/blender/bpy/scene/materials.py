@@ -41,14 +41,14 @@ type AovKind = Literal["VALUE", "COLOR"]
 
 
 class MapKind(Choice):
-    """Texture purpose with vendor filename words, color reading, and direct surface route."""
+    """Texture map kind matched by filename words."""
 
     words: tuple[str, ...]
     space: Option[str]
     socket: Option[str]
 
     def __init__(self, value: int, words: tuple[str, ...], space: Option[str], socket: Option[str] = Nothing, label: str | None = None) -> None:
-        """Sets the classification and routing facts of one persistent map purpose."""
+        """Initializes filename words, colorspace role, and Principled BSDF input."""
         super().__init__(value, label)
         self.words, self.space, self.socket = words, space, socket
 
@@ -67,12 +67,12 @@ class MapKind(Choice):
 
 
 class TextureProjection(Choice):
-    """Surface projection paired with the coordinate socket it requires."""
+    """Image projection with Texture Coordinate output it reads."""
 
     coordinates: str
 
     def __init__(self, value: int, coordinates: str, label: str | None = None) -> None:
-        """Sets the native coordinate source of a persistent mapping choice."""
+        """Initializes Texture Coordinate output of projection."""
         super().__init__(value, label)
         self.coordinates = coordinates
 
@@ -81,7 +81,7 @@ class TextureProjection(Choice):
 
 
 class DataPass(Choice):
-    """Shader AOV purpose with its native type and source socket."""
+    """Shader AOV purpose with AOV type and source socket."""
 
     kind: AovKind
     source: type[bpy.types.Node]
@@ -89,7 +89,7 @@ class DataPass(Choice):
     attribute: Option[str]
 
     def __init__(self, value: int, kind: AovKind, source: type[bpy.types.Node], output: str, attribute: Option[str] = Nothing, label: str | None = None) -> None:
-        """Sets the native graph source of one persistent pass."""
+        """Initializes AOV type, source node, output socket, and attribute."""
         super().__init__(value, label)
         self.kind, self.source, self.output, self.attribute = kind, source, output, attribute
 
@@ -102,14 +102,14 @@ class DataPass(Choice):
 
 
 class DisplacementMap(msgspec.Struct, frozen=True, kw_only=True):
-    """Height-map scale and the map value lying on the undisplaced surface."""
+    """Height map scale and map value at undisplaced surface."""
 
     scale: Annotated[Finite, Presentation(quantity=Some(Quantity.LENGTH))] = 1.0
     midlevel: Finite = 0.5
 
 
 class Textured(Case, frozen=True, kw_only=True, tag=1):
-    """Principled surface fed by a classified texture set."""
+    """Principled surface from texture set."""
 
     title = "Texture Set"
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="textured", saved=Saved.USED, single=False)
@@ -129,7 +129,7 @@ class Clay(Case, frozen=True, kw_only=True, tag=2):
 
 
 class Emissive(Case, frozen=True, kw_only=True, tag=3):
-    """Emission surface driven by a color or an enabled image."""
+    """Emission surface from color or enabled image."""
 
     title = "Emission"
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="emissive", saved=Saved.USED, single=False)
@@ -139,7 +139,7 @@ class Emissive(Case, frozen=True, kw_only=True, tag=3):
 
 
 class Utility(Case, frozen=True, kw_only=True, tag=4):
-    """Data passes written through shader AOVs beside an opaque black surface."""
+    """Data passes written through shader AOVs beside black surface."""
 
     title = "Data Passes"
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="data", saved=Saved.USED)
@@ -147,19 +147,19 @@ class Utility(Case, frozen=True, kw_only=True, tag=4):
 
 
 class Shading(msgspec.Struct, frozen=True, kw_only=True):
-    """Surface setup stored on an owned material's embedded tree."""
+    """Surface setup stored on owned material node tree."""
 
     setup: ShadingSetup = Clay()
 
 
 class Materials(msgspec.Struct, frozen=True, kw_only=True):
-    """Material storage, ownership, shared matrix, and texture-browser registration."""
+    """Shading attachment with ownerships, color matrix group, and texture set operator."""
 
     # --- [STORAGE]
 
     @staticmethod
     def reshaded(held: Handle[bpy.types.Material], identity: Identity) -> BlenderResult[Option[str]]:
-        """Reconciles the latest attached setup in a deferred write without an undo step."""
+        """Reconciles material to stored setup, naming no undo step."""
         return (
             paired(held.resolve(), Materials.attachment.bound(identity))
             .bind(lambda pair: paired(tree_of(pair[0]).bind(pair[1].read), config_of()).bind(lambda read: shaded(pair[0], read[0].setup, read[1], identity)))
@@ -172,7 +172,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def texture_setup(self) -> BlenderResult[Operator[Empty]]:
-        """Native file-browser operator assigning a texture set to the active slot."""
+        """Texture set operator for active material slot."""
 
         def run(call: Call[Empty]) -> BlenderResult[Done]:
             paths = tuple(map(str, call.paths))
@@ -198,7 +198,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
             lambda active: Operator(
                 key="texture_setup",
                 title="Add Texture Set",
-                description="Build a material from texture files and assign it to the active object's active slot",
+                description="Build material from texture files into active material slot",
                 form=Empty,
                 run=run,
                 condition=Some(Present(descriptor=active)),
@@ -209,7 +209,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
     # --- [REGISTRATION]
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns nested declarations for registration to scope once under this identity."""
+        """Returns attachment, ownerships, matrix group, and operator."""
         return paired(matrix(), self.texture_setup).map(lambda pair: (Materials.attachment, *(case.ownership for case in get_args(ShadingSetup.__value__)), *pair))
 
 
@@ -219,7 +219,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def kind(path: str) -> Option[MapKind]:
-    """Returns the unique longest filename-word match, or absence for no match or a tie."""
+    """Returns kind of longest filename word match, `Nothing` on no match or tie."""
     stem = PurePath(path).stem
     found = tuple((len(word), member) for member in MapKind for word in member.words if re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", stem, re.IGNORECASE))
     longest = max((size for size, _ in found), default=0)
@@ -231,7 +231,7 @@ def kind(path: str) -> Option[MapKind]:
 
 
 def classified(paths: tuple[str, ...]) -> BlenderResult[dict[MapKind, str]]:
-    """Classifies each selected file once, accumulating every repeated-purpose collision."""
+    """Classifies files by map kind, accumulating repeated kinds as collisions."""
     held: dict[MapKind, str] = {}
     maps: list[BlenderResult[tuple[MapKind, str]]] = []
     for path in paths:
@@ -245,7 +245,7 @@ def classified(paths: tuple[str, ...]) -> BlenderResult[dict[MapKind, str]]:
 
 
 def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> BlenderResult[Graph]:
-    """Builds a shader graph, reading data-map colorspace from an admitted OCIO config."""
+    """Builds shader graph of setup with config colorspaces."""
     parts: tuple[BlenderResult[Fragment], ...]
     output: dict[str, Operand] = {}
     match setup:
@@ -336,7 +336,7 @@ def material_graph(setup: ShadingSetup, config: PyOpenColorIO.Config) -> Blender
 
 
 def shaded(held: bpy.types.Material, setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity) -> BlenderResult[bpy.types.Material]:
-    """Reconciles an owned material and restores native displacement defaults on case switches."""
+    """Reconciles owned material tree, `BOTH` displacement method when enabled."""
     return (
         paired(paired(material_graph(setup, config), tree_of(held)), Descriptor.resolve(bpy.types.Material, "displacement_method", bpy.types.EnumProperty))
         .bind(
@@ -349,7 +349,7 @@ def shaded(held: bpy.types.Material, setup: ShadingSetup, config: PyOpenColorIO.
 
 
 def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identity, scope: Option[ExitStack] = Nothing) -> BlenderResult[bpy.types.Material]:
-    """Reuses or creates the owned material of a setup, stores its record, and reconciles its tree, a built material removed on refusal or when a given scope unwinds."""
+    """Reuses or creates owned setup material, removing a created one on fault or scope unwind."""
 
     def built() -> BlenderResult[bpy.types.Material]:
         return kept(BlenderEditFault.attempted(setup.title, lambda: bpy.data.materials.new(setup.title)), emptied)
@@ -362,7 +362,7 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
 
 
 def referenced(scene: bpy.types.Scene, context: bpy.types.Context) -> BlenderResult[tuple[Reconciled, ...]]:
-    """Enables Blender's pre-modifier rest-position attribute on every object in a scene."""
+    """Enables rest position attribute on every scene object."""
     return fanned(ObjectState(values=Some(Snapshot.of(bpy.types.Object, {"add_rest_position_attribute": True}))), Scenes(names=(scene.name,)), context)
 
 
@@ -370,7 +370,7 @@ def referenced(scene: bpy.types.Scene, context: bpy.types.Context) -> BlenderRes
 
 
 def matrix() -> BlenderResult[NodeGroup]:
-    """Builds the shared shader group applying output-row dot products and factored gain."""
+    """Builds shared shader group multiplying color by matrix rows and gain."""
     interface = Interface(
         outputs=(Socket(key="transformed", name="Color", kind=bpy.types.NodeSocketColor),),
         inputs=(
@@ -388,7 +388,7 @@ def matrix() -> BlenderResult[NodeGroup]:
 
 
 def matrix_inputs(calibration: Calibration) -> dict[Key, Value]:
-    """Returns matrix rows and exposure gain for an owned color-matrix group."""
+    """Returns matrix rows and exposure gain as color matrix group inputs."""
     return {**{name: msgspec.structs.astuple(row) for name, row in zip(Rgb.__struct_fields__, calibration.matrix)}, "gain": math.exp2(calibration.exposure)}
 
 

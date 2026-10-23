@@ -31,16 +31,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let typeck = cx.tcx.typeck_body(body)
             && any_expr(cx.tcx, &cx.tcx.hir_body(body).value, |called| matches!(called.kind, ExprKind::Call(callee, _) if typeck.expr_ty(callee) == closure))
         {
-            span_lint_hir_and_then(
-                cx,
-                MANUAL_DROP_GUARD,
-                item.hir_id(),
-                cx.tcx.def_span(guard.did()),
-                format!("`{}` runs its closure field `{closure}` on drop", cx.tcx.item_name(guard.did())),
-                |diag| {
-                    diag.help("hold `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where the guard is disarmed");
-                },
-            );
+            let name = cx.tcx.item_name(guard.did());
+            span_lint_hir_and_then(cx, MANUAL_DROP_GUARD, item.hir_id(), cx.tcx.def_span(guard.did()), format!("`Drop` for `{name}` calls the closure `{closure}` it holds"), |diag| {
+                diag.help(format!("replace `{name}` with `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where code disarms the guard"));
+            });
         }
     }
 }

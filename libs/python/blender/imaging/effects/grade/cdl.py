@@ -28,9 +28,9 @@ class Cdl(Effect, frozen=True, kw_only=True, tag=12):
     title = "ASC CDL"
     pointwise = True
     space: ClassVar[str] = PyOpenColorIO.ROLE_COLOR_TIMING
-    red: Annotated[Channel, msgspec.Meta(description="Red channel's slope, offset, and power")] = Channel()
-    green: Annotated[Channel, msgspec.Meta(description="Green channel's slope, offset, and power")] = Channel()
-    blue: Annotated[Channel, msgspec.Meta(description="Blue channel's slope, offset, and power")] = Channel()
+    red: Annotated[Channel, msgspec.Meta(description="Red slope, offset, and power")] = Channel()
+    green: Annotated[Channel, msgspec.Meta(description="Green slope, offset, and power")] = Channel()
+    blue: Annotated[Channel, msgspec.Meta(description="Blue slope, offset, and power")] = Channel()
     saturation: Annotated[NonNegative, msgspec.Meta(description="Mix from Rec.709 luma to graded color")] = 1.0
 
     @override
@@ -46,12 +46,10 @@ def read(path: str) -> ImagingResult[tuple[tuple[Option[str], Cdl], ...]]:
     """Reads every editable ASC correction in file order.
 
     Args:
-        path: CC, CCC, or CDL file selected for ASC import.
+        path: CC, CCC, or CDL file.
 
     Returns:
-        `Ok` of correction ids and grades, with `Nothing` for unnamed corrections,
-        else `Error` of an `ImagingColorFault` for OCIO's refusal or every
-        `ImagingReadFault` for corrections outside declared parameter bounds.
+        `Ok` of correction IDs (`Nothing` when unnamed) and grades. `Error` of `ImagingColorFault` on OCIO refusal, or one `ImagingReadFault` per out-of-bounds correction.
     """
 
     def entry(correction: PyOpenColorIO.CDLTransform) -> ImagingResult[tuple[Option[str], Cdl]]:

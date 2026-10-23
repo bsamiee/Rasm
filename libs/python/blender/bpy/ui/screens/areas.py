@@ -1,4 +1,4 @@
-"""Editor queries, native operator contexts, and reversible screen arrangements."""
+"""Editor queries, area contexts, and reversible screen arrangements."""
 
 from collections.abc import Iterable, Mapping
 from contextlib import ExitStack
@@ -26,7 +26,7 @@ type Step = Split | Retype
 
 
 class ScreenSide(Enum):
-    """Edge at which an arrangement places an editor or flips a region."""
+    """Edge an arrangement places an editor or flips a region to."""
 
     LEFT = auto()
     RIGHT = auto()
@@ -35,7 +35,7 @@ class ScreenSide(Enum):
 
     @property
     def opposite(self) -> "ScreenSide":
-        """Opposite edge on the same axis."""
+        """Opposite edge."""
         match self:
             case ScreenSide.LEFT:
                 return self.RIGHT
@@ -48,24 +48,24 @@ class ScreenSide(Enum):
 
     @property
     def direction(self) -> Literal["HORIZONTAL", "VERTICAL"]:
-        """Native split direction for this edge."""
+        """`screen.area_split` direction."""
         return "HORIZONTAL" if self in {self.TOP, self.BOTTOM} else "VERTICAL"
 
     @property
     def far(self) -> bool:
-        """Whether the edge is at the far end of the native split axis."""
+        """Whether edge ends split axis."""
         return self in {self.TOP, self.RIGHT}
 
 
 class Fullscreen(Enum):
-    """Native maximized-area and focus-mode choices."""
+    """`screen.screen_full_area` modes."""
 
     MAXIMIZED = auto()
     FOCUS = auto()
 
 
 class NewWindow(Enum):
-    """Native temporary editor windows and a duplicate of the located area."""
+    """Temporary editor windows and area duplicate."""
 
     PREFERENCES = auto()
     INFO = auto()
@@ -78,43 +78,43 @@ class NewWindow(Enum):
 
 
 class Located(msgspec.Struct, frozen=True, kw_only=True):
-    """Window and area read together for one native call."""
+    """Window and area for one host call."""
 
     window: bpy.types.Window
     area: bpy.types.Area
 
     @classmethod
     def current(cls, context: bpy.types.Context) -> BlenderResult[Self]:
-        """Returns the context window and area, accumulating the absence of either."""
+        """Returns context window and area, accumulating absences."""
         return paired(rooted(bpy.types.Window, context), rooted(bpy.types.Area, context)).map(lambda pair: cls(window=pair[0], area=pair[1]))
 
     @classmethod
     def found(cls, window: bpy.types.Window, pointer: int) -> Option[Self]:
-        """Returns a live area by its session pointer, or Nothing after its removal."""
+        """Returns live area by session pointer, Nothing once removed."""
         return Option.of_optional(next((area for area in (*window.screen.areas, *window.global_areas) if area.as_pointer() == pointer), None)).map(lambda area: cls(window=window, area=area))
 
     def region(self, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> BlenderResult[bpy.types.Region]:
-        """Returns the area's first region of this native type, or its absence."""
+        """Returns first region of a type."""
         return Option.of_optional(next((region for region in self.area.regions if region.type == kind), None)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.area), key=kind),))
 
     def override(self, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> BlenderResult["bpy.types.ContextTempOverride"]:
-        """Returns the located region's operator context, or a missing-region fault."""
+        """Returns operator context of a region."""
         return self.region(kind).map(lambda region: bpy.context.temp_override(window=self.window, area=self.area, region=region))
 
     def run(self, operator: Operation, properties: Mapping[str, object], /, *, context: "rna_enums.OperatorContextItems" = "EXEC_DEFAULT") -> BlenderResult[None]:
-        """Runs an area-scoped operator and returns its native refusal."""
+        """Runs operator in window and area."""
         return called(operator, properties, context=context, override=Some(bpy.context.temp_override(window=self.window, area=self.area))).map(lambda _: None)
 
 
 class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
-    """Editor family, optional sub-editor, and a condition over its active space."""
+    """Editor type, `ui_type`, and active space condition."""
 
     space: "rna_enums.SpaceTypeItems"
     ui_type: Option[str] = Nothing
     shows: Option[Condition] = Nothing
 
-    def admits(self, area: bpy.types.Area) -> bool:
-        """Returns whether the area and its active space meet this query."""
+    def matches(self, area: bpy.types.Area) -> bool:
+        """Returns whether area and active space match."""
         return (
             area.type == self.space
             and all(area.ui_type == kind for kind in self.ui_type.to_list())
@@ -122,21 +122,21 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def located(self, windows: Iterable[bpy.types.Window]) -> tuple[Located, ...]:
-        """Returns matching ordinary and global areas, ordered by decreasing pixel area."""
+        """Returns matching areas, largest first."""
         matches: list[Located] = []
         for located in (Located(window=window, area=area) for window in windows for area in (*window.screen.areas, *window.global_areas)):
             with bpy.context.temp_override(window=located.window, area=located.area):
-                if self.admits(located.area):
+                if self.matches(located.area):
                     matches.append(located)
         return tuple(sorted(matches, key=lambda located: -(located.area.width * located.area.height)))
 
     def first(self, windows: Iterable[bpy.types.Window]) -> BlenderResult[Located]:
-        """Returns the largest matching editor, or the absent editor request."""
+        """Returns largest matching area, or fault naming editor."""
         return Option.of_optional(next(iter(self.located(windows)), None)).to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.windows", key=self.ui_type.default_value(self.space)),))
 
 
 class Split(msgspec.Struct, frozen=True, kw_only=True):
-    """New editor at an edge, occupying less than half the source area's span."""
+    """Editor split off at edge, under half of source span."""
 
     side: ScreenSide
     share: Annotated[float, msgspec.Meta(gt=0.0, lt=0.5)]
@@ -145,14 +145,14 @@ class Split(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Retype(msgspec.Struct, frozen=True, kw_only=True):
-    """Temporary editor substitution in the located area."""
+    """Temporary editor type change."""
 
     ui_type: str
     state: EditorState = EditorState()
 
 
 class _ArrangedArea(msgspec.Struct, kw_only=True):
-    """Acquired editor and the values restored before its previous type returns."""
+    """Arranged area with prior type and values to restore first."""
 
     area: int
     prior: Option[str]
@@ -160,13 +160,13 @@ class _ArrangedArea(msgspec.Struct, kw_only=True):
 
 
 class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
-    """Ordered editor acquisitions, followed by optional native maximization."""
+    """Splits and retypes, then maximization."""
 
     steps: tuple[Step, ...]
     full: Option[Fullscreen] = Nothing
 
     def applied(self, located: Located) -> BlenderResult["AppliedArrangement"]:
-        """Returns an owned arrangement, unwinding every completed step on refusal."""
+        """Starts arrangement, undoing finished steps on refusal."""
         return AppliedArrangement(located, self).started()
 
 
@@ -174,10 +174,10 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class AppliedArrangement:
-    """Native layout lifetime whose initial and advancing states share rollback ownership."""
+    """Running arrangement with one release stack."""
 
     def __init__(self, located: Located, arrangement: Arrangement) -> None:
-        """Owns the pending steps and releases for one native window and source area."""
+        """Holds pending steps and releases."""
         self.window = located.window
         self.area = located.area.as_pointer()
         self.steps = arrangement.steps
@@ -187,11 +187,11 @@ class AppliedArrangement:
         self.results: list[BlenderResult[None]] = []
 
     def started(self) -> BlenderResult[Self]:
-        """Applies the first steps, unwinding every completed step on refusal."""
+        """Applies first step, undoing finished steps on refusal."""
         return self.advanced().map(lambda _: self).or_else_with(lambda faults: accumulated((Error(faults), self.released())).map(lambda _: self))
 
     def advanced(self) -> BlenderResult[Option[Self]]:
-        """Applies one layout step per host pass, waiting for its state before continuing."""
+        """Applies one step per host pass once editor state applies."""
         for placed, state in self.waiting.to_list():
             match Located.found(self.window, placed.area).map(lambda located: state.applied(located.area)):
                 case Option(tag="some", some=Result(tag="error", error=faults)):
@@ -205,10 +205,10 @@ class AppliedArrangement:
                     self.waiting = Nothing
 
         def undone(placed: _ArrangedArea) -> BlenderResult[None]:
-            """Restores a surviving editor or closes a created area, retaining every refusal."""
+            """Restores retyped area or closes split area."""
 
             def restored(at: Located) -> BlenderResult[None]:
-                """Reverts the editor type even when a display member refuses restoration."""
+                """Restores editor type even when state restore fails."""
                 return placed.prior.map(lambda ui_type: accumulated((placed.restore.applied(at.area).map(lambda _: None), written(at.area, "ui_type", ui_type))).map(lambda _: None)).default_with(
                     lambda: at.run(bpy.ops.screen.area_close, {})
                 )
@@ -216,14 +216,14 @@ class AppliedArrangement:
             return Located.found(self.window, placed.area).map(restored).default_value(Ok(None))
 
         def entered(at: Located, prior: Option[str], ui_type: str, state: EditorState) -> BlenderResult[None]:
-            """Owns release before changing the editor and defers its state to the next pass."""
+            """Registers release, then retypes, deferring editor state to next pass."""
             placed = _ArrangedArea(area=at.area.as_pointer(), prior=prior)
             self.releases.callback(lambda: self.results.append(undone(placed)))
             self.waiting = Some((placed, state))
             return written(at.area, "ui_type", ui_type).map(lambda _: None)
 
         def stepped(at: Located, step: Step) -> BlenderResult[None]:
-            """Splits or retypes in the reacquired source area's native context."""
+            """Splits or retypes source area."""
             match step:
                 case Split(side=side, share=share, ui_type=ui_type, state=state):
                     before = frozenset(area.as_pointer() for area in self.window.screen.areas)
@@ -247,7 +247,7 @@ class AppliedArrangement:
                 step, *remaining = self.steps
 
                 def held(_: None) -> Option[Self]:
-                    """Consumes the acquired step and yields for Blender's layout pass."""
+                    """Drops finished step, waiting for next layout pass."""
                     self.steps = tuple(remaining)
                     return Some(self)
 
@@ -266,7 +266,7 @@ class AppliedArrangement:
                         return Ok(Nothing)
 
     def released(self) -> BlenderResult[None]:
-        """Releases in reverse acquisition order and returns every native restore refusal."""
+        """Releases in reverse order."""
         self.releases.close()
         return accumulated(self.results).map(lambda _: None)
 
@@ -275,7 +275,7 @@ class AppliedArrangement:
 
 
 def windowed(window: NewWindow, located: Located, identity: Identity) -> BlenderResult[None]:
-    """Opens a native editor window, or returns the operator's context or edit refusal."""
+    """Opens editor window."""
     match window:
         case NewWindow.PREFERENCES:
             return located.run(bpy.ops.preferences.addon_show, {"module": identity.package})

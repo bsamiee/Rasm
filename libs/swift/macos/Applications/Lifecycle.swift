@@ -55,10 +55,10 @@ public enum LaunchFailure: CustomNSError, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-            case .hiddenAgent(let url): "\(url.path(percentEncoded: false)) runs as an LSUIElement agent, a hidden instance shows no window and offers no way to unhide"
-            case .open(let error): "Launch Services could not open application: \(error.localizedDescription)"
-            case .terminated: "Application exited before it finished launching"
-            case .cancelled: "Application launch was canceled"
+            case .hiddenAgent(let url): "LSUIElement agent \(url.path(percentEncoded: false)) cannot unhide, launch it without hiding"
+            case .open(let error): "Launch Services could not open application. \(error.localizedDescription)"
+            case .terminated: "Application exited during launch"
+            case .cancelled: "Launch canceled"
         }
     }
 

@@ -37,4 +37,4 @@ rule:
                 inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: rpc-constructor}}}
 fix: $FIELDS
 message: '`$STRUCT` wraps the fields `Rpc.make` wraps in `Schema.Struct` itself'
-note: 'Pass the fields object as `payload`, which `Rpc.make` and `Rpc.custom` constructors build into the same `Schema.Struct` payload schema'
+note: 'Pass the fields object as `payload` without `Schema.Struct`'

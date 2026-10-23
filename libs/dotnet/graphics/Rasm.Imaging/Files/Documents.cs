@@ -61,8 +61,8 @@ public sealed record LayeredDocument {
     private static ReadOnlySpan<byte> DataBlock => "Adobe Photoshop Document Data Block\0"u8;
 
     public static Fin<LayeredDocument> From(OutputDepth depth, Option<ColorEncoding> encoding, Seq<DocumentLayer> layers) =>
-        from accepted in (OutputDepth.Sampled("layered document", depth, Table), CanvasOf(Rasters(layers))).Apply(static (sample, canvas) => (Sample: sample, Canvas: canvas)).As()
-        from buffered in accepted.Sample.Tiff.Depth.Buffered("layered document", accepted.Canvas.Extent.Width, alpha: true)
+        from accepted in (OutputDepth.Sampled("Layered document", depth, Table), CanvasOf(Rasters(layers))).Apply(static (sample, canvas) => (Sample: sample, Canvas: canvas)).As()
+        from buffered in accepted.Sample.Tiff.Depth.Buffered("Layered document", accepted.Canvas.Extent.Width, alpha: true)
         select new LayeredDocument(accepted.Sample, encoding, accepted.Canvas, layers);
 
     public PixelFrame Composite() => Isolated(Layers);
@@ -94,16 +94,16 @@ public sealed record LayeredDocument {
         layers.Bind(static layer => layer.Switch(raster: static raster => Seq(raster), folder: static folder => Rasters(folder.Children)));
 
     private static Fin<PixelFrame> CanvasOf(Seq<DocumentLayer.Raster> rasters) =>
-        from canvas in rasters.Head.Map(static raster => raster.Frame).ToFin(Error.New("layered document holds no raster layer"))
+        from canvas in rasters.Head.Map(static raster => raster.Frame).ToFin(Error.New("Layered document holds no raster layer"))
         from accepted in (
                 canvas.Window.Right <= int.MaxValue && canvas.Window.Bottom <= int.MaxValue
                     ? Fin.Succ(unit)
-                    : Error.New($"canvas window {canvas.Window} exceeds the coordinates TIFF holds"),
+                    : Error.New($"Canvas window {canvas.Window} exceeds TIFF coordinate range"),
                 rasters.Map(static (raster, index) => raster.Frame.Cons(raster.Mask.Map(static mask => mask.Frame).ToSeq()).Map(frame => (Frame: frame, Index: index)))
                     .Flatten()
                     .Traverse(entry => entry.Frame.Window == canvas.Window && entry.Frame.Extent == canvas.Extent
                         ? Fin.Succ(unit)
-                        : Error.New(string.Create(CultureInfo.InvariantCulture, $"document layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from the canvas")))
+                        : Error.New(string.Create(CultureInfo.InvariantCulture, $"Document layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from canvas")))
                     .As())
             .Apply(static (_, _) => unit).As()
         select canvas;
@@ -132,7 +132,7 @@ public sealed record LayeredDocument {
     private Fin<byte[]> SourceData() {
         Seq<LayerRecord> records = Records(Layers).Strict();
         if (records.Count > -short.MinValue)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"{records.Count} layer records exceed the {-short.MinValue} the signed Photoshop field holds"));
+            return Error.New(string.Create(CultureInfo.InvariantCulture, $"{records.Count} layer records exceed Photoshop maximum {-short.MinValue}"));
         using MemoryStream fields = new();
         using (BinaryWriter writer = new(fields, System.Text.Encoding.UTF8, leaveOpen: true))
             _ = records.Iter(record => record.Write(writer));
@@ -140,7 +140,7 @@ public sealed record LayeredDocument {
         long layered = info + (info & 1);
         long size = (DataBlock.Length + (6 * sizeof(uint)) + layered + 3) & ~3L;
         if (size > System.Array.MaxLength)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"document data block of {size} bytes exceeds one buffer of {System.Array.MaxLength} bytes"));
+            return Error.New(string.Create(CultureInfo.InvariantCulture, $"Document data block of {size} bytes exceeds {System.Array.MaxLength} byte buffer"));
         byte[] block = new byte[(int)size];
         using (BinaryWriter writer = new(new MemoryStream(block))) {
             writer.Write(DataBlock);

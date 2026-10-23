@@ -1,4 +1,4 @@
-"""Process runs to their exit and detached launches."""
+"""Process runs and detached launches."""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -14,22 +14,22 @@ from blender.rendering.faults import RenderingFaults, RenderingResult, Rendering
 
 
 def refused(argv: tuple[str, ...]) -> Callable[[OSError | int], RenderingFaults]:
-    """Maps a launch error or exit code of a process to its run fault."""
+    """Maps launch error or exit code to run fault."""
     return lambda error: (RenderingRunFault(request=argv, error=error),)
 
 
 def ran(argv: tuple[str, ...]) -> RenderingResult[None]:
-    """Runs a process to its exit."""
+    """Runs process to exit, nonzero code as fault."""
     return catch(lambda: subprocess.run(argv, check=False).returncode, exception=OSError)().map_error(refused(argv)).bind(lambda code: Ok(None) if code == 0 else Error(refused(argv)(code)))
 
 
 def spawned(argv: tuple[str, ...], stream: int | None = None) -> RenderingResult[subprocess.Popen[bytes]]:
-    """Starts a process, its input and output on a stream when given."""
+    """Starts process, stdin and stdout on stream."""
     return catch(lambda: subprocess.Popen(argv, stdin=stream, stdout=stream), exception=OSError)().map_error(refused(argv))
 
 
 def detached(argv: tuple[str, ...], log: Path) -> RenderingResult[Path]:
-    """Starts a process in its own session with its output appended to a log."""
+    """Starts process in own session with output appended to log."""
 
     def launched() -> Path:
         log.parent.mkdir(parents=True, exist_ok=True)

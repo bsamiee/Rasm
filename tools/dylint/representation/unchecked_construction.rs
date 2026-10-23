@@ -38,9 +38,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         {
             let value = cx.tcx.type_of(field.did).instantiate_identity().skip_normalization();
             let checker = format!("{ident}::{}", cx.tcx.item_name(check));
+            let converting = cx.tcx.trait_impl_of_assoc(check).is_some_and(|implementation| cx.tcx.is_diagnostic_item(sym::TryFrom, cx.tcx.impl_trait_id(implementation)));
+            let help = match (cx.tcx.adt_def(owner).non_enum_variant().fields.len(), converting) {
+                (1, true) => format!("add `#[serde(try_from = \"{value}\")]` to `{ident}`"),
+                (1, false) => format!("add `#[serde(try_from = \"{value}\")]` to `{ident}` and a `TryFrom<{value}>` impl that calls `{checker}`"),
+                _ => format!("add `#[serde(try_from = ..)]` to `{ident}` naming a struct of its fields that derives `Deserialize`, and a `TryFrom` impl from it that calls `{checker}`"),
+            };
             span_lint_hir_and_then(cx, UNCHECKED_CONSTRUCTION, item.hir_id(), ident.span, format!("derived `Deserialize` builds `{ident}` without the `{value}` check of `{checker}`"), |diag| {
                 diag.span_note(cx.tcx.def_span(check), format!("`{checker}` declared here"));
-                diag.help(format!("decode through `#[serde(try_from = \"{value}\")]` and a `TryFrom<{value}>` impl that runs `{checker}`"));
+                diag.help(help);
             });
         }
     }
@@ -60,7 +66,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 UNCHECKED_CONSTRUCTION,
                 field.hir_id,
                 field.span,
-                format!("field `{}` lets code outside the module set `{name}` without the `{value}` check of `{checker}`", field.ident),
+                format!("field `{}` lets code outside the module skip the `{value}` check of `{checker}`", field.ident),
                 |diag| {
                     diag.span_note(cx.tcx.def_span(check), format!("`{checker}` declared here"));
                     diag.help(format!("make `{}` private and add an accessor for code outside the module", field.ident));
@@ -88,7 +94,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         {
             let name = cx.tcx.item_name(adt.did());
             let checker = format!("{name}::{}", cx.tcx.item_name(check));
-            span_lint_hir_and_then(cx, UNCHECKED_CONSTRUCTION, expr.hir_id, expr.span, format!("`{name}` built from a `{value}` parameter skips `{checker}`"), |diag| {
+            span_lint_hir_and_then(cx, UNCHECKED_CONSTRUCTION, expr.hir_id, expr.span, format!("building `{name}` from a `{value}` parameter skips `{checker}`"), |diag| {
                 diag.span_note(cx.tcx.def_span(check), format!("`{checker}` declared here"));
                 diag.help(format!("build `{name}` through `{checker}`"));
             });

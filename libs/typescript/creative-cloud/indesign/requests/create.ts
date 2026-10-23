@@ -11,15 +11,15 @@ import { Change } from '#/requests/change';
 
 class Create extends Mutation.extend<Create>('Create')(
     {
-        owner: Schema.OptionFromOptionalKey(Specifier.annotate({ description: 'Specifier of the object owning the collection; the active document when absent' })),
-        collection: Schema.String.annotate({ description: 'Collection field of the owner (pages, paragraphStyles, rectangles, nestedGrepStyles, tabStops, swatches)' }),
-        arguments: Schema.OptionFromOptionalKey(Schema.Array(Schema.Json).annotate({ description: "Positional arguments of the collection's add method, decoded by parameter type; inspect the collection class for its signature" })),
-        properties: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: 'Fields of the new object, decoded as change decodes them' })),
+        owner: Schema.OptionFromOptionalKey(Specifier.annotate({ description: 'Collection owner, active document when absent' })),
+        collection: Schema.String.annotate({ description: 'Collection field (pages, paragraphStyles, rectangles, nestedGrepStyles, tabStops, swatches)' }),
+        arguments: Schema.OptionFromOptionalKey(Schema.Array(Schema.Json).annotate({ description: 'Positional add arguments as change values, kind lists add signatures' })),
+        properties: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: 'New object fields as change values' })),
     },
-    { description: "Adds a member to a collection through its native add method in one undo step and returns the new object's reference" },
+    { description: 'Adds collection member in one undo step' },
 ) {
     override get label(): string {
-        return `Create ${this.collection} in ${Option.match(this.owner, { onNone: () => 'the active document', onSome: leaf })}`;
+        return `Create ${this.collection} in ${Option.match(this.owner, { onNone: () => 'active document', onSome: leaf })}`;
     }
 
     run() {

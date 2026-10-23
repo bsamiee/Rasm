@@ -141,5 +141,5 @@ rule:
         - not: {any: [{matches: mixed-arms}, {matches: void-switch-expression}]}
         - has: {stopBy: end, matches: lift-thunk, has: {field: function, pattern: $CALL}}
         - not: {matches: arm-body}
-message: 'Each branch arm lifts its own effect around `$CALL`'
-note: 'Lift the whole branch once (`IO.lift`, `IO.liftAsync`) over arms that return `Fin` or a value, or `Switch`''s `Action` overload for statement arms'
+message: 'Each branch arm calls `$CALL` on its own'
+note: 'Lift the whole branch once with arms returning `Fin` or a value, a `Switch` `Action` overload for statement arms'

@@ -109,7 +109,7 @@ actor CodexClient: ProviderClient {
                 guard live?.identity.map({ identity in outgoing?.identity.isSameAccount(as: identity) == true }) ?? (outgoing == nil) else { throw .identityChanged }
                 if let outgoing, let live { try installFile(live.data, to: CodexAuthFile.file(in: paths.codexHome(outgoing.id))) }
                 try installFile(saved.data, to: liveAuthFile)
-                logger.notice("Installed the auth file of account \(account.id, privacy: .public) in the live CODEX_HOME, parked outgoing \(outgoing != nil && live != nil, privacy: .public)")
+                logger.notice("Installed account \(account.id, privacy: .public) auth file in live CODEX_HOME, outgoing saved \(outgoing != nil && live != nil, privacy: .public)")
             }
             try remove(CodexAuthFile.file(in: incoming))
             return identity
@@ -139,7 +139,7 @@ actor CodexClient: ProviderClient {
                     )
                     guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
                     guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
-                    self.logger.info("Opened the OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
+                    self.logger.info("Opened OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
                     let completed: CodexProtocol.LoginCompleted = try await connection.notification(.accountLoginCompleted, returning: CodexProtocol.LoginCompleted.self) {
                         completed in completed.loginId == started.loginId
                     }
@@ -244,7 +244,7 @@ actor CodexClient: ProviderClient {
             do {
                 let status: TerminationStatus = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
                     logger.info(
-                        "Started codex app-server \(manifest.version, privacy: .public) as process \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
+                        "Started codex app-server \(manifest.version, privacy: .public) as PID \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
                     )
                     await JSONRPCConnection<CodexProtocol.Method, CodexFailure>.run(
                         reading: execution.standardOutput.jsonLines,
@@ -252,7 +252,7 @@ actor CodexClient: ProviderClient {
                         decoder: CodexProtocol.decoder,
                         timeout: .seconds(60),
                         retaining: [.accountLoginCompleted, .turnCompleted],
-                        serve: { _ in .failure(JSONRPCError(code: -32601, message: "Relay does not provide agent tools", data: nil)) },
+                        serve: { _ in .failure(JSONRPCError(code: -32601, message: "Relay provides no agent tools", data: nil)) },
                         failure: { failure in .rpc(failure, serverVersion: manifest.version) },
                     ) { connection in
                         let limits: AsyncStream<CodexProtocol.RateLimitsUpdated> = await connection.subscribe(.accountRateLimitsUpdated, to: CodexProtocol.RateLimitsUpdated.self)

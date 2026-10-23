@@ -1,4 +1,4 @@
-"""Selected-tree editing: the node editor's chosen tree, a rollback scope over its links and selection, and owned-group insertion."""
+"""Node editor state and owned group insertion under rollback of links and selection."""
 
 from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
@@ -38,7 +38,7 @@ class Chosen(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, context: bpy.types.Context) -> BlenderResult[Self]:
-        """Returns supported node editor state or an absent editor or unsupported tree."""
+        """Returns editor state, or fault for missing editor or unsupported tree."""
         accepted: tuple[type[GraphTree], ...] = typing.get_args(GraphTree.__value__)
         match context.space_data, context.window, context.area:
             case bpy.types.SpaceNodeEditor() as space, bpy.types.Window() as window, bpy.types.Area() as area:
@@ -110,14 +110,14 @@ class _Edit(msgspec.Struct, frozen=True, kw_only=True):
                 lambda held: joined(self.tree, source, held[0], verify_limits=False, handle_dynamic_sockets=True).bind(lambda link: written(link, "is_muted", muted).map(lambda _: linked(held, link)))
             )
 
-        def settled(held: tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]) -> tuple[bpy.types.NodeLink, ...]:
+        def finished(held: tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]) -> tuple[bpy.types.NodeLink, ...]:
             desired = tuple(each if isinstance(each, bpy.types.NodeLink) else held[1][index] for index, each in enumerate(incoming))
             ordered(held[0], desired)
             return desired
 
         requests = tuple((index, *each) for index, each in enumerate(incoming) if not isinstance(each, bpy.types.NodeLink))
         start: BlenderResult[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]] = Ok((target, {}))
-        return reduce(added, reversed(requests), start).map(settled)
+        return reduce(added, reversed(requests), start).map(finished)
 
     def committed[T](self, value: T) -> T:
         self.resources.pop_all()
@@ -147,7 +147,7 @@ def _editing(chosen: Chosen) -> Generator[_Edit]:
 
 
 def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, spacing: NodeSpacing, *, inputs: Mapping[Key, Value] = {}) -> BlenderResult[bpy.types.Node]:
-    """Splices a group after the active output, retaining each consumer occurrence."""
+    """Splices group after active node's first enabled output, routing each consumer link through group."""
 
     def spliced(node: bpy.types.Node) -> BlenderResult[bpy.types.Node]:
         sources = tuple(socket for active in chosen.active.to_list() for socket in tuple(each for each in active.outputs if each.enabled)[:1])

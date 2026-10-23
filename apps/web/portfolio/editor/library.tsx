@@ -67,9 +67,9 @@ const Library = ({
                     )}
                 </GridList>
                 {Option.match(selected, {
-                    onNone: () => <p className="hint">Select a source to preview or place it.</p>,
+                    onNone: () => <p className="hint">Select file to preview or place</p>,
                     onSome: (asset) => {
-                        const uses = [...(assetIds(portfolio).has(asset.id) ? ['your draft'] : []), ...(assetIds(published).has(asset.id) ? ['published work'] : [])];
+                        const uses = [...(assetIds(portfolio).has(asset.id) ? ['draft'] : []), ...(assetIds(published).has(asset.id) ? ['published work'] : [])];
                         return (
                             <div className="editor:border-line editor:border-l editor:pl-6 flex min-w-0 flex-col gap-4">
                                 <button
@@ -98,11 +98,11 @@ const Library = ({
                                         Use as hero
                                     </button>
                                 </div>
-                                <p className="hint">{[...summary(asset), ...(uses.length > 0 ? [`Used in ${conjunction.format(uses)}.`] : [])].join(' · ')}</p>
+                                <p className="hint">{[...summary(asset), ...(uses.length > 0 ? [`Used in ${conjunction.format(uses)}`] : [])].join(' · ')}</p>
                                 <details className="hint">
-                                    <summary className="min-h-11 cursor-pointer content-center">Source removal</summary>
-                                    {uses.length > 0 && <p>Remove this file from saved and published work before deleting.</p>}
-                                    <ConfirmDialog description="Permanently delete this source file. This cannot be undone." disabled={uses.length > 0} label="Delete file" onConfirm={() => remove(asset.id)} />
+                                    <summary className="min-h-11 cursor-pointer content-center">Deletion</summary>
+                                    {uses.length > 0 && <p>Remove its placements and publish before deleting</p>}
+                                    <ConfirmDialog description="Deletion is permanent" disabled={uses.length > 0} label="Delete file" onConfirm={() => remove(asset.id)} />
                                 </details>
                             </div>
                         );

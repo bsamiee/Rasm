@@ -212,6 +212,6 @@ rule:
                                 - all: [{matches: mention}, {not: {inside: {stopBy: end, pattern: $READER, matches: function-owner}}}]
                                 - all: [{matches: rebinding}, {not: {inside: {kind: function_definition, pattern: $DECLARATION}}}]
 message: '`$NAME` has one reader'
-note: 'Move the declaration into its reader (function as nested `def`, mapping up to eight rows as `match`, set as `in` set display, folded constant inline)'
+note: 'Move the declaration into its reader as a nested `def`, a `match` for a mapping of up to eight rows, an `in` set display, or an inline literal'
 labels:
     READER: {style: secondary, message: Only reader}

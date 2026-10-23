@@ -24,5 +24,5 @@ rule:
                     - all:
                         - inside: {kind: let_declaration, field: value, has: {field: pattern, kind: identifier, pattern: $COMMAND}}
                         - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: expression_statement, all: [{has: {stopBy: end, kind: field_expression, has: {field: value, kind: identifier, pattern: $COMMAND}}}, {has: {stopBy: end, matches: shell-command}}]}}
-message: '`$PROGRAM` reads the environment, user, working directory, or clock of the process through a child process'
-note: 'Read the value once at the boundary (`clap` field with `env = "<NAME>"`) and pass it, the working directory, and the clock as arguments'
+message: '`$PROGRAM` reads process environment, user, working directory, or clock through a child process'
+note: 'Read the value at the boundary (`#[arg(env = "<NAME>")]`, `std::env::current_dir`, `jiff::Timestamp::now`) and pass it as an argument'

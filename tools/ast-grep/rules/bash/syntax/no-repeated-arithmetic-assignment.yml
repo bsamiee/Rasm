@@ -34,5 +34,5 @@ rule:
             - has: {field: name, kind: variable_name, pattern: $V}
             - has: {field: value, matches: operation}
 fix: $V $OP= $VALUE
-message: '`$V` repeats as operand and target of one arithmetic assignment'
-note: Assign with the compound operator, `(( <name> <operator>= <value> ))`
+message: '`$V` repeats as target and `$OP` operand of one assignment'
+note: Write the compound assignment `<name> <operator>= <value>`

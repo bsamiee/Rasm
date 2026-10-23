@@ -23,4 +23,4 @@ rule:
         - kind: call_expression
           regex: '^(CoreGraphics\.)?CGMainDisplayID\(\)$'
 message: '`$SCREEN` lays out a window by a screen other than its own'
-note: 'Read `<window>.screen`, or size its content and let AppKit constrain the frame to `<window>.screen`'
+note: 'Read `<window>.screen`, or size window content and let AppKit constrain the frame'

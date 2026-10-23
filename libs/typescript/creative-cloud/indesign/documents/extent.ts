@@ -4,9 +4,7 @@ import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite), {
-    description: 'Outer stroke box in spread points, x 0 at the spine of a facing-pages spread and at the center of any other spread',
-}) {
+class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite), { description: 'Outer stroke bounds in spread points, x 0 at spine or spread center' }) {
     static readonly of = Effect.fn('Extent.of')(function* (...placed: readonly (Page | PageItem)[]) {
         const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
         return yield* Effect.try({

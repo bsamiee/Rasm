@@ -12,4 +12,4 @@ transform:
     METHOD: {replace: {source: $STRIP, replace: '^strip_', by: 'trim_'}}
 fix: $S.$METHOD($P)
 message: '`$S.$STRIP($P)` falls back to `$S`'
-note: 'Call `trim_prefix(<pattern>)` or `trim_suffix(<pattern>)` on `str`, `[T]`, or `Path`'
+note: 'Call `<value>.trim_prefix(<pattern>)` or `<value>.trim_suffix(<pattern>)`'

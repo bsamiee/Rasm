@@ -62,10 +62,10 @@ public static partial class ErrorOps {
         else if (logger.IsEnabled(LogLevel.Error)) Failed(logger, member, Localize(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}", SkipEnabledCheck = true)]
+    [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed with {Message}", SkipEnabledCheck = true)]
     private static partial void Failed(ILogger logger, string member, string message, Exception? exception);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} cancelled")]
+    [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} canceled")]
     private static partial void Cancelled(ILogger logger, string member);
 
     private static Seq<Error> Causes(Error error) =>

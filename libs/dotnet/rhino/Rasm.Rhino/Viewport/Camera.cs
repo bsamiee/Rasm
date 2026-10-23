@@ -96,12 +96,12 @@ public static class Cameras {
     public static Fin<System.Numerics.Matrix4x4> ToMatrix(Transform xform) =>
         xform.ToFloatArray(rowDominant: false) is var entries && entries.All(float.IsFinite)
             ? MemoryMarshal.Cast<float, System.Numerics.Matrix4x4>(entries.AsSpan())[0]
-            : Error.New(ErrorCodes.ValidationFailed, "transform holds an entry outside single precision");
+            : Error.New(ErrorCodes.ValidationFailed, "transform holds entry outside single precision");
 
     public static Fin<System.Numerics.Vector3> Numeric(Vector3d vector) =>
         Seq(vector.X, vector.Y, vector.Z).ForAll(static value => value is >= float.MinValue and <= float.MaxValue)
             ? new System.Numerics.Vector3((float)vector.X, (float)vector.Y, (float)vector.Z)
-            : Error.New(ErrorCodes.ValidationFailed, "vector holds a component outside single precision");
+            : Error.New(ErrorCodes.ValidationFailed, "vector holds component outside single precision");
 
     public static Fin<Option<LensFocus>> Focus(ViewInfo view, LengthUnit spaceUnit, Option<LensDistance> focal, Option<PositiveMagnitude> aperture) =>
         aperture.IsSome

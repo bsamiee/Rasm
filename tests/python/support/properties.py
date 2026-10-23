@@ -1,4 +1,4 @@
-"""Property-test registration and public-API test coverage accounting."""
+"""Property-test marks and public-API test coverage check."""
 
 from collections.abc import Mapping
 from copy import replace
@@ -25,7 +25,7 @@ class PropertyRecord(msgspec.Struct, frozen=True):
 
 
 class PackageUnderTest(msgspec.Struct, frozen=True):
-    """Package registration with explicit exemptions and its test directory."""
+    """Registered package exemptions and test directory."""
 
     exempt: frozenset[str]
     suite: Path
@@ -40,7 +40,7 @@ PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest
 
 
 def is_automatically_exempt(subject: object) -> bool:
-    """Return whether public-API test coverage excludes a value-only symbol."""
+    """Return whether ``subject`` is a value-only symbol coverage skips."""
     match subject:
         case type() if issubclass(subject, enum.StrEnum):
             return True
@@ -60,7 +60,7 @@ def is_automatically_exempt(subject: object) -> bool:
 
 
 def property_test(subject: object) -> pytest.MarkDecorator:
-    """Return a property mark recording the covered subject's public-API identity."""
+    """Return property mark recording public-API identity of ``subject``."""
     match subject:
         case type() | TypeAliasType() | FunctionType() | MethodType() | BuiltinFunctionType():
             record = PropertyRecord(subject=subject.__qualname__, subject_module=subject.__module__)
@@ -77,20 +77,20 @@ def covers(*subjects: object) -> list[pytest.MarkDecorator]:
 
 
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
-    """Register a package for public-API test coverage on the session stash, a repeat call merging exemptions and keeping the first test directory."""
+    """Register ``package``, merging exemptions and keeping first test directory on repeat calls."""
     packages = stash.get(PACKAGES_UNDER_TEST, frozendict())
     prior = packages.get(package, PackageUnderTest(frozenset(), suite))
     stash[PACKAGES_UNDER_TEST] = packages | {package: replace(prior, exempt=prior.exempt | exempt)}
 
 
 def register_package_tree(stash: pytest.Stash, module_root: Path, suite_root: Path) -> None:
-    """Register each directory beneath the import root ``module_root`` that holds Python source under its import name, the directory name, with the same-named ``suite_root`` folder as test directory."""
+    """Register each Python package under ``module_root`` with same-named ``suite_root`` folder as test directory."""
     for package in (child for child in sorted(module_root.iterdir()) if child.is_dir() and any(child.rglob("*.py"))):
         register_package(stash, package.name, suite=suite_root / package.name)
 
 
 def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
-    """Return the package test modules pytest did not import during collection."""
+    """Return test modules per package that collection left unimported."""
     names = {
         package: tuple(sorted(".".join(py.relative_to(config.rootpath).with_suffix("").parts) for pattern in config.getini("python_files") for py in registration.suite.rglob(pattern)))
         for package, registration in packages.items()
@@ -99,7 +99,7 @@ def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, Packa
 
 
 def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapping[str, PackageUnderTest]) -> None:
-    """Assert every public API of each registered package has a property test or an exemption, and every public module imports and states ``__all__``."""
+    """Assert every registered public member has a property test or exemption and every public module imports and declares ``__all__``."""
 
     def surveyed(module: str) -> tuple[dict[str, object], tuple[str, ...]]:
         try:
@@ -108,10 +108,10 @@ def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapp
             return {}, (repr(error),)
         match vars(loaded).get("__all__"):
             case None:
-                return {}, ("the module defines no __all__",)
+                return {}, ("defines no __all__",)
             case names:
                 return {name: members[name] for name in names if name in members and not inspect.ismodule(members[name])}, tuple(
-                    f"__all__ names {name!r} but the module never defines it" for name in names if name not in members
+                    f"__all__ names undefined {name!r}" for name in names if name not in members
                 )
 
     for package, registration in packages.items():
@@ -123,7 +123,7 @@ def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapp
         covered = registration.exempt | {record.subject.rsplit(".", 1)[-1] for record in records if record.subject_module is None or f"{record.subject_module}.".startswith(f"{package}.")}
         uncovered = sorted({f"  - {name}" for exports, _ in surveys.values() for name, member in exports.items() if name not in covered and not is_automatically_exempt(member)})
         gaps = uncovered + failures
-        assert not gaps, f"Property-test coverage gap in '{package}': {len(uncovered)} untested public symbol(s) and {len(failures)} module fault(s):\n{'\n'.join(gaps)}"
+        assert not gaps, f"{package} property-test coverage: {len(uncovered)} untested public symbols, {len(failures)} module faults\n{'\n'.join(gaps)}"
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

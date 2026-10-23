@@ -7,7 +7,7 @@ import { Mutation } from '#/dom/transactions';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Remove extends Mutation.extend<Remove>('Remove')({ target: Specifier }, { description: 'Removes one object through its native remove method in one undo step' }) {
+class Remove extends Mutation.extend<Remove>('Remove')({ target: Specifier }, { description: 'Removes object in one undo step' }) {
     override get label(): string {
         return `Remove ${leaf(this.target)}`;
     }

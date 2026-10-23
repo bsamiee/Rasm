@@ -91,5 +91,5 @@ rule:
         - any:
             - matches: after-earlier-pair
             - inside: {stopBy: end, matches: after-earlier-pair, inside: {stopBy: end, pattern: $REGION}}
-message: '`for $OUTER_TARGET in $OUTER_SOURCE` then `for $INNER_TARGET in $INNER_SOURCE` repeats a two-level traversal spelled earlier in its scope'
-note: 'Bind `<items> = [<element> for <a> in <outer> for <b> in <inner>]` once ahead of the first traversal and read `<items>` at each site'
+message: '`for $OUTER_TARGET in $OUTER_SOURCE` with `for $INNER_TARGET in $INNER_SOURCE` repeats an earlier traversal in its scope'
+note: 'Bind `<items> = [<element> for <a> in <outer> for <b> in <inner>]` once and iterate `<items>` at each site'

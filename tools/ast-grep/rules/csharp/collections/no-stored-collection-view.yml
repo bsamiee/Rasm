@@ -74,5 +74,5 @@ rule:
             - inside: {stopBy: {matches: owner}, kind: constructor_declaration}
 labels:
     HELD: {style: secondary, message: 'Collection the type holds'}
-message: '`$NAME` stores a copy or view of `$HELD`, a collection its type holds'
-note: 'Read the view from the held collection at each use'
+message: '`$NAME` stores a copy or view of held collection `$HELD`'
+note: 'Derive the view from `<held>` at each use'

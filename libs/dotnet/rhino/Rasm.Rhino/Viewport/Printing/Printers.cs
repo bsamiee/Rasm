@@ -41,7 +41,7 @@ public static class Printers {
             .Map(system => new PrintedPageDefinition {
                 Description = sheet.Key, Width = sheet.Sides.Short.Value.ToDouble(), Height = sheet.Sides.Long.As(sheet.Sides.Short.Unit).ToDouble(), Units = system,
             })
-            .ToFin(Error.New($"sheet {sheet} has a unit no Rhino unit system holds"))).As())
+            .ToFin(Error.New($"sheet {sheet} unit has no Rhino unit system"))).As())
         from written in DisposalOps.Within(FilePdf.GetCustomPages,
             prior => IO.lift(() => FilePdf.SetCustomPages([.. prior, .. pages])).Bind(_ => write),
             static prior => IO.lift(() => FilePdf.SetCustomPages(prior)))

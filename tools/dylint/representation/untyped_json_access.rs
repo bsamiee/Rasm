@@ -1,13 +1,15 @@
-use core::slice;
+use core::{iter, slice};
 
 use clippy_utils::{
-    consts::ConstEvalCtxt,
+    consts::{ConstEvalCtxt, Constant},
     diagnostics::span_lint_and_help,
     expr_or_init, fn_def_id, get_parent_expr, last_path_segment,
     paths::PathNS,
     res::{MaybeDef as _, MaybeResPath as _},
+    source::snippet,
     sym,
 };
+use itertools::Itertools as _;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::{Expr, ExprKind, Node, Pat, PatExpr, PatExprKind, PatKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
@@ -78,14 +80,18 @@ impl Pass {
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        fn fixed(cx: &LateContext<'_>, key: &Expr<'_>) -> bool {
+        fn fixed(cx: &LateContext<'_>, key: &Expr<'_>) -> Option<String> {
             let key = expr_or_init(cx, key.peel_borrows());
             if let ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand]) = key.kind
                 && is_text(cx, cx.typeck_results().expr_ty(key))
             {
                 fixed(cx, operand)
             } else {
-                ConstEvalCtxt::new(cx).eval(key).is_some()
+                Some(match ConstEvalCtxt::new(cx).eval(key)? {
+                    Constant::Str(text) => format!("{text:?}"),
+                    Constant::Int(index) => index.to_string(),
+                    _ => snippet(cx, key.span, "..").into_owned(),
+                })
             }
         }
 
@@ -93,9 +99,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let method = method?;
             let kind = *self.methods.get(&method)?;
             let access = match kind {
-                _ if arguments.iter().any(|key| fixed(cx, key)) => "accesses an untyped JSON document by a fixed key",
+                _ if let Some(key) = arguments.iter().find_map(|key| fixed(cx, key)) => format!("reads `{key}` from an untyped JSON document"),
                 Document::Value if arguments.is_empty() && self.document(signature(cx.tcx, method).output()).is_none() && !operand.is_some_and(|operand| self.keyed(cx, operand)) =>
-                    "reads an untyped JSON document by variant",
+                    String::from("reads an untyped JSON document by variant"),
                 Document::Value | Document::Map => return None,
             };
             Some(with_forced_trimmed_paths!(format!("`{}` {access}", item_path(cx, method))))
@@ -109,11 +115,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     let receiver = get_parent_expr(cx, expr).and_then(|call| if let ExprKind::MethodCall(_, receiver, ..) = call.kind { Some(receiver) } else { None });
                     fn_item_value(cx, expr).and_then(|function| accessed(Some(function), &[], receiver)).map(|message| (expr.span, message))
                 }
-                ExprKind::Index(document, key, _)
-                    if self.document(cx.typeck_results().expr_ty(document)).is_some()
-                        && fixed(cx, key)
-                        && !get_parent_expr(cx, expr).is_some_and(|outer| matches!(outer.kind, ExprKind::Index(inner, ..) if inner.hir_id == expr.hir_id)) =>
-                    Some((expr.span, "indexing accesses an untyped JSON document by a fixed key".to_owned())),
+                ExprKind::Index(..)
+                    if !get_parent_expr(cx, expr).is_some_and(|outer| matches!(outer.kind, ExprKind::Index(inner, ..) if inner.hir_id == expr.hir_id))
+                        && let keys = iter::successors(Some(expr), |indexed| if let ExprKind::Index(document, ..) = indexed.kind { Some(document) } else { None })
+                            .map_while(|indexed| match indexed.kind {
+                                ExprKind::Index(document, key, _) if self.document(cx.typeck_results().expr_ty(document)).is_some() => fixed(cx, key),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>()
+                        && !keys.is_empty() =>
+                    Some((expr.span, format!("indexing reads `{}` from an untyped JSON document", keys.iter().rev().format_with("", |key, write| write(&format_args!("[{key}]")))))),
                 _ => None,
             }
         {

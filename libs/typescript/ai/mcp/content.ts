@@ -8,15 +8,15 @@ const Content = <S extends Schema.Top>(schema: S, description: string, block: (v
     schema.annotate({
         toCodecJson: () =>
             Schema.link<S['Type']>()(Schema.String.annotate({ description }), {
-                decode: SchemaGetter.forbidden(() => 'Content blocks hold the value'),
+                decode: SchemaGetter.forbidden(() => 'Content blocks hold value'),
                 encode: SchemaGetter.transformEffect((value: S['Type']) => {
                     const [added, shown] = block(value);
                     return ContentBlocks.use((add) => Effect.as(add(added), shown));
                 }),
             }),
     });
-const Image = (mimeType: string) => Content(Schema.Uint8Array, 'Media type of the image content block beside the result', (data) => [McpSchema.ImageContent.make({ data, mimeType }), mimeType]);
-const Attachment = Content(Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array }), 'URI of the file in the content block beside the result', ({ uri, mimeType, data }) => [
+const Image = (mimeType: string) => Content(Schema.Uint8Array, 'Media type of image content block', (data) => [McpSchema.ImageContent.make({ data, mimeType }), mimeType]);
+const Attachment = Content(Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array }), 'URI of file content block', ({ uri, mimeType, data }) => [
     Option.match(
         Option.filter(mimeType, (type) => type.startsWith('image/')),
         {

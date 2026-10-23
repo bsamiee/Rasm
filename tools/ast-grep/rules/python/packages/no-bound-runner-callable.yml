@@ -116,5 +116,5 @@ transform:
     ARGUMENTS:
         replace: {source: $TRAILING, replace: ',(\s*(?:#[^\n]*(?:\n|$)\s*)*)$', by: '$1'}
 fix: $CONTENT$ARGUMENTS
-message: '`partial` binds positional arguments the AnyIO runner takes directly'
-note: 'Pass the positional arguments after the callable in the runner call'
+message: '`partial` around `$CONTENT$ARGUMENTS` binds arguments the AnyIO runner takes directly'
+note: 'Pass `<callable>, <arguments>` to the runner in place of `partial`'

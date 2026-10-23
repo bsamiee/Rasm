@@ -81,7 +81,7 @@ public static class FieldTexts {
                 .Add(Seq(SelectionKey), item.Key),
         }, static entries =>
             from selected in IO.lift(entries.Find(Seq(SelectionKey)).ToFin(new Refused(SelectionKey, Refused.Absent)))
-            from item in IO.lift(StateCase<TValue>.Items.Find(item => string.Equals(item.Key, selected, StringComparison.Ordinal)).ToFin(Errors.ParseError($"{selected} reads as no {typeof(TValue).Name}")))
+            from item in IO.lift(StateCase<TValue>.Items.Find(item => string.Equals(item.Key, selected, StringComparison.Ordinal)).ToFin(Errors.ParseError($"{selected} is no {typeof(TValue).Name} case")))
             from value in item.Accept(CodecCases<TValue>.Instance).Under(item.Key).Recall(entries)
             select value);
 
@@ -161,7 +161,7 @@ public static class FieldTexts {
         public Seq<FieldText<TRecord>> Variant<TValue>(Lens<TRecord, TValue> lens) where TValue : class =>
             [new([SelectionKey], record => Some(StateCase<TValue>.Items.First(item => item.Holds(lens.Get(record))).Key),
                 text => StateCase<TValue>.Items.Find(item => string.Equals(item.Key, text, StringComparison.Ordinal))
-                    .ToFin(Errors.ParseError($"{text} reads as no {typeof(TValue).Name}"))
+                    .ToFin(Errors.ParseError($"{text} is no {typeof(TValue).Name} case"))
                     .Map(item => IO.pure<Func<TRecord, TRecord>>(record => item.Holds(lens.Get(record)) ? record : lens.Set(item.Default, record)))) {
                 Taken = (from, into) => StateCase<TValue>.Items.First(item => item.Holds(lens.Get(from))) switch {
                     var item => item.Holds(lens.Get(into)) ? into : lens.Set(item.Default, into),

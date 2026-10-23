@@ -15,4 +15,4 @@ rule:
             kind: expression_statement
             has: {kind: call_expression, any: [{pattern: $V.retain($Q)}, {pattern: $V.retain_mut($Q)}]}
 message: '`$V` copies its matching elements out and retains the rest in a second pass'
-note: 'Collect `extract_if(.., <predicate>)`, or `extract_if(<predicate>)` on `HashMap` and `HashSet`, with one predicate for both tests'
+note: 'Collect `<vec>.extract_if(.., <predicate>)`, or `extract_if(<predicate>)` on a `HashMap` or `HashSet`, and delete the `retain`'

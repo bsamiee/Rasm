@@ -137,16 +137,16 @@ public enum ElementFailure: CustomNSError, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-            case .untrusted: "Process lacks Accessibility access, allow it in System Settings > Privacy & Security > Accessibility"
-            case .unanswered(.none): "Application did not answer within Accessibility messaging timeout"
+            case .untrusted: "Process lacks Accessibility access, grant it in System Settings > Privacy & Security > Accessibility"
+            case .unanswered(.none): "Application did not answer within messaging timeout"
             case .unanswered(.some(let action)): "\(action) got no answer within messaging timeout and can have run"
             case .noProcess: Errno.noSuchProcess.description
             case .unreadable(let read):
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error)"
             case .unobservable(let refusals):
-                "Application refused Accessibility notifications: \(refusals.errors.map { refusal in "\(refusal.notification) (AXError \(refusal.error.rawValue))" }.joined(separator: ", "))"
+                "Application refused Accessibility notifications \(refusals.errors.map { refusal in "\(refusal.notification) (AXError \(refusal.error.rawValue))" }.joined(separator: ", "))"
             case .absent(let id): "Application has no open element with id \(id.base64EncodedString())"
-            case .activating(let action): "\(action) not sent, AXRaise brings window forward"
+            case .activating(let action): "\(action) not sent. AXRaise brings window forward"
             case .refused(let action, let error): "Application refused \(action) with AXError \(error.rawValue)"
         }
     }

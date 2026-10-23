@@ -270,7 +270,7 @@ public sealed partial class PointCurve : IConvertible<string> {
         item = null;
         return value is null ? null
             : CurvePoint.Parse(value).Case is Seq<CurvePoint> points ? Validate(points, out item)
-            : new ValidationError($"point curve '{value}' must be a list of curve points");
+            : new ValidationError($"point curve '{value}' did not parse as curve points");
     }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CurvePoint> points) =>
@@ -278,7 +278,7 @@ public sealed partial class PointCurve : IConvertible<string> {
             && points.ForAll(static point => CurveAxis.Stops.Contains(point.X) && CurveAxis.Stops.Contains(point.Y))
             && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X && pair.First.Y <= pair.Second.Y)
                 ? null
-                : new ValidationError("point curve must hold at least two points within the stop axis, ascending in input and non-descending in output");
+                : new ValidationError("point curve needs 2 or more stop axis points, inputs ascending and outputs non-descending");
 }
 
 [SmartEnum]
@@ -332,15 +332,15 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PointCurveParameter : IStateParameter<PointCurves> {
     public static readonly PointCurveParameter Red = new("red", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Red.Curve),
-        new("Red", "Red channel curve over stops about middle gray"));
+        new("Red", "Red curve over stops about middle gray"));
     public static readonly PointCurveParameter Green = new("green", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Green.Curve),
-        new("Green", "Green channel curve over stops about middle gray"));
+        new("Green", "Green curve over stops about middle gray"));
     public static readonly PointCurveParameter Blue = new("blue", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Blue.Curve),
-        new("Blue", "Blue channel curve over stops about middle gray"));
+        new("Blue", "Blue curve over stops about middle gray"));
     public static readonly PointCurveParameter Master = new("master", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Master.Curve),
         new("Master", "Curve every channel takes after its own"));
     public static readonly PointCurveParameter PreserveHue = new("preserve-hue", StateParameter.Bounded(Lens<PointCurves, AxisFraction>.New(static curves => curves.PreserveHue, static preserve => curves => curves with { PreserveHue = preserve })),
-        new("Preserve hue", "Share of each pixel's hue the master curve keeps"));
+        new("Preserve hue", "Share of pixel hue kept through master curve"));
 
     public StateParameter<PointCurves> Kind { get; }
     public ParameterText Text { get; }

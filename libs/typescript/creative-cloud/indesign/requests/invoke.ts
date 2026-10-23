@@ -6,10 +6,7 @@ import { Menu } from '#/requests/menu';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Invoke extends Mutation.extend<Invoke>('Invoke')(
-    { action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name' }) },
-    { description: 'Invokes one menu action as its menu item does, in one undo step: an action whose command opens a dialog holds the call until the dialog is answered' },
-) {
+class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name' }) }, { description: 'Invokes menu action in one undo step, a dialog it opens waits for an answer' }) {
     override get label(): string {
         return `Invoke ${this.action}`;
     }

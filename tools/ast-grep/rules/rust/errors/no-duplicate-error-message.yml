@@ -12,4 +12,4 @@ rule:
         - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_variant, has: {field: name, pattern: $VARIANT}}
         - follows: {stopBy: end, kind: attribute_item, pattern: $ATTRIBUTE}
 message: '`$VARIANT` repeats an earlier variant''s `#[error]` message'
-note: 'Name each variant''s failure in its own message'
+note: 'State each variant''s failure in its own `#[error]` message'

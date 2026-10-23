@@ -49,8 +49,8 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any>(
         call: (serves: Predicate.Predicate<typeof Peer.Type>) =>
             SubscriptionRef.get(links).pipe(
                 Effect.map(Array.filter(({ peer }) => serves(peer))),
-                Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => new Cause.NoSuchElementError('No linked extension serves the application')),
-                Effect.flatMap((serving) => Unmatched.single('linked extension serving the application', Option.none())(serving, ({ peer }) => [`${peer.extension} in ${peer.application.href}`])),
+                Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => new Cause.NoSuchElementError('No linked plugin serves application')),
+                Effect.flatMap((serving) => Unmatched.single('linked plugin serving application', Option.none())(serving, ({ peer }) => [`${peer.extension} in ${peer.application.href}`])),
                 Effect.map(Struct.get('client')),
             ),
     };

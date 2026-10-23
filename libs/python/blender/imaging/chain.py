@@ -14,7 +14,7 @@ from blender.imaging.parameters import Case, CaseMeta
 
 
 class EffectMeta(CaseMeta, ABCMeta):
-    """Native frozen records with abstract formulation requirements."""
+    """Metaclass of effect records with abstract members."""
 
 
 class Domain(Enum):
@@ -65,12 +65,12 @@ class Stage(IntEnum):
 
     @property
     def domain(self) -> Domain:
-        """Encoding read before or after formation."""
+        """Scene-linear through formation, display after."""
         return Domain.SCENE_LINEAR if self <= Stage.FORMATION else Domain.DISPLAY
 
     @property
     def single(self) -> bool:
-        """Whether the stage holds at most one chain entry."""
+        """Whether stage holds at most one chain entry."""
         return self in {Stage.CDL, Stage.TONE, Stage.FORMATION, Stage.PEAK, Stage.QUANTIZATION}
 
 
@@ -82,18 +82,18 @@ GREY: Final = 0.18
 
 
 class Effect(Case, metaclass=EffectMeta, frozen=True, kw_only=True):
-    """Formulation with a processing stage and pixel locality."""
+    """Effect with processing stage and pixel locality."""
 
     stage: ClassVar[Stage]
 
     @property
     @abstractmethod
     def pointwise(self) -> bool:
-        """Whether this record answers each pixel independently of its frame."""
+        """Whether each output pixel reads its input pixel alone."""
         ...
 
     def transform(self, _config: PyOpenColorIO.Config, /) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns an optional OCIO operation or typed failure."""
+        """Returns OCIO operation when effect has one."""
         return Ok(Nothing)
 
 

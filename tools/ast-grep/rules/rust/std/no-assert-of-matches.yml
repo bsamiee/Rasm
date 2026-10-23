@@ -29,5 +29,5 @@ transform:
     SEPARATOR: {replace: {source: $$$MESSAGE, replace: '^[\s\S]+$', by: ', '}}
     MESSAGE_LINE: {replace: {source: $$$MESSAGE, replace: '\s*\n\s*', by: ' '}}
 fix: $TARGET!($SHAPE_LINE$SOME_SHAPE$NONE_SHAPE$SEPARATOR$MESSAGE_LINE)
-message: '`$MACRO!` asserts a pattern through a boolean and prints no value on failure'
-note: 'Write `core::assert_matches!(<value>, <pattern>)` or `debug_assert_matches!`, with `Some(_)` for `is_some()` and `None` for `is_none()`'
+message: '`$MACRO!` asserts a pattern through a `bool`'
+note: 'Write `core::assert_matches!(<value>, <pattern>)` or `core::debug_assert_matches!`, with `Some(_)` for `is_some()` and `None` for `is_none()`'

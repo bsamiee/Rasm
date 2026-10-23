@@ -20,4 +20,4 @@ rule:
                 stopBy: end
                 matches: {msbuild-metadata: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}
 message: '`$PROPERTY` normalizes itself, and a global property of that name skips the assignment'
-note: Assign the normalized value to a private property
+note: Assign the normalized value to a private `_<Property>`

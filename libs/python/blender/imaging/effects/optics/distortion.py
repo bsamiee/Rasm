@@ -29,7 +29,7 @@ class Direction(Choice):
 
 
 class Radial(msgspec.Struct, frozen=True, kw_only=True):
-    """Radial distortion and zoom normalized by the displayed frame's greater side."""
+    """Radial distortion and zoom normalized by displayed greater side."""
 
     distortion: Finite
     scale: Positive
@@ -41,7 +41,7 @@ class Radial(msgspec.Struct, frozen=True, kw_only=True):
         return np.array((self.aspect, 1.0)) / max(self.aspect, 1.0)
 
     def to_rectilinear(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Maps lens positions to rectilinear samples, retaining only real-branch coverage."""
+        """Maps lens positions to rectilinear samples, covering real branch alone."""
         offset, offset_power = np.frexp(samples[..., :2] - 0.5)
         extent, extent_power = np.frexp(self.extent)
         scale, scale_power = math.frexp(self.scale)
@@ -62,7 +62,7 @@ class Radial(msgspec.Struct, frozen=True, kw_only=True):
         return np.concatenate((0.5 + position, samples[..., 2:] * covered), axis=-1)
 
     def to_lens(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Maps rectilinear positions to lens samples on the forward map's inverse branch."""
+        """Maps rectilinear positions to lens samples on forward map's inverse branch."""
         offset, offset_power = np.frexp(samples[..., :2] - 0.5)
         extent, extent_power = np.frexp(self.extent)
         strength, strength_power = math.frexp(math.sqrt(abs(self.distortion)))
@@ -84,12 +84,12 @@ class Distortion(Effect, frozen=True, kw_only=True, tag=25):
     title = "Lens Distortion"
     pointwise = False
     distortion: Annotated[float, msgspec.Meta(gt=-1.0, le=sys.float_info.max, description="Barrel above 0, pincushion below 0"), Presentation(soft=Some((-0.999, 1.0)))] = 0.05
-    fit: Annotated[bool, msgspec.Meta(description="Scale a barrel distortion toward the frame corners")] = False
-    direction: Annotated[Direction, msgspec.Meta(description="Distort a rectilinear image or undistort a lens image")] = Direction.DISTORT
-    extension: Annotated[Extension, msgspec.Meta(description="Sampling past the frame edge on both axes")] = Extension.CLIP
+    fit: Annotated[bool, msgspec.Meta(description="Barrel fit to frame corners")] = False
+    direction: Annotated[Direction, msgspec.Meta(description="Distorts rectilinear or undistorts lens image")] = Direction.DISTORT
+    extension: Annotated[Extension, msgspec.Meta(description="Source sampling past frame edges")] = Extension.CLIP
 
     def mapping(self, aspect: Positive) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
-        """Returns the selected mapping at the displayed width over height."""
+        """Returns selected mapping at displayed width over height."""
         smaller = min(aspect, 1.0) / max(aspect, 1.0)
         reach = 1.0 + smaller**2 if self.fit and self.distortion > 0.0 else 1.0
         radial = Radial(distortion=self.distortion, scale=(1.0 / (1.0 / reach + self.distortion)) / reach, aspect=aspect)
@@ -101,17 +101,17 @@ class Distortion(Effect, frozen=True, kw_only=True, tag=25):
 
 
 class Aberration(Effect, frozen=True, kw_only=True, tag=26):
-    """Lateral spectral integration about green followed by red and blue iris defocus."""
+    """Lateral spectral integration about green, then red and blue iris defocus."""
 
     stage = Stage.DISTORTION
     title = "Chromatic Aberration"
     pointwise = False
     defocus: ClassVar[Rgb] = Rgb(red=0.5, green=0.0, blue=1.0)
-    dispersion: Annotated[NonNegative, msgspec.Meta(description="Spread of image height from red to blue"), Presentation(soft=Some((0.0, 1.0)))] = 0.05
+    dispersion: Annotated[NonNegative, msgspec.Meta(description="Image height spread from red to blue"), Presentation(soft=Some((0.0, 1.0)))] = 0.05
     samples: Annotated[int, msgspec.Meta(ge=2, description="Wavelengths integrated from red to blue"), GraphForm.SETTING] = 8
-    axial: Annotated[FrameLength, msgspec.Meta(description="Blue defocus radius, red at half of it and green in focus"), Presentation(soft=Some((0.0, 0.05)))] = 0.0
-    iris: Annotated[Aperture, msgspec.Meta(description="Iris outline of the red and blue defocus")] = Aperture()
-    extension: Annotated[Extension, msgspec.Meta(description="Sampling past the frame edge on both axes")] = Extension.EXTEND
+    axial: Annotated[FrameLength, msgspec.Meta(description="Blue defocus radius, red at half and green in focus"), Presentation(soft=Some((0.0, 0.05)))] = 0.0
+    iris: Annotated[Aperture, msgspec.Meta(description="Iris outline of red and blue defocus")] = Aperture()
+    extension: Annotated[Extension, msgspec.Meta(description="Source sampling past frame edges")] = Extension.EXTEND
 
     @property
     def spectrum(self) -> tuple[tuple[float, Rgb], ...]:

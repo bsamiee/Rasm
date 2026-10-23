@@ -53,13 +53,13 @@ public sealed record ComparisonSettingRows(
     PlugInSetting<BarLevel, double> NrmseAdvisory,
     PlugInSetting<BarLevel, double> NrmseRefuse) {
     public static ComparisonSettingRows Default { get; } = new(
-        PsnrAdvisory: new(ValueKey.Numeric("ComparePsnrAdvisory", "PSNR advisory", "PSNR in decibels below which a compared render reads advisory", BarLevel.PsnrAdvisory,
+        PsnrAdvisory: new(ValueKey.Numeric("ComparePsnrAdvisory", "PSNR advisory", "PSNR in decibels below which compared renders grade advisory", BarLevel.PsnrAdvisory,
             NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LevelUnit.Decibel), Decimals = 1 })), SettingType.Double),
-        PsnrRefuse: new(ValueKey.Numeric("ComparePsnrRefuse", "PSNR refuse", "PSNR in decibels below which a compared render is refused", BarLevel.PsnrRefuse,
+        PsnrRefuse: new(ValueKey.Numeric("ComparePsnrRefuse", "PSNR refuse", "PSNR in decibels below which compared renders are refused", BarLevel.PsnrRefuse,
             NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LevelUnit.Decibel), Decimals = 1 })), SettingType.Double),
-        NrmseAdvisory: new(ValueKey.Numeric("CompareNrmseAdvisory", "NRMSE advisory", "Normalized error above which a compared render reads advisory", BarLevel.NrmseAdvisory,
+        NrmseAdvisory: new(ValueKey.Numeric("CompareNrmseAdvisory", "NRMSE advisory", "Normalized error above which compared renders grade advisory", BarLevel.NrmseAdvisory,
             NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Decimals = 2 })), SettingType.Double),
-        NrmseRefuse: new(ValueKey.Numeric("CompareNrmseRefuse", "NRMSE refuse", "Normalized error above which a compared render is refused", BarLevel.NrmseRefuse,
+        NrmseRefuse: new(ValueKey.Numeric("CompareNrmseRefuse", "NRMSE refuse", "Normalized error above which compared renders are refused", BarLevel.NrmseRefuse,
             NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Decimals = 2 })), SettingType.Double));
 
     public Seq<PlugInSetting> Rows => [.. Levels];
@@ -307,7 +307,7 @@ public sealed class RenderingComparison : IDisposable {
 
     // --- [ROWS]
     public static ControlRow Export { get; } = SectionRows.Pushed(new CommandRow.Run(
-        new CommandFace("comparison-export", "Export displayed frame", "Write the displayed callback or history frame through the output targets", None, None), None,
+        new CommandFace("comparison-export", "Export displayed frame", "Write displayed callback or history frame to output targets", None, None), None,
         static scope =>
             from comparison in Current.Of(scope.Sink)
             from source in comparison.displayed.ValueIO.Bind(static held => IO.lift(held.ToFin(new Refused(nameof(FrameShown.Frame), Refused.Absent))))
@@ -334,7 +334,7 @@ public sealed class RenderingComparison : IDisposable {
             difference.Source,
             difference.Field with {
                 Caption = "Difference",
-                Help = "Tints the frame where the compared rendering differs from the newest rendering",
+                Help = "Tints frame where compared rendering differs from newest rendering",
             },
             Lens.identity<bool>(),
             RowRules.Always) with {
@@ -344,7 +344,7 @@ public sealed class RenderingComparison : IDisposable {
     public static ControlRow Measures(ComparisonSettingRows bars) =>
         TextRows.Readout(
             "Measure",
-            "PSNR and NRMSE of the compared rendering against the newest rendering, graded by the comparison bars",
+            "PSNR and NRMSE against newest rendering, graded by comparison settings",
             new ReadoutSource<Option<(FrameComparison, Verdict)>>.Scoped(scope =>
                 from measured in Compared(scope, static comparison => comparison.Measure, IO.pure(Option<FrameComparison>.None))
                 from graded in measured.Traverse(result => bars.Bars(((IPlugInViews)scope.Sink).Settings).Map(levels => (result, result.Graded(levels)))).As()
@@ -357,7 +357,7 @@ public sealed class RenderingComparison : IDisposable {
     public static ControlRow Settings { get; } =
         ListRows.List(
             "Render Settings",
-            "The compared rendering's saved render settings against the document's current values",
+            "Compared rendering's saved render settings against current document values",
             new ListRow<SettingsRow, EntryKey>(
                 IterableNE.create<ListColumn<SettingsRow>>(
                     new ListColumn<SettingsRow>.Label(Some("Setting"), static row => row.Setting, None, None),

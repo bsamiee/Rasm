@@ -81,5 +81,5 @@ rule:
 fix:
     template: select $VALUE
     expandEnd: {kind: select_clause}
-message: Last `from` binds `$RANGE` to `$SOURCE` and selects it unchanged
-note: 'Use `select <value>` over the preceding steps'
+message: 'Last `from` binds `$RANGE` to `$SOURCE` and selects it unchanged'
+note: 'Replace the last `from` and its `select` with `select <value>`'

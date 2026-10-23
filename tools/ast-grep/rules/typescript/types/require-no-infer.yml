@@ -45,5 +45,5 @@ rule:
                                         kind: required_parameter, optional_parameter
                                         pattern: $PARAMETER
                                         inside: {kind: formal_parameters, inside: {pattern: $OWNER}}
-message: '`$U extends $T` exists to block inference from `$PARAMETER`, the one parameter reading `$U`'
-note: 'Type the parameter `NoInfer<T>` over `T`, delete the type parameter, and drop its argument at calls passing explicit type arguments'
+message: '`$U extends $T` blocks inference from `$PARAMETER`, the one parameter reading `$U`'
+note: 'Write `NoInfer<<T>>` in place of `<U>` in the parameter type, then delete `<U>` and its argument at calls passing type arguments'

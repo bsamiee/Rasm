@@ -126,7 +126,7 @@ public enum DiscoveryFailure: CustomNSError, LocalizedError {
             case .noBundleIdentifier(let url): "\(url.path(percentEncoded: false)) has no CFBundleIdentifier"
             case .unreadable(let url, let error): "\(url.path(percentEncoded: false)): \(error.localizedDescription)"
             case .unmatched(let miss): miss.errorDescription
-            case .cancelled: "Canceled"
+            case .cancelled: "Spotlight query canceled"
         }
     }
 

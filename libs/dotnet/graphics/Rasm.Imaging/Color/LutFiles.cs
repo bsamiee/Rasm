@@ -611,19 +611,19 @@ public static class LutFiles {
 
     private static int Line(XElement node) => ((IXmlLineInfo)node).LineNumber;
 
-    private static Error Misstated(LutFormat format, int line) => Error.New(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {line} is misstated"));
+    private static Error Misstated(LutFormat format, int line) => Error.New(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {line} did not parse"));
 
     private static Error Malformed(XElement node, LutFormat format) => Misstated(format, Line(node));
 
     private static Error Unheld(XElement node, LutFormat format) =>
-        Error.New(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {Line(node)} holds process node {node.Name.LocalName} outside the step set"));
+        Error.New(string.Create(CultureInfo.InvariantCulture, $"{format} LUT line {Line(node)} holds unsupported node {node.Name.LocalName}"));
 
     private static Error Sizeless(LutFormat format) => Error.New($"{format} LUT file states no size");
 
     private static Error Miscounted(LutFormat format, long stated, long read) =>
         Error.New(string.Create(CultureInfo.InvariantCulture, $"{format} LUT file states {stated} entries but holds {read}"));
 
-    private static Error Unsupported(LutFormat format) => Error.New($"{format} LUT format holds no such table");
+    private static Error Unsupported(LutFormat format) => Error.New($"{format} LUT format cannot hold table");
 
     private static Option<Vector3> Triple(string text) => Numbers<float>(text).Bind(static values => values is [var r, var g, var b] ? Some(new Vector3(r, g, b)) : None);
 

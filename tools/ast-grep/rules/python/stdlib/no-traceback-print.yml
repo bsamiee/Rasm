@@ -103,4 +103,4 @@ rule:
             - inside: {kind: module, stopBy: end, regex: '\b(traceback|format(Exception|Stack))\b'}
             - has: {field: arguments, has: {stopBy: {not: {matches: content}}, kind: 'identifier, call', matches: text}}
 message: '`$USE` writes rendered exception or stack text by hand'
-note: 'Log with `exc_info=<exception>`, the exception a `TracebackException` or `StackSummary` came from, or `stack_info=True` for the current stack'
+note: 'Log with `exc_info=<exception>` for an exception or its `TracebackException` or `StackSummary`, else `stack_info=True` for the current stack'

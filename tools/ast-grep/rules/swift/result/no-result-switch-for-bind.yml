@@ -28,5 +28,5 @@ rule:
           has: {matches: failure-return}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` returns a `Result` failure by hand to bind its value'
-note: 'Bind with `try <result>.get()` in one `Result { () throws(E) in }` body, after `mapError` where the failure arm replaces the error'
+message: '`$HEAD` returns a `Result` failure by hand to bind its success value'
+note: 'Bind `try <result>.get()` inside one `Result { () throws(<Failure>) in }` body, after `mapError` when its failure arm replaces the error'

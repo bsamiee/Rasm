@@ -1,4 +1,4 @@
-"""In-session preview jobs, failed requests, and ranked rendering under one timer budget."""
+"""Preview jobs, failed requests, and ranked renders under one timer budget."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable
 from contextlib import contextmanager, ExitStack
@@ -26,7 +26,7 @@ from blender.imaging.parameters import Presentation, Quantity
 
 
 class Rank(IntEnum):
-    """Order a step runs jobs in, preserving arrival order within each rank."""
+    """Job run order per step, arrival order within a rank."""
 
     ACTIVE = auto()
     SHOWN = auto()
@@ -34,7 +34,7 @@ class Rank(IntEnum):
 
 
 class Phase(Enum):
-    """Desired request waiting for dispatch or executing through native callbacks."""
+    """Request state before and during its render."""
 
     PENDING = auto()
     RUNNING = auto()
@@ -47,14 +47,14 @@ type Feed = Callable[[Identity, bpy.types.Context], BlenderResult[tuple[Job, ...
 
 
 class Budget(msgspec.Struct, frozen=True, kw_only=True):
-    """Render count and elapsed time after which a step starts no further render."""
+    """Per-step render count and time limits."""
 
     count: Annotated[int, msgspec.Meta(ge=1, le=8, title="Previews per Step", description="Most previews one step renders")] = 2
-    time: Annotated[float, msgspec.Meta(ge=0.02, le=2.0, title="Time Budget", description="Time after which a step starts no further render"), Presentation(quantity=Some(Quantity.DURATION))] = 0.25
+    time: Annotated[float, msgspec.Meta(ge=0.02, le=2.0, title="Time Budget", description="Time each step starts renders within"), Presentation(quantity=Some(Quantity.DURATION))] = 0.25
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Preview request with a content key or the producer's retained render demand as its identity."""
+    """Preview request keyed by content hash or held render demand."""
 
     place: Hashable
     key: Hashable
@@ -67,13 +67,13 @@ class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Request(msgspec.Struct, kw_only=True, eq=False):
-    """Acquired render demand whose returning execution updates only this entry."""
+    """Render request with state its run writes."""
 
     job: Job
     state: Phase | BlenderResult[None] = Phase.PENDING
 
     def executed(self) -> BlenderResult[None]:
-        """Takes the pending job before rendering and retains its original typed outcome."""
+        """Marks request running, runs its job, and stores result."""
         job = self.job
         self.state = Phase.RUNNING
         result = job.run()
@@ -82,7 +82,7 @@ class Request(msgspec.Struct, kw_only=True, eq=False):
 
 
 class Backlog(msgspec.Struct, kw_only=True):
-    """Registered feeds, ordered desired requests, and the last user render's slot."""
+    """Registered feeds, requests in arrival order, and last user render slot."""
 
     feeds: list[Feed] = msgspec.field(default_factory=list)
     requests: dict[tuple[Option[Feed], Hashable], Request] = msgspec.field(default_factory=dict)
@@ -90,17 +90,17 @@ class Backlog(msgspec.Struct, kw_only=True):
 
     @property
     def jobs(self) -> tuple[tuple[Feed, Job], ...]:
-        """Pending feed jobs in their original arrival order."""
+        """Pending feed jobs in arrival order."""
         return tuple((feed, request.job) for (owner, _place), request in self.requests.items() if request.state is Phase.PENDING for feed in owner.to_list())
 
     @property
     def failed(self) -> dict[tuple[Option[Feed], Hashable], Hashable]:
-        """Failed request keys, scoped by their actual feed and place."""
+        """Failed request keys by feed and place."""
         return {place: request.job.key for place, request in self.requests.items() if isinstance(request.state, Result) and request.state.is_error()}
 
 
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
-    """Registration row owning preview execution, feeds, failures, and timer steps."""
+    """Registration row owning preview runs and timer steps."""
 
     budget: Callable[[Identity], BlenderResult[Budget]] = lambda _identity: Ok(Budget())
     interval: ClassVar[float] = 0.15
@@ -110,15 +110,15 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def executed(identity: Identity, job: Job, *, feed: Option[Feed] = Nothing) -> BlenderResult[None]:
-        """Runs a fresh request once and publishes its success or failure.
+        """Runs a request and stores its result, skipping a key failed at its place.
 
         Args:
             identity: Extension whose queue owns the request.
-            job: Immediate or timer-selected request, retaining its key until render demand changes.
-            feed: Acquired producer sharing this immediate request with its complete desired set.
+            job: Request run now or picked by a timer step.
+            feed: Feed scoping request place, `Nothing` outside feeds.
 
         Returns:
-            The render's typed result, or Ok of None for an identical held failure.
+            Render result, `Ok(None)` for a failed key.
         """
         backlog, place = PreviewQueue.held[identity.package], (feed, job.place)
         if (place, job.key) in backlog.failed.items():
@@ -129,29 +129,29 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def forced(identity: Identity, places: Iterable[Hashable]) -> None:
-        """Drops held failures so the supplied places can render again.
+        """Drops held failures at places so they render again.
 
         Args:
-            identity: Extension whose failures are cleared.
-            places: Places requested by a producer's forced refresh.
+            identity: Extension whose failures drop.
+            places: Places a producer refresh names.
         """
         backlog, dropped = PreviewQueue.held[identity.package], frozenset(places)
         backlog.requests = {place: request for place, request in backlog.requests.items() if place[1] not in dropped or request.state is Phase.PENDING}
 
     def ticked(self, identity: Identity) -> BlenderResult[Option[float]]:
-        """Merges feeds and runs eligible requests within the count and time budget.
+        """Merges feed requests and runs pending ones within budget.
 
         Args:
-            identity: Extension whose reports hold independent feed and render failures.
+            identity: Extension whose reports hold feed and render faults.
 
         Returns:
-            Ok of the next interval, including when the interface, shown slot, or faults hold work.
+            `Ok` of next interval on every tick, faults held in reports.
         """
         context, again = bpy.context, Some(PreviewQueue.interval)
         backlog = PreviewQueue.held[identity.package]
 
         def stepped(manager: bpy.types.WindowManager) -> BlenderResult[None]:
-            """Combines successful feeds with pending work and reports every independent refusal."""
+            """Merges successful feed reads into pending requests and runs them."""
             budget = self.budget(identity)
             reads = Block.of_seq((feed, feed(identity, context)) for feed in tuple(backlog.feeds))
             wanted = reads.choose(lambda read: read[1].map(lambda jobs: (read[0], jobs)).to_option()).filter(lambda read: read[0] in backlog.feeds)
@@ -199,14 +199,14 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     @contextmanager
     def fed(identity: Identity, feed: Feed) -> Generator[None]:
-        """Holds a producer's feed for its resource acquisition.
+        """Registers a producer's feed for its acquisition scope.
 
         Args:
-            identity: Extension whose queue precedes the producer in registration order.
-            feed: Producer returning its desired requests on each tick.
+            identity: Extension whose queue registers before the producer.
+            feed: Producer returning wanted requests each tick.
 
         Yields:
-            None while the queue consumes the feed.
+            None while queue reads feed.
         """
         PreviewQueue.held[identity.package].feeds.append(feed)
         try:
@@ -220,18 +220,18 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Builds state, timer, render-completion, and file-load acquisitions under scoped deferral.
+        """Builds state, timer, render-complete, and file-load acquisitions.
 
         Args:
-            identity: Extension whose reports own deferred main-thread callbacks.
+            identity: Extension whose reports run deferred main-thread writes.
 
         Yields:
-            Ok of the resource acquisition and nested native event declarations.
+            `Ok` of state scope and event rows.
         """
         with ExitStack() as scopes:
 
             def remembered(image: bpy.types.Image) -> Option[str]:
-                """Records the completed user render's shown slot on the main thread."""
+                """Records finished user render's shown slot on main thread."""
                 PreviewQueue.held[identity.package].slot = Some(image.render_slots.active_index)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
                 return Nothing
 
@@ -239,7 +239,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
             @contextmanager
             def held() -> Generator[None]:
-                """Owns package state after construction, retiring deferred writes before release."""
+                """Holds package state, closing deferred write before release."""
                 PreviewQueue.held[identity.package] = Backlog()
                 try:
                     yield
@@ -250,7 +250,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
                     backlog.requests.clear()
 
             def cleared(_: Option[Path]) -> BlenderResult[None]:
-                """Drops requests naming the previous file's data-blocks."""
+                """Drops requests naming previous file's data-blocks."""
                 identity.reports.cancelled(remember)
                 backlog = PreviewQueue.held[identity.package]
                 PreviewQueue.held[identity.package] = Backlog(feeds=backlog.feeds.copy())

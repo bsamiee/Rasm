@@ -59,4 +59,4 @@ rule:
 constraints:
     OWNER: {regex: '^(global::)?(@?[A-Z]\w*(<.+>)?\.)*@?[A-Z]\w*(<.+>)?$'}
 message: 'Mapping method `$NAME` passes `$SOURCE` to `$CALLEE` unchanged'
-note: 'Set `Use = nameof(@<owner>.<member>)` in place of a `Default = false` forward, or `[UseStaticMapper(typeof(<owner>))]` for another type''s mapping'
+note: 'Point each `Use` at `nameof(@<owner>.<member>)` and delete the forward, or add `[UseStaticMapper(typeof(<owner>))]` for another mapper''s mapping'

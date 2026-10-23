@@ -168,4 +168,4 @@ rule:
 transform:
     HEAD: {replace: {source: $CONVERSION, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
 message: '`$HEAD` converts between enums by member name'
-note: 'Hold one enum and delete its same-named copy, or declare a Mapperly enum mapping where both enums stay'
+note: 'Delete the same-named copy, or declare a Mapperly mapping with `[MapEnum(EnumMappingStrategy.ByName)]` where both enums stay'

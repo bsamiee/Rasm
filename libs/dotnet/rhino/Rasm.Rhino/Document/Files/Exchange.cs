@@ -33,7 +33,7 @@ public static class Exchange {
             .Strict());
 
     // --- [PATHS]
-    public static Fin<string> QualifiedPath(string path) => Path.IsPathFullyQualified(path) ? path : new FileRefused(path, "is not a fully qualified path");
+    public static Fin<string> QualifiedPath(string path) => Path.IsPathFullyQualified(path) ? path : new FileRefused(path, "is not fully qualified");
 
     public static Fin<string> ExistingPath(string path) => QualifiedPath(path).Bind(static qualified => File.Exists(qualified) ? Fin.Succ(qualified) : new FileRefused(qualified, "names no file"));
 

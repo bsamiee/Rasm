@@ -30,7 +30,7 @@ public readonly partial struct PixelExtent {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int width, ref int height) =>
         validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
 }
 
 public sealed class PixelFrame {
@@ -133,7 +133,7 @@ public static class PixelSampling {
         radius.IsFinite && radius.CompareTo(0) >= 0 && radius.Numerator.DivRem(radius.Denominator) is [var whole, var rest]
         && new BigInteger(whole.Add(rest.IsZero ? 0 : 1).Multiply(2).Add(1).ToBytes(littleEndian: true)) is var taps && taps <= BigInteger.CreateTruncating(TCount.MaxValue)
             ? TCount.CreateTruncating(taps)
-            : Error.New($"kernel radius {radius} has no native tap count");
+            : Error.New(string.Create(CultureInfo.InvariantCulture, $"Kernel radius {radius} has no tap count up to {TCount.MaxValue}"));
 
     extension(ReadOnlySpan2D<Vector4> plane) {
         public Vector4 Sample((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap) =>

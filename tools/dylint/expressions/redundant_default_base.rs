@@ -26,15 +26,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && written.len() < declared.len()
             && declared.iter_enumerated().all(|(index, field)| written.contains(&index) || field.value.is_some())
         {
-            let applicability = if derives(cx, built, sym::Default) { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect };
+            let (name, derived) = (cx.tcx.item_name(owner.did()), derives(cx, built, sym::Default));
+            let applicability = if derived { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect };
             span_lint_hir_and_then(
                 cx,
                 REDUNDANT_DEFAULT_BASE,
                 expr.hir_id,
                 base.span,
-                format!("`..{}` fills only `{}` fields with declared default values", snippet(cx, base.span, ".."), cx.tcx.item_name(owner.did())),
+                format!("`..{}` fills only `{name}` fields with declared default values", snippet(cx, base.span, "..")),
                 |diag| {
                     suggest(cx, base.hir_id, diag, base.span, "write `..` to take each field's declared default", "", applicability);
+                    if !derived {
+                        diag.note(format!("`..` skips the hand-written `Default` impl of `{name}`"));
+                    }
                 },
             );
         }

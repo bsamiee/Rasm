@@ -1,4 +1,4 @@
-"""Stage marks of long folds and the render queue's progress record."""
+"""Stage marks and queue progress record."""
 
 import datetime
 from fractions import Fraction
@@ -19,34 +19,32 @@ type Phase = Liveness | Ending
 
 
 class Liveness(Choice):
-    """State of an unfinished run."""
+    """State of unfinished run."""
 
     ACTIVE = 1, "Rendering"
     STOPPED = 2
 
 
 class Ending(Choice):
-    """State of a finished run."""
+    """State of finished run."""
 
     SUCCEEDED = 1, "Finished"
     FAILED = 2
-    CANCELLED = 3
+    CANCELLED = 3, "Canceled"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Heartbeat(msgspec.Struct, frozen=True, kw_only=True):
-    """Touch interval of a running queue and the beats missed before it reads as stopped."""
+    """Record touch interval and stop threshold."""
 
-    interval: Annotated[Positive, msgspec.Meta(title="Heartbeat", description="Seconds between touches of the progress record while a queue runs"), Presentation(quantity=Some(Quantity.DURATION))] = (
-        3.0
-    )
-    misses: Annotated[int, msgspec.Meta(ge=2, title="Missed Beats", description="Heartbeats missed before a run reads as stopped")] = 10
+    interval: Annotated[Positive, msgspec.Meta(title="Heartbeat", description="Seconds between progress record touches"), Presentation(quantity=Some(Quantity.DURATION))] = 3.0
+    misses: Annotated[int, msgspec.Meta(ge=2, title="Missed Beats", description="Missed heartbeats before run reads as stopped")] = 10
 
 
 class StageMark(msgspec.Struct, frozen=True, kw_only=True):
-    """Finished step of a long fold with its measured seconds and peak memory."""
+    """Measured seconds and peak memory of one finished step."""
 
     part: Annotated[int, msgspec.Meta(ge=0)]
     item: int
@@ -65,7 +63,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def begun(cls, found: Option[Self], queue: RenderQueue, process: int) -> Self:
-        """Starts a run, resuming a found record of the same queue."""
+        """Starts run, resuming same queue's record that did not succeed."""
         key = queue.key
         return (
             found
@@ -75,17 +73,17 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def remaining(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
-        """Answers the renders no mark covers."""
+        """Returns renders no mark covers."""
         marked = {(mark.part, mark.item) for mark in self.marks}
         return tuple(step for step in queue.steps if step not in marked)
 
     def done(self, queue: RenderQueue) -> Fraction:
-        """Answers the fraction of a queue's renders a mark covers."""
+        """Returns share of queue renders marks cover."""
         total = len(queue.steps)
         return Fraction(total - len(self.remaining(queue)), total)
 
     def phase(self, beat: datetime.datetime, now: datetime.datetime, heartbeat: Heartbeat) -> Phase:
-        """Answers the run's state."""
+        """Returns ending when set, else liveness from heartbeat age."""
         ending: Option[Phase] = Option.of_optional(self.ending)
         origin = datetime.datetime.min.replace(tzinfo=datetime.UTC)
         elapsed = (now - origin) - (beat - origin)
@@ -102,7 +100,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def observed(path: Path) -> RenderingResult[Option[tuple[Progress, datetime.datetime]]]:
-    """Reads a progress record with its heartbeat."""
+    """Reads progress record with heartbeat moment, Nothing when absent."""
     try:
         beat = datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.UTC)
     except FileNotFoundError:

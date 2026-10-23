@@ -15,22 +15,22 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         "RASM3002",
         Domain,
         "Catch-all arm over a covered enum",
-        "Arms name every `{0}` member, the catch-all arm is unreachable for declared values",
-        "Delete the arm, CS8509 fails compilation when a member is added.");
+        "Catch-all arm over `{0}` matches no declared member. Delete the arm",
+        "Catch-all arm of a switch expression over a non-`[Flags]` enum whose other arms name every member.");
 
     public static readonly DiagnosticDescriptor Fallback = Rule(
         "RASM3004",
         Domain,
         "Catch-all arm over an enum",
-        "Catch-all arm over `{0}` sends every member the arms leave unnamed to one result",
-        "Name each member in its own arm, join members that share a result with `or`, and delete the catch-all arm, CS8509 then fails compilation when a member gains no arm.");
+        "Catch-all arm over `{0}` maps {1} to one result. Replace it with arms naming {1}, joined by `or` per shared result",
+        "Catch-all arm of a switch expression over a non-`[Flags]` enum whose other arms leave members unnamed.");
 
     public static readonly DiagnosticDescriptor Discarded = Rule(
         "RASM3003",
         Domain,
         "Discarded awaitable",
-        "`{0}` starts work and discards its awaitable, no caller observes its failure or completion",
-        "Await the value, return it to an awaiting caller, or pass it to a combinator that observes it.");
+        "`_ =` discards awaitable `{0}`. Await `{0}` or return it to an awaiting caller",
+        "Awaitable value assigned to a discard.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Covered, Fallback, Discarded];
 
@@ -56,9 +56,13 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     || subject.GetAttributes().Any(data => Same(data.AttributeClass, flags))) return;
                 ImmutableHashSet<object?> named = [.. arms.Where(static arm => arm.Guard is null).SelectMany(static arm => Named(arm.Test))];
                 if (named.IsEmpty) return;
-                DiagnosticDescriptor rule = subject.GetMembers().OfType<IFieldSymbol>().Where(static member => member.HasConstantValue).All(member => named.Contains(member.ConstantValue)) ? Covered : Fallback;
+                ImmutableArray<IFieldSymbol> unnamed = [.. subject.GetMembers().OfType<IFieldSymbol>().Where(member => member.HasConstantValue && !named.Contains(member.ConstantValue))];
                 foreach ((IOperation arm, _, _) in arms.Where(CatchesRest))
-                    analysis.ReportDiagnostic(Diagnostic.Create(rule, arm.Syntax.GetLocation(), subject.Name));
+                    analysis.ReportDiagnostic(Diagnostic.Create(
+                        unnamed.IsEmpty ? Covered : Fallback,
+                        arm.Syntax.GetLocation(),
+                        subject.Name,
+                        string.Join(", ", unnamed.Select(member => $"`{subject.Name}.{member.Name}`"))));
             },
             OperationKind.SwitchExpression);
     }

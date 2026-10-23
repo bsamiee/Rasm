@@ -29,9 +29,9 @@ const Account = ({ session, open, mounted, opener, onOpenChange, children }: { s
                             <Modal className="bg-background w-full max-w-lg p-9">
                                 <Dialog className="flex flex-col gap-5">
                                     <Heading className="text-2xl tracking-tight" slot="title">
-                                        The editor could not open
+                                        Editor failed to open
                                     </Heading>
-                                    <p className="hint">Your published portfolio is still available. Close this message to return to it.</p>
+                                    <p className="hint">Published portfolio is unaffected</p>
                                     <Button className="button self-start" slot="close">
                                         Close
                                     </Button>
@@ -153,7 +153,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                             </div>
                         )}
                     </section>
-                    {/* biome-ignore lint/correctness/useUniqueElementIds: Public #work fragment links and history entries target this section */}
+                    {/* biome-ignore lint/correctness/useUniqueElementIds: Public #work links and history entries target section */}
                     <section className="site-work" data-populated={populated} id="work" ref={work} tabIndex={-1}>
                         <div className="border-foreground border-t pt-4.75">
                             <h2 className="work-title">Projects and studies</h2>

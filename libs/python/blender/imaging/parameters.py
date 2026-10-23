@@ -1,4 +1,4 @@
-"""Domain values, presentation, and annotation markers for imaging parameters."""
+"""Imaging parameter values, presentation, and annotation markers."""
 
 from enum import auto, Enum, IntEnum, StrEnum
 import functools
@@ -17,17 +17,17 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 
 class CaseMeta(msgspec.StructMeta):
-    """Record metaclass giving each case subclass declaring no title the one its class name gives."""
+    """Record metaclass deriving case subclass titles from class names."""
 
     def __init__(self, name: str, bases: tuple[type, ...], namespace: dict[str, object], /, **options: object) -> None:
-        """Completes the record class, then derives a subclass title when the namespace declares none."""
+        """Builds record class, titling subclasses that declare no title."""
         super().__init__(name, bases, namespace, **options)
         if "title" not in namespace and any(isinstance(base, CaseMeta) for base in bases):
             self.title = heading(name)
 
 
 class Quantity(Enum):
-    """Stored SI quantity or a fraction of the displayed frame."""
+    """Stored SI quantity or share of displayed frame."""
 
     LENGTH = auto()
     CAMERA_LENGTH = auto()
@@ -48,18 +48,18 @@ class Choice(IntEnum):
     label: str
 
     def __new__(cls, value: int, *_: object) -> Self:
-        """Constructs a choice with its declared identity, payload reaching `__init__`."""
+        """Constructs choice from declared integer, passing other values to `__init__`."""
         member = int.__new__(cls, value)
         member._value_ = value
         return member
 
     def __init__(self, _: int, label: str | None = None) -> None:
-        """Sets the declared label, or the one the member name gives."""
+        """Sets declared label, or member name heading."""
         self.label = Option.of_optional(label).default_with(lambda: heading(self.name))
 
 
 class Interpolation(StrEnum):
-    """Interpolation between a color band's stops."""
+    """Interpolation between color band stops."""
 
     CONSTANT = auto()
     LINEAR = auto()
@@ -77,7 +77,7 @@ class ColorMode(StrEnum):
 
 
 class HuePath(StrEnum):
-    """Direction of hue interpolation along a color band."""
+    """Hue interpolation direction."""
 
     NEAR = auto()
     FAR = auto()
@@ -86,7 +86,7 @@ class HuePath(StrEnum):
 
 
 class GraphForm(Enum):
-    """Parameter whose value writes a graph instead of an interface socket."""
+    """Parameter kind writing value into graph in place of socket."""
 
     IMAGE = auto()
     SETTING = auto()
@@ -115,7 +115,7 @@ STOP_RANGE: Final = (-32.0, 32.0)
 
 
 class Presentation(msgspec.Struct, frozen=True, kw_only=True):
-    """Optional display settings in the parameter's stored unit."""
+    """Display settings in parameter stored unit."""
 
     soft: Option[tuple[float, float]] = Nothing
     step: Option[float] = Nothing
@@ -124,52 +124,52 @@ class Presentation(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, annotation: object) -> Self:
-        """Folds the presentation markers of an annotation from the inner one outward, each present outer setting overriding the inner one."""
+        """Folds presentation markers inner to outer, outer settings overriding."""
         return functools.reduce(lambda inner, outer: cls(**{name: getattr(outer, name).or_else(getattr(inner, name)) for name in cls.__struct_fields__}), markers(annotation, cls), cls())
 
 
 class Gated[T](msgspec.Struct, frozen=True, kw_only=True):
-    """Editable value retained while its row or section is disabled."""
+    """Value editable while row or section is disabled."""
 
     enabled: bool
     value: T
 
 
 class Motion(msgspec.Struct, frozen=True, kw_only=True):
-    """Clock advancement and scene-frame hold for animated parameters."""
+    """Clock speed and frame hold of animated parameters."""
 
-    speed: Annotated[NonNegative, msgspec.Meta(description="Clock frames per scene frame, 0 holding a still"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
+    speed: Annotated[NonNegative, msgspec.Meta(description="Clock frames per scene frame, still at 0"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
     hold: Annotated[int, msgspec.Meta(ge=1, description="Scene frames each clock value holds")] = 1
 
 
 class Rgb[T: float = float](msgspec.Struct, frozen=True, kw_only=True, array_like=True):
-    """RGB components preserving their declared channel constraints."""
+    """RGB components with declared channel constraints."""
 
     red: T
     green: T
     blue: T
 
     def __array__(self, dtype: npt.DTypeLike | None = None, *, copy: bool | None = None) -> npt.NDArray[np.float64]:
-        """Components as a three-element array, the form numpy reads a color in."""
+        """Returns components as three-element numpy array."""
         return np.array(msgspec.structs.astuple(self), dtype=dtype, copy=copy)
 
 
 class Knot[X: float, Y: float](msgspec.Struct, frozen=True, kw_only=True, array_like=True):
-    """Curve point whose axes retain their native constraints."""
+    """Curve point with per-axis constraints."""
 
     x: X
     y: Y
 
 
 class Stop(msgspec.Struct, frozen=True, kw_only=True):
-    """Color at a normalized position along a color band."""
+    """Color at normalized color band position."""
 
     position: Unit
     color: Rgb
 
 
 class Ramp(msgspec.Struct, frozen=True, kw_only=True):
-    """Color band retaining interpolation and hue settings across modes."""
+    """Color band keeping hue and interpolation across modes."""
 
     stops: Annotated[tuple[Stop, ...], msgspec.Meta(min_length=1, max_length=32)] = (
         Stop(position=0.0, color=Rgb(red=0.0, green=0.0, blue=0.0)),
@@ -181,7 +181,7 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Case(msgspec.Struct, metaclass=CaseMeta, frozen=True, kw_only=True, tag_field="kind"):
-    """Record alternative with a concrete persistent tag and display title."""
+    """Union case record with persistent tag and display title."""
 
     title: ClassVar[str]
 
@@ -190,12 +190,12 @@ class Case(msgspec.Struct, metaclass=CaseMeta, frozen=True, kw_only=True, tag_fi
 
 
 def heading(name: str) -> str:
-    """Display text of an identifier: words split at underscores and lower-to-upper case changes, each capitalized."""
+    """Returns title-cased words split at underscores and camel-case boundaries."""
     return re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name).replace("_", " ").title()
 
 
 def markers[M](annotation: object, marker: type[M]) -> tuple[M, ...]:
-    """Reads requested markers from the inner annotation outward through aliases."""
+    """Reads `marker` instances from annotation metadata, inner to outer, through type aliases."""
     return tuple(value for value in inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata if isinstance(value, marker))
 
 

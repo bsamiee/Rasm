@@ -24,7 +24,7 @@ def locus() -> npt.NDArray[np.float64]:
 
 
 def coordinates(xyz: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float64]:
-    """Returns float64 xy over the last axis, with NaN where X + Y + Z is nonpositive."""
+    """Returns float64 xy over last axis, NaN where X + Y + Z is nonpositive."""
     xy = xyz[..., :2]
     total = xyz.sum(axis=-1, keepdims=True, dtype=np.float64)
     return np.divide(xy, total, out=np.full_like(xy, np.nan, dtype=np.float64), where=total > 0.0)

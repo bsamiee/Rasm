@@ -1,4 +1,4 @@
-"""Native working-space changes, compositor color coordinates, and OCIO installation."""
+"""Working-space changes, compositor color coordinates, and OCIO installation."""
 
 from collections.abc import Callable, Iterable
 import functools
@@ -23,7 +23,7 @@ from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, mas
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.settings.properties import Choices
 from blender.imaging.color.authoring import ConfigBuild, Formation
-from blender.imaging.color.config import admitted, ConfigFile, opened
+from blender.imaging.color.config import ConfigFile, opened, resolved
 from blender.imaging.color.processors import lin_to_log, processor
 from blender.imaging.effects.tone.film import Film
 from blender.imaging.faults import accumulated, paired
@@ -48,7 +48,7 @@ class WorkingSpace(msgspec.Struct, frozen=True, kw_only=True):
     """File's new scene-linear space and stored-color conversion policy."""
 
     space: Annotated[str, msgspec.Meta(title="Working Space", description="Scene-linear space of shading and compositing"), working]
-    convert: Annotated[bool, msgspec.Meta(title="Convert Colors", description="Convert stored colors into the working space")] = True
+    convert: Annotated[bool, msgspec.Meta(title="Convert Colors", description="Convert stored colors to new space")] = True
 
 
 class FilmView(msgspec.Struct, frozen=True, kw_only=True):
@@ -60,7 +60,7 @@ class FilmView(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def formation(self) -> BlenderResult[Formation]:
-        """Developed native formation or its complete imaging failures."""
+        """Developed native formation."""
         return self.film.transform().map(lambda transform: Formation.of(self.name, self.description, transform, self.film.space)).map_error(BlenderImagingFault.lifted)
 
 
@@ -73,7 +73,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def merged(self) -> BlenderResult[ConfigBuild]:
-        """All film formations accumulated into the application build."""
+        """Application build with film formations added."""
         return accumulated(view.formation for view in self.films).map(lambda formations: msgspec.structs.replace(self.build, formations=(*self.build.formations, *formations)))
 
     @property
@@ -82,39 +82,39 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
         return opened(ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))), ()).map_error(BlenderImagingFault.lifted)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def staged(self, stage: Path) -> BlenderResult[PyOpenColorIO.Config]:
-        """Stages the full build in the caller's resource scope."""
+        """Stages full build in caller's resource scope."""
         return paired(self.base, self.merged).bind(lambda pair: pair[1].staged(pair[0], stage).map_error(BlenderImagingFault.lifted))
 
     def extended(self, formation: Formation) -> Self:
-        """Returns an installation containing an additional formation."""
+        """Returns installation with formation appended."""
         return msgspec.structs.replace(self, build=msgspec.structs.replace(self.build, formations=(*self.build.formations, formation)))
 
     def written(self) -> BlenderResult[Path]:
-        """Installs the complete configuration for Blender's next start."""
+        """Installs complete configuration read on restart."""
         return paired(self.base, self.merged).bind(lambda pair: pair[1].installed(pair[0], Path(bpy.utils.user_resource("DATAFILES", path="colormanagement"))).map_error(BlenderImagingFault.lifted))
 
     def installed(self, _call: Call[Empty]) -> BlenderResult[Done]:
-        """Installs the build and reports its next-start activation."""
-        return self.written().map(lambda path: Done(notes=(("INFO", f"Installed {path}, read at the next Blender start"),)))
+        """Installs build with a restart note."""
+        return self.written().map(lambda path: Done(notes=(("INFO", f"Installed {path}, restart Blender to read it"),)))
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns the original operator declaration for central registration."""
-        return Ok((Operator(key=self.key, title="Install Color Config", description="Installs the extension's formations for the next Blender start", form=Empty, run=self.installed, undo=False),))
+        """Returns original operator declaration to register."""
+        return Ok((Operator(key=self.key, title="Install Color Config", description="Installs extension formations read on restart", form=Empty, run=self.installed, undo=False),))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def config_of(spaces: Iterable[str] = ()) -> BlenderResult[PyOpenColorIO.Config]:
-    """Returns Blender's live OCIO configuration once it resolves the required roles and a caller's spaces, or the imaging fault naming each unresolved one."""
-    return admitted(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(BlenderImagingFault.lifted)
+    """Returns live OCIO config, a fault per unresolved required role or given space."""
+    return resolved(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(BlenderImagingFault.lifted)
 
 
 def changed(call: Call[WorkingSpace]) -> BlenderResult[Outcome]:
-    """Changes native working space, then converts compositor effect color inputs the native conversion leaves, or answers the space already current."""
+    """Changes working space and converts effect color inputs native conversion skips, Unchanged on current space."""
     source, record = bpy.data.colorspace.working_space, call.record
     if source == record.space:
-        return Ok(Unchanged(reason=f"The working space is already {source}"))
+        return Ok(Unchanged(reason=f"Working space is {source}"))
     inputs = (
         tuple(
             (item, descriptor, np.asarray(descriptor.read(item), dtype=np.float32).copy())
@@ -153,7 +153,7 @@ def changed(call: Call[WorkingSpace]) -> BlenderResult[Outcome]:
 
 
 def space_item(config: PyOpenColorIO.Config, name: str) -> BlenderResult[str]:
-    """Returns the native conversion-node item of a role or colorspace."""
+    """Returns conversion-node item of a role or colorspace."""
     return (
         Ok(name)
         if name == PyOpenColorIO.ROLE_SCENE_LINEAR
@@ -162,7 +162,7 @@ def space_item(config: PyOpenColorIO.Config, name: str) -> BlenderResult[str]:
 
 
 def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, entering: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Converts straight RGB through native colorspaces with the scene-linear role kept live."""
+    """Converts straight RGB between colorspaces, scene-linear role resolved live."""
     return (
         paired(space_item(config, source), space_item(config, target))
         .bind(lambda pair: node(key, bpy.types.CompositorNodeConvertColorSpace, {"Image": entering}, {"from_color_space": pair[0], "to_color_space": pair[1]}))
@@ -171,7 +171,7 @@ def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, 
 
 
 def pointwise(key: Key, entering: Operand, operation: Callable[[tuple[Fragment, End]], BlenderResult[tuple[Fragment, End]]]) -> BlenderResult[tuple[Fragment, End]]:
-    """Applies a straight-color graph to associated RGB, retaining transformed RGB at zero alpha."""
+    """Applies straight-color graph to associated RGB, zero alpha keeping transformed RGB."""
     alpha = node(f"{key}_alpha", bpy.types.CompositorNodeSeparateColor, {"Image": entering}, {"mode": "RGB"}).map(ended(f"{key}_alpha", "Alpha"))
     straight = node(f"{key}_straight", bpy.types.CompositorNodePremulKey, {"Image": entering, "Type": "To Straight"}, {}).map(ended(f"{key}_straight", "Image"))
 
@@ -192,7 +192,7 @@ def pointwise(key: Key, entering: Operand, operation: Callable[[tuple[Fragment, 
 
 
 def _converter(key: Key, name: str, body: Callable[[End, End, End], BlenderResult[tuple[Operand, ...]]]) -> BlenderResult[NodeGroup]:
-    """Converts the caller's channels while carrying native alpha unchanged."""
+    """Converts RGB channels and passes alpha unchanged."""
     sockets = ("Red", "Green", "Blue")
     return (
         node("split", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=INPUTS, socket=COLOR_INPUT.key)}, {"mode": "RGB"})
@@ -207,7 +207,7 @@ def _converter(key: Key, name: str, body: Callable[[End, End, End], BlenderResul
 
 @functools.cache
 def logarithmic(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[NodeGroup]:
-    """Builds OCIO's channel stop coordinates from the native LogCamera parameters."""
+    """Builds OCIO channel stop coordinates from LogCamera parameters."""
     transform = lin_to_log()
     base, forward = transform.getBase(), direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
@@ -247,7 +247,7 @@ def logarithmic(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[No
 
 @functools.cache
 def hsy(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[NodeGroup]:
-    """Builds OCIO's native linear HSY coordinates as compositor math nodes."""
+    """Builds OCIO linear HSY coordinates as compositor math nodes."""
     names, weights = ("red", "green", "blue"), (0.2126, 0.7152, 0.0722)
     maximum_luma, minimum_luma = 0.01, 0.001
     forward = direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
@@ -354,7 +354,7 @@ def hsy(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[NodeGroup]
 
 
 def configured() -> BlenderResult[Setting]:
-    """Returns the native condition that a file's OCIO configuration is present."""
+    """Returns condition that file OCIO configuration is present."""
     return Descriptor.resolve(bpy.types.BlendData, "colorspace.is_missing_opencolorio_config", bpy.types.BoolProperty).map(lambda descriptor: Setting(descriptor=descriptor, accepted=(False,)))
 
 

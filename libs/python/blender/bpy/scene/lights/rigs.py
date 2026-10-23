@@ -1,4 +1,4 @@
-"""Light rigs placed as owned lights about a target, aimed, with their background world."""
+"""Light rigs aimed at a target, with background world."""
 
 from collections.abc import Callable, Generator, Hashable
 from contextlib import contextmanager, ExitStack
@@ -68,40 +68,40 @@ gels = Choices(lambda _identity, _owner, _context: ((name, name, "") for name in
 
 
 class Bounds(Case, frozen=True, kw_only=True, tag=1):
-    """Midpoint of the evaluated bounds of the target and its descendants."""
+    """Midpoint of evaluated bounds of target and descendants."""
 
 
 class Origin(Case, frozen=True, kw_only=True, tag=2):
-    """World origin of the target."""
+    """Target origin."""
 
 
 class BoneHead(Case, frozen=True, kw_only=True, tag=3):
-    """Head of one pose bone of an armature target."""
+    """Pose bone head of armature target."""
 
     title = "Bone"
-    bone: Annotated[str, msgspec.Meta(description="Pose bone whose head the rig centers on")] = ""
+    bone: Annotated[str, msgspec.Meta(description="Pose bone centering rig")] = ""
 
 
 class Cursor(Case, frozen=True, kw_only=True, tag=4):
-    """Location of the 3D cursor."""
+    """3D cursor location."""
 
     title = "3D Cursor"
 
 
 class CameraAxes(Case, frozen=True, kw_only=True, tag=1):
-    """Right, up, and back axes of the scene camera."""
+    """Scene camera axes."""
 
     title = "Camera"
 
 
 class ViewAxes(Case, frozen=True, kw_only=True, tag=2):
-    """Right, up, and back axes of the 3D view."""
+    """3D view axes."""
 
     title = "View"
 
 
 class TargetAxes(Case, frozen=True, kw_only=True, tag=3):
-    """Right, up, and back axes of the target object."""
+    """Target object axes."""
 
     title = "Target"
 
@@ -115,71 +115,71 @@ class WorldAxes(Case, frozen=True, kw_only=True, tag=4):
 class RigSetup(msgspec.Struct, frozen=True, kw_only=True):
     """Rig, focus, axes, linking, and reference of one rig empty."""
 
-    rig: Annotated[Rig, msgspec.Meta(description="Lights placed about the target")] = Rig(layout=Arranged())
-    focus: Annotated[Focus, msgspec.Meta(description="Point the rig centers on")] = Bounds()
-    axes: Annotated[RigAxes, msgspec.Meta(description="Frame the rig's azimuth and elevation turn in")] = CameraAxes()
-    linked: Annotated[bool, msgspec.Meta(title="Target Alone", description="Rig lights reach the target and its descendants alone")] = False
+    rig: Annotated[Rig, msgspec.Meta(description="Lights about target")] = Rig(layout=Arranged())
+    focus: Annotated[Focus, msgspec.Meta(description="Rig center")] = Bounds()
+    axes: Annotated[RigAxes, msgspec.Meta(description="Azimuth and elevation axes")] = CameraAxes()
+    linked: Annotated[bool, msgspec.Meta(title="Target Alone", description="Lights reach target and descendants alone")] = False
     reference: Annotated[bpy.types.Image | None, msgspec.Meta(description="Image a matched rig reads")] = None
     recipe: Annotated[ReferenceImage, msgspec.Meta(title="Reference Recipe", description="Editable scene-linear lighting reference")] = ReferenceImage()
     size: Annotated[Side, msgspec.Meta(title="Reference Size")] = 256
 
 
 class RigPick(msgspec.Struct, frozen=True, kw_only=True):
-    """Named catalog rig the catalog operator writes."""
+    """Catalog rig name."""
 
-    name: Annotated[str, msgspec.Meta(title="Rig", description="Named rig of the catalog"), rigs] = ""
+    name: Annotated[str, msgspec.Meta(title="Rig", description="Catalog rig"), rigs] = ""
 
 
 class ReferencePick(msgspec.Struct, frozen=True, kw_only=True):
-    """Named reference recipe from its native catalog."""
+    """Reference recipe name from catalog."""
 
     name: Annotated[str, msgspec.Meta(title="Reference"), references] = ""
 
 
 class ReferenceDraw(msgspec.Struct, frozen=True, kw_only=True):
-    """Seed and color distribution for an editable reference."""
+    """Reference seed and color distribution."""
 
     distribution: ReferenceDistribution = ReferenceDistribution.BALANCED
     seed: Seed = 0
 
 
 class GelPick(msgspec.Struct, frozen=True, kw_only=True):
-    """Native gel applied to a reference recipe's tint."""
+    """Gel name for reference tint."""
 
     name: Annotated[str, msgspec.Meta(title="Gel"), gels] = ""
 
 
-class Anchor(msgspec.Struct, frozen=True, kw_only=True):
-    """World frame a rig places about: center and right, up, and back columns, with the bounding radius."""
+class RigFrame(msgspec.Struct, frozen=True, kw_only=True):
+    """Rig world matrix with right, up, back, and center columns, and bounding radius."""
 
     matrix: Matrix
     radius: Positive
 
 
 class Placing(msgspec.Struct, frozen=True, kw_only=True):
-    """Anchor, placed lights with their powers, and native world graph a rig publishes."""
+    """Rig frame, lights with powers, and background environment."""
 
-    anchor: Anchor
+    frame: RigFrame
     lights: tuple[tuple[Placement, float], ...]
     background: Option[tuple[Environment, Graph]]
 
 
 class LightRig(msgspec.Struct, frozen=True, kw_only=True):
-    """Row attaching `RigSetup` to rig empties with the owned lights, collection, and world."""
+    """Rig setup attachment with owned lights, collection, and world."""
 
     retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
     scale: float
 
     @staticmethod
     def replaced(rig: Handle[bpy.types.Object], identity: Identity) -> BlenderResult[Option[str]]:
-        """Places a rig again from the setup its empty stores, the write a setup edit or a reference change defers.
+        """Places rig again from stored setup.
 
         Args:
-            rig: Handle of the rig empty.
-            identity: Identity binding the attachment and marking owned data.
+            rig: Handle of rig empty.
+            identity: Identity binding attachment and marking owned data.
 
         Returns:
-            `Ok` of `Nothing`, a placement pushing no undo step; `absent` for an empty the file no longer holds, `register`, `read`, and the faults of `rigged`.
+            `Nothing` naming no undo step, or `absent`, `register`, `read`, and `rigged` faults.
         """
         context = bpy.context
 
@@ -201,7 +201,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def referenced[T: msgspec.Struct](call: Call[T], recipe: Callable[[RigSetup], ReferenceImage]) -> BlenderResult[Done]:
-        """Publishes a recipe's owned linear image and retains editable inputs."""
+        """Renders recipe into owned scene-linear setup image, removing unused reference images."""
         config = PyOpenColorIO.GetCurrentConfig()
 
         def stored(pair: tuple[bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[None]:
@@ -226,7 +226,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def served(identity: Identity, item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
-        """Answers the target a rig empty serves, or the item itself where it is no rig empty."""
+        """Returns rig empty target, or item when it is no rig empty."""
         return (
             LightRig.empty
             .marked(identity, item)
@@ -236,7 +236,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def placed(call: Call[Empty]) -> BlenderResult[Done]:
-        """Places a rig about the active object, or about the target of an active rig empty."""
+        """Places rig about active object, or about target of active rig empty."""
         return (
             call
             .root(bpy.types.ViewLayer)
@@ -249,7 +249,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     rig_pick: ClassVar[Operator[RigPick]] = Operator(
         key="rig_catalog",
         title="Choose Rig",
-        description="Write a named rig into the active rig",
+        description="Set active rig from catalog",
         form=RigPick,
         invoke=Some(InvokePopup.SEARCH),
         run=lambda call: (
@@ -267,7 +267,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     reference_pick: ClassVar[Operator[ReferencePick]] = Operator(
         key="rig_reference_catalog",
         title="Choose Reference",
-        description="Choose a native reference recipe",
+        description="Render catalog reference as matched rig image",
         form=ReferencePick,
         invoke=Some(InvokePopup.SEARCH),
         run=lambda call: LightRig.referenced(call, lambda _: next(recipes[call.record.name] for recipes in ReferenceImage.catalog().values() if call.record.name in recipes)),
@@ -275,7 +275,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     gel_pick: ClassVar[Operator[GelPick]] = Operator(
         key="rig_reference_gel",
         title="Choose Gel",
-        description="Apply a named native gel to the reference tint",
+        description="Apply catalog gel to reference tint",
         form=GelPick,
         invoke=Some(InvokePopup.SEARCH),
         run=lambda call: LightRig.referenced(call, lambda setup: msgspec.structs.replace(setup.recipe, tint=ReferenceImage.gels()[call.record.name])),
@@ -283,12 +283,12 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     commands: ClassVar[
         tuple[Operator[Empty], Operator[RigPick], Operator[Empty], Operator[Empty], Operator[ReferencePick], Operator[ReferenceDraw], Operator[Roll], Operator[GelPick], Operator[Empty]]
     ] = (
-        Operator(key="rig_place", title="Place Rig", description="Place a light rig about the active object", form=Empty, run=placed),
+        Operator(key="rig_place", title="Place Rig", description="Place rig about active object", form=Empty, run=placed),
         rig_pick,
         Operator(
             key="rig_arrange",
             title="Arrange Rig",
-            description="Write the active rig's matched lights as stated lights",
+            description="Convert active rig matched lights to arranged lights",
             form=Empty,
             run=lambda call: (
                 call
@@ -312,7 +312,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="rig_remove",
             title="Remove Rig",
-            description="Remove the active rig's lights, empty, and collection",
+            description="Remove active rig lights, empty, and collection",
             form=Empty,
             run=lambda call: (
                 paired(call.root(bpy.types.ViewLayer).bind(lambda layer: _rig(layer, call.identity)), call.root(bpy.types.Scene))
@@ -324,7 +324,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="rig_reference_draw",
             title="Draw Reference",
-            description="Draw a seeded balanced, vivid, or soft reference",
+            description="Draw seeded reference",
             form=ReferenceDraw,
             invoke=Some(InvokePopup.REDO),
             run=lambda call: LightRig.referenced(call, lambda _: ReferenceImage.drawn(call.record.distribution, call.record.seed)),
@@ -332,7 +332,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="rig_reference_roll",
             title="Randomize Reference",
-            description="Draw reference fields from their native metadata",
+            description="Randomize reference fields",
             form=Roll,
             invoke=Some(InvokePopup.REDO),
             run=lambda call: LightRig.referenced(call, lambda setup: setup.recipe.rolled(call.record)),
@@ -341,14 +341,14 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="rig_reference_apply",
             title="Render Reference",
-            description="Publish the edited reference recipe as the matched rig's image",
+            description="Render edited reference as matched rig image",
             form=Empty,
             run=lambda call: LightRig.referenced(call, lambda setup: setup.recipe),
         ),
     )
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
-        """Requests native catalog images and gray balls under current scene display settings."""
+        """Returns preview jobs for catalog images and gray balls in scene display."""
 
         def requested(carried: tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[tuple[Job, ...]]:
             scene, layer, holder, attached = carried
@@ -413,7 +413,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
-        """Draws catalog choices and queued native previews with retained operator declarations."""
+        """Returns reference and rig previews with catalog button panels."""
         previews = Previews(identity=identity)
         catalogs = (
             *(
@@ -448,13 +448,13 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Acquires settings, ownership, catalog previews, commands, and reference updates.
+        """Yields attachment, ownerships, previews, queue, reference handler, and section.
 
         Args:
-            identity: Extension placing the row.
+            identity: Identity of extension registering row.
 
         Yields:
-            `Ok` of every band and acquisition pair, or every construction fault.
+            Acquisitions with `Band` pairs.
         """
         with identity.reports.deferred(LightRig.replaced) as deferred:
 
@@ -482,7 +482,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             ))
 
     def section(self) -> Section:
-        """Section drawing the active rig's setup with its place, catalog, arrange, and remove buttons."""
+        """Returns active rig setup with command buttons in header."""
         reference = vars(RigSetup)["reference"]
         return Single(
             key="light_rig",
@@ -511,18 +511,18 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context, scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Anchor]:
-    """Answers the world frame and bounding radius a rig places about.
+def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context, scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[RigFrame]:
+    """Returns rig world frame and bounding radius.
 
     Args:
         holder: Target object.
         setup: Focus and axes cases.
-        context: Context whose view layer, camera, cursor, and windows the cases read.
-        scene: Admitted scene supplying the camera and cursor.
-        layer: Admitted view layer whose target descendants are evaluated.
+        context: Context supplying window manager for view axes.
+        scene: Scene supplying camera and cursor.
+        layer: View layer evaluating target and descendants.
 
     Returns:
-        `Ok` of the center, positive radius, and frame; `absent` for missing host data, or `read` for a native radius conversion failure.
+        Frame, or `absent` for missing bounds, bone, camera, or view, `choice` for a non-3D view, `read` for zero radius.
     """
 
     def centered(bounds: WorldBounds) -> BlenderResult[Vector]:
@@ -557,13 +557,13 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
             case WorldAxes():
                 return Ok(world)
 
-    def measured(carried: tuple[WorldBounds, Vector, Matrix]) -> BlenderResult[Anchor]:
+    def measured(carried: tuple[WorldBounds, Vector, Matrix]) -> BlenderResult[RigFrame]:
         bounds, center, frame = carried
         try:
             radius = msgspec.convert(max((Vector(corner) - center).length for corner in itertools.product(*zip(bounds.low, bounds.high))), type=Positive)  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
         except msgspec.ValidationError as error:
             return Error((BlenderReadFault(request=f"{holder!r}.bound_box", error=error),))
-        return Ok(Anchor(matrix=Matrix.LocRotScale(center, frame, None).freeze(), radius=radius))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return Ok(RigFrame(matrix=Matrix.LocRotScale(center, frame, None).freeze(), radius=radius))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     return (
         evaluated(layer)
@@ -573,45 +573,45 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
     )
 
 
-def anchored(holder: bpy.types.Object, rig: bpy.types.Object, anchor: Anchor) -> BlenderResult[None]:
-    """Writes the rig empty's placement, sphere display, and target constraint.
+def fitted(holder: bpy.types.Object, rig: bpy.types.Object, frame: RigFrame) -> BlenderResult[None]:
+    """Writes rig empty placement, display, and target constraint.
 
     Args:
         holder: Target object.
         rig: Owned rig empty.
-        anchor: World frame and radius `target` answered.
+        frame: World frame and radius from `target`.
 
     Returns:
-        `Ok` after reconciliation, or the native write faults.
+        `Ok` once written, or write faults.
     """
-    display = Snapshot.of(bpy.types.Object, {"empty_display_type": "SPHERE", "empty_display_size": anchor.radius})
+    display = Snapshot.of(bpy.types.Object, {"empty_display_type": "SPHERE", "empty_display_size": frame.radius})
     follow = Snapshot.of(bpy.types.ChildOfConstraint, {"target": IdName.of(holder), "inverse_matrix": tuple(itertools.chain.from_iterable(holder.matrix_world.inverted().transposed()))})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
-    return reconciled(ObjectState(values=Some(display), placement=Some(anchor.matrix), constraints=Some({"Follow": StackEntry(kind="CHILD_OF", values=Some(follow))})), rig, ()).map(lambda _: None)
+    return reconciled(ObjectState(values=Some(display), placement=Some(frame.matrix), constraints=Some({"Follow": StackEntry(kind="CHILD_OF", values=Some(follow))})), rig, ()).map(lambda _: None)
 
 
 def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context: bpy.types.Context, identity: Identity) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-    """Places a rig about its target in the context scene and view layer, every collection, empty, light, and world it builds and the world it swaps restored together on any refusal.
+    """Places rig about target, rolling back created data and world swap on fault.
 
     Args:
         holder: Target object.
-        existing: Rig empty to place again, whose stored setup the placement reads, or `Nothing` to build one from the target setup.
-        context: Context whose scene supplies the camera, cursor, and background, whose view layer evaluates and links the target descendants, and whose windows the view axes read.
-        identity: Identity binding the attachment and marking owned data.
+        existing: Rig empty to place again from stored setup, `Nothing` to build one from target setup.
+        context: Context supplying scene, view layer, and window manager for view axes.
+        identity: Identity binding attachment and marking owned data.
 
     Returns:
-        `Ok` of the lights in placement order; the absent context roots, and the faults of the setup read, `target`, the reading, the preparation, and each write.
+        Lights in placement order, or `absent`, setup read, `target`, reference, placement, and write faults.
     """
     config = PyOpenColorIO.GetCurrentConfig()
 
     def placing(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rollback: ExitStack) -> BlenderResult[tuple[bpy.types.Object, ...]]:
         def measured(setup: RigSetup) -> BlenderResult[Placing]:
-            def prepared(found: tuple[Anchor, Option[LightingReading]]) -> BlenderResult[Placing]:
-                anchor, reading = found
+            def prepared(found: tuple[RigFrame, Option[LightingReading]]) -> BlenderResult[Placing]:
+                frame, reading = found
                 return (
                     Result[Option[Placements], BlenderFaults]
                     .bind(
-                        setup.rig.placements(config, anchor.radius, reading).map_error(BlenderRenderingFault.lifted),
+                        setup.rig.placements(config, frame.radius, reading).map_error(BlenderRenderingFault.lifted),
                         lambda placements: placements.to_result_with(lambda: (BlenderAbsentFault(owner=repr(setup), key="reference"),)),
                     )
                     .bind(
@@ -621,7 +621,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
                             .map(lambda background: Environment(lighting=Backdrop(mode=FlatColor(color=background.color), strength=background.strength)))
                             .map(lambda environment: world_graph(environment).map(lambda graph: Some((environment, graph))))
                             .default_value(Ok(Nothing)),
-                        ).map(lambda pair: Placing(anchor=anchor, lights=tuple(zip(placements.lights, pair[0])), background=pair[1]))
+                        ).map(lambda pair: Placing(frame=frame, lights=tuple(zip(placements.lights, pair[0])), background=pair[1]))
                     )
                 )
 
@@ -647,7 +647,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
                     case Sun():
                         return "SUN", common | {"angle": light.size}
 
-            def lamp(row: Ownership[bpy.types.Object], placement: Placement, power: float) -> BlenderResult[bpy.types.Object]:
+            def spawned_light(row: Ownership[bpy.types.Object], placement: Placement, power: float) -> BlenderResult[bpy.types.Object]:
                 kind, values = emitted(placement, power)
                 label = placement.light.role.label
 
@@ -691,7 +691,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
                 lambda: reverted(LightRig.world, scene, identity).map(lambda _: None)
             )
             return (
-                paired(accumulated(lamp(row, placement, power) for row, (placement, power) in zip(rows, placing.lights)), backed)
+                paired(accumulated(spawned_light(row, placement, power) for row, (placement, power) in zip(rows, placing.lights)), backed)
                 .bind(joined_to)
                 .bind(lambda lit: released(stale).bind(lambda _: LightRig.data.removed(identity)).map(lambda _: lit))
             )
@@ -705,7 +705,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
                 )
 
             return LightRig.collection.made(identity, lambda: founded(Some(scene.collection), f"{holder.name} Rig"), of=Some(holder), scope=Some(rollback)).bind(
-                lambda home: empty(home).bind(lambda rig: anchored(holder, rig, placing.anchor).bind(lambda _: lights(rig, home, placing, alone=setup.linked)))
+                lambda home: empty(home).bind(lambda rig: fitted(holder, rig, placing.frame).bind(lambda _: lights(rig, home, placing, alone=setup.linked)))
             )
 
         return LightRig.attachment.bound(identity).bind(
@@ -717,15 +717,15 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
 
 
 def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[int]:
-    """Removes a rig's lights, empty, and collection and restores the world it replaced.
+    """Removes rig lights, empty, and collection, restoring world it replaced.
 
     Args:
         rig: Owned rig empty.
-        identity: Identity reading the marks.
-        scene: Scene whose world returns.
+        identity: Identity reading marks.
+        scene: Scene with world to restore.
 
     Returns:
-        `Ok` of the objects and collections removed; `edit` for a refused world write.
+        Removed data-block count, or `edit` faults.
     """
     blocks = (
         *(block for block, _ in _serving(rig, identity)),
@@ -740,17 +740,17 @@ def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scen
 
 
 def _rig(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[bpy.types.Object]:
-    """View layer's active object with a rig empty's mark, or an absent fault."""
+    """Returns active object marked as rig empty."""
     return focused(view_layer).bind(lambda item: Ok(item) if LightRig.empty.marked(identity, item).is_some() else Error((BlenderAbsentFault(owner=repr(item), key=LightRig.empty.key),)))
 
 
 def _serving(rig: bpy.types.Object, identity: Identity) -> tuple[tuple[bpy.types.Object, Mark], ...]:
-    """Objects whose mark names a rig empty, with their marks."""
+    """Returns objects with marks naming rig empty."""
     return tuple((block, mark) for block in bpy.data.objects for mark in Mark.read(identity, block).to_list() if mark.of == Some(rig))
 
 
 def _reading(setup: RigSetup, config: PyOpenColorIO.Config) -> BlenderResult[Option[LightingReading]]:
-    """Reading of a rig's reference image, or Nothing for no reference or measure."""
+    """Returns reference lighting reading, `Nothing` without reference or measurable reading."""
     return (
         Option
         .of_optional(setup.reference)
@@ -762,7 +762,6 @@ def _reading(setup: RigSetup, config: PyOpenColorIO.Config) -> BlenderResult[Opt
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "Anchor",
     "BoneHead",
     "Bounds",
     "CameraAxes",
@@ -774,12 +773,13 @@ __all__ = [
     "ReferenceDraw",
     "ReferencePick",
     "RigAxes",
+    "RigFrame",
     "RigPick",
     "RigSetup",
     "TargetAxes",
     "ViewAxes",
     "WorldAxes",
-    "anchored",
+    "fitted",
     "gels",
     "references",
     "rig_removed",

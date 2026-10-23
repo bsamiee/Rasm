@@ -45,7 +45,7 @@ const client = Effect.gen(function* () {
 });
 
 beforeEach(reset);
-it.effect('serves ranges and preconditions to the owner and keeps an asset private until a published document places it', () =>
+it.effect('serves ranges and preconditions to owner, hides asset until published document places it', () =>
     Effect.gen(function* () {
         const { send, upload, write } = yield* client;
         const uploaded = yield* upload(asset, bytes);
@@ -69,7 +69,7 @@ it.effect('serves ranges and preconditions to the owner and keeps an asset priva
         assert.strictEqual(ranged.headers.get('content-range'), `bytes 0-8/${bytes.length}`);
     }).pipe(Effect.scoped),
 );
-it.effect('settles overlapping uploads of one asset into one object and refuses differing metadata', () =>
+it.effect('stores concurrent uploads of one asset as one object, refuses differing metadata', () =>
     Effect.gen(function* () {
         const { send, upload } = yield* client;
         const attempts = yield* Effect.all([upload(asset, bytes), upload(asset, bytes)], { concurrency: 'unbounded' });
@@ -82,7 +82,7 @@ it.effect('settles overlapping uploads of one asset into one object and refuses 
         assert.deepStrictEqual([pending.text, full.text], ['[]', 'portfolio drawing bytes']);
     }).pipe(Effect.scoped),
 );
-it.effect('refuses deleting an asset a document places and deletes it once the draft drops it', () =>
+it.effect('refuses deleting placed asset, deletes it once draft drops it', () =>
     Effect.gen(function* () {
         const { send, upload, write } = yield* client;
         yield* upload(asset, bytes);
@@ -97,7 +97,7 @@ it.effect('refuses deleting an asset a document places and deletes it once the d
         );
     }).pipe(Effect.scoped),
 );
-it.effect('refuses a body shorter than its declared size, releases its attempt, and refuses visitor writes', () =>
+it.effect('refuses body shorter than declared size, releases attempt, refuses visitor delete', () =>
     Effect.gen(function* () {
         const { send, upload } = yield* client;
         const interrupted = yield* upload(asset, bytes.subarray(1));

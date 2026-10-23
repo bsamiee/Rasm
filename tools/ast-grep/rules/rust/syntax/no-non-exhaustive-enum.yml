@@ -10,4 +10,4 @@ rule:
             - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_item}
             - inside: {kind: enum_variant_list}
 message: '`#[non_exhaustive]` marks a workspace enum or variant open'
-note: 'Delete the attribute, matches in other crates then name every variant and field and the compiler reports each one added'
+note: 'Delete the attribute'

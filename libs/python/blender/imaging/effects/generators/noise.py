@@ -27,7 +27,7 @@ from blender.imaging.parameters import Case, Choice, Finite, FrameExtent, Gated,
 
 
 class Fractal(Choice):
-    """Sum combining the octaves of a noise texture."""
+    """Sum combining noise texture octaves."""
 
     FBM = 1, "fBM"
     MULTIFRACTAL = 2
@@ -37,7 +37,7 @@ class Fractal(Choice):
 
 
 class Feature(Choice):
-    """Distance the Voronoi cells answer."""
+    """Distance Voronoi cells return."""
 
     F1 = 1
     F2 = 2
@@ -55,7 +55,7 @@ class Metric(Choice):
 
 
 class Pattern(Choice):
-    """Bands across the field or rings about its center."""
+    """Bands across field or rings about center."""
 
     BANDS = 1
     RINGS = 2
@@ -94,13 +94,13 @@ _FIRE_SHORT_SIDE: Final = 9.0 / 16.0
 class Cut(msgspec.Struct, frozen=True, kw_only=True):
     """Soft threshold mapping a texture value to density."""
 
-    threshold: Annotated[Finite, msgspec.Meta(description="Texture value where density starts rising"), Presentation(soft=Some((0.0, 1.0)))] = 0.0
-    softness: Annotated[Positive, msgspec.Meta(description="Texture span from the threshold to full density"), Presentation(soft=Some((0.001, 1.0)))] = 1.0
-    invert: Annotated[bool, msgspec.Meta(description="Density falls across the span in place of rising")] = False
-    interpolation: Annotated[Interpolation, msgspec.Meta(description="Curve across the density interval"), GraphForm.SETTING] = Interpolation.SMOOTHSTEP
+    threshold: Annotated[Finite, msgspec.Meta(description="Texture value starting density"), Presentation(soft=Some((0.0, 1.0)))] = 0.0
+    softness: Annotated[Positive, msgspec.Meta(description="Texture span from threshold to full density"), Presentation(soft=Some((0.001, 1.0)))] = 1.0
+    invert: Annotated[bool, msgspec.Meta(description="Density falling across span")] = False
+    interpolation: Annotated[Interpolation, msgspec.Meta(description="Curve across density interval"), GraphForm.SETTING] = Interpolation.SMOOTHSTEP
 
     def applied(self, values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Maps texture values to the declared bounded density curve."""
+        """Maps texture values through density curve."""
         value = np.clip((values - self.threshold) / self.softness, 0.0, 1.0)
         match self.interpolation:
             case Interpolation.SMOOTHSTEP:
@@ -113,26 +113,22 @@ class Cut(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Precision(msgspec.Struct, frozen=True, kw_only=True):
-    """Caller-selected scrambled Sobol resolution and independent error replicates."""
+    """Scrambled Sobol resolution and independent error replicates."""
 
-    power: Annotated[int, msgspec.Meta(ge=0, le=64, title="Samples Exponent", description="Each complete scrambled Sobol net contains 2 to this power observations per support and replicate")] = 6
-    replicates: Annotated[int, msgspec.Meta(ge=2, description="Independent scrambles used to estimate sampling standard error")] = 4
-    seed: Annotated[Seed, msgspec.Meta(title="Scramble Seed", description="Deterministic seed of the numerical integration scrambles")] = 0
-    absolute: Annotated[
-        NonNegative, msgspec.Meta(title="Profile Absolute Tolerance", description="Adaptive angular quadrature target in unit-radius profile area; distinct from pixel sampling error")
-    ] = 1e-4
-    relative: Annotated[
-        NonNegative, msgspec.Meta(title="Profile Relative Tolerance", description="Adaptive angular quadrature target as a fraction of profile area; attained accuracy is not guaranteed")
-    ] = 1e-3
+    power: Annotated[int, msgspec.Meta(ge=0, le=64, title="Samples Exponent", description="Base-2 exponent of Sobol samples per support and replicate")] = 6
+    replicates: Annotated[int, msgspec.Meta(ge=2, description="Scrambles estimating standard error")] = 4
+    seed: Annotated[Seed, msgspec.Meta(title="Scramble Seed", description="Number selecting integration scrambles")] = 0
+    absolute: Annotated[NonNegative, msgspec.Meta(title="Profile Absolute Tolerance", description="Angular quadrature target in unit-radius profile area")] = 1e-4
+    relative: Annotated[NonNegative, msgspec.Meta(title="Profile Relative Tolerance", description="Angular quadrature target over profile area")] = 1e-3
 
     def points(self, dimensions: int, replicate: int, *, key: tuple[int, ...] = ()) -> npt.NDArray[np.float64]:
-        """Returns a complete independently scrambled Sobol net for one replicate."""
+        """Returns complete scrambled Sobol net for one replicate."""
         digest = hashlib.blake2b(cbor2.dumps((self.seed, replicate, key), canonical=True), digest_size=16).digest()
         return qmc.Sobol(dimensions, scramble=True, bits=64, rng=np.random.Generator(np.random.Philox(int.from_bytes(digest, "little")))).random_base2(self.power)
 
 
 class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Numerical estimate and replicate standard error, without an exactness certificate."""
+    """Estimate with replicate standard error and no exactness certificate."""
 
     value: T
     standard_error: npt.NDArray[np.float64]
@@ -147,8 +143,8 @@ class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
             value=np.asarray(np.mean(replicates, axis=0)), standard_error=np.asarray(np.std(replicates, axis=0, ddof=1) / math.sqrt(precision.replicates)), precision=precision, replicates=replicates
         )
 
-    def carrying[U](self, value: U) -> "Estimate[U]":
-        """Answers the same error, replicates, and normalization carrying another form of the value."""
+    def holding[U](self, value: U) -> "Estimate[U]":
+        """Returns same statistics over another value."""
         return Estimate(value=value, standard_error=self.standard_error, precision=self.precision, replicates=self.replicates, normalization=self.normalization)
 
 
@@ -162,7 +158,7 @@ class CellularSample(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class CellularSite(msgspec.Struct, frozen=True, kw_only=True):
-    """Candidate feature in exact lattice coordinates and its coupled cell colors."""
+    """Candidate feature at exact lattice coordinates with coupled cell colors."""
 
     cell: tuple[int, ...]
     point: tuple[Fraction, ...]
@@ -172,61 +168,57 @@ class CellularSite(msgspec.Struct, frozen=True, kw_only=True):
 class Octaves(msgspec.Struct, frozen=True, kw_only=True):
     """Fractal sum of a noise texture's octaves."""
 
-    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Detail past the first octave"), Presentation(soft=Some((0.0, 8.0)), decimals=Some(1))] = 2.0
-    roughness: Annotated[Unit, msgspec.Meta(description="Amplitude of each octave over the one before")] = 0.5
-    lacunarity: Annotated[NonNegative, msgspec.Meta(description="Frequency of each octave over the one before"), Presentation(soft=Some((0.0, 4.0)))] = 2.0
+    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Detail past first octave"), Presentation(soft=Some((0.0, 8.0)), decimals=Some(1))] = 2.0
+    roughness: Annotated[Unit, msgspec.Meta(description="Octave amplitude over previous")] = 0.5
+    lacunarity: Annotated[NonNegative, msgspec.Meta(description="Octave frequency over previous"), Presentation(soft=Some((0.0, 4.0)))] = 2.0
 
 
 class Perlin(Case, frozen=True, kw_only=True, tag=1):
     """Fractal Perlin noise cut to a density by a soft threshold."""
 
     title = "Perlin Noise"
-    dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Axes of the native noise lattice"), GraphForm.SETTING] = 4
-    size: Annotated[FrameExtent, msgspec.Meta(description="Width of the largest feature as a share of the frame's greater side"), Presentation(soft=Some((0.01, 1.0)), decimals=Some(3))] = (
-        _FIRE_SHORT_SIDE / 1.4
-    )
-    stretch: Annotated[Positive, msgspec.Meta(description="Feature height over width along the field's axes"), Presentation(soft=Some((0.25, 4.0)))] = 2.0
-    fractal: Annotated[Fractal, msgspec.Meta(description="Sum combining the octaves; ridged noise ignores fractional detail"), GraphForm.SETTING] = Fractal.FBM
-    octaves: Annotated[Octaves, msgspec.Meta(description="Fractal sum of the noise")] = Octaves(detail=4.0)
-    offset: Annotated[Finite, msgspec.Meta(description="Value added to each octave of the ridged, hybrid, and hetero terrain sums"), Presentation(soft=Some((-2.0, 2.0)))] = 0.0
-    gain: Annotated[NonNegative, msgspec.Meta(description="Weight each octave hands the next in the ridged and hybrid sums"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
-    distortion: Annotated[Finite, msgspec.Meta(description="Signed warp of the field by its own noise"), Presentation(soft=Some((-4.0, 4.0)))] = 1.0
+    dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Coordinate axes the noise reads"), GraphForm.SETTING] = 4
+    size: Annotated[FrameExtent, msgspec.Meta(description="Largest feature width over greater frame side"), Presentation(soft=Some((0.01, 1.0)), decimals=Some(3))] = _FIRE_SHORT_SIDE / 1.4
+    stretch: Annotated[Positive, msgspec.Meta(description="Feature height over width along field axes"), Presentation(soft=Some((0.25, 4.0)))] = 2.0
+    fractal: Annotated[Fractal, msgspec.Meta(description="Octave sum, ridged ignoring fractional detail"), GraphForm.SETTING] = Fractal.FBM
+    octaves: Annotated[Octaves, msgspec.Meta(description="Noise detail across scales")] = Octaves(detail=4.0)
+    offset: Annotated[Finite, msgspec.Meta(description="Octave offset in ridged, hybrid, and hetero terrain sums"), Presentation(soft=Some((-2.0, 2.0)))] = 0.0
+    gain: Annotated[NonNegative, msgspec.Meta(description="Octave weight passed on in ridged and hybrid sums"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
+    distortion: Annotated[Finite, msgspec.Meta(description="Warps noise by its own signal"), Presentation(soft=Some((-4.0, 4.0)))] = 1.0
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Noise value mapped to density")] = Cut(threshold=0.17, softness=0.83, interpolation=Interpolation.LINEAR)
 
 
 class Voronoi(Case, frozen=True, kw_only=True, tag=2):
     """Cellular distances cut to a density by a soft threshold."""
 
-    dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Axes of the cellular lattice"), GraphForm.SETTING] = 4
-    spacing: Annotated[FrameExtent, msgspec.Meta(description="Mean distance between cell points as a share of the frame's greater side"), Presentation(soft=Some((0.002, 0.5)), decimals=Some(4))] = 0.1
-    feature: Annotated[Feature, msgspec.Meta(description="Distance the cells answer"), GraphForm.SETTING] = Feature.F1
-    metric: Annotated[Metric, msgspec.Meta(description="Distance measure between a position and a cell point"), GraphForm.SETTING] = Metric.EUCLIDEAN
+    dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Coordinate axes the cells read"), GraphForm.SETTING] = 4
+    spacing: Annotated[FrameExtent, msgspec.Meta(description="Mean cell point spacing over greater frame side"), Presentation(soft=Some((0.002, 0.5)), decimals=Some(4))] = 0.1
+    feature: Annotated[Feature, msgspec.Meta(description="Distance cells return"), GraphForm.SETTING] = Feature.F1
+    metric: Annotated[Metric, msgspec.Meta(description="Distance measure"), GraphForm.SETTING] = Metric.EUCLIDEAN
     exponent: Annotated[Positive, msgspec.Meta(description="Minkowski exponent, 1 Manhattan and 2 Euclidean"), Presentation(soft=Some((0.1, 4.0)))] = 0.5
-    smoothness: Annotated[Unit, msgspec.Meta(description="Blend between neighboring cells of smooth F1")] = 1.0
-    randomness: Annotated[Unit, msgspec.Meta(description="Jitter of each cell point from its lattice corner")] = 1.0
-    octaves: Annotated[Octaves, msgspec.Meta(description="Fractal sum of the cells")] = Octaves(detail=0.0)
+    smoothness: Annotated[Unit, msgspec.Meta(description="Smooth F1 blend between neighboring cells")] = 1.0
+    randomness: Annotated[Unit, msgspec.Meta(description="Cell point jitter from lattice corner")] = 1.0
+    octaves: Annotated[Octaves, msgspec.Meta(description="Cell detail across scales")] = Octaves(detail=0.0)
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Distance mapped to density")] = Cut()
-    cell_color: Annotated[bool, msgspec.Meta(description="Cell red selects tone and cell green scales density")] = False
+    cell_color: Annotated[bool, msgspec.Meta(description="Cell red sets tone, green scales density")] = False
 
     @property
     def reach(self) -> int:
-        """Lattice cells each side of a cell its features read, two for blended smooth F1."""
+        """Lattice cells read on each side, two for blended smooth F1."""
         return 2 if self.feature == Feature.SMOOTH_F1 and self.smoothness > 0.0 else 1
 
 
 class Wave(Case, frozen=True, kw_only=True, tag=3):
     """Bands or rings of a periodic profile cut to a density by a soft threshold."""
 
-    wavelength: Annotated[
-        FrameExtent, msgspec.Meta(description="Distance from one band or ring to the next as a share of the frame's greater side"), Presentation(soft=Some((0.005, 1.0)), decimals=Some(4))
-    ] = 0.1
-    pattern: Annotated[Pattern, msgspec.Meta(description="Bands across the field or rings about the center"), GraphForm.SETTING] = Pattern.BANDS
+    wavelength: Annotated[FrameExtent, msgspec.Meta(description="Band or ring spacing over greater frame side"), Presentation(soft=Some((0.005, 1.0)), decimals=Some(4))] = 0.1
+    pattern: Annotated[Pattern, msgspec.Meta(description="Bands across field or rings about center"), GraphForm.SETTING] = Pattern.BANDS
     profile: Annotated[Profile, msgspec.Meta(description="Shape of each period"), GraphForm.SETTING] = Profile.SIN
-    phase: Annotated[Finite, msgspec.Meta(description="Phase added to the periodic profile in radians"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    distortion: Annotated[Finite, msgspec.Meta(description="Signed phase offset in radians by the distortion noise"), Presentation(soft=Some((-20.0, 20.0)))] = 0.0
-    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Octaves of the distortion noise past the first"), Presentation(soft=Some((0.0, 8.0)), decimals=Some(1))] = 2.0
-    detail_scale: Annotated[NonNegative, msgspec.Meta(description="Frequency of the distortion noise"), Presentation(soft=Some((0.0, 10.0)))] = 1.0
-    detail_roughness: Annotated[Unit, msgspec.Meta(description="Amplitude of each distortion octave over the one before")] = 0.5
+    phase: Annotated[Finite, msgspec.Meta(description="Profile phase offset"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    distortion: Annotated[Finite, msgspec.Meta(description="Distortion noise phase offset in radians"), Presentation(soft=Some((-20.0, 20.0)))] = 0.0
+    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Distortion noise octaves past first"), Presentation(soft=Some((0.0, 8.0)), decimals=Some(1))] = 2.0
+    detail_scale: Annotated[NonNegative, msgspec.Meta(description="Distortion noise frequency"), Presentation(soft=Some((0.0, 10.0)))] = 1.0
+    detail_roughness: Annotated[Unit, msgspec.Meta(description="Distortion octave amplitude over previous")] = 0.5
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Wave value mapped to density")] = Cut()
 
 
@@ -237,14 +229,14 @@ class Gabor(Case, frozen=True, kw_only=True, tag=4):
     size: Annotated[FrameExtent, msgspec.Meta(description="Impulse cell width")] = 0.1
     frequency: Annotated[NonNegative, msgspec.Meta(description="Oscillations per impulse cell"), Presentation(soft=Some((0.0, 10.0)))] = 2.0
     anisotropy: Annotated[Unit, msgspec.Meta(description="Alignment of impulse orientations")] = 1.0
-    orientation: Annotated[Finite, msgspec.Meta(description="Azimuth of the aligned oscillations"), Presentation(quantity=Some(Quantity.ANGLE))] = math.pi / 4.0
+    orientation: Annotated[Finite, msgspec.Meta(description="Aligned oscillation azimuth"), Presentation(quantity=Some(Quantity.ANGLE))] = math.pi / 4.0
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Oscillation value mapped to density")] = Cut()
 
 
 class Magic(Case, frozen=True, kw_only=True, tag=5):
     """Nested trigonometric color turbulence averaged into a scalar field."""
 
-    size: Annotated[FrameExtent, msgspec.Meta(description="Spatial scale of the pattern")] = 0.1
+    size: Annotated[FrameExtent, msgspec.Meta(description="Pattern scale")] = 0.1
     depth: Annotated[int, msgspec.Meta(ge=0, le=10, description="Nested trigonometric steps"), GraphForm.SETTING] = 2
     distortion: Annotated[Finite, msgspec.Meta(description="Signed amplitude of each nested step")] = 1.0
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Mean color mapped to density")] = Cut()
@@ -254,90 +246,80 @@ class White(Case, frozen=True, kw_only=True, tag=6):
     """Constant random values on integer lattice cells."""
 
     title = "White Noise"
-    dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Axes of the hashed cell lattice"), GraphForm.SETTING] = 4
+    dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Coordinate axes the cells read"), GraphForm.SETTING] = 4
     spacing: Annotated[FrameExtent, msgspec.Meta(description="Cell width")] = 0.1
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Cell value mapped to density")] = Cut()
 
 
 class Tint(Case, frozen=True, kw_only=True, tag=1):
-    """Color graded from a start to an end by the field's tone."""
+    """Color graded from start to end by field tone."""
 
-    start: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear color at the lowest tone")] = Rgb(red=1.0, green=1.0, blue=1.0)
-    end: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear color at the highest tone")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    start: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear color at tone 0")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    end: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear color at tone 1")] = Rgb(red=1.0, green=1.0, blue=1.0)
 
 
 class Incandescence(Case, frozen=True, kw_only=True, tag=2):
-    """Blackbody color of unit luminance graded from a cool to a hot temperature by the field's tone."""
+    """Unit-luminance blackbody color graded from cool to hot temperature by field tone."""
 
-    cool: Annotated[
-        float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at the lowest tone"), Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))
-    ] = 1000.0
-    hot: Annotated[
-        float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at the highest tone"), Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))
-    ] = 2000.0
+    cool: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 0"), Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 1000.0
+    hot: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 1"), Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 2000.0
 
 
 class Gradient(Case, frozen=True, kw_only=True, tag=3):
-    """Color read from a color ramp at the field's tone."""
+    """Color read from color ramp at field tone."""
 
-    ramp: Annotated[Ramp, msgspec.Meta(description="Scene-linear colors placed along tone from 0 to 1")] = Ramp()
+    ramp: Annotated[Ramp, msgspec.Meta(description="Scene-linear colors along tone 0 to 1")] = Ramp()
 
 
 class Emission(msgspec.Struct, frozen=True, kw_only=True):
-    """Light a generator adds by its coverage, colored by tone and leveled in stops."""
+    """Light a generator adds over its coverage, colored by tone."""
 
-    spectrum: Annotated[Spectrum, msgspec.Meta(description="Color the field emits at each tone")] = Incandescence()
+    spectrum: Annotated[Spectrum, msgspec.Meta(description="Color emitted at each tone")] = Incandescence()
     intensity: Annotated[Stops, msgspec.Meta(description="Luminance at full density in stops")] = 2.0
 
 
 class Extinction(msgspec.Struct, frozen=True, kw_only=True):
-    """Light the field absorbs and the light it scatters toward the camera."""
+    """Light the field absorbs and scatters toward camera."""
 
     density: Annotated[NonNegative, msgspec.Meta(description="Optical depth at full density"), Presentation(soft=Some((0.0, 8.0)))] = 2.0
-    color: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear light the medium scatters toward the camera")] = Rgb(red=0.04, green=0.04, blue=0.04)
+    color: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear light scattered toward camera")] = Rgb(red=0.04, green=0.04, blue=0.04)
 
 
 class Vortex(msgspec.Struct, frozen=True, kw_only=True):
     """Polar twirl of the field about its center."""
 
-    radius: Annotated[
-        FrameExtent,
-        msgspec.Meta(description="Distance where the twirl reaches 0 and samples stop widening as a share of the frame's greater side"),
-        Presentation(soft=Some((0.01, 1.0)), decimals=Some(3)),
-    ] = 0.25
-    twirl: Annotated[Finite, msgspec.Meta(description="Turn at the center falling to 0 at the radius"), Presentation(soft=Some((-4.0 * math.pi, 4.0 * math.pi)), quantity=Some(Quantity.ANGLE))] = 3.0
-    arms: Annotated[int, msgspec.Meta(ge=0, description="Repeats of the field around the center, 0 leaving rings"), Presentation(soft=Some((0.0, 32.0)))] = 1
-    spin: Annotated[Finite, msgspec.Meta(description="Turn of the vortex in radians per clock frame"), Presentation(soft=Some((-math.pi / 12.0, math.pi / 12.0)), decimals=Some(4))] = 1.0 / 24.0
-    tunnel: Annotated[NonNegative, msgspec.Meta(description="Height sampled along the vortex axis per unit of sampled radius"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
+    radius: Annotated[FrameExtent, msgspec.Meta(description="Twirl and widening reach over greater frame side"), Presentation(soft=Some((0.01, 1.0)), decimals=Some(3))] = 0.25
+    twirl: Annotated[Finite, msgspec.Meta(description="Turn at center, falling to 0 at radius"), Presentation(soft=Some((-4.0 * math.pi, 4.0 * math.pi)), quantity=Some(Quantity.ANGLE))] = 3.0
+    arms: Annotated[int, msgspec.Meta(ge=0, description="Field repeats around center, 0 leaving rings"), Presentation(soft=Some((0.0, 32.0)))] = 1
+    spin: Annotated[Finite, msgspec.Meta(description="Vortex turn in radians per clock frame"), Presentation(soft=Some((-math.pi / 12.0, math.pi / 12.0)), decimals=Some(4))] = 1.0 / 24.0
+    tunnel: Annotated[NonNegative, msgspec.Meta(description="Axial sample height per unit radius"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
 
 
 class Envelope(msgspec.Struct, frozen=True, kw_only=True):
-    """Elliptical falloff subtracted from the texture before density mapping."""
+    """Elliptical falloff subtracted from texture before density mapping."""
 
-    width: Annotated[FrameExtent, msgspec.Meta(description="Horizontal radius as a share of the frame's greater side"), Presentation(soft=Some((0.01, 1.0)))] = _FIRE_SHORT_SIDE
-    height: Annotated[FrameExtent, msgspec.Meta(description="Vertical radius as a share of the frame's greater side"), Presentation(soft=Some((0.01, 1.0)))] = _FIRE_SHORT_SIDE
+    width: Annotated[FrameExtent, msgspec.Meta(description="Horizontal radius over greater frame side"), Presentation(soft=Some((0.01, 1.0)))] = _FIRE_SHORT_SIDE
+    height: Annotated[FrameExtent, msgspec.Meta(description="Vertical radius over greater frame side"), Presentation(soft=Some((0.01, 1.0)))] = _FIRE_SHORT_SIDE
 
 
 class NoiseField(Effect, frozen=True, kw_only=True, tag=32):
-    """Procedural light and haze added to the frame: fire, smoke, mist, light leaks, and flow."""
+    """Procedural light and haze added to frame (fire, smoke, mist, light leaks, flow)."""
 
     stage = Stage.GENERATE
     pointwise = False
-    basis: Annotated[Basis, msgspec.Meta(description="Selected procedural texture")] = Perlin()
+    basis: Annotated[Basis, msgspec.Meta(description="Procedural texture")] = Perlin()
     emission: Annotated[Gated[Emission], msgspec.Meta(description="Light the field adds")] = Gated(enabled=True, value=Emission(spectrum=Incandescence(cool=800.0), intensity=0.0))
     extinction: Annotated[Gated[Extinction], msgspec.Meta(description="Light the field absorbs and scatters")] = Gated(enabled=False, value=Extinction())
     motion: Annotated[Motion, msgspec.Meta(description="Clock the field drifts and changes over")] = Motion()
     drift: Annotated[
-        tuple[Finite, Finite],
-        msgspec.Meta(description="Field velocity along its axes in shares of the frame's greater side per clock frame"),
-        Presentation(decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER)),
+        tuple[Finite, Finite], msgspec.Meta(description="Velocity along field axes in greater frame sides per clock frame"), Presentation(decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER))
     ] = (0.0, 5.0 * _FIRE_SHORT_SIDE / 24.0)
     evolution: Annotated[Finite, msgspec.Meta(description="Signed feature evolution per clock frame"), Presentation(soft=Some((-0.2, 0.2)), decimals=Some(4))] = 0.0
-    vortex: Annotated[Gated[Vortex], msgspec.Meta(description="Polar twirl of the field about its center")] = Gated(enabled=False, value=Vortex())
-    envelope: Annotated[Gated[Envelope], msgspec.Meta(description="Spatial falloff applied before density mapping")] = Gated(enabled=True, value=Envelope())
-    center: Annotated[Position, msgspec.Meta(description="Frame position the axes turn about")] = (0.5, 0.0)
-    angle: Annotated[Finite, msgspec.Meta(description="Rotation of the field's axes"), Presentation(soft=Some((-math.pi, math.pi)), quantity=Some(Quantity.ANGLE))] = 0.0
-    seed: Annotated[Seed, msgspec.Meta(description="Field of equal statistics the entry samples")] = 0
+    vortex: Annotated[Gated[Vortex], msgspec.Meta(description="Polar twirl of field about center")] = Gated(enabled=False, value=Vortex())
+    envelope: Annotated[Gated[Envelope], msgspec.Meta(description="Falloff before density mapping")] = Gated(enabled=True, value=Envelope())
+    center: Annotated[Position, msgspec.Meta(description="Axis pivot in frame fractions")] = (0.5, 0.0)
+    angle: Annotated[Finite, msgspec.Meta(description="Turn of field axes"), Presentation(soft=Some((-math.pi, math.pi)), quantity=Some(Quantity.ANGLE))] = 0.0
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

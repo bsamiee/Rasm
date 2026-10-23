@@ -1,4 +1,4 @@
-"""Subject lighting, spatial cues, and perceptually distinct linear-light palettes."""
+"""Subject lighting, spatial cues, and distinct linear-light palettes."""
 
 from enum import auto, Enum
 import math
@@ -26,7 +26,7 @@ from blender.imaging.parameters import Position, Rgb
 
 
 class LightingMood(Enum):
-    """Arithmetic brightness, contrast, and split classification of a reference."""
+    """Lighting class from mean luminance, contrast, and split."""
 
     HIGH_KEY = auto()
     NEUTRAL = auto()
@@ -37,7 +37,7 @@ class LightingMood(Enum):
 
 
 class PaletteEntry(msgspec.Struct, frozen=True, kw_only=True):
-    """Cluster mean color, bottom-left position, and share of subject samples."""
+    """Cluster mean color, bottom-left position, and subject share."""
 
     color: Rgb
     position: Position
@@ -45,14 +45,14 @@ class PaletteEntry(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def chroma(self) -> float:
-        """Channel spread relative to positive peak light."""
+        """Channel spread over peak channel, zero for nonpositive peak."""
         channels = msgspec.structs.astuple(self.color)
         peak = max(channels)
         return (peak - min(channels)) / peak if peak > 0.0 else 0.0
 
 
 class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
-    """Reference light colors, contrast, spatial cues, and chromatic contributions."""
+    """Reference light colors, contrast, spatial cues, and palette."""
 
     grid: ClassVar[int] = 256
     chromatic: ClassVar[float] = 0.18
@@ -77,7 +77,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def mood(self) -> LightingMood:
-        """Classifies full-frame arithmetic light, contrast, and split."""
+        """Mood from frame luminance, contrast, and split."""
         decoder = PyOpenColorIO.Config().getProcessor(PyOpenColorIO.ExponentWithLinearTransform(gamma=[2.4] * 3 + [1.0], offset=[0.055] * 3 + [0.0])).getDefaultCPUProcessor()
         high, low = map(float, applied(decoder, np.repeat(np.array((0.45, 0.22), dtype=np.float32)[:, None], 3, axis=-1))[:, 0])
         split_threshold = 0.42
@@ -91,7 +91,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def gels(self) -> Option[tuple[PaletteEntry, PaletteEntry]]:
-        """Orders the two largest palette contributions as key and accent."""
+        """Two largest palette entries as key and accent when both are chromatic."""
         match tuple(entry for entry in self.palette[:2] if entry.chroma >= self.chromatic):
             case (first, second):
                 return Some((first, second) if np.dot(np.subtract(first.position, second.position), self.direction) >= 0.0 else (second, first))
@@ -100,7 +100,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], size: Annotated[int, msgspec.Meta(ge=1)] = 3) -> ImagingResult[Option[Self]]:
-        """Fits a reference and reads its covered finite light, retaining native fit failures."""
+        """Reads lighting of plane fitted within `grid` pixels, or absence without covered subject."""
 
         def read(pair: tuple[Samples, PyOpenColorIO.Processor]) -> ImagingResult[Option[Self]]:
             samples, built = pair

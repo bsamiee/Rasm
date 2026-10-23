@@ -1,4 +1,4 @@
-"""Light and shadow linking sets of an emitter, their members, and each member's link state."""
+"""Light and shadow linking sets of emitters, set members, and member link states."""
 
 from functools import partial
 from itertools import product
@@ -33,13 +33,13 @@ states = Choices(lambda *_: enumerated(link_state))
 
 
 class Linking(msgspec.Struct, frozen=True, kw_only=True):
-    """Link state a link operator writes on each joining member."""
+    """Link state of each joining member."""
 
-    state: Annotated[str, msgspec.Meta(description="Whether each member is lit and shadowed by the emitter or left out"), states] = link_state.default
+    state: Annotated[str, msgspec.Meta(description="Include or exclude each member"), states] = link_state.default
 
 
 class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
-    """Row of the receiver and blocker sets with their link and unlink operators."""
+    """Receiver and blocker sets with link and unlink operators."""
 
     sets: ClassVar[dict[Descriptor[bpy.types.PointerProperty], Ownership[bpy.types.Collection]]] = {
         Descriptor(root=bpy.types.ObjectLightLinking, owner="", prop=prop): Ownership(kind=bpy.types.Collection, key=prop.identifier, saved=Saved.USED)
@@ -50,12 +50,12 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def members(layer: bpy.types.ViewLayer, emitter: bpy.types.Object) -> tuple[bpy.types.Object, ...]:
-        """Returns selected receivers excluding the emitter."""
+        """Returns selected objects except emitter."""
         return tuple(item for item in layer.objects.selected if item != emitter)
 
     @staticmethod
     def edited[T: Linking | Empty](link: Descriptor[bpy.types.PointerProperty], call: Call[T]) -> BlenderResult[Outcome]:
-        """Applies a link or unlink command to the active emitter and selected receivers, `Unchanged` where it would leave the slot as it is."""
+        """Links or unlinks selected objects in active emitter set, `Unchanged` when set stays."""
 
         def applied(layer: bpy.types.ViewLayer, emitter: bpy.types.Object) -> BlenderResult[Outcome]:
             members = LightLinks.members(layer, emitter)
@@ -64,7 +64,7 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
                 case Linking(state=state) if members or held.is_none():
                     return linked(emitter, link, members, state, emitter, call.identity).map(lambda made: Done(notes=(("INFO", f"Linked into {made.name}"),)))
                 case _ if not members:
-                    return Ok(Unchanged(reason="No object besides the emitter is selected"))
+                    return Ok(Unchanged(reason="No object besides emitter is selected"))
                 case _:
                     return held.map(
                         lambda collection: parted(collection, members).map(lambda changes: Done() if changes else Unchanged(reason=f"No selected object is in {collection.name}"))
@@ -74,28 +74,19 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
 
     commands: ClassVar[tuple[tuple[Operator[Linking], Operator[Empty]], ...]] = tuple(
         (
-            Operator(key=f"link_{slot}", title=f"Link to {link.prop.name}", description=f"Join the selected objects to the active emitter's {link.prop.name}", form=Linking, run=partial(edit, link)),
-            Operator(
-                key=f"unlink_{slot}", title=f"Unlink from {link.prop.name}", description=f"Remove the selected objects from the active emitter's {link.prop.name}", form=Empty, run=partial(edit, link)
-            ),
+            Operator(key=f"link_{slot}", title=f"Link to {link.prop.name}", description=f"Link selected objects into {link.prop.name} of active emitter", form=Linking, run=partial(edit, link)),
+            Operator(key=f"unlink_{slot}", title=f"Unlink from {link.prop.name}", description=f"Unlink selected objects from {link.prop.name} of active emitter", form=Empty, run=partial(edit, link)),
         )
         for link, edit in product(sets, (edited,))
         for slot in (link.prop.identifier,)
     )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains each set's ownership and operators for central acquisition.
-
-        Args:
-            _identity: Extension placing the row.
-
-        Returns:
-            `Ok` of the ownership and command declarations in native order.
-        """
+        """Returns set ownerships and link and unlink operators in RNA order."""
         return Ok((*LightLinks.sets.values(), *(command for pair in self.commands for command in pair)))
 
     def drawn(self, identity: Identity, /) -> BlenderResult[rows.RowDraw]:
-        """Acquires native linking templates and their link and unlink buttons."""
+        """Returns linking templates with link and unlink buttons."""
         reach = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).map(lambda item: item.light_linking))
         return accumulated(
             paired(
@@ -115,16 +106,16 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], owner: bpy.types.Object, identity: Identity) -> BlenderResult[bpy.types.Collection]:
-    """Answers the collection an emitter's link slot holds, making an owned one for an empty slot.
+    """Returns collection in emitter link slot, creating an owned one for an empty slot.
 
     Args:
-        emitter: Object whose slot is read.
+        emitter: Object with slot to read.
         link: Receiver or blocker member of `ObjectLightLinking`.
-        owner: Object the owned collection serves, the emitter or a rig's target.
-        identity: Identity marking the owned collection.
+        owner: Object the owned collection serves, emitter or rig target.
+        identity: Identity marking owned collection.
 
     Returns:
-        `Ok` of the slot's collection; `collision` for a taken name and `edit` for a refused slot write.
+        Slot collection, or `collision` and `edit` faults.
     """
     return (
         Option
@@ -141,18 +132,18 @@ def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProper
 def linked(
     emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], members: tuple[Linkable, ...], state: str, owner: bpy.types.Object, identity: Identity
 ) -> BlenderResult[bpy.types.Collection]:
-    """Joins members into an emitter's link set at one state.
+    """Links members into emitter set at state.
 
     Args:
-        emitter: Object whose set takes the members.
+        emitter: Object with set receiving members.
         link: Receiver or blocker member of `ObjectLightLinking`.
-        members: Objects and collections joining.
-        state: `link_state` identifier the operator admitted.
+        members: Objects and collections to link.
+        state: Validated `link_state` identifier.
         owner: Object an owned collection serves.
         identity: Identity marking an owned collection.
 
     Returns:
-        `Ok` of the set's collection; the faults of `link_set`, `joined`, `entry`, and each state write.
+        Set collection, or faults of `link_set`, `joined`, and state writes.
     """
     return (
         link_set(emitter, link, owner, identity)

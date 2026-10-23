@@ -10,4 +10,4 @@ rule:
         - regex: '(^[br]*#*"|\\n|\n)\s*(?i:usage)\s*(:|\\n|\n)'
         - regex: '(^[br]*#*"|\\n|\n)\s*-[A-Za-z0-9],\s+--[a-z][\w-]*'
 message: '`$USAGE` spells command-line help text by hand'
-note: 'Derive the command with `#[derive(clap::Parser)]`, describe it through `#[command(about = <text>)]` and each argument through `#[arg(help = <text>)]`'
+note: 'Derive `clap::Parser` on the command with `#[command(about = <text>)]` and `#[arg(help = <text>)]` per argument'

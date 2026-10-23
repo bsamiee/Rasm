@@ -26,4 +26,4 @@ rule:
         - inside: {kind: token_tree, inside: {kind: attribute, field: arguments, has: {nthChild: 1, kind: identifier, regex: '^(arg|clap)$'}}}
         - not: {matches: rust-test-scope}
 message: '`$KEY` restates the parser clap infers from the field type'
-note: 'Delete the key, the derive passes `value_parser!(<field type>)`, which builds the same parser'
+note: 'Delete `value_parser` with its value'

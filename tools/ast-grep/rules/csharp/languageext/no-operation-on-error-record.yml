@@ -132,5 +132,5 @@ rule:
             - has: {field: name, pattern: $MEMBER}
             - not: {any: [{matches: guard-factory}, {matches: inherited}]}
     inside: {stopBy: end, kind: declaration_list, inside: {matches: languageext-error-record}}
-message: '`$MEMBER` declares a limit or an operation on an error record'
-note: 'Move `<member>` to the operations class that raises the error'
+message: '`$MEMBER` declares a limit or operation inside an error record'
+note: 'Move the member to an operations class raising the error'

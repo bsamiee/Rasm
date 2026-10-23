@@ -42,5 +42,5 @@ rule:
 transform:
     IMPLICIT: {replace: {source: $DEFAULT, replace: '(?s)^.*$', by: 'MAPFILE'}}
 fix: '$READER && (( ${#$ARRAY$IMPLICIT[@]} ))'
-message: '`$READER` succeeds at end of input, the loop never ends by its status'
-note: 'Test the array length after the reader, `while mapfile -tn <count> <array> && (( ${#<array>[@]} )); do`, `MAPFILE` when the reader names no array'
+message: '`$READER` succeeds at end of input and never ends the `while` loop'
+note: 'Test array length after the reader, `<reader> && (( ${#<array>[@]} ))`, with `MAPFILE` for a reader naming no array'

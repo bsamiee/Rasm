@@ -10,14 +10,14 @@ import { FontView } from '#/font-view';
 
 class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')(
     {
-        name: Schema.String.annotate({ description: 'Native font name, PostScript name, or full name; a family selects its Regular face' }),
-        text: Schema.String.annotate({ description: 'Characters a native subset holds when the original file is unreadable' }),
+        name: Schema.String.annotate({ description: 'Font, PostScript, or full name, family name selects Regular face' }),
+        text: Schema.String.annotate({ description: 'Subset characters for unreadable font files' }),
     },
-    { description: 'Reads one font with the bytes of its face' },
+    { description: 'Reads font with face bytes' },
 ) {
     static readonly Result = Schema.Struct({
         view: FontView,
-        source: Schema.OptionFromOptionalKey(Source.annotate({ description: 'Face bytes of an installed font' })),
+        source: Schema.OptionFromOptionalKey(Source.annotate({ description: 'Installed face bytes' })),
     });
     run() {
         const { name, text } = this;

@@ -11,5 +11,5 @@ rule:
     inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
 transform:
     HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-message: '`$HEAD` takes a record, where InDesign drops a refused field or refuses the record naming no field'
-note: 'Call `add` with its required arguments alone, then write each field as `Object.assign(<member>, { [<key>]: <value> })` under `Effect.validate`'
+message: '`$HEAD` sets keys from a record with no error naming a refused key'
+note: 'Call `add` with its required arguments alone, then set each key through `Object.assign(<target>, { [<key>]: <value> })` under `Effect.validate`'

@@ -68,9 +68,9 @@ public sealed record TileLimitRows(
     public static TileLimitRows Default { get; } = new(
         Batch: new(ValueKey.Numeric("PreviewBatch", "Tiles per tick", "Preview tiles formed in one scheduling tick", TileBatch.Default,
             NumericDomain.Bounded<TileBatch, int>(new() { Form = NumberForm.Field })), SettingType.Integer),
-        Budget: new(ValueKey.Numeric("PreviewBudget", "Time budget", "Time available to form preview tiles in one scheduling tick", TileBudget.Default,
+        Budget: new(ValueKey.Numeric("PreviewBudget", "Time budget", "Time limit for preview tiles per scheduling tick", TileBudget.Default,
             NumericDomain.Bounded<TileBudget, int>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Millisecond) })), SettingType.Integer),
-        Capacity: new(ValueKey.Numeric("PreviewCapacity", "Cached tiles", "Preview tiles retained while they are not visible", TileCapacity.Default,
+        Capacity: new(ValueKey.Numeric("PreviewCapacity", "Cached tiles", "Preview tiles kept while offscreen", TileCapacity.Default,
             NumericDomain.Bounded<TileCapacity, int>(new() { Form = NumberForm.Field })), SettingType.Integer));
 
     public Seq<PlugInSetting> Rows => [Batch, Budget, Capacity];

@@ -26,9 +26,9 @@ public sealed partial class SetName {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SetMembership {
-    public static readonly SetMembership Member = new("member", label: "Member", hint: "Takes syncs and writes across sets, and renders", syncs: true, renders: true);
-    public static readonly SetMembership Locked = new("locked", label: "Locked", hint: "Keeps its values through syncs and writes across sets, and renders", syncs: false, renders: true);
-    public static readonly SetMembership Excluded = new("excluded", label: "Excluded", hint: "Keeps its values through syncs and writes across sets, and stays out of the render queue", syncs: false, renders: false);
+    public static readonly SetMembership Member = new("member", label: "Member", hint: "Renders, takes syncs and writes across sets", syncs: true, renders: true);
+    public static readonly SetMembership Locked = new("locked", label: "Locked", hint: "Renders, keeps values through syncs and writes across sets", syncs: false, renders: true);
+    public static readonly SetMembership Excluded = new("excluded", label: "Excluded", hint: "Skips render queue, keeps values through syncs and writes across sets", syncs: false, renders: false);
 
     private string Label { get; }
 
@@ -327,7 +327,7 @@ public static class RenderSets {
 
     public static Seq<Child> Rows() =>
         [
-            ListRows.List("Render Sets", "Render sets of this document, the checked set holding the live settings", new ListRow<SetRow, SetName>(
+            ListRows.List("Render Sets", "Document render sets, checked set holds live settings", new ListRow<SetRow, SetName>(
                     IterableNE.create(
                         ListColumn.Named<SetRow, SetName, string>(None, SetRow.Named, None),
                         new ListColumn<SetRow>.Label(None, static row => row.Membership.Caption, None, None),
@@ -338,12 +338,12 @@ public static class RenderSets {
                 Search = Some(new ListSearch<SetRow>("Search render sets", static (_, row) => row.Name, None)),
                 Wording = Wording.Library,
                 Pair = Some((
-                    new CommandRow.Run(Face("render-set-add", "Add Render Set", "Store the live settings as a new render set"), None, static scope =>
+                    new CommandRow.Run(Face("render-set-add", "Add Render Set", "Store live settings as new render set"), None, static scope =>
                         from held in Served(scope)
                         from name in HostDialogs.ShowEditBox<SetName>(RowText.Localize("Add Render Set"), RowText.Localize("Set name"), None)
                         from added in Add(held.History, held.Doc, name)
                         select unit),
-                    new CommandRow.Run(Face("render-set-remove", "Remove Render Sets", "Remove the selected render sets"), None, static scope =>
+                    new CommandRow.Run(Face("render-set-remove", "Remove Render Sets", "Remove selected render sets"), None, static scope =>
                         from held in Served(scope)
                         from picked in scope.Read(Picked.Source)
                         from removed in Callbacks.Each(toSeq(picked).Map(name => Remove(held.History, held.Doc, name)))
@@ -351,7 +351,7 @@ public static class RenderSets {
                 Commands = SetCommands,
             },
                 RowRules.Always),
-            ListRows.List("Settings by Set", "Each category's settings with the value every set holds", new ListRow<BoardRow, BoardKey>(
+            ListRows.List("Settings by Set", "Each set's value per setting", new ListRow<BoardRow, BoardKey>(
                     IterableNE.create<ListColumn<BoardRow>>(
                         new ListColumn<BoardRow>.Label(None, static row => row.Switch(
                             group: static group => group.Category.Caption,
@@ -375,7 +375,7 @@ public static class RenderSets {
     private static Seq<CommandRow> SetCommands(IO<Seq<SetRow>> selection) =>
         [
             new CommandRow.Radio(
-                Face("render-set-membership", "Membership", "Which writes the selected sets take and whether they render"), None,
+                Face("render-set-membership", "Membership", "Sync and render rules of selected sets"), None,
                 toSeq(SetMembership.Items).Map(membership => new CommandRow.Check(
                     new CommandFace($"render-set-{membership.Key}", membership.Caption, membership.Help, None, None) { Wording = Wording.Localized }, None,
                     _ => from rows in selection select !rows.IsEmpty && rows.ForAll(row => row.Membership == membership),
@@ -386,10 +386,10 @@ public static class RenderSets {
                         select unit).As()))),
             .. toSeq(SetCategory.Items).Map(category => Writer(
                 new CommandFace($"render-set-sync-{category.Key}", RowText.Localize("Sync {0}", arguments: [category.Caption]).Local,
-                    RowText.Localize("Copy the selected set's {0} settings into every synced set", arguments: [category.Caption]).Local, None, None) { Wording = Wording.Localized },
+                    RowText.Localize("Copy selected set {0} settings into every synced set", arguments: [category.Caption]).Local, None, None) { Wording = Wording.Localized },
                 [Picked.Source], selection,
                 (_, held, rows) => rows.Head.Traverse(row => Category(held.History, held.Doc, row.Key, category).Map(Everywhere)).As())),
-            Writer(Face("render-set-apply-all", "Apply to All Sets", "Write the selected set's settings into every synced set"), [Picked.Source], selection,
+            Writer(Face("render-set-apply-all", "Apply to All Sets", "Write selected set settings into every synced set"), [Picked.Source], selection,
                 static (_, held, rows) => rows.Head.Traverse(row => Values(held.History, held.Doc, row.Key).Map(Everywhere)).As()),
         ];
 
@@ -397,13 +397,13 @@ public static class RenderSets {
         [
             Writer(Face("render-set-board-apply-all", "Apply to All Sets", "Write each selected set value into every synced set"), [Chosen.Source], selection,
                 static (_, _, rows) => IO.pure(Incoming(rows).Map(Everywhere))),
-            Writer(Face("render-set-board-apply-set", "Apply to Selected Set", "Write each selected set value into the set selected in the set list"), [Chosen.Source, Picked.Source], selection,
+            Writer(Face("render-set-board-apply-set", "Apply to Selected Set", "Write selected values into set chosen in set list"), [Chosen.Source, Picked.Source], selection,
                 static (scope, _, rows) =>
                     from picked in scope.Read(Picked.Source)
                     select from incoming in Incoming(rows)
                            from target in toSeq(picked).Head
                            select (Some(target), incoming)),
-            new CommandRow.Check(Face("render-set-board-lock-set", "Lock in Set", "Keep the selected set values out of every write across sets"), None,
+            new CommandRow.Check(Face("render-set-board-lock-set", "Lock in Set", "Keep selected set values out of writes across sets"), None,
                 _ => from rows in selection select ValueRows(rows) switch { var values => !values.IsEmpty && values.ForAll(static value => value.Locked) },
                 (scope, enabled) =>
                     from held in Served(scope)
@@ -411,7 +411,7 @@ public static class RenderSets {
                     from ruled in Callbacks.Each(toSeq(ValueRows(rows).GroupBy(static value => value.Set))
                         .Map(set => Rule(held.History, held.Doc, set.Key, None, Some((toHashSet(set.Select(static value => value.Entry)), enabled)))))
                     select unit),
-            new CommandRow.Check(Face("render-set-board-lock-section", "Lock for Presets", "Keep the selected settings out of every preset apply, paste, and reset"), None,
+            new CommandRow.Check(Face("render-set-board-lock-section", "Lock for Presets", "Keep selected settings out of preset apply, paste, and reset"), None,
                 scope =>
                     from rows in selection
                     from locks in scope.Locked

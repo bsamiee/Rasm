@@ -21,8 +21,8 @@ namespace Rasm.Rhino.Render.Sessions;
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayerReader : ICaptioned {
     public static readonly LayerReader Blender = new("blender", "Blender", new ReaderConvention.Blender(NormalSpace.World));
-    public static readonly LayerReader NukeWorld = new("nuke-world", "Nuke, world normals", new ReaderConvention.Nuke(NormalSpace.World));
-    public static readonly LayerReader NukeView = new("nuke-view", "Nuke, view normals", new ReaderConvention.Nuke(NormalSpace.View));
+    public static readonly LayerReader NukeWorld = new("nuke-world", "Nuke world normals", new ReaderConvention.Nuke(NormalSpace.World));
+    public static readonly LayerReader NukeView = new("nuke-view", "Nuke view normals", new ReaderConvention.Nuke(NormalSpace.View));
 
     public string Caption { get; }
 
@@ -178,28 +178,28 @@ public sealed record OutputTarget(
 public sealed partial class TargetParameter : IStateParameter<OutputTarget> {
     public static readonly TargetParameter FileFormat = new("file-format", formation: false, new StateParameter<OutputTarget>.Choice<TargetFile>(
             Lens<OutputTarget, TargetFile>.New(static target => target.FileFormat, static value => target => target with { FileFormat = value })),
-        new("File format", "Format the file is written in"));
+        new("File format", "Format of written file"));
     public static readonly TargetParameter Alpha = new("alpha", formation: false, new StateParameter<OutputTarget>.Toggle(
             Lens<OutputTarget, bool>.New(static target => target.Alpha, static value => target => target with { Alpha = value })),
-        new("Alpha", "Includes alpha where the format supports it"));
+        new("Alpha", "Includes alpha where format supports it"));
     public static readonly TargetParameter ColorDepth = new("color-depth", formation: false, new StateParameter<OutputTarget>.Choice<OutputDepth>(
             Lens<OutputTarget, OutputDepth>.New(static target => target.ColorDepth, static value => target => target with { ColorDepth = value })),
-        new("Storage depth", "Bits stored per channel; a native bitmap source has 8-bit precision"));
+        new("Storage depth", "Bits per channel, native bitmap sources hold 8 bits"));
     public static readonly TargetParameter Codec = new("codec", formation: false, new StateParameter<OutputTarget>.Choice<ExrCompression>(
             Lens<OutputTarget, ExrCompression>.New(static target => target.Codec, static value => target => target with { Codec = value })),
-        new("Codec", "OpenEXR compression of the color parts"));
+        new("Codec", "OpenEXR compression of color parts"));
     public static readonly TargetParameter Reader = new("reader", formation: false, new StateParameter<OutputTarget>.OptionalChoice<LayerReader>(
             Lens<OutputTarget, Option<LayerReader>>.New(static target => target.Reader, static value => target => target with { Reader = value }), "Single part"),
-        new("Layers", "Writes each render channel as a part named for its reader"));
+        new("Layers", "Writes each render channel as a part named for chosen reader"));
     public static readonly TargetParameter Position = new("position", formation: false, new StateParameter<OutputTarget>.Toggle(
             Lens<OutputTarget, bool>.New(static target => target.Position, static value => target => target with { Position = value })),
-        new("Position", "Adds world position from the distance channel and the rendering's camera"));
+        new("Position", "Adds world position from distance channel and rendering camera"));
     public static readonly TargetParameter DisplayDevice = new("display-device", formation: true, new StateParameter<OutputTarget>.Choice<Imaging.Tone.Display>(
             Lens<OutputTarget, Imaging.Tone.Display>.New(static target => target.DisplayDevice, static value => target => target with { DisplayDevice = value })),
-        new("Display", "Display for a captured callback or history frame; native bitmap saves preserve Rhino's display"));
+        new("Display", "Display for callback or history frames, native bitmap saves keep Rhino display"));
     public static readonly TargetParameter Dithering = new("dithering", formation: true, new StateParameter<OutputTarget>.Choice<Dither>(
             Lens<OutputTarget, Dither>.New(static target => target.Dithering, static value => target => target with { Dithering = value })),
-        new("Dither", "Final integer quantization of a captured callback or history frame; native bitmap saves preserve Rhino's dither"));
+        new("Dither", "Integer quantization of callback or history frames, native bitmap saves keep Rhino dither"));
 
     public bool Formation { get; }
 
@@ -246,11 +246,11 @@ public static class TargetRows {
     private static string VerdictText(TargetVerdict verdict) =>
         RowText.Localize(verdict.Map(
             honored: "Written as chosen",
-            rawChannels: "Scene-linear samples: renderer channels for native windows, captured scene input for callback or history exports",
+            rawChannels: "Scene-linear renderer channels for native windows, captured scene input for callback and history exports",
             lossyColor: "Color parts lossy, data parts lossless",
-            noSample: "Refused, the format holds no sample at this depth",
-            nativeDisplay: "Native windows supply 8-bit display for integer files and renderer channels for float files; callback and history exports form their captured pixels",
-            noLevels: "Refused, a float depth holds no levels to dither")).Local;
+            noSample: "Refused, format holds no samples at chosen depth",
+            nativeDisplay: "Native windows supply 8-bit display for integer files, renderer channels for float files, callback and history exports form captured pixels",
+            noLevels: "Refused, float depth has no levels to dither")).Local;
 
     // --- [BOOK]
     public static IO<OutputBook> Book(RhinoDoc doc) =>
@@ -318,12 +318,12 @@ public static class TargetRows {
                 Listed,
                 Picked) {
             Pair = Some((
-                new CommandRow.Run(new CommandFace("output-target-add", "Add Target", "Add a file each save writes", None, None), None, static scope =>
+                new CommandRow.Run(new CommandFace("output-target-add", "Add Target", "Add target to each save", None, None), None, static scope =>
                     from doc in scope.DocumentIO
                     from book in Book(doc)
                     from written in Write(doc, book with { Targets = book.Targets.Add(OutputTarget.Default), Current = Some(book.Targets.Count) })
                     select written),
-                new CommandRow.Run(new CommandFace("output-target-remove", "Remove Targets", "Remove the selected targets", None, None),
+                new CommandRow.Run(new CommandFace("output-target-remove", "Remove Targets", "Remove selected targets", None, None),
                     Some(RowRule.When(Picked.Source, static picked => !picked.IsEmpty, Picked.Field.Parameter)), static scope =>
                         from doc in scope.DocumentIO
                         from picked in scope.Read(Picked.Source)
@@ -340,7 +340,7 @@ public static class TargetRows {
             target => target.FileFormat.Verdict(parameter, target).Match(Some: VerdictText, None: static () => ""),
             Rules(parameter))),
         .. SectionRows.Of(Destined, Destined.Fields, None, static _ => RowRules.Always),
-        ListRows.List("Paths", "Files the next save writes", new ListRow<(OutputName Name, OutputPath Path), string>(
+        ListRows.List("Paths", "Files next save writes", new ListRow<(OutputName Name, OutputPath Path), string>(
                 IterableNE.create<ListColumn<(OutputName Name, OutputPath Path)>>(new ListColumn<(OutputName Name, OutputPath Path)>.Label(None, static row => row.Path, None, None)),
                 static row => row.Path,
                 RowSource.Opaque(Owner, "paths", Seq<(OutputName Name, OutputPath Path)>(), static scope => ValueStore.Readout(

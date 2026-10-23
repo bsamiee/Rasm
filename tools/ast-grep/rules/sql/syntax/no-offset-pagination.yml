@@ -9,4 +9,4 @@ rule:
         - has: {regex: '(?i)^offset$', precedes: {pattern: _SKIP, not: {kind: numeric_literal}}}
         - all: [{has: {regex: '^,$'}}, {has: {nthChild: 1, pattern: _SKIP, not: {kind: numeric_literal}}}]
 message: '`$LIMIT` reads and discards `$SKIP` rows per page'
-note: 'Page by key with `where <key> > <last key> order by <key> limit <count>` over a unique order'
+note: 'Page by key with `where <key> > <last key> order by <key> limit <count>` on a unique `<key>`'

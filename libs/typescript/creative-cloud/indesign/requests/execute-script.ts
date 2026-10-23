@@ -16,18 +16,18 @@ class ExecuteScript extends Mutation.extend<ExecuteScript>('ExecuteScript')(
     { code: Schema.String.annotate({ description: 'JavaScript function body' }) },
     {
         description: [
-            'Runs native UXP JavaScript in InDesign with app, referenced native enumerations and DOM classes, and resolve(specifier) in scope.',
-            'The body runs synchronously as one undo step, rolled back on a throw. A UXP script answers before awaited work runs, so the body holds no await, and File fields, which UXP returns as promises, read as paths through inspect.',
-            'Return values encode enumerators by name, objects as {type, specifier, name, valid}, and collections as {type, specifier, length}. Inspect class names for native fields and method signatures.',
+            'Scope holds app, referenced enumerations and DOM classes, and resolve(specifier)',
+            'Body runs synchronously in one undo step, a throw rolls it back and awaited work runs after the answer. Inspect reads File fields as paths',
+            'Results encode enumerators by name, objects as {type, specifier, name, valid}, collections as {type, specifier, length}. kind lists class members',
         ].join('\n'),
     },
 ) {
     static readonly Result = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
 
     override get label(): string {
-        return `Run script: ${Option.getOrElse(
+        return `Run ${Option.getOrElse(
             Array.findFirst(this.code.split(LINE_BREAK), (line) => line.trim() !== ''),
-            () => '(empty)',
+            () => 'empty script',
         ).trim()}`;
     }
 

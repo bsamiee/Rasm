@@ -61,5 +61,5 @@ transform:
     BEGIN_HEAD: {replace: {source: $BEGIN, replace: '(?s)^(?:\(\)\s*=>\s*)?\{?\s*([@\w.]+).*$', by: '$1'}}
     END_HEAD: {replace: {source: $END, replace: '(?s)^(?:\(\)\s*=>\s*)?\{?\s*([@\w.]+).*$', by: '$1'}}
     BODY_HEAD: {replace: {source: $BODY, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
-message: '`$BEGIN_HEAD` and `$END_HEAD` bracket `$BODY_HEAD` by hand'
-note: 'Write `<acquire>.Bracket(Use: <body>, Fin: <release>)`'
+message: '`$BEGIN_HEAD` and `$END_HEAD` bracket `$BODY_HEAD` through `Finally` by hand'
+note: 'Write `<begin lift>.Bracket(Use: _ => <body>, Fin: _ => <end lift>)`'

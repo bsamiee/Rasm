@@ -20,7 +20,7 @@ struct AccountRemovalAlert: ViewModifier {
                 .keyboardShortcut(.defaultAction)
             Button(Self.title, role: .destructive) { store.remove(model.account.id) }
         } message: { model in
-            let message: String = "Removing \(model.account.identity.email) deletes its credential" + (model.isSelected ? " and signs \(model.account.provider.tool) out" : "")
+            let message: String = "Removal deletes \(model.account.identity.email) credential" + (model.isSelected ? " and signs \(model.account.provider.tool) out" : "")
             Text(message)
         }
     }
@@ -134,12 +134,12 @@ struct MenuBarExtraContent: View {
     private func showSettings() {
         dismiss()
         openWindow(id: RelayApp.settingsWindow)
-        Task(name: "Bring Relay to front") {
+        Task(name: "Activate Relay") {
             let reopened: Result<NSRunningApplication, any Error> = await Result {
                 try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
             }
             if case .failure(let error) = reopened {
-                Logger(for: Self.self).error("Bringing Relay to front failed: \(error, privacy: .public)")
+                Logger(for: Self.self).error("Relay activation failed with \(error, privacy: .public)")
             }
         }
     }

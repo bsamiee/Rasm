@@ -70,7 +70,7 @@ public sealed partial class CommandName {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new ValidationError("name is blank or holds a space, comma, semicolon, or control separator");
+        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new ValidationError("command name is blank or holds space, comma, semicolon, or control character");
         value = trimmed ?? value;
     }
 }
@@ -83,7 +83,7 @@ public sealed partial class PackageSource {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new ValidationError($"source is blank or holds {Separator}");
+        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new ValidationError($"package source is blank or holds {Separator}");
         value = trimmed ?? value;
     }
 }

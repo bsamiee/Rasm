@@ -1,4 +1,4 @@
-"""Native file handlers, export references, units, and collection export declarations."""
+"""File handlers, export references, units, and collection exporters."""
 
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
@@ -33,7 +33,7 @@ type HandlerRows[I: msgspec.Struct, E: msgspec.Struct] = Importing[I] | tuple[Op
 
 
 class SceneFormat(Enum):
-    """Scene export policies valued by their native operators."""
+    """Scene export formats valued by export operator."""
 
     ALEMBIC = bpy.ops.wm.alembic_export
     USD = bpy.ops.wm.usd_export
@@ -43,7 +43,7 @@ class SceneFormat(Enum):
 
 
 class Importing[I: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Import operator and its native drop-target policy."""
+    """Import operator with drop poll."""
 
     operator: Operator[I]
     record: I
@@ -58,14 +58,14 @@ class Bidirectional[I: msgspec.Struct, E: msgspec.Struct](msgspec.Struct, frozen
 
 
 class Interchange[I: msgspec.Struct, E: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """File handler registered with its original import and export operator rows."""
+    """File handler registered with its import and export operators."""
 
     key: Key
     title: str
     rows: HandlerRows[I, E]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns nested operator rows and a handler class, or independent naming and format faults."""
+        """Returns operators and file handler class, absent fault per operator lacking file invoke."""
 
         def named[T: msgspec.Struct](row: Option[Operator[T]]) -> BlenderResult[Option[str]]:
             return row.map(lambda operator: identity.name(Name.OPERATOR, operator.key).map(Some)).default_value(Ok(Nothing))
@@ -121,20 +121,20 @@ class Interchange[I: msgspec.Struct, E: msgspec.Struct](msgspec.Struct, frozen=T
 
 
 class References(msgspec.Struct, frozen=True, kw_only=True):
-    """Native export path mode and the destination subfolder for copied references."""
+    """Export path mode and destination subfolder for copied files."""
 
     mode: Literal["AUTO", "ABSOLUTE", "RELATIVE", "MATCH", "STRIP", "COPY"] = path_reference_mode.keywords["default"]
     subfolder: str = ""
 
     def path(self, filepath: str, destination: Path, library: Option[bpy.types.Library] = Nothing) -> BlenderResult[str]:
-        """Returns a native export reference after its copies, or write faults."""
+        """Copies referenced files, returning export path."""
         copies: set[tuple[str, str]] = set()
         reference = path_reference(filepath, bpy.path.abspath("//"), str(destination), mode=self.mode, copy_subdir=self.subfolder, copy_set=copies, library=library.to_optional())
         return files_copied((Path(source), Path(target)) for source, target in copies).map(lambda _: reference)
 
 
 class Exporter(msgspec.Struct, frozen=True, kw_only=True):
-    """Collection export settings using an extension key or a native handler enum item."""
+    """Collection exporter over extension handler key or native handler item."""
 
     handler: Key | bpy.types.EnumPropertyItem
     path: str
@@ -145,7 +145,7 @@ class Exporter(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def scale(scene: bpy.types.Scene, source: str) -> BlenderResult[float]:
-    """Returns source-unit text in scene units, or the native length-parser refusal."""
+    """Parses length text into scene units."""
     return (
         catch(lambda: bpy.utils.units.to_value(bpy.utils.units.systems.METRIC, bpy.utils.units.categories.LENGTH, source), exception=ValueError)()  # type: ignore[attr-defined]
         .map(lambda meters: meters / scene.unit_settings.scale_length)
@@ -154,7 +154,7 @@ def scale(scene: bpy.types.Scene, source: str) -> BlenderResult[float]:
 
 
 def reconciled(identity: Identity, collection: bpy.types.Collection, exporters: Mapping[str, Exporter]) -> BlenderResult[None]:
-    """Returns None after reconciliation, or every independent naming, acquisition, and write fault."""
+    """Reconciles collection exporters, accumulating faults."""
     held = collection.exporters
     existing = dict(held.items())
     extent = Descriptor.resolve(bpy.types.CollectionExport, "name", bpy.types.StringProperty).map(lambda descriptor: descriptor.prop.length_max - 1)
@@ -188,12 +188,12 @@ def reconciled(identity: Identity, collection: bpy.types.Collection, exporters: 
                 case key:
                     handler = identity.name(Name.FILE_HANDLER, key)
             try:
-                admitted = extent.map(
+                validated = extent.map(
                     lambda limit: msgspec.convert((name, name.encode()), tuple[Annotated[str, msgspec.Meta(pattern=r"\A[^\x00]+\Z")], Annotated[bytes, msgspec.Meta(max_length=limit)]])
                 )
             except (msgspec.ValidationError, UnicodeError) as error:
-                admitted = Error((BlenderReadFault(request=name, error=error),))
-            return paired(admitted, handler).bind(lambda pair: acquired(pair[1]))
+                validated = Error((BlenderReadFault(request=name, error=error),))
+            return paired(validated, handler).bind(lambda pair: acquired(pair[1]))
 
         def removed(item: bpy.types.CollectionExport) -> BlenderResult[None]:
             try:
@@ -209,7 +209,7 @@ def reconciled(identity: Identity, collection: bpy.types.Collection, exporters: 
 
 
 def exported(scene: bpy.types.Scene, form: SceneFormat, collection: bpy.types.Collection, path: Path) -> BlenderResult[Path]:
-    """Returns a collection's Alembic or animated USD path, or the native export refusal."""
+    """Exports collection as Alembic or animated USD."""
     match form:
         case SceneFormat.ALEMBIC:
             properties: dict[str, object] = {"selected": False, "as_background_job": False}

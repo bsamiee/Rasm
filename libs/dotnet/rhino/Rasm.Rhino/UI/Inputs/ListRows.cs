@@ -92,10 +92,10 @@ public sealed record BrowserLayout(Option<TileSize> Size, Option<BrowserMode> Mo
 public sealed partial class BrowserLayoutParameter : IStateParameter<BrowserLayout> {
     public static readonly BrowserLayoutParameter Size = new("tile-size", new StateParameter<BrowserLayout>.OptionalKeyed<TileSize, float>(
             Lens<BrowserLayout, Option<TileSize>>.New(static layout => layout.Size, static size => layout => layout with { Size = size })),
-        new("Tile size", "Width of each thumbnail, the fitted width when unset"));
+        new("Tile size", "Thumbnail width, fitted to browser when absent"));
     public static readonly BrowserLayoutParameter Mode = new("mode", new StateParameter<BrowserLayout>.OptionalChoice<BrowserMode>(
             Lens<BrowserLayout, Option<BrowserMode>>.New(static layout => layout.Mode, static mode => layout => layout with { Mode = mode }), "Default"),
-        new("View", "Arrangement of the thumbnails, the browser's own when unset"));
+        new("View", "Thumbnail arrangement, row default when absent"));
 
     public StateParameter<BrowserLayout> Kind { get; }
 

@@ -1,4 +1,4 @@
-"""Held callback failures, their report entries, and deferred main-thread writes."""
+"""Callback fault reports and deferred main-thread writes."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -71,7 +71,7 @@ if TYPE_CHECKING:
 
 
 class Reports:
-    """One extension's callback failures and pending main-thread writes."""
+    """Extension callback faults and pending writes."""
 
     # --- [LIFECYCLE]
 
@@ -79,7 +79,7 @@ class Reports:
         """Initializes empty reports and pending writes.
 
         Args:
-            logger: Extension logger receiving every held report entry with its native report type.
+            logger: Logger receiving each new entry with its report type.
         """
         self.logger = logger
         self.held: dict[tuple[rna_enums.WmReportItems, str], None] = {}
@@ -88,12 +88,12 @@ class Reports:
         self.scopes = ExitStack()
 
     def __enter__(self) -> Self:
-        """Returns the reports held at the head of the registration scope."""
+        """Opens deferred redraw, entered first in registration scope."""
         self.redraw = self.scopes.enter_context(self.deferred(redrawn))
         return self
 
     def __exit__(self, *_: object) -> None:
-        """Retires redraw admission and unregisters pending writes held by Blender."""
+        """Closes deferred redraw and unregisters pending write timers."""
         self.scopes.close()
         with self.lock:
             for write in dict.fromkeys(original for original, *_ in self.pending):
@@ -103,14 +103,14 @@ class Reports:
 
     @property
     def entries(self) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
-        """Native report type and text of every distinct held leaf failure in first-hold order."""
+        """Report type and text per distinct held fault, in hold order."""
         return tuple(self.held)
 
     def hold(self, faults: BlenderFaults) -> None:
-        """Holds each distinct failure entry once, logging and redrawing for entries not yet held.
+        """Holds each distinct fault entry once, logging and redrawing new ones.
 
         Args:
-            faults: Complete ordered failures from a callback.
+            faults: Ordered faults of one callback.
         """
         with self.lock:
             fresh = tuple(entry for entry in dict.fromkeys(rendered(faults)) if entry not in self.held)
@@ -121,18 +121,18 @@ class Reports:
             self.redraw()
 
     def reported[**P, T](self, callback: Callable[P, BlenderResult[T]]) -> Callable[P, Option[T]]:
-        """Returns a callback translating its result into an option and holding failures.
+        """Wraps callback to return Option, holding its faults.
 
         Args:
-            callback: Callback answering a Blender result.
+            callback: Callback returning BlenderResult.
 
         Returns:
-            A callback answering Some(value) on success or Nothing after holding its failures.
+            Callback returning Some(value) on success or Nothing after holding faults.
         """
 
         @functools.wraps(callback)
         def translated(*args: P.args, **kwargs: P.kwargs) -> Option[T]:
-            """Translates one callback result at the host boundary."""
+            """Holds faults, returning Option."""
             return callback(*args, **kwargs).map_error(self.hold).to_option()
 
         return translated
@@ -140,10 +140,10 @@ class Reports:
     # --- [DEFERRAL]
 
     def cancelled(self, write: object) -> None:
-        """Cancels queued calls without retiring their live resource scopes.
+        """Cancels write's queued calls, scopes staying open.
 
         Args:
-            write: Original write or callable yielded by one deferred scope.
+            write: Original write or callable one deferred scope yielded.
         """
         with self.lock:
             for key in tuple((original, called, args, kwargs) for original, called, args, kwargs in self.pending if original is write or called is write):
@@ -153,30 +153,30 @@ class Reports:
 
     @contextmanager
     def deferred[**P](self, write: Callable[P, BlenderResult[Option[str]]]) -> Generator[Callable[P, None]]:
-        """Holds write admission until its resources retire, canceling queued calls on exit.
+        """Accepts write calls until scope exit, then cancels queued ones.
 
         Args:
-            write: Write answering an optional undo-step name; arguments are hashable handles or records.
+            write: Write returning optional undo step name, its arguments hashable handles or records.
 
         Yields:
-            A callable running each argument set at its call in background mode, where no event loop runs, and coalescing it into one main-thread timer otherwise.
+            Callable running write at call in background mode, else coalescing each argument set into one main-thread timer.
         """
         active = True
         applied = self.reported(write)
 
         @functools.wraps(write)
         def immediate(*args: P.args, **kwargs: P.kwargs) -> None:
-            """Runs the write at its call, dropping its step name since background runs hold no undo stack."""
+            """Runs write at call with no undo push."""
             if active:
                 _ = applied(*args, **kwargs)
 
         @functools.wraps(write)
         def queued(*args: P.args, **kwargs: P.kwargs) -> None:
-            """Schedules one pending write for these arguments."""
+            """Schedules one write per argument set."""
             key = (write, queued, args, frozenset(kwargs.items()))
 
             def ticked() -> float | None:
-                """Runs this queued call while its scope and native timer still own it, waiting out a locked interface."""
+                """Runs queued call while scope and timer own it, rescheduling under interface lock."""
                 with self.lock:
                     if not active or self.pending.get(key) is not ticked:
                         return None
@@ -205,112 +205,112 @@ class Reports:
 
 
 def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
-    """Returns native report entries for every leaf failure in input order.
+    """Returns report entries for every leaf fault in input order.
 
     Args:
-        faults: Complete Blender failures, including lower-package tuples.
+        faults: Blender faults, nested imaging and rendering tuples included.
 
     Returns:
-        One native report type and rendered text per leaf failure.
+        One report type and text per leaf fault.
     """
 
     def imaging(fault: ImagingFault) -> str:
-        """Renders one imaging failure from its native payload."""
+        """Renders one imaging fault."""
         match fault:
             case ImagingColorFault(request=request, error=error):
-                return f"Color operation on {request if isinstance(request, str) else type(request).__name__} failed: {error}"
+                return f"Color operation on {request if isinstance(request, str) else type(request).__name__} failed. {error}"
             case ImagingUnresolvedFault(error=names):
-                return f"Color configuration resolves no colorspace for {', '.join(names)}"
+                return f"Color configuration lacks color spaces {', '.join(names)}"
             case ImagingCoincidentFault(curve=curve):
-                return f"{type(curve).__name__} holds two knots of one curve at one input"
+                return f"{type(curve).__name__} holds two knots at one input"
             case ImagingBaseFault(space=space, transform=transform):
-                return f"Color space {space} has unsupported linear RGB geometry: {transform}"
+                return f"Color space {space} transform {transform} lacks linear RGB geometry"
             case ImagingSpectralFault(space=space, values=values):
-                return f"Spectral matching for {space} cannot normalize RGB channels: {values}"
+                return f"{space} spectral matching cannot normalize RGB integrals {values}"
             case ImagingReadFault(request=path, error=error):
-                return f"{path} is unreadable: {error}"
+                return f"{path} is unreadable. {error}"
             case ImagingWriteFault(request=path, error=error):
-                return f"{path} is unwritable: {error}"
+                return f"{path} is unwritable. {error}"
             case ImagingBufferFault(error=error):
-                return f"Image buffer operation failed: {error}"
+                return f"Image buffer operation failed. {error}"
             case ImagingMismatchFault(reference=reference, test=test):
-                return f"Images of shape {reference} and {test} differ"
+                return f"Image shapes {reference} and {test} differ"
             case ImagingComparisonFault(error=error):
-                return f"Image comparison failed: {error}"
+                return f"Image comparison failed. {error}"
             case ImagingCalibrationFault(singular_values=values, tolerance=tolerance):
-                return f"Calibration matrix has singular values {values}, outside tolerance {tolerance:.3g}"
+                return f"Calibration matrix singular values {values} fail tolerance {tolerance:.3g}"
             case ImagingNumericFault(request=request, error=error):
-                return f"Numeric operation for {request} failed ({type(error).__name__}): {error}"
+                return f"Numeric operation for {request} failed ({type(error).__name__}). {error}"
             case ImagingContrastFault(request=request, black=black, white=white):
-                return f"{request} has zero normalization contrast between endpoints {black} and {white}"
+                return f"{request} has no contrast between black {black} and white {white}"
             case ImagingLutShapeFault(path=path, shape=shape):
                 return f"LUT image {path} has incompatible shape {shape}"
             case ImagingWhiteFault(white=white):
-                return white.map(lambda value: f"Measured scene white {value} lies outside the tone operator's exposure domain").default_value("White metering has no covered finite luminance samples")
+                return white.map(lambda value: f"Scene white {value} lies outside tone operator exposure domain").default_value("White metering covers no finite luminance sample")
             case ImagingJpegFault(request=request, error=error):
-                return f"JPEG compression for {request} failed: {error}"
+                return f"JPEG compression for {request} failed. {error}"
 
     def rendering(fault: RenderingFault) -> tuple[str, ...]:
-        """Renders rendering failures, preserving complete nested imaging tuples."""
+        """Renders rendering fault, one text per nested imaging fault."""
         match fault:
             case RenderingNameFault(request=text, error=pattern):
                 return (f"{text} does not match {pattern.pattern}",)
             case RenderingRootFault(request=path, error=root):
                 return (f"{path} lies outside {root}",)
             case RenderingReadFault(request=path, error=error):
-                return (f"{path} is unreadable: {error}",)
+                return (f"{path} is unreadable. {error}",)
             case RenderingWriteFault(request=path, error=error):
-                return (f"{path} is unwritable: {error}",)
+                return (f"{path} is unwritable. {error}",)
             case RenderingSendFault(request=endpoint, error=error):
                 return (
                     f"{endpoint} answered HTTP {error}"
                     if isinstance(error, int)
-                    else f"{endpoint} failed: {error}"
+                    else f"{endpoint} failed. {error}"
                     if isinstance(error, OverflowError)
-                    else f"{endpoint} failed: {error.name.lower().replace('_', ' ')}",
+                    else f"{endpoint} failed ({error.name.lower().replace('_', ' ')})",
                 )
             case RenderingDependencyFault(request=target, error=parts):
                 return (f"{target.__name__} cannot enforce prerequisites for queue parts {parts}",)
             case RenderingRunFault(request=arguments, error=error):
                 command = " ".join(arguments)
-                return (f"{command} exited with code {error}" if isinstance(error, int) else f"{command} failed to start: {error}",)
+                return (f"{command} exited with code {error}" if isinstance(error, int) else f"{command} failed to start. {error}",)
             case RenderingWaitFault(request=interval, error=limit):
-                return (f"Heartbeat interval {interval} seconds cannot fit a native timed wait below {limit} milliseconds",)
+                return (f"Heartbeat interval {interval} s reaches wait limit {limit} ms",)
             case RenderingSystemFault(request=(call, argument), error=error):
-                return (f"{call.name.lower().replace('_', ' ')} of {argument} failed: {error}",)
+                return (f"{call.name.capitalize().replace('_', ' ')} of {argument} failed. {error}",)
             case RenderingTimeFault(request=request, error=error):
-                return (f"Calendar calculation for {request} failed: {error}",)
+                return (f"Calendar calculation for {request} failed. {error}",)
             case RenderingSizeFault(request=size, error=bounds):
                 return (bounds.map(lambda limit: f"Pixel dimensions {size} lie outside full-scale overscan bounds {limit}").default_value(f"Pixel dimensions {size} are empty"),)
             case RenderingArithmeticFault(request=operands, error=error):
                 named = ", ".join(type(operand).__name__ if isinstance(operand, msgspec.Struct) else f"{operand:g}" for operand in (operands if isinstance(operands, tuple) else (operands,)))
-                return (f"Numeric calculation for {named} failed ({type(error).__name__}): {error}",)
+                return (f"Numeric calculation for {named} failed ({type(error).__name__}). {error}",)
             case RenderingImagingFault(faults=inner):
                 return tuple(map(imaging, inner))
 
     def blender(fault: BlenderFault) -> tuple["rna_enums.WmReportItems", tuple[str, ...]]:
-        """Renders native Blender cases with their host report severity."""
+        """Renders one Blender fault with its report type."""
         match fault:
             case BlenderRegisterFault(request=names, error=error):
-                return "ERROR", (f"{', '.join(names)} refused registration: {error}",)
+                return "ERROR", (f"Registration of {', '.join(names)} refused. {error}",)
             case BlenderEditFault(request=path, error=error):
-                return "ERROR", (f"{path} refused the operation: {error}",)
+                return "ERROR", (f"{path} refused edit. {error}",)
             case BlenderChoiceFault(path=path, identifier=identifier, accepted=accepted):
-                return "ERROR_INVALID_INPUT", (f"{identifier} is outside {path}, which accepts {', '.join(accepted)}",)
+                return "ERROR_INVALID_INPUT", (f"{path} accepts {', '.join(accepted)}, not {identifier}",)
             case BlenderAbsentFault(owner=owner, key=key):
                 return "ERROR_INVALID_INPUT", (f"{owner} holds no {key}",)
             case BlenderCollisionFault(request=name, error=path):
-                return "ERROR_INVALID_INPUT", (f"{name} is taken, and the item stands at {path}",)
+                return "ERROR_INVALID_INPUT", (f"{name} is taken at {path}",)
             case BlenderUnmetFault(requirement=requirement):
                 return "ERROR_INVALID_CONTEXT", (requirement.message,)
             case BlenderOperatorFault(request=identifier, error=error):
-                return "ERROR", (f"{identifier} answered {', '.join(sorted(error))}" if isinstance(error, frozenset) else f"{identifier} failed: {error}",)
+                return "ERROR", (f"{identifier} answered {', '.join(sorted(error))}" if isinstance(error, frozenset) else f"{identifier} failed. {error}",)
             case BlenderReadFault(request=path, error=error):
-                return "ERROR", (f"{path} is unreadable: {error}",)
+                return "ERROR", (f"{path} is unreadable. {error}",)
             case BlenderWriteFault(request=path, error=error):
-                return "ERROR", (f"{path} is unwritable: {error}",)
+                return "ERROR", (f"{path} is unwritable. {error}",)
             case BlenderZoneFault(request=identifier, error=error):
-                return "ERROR", (f"Time zone {identifier} is unavailable: {error}",)
+                return "ERROR", (f"Time zone {identifier} is unavailable. {error}",)
             case BlenderImagingFault(faults=inner):
                 return "ERROR", tuple(map(imaging, inner))
             case BlenderRenderingFault(faults=inner):
@@ -323,7 +323,7 @@ def redrawn() -> BlenderResult[Option[str]]:
     """Tags every area of every window for redraw.
 
     Returns:
-        Ok(Nothing), since redraw adds no undo step.
+        Ok(Nothing), redraw pushing no undo step.
     """
     for area in (area for manager in Option.of_optional(bpy.context.window_manager).to_list() for window in manager.windows for area in window.screen.areas):
         area.tag_redraw()

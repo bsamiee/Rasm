@@ -40,20 +40,31 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         {
             let ctxt = expr.span.ctxt();
             let mut applicability = Applicability::MaybeIncorrect;
-            let kept = iter::zip(fields, &sources).filter(|(_, source)| source.is_none()).map(|(field, _)| snippet_with_context(cx, field.span, ctxt, "..", &mut applicability).0).join(", ");
             let (named, _) = snippet_with_context(cx, path.span(), ctxt, "..", &mut applicability);
             let base = Sugg::hir_with_context(cx, base, ctxt, "..", &mut applicability);
-            span_lint_hir_and_then(cx, MANUAL_TYPE_CHANGING_STRUCT_UPDATE, expr.hir_id, expr.span, format!("`{named}` copies each field of `{base}` to change its type arguments"), |diag| {
-                suggest(
-                    cx,
-                    expr.hir_id,
-                    diag,
-                    expr.span,
-                    "write the changed fields and `..base` under `#![feature(type_changing_struct_update)]`",
-                    format!("{named} {{ {kept}, ..{base} }}"),
-                    applicability,
-                );
-            });
+            let written = iter::zip(fields, &sources)
+                .filter(|(_, source)| source.is_none())
+                .map(|(field, _)| snippet_with_context(cx, field.span, ctxt, "..", &mut applicability).0.into_owned())
+                .chain([format!("..{base}")])
+                .join(", ");
+            span_lint_hir_and_then(
+                cx,
+                MANUAL_TYPE_CHANGING_STRUCT_UPDATE,
+                expr.hir_id,
+                expr.span,
+                format!("`{named}` literal copies each unchanged field of `{base}` to change its type arguments"),
+                |diag| {
+                    suggest(
+                        cx,
+                        expr.hir_id,
+                        diag,
+                        expr.span,
+                        format!("write the changed fields and `..{base}` under `#![feature(type_changing_struct_update)]`"),
+                        format!("{named} {{ {written} }}"),
+                        applicability,
+                    );
+                },
+            );
         }
     }
 }

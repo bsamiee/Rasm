@@ -1,4 +1,4 @@
-"""Native geometric fields, painted shapes, and shared distance-ramp coverage."""
+"""Geometric fields, painted shapes, and shared distance-ramp coverage."""
 
 from collections.abc import Mapping
 from functools import cache, partial, reduce
@@ -64,7 +64,7 @@ type Region = Figure | Boolean | Morph | Lightning | Window
 
 
 def boxed(key: Key, point: Operand, width: Operand, height: Operand, roundness: Operand) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Returns rounded-box distance and the shorter full side."""
+    """Returns rounded-box distance and shorter full side."""
     extents = node(f"{key}_size", bpy.types.ShaderNodeCombineXYZ, {"X": width, "Y": height}, {}).map(ended(f"{key}_size", "Vector")).bind(lambda size: vector(f"{key}_half", "SCALE", size, 0.5))
     narrow = math(f"{key}_width", "MINIMUM", width, height)
     radius = narrow.bind(lambda narrow: math(f"{key}_radius", "MULTIPLY", narrow, roundness)).bind(lambda radius: math(f"{key}_half_radius", "MULTIPLY", radius, 0.5))
@@ -97,7 +97,7 @@ def stroked(key: Key, point: Operand, start: Operand, end: Operand, first: Opera
 
 
 def lattice(key: Key, point: Operand, width: Operand, height: Operand, offset: Operand, line: Operand) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Returns mortar distance and the shared integer-cell coordinate."""
+    """Returns mortar distance and integer cell coordinate."""
     axes = node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {})
     row = axes.bind(lambda axes: math(f"{key}_row_parameter", "DIVIDE", ended(f"{key}_axes", "Y")(axes), height)).bind(lambda parameter: math(f"{key}_row", "FLOOR", parameter))
     shift = (
@@ -128,7 +128,7 @@ def lattice(key: Key, point: Operand, width: Operand, height: Operand, offset: O
 
 
 def polygonal(key: Key, point: Operand, vertices: tuple[Operand, ...], rounding: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns the rounded boundary distance of an ordered polygon."""
+    """Returns rounded boundary distance of ordered polygon."""
     axes = node(f"{key}_point", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {})
 
     def crossing(index: int, at: Fragment, first: Fragment, last: Fragment) -> BlenderResult[tuple[Fragment, End]]:
@@ -178,7 +178,7 @@ def polygonal(key: Key, point: Operand, vertices: tuple[Operand, ...], rounding:
 
 
 def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point: Operand) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Returns the selected primitive's local distance and bounded width."""
+    """Returns primitive's local distance and bounded width."""
     key = item_key(*path)
     inlet = partial(shell.socket, *path)
     width_box, height, roundness_box = Box.__struct_fields__
@@ -371,7 +371,7 @@ def primitive[R: Effect](shell: Shell[R], path: KeyPath, shape: Primitive, point
 
 
 def figured[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Returns a positioned primitive's field in displayed greater-side units."""
+    """Returns positioned primitive field in greater-side units."""
     key = item_key(*path)
     primitive_figure, position, rotation, short_side = Figure.__struct_fields__
     at = (*path, primitive_figure)
@@ -394,7 +394,7 @@ def figured[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
 
 
 def combined[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, field: Boolean | Morph) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Returns the boolean or interpolated field of two independent figures."""
+    """Returns boolean or morph field of two figures."""
     key = item_key(*path)
     match field:
         case Morph():
@@ -454,7 +454,7 @@ def combined[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, field
 
 
 def windowed[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Returns the centered rounded aperture fitted to the displayed frame."""
+    """Returns centered rounded aperture fitted to displayed frame."""
     key = item_key(*path)
     aspect_window, inset_window, roundness = Window.__struct_fields__
     _, value = Gated.__struct_fields__
@@ -477,7 +477,7 @@ def windowed[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Bl
 
 
 def lightning[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace, shape: Lightning) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Builds the dyadic channel and its tapered forks, a channel subdivided `k` times one group holding its two halves' groups subdivided `k - 1` times."""
+    """Builds dyadic channel with tapered forks, level `k` nesting a level `k - 1` group per half."""
     key = item_key(*path)
     inlet = partial(shell.socket, *path)
     start_lightning, end_lightning, thickness, _, displacement_lightning, _, reach_lightning, spread, taper, motion, seed_lightning = Lightning.__struct_fields__
@@ -886,18 +886,18 @@ def painted[R: Effect](shell: Shell[R], path: KeyPath, frame: FrameSpace) -> Ble
 
 
 def coverage(key: str, distance: Operand, width: Option[Operand], softness: Operand, pixel: Operand, growth: Operand = 0.0) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds grown distance-ramp coverage with an optional bounded-width cap.
+    """Builds grown distance-ramp coverage, width-capped when bounded.
 
     Args:
-        key: Prefix of the coverage's native node keys.
-        distance: Signed region distance in displayed greater-side frame shares.
+        key: Node key prefix.
+        distance: Signed region distance in greater-side frame shares.
         width: Local narrowest width, absent for an unbounded region.
-        softness: Authored ramp width in the distance's units.
-        pixel: One displayed pixel in the distance's units.
-        growth: Outward region growth in the distance's units.
+        softness: Authored ramp width in distance units.
+        pixel: One displayed pixel in distance units.
+        growth: Outward region growth in distance units.
 
     Returns:
-        The approximate covered fraction and its fragment, or native graph faults.
+        Approximate covered fraction.
     """
     return (
         paired(math(f"{key}_distance", "SUBTRACT", distance, growth), math(f"{key}_span", "ADD", softness, pixel))
@@ -954,7 +954,7 @@ shapes: CompositorEffect[Shapes] = CompositorEffect(
     graph=shaped,
     coverage=Coverage.RESULT,
     requested=Some(precise),
-    registrables=(inspection(lambda: shapes, "shape_coverage", "View Coverage", "Inspect the shape's inner field coverage", lambda: End(node="shape_field", socket="Output")),),
+    registrables=(inspection(lambda: shapes, "shape_coverage", "View Coverage", "Inner shape field coverage", lambda: End(node="shape_field", socket="Output")),),
 )
 
 

@@ -7,4 +7,4 @@ rule:
     pattern: $RECEIVER
     has: {kind: modifier, regex: '^this$'}
 message: '`$RECEIVER` declares an extension method through a `this` parameter'
-note: 'Declare the member inside one `extension(<receiver>)` block per receiver with its type parameters, constraints, and `ref` or `in` modifier'
+note: 'Declare the member in an `extension(<type> <name>)` block holding the receiver''s type parameters, constraints, and `ref` or `in` modifier'

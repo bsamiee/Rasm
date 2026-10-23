@@ -30,4 +30,4 @@ rule:
             - has: {field: name, pattern: $NAME, regex: '^trap$'}
             - has: {matches: expanded-word, nthChild: 2}
 message: '`$NAME` parses expanded data as shell code'
-note: 'Run an array (`"${<command>[@]}"`), pass values after `bash -c ''<script>'' _`, and single-quote trap handlers (`trap ''<command> "$<value>"'' <signal>`)'
+note: 'Run `"${<command>[@]}"`, pass values after `bash -c ''<script>'' _`, and single-quote trap handlers (`trap ''<command> "$<value>"'' <signal>`)'

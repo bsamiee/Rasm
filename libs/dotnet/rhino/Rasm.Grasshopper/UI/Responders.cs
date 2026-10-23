@@ -31,7 +31,7 @@ public readonly partial struct FrameLimits {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SizeF minimum, ref SizeF maximum, ref Padding edges) =>
         (validationError, edges) = (0f <= minimum.Width && minimum.Width <= maximum.Width && float.IsFinite(maximum.Width)
             && 0f <= minimum.Height && minimum.Height <= maximum.Height && float.IsFinite(maximum.Height)
-            ? null : new ValidationError("resize limits need finite non-negative minimums no larger than their maximums"), ResizeBands(minimum, maximum, edges));
+            ? null : new ValidationError("resize limits need non-negative minimums no larger than finite maximums"), ResizeBands(minimum, maximum, edges));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

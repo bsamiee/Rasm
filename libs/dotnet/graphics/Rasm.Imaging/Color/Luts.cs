@@ -70,7 +70,7 @@ public sealed class InverseLut1D {
     public Lut1D Forward { get; }
 
     public static Fin<InverseLut1D> From(Lut1D forward) =>
-        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT channel {channel} is not monotonic and has no exact inverse")))).As()
+        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"non-monotonic LUT channel {channel} has no exact inverse")))).As()
             .Map(ranges => new InverseLut1D(forward, ranges));
 
     public void Apply(Span<Vector4> row) {
@@ -277,7 +277,7 @@ public abstract partial record LutTable {
         public override void Apply(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Bounds.Apply(pixel.AsVector3()), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(Error.New($"remap step {Bounds} has no exact inverse"));
+        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(Error.New("constant remap step has no exact inverse"));
     }
 
     public sealed record Log(LogCurve Curve) : LutTable {
@@ -371,9 +371,9 @@ public abstract partial record LutSpace {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EncodedLutParameter : IStateParameter<LutSpace.Encoded> {
     public static readonly EncodedLutParameter Gamut = new("gamut", new StateParameter<LutSpace.Encoded>.Choice<Gamut>(Lens<LutSpace.Encoded, Gamut>.New(static space => space.Gamut, static gamut => space => space with { Gamut = gamut })),
-        new("Gamut", "Primaries of the table's input and output"));
+        new("Gamut", "Table input and output primaries"));
     public static readonly EncodedLutParameter Transfer = new("transfer", new StateParameter<LutSpace.Encoded>.Variant<Transfer>(Lens<LutSpace.Encoded, Transfer>.New(static space => space.Transfer, static transfer => space => space with { Transfer = transfer })),
-        new("Transfer", "Encoding of the table's input and output"));
+        new("Transfer", "Table input and output encoding"));
 
     public StateParameter<LutSpace.Encoded> Kind { get; }
     public ParameterText Text { get; }
@@ -384,7 +384,7 @@ public sealed partial class EncodedLutParameter : IStateParameter<LutSpace.Encod
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LogLutParameter : IStateParameter<LutSpace.Log> {
     public static readonly LogLutParameter Space = new("space", new StateParameter<LutSpace.Log>.Choice<LogSpace>(Lens<LutSpace.Log, LogSpace>.New(static space => space.Space, static log => space => space with { Space = log })),
-        new("Grading log", "Log space and its gamut bracket applied around the table"));
+        new("Grading log", "Log encoding and gamut the table runs in"));
 
     public StateParameter<LutSpace.Log> Kind { get; }
     public ParameterText Text { get; }
@@ -401,7 +401,7 @@ public static class LutTables {
         (samples.Length == count
                 ? Fin.Succ(unit)
                 : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT of size {size} needs {count} samples, not {samples.Length}")),
-         TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : Error.New("LUT holds a non-finite sample"),
+         TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : Error.New("LUT holds non-finite sample"),
          Vector3.LessThanAll(domainMinimum, domainMaximum) && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
                 ? Fin.Succ(unit)
                 : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must be finite and ascending")))

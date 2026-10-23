@@ -43,13 +43,13 @@ class Noise(IntEnum):
 
 
 def grained(shell: Shell[Grain]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds film and sensor grain in the stack's straight scene-linear scope.
+    """Builds film and sensor grain on straight scene-linear color.
 
     Args:
-        shell: Entry inputs, retained scan case, config, and displayed-frame geometry.
+        shell: Entry inputs, stored scan case, config, and displayed frame geometry.
 
     Returns:
-        The selected medium with its complete graph, or accumulated graph and image faults.
+        Selected medium with its graph, or accumulated graph and image faults.
     """
     socket = shell.socket
     medium, chroma_field, motion, seed = Grain.__struct_fields__
@@ -264,9 +264,9 @@ grain: CompositorEffect[Grain] = CompositorEffect(
         *(
             inspection(row=lambda: grain, key=item_key(Grain, node), title=title, description=description, target=partial(End, node=node, socket=socket))
             for node, socket, title, description in (
-                ("weight", "Value", "View Grain Weight", "Shows film grain's tonal weight before the entry blend"),
-                ("field", "Output", "View Grain Field", "Shows the developed film grain factor before the entry blend"),
-                ("deviation", "Vector", "View Sensor Deviation", "Shows signal-dependent channel deviation before the noise draw"),
+                ("weight", "Value", "View Grain Weight", "Film grain tonal weight"),
+                ("field", "Output", "View Grain Field", "Developed film grain factor"),
+                ("deviation", "Vector", "View Sensor Deviation", "Signal-dependent channel deviation before noise draw"),
             )
         ),
     ),

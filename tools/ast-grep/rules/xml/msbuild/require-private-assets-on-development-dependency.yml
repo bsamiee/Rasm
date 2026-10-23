@@ -96,5 +96,5 @@ transform:
     DEPENDENCY_TEXT: {replace: {source: $DEPENDENCY, replace: '^["'']|["'']$', by: ''}}
     FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
 fix: $FIXED
-message: '`$DEPENDENCY_TEXT` flows as a dependency to every referencing project'
+message: '`$DEPENDENCY_TEXT` becomes a transitive dependency of every referencing project'
 note: Set `PrivateAssets="all"` on the reference

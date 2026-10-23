@@ -10,7 +10,7 @@ use rustc_hir::{
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 
-use crate::{Access, access, any_expr, expanded_externally, paths, signature};
+use crate::{Access, access, any_expr, expanded_externally, item_path, paths, signature};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -143,15 +143,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             })
         };
         if let ExprKind::Call(_, operands) = expr.kind
-            && fn_def_id(cx, expr).is_some_and(|called| {
-                self.joins.contains(&called) && !expanded_externally(cx, expr.span)
-                    || self.maybe_done.contains(&called)
-                        && expr
-                            .span
-                            .macro_backtrace()
-                            .filter(|expansion| expansion.macro_def_id.is_some_and(|written| self.join_macros.contains(&written)))
-                            .last()
-                            .is_some_and(|expansion| !expanded_externally(cx, expansion.call_site))
+            && let Some(join) = fn_def_id(cx, expr).and_then(|called| {
+                if self.joins.contains(&called) {
+                    (!expanded_externally(cx, expr.span)).then(|| item_path(cx, called))
+                } else if self.maybe_done.contains(&called) {
+                    expr.span
+                        .macro_backtrace()
+                        .filter_map(|expansion| Some((expansion.macro_def_id.filter(|written| self.join_macros.contains(written))?, expansion.call_site)))
+                        .last()
+                        .filter(|&(_, call_site)| !expanded_externally(cx, call_site))
+                        .map(|(written, _)| format!("{}!", cx.tcx.item_name(written)))
+                } else {
+                    None
+                }
             })
         {
             let drains = operands.iter().filter_map(|operand| {
@@ -171,10 +175,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     UNENDING_JOIN,
                     drain.hir_id,
                     drain.span,
-                    format!("`{method}` drains a `{}` that ends only when every sender drops, and a sender outlives the join", cx.tcx.item_name(stream)),
+                    format!("`{method}` over `{}` never completes while a sender outlives `{join}`", cx.tcx.item_name(stream)),
                     |diag| {
-                        diag.span_note(held, "sender held past the join");
-                        diag.help("race the drain against its partner through `future::select` to drop the drain when its partner completes");
+                        diag.span_note(held, "sender held here");
+                        diag.help(format!("race `{method}` against the other futures through `futures::future::select` in place of `{join}`"));
                     },
                 );
             }

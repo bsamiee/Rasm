@@ -14,12 +14,10 @@ import { preserve } from '#/dom/transactions';
 
 class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Render')(
     {
-        target: Specifier.annotate({ description: 'Specifier of a document page, spread, or page item' }),
-        pixels: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side of the image in pixels' }),
+        target: Specifier.annotate({ description: 'Document page, spread, or page item' }),
+        pixels: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side in pixels' }),
     },
-    {
-        description: "Exports a complete document page, spread, or page item through InDesign's native PNG export at maximum quality, sized so its longest side holds the requested pixels within the host's 1 to 2400 ppi export range. An item shows itself; render its page or spread for surrounding context",
-    },
+    { description: 'Renders PNG at 1 to 2400 ppi. Page items render alone, their page or spread shows context' },
 ) {
     static readonly Result = Schema.Struct({ image: Schema.Uint8Array, width: Schema.Int, height: Schema.Int });
 

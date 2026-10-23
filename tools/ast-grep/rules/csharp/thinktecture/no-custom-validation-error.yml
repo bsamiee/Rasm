@@ -19,7 +19,7 @@ rule:
             - matches: languageext-error-record
             - has: {kind: base_list, has: {stopBy: end, kind: argument, has: {matches: validation-code}}}
 transform:
-    TESTS: {replace: {source: $TEST, replace: '(?s)^(.+)$', by: '`$1` tests `ValidationError` in place of `HasCode`'}}
-    DECLARES: {replace: {source: $RECORD, replace: '(?s)^(.+)$', by: '`$1` declares an error coded `ValidationFailed`'}}
+    TESTS: {replace: {source: $TEST, replace: '(?s)^(.+)$', by: '`$1` tests the error type in place of its code'}}
+    DECLARES: {replace: {source: $RECORD, replace: '(?s)^(.+)$', by: '`$1` declares a custom error coded `ValidationFailed`'}}
 message: $TESTS$DECLARES
-note: 'Assign `new ValidationError(<rule>)` or `ValidationResults.OutsideRange`, convert via `<type>.Validated`, test `HasCode(ErrorCodes.ValidationFailed)`'
+note: 'Assign `validationError = new ValidationError(<rule>)` in the hook, convert via `<type>.Validated`, and test `HasCode(ErrorCodes.ValidationFailed)`'

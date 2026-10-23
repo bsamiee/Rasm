@@ -131,7 +131,7 @@ public static class Documents {
     public static Fin<RhinoDoc> Scripted(RhinoDoc doc) =>
         Refused.UnlessFound(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber), nameof(RhinoDoc.FromRuntimeSerialNumber))
             .Bind(static open => (
-                    Command.InCommand() && !Command.InScriptRunnerCommand() ? Error.New("a command other than a script runner is running") : Fin.Succ(unit),
+                    Command.InCommand() && !Command.InScriptRunnerCommand() ? Error.New("command other than script runner is running") : Fin.Succ(unit),
                     open.IsHeadless ? Error.New($"headless document {open.RuntimeSerialNumber} takes no script input") : Fin.Succ(unit))
                 .Apply((_, _) => open)
                 .As());

@@ -1,4 +1,4 @@
-"""Native add-on preferences, typed record access, change listeners, and page acquisition."""
+"""Add-on preferences page, record reads and writes, and listeners."""
 
 from collections import defaultdict
 from collections.abc import Callable, Generator, Mapping
@@ -27,7 +27,7 @@ from blender.imaging.faults import accumulated, paired
 
 
 class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension's preference record, custom sections, and owned registration rows."""
+    """Preference record with sections and owned rows."""
 
     record: type[msgspec.Struct]
     sections: tuple[Section, ...] = ()
@@ -35,7 +35,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
     bindings: Option[Mapping[MemberDescriptorType, Choices]] = Nothing
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Declares native schemas and the page, binding its draws after operator acquisition."""
+        """Declares page class and commands, building draw after operators register."""
         asks = tuple(row for row in self.rows if isinstance(row, operators.Operator) and any(isinstance(form, operators.Suppressible) for form in row.invoke.to_list()))
         bindings = tuple(row for row in self.rows if isinstance(row, keymaps.Keymap))
         stores = tuple(row for row in self.rows if isinstance(row, Attachment))
@@ -48,7 +48,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         purge = operators.Operator[operators.Empty](
             key="purge_preferences",
             title="Clear Stored Settings",
-            description="Return every setting the extension stores on data-blocks to its default",
+            description="Reset extension settings stored on data-blocks to defaults",
             icon=Some("TRASH"),
             internal=True,
             form=operators.Empty,
@@ -57,13 +57,13 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda held: sum(each.purged() for each in held))
                 .map(
                     lambda count: (
-                        operators.Done(notes=(("INFO", f"Cleared the settings stored on {count} data-blocks"),)) if count else operators.Unchanged(reason="No data-block stores extension settings")
+                        operators.Done(notes=(("INFO", f"Cleared settings stored on {count} data-blocks"),)) if count else operators.Unchanged(reason="No data-block stores extension settings")
                     )
                 )
             ),
             invoke=Some(
                 operators.Confirm[operators.Empty](
-                    message=Some(lambda *_: attached().map(lambda held: f"Clear the settings stored on {sum(each.stored(host) for each in held for host in each.hosts())} data-blocks")),
+                    message=Some(lambda *_: attached().map(lambda held: f"Clear settings stored on {sum(each.stored(host) for each in held for host in each.hosts())} data-blocks")),
                     confirm_text=Some("Clear"),
                     icon="WARNING",
                 )
@@ -111,7 +111,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 ).map(lambda pair: arranged((*pair[0], pair[1])))
 
             def seeded() -> BlenderResult[Option[float]]:
-                """Writes the record read, so record defaults of collections RNA cannot default become native items the page edits."""
+                """Writes record back, storing collection defaults RNA cannot hold as items."""
                 return read(identity, self.record).bind(lambda settings: write(identity, settings)).map(lambda _: Nothing)
 
             return (
@@ -139,7 +139,7 @@ _listeners: defaultdict[Identity, list[Changed]] = defaultdict(list)
 
 
 def notified(identity: Identity) -> Changed:
-    """Returns a native update callback dispatching to active preference listeners."""
+    """Returns update callback calling every listener."""
 
     def body(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context, row: bpy.types.Property) -> None:
         for heard in tuple(_listeners.get(identity, ())):
@@ -150,7 +150,7 @@ def notified(identity: Identity) -> Changed:
 
 @contextmanager
 def listening(identity: Identity, heard: Changed) -> Generator[None]:
-    """Owns one preference listener until the surrounding acquisition releases it."""
+    """Holds preference listener until scope exits."""
     listeners = _listeners[identity]
     listeners.append(heard)
     try:
@@ -162,7 +162,7 @@ def listening(identity: Identity, heard: Changed) -> Generator[None]:
 
 
 def read[T: msgspec.Struct](identity: Identity, record: type[T]) -> BlenderResult[T]:
-    """Returns the stored preference record or the native missing-page fault."""
+    """Returns stored preference record."""
     return (
         Option
         .of_optional(bpy.context.preferences.addons.get(identity.package))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -173,17 +173,17 @@ def read[T: msgspec.Struct](identity: Identity, record: type[T]) -> BlenderResul
 
 
 def write(identity: Identity, settings: msgspec.Struct) -> BlenderResult[None]:
-    """Marks attempted preference writes dirty and returns the native outcome."""
+    """Writes record, marking preferences dirty."""
     return preferred(identity, bpy.context.preferences, lambda holder: RecordGroup(record=type(settings), struct=type(holder)).write(holder, settings))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 def value[T: msgspec.Struct, F](record: type[T], member: Callable[[T], F]) -> Callable[[Identity], BlenderResult[F]]:
-    """Returns an identity reader through the caller's typed record projection."""
+    """Returns reader of one record field per identity."""
     return lambda identity: read(identity, record).map(member)
 
 
 def stored[T: msgspec.Struct, F](record: type[T], replace: Callable[[T, F], T]) -> Callable[[Identity, F], BlenderResult[None]]:
-    """Returns an identity writer through the caller's typed record update."""
+    """Returns writer replacing one record field per identity."""
     return lambda identity, field: read(identity, record).bind(lambda held: write(identity, replace(held, field)))
 
 
@@ -191,12 +191,12 @@ def stored[T: msgspec.Struct, F](record: type[T], replace: Callable[[T, F], T]) 
 
 
 def opened(call: operators.Call[operators.Empty]) -> BlenderResult[operators.Done]:
-    """Opens preferences from the native window and area, retaining both absence faults."""
+    """Opens extension preferences from context window and area."""
     return Located.current(call.context).bind(lambda located: windowed(NewWindow.PREFERENCES, located, call.identity)).map(lambda _: operators.Done())
 
 
 show = operators.Operator[operators.Empty](
-    key="show_preferences", title="Preferences", description="Open the extension's preferences", icon=Some("PREFERENCES"), undo=False, form=operators.Empty, run=opened
+    key="show_preferences", title="Preferences", description="Open extension preferences", icon=Some("PREFERENCES"), undo=False, form=operators.Empty, run=opened
 )
 
 

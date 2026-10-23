@@ -45,7 +45,7 @@ internal static partial class MeshTopologyMapper {
 
     [MapperRequiredMapping(RequiredMappingStrategy.Source)]
     [MapNestedProperties(nameof(MeshSplit.Self.Options))]
-    [MapperIgnoreTarget(nameof(MeshSplitOptions.OpenCutEnds), Justification = "The split writes its open cut ends into the options it runs with")]
+    [MapperIgnoreTarget(nameof(MeshSplitOptions.OpenCutEnds), Justification = "Split writes open cut ends into options it runs with")]
     internal static partial MeshSplitOptions Split((MeshSplitOptions Options, double Tolerance, CancellationToken CancellationToken, IProgress<double>? ProgressReporter) source);
 }
 

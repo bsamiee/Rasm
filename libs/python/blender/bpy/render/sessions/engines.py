@@ -1,4 +1,4 @@
-"""Native render engines, declared passes, result tiles, bakes, and viewport callbacks."""
+"""Render engine classes built from callback bodies."""
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
@@ -24,7 +24,7 @@ type PassKind = Literal["VALUE", "VECTOR", "COLOR"]
 
 
 class Traits(msgspec.Struct, frozen=True, kw_only=True):
-    """Native engine traits, named without their host prefix."""
+    """Engine `bl_` flags without their prefix."""
 
     use_preview: bool = False
     use_postprocess: bool = False
@@ -40,7 +40,7 @@ class Traits(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Pass(msgspec.Struct, frozen=True, kw_only=True):
-    """Declared pass, with its channel count derived from its channel identifiers."""
+    """Render pass with channel count from `chanid` length."""
 
     name: str
     chanid: Annotated[str, msgspec.Meta(min_length=1, max_length=8)]
@@ -48,7 +48,7 @@ class Pass(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Shot(msgspec.Struct, frozen=True, kw_only=True):
-    """Engine, its evaluated render dependencies, and their scene and view layer."""
+    """Engine with its render depsgraph, scene, and view layer."""
 
     engine: bpy.types.RenderEngine
     depsgraph: bpy.types.Depsgraph
@@ -57,7 +57,7 @@ class Shot(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """One native bottom-left rectangle's top-first pass planes, view, and stamp fields."""
+    """Result rectangle at bottom-left offset, pass planes top row first."""
 
     x: int
     y: int
@@ -67,7 +67,7 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Baking(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Native bake request and result, including its primitive, differential, and seed passes."""
+    """Bake request with result holding primitive, differential, and seed passes."""
 
     engine: bpy.types.RenderEngine
     depsgraph: bpy.types.Depsgraph
@@ -78,14 +78,14 @@ class Baking(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Viewport(msgspec.Struct, frozen=True, kw_only=True):
-    """Native viewport update and draw bodies."""
+    """Viewport update and draw bodies."""
 
     update: Callable[[bpy.types.Context, bpy.types.Depsgraph], BlenderResult[None]]
     draw: Callable[[bpy.types.Context, bpy.types.Depsgraph], BlenderResult[None]]
 
 
 class Engine(msgspec.Struct, frozen=True, kw_only=True):
-    """Registered native engine assembled from its traits and callback bodies."""
+    """Render engine built from traits and callback bodies."""
 
     combined: ClassVar[Pass] = Pass(name="Combined", chanid="RGBA", kind="COLOR")
     key: Key
@@ -100,17 +100,17 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
     # --- [CALLBACKS]
 
     def built(self, identity: Identity, name: str) -> type[bpy.types.RenderEngine]:
-        """Builds the native class with its render, pass, bake, and viewport callbacks."""
+        """Builds `RenderEngine` subclass from callback bodies."""
 
         def update_render_passes(engine: bpy.types.RenderEngine, scene: bpy.types.Scene, renderlayer: bpy.types.ViewLayer) -> None:
-            """Declares Combined followed by this engine's passes."""
+            """Registers Combined, then engine passes."""
             declaration = self.passes
             passes = declaration if isinstance(declaration, tuple) else declaration(scene, renderlayer)
             for pass_ in (self.combined, *passes):
                 engine.register_pass(scene, renderlayer, pass_.name, len(pass_.chanid), pass_.chanid, pass_.kind)
 
         def render(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph) -> None:
-            """Writes the body's tiles and reports every refused operation to Blender."""
+            """Writes body tiles and reports each fault at ERROR level."""
             shot: BlenderResult[Shot] = (
                 Option
                 .of_optional(depsgraph.scene)
@@ -132,11 +132,11 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
             updated, drawn = identity.reports.reported(viewport.update), identity.reports.reported(viewport.draw)
 
             def view_update(_engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
-                """Translates the viewport update result at its native callback boundary."""
+                """Runs viewport update, holding faults in extension reports."""
                 return updated(context, depsgraph).to_optional()
 
             def view_draw(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
-                """Draws under the scene's display transform and releases its shader binding."""
+                """Draws under scene display space shader, unbinding it after."""
                 engine.bind_display_space_shader(depsgraph.scene)
                 try:
                     return drawn(context, depsgraph).to_optional()
@@ -147,7 +147,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
         for body in self.bake.to_list():
 
             def bake(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph, target: bpy.types.Object, pass_type: str, pass_filter: int, width: int, height: int) -> None:
-                """Reads native bake inputs and commits the body's Combined plane."""
+                """Writes body plane to Combined pass of bake result."""
                 if (result := engine.begin_result(0, 0, width, height)) is None:
                     return
                 try:
@@ -167,7 +167,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     @contextmanager
     def replayed(cls, identity: Identity, key: Key, planes: Mapping[tuple[int, int, str, str], Tile], frame: Callable[[], int]) -> Generator[BlenderResult[str]]:
-        """Holds a compositor-capable engine replaying captured native layer and view planes."""
+        """Registers postprocess engine replaying captured planes until scope exit."""
 
         def passes(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> tuple[Pass, ...]:
             current = frame()
@@ -194,7 +194,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def joined(self, name: str) -> Generator[BlenderResult[None]]:
-        """Holds this engine's membership in the requested stock panel sets."""
+        """Adds engine to `COMPAT_ENGINES` sets holding a `joins` name until scope exit."""
         panels = tuple(panel.COMPAT_ENGINES for panel in bpy.types.Panel.__subclasses__() if hasattr(panel, "COMPAT_ENGINES") and isinstance(panel.COMPAT_ENGINES, set))
         selected = {id(engines): engines for engines in panels if self.joins.intersection(engines) and name not in engines}
         answer = accumulated(
@@ -211,7 +211,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                     engines.discard(name)
 
     def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
-        """Acquires the class before its scoped panel compatibility memberships."""
+        """Acquires engine class, then `COMPAT_ENGINES` memberships."""
         return identity.name(Name.ENGINE, self.key).map(lambda name: ((Band.INTERFACE, self.built(identity, name)), (Band.INTERFACE, self.joined(name))))
 
 
@@ -219,7 +219,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def written(shot: Shot, tiles: Iterable[BlenderResult[Tile]]) -> BlenderResult[int]:
-    """Writes ordered native tiles until cancellation or the first refused tile."""
+    """Writes tiles until cancellation or first fault, returning written count."""
     count, area = 0, 0
     for answer in tiles:
         if shot.engine.test_break():

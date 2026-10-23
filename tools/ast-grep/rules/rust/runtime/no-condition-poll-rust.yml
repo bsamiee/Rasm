@@ -28,5 +28,5 @@ rule:
               has: {field: condition, not: {has: {stopBy: end, kind: await_expression}}}
             - kind: 'loop_expression, for_expression'
               has: {field: body, has: {stopBy: *scope, matches: loop-exit}}
-message: '`$SLEEP` re-tests a condition on each wake in place of awaiting its change'
-note: 'Await `Notify`, `watch`, or `CancellationToken::cancelled`, block on `Condvar::wait_while`, and tick in `token.run_until_cancelled(interval.tick())`'
+message: '`$SLEEP` wakes the loop to re-test its condition'
+note: 'Await `Notify::notified`, `watch::Receiver::wait_for`, or `cancelled()`, block on `Condvar::wait_while`, tick in `token.run_until_cancelled(<tick>)`'

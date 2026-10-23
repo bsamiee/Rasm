@@ -13,11 +13,11 @@ const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { 
         {Match.type<RequestFailure>().pipe(
             Match.tag('SchemaError', ({ issue }) => (
                 <>
-                    <p>Review these fields:</p>
+                    <p>Invalid fields</p>
                     <ul>
                         {SchemaIssue.makeFormatterStandardSchemaV1()(issue).issues.map(({ path: segments, message }) => {
                             const path = segments?.map((segment) => (typeof segment === 'object' ? segment.key : segment)) ?? [];
-                            const text = `${path.map(String).join(' › ')}: ${message}`;
+                            const text = `${path.map(String).join(' › ')} · ${message}`;
                             return (
                                 <li key={text}>
                                     {onField === undefined ? (
@@ -33,11 +33,11 @@ const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { 
                     </ul>
                 </>
             )),
-            Match.tag('PreconditionFailed', () => <p>A newer draft was saved in another tab. Your changes remain here. Reloading replaces these unsaved edits with that draft.</p>),
-            Match.tag('Forbidden', () => <p>Sign in with the owner account to edit.</p>),
+            Match.tag('PreconditionFailed', () => <p>Newer draft saved in another tab. Edits stay here until reload replaces them</p>),
+            Match.tag('Forbidden', () => <p>Sign in as owner to edit</p>),
             Match.tag('Conflict', () => <p>{conflict}</p>),
-            Match.tag('ServiceUnavailable', () => <p>The service is unavailable. Your changes remain here.</p>),
-            Match.tag('HttpClientError', () => <p>The request could not finish. Your changes remain here. Try again.</p>),
+            Match.tag('ServiceUnavailable', () => <p>Service unavailable. Edits stay here</p>),
+            Match.tag('HttpClientError', () => <p>Request failed. Edits stay here. Try again</p>),
             Match.exhaustive,
         )(error)}
     </div>

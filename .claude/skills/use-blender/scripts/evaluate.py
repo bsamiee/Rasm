@@ -1,4 +1,4 @@
-"""Run Blender with given arguments in a fresh `.artifacts/blender/evaluate/<name>/` tree of relocated user folders."""
+"""Runs Blender in fresh `.artifacts/blender/evaluate/<name>/` tree of relocated user folders."""
 
 from itertools import takewhile
 import os
@@ -54,7 +54,7 @@ class _Project(msgspec.Struct, frozen=True):
 
 
 def tree(name: str) -> Result[Path, Failure]:
-    """Fresh evaluation folder with every `FOLDERS` folder created before launch, Blender resolving a missing one to the next source, the user's profile last."""
+    """Fresh evaluation folder holding every `FOLDERS` folder, Blender resolving a missing one to user profile."""
 
     def made() -> Path:
         folder = ROOT / ".artifacts" / "blender" / "evaluate" / name
@@ -67,30 +67,30 @@ def tree(name: str) -> Result[Path, Failure]:
 
 
 def recorded(folder: Path, done: subprocess.CompletedProcess[bytes]) -> subprocess.CompletedProcess[bytes]:
-    """Process whose output is appended to the tree's `blender.log`."""
+    """`done` with output appended to `blender.log`."""
     with (folder / "blender.log").open("ab") as log:
         log.write(done.stdout)
     return done
 
 
 def launched(folder: Path, environment: dict[str, str], command: tuple[str | Path, ...]) -> Result[subprocess.CompletedProcess[bytes], Failure]:
-    """One windowless child process from the repository root with the given variables over the process environment, its merged output appended to `blender.log`."""
+    """Windowless child run from repository root with `environment` over process environment, output appended to `blender.log`."""
     return catch(lambda: recorded(folder, subprocess.run(command, cwd=ROOT, env=os.environ | environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)), exception=OSError)()
 
 
 def opened(folder: Path, environment: dict[str, str], blender: Path, arguments: tuple[str, ...]) -> Result[subprocess.CompletedProcess[bytes], Failure]:
-    """Start one GUI through `open` as a launchd job of its own and wait for it to quit.
+    """Launches GUI through `open` as its own launchd job, waiting for quit.
 
-    LaunchServices ties an application instance to every process of the launchd job it started in, and Dock's quit of that instance signals them all.
+    Dock quit signals every process of an instance's launchd job.
 
     Args:
-        folder: Tree holding the GUI's merged output.
-        environment: Variables reaching the GUI as `--env` values, `open` passing no other variable of the caller.
+        folder: Tree holding GUI merged output.
+        environment: Variables for GUI as `--env` values, `open` passing no other.
         blender: Blender executable inside its application bundle.
         arguments: Blender arguments.
 
     Returns:
-        `open`'s exit code with its output and the GUI's merged output, appended to `blender.log`, or the launch or read error.
+        `open` exit code with `open` and GUI output appended to `blender.log`, or launch or read error.
     """
     output = folder / "gui.log"
     pairs = (*("--env", f"{variable}={value}") for variable, value in environment.items())
@@ -105,7 +105,7 @@ def opened(folder: Path, environment: dict[str, str], blender: Path, arguments: 
 
 
 def provisioned(folder: Path, environment: dict[str, str], blender: Path) -> Result[dict[str, str], Failure]:
-    """Environment with `PYTHONPATH` at the checkout's module root and `BLENDER_SYSTEM_SCRIPTS` at the shared folder whose `modules`, first on Blender's `sys.path` and untouched by its extension wheel sync, `fitout site` syncs to the distributions `fitout pack` bundles as wheels."""
+    """Environment with `PYTHONPATH` at checkout module root and `BLENDER_SYSTEM_SCRIPTS` at shared folder, `fitout site` syncing its `modules` to `fitout pack` distributions."""
     return (
         launched(folder, environment, (sys.executable, "-m", "eng.python.fitout", "site", "--blender", blender, SCRIPTS / "modules"))
         .bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)())
@@ -117,16 +117,16 @@ def provisioned(folder: Path, environment: dict[str, str], blender: Path) -> Res
 def run(
     name: str, /, *arguments: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")], pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]
 ) -> Result[int, Failure]:
-    """Run one Blender process with `--python-use-system-env` ahead of the arguments in a fresh tree, a headless child with `-b` or `--background` before any `--` and a GUI through `open` without it.
+    """Runs Blender with `--python-use-system-env` in fresh tree, headless on `-b` or `--background` before any `--`, else as GUI through `open`.
 
     Args:
         name: Tree folder under `.artifacts/blender/evaluate/`.
         arguments: Blender arguments, after `--` when one opens with `-`.
-        blender: Blender executable, supplied by BLENDER_PATH.
-        pycache: Bytecode cache folder for Blender's Python, supplied by PYTHONPYCACHEPREFIX.
+        blender: Blender executable from `BLENDER_PATH`.
+        pycache: Bytecode cache folder from `PYTHONPYCACHEPREFIX`.
 
     Returns:
-        Exit code of a headless Blender or of a GUI's `open` with the merged output printed, or the filesystem, launch, or package sync error.
+        Blender or `open` exit code with output printed, or filesystem, launch, or package sync error.
     """
 
     def shown(done: subprocess.CompletedProcess[bytes]) -> int:
@@ -146,7 +146,7 @@ def run(
 
 
 def exited(result: Result[int, Failure]) -> int:
-    """Exit code of a command, its error printed to stderr as exit code 1."""
+    """Command exit code, error printed to stderr as exit code 1."""
     match result:
         case Result(tag="ok", ok=code):
             return code

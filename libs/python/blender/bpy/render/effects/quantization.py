@@ -1,4 +1,4 @@
-"""Output code grids and canonical blue-noise compositor quantization."""
+"""Blue-noise output dither and diffused PNG copies of float frames."""
 
 from pathlib import Path
 from typing import Annotated, Self
@@ -35,14 +35,14 @@ from blender.rendering.outputs.naming import Output
 
 
 class CodeGrid(msgspec.Struct, frozen=True, kw_only=True):
-    """Integer output spacing and whether its writer rounds straight color."""
+    """Output code step and whether writer rounds straight color."""
 
     step: float
     straight: bool
 
     @classmethod
     def of(cls, scene: bpy.types.Scene) -> Self:
-        """Derives the scene output's code spacing and native alpha form."""
+        """Reads code step and alpha form from output format."""
         settings = scene.render.image_settings
         return cls(
             step=0.0 if settings.has_linear_colorspace else 1.0 / (2 ** int(settings.color_depth) - 1),
@@ -51,23 +51,22 @@ class CodeGrid(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Diffused(msgspec.Struct, frozen=True, kw_only=True):
-    """Integer channel depth of the PNG beside each written float frame."""
+    """Settings of PNG copy beside each written float frame."""
 
-    depth: Annotated[IntegerDepth, msgspec.Meta(title="Copy Depth", description="Integer channel depth of the error-diffused PNG copy")] = 8
+    depth: Annotated[IntegerDepth, msgspec.Meta(title="Copy Depth", description="Channel depth of diffused PNG copy")] = 8
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def dithered(shell: Shell[Dither]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds the last display-stage offset, retaining the source under diffusion.
+    """Builds dither as last display step, passing source through under diffusion.
 
     Args:
-        shell: Associated display image, method menu, output grid, and admitted config.
+        shell: Associated display image, method menu, code grid, and config.
 
     Returns:
-        The complete fragment and selected image end, or all independent builder
-        faults. Tile acquisition retains its imaging failure at reconciliation.
+        Selected image end, or accumulated builder faults. Tile load faults return from reconciliation.
     """
     source = shell.source
     step, straight = (shell.socket(field) for field in CodeGrid.__struct_fields__)
@@ -151,15 +150,15 @@ def dithered(shell: Shell[Dither]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> BlenderResult[None]:
-    """Forms and diffuses one written float frame into a tagged integer PNG copy.
+    """Writes diffused PNG copy of written float frame through display formation.
 
     Args:
-        scene: Scene whose render-enabled dither entry chooses diffusion.
-        file: Completed single-layer EXR and its original display window.
-        identity: Extension owning the entry, copy settings, and software stamp.
+        scene: Scene with render-enabled dither entries choosing diffusion.
+        file: Finished single-layer EXR and its display window.
+        identity: Extension owning entries, copy settings, and software stamp.
 
     Returns:
-        Completion, or the entry, attachment, read, formation, and write faults.
+        None, or entry, attachment, read, formation, and write faults.
     """
 
     def write(settings: Diffused, config: PyOpenColorIO.Config) -> BlenderResult[None]:
@@ -211,11 +210,7 @@ dither: CompositorEffect[Dither] = CompositorEffect(
         )
     ),
     holds={"render.dither_intensity": 0.0},
-    registrables=(
-        tiles,
-        attachment,
-        inspection(lambda: dither, "dither_offset", "Inspect Dither Offset", "Shows the canonical offset in output code steps", lambda: End(node="triangular", socket="Vector")),
-    ),
+    registrables=(tiles, attachment, inspection(lambda: dither, "dither_offset", "Inspect Dither Offset", "Show dither offset in output code steps", lambda: End(node="triangular", socket="Vector"))),
 )
 diffuse = Finish(run=copied, outputs=frozenset({Output.PREVIEW}), kinds=frozenset({Kind.EXR}), depths=frozenset({Depth.HALF, Depth.FLOAT}))
 

@@ -16,7 +16,7 @@ public enum Deadline: DeadlineFailure, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-            case .timedOut(let timeout): "did not finish within \(timeout.formatted(.units(width: .wide)))"
+            case .timedOut(let timeout): "timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "was canceled"
         }
     }

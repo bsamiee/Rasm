@@ -1,4 +1,4 @@
-"""Render sets, native category transfers, stored reversals, and edits across members."""
+"""Render sets with category sync and edits across members."""
 
 from collections.abc import Callable, Generator, Hashable
 from contextlib import contextmanager, ExitStack
@@ -48,13 +48,13 @@ from blender.rendering.edits import Reparametrized, transfer, Tree
 
 
 class Copies(Case, frozen=True, tag=1):
-    """Scenes copied from a retained source scene."""
+    """Scenes copied from source scene."""
 
     title = "Scenes"
 
 
 class Layers(Case, frozen=True, tag=2):
-    """View layers belonging to one scene."""
+    """View layers of one scene."""
 
     title = "View Layers"
 
@@ -63,27 +63,27 @@ type Form = Copies | Layers
 
 
 class Sets(msgspec.Struct, frozen=True, kw_only=True):
-    """File's set form and native edit-across preference."""
+    """File render set settings."""
 
-    form: Annotated[Form, msgspec.Meta(title="Render Sets", description="Copied scenes or the view layers of one scene")] = Layers()
-    across: Annotated[bool, msgspec.Meta(title="Edit Across", description="Apply native category edits to every unlocked member")] = False
+    form: Annotated[Form, msgspec.Meta(title="Render Sets", description="Copied scenes or view layers of one scene")] = Layers()
+    across: Annotated[bool, msgspec.Meta(title="Edit Across", description="Copy category edits to unlocked members")] = False
 
 
 class SceneMember(msgspec.Struct, frozen=True, kw_only=True):
-    """Synchronization lock and dispatch admission of a member scene."""
+    """Sync lock and render inclusion of member scene."""
 
     locked: Annotated[bool, msgspec.Meta(title="Locked")] = False
     rendered: Annotated[bool, msgspec.Meta(title="Render")] = True
 
 
 class LayerMember(msgspec.Struct, frozen=True, kw_only=True):
-    """Synchronization lock of a native view layer."""
+    """Sync lock of member view layer."""
 
     locked: Annotated[bool, msgspec.Meta(title="Locked")] = False
 
 
 class Category(msgspec.Struct, frozen=True, kw_only=True):
-    """Native setting selection shared by sync, presets, and the board."""
+    """Setting paths of one category."""
 
     key: Key
     paths: tuple[str, ...]
@@ -91,25 +91,25 @@ class Category(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def title(self) -> str:
-        """Blender's display name of the category key."""
+        """Display name of category key."""
         return bpy.path.display_name(self.key)
 
 
 class Converting(msgspec.Struct, frozen=True, kw_only=True):
-    """Requested form for native scene and view-layer transfer."""
+    """Target form of render set conversion."""
 
     form: Annotated[Form, msgspec.Meta(title="Render Sets")] = Copies()
 
 
 class Setup[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
-    """Sparse native render settings and ordered owned compositor entries."""
+    """Sparse settings and ordered owned compositor entries."""
 
     scene: Snapshot
     layers: dict[str, Snapshot]
     effects: dict[EffectName, Configured[E | DisplayView]]
 
     def projected(self, scene: bpy.types.Scene, current: "Setup[E]", locks: "SetupLocks", layers: tuple[bpy.types.ViewLayer, ...]) -> "BlenderResult[tuple[Setup[E], Setup[E]]]":
-        """Projects this sparse recipe's settings and effect fields over captured current values, answering the sparse writes and the projected whole."""
+        """Returns sparse writes and projected setup of recipe over current values."""
         return paired(
             self.scene.projected(scene, current.scene, locks.scene),
             accumulated(
@@ -128,7 +128,7 @@ class Setup[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
-    """Native setting paths, entry order, and effect fields retained by setup presets."""
+    """Setting paths, entries, and effect fields setups leave unchanged."""
 
     scene: frozenset[str] = frozenset()
     layers: dict[str, frozenset[str]] = msgspec.field(default_factory=dict)
@@ -137,12 +137,12 @@ class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def bound(identity: Identity) -> BlenderResult[Stored["SetupLocks"]]:
-        """Binds the setup lock store shared by native settings and effect controls."""
+        """Binds setup lock store."""
         return identity.name(Name.ATTACHMENT, "render_setup_locks").map(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(SetupLocks)))
 
     @staticmethod
     def effect_actions() -> Callable[[Option[tuple[Key | int, ...]]], RowContent]:
-        """Declares one native command for entry and typed parameter locks."""
+        """Returns factory of lock operator and button per entry or parameter path."""
 
         def changed(call: Call[SetupEffectLock]) -> BlenderResult[Done]:
             path: BlenderResult[tuple[Key | int, ...] | None] = catch(lambda: msgspec.json.decode(call.record.path, type=tuple[str | int, ...] | None), exception=msgspec.DecodeError)().map_error(
@@ -167,9 +167,7 @@ class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
 
             return paired(SetupLocks.bound(call.identity), paired(call.root(bpy.types.Scene), path)).bind(lambda parts: written(parts[0], *parts[1]))
 
-        command = Operator(
-            key="render_setup_effect_lock", title="Lock Setup Effect", description="Keep or release this entry or parameter when applying a render setup", form=SetupEffectLock, run=changed, undo=True
-        )
+        command = Operator(key="render_setup_effect_lock", title="Lock Setup Effect", description="Toggle entry or parameter lock against setup changes", form=SetupEffectLock, run=changed, undo=True)
 
         def drawn(path: Option[tuple[Key | int, ...]], identity: Identity) -> BlenderResult[RowDraw]:
             def shown(store: Stored[SetupLocks], layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -201,19 +199,19 @@ class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class SetupLock(msgspec.Struct, frozen=True, kw_only=True):
-    """Canonical native setting path toggled from its owner's matrix cell."""
+    """Setting path a matrix cell lock button toggles."""
 
     path: str
 
 
 class SetupEffectLock(Named, frozen=True, kw_only=True):
-    """Native operator transport for an optional canonical setup parameter path."""
+    """Entry and JSON parameter path, `null` locking whole entry."""
 
     path: str
 
 
 class Members(msgspec.Struct, frozen=True, kw_only=True):
-    """Acquired stores and resolved native definitions used by every set operation."""
+    """Stores and resolved descriptors every set operation reads."""
 
     identity: Identity
     sets: Attached[Sets]
@@ -227,7 +225,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
     # --- [MEMBERSHIP]
 
     def form(self, context: bpy.types.Context) -> BlenderResult[Form]:
-        """Reads the file's current form from the native window manager."""
+        """Reads file render set form from window manager."""
         match context.window_manager:
             case bpy.types.WindowManager() as manager:
                 return self.sets.read(manager).map(lambda record: record.form)
@@ -235,7 +233,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                 return Error((BlenderAbsentFault(owner="bpy.context", key="window_manager"),))
 
     def source(self, context: bpy.types.Context) -> BlenderResult[bpy.types.Scene]:
-        """Returns the active scene's marked source, or the active scene itself."""
+        """Returns marked source of active scene, else active scene."""
         match context.scene:
             case bpy.types.Scene() as scene:
                 match RenderSet.ownership.marked(self.identity, scene).bind(lambda mark: mark.of).to_optional():
@@ -247,11 +245,11 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                 return Error((BlenderAbsentFault(owner="bpy.context", key="scene"),))
 
     def copies(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene, ...]]:
-        """Returns the source followed by its marked member scenes in native order."""
+        """Returns source, then its member scenes in data order."""
         return self.source(context).map(lambda source: (source, *RenderSet.ownership.serving(self.identity, source)))
 
     def members(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]]:
-        """Returns the form's owners in native list order."""
+        """Returns members of file form in list order."""
 
         def listed(form: Form) -> BlenderResult[tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]]:
             match form:
@@ -263,7 +261,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         return self.form(context).bind(listed)
 
     def free[O: bpy.types.Scene | bpy.types.ViewLayer](self, owners: tuple[O, ...]) -> BlenderResult[tuple[O, ...]]:
-        """Reads every member lock and returns the unlocked owners in the same order."""
+        """Returns unlocked owners in given order."""
 
         def locked(owner: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[bool]:
             return (self.scenes.read(owner) if isinstance(owner, bpy.types.Scene) else self.layers.read(owner)).map(lambda member: member.locked)
@@ -271,11 +269,11 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(map(locked, owners)).map(lambda locks: tuple(owner for owner, lock in zip(owners, locks) if not lock))
 
     def unlocked(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]]:
-        """Returns unlocked members after reading the native file form."""
+        """Returns unlocked members of file form."""
         return self.members(context).bind(self.free)
 
     def rendered(self, context: bpy.types.Context) -> BlenderResult[tuple[tuple[bpy.types.Scene, Option[bpy.types.ViewLayer]], ...]]:
-        """Returns dispatch scenes, with a selected layer for the layer form."""
+        """Returns dispatch scenes, paired with each used layer under layer form."""
 
         def dispatched(form: Form) -> BlenderResult[tuple[tuple[bpy.types.Scene, Option[bpy.types.ViewLayer]], ...]]:
             match form:
@@ -293,7 +291,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
     # --- [SETTINGS]
 
     def captured(self, category: Category, context: bpy.types.Context) -> BlenderResult[Snapshot]:
-        """Captures a category from its source scene or the corresponding named layer."""
+        """Captures category from source scene or its layer named like active one."""
         selected = next(selected for held, selected in self.categories if held == category)
 
         def origin(scene: bpy.types.Scene) -> BlenderResult[bpy.types.Scene | bpy.types.ViewLayer]:
@@ -308,7 +306,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         return self.source(context).bind(origin).bind(lambda source: Snapshot.capture(source, Some(selected)))
 
     def samples_of(self, scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[int]:
-        """Reads the native layer override or its engine's sample setting."""
+        """Reads layer sample override, else engine samples."""
         if layer.samples:
             return Ok(layer.samples)
         selected: BlenderResult[Descriptor[bpy.types.IntProperty]] = self.samples.try_find(scene.render.engine).to_result_with(
@@ -323,14 +321,14 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
-    """Native scene or layer owners selected by set form and synchronization locks."""
+    """Owners selected by set form and sync locks."""
 
     members: Members
     owner_type: type[bpy.types.Scene] | type[bpy.types.ViewLayer]
     unlocked: bool
 
     def owners(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]]:
-        """Selects scene or layer owners and reads every requested lock."""
+        """Returns owners, unlocked ones alone when `unlocked` is set."""
         return (
             self
             .scenes(context)
@@ -339,7 +337,7 @@ class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def scenes(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene, ...]]:
-        """Returns source scenes selected by the file's member form."""
+        """Returns member scenes under copy form, else source scene."""
         return self.members.form(context).bind(lambda form: self.members.copies(context) if isinstance(form, Copies) else self.members.source(context).map(lambda scene: (scene,)))
 
 
@@ -347,7 +345,7 @@ class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
-    """One render set's complete recipes and native parameter-lock store."""
+    """Setup recipes and lock store of one render set."""
 
     members: Members
     stack: EffectStack[E]
@@ -355,11 +353,11 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def bound(cls, members: Members, stack: EffectStack[E]) -> BlenderResult["SetupScope[E]"]:
-        """Binds persistent locks to the acquired render-set identity."""
+        """Binds setup lock store of members identity."""
         return SetupLocks.bound(members.identity).map(lambda locks: cls(members=members, stack=stack, locks=locks))
 
     def captured(self, scene: bpy.types.Scene) -> BlenderResult[Setup[E]]:
-        """Captures category settings and ordered effects from one native scene."""
+        """Captures category settings and ordered effects of scene."""
         selected = tuple(descriptor for category, descriptors in self.members.categories if category.root is bpy.types.Scene for descriptor in descriptors)
         layers = tuple(descriptor for category, descriptors in self.members.categories if category.root is bpy.types.ViewLayer for descriptor in descriptors)
         return paired(
@@ -371,12 +369,12 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
         ).map(lambda values: Setup(scene=values[0], layers=dict(values[1][0]), effects=values[1][1]))
 
     def current(self, context: bpy.types.Context) -> BlenderResult[Setup[E]]:
-        """Captures the active scene without substituting a source or another render set."""
+        """Captures active scene, substituting no source."""
         scene = rooted(bpy.types.Scene, context)
         return scene.bind(self.captured)
 
     def held(self, scene: bpy.types.Scene) -> BlenderResult[tuple[SetupLocks, tuple[bpy.types.ViewLayer, ...]]]:
-        """Reads parameter locks and every native view-layer member lock once."""
+        """Reads setup locks and unlocked view layers of scene."""
         return paired(
             self.locks.read(scene).map(lambda held: held.default_with(SetupLocks)),
             accumulated(self.members.layers.read(layer).map(lambda member: (layer, member.locked)) for layer in scene.view_layers).map(
@@ -385,7 +383,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def applied(self, context: bpy.types.Context, recipe: Setup[E]) -> BlenderResult[Outcome]:
-        """Applies sparse recipes across unlocked members whose projection differs, sharing scene writes under layers, or answers why no member changes."""
+        """Applies recipe to each unlocked member scene it changes."""
 
         def planned(scene: bpy.types.Scene) -> BlenderResult[Option[tuple[bpy.types.Scene, SetupLocks, Setup[E]]]]:
             return paired(self.captured(scene), self.held(scene)).bind(
@@ -410,14 +408,14 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
                 case (), ():
                     return Ok(Unchanged(reason="Every render set member is locked"))
                 case (), _:
-                    return Ok(Unchanged(reason="Unlocked render set members already hold this setup"))
+                    return Ok(Unchanged(reason="Unlocked render set members match setup"))
                 case changing, _:
                     return tallied(tuple(starmap(written, changing)))
 
         return MemberScope(members=self.members, owner_type=bpy.types.Scene, unlocked=True).scenes(context).bind(self.members.free).bind(lambda scenes: accumulated(map(planned, scenes))).bind(wrote)
 
     def candidate(self, _identity: Identity, context: bpy.types.Context, recipe: Setup[E], head: Option[npt.NDArray[np.float32]]) -> BlenderResult[Chain]:
-        """Projects effect parameters over the current frame without applying scene settings."""
+        """Projects recipe effects over completed render for preview."""
         match context.scene, head:
             case bpy.types.Scene() as scene, Option(tag="some"):
                 return (
@@ -431,7 +429,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
                 return Error((BlenderAbsentFault(owner="render setup preview", key="completed render"),))
 
     def browser(self, preset: Preset[Setup[E]], tiles: Tiles, main: AreaQuery) -> Browser[Setup[E]]:
-        """Composes the complete setup catalog with native actions and transient previews."""
+        """Builds setup browser with apply, match, and preview callbacks."""
         return Browser(
             listing=Listing(preset=preset, current=self.current, matches=lambda context, recipes: self.observed(context).bind(lambda observed: observed[1](recipes)), applied=self.applied),
             tiles=tiles,
@@ -441,7 +439,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def observed(self, context: bpy.types.Context) -> BlenderResult[tuple[Hashable, Callable[[tuple[Setup[E], ...]], BlenderResult[tuple[bool, ...]]]]]:
-        """Captures one revision and its candidate matcher from the same native settings and locks."""
+        """Returns revision key and recipe matcher from one capture."""
         match context.scene:
             case bpy.types.Scene() as scene:
                 return paired(self.captured(scene), self.held(scene)).map(
@@ -454,7 +452,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
                 return Error((BlenderAbsentFault(owner="bpy.context", key="scene"),))
 
     def actions(self) -> BlenderResult[tuple[Operator[SetupLock], Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]]:
-        """Composes native setting locks from matrix holders and canonical descriptors."""
+        """Returns setting lock operator and matrix cell button factory."""
 
         def changed(owner: Host, path: str) -> BlenderResult[Done]:
             match owner:
@@ -481,7 +479,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
         command = Operator(
             key="render_setup_lock",
             title="Lock Setup Setting",
-            description="Keep or release this native setting when applying a render setup",
+            description="Toggle setting lock against setup changes",
             form=SetupLock,
             run=lambda call: name.bind(lambda name: hosted(name, call.context)).bind(lambda owner: changed(owner, call.record.path)),
         )
@@ -509,21 +507,21 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Setups[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
-    """Complete setup catalog and preview policy for a render-set header."""
+    """Setup browser of render set header."""
 
     stack: EffectStack[E]
     tiles: Tiles
     main: AreaQuery
 
     def bound(self, members: Members) -> BlenderResult[tuple[Browser[Setup[E]], tuple[Operator[SetupLock], Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]]]:
-        """Composes browser actions over the section's acquired native members."""
+        """Builds setup browser and lock actions over members."""
         return SetupScope.bound(members, self.stack).bind(
             lambda scope: scope.actions().map(lambda actions: (scope.browser(Preset(key=RenderSet.key, form=Setup[self.stack.form]), self.tiles, self.main), actions))  # type: ignore[name-defined]  # ty: ignore[invalid-type-form]
         )
 
 
 class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
-    """Native set stores, commands, preset menus, and the category board section."""
+    """Render set stores, commands, menus, and section."""
 
     key: ClassVar[Key] = "render_sets"
     title: ClassVar[str] = "Render Sets"
@@ -541,7 +539,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def page_rows(self) -> tuple[Registrable, ...]:
-        """Declares native stores, the setup browser's screen layout among them, before the lock row and its suppressible preference."""
+        """Stores, browser layouts, and lock operator."""
         return (
             self.record,
             self.scenes,
@@ -550,16 +548,16 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
             Operator[Empty](
                 key="render_set_lock",
                 title="Lock Render Set",
-                description="Keep or release the active member's synchronization lock",
+                description="Toggle sync lock of active member",
                 icon=Some("LOCKED"),
                 form=Empty,
                 run=lambda call: self.bound(call.identity).bind(lambda members: toggled(members, call.context)),
-                invoke=Some(Suppressible[Empty](message=lambda _context, _record: "Unlocking a member never synced first copies every category from its source")),
+                invoke=Some(Suppressible[Empty](message=lambda _context, _record: "Unlocking never-synced member copies every category from source")),
             ),
         )
 
     def bound(self, identity: Identity) -> BlenderResult[Members]:
-        """Resolves registered stores, category selections, and actual engine sample metadata."""
+        """Resolves stores and descriptors."""
 
         def tagged(sets: Attached[Sets]) -> BlenderResult[tuple[Attached[Sets], Descriptor[bpy.types.EnumProperty]]]:
             form = next(field for field in msgspec.structs.fields(Sets) if field.name == "form")
@@ -586,13 +584,13 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def captured(members: Members, category: Category) -> Captured:
-        """Captures a category preset and applies it over its unlocked native owners."""
+        """Returns category preset source applying to unlocked owners."""
         return Captured(preset=Preset(key=category.key, form=Snapshot), scope=MemberScope(members=members, owner_type=category.root, unlocked=True), selection=category.paths)
 
     # --- [COMMANDS]
 
     def commands(self, members: Members) -> tuple[Operator[Empty] | Operator[Converting], ...]:
-        """Returns native add, adopt, restore, category sync, reversal, and conversion rows."""
+        """Returns render set operators."""
 
         def add(call: Call[Empty]) -> BlenderResult[Done]:
             return (
@@ -648,14 +646,14 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
             return members.members(context).map(lambda owners: f"Convert {', '.join(owner.name for owner in owners)} to {record.form.title}")
 
         return (
-            Operator[Empty](key="render_set_add", title="Add Render Set", description="Copy the source scene into a retained member", icon=Some("ADD"), form=Empty, run=add),
-            Operator[Empty](key="render_set_adopt", title="Adopt Scenes", description="Join the file's unmarked scenes to the source's render sets", icon=Some("IMPORT"), form=Empty, run=adopt),
-            Operator[Empty](key="render_set_restore", title="Restore Source", description="Remove copied members and show their original scene", icon=Some("SCENE_DATA"), form=Empty, run=restore),
+            Operator[Empty](key="render_set_add", title="Add Render Set", description="Copy source scene as new member", icon=Some("ADD"), form=Empty, run=add),
+            Operator[Empty](key="render_set_adopt", title="Adopt Scenes", description="Add unmarked scenes to source render sets", icon=Some("IMPORT"), form=Empty, run=adopt),
+            Operator[Empty](key="render_set_restore", title="Restore Source", description="Remove copied members and show source scene", icon=Some("SCENE_DATA"), form=Empty, run=restore),
             *(syncing(members, category) for category in self.categories),
             Operator[Empty](
                 key="render_set_unsync",
                 title="Unsync Render Sets",
-                description="Restore every unlocked member's pre-sync native settings",
+                description="Restore pre-sync settings of unlocked members",
                 icon=Some("LOOP_BACK"),
                 form=Empty,
                 run=lambda call: unsynced(members, call.context).map(
@@ -669,9 +667,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                 icon=Some("ARROW_LEFTRIGHT"),
                 form=Converting,
                 run=lambda call: converted(members, call.record.form, call.context).map(
-                    lambda names: names.map(lambda made: Done(notes=tuple(("INFO", f"Created {name}") for name in made))).default_value(
-                        Unchanged(reason=f"Render sets are already {call.record.form.title}")
-                    )
+                    lambda names: names.map(lambda made: Done(notes=tuple(("INFO", f"Created {name}") for name in made))).default_value(Unchanged(reason=f"Render sets use {call.record.form.title}"))
                 ),
                 invoke=Some(Confirm[Converting](message=Some(touched))),
             ),
@@ -679,7 +675,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def listed(members: Members) -> Operator[Empty]:
-        """Declares removal of the active marked scene without admitting user scenes."""
+        """Returns operator removing active marked member scene."""
 
         def remove(call: Call[Empty]) -> BlenderResult[Done]:
             def removed(source: bpy.types.Scene) -> BlenderResult[Done]:
@@ -699,12 +695,12 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 
             return members.source(call.context).bind(removed)
 
-        return Operator[Empty](key="render_set_remove", title="Remove Render Set", description="Remove the active copied member", icon=Some("REMOVE"), form=Empty, run=remove)
+        return Operator[Empty](key="render_set_remove", title="Remove Render Set", description="Remove active copied member", icon=Some("REMOVE"), form=Empty, run=remove)
 
     # --- [SECTION]
 
     def composed(self, members: Members, commands: tuple[Operator[Empty] | Operator[Converting], ...]) -> BlenderResult[Single]:
-        """Builds native member lists and one divergence matrix per category."""
+        """Builds member lists and one settings matrix per category."""
 
         def curves(layout: bpy.types.UILayout, owner: Native, key: str) -> None:
             if isinstance(owner, bpy.types.ColorManagedViewSettings):
@@ -768,22 +764,22 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def realized(self, identity: Identity) -> BlenderResult[Drawn]:
-        """Binds the native section to the current extension's stores."""
+        """Builds section over extension stores."""
         return self.bound(identity).bind(lambda members: self.composed(members, self.commands(members)).bind(lambda section: section.realized(identity)))
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Realizes this section as a native layout-panel row."""
+        """Returns section as inline layout panel draw."""
         return self.realized(identity).map(lambda drawn: drawn.inline)
 
     # --- [REGISTRATION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Holds deferred edit admission while retaining every native set declaration."""
+        """Holds deferred edit transfer while registered."""
         with ExitStack() as stack:
 
             def joined(members: Members) -> BlenderResult[Acquisitions]:
-                deferred = stack.enter_context(identity.reports.deferred(partial(mirrored, members)))
+                deferred = stack.enter_context(identity.reports.deferred(partial(propagated, members)))
 
                 def edited(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> BlenderResult[None]:
                     context = bpy.context
@@ -809,7 +805,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                         Menu(
                             key=self.menu,
                             title=self.title,
-                            description="Create, synchronize, restore, and convert render sets",
+                            description="Create, sync, restore, and convert render sets",
                             body=Dropdown(entries=(*(OperatorButton(target=placed) for placed in commands), *(Pulldown(menu=self.captured(members, category).key) for category in self.categories))),
                         ),
                         *(PresetMenu(source=self.captured(members, category)) for category in self.categories),
@@ -827,7 +823,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 def transfers(
     members: Members, category: Category, context: bpy.types.Context, targets: tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]
 ) -> BlenderResult[tuple[tuple[bpy.types.Scene | bpy.types.ViewLayer, Snapshot, tuple[Reparametrized[Value], ...]], ...]]:
-    """Captures the source category and every target before deriving native value edits."""
+    """Returns value edits per target from source category."""
     selected = next(selected for held, selected in members.categories if held == category)
     return members.captured(category, context).bind(
         lambda source: accumulated(Snapshot.capture(target, Some(selected)).map(lambda held: (target, held, transfer(held.tree, source.tree))) for target in targets)
@@ -835,7 +831,7 @@ def transfers(
 
 
 def previewed(members: Members, category: Category, context: bpy.types.Context) -> BlenderResult[tuple[tuple[str, tuple[Reparametrized[Value], ...]], ...]]:
-    """Returns changed native values per unlocked owner for a confirmation dialog."""
+    """Returns value edits per unlocked owner for sync confirmation."""
     return (
         MemberScope(members=members, owner_type=category.root, unlocked=True)
         .owners(context)
@@ -845,7 +841,7 @@ def previewed(members: Members, category: Category, context: bpy.types.Context) 
 
 
 def written(members: Members, category: Category, context: bpy.types.Context, targets: tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]) -> BlenderResult[tuple[Applied, ...]]:
-    """Publishes native priors before sync and retains genuine normalized endpoints."""
+    """Applies source category, storing pre-sync and changed values as recovery endpoints."""
 
     def previous(target: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Option[tuple[Tree[NativeValue], Tree[NativeValue]]]]:
         return members.recovery.read(target).bind(lambda held: held.map(lambda ends: ends.decoded(target, members.recovery.name).map(Some)).default_value(Ok(Nothing)))
@@ -891,8 +887,8 @@ def written(members: Members, category: Category, context: bpy.types.Context, ta
 
 
 def synced(members: Members, category: Category, context: bpy.types.Context) -> BlenderResult[Outcome]:
-    """Copies one source category to every unlocked owner of its native root once a transfer differs, or answers that every owner already holds the source's values."""
-    reason = f"Unlocked render sets already hold the source's {category.title} settings"
+    """Copies source category to unlocked owners when any differs."""
+    reason = f"Unlocked render sets match source {category.title} settings"
 
     def wrote(targets: tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]) -> BlenderResult[Outcome]:
         return transfers(members, category, context, targets).bind(
@@ -909,7 +905,7 @@ def synced(members: Members, category: Category, context: bpy.types.Context) -> 
 
 
 def syncing(members: Members, category: Category) -> Operator[Empty]:
-    """Declares a category transfer with the actual native changes in its confirmation."""
+    """Returns category sync operator confirming with change counts."""
 
     def message(context: bpy.types.Context, _record: Empty) -> BlenderResult[str]:
         return previewed(members, category, context).map(lambda rows: f"Writes {sum(len(edit.after) for _, edits in rows for edit in edits)} {category.title} settings across {len(rows)} render sets")
@@ -917,7 +913,7 @@ def syncing(members: Members, category: Category) -> Operator[Empty]:
     return Operator[Empty](
         key=f"render_set_sync_{category.key}",
         title=f"Sync {category.title}",
-        description=f"Copy the source's {category.title} settings to every unlocked render set",
+        description=f"Copy source {category.title} settings to unlocked render sets",
         icon=Some("FILE_REFRESH"),
         condition=Some(Setting(descriptor=members.tag, accepted=(Copies.__name__,))) if category.root is bpy.types.Scene else Nothing,
         form=Empty,
@@ -927,7 +923,7 @@ def syncing(members: Members, category: Category) -> Operator[Empty]:
 
 
 def toggled(members: Members, context: bpy.types.Context) -> BlenderResult[Done]:
-    """Changes a native member lock, first synchronizing a never-synced unlocked member."""
+    """Toggles active member lock, first syncing a never-synced member it unlocks."""
 
     def configured(owner: bpy.types.Scene | bpy.types.ViewLayer, record: SceneMember | LayerMember) -> BlenderResult[None]:
         def synced_first(held: Option[Endpoints]) -> BlenderResult[None]:
@@ -944,7 +940,7 @@ def toggled(members: Members, context: bpy.types.Context) -> BlenderResult[Done]
 
         return members.recovery.read(owner).bind(synced_first) if record.locked else Ok(None)
 
-    def flipped[M: SceneMember | LayerMember](attached: Attached[M], owner: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Done]:
+    def changed[M: SceneMember | LayerMember](attached: Attached[M], owner: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Done]:
         return attached.read(owner).bind(
             lambda record: (
                 configured(owner, record)
@@ -956,15 +952,15 @@ def toggled(members: Members, context: bpy.types.Context) -> BlenderResult[Done]
     def selected(form: Form) -> BlenderResult[Done]:
         match form:
             case Copies():
-                return rooted(bpy.types.Scene, context).bind(lambda scene: flipped(members.scenes, scene))
+                return rooted(bpy.types.Scene, context).bind(lambda scene: changed(members.scenes, scene))
             case Layers():
-                return rooted(bpy.types.ViewLayer, context).bind(lambda layer: flipped(members.layers, layer))
+                return rooted(bpy.types.ViewLayer, context).bind(lambda layer: changed(members.layers, layer))
 
     return members.form(context).bind(selected)
 
 
 def unsynced(members: Members, context: bpy.types.Context) -> BlenderResult[tuple[Applied, ...]]:
-    """Restores genuine endpoints conditionally and retains failed recovery records."""
+    """Restores pre-sync values of unlocked owners, keeping records that fail to restore."""
 
     def reverted(root: type[bpy.types.Scene] | type[bpy.types.ViewLayer]) -> BlenderResult[tuple[Applied, ...]]:
         def undone(owner: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Option[Applied]]:
@@ -985,8 +981,8 @@ def unsynced(members: Members, context: bpy.types.Context) -> BlenderResult[tupl
     return accumulated(map(reverted, dict.fromkeys(category.root for category, _ in members.categories))).map(lambda groups: tuple(chain.from_iterable(groups)))
 
 
-def mirrored(members: Members, edited: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Option[str]]:
-    """Transfers native category edits to other unlocked members as one undo step."""
+def propagated(members: Members, edited: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[Option[str]]:
+    """Copies category edits to other unlocked members in one undo step."""
 
     def wrote(others: tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]) -> BlenderResult[Option[str]]:
         return accumulated(
@@ -999,7 +995,7 @@ def mirrored(members: Members, edited: bpy.types.Scene | bpy.types.ViewLayer) ->
 
 
 def added(members: Members, source: bpy.types.Scene, name: str) -> BlenderResult[tuple[bpy.types.Scene, Option[BlenderFaults]]]:
-    """Makes a retained native scene member, preserving Blender's suffixed name."""
+    """Copies source as retained member, keeping suffixed name on collision."""
 
     def renamed(scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Scene, Option[BlenderFaults]]]:
         def collided(faults: BlenderFaults) -> BlenderResult[tuple[bpy.types.Scene, Option[BlenderFaults]]]:
@@ -1017,7 +1013,7 @@ def added(members: Members, source: bpy.types.Scene, name: str) -> BlenderResult
 
 
 def converted(members: Members, form: Form, context: bpy.types.Context) -> BlenderResult[Option[tuple[str, ...]]]:
-    """Converts native members, releasing newly created owners if preparation refuses, `Nothing` where the file already holds the form."""
+    """Converts render set form, removing created owners on failure, `Nothing` for current form."""
 
     def switched(manager: bpy.types.WindowManager, current: Sets) -> BlenderResult[Option[tuple[str, ...]]]:
         made: list[tuple[bpy.types.Scene, bpy.types.ViewLayer] | bpy.types.Scene] = []
@@ -1135,8 +1131,8 @@ __all__ = [
     "Setups",
     "added",
     "converted",
-    "mirrored",
     "previewed",
+    "propagated",
     "synced",
     "syncing",
     "toggled",

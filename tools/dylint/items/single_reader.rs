@@ -202,7 +202,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && walk.enclosing.get(&caller).is_some_and(|&enclosing| walk.deepest.get(&target).copied().unwrap_or_default().strict_add(enclosing) <= LEVELS)
             {
                 let caller_name = tcx.item_name(caller);
-                span_lint_hir_and_then(cx, SINGLE_READER, tcx.local_def_id_to_hir_id(target), tcx.def_span(target), format!("`{name}` has one reader"), |diag| {
+                span_lint_hir_and_then(cx, SINGLE_READER, tcx.local_def_id_to_hir_id(target), tcx.def_span(target), format!("`{name}` has one reader, `{caller_name}`"), |diag| {
                     diag.span_note(outside().map(|&(_, site)| site).collect::<Vec<_>>(), "read here");
                     diag.help(format!("move `{name}` into `{caller_name}` as a nested item"));
                 });

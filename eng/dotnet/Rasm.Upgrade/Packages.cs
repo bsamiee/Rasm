@@ -169,8 +169,8 @@ internal static class Program {
             Fail: Report);
 
     private static IO<Seq<Move>> Upgrade(string[] args) =>
-        from path in IO.lift(Fin<string> () => args is [var file] ? Path.GetFullPath(file) : Error.New("Pass one argument, the Directory.Packages.props file to upgrade"))
-        from framework in IO.lift(static () => Optional(AppContext.TargetFrameworkName).Map(NuGetFramework.Parse).ToFin(Error.New("Entry assembly names no target framework to match releases against")))
+        from path in IO.lift(Fin<string> () => args is [var file] ? Path.GetFullPath(file) : Error.New("Pass one Directory.Packages.props path"))
+        from framework in IO.lift(static () => Optional(AppContext.TargetFrameworkName).Map(NuGetFramework.Parse).ToFin(Error.New("Entry assembly names no target framework")))
         from text in IO.liftAsync(env => File.ReadAllTextAsync(path, env.Token))
         let rows = Packages.Rows(text)
         from cache in use(static () => new SourceCacheContext())

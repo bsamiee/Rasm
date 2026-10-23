@@ -54,5 +54,5 @@ rule:
             - has: {field: operators, pattern: $$_TEST, regex: '^((not\s+)?in|==|!=)$'}
             - has: {matches: argv}
     not: {inside: {matches: owner, stopBy: end}}
-message: '`$READ` reads process mode outside `Reports.deferred`'
-note: 'Hand main-thread writes to `Reports.deferred` and register timers, draw handlers, modal operators, and keymaps with no mode branch'
+message: '`$READ` reads background mode outside `Reports.deferred`'
+note: 'Route main-thread writes through `Reports.deferred` and register timers, draw handlers, modal operators, and keymaps unconditionally'

@@ -17,7 +17,7 @@ public sealed class ScopesSection() : DefinedSection(Row) {
         EntryKey.TypeOwner(typeof(ScopesSection).GUID) switch {
             var owner => ChartRows.Scope(
                 "Scope",
-                "Histogram, waveform, parade, vectorscope, or chromaticity of the newest rendering",
+                "Chart of newest rendering",
                 IterableNE.create(new ScopeSource("Current", RenderingComparison.Scoped)),
                 owner,
                 scope => PlugInSettings.Record<ScopeState>(((IPlugInViews)scope.Sink).Settings.Child(owner), Applied.Live),
@@ -42,7 +42,7 @@ public sealed class CompareSection() : DefinedSection(Row) {
         Children = [
             PreviewRows.Frame(
                 "Frame",
-                "Newest rendering wiped against the history slot chosen for comparison",
+                "Newest rendering wiped against compared rendering",
                 new FramePane(RenderingComparison.Sample, [], [RenderingComparison.Difference], Picker, Some(ScopesSection.Link)),
                 RowRules.Always),
             RenderingComparison.Measures(ComparisonSettingRows.Default),

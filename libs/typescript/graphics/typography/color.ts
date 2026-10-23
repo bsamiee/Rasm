@@ -7,12 +7,12 @@ class Color extends Schema.Class<Color, { readonly brand: unique symbol }>('Colo
     {
         palettes: Schema.Array(
             Schema.Struct({ name: Schema.OptionFromOptionalKey(Schema.String), colors: Schema.Array(Schema.Struct({ ...Struct.Record(['red', 'green', 'blue', 'alpha'], Schema.Int), name: Schema.OptionFromOptionalKey(Schema.String) })), ...Struct.Record(['light', 'dark'], Schema.Boolean) }).annotate({
-                description: 'CPAL palette of unpremultiplied 8-bit colors, and whether it suits a light or a dark background',
+                description: 'Unpremultiplied 8-bit colors with light and dark background flags',
             }),
         ),
         ...Struct.Record(['layers', 'paint', 'png'], Schema.Boolean),
     },
-    { description: 'Color glyph data: CPAL palettes, COLRv0 layers, COLRv1 paint, and CBDT or sbix PNG images' },
+    { description: 'CPAL palettes, COLRv0 layers, COLRv1 paint, CBDT or sbix PNG images' },
 ) {
     static readonly of = ({ handle, named }: { readonly handle: Face; readonly named: (id: number | undefined) => Option.Option<string> }) =>
         Color.make({

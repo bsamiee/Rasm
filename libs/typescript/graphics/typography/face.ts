@@ -15,44 +15,41 @@ import { Tables } from '#/tables';
 const Outlines = Schema.Literals(['glyf', 'CFF ', 'CFF2']);
 class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')(
     {
-        ...Record.map({ postscriptName: 'PostScript name', fullName: 'Full name', style: 'Subfamily name' }, (description) => Schema.OptionFromOptionalKey(Schema.String.annotate({ description }))),
-        ...Record.map({ family: 'Typographic family (name ID 16), else the family (name ID 1)', version: 'Version string (name ID 5)' }, (description) =>
-            Schema.OptionFromOptionalKey(Schema.String.annotate({ description: `${description} in English, else in the first language the name table states it; absent when it states none` })),
-        ),
-        unitsPerEm: Schema.Int.annotate({ description: 'Font units per em; every length the face states is in em' }),
-        glyphCount: Schema.Int.annotate({ description: 'Glyphs in the face, .notdef included' }),
-        coverage: Schema.Int.annotate({ description: 'Count of Unicode code points the face maps to glyphs' }),
-        outlines: Schema.OptionFromOptionalKey(Outlines.annotate({ description: 'Table holding the glyph outlines: TrueType, CFF, or CFF2; absent for a face of bitmaps alone' })),
+        ...Struct.Record(['postscriptName', 'fullName'], Schema.OptionFromOptionalKey(Schema.String)),
+        style: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Subfamily name' })),
+        ...Record.map({ family: 'Name ID 16 else 1', version: 'Name ID 5' }, (description) => Schema.OptionFromOptionalKey(Schema.String.annotate({ description: `${description}, preferring English` }))),
+        unitsPerEm: Schema.Int.annotate({ description: 'Font units per em, other lengths in em' }),
+        glyphCount: Schema.Int.annotate({ description: 'Includes .notdef' }),
+        coverage: Schema.Int.annotate({ description: 'Unicode code points mapped to glyphs' }),
+        outlines: Schema.OptionFromOptionalKey(Outlines.annotate({ description: 'Absent for bitmap-only face' })),
         embedding: Schema.OptionFromOptionalKey(
             Schema.Struct({ permission: Schema.Literals(['installable', 'editable', 'preview', 'restricted']), subsetting: Schema.Boolean, outlines: Schema.Boolean }).annotate({
-                description: 'OS/2 fsType: the usage permission, the least restrictive one when several bits are set, and whether subsets and outline embedding are allowed; absent when the face has no OS/2 table',
+                description: 'OS/2 fsType, least restrictive permission among set bits',
             }),
         ),
-        ...Record.map({ weight: 'OS/2 weight class at the default instance', width: 'OS/2 width class at the default instance' }, (description) => Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: `${description}; absent when the face has no OS/2 table` }))),
-        monospace: Schema.Boolean.annotate({ description: 'The face declares fixed-width spacing' }),
+        ...Struct.Record(['weight', 'width'], Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'OS/2 class at default instance' }))),
+        monospace: Schema.Boolean.annotate({ description: 'post table isFixedPitch' }),
         metrics: Metrics,
         layout: Layout,
         color: Color,
         axes: Schema.Array(Schema.Struct({ tag: Schema.String, name: Schema.OptionFromOptionalKey(Schema.String), ...Struct.Record(['min', 'default', 'max', 'value'], Schema.Finite), hidden: Schema.Boolean })).annotate({
-            description: 'Variation axes in fvar order with the value this instance applies; hidden axes are not meant for user interfaces',
+            description: 'fvar order with applied value',
         }),
         instances: Schema.Array(
             Schema.Struct({
-                ...Record.map({ style: 'Subfamily name of the instance', postscriptName: 'PostScript name of the instance: the one fvar names, else the one Adobe Technical Note 5902 generates from the variations prefix and the subfamily' }, (description) =>
-                    Schema.OptionFromOptionalKey(Schema.String.annotate({ description })),
-                ),
-                variations: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Axis values of the instance by axis tag' }),
+                ...Record.map({ style: 'Subfamily name', postscriptName: 'fvar PostScript name else Adobe Technical Note 5902 name' }, (description) => Schema.OptionFromOptionalKey(Schema.String.annotate({ description }))),
+                variations: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Axis values by tag' }),
             }),
-        ).annotate({ description: 'Named instances; a selection takes their PostScript names' }),
-        font: Schema.instanceOf(Font).pipe(Schema.encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(() => 'A face opens from font bytes, not from its encoded form'), encode: SchemaGetter.omit() })),
+        ).annotate({ description: 'Selectable by PostScript name' }),
+        font: Schema.instanceOf(Font).pipe(Schema.encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(() => 'Encoded face omits font, open from font bytes'), encode: SchemaGetter.omit() })),
     },
-    { description: 'One face at one instance; postscriptName, fullName, and style name the default or named instance at its coordinates, else postscriptName is the Adobe Technical Note 5902 name of the axis values and the other two are absent' },
+    { description: 'Face at one instance, names from instance matching coordinates, else Adobe Technical Note 5902 postscriptName' },
 ) {
     static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Instance.Type) {
         const container = yield* Effect.try(() => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength))).pipe(
             Effect.filterOrFail(
                 ({ type }) => type !== 'WOFF' && type !== 'WOFF2',
-                ({ type }) => new Cause.IllegalArgumentError(`${type} webfont containers must be decoded to OpenType or TrueType font bytes`),
+                ({ type }) => new Cause.IllegalArgumentError(`${type} unsupported, decode to OpenType or TrueType bytes`),
             ),
         );
         const nameIds = { family: 1, subfamily: 2, fullName: 4, version: 5, postscriptName: 6, typographicFamily: 16, typographicSubfamily: 17, variationsPrefix: 25 } as const;
@@ -110,10 +107,10 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const { face: chosen, variations: given } = yield* Option.match(selection, {
             onNone: () =>
                 Effect.map(
-                    Unmatched.single('face in the collection', Option.none())(faces, ({ names }) => Option.toArray(names.postscriptName)),
+                    Unmatched.single('face in collection', Option.none())(faces, ({ names }) => Option.toArray(names.postscriptName)),
                     (face) => ({ face, variations: face.base.variations }),
                 ),
-            onSome: () => Effect.mapError(Option.match(listed, { onNone: () => generated, onSome: Effect.succeed }), () => Unmatched.make({ subject: 'face or instance by PostScript name', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),
+            onSome: () => Effect.mapError(Option.match(listed, { onNone: () => generated, onSome: Effect.succeed }), () => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),
         });
         const tables = yield* Schema.decodeUnknownEffect(Tables)(chosen.parsed);
         const requested = { ...given, ...Record.fromIterableWith([...variations, ...Option.toArray(Option.map(size, (points) => new Variation('opsz', points)))], ({ tag, value }) => [tag, value]) };

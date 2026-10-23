@@ -31,5 +31,5 @@ rule:
             any:
                 - has: {matches: recovery}
                 - has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: recovery}}}
-message: '`flatMapError` maps a failure case of `$E` to `.success(nil)` in place of a producer returning `nil` for it'
-note: 'Return `.success(nil)` for the case from its producing function and drop the case from its failure type and from each consumer''s `flatMapError`'
+message: '`flatMapError` maps a failure case of `$E` to `.success(nil)` in place of its producer returning `nil`'
+note: 'Return `.success(nil)` for the case from its producing function, and delete it from its failure type and each consumer''s `flatMapError`'

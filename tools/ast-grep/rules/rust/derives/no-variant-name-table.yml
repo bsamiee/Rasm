@@ -28,4 +28,4 @@ rule:
 transform:
     HEAD: {replace: {source: $TABLE, replace: '(?s)^\[\s*([^\n]*?)\s*\n.*$', by: '[$1 ..]'}}
 message: '`$HEAD` pairs each variant of `$E` with its name by hand'
-note: 'Derive `strum::EnumString` and `IntoStaticStr` with `#[strum(serialize = "<name>")]` per variant, and `EnumIter` for every variant'
+note: 'Derive `strum::EnumString`, `IntoStaticStr`, and `EnumIter` with `#[strum(serialize = "<text>")]` per variant'

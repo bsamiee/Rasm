@@ -59,4 +59,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 message: '`$HEAD` treats a float as a total order or a hash key by hand'
-note: 'Type the field `ordered_float::OrderedFloat<f64>` or `NotNan<f64>` and derive `PartialEq`, `Eq`, `Hash`, and `Ord`'
+note: 'Type the field `ordered_float::OrderedFloat<f64>` or `NotNan<f64>` and derive `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash`'

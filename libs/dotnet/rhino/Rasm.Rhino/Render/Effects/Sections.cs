@@ -31,9 +31,9 @@ namespace Rasm.Rhino.Render.Effects;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HistorySettingRows(PlugInSetting<int, int> Capacity, PlugInSetting<int, int> Window) {
     public static HistorySettingRows Default { get; } = new(
-        Capacity: new(ValueKey.Numeric("HistorySteps", "Undo steps", "Edits each section keeps for undo, redo, and restore; zero disables history", HistoryLimits.Default.Capacity,
+        Capacity: new(ValueKey.Numeric("HistorySteps", "Undo steps", "Edits per section for undo, redo, and restore, 0 disables history", HistoryLimits.Default.Capacity,
             new NumericDomain<int, int>(Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((1, 100)) })), SettingType.Integer),
-        Window: new(ValueKey.Numeric("HistoryMergeWindow", "Merge edits within", "Joins edits of one section made within this time of its last edit into one undo step",
+        Window: new(ValueKey.Numeric("HistoryMergeWindow", "Merge edits within", "Joins consecutive section edits into one undo step",
             (int)HistoryLimits.Default.Window.TotalSeconds,
             new NumericDomain<int, int>(Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((0, 600)), Unit = Quantity.GetUnitInfo(DurationUnit.Second) })),
             SettingType.Integer));
@@ -98,7 +98,7 @@ public static class SectionRows {
         where TState : IPixelStage<TState>
         where TParameter : class, IStateParameter<TState> =>
         (section, retain) => Row(effect, state, looks, section, source =>
-            Demanded(input, retain).Map(read => Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over the stage input", read,
+            Demanded(input, retain).Map(read => Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over stage input", read,
                 [Subscriptions.Host<AtomChangedEvent<StageFrame>, StageFrame>(typeof(Atom<StageFrame>), handler => input.Change += handler, handler => input.Change -= handler,
                     static handler => frame => handler(sender: null, frame), nameof(input.Change)).Choose(static _ => Some(unit))],
                 stage => Blocks(source, stage), RowRules.Always)) + Amount(state, section)));
@@ -109,7 +109,7 @@ public static class SectionRows {
         where TParameter : class, IStateParameter<TState> =>
         (section, _) => Row(effect, state, looks, section, source =>
             IO.pure(Of(source, source.Fields, None, static _ => RowRules.Always)
-                .Add(TextRows.Progress("Progress", "Work the effect's last run reports", new ReadoutSource<WorkState>.Cell(work), RowRules.Always))));
+                .Add(TextRows.Progress("Progress", "Last effect run", new ReadoutSource<WorkState>.Cell(work), RowRules.Always))));
 
     private static IO<View.Section> Row<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
@@ -149,7 +149,7 @@ public static class SectionRows {
                 .Listing()), scope.Sink, retain)
             from button in ButtonRows.Menu(menu, (GlyphRole.Presets, IconSlot.PanelButton.Master), IconSlot.PanelButton, RowText.Localize("Presets").Local, scope.Sink, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None),
-            "Presets", "Stock looks of the effect and the presets saved for it", RowRules.Always) { Wording = Wording.Library };
+            "Presets", "Stock looks and saved presets", RowRules.Always) { Wording = Wording.Library };
 
     // --- [STORE]
     private static ValueStore<TState> Store<TState>(EffectState<TState> state, EtoPostEffectCollapsibleSection section)
@@ -312,30 +312,30 @@ public static class SectionRows {
     public static Seq<ControlRow> Blocks<TState>(RowSource<TState> source, Option<StageInput> stage) where TState : IPixelStage<TState> =>
         source switch {
             RowSource<ToneMapping> tone =>
-                stage.Map(input => CurveRows.Graph(tone, "Response", "Display code the stage answers over scene stops", input, RowRules.Always)).ToSeq()
+                stage.Map(input => CurveRows.Graph(tone, "Response", "Display code over scene stops", input, RowRules.Always)).ToSeq()
                     + Of(tone, toSeq(ToneMappingParameter.Items), stage, item => Formed(tone, item.Formations))
                     .Add(ChartRows.RampKey(
-                        "False color key", "Stops above middle gray each false color band marks", scope => scope.Read(tone).Map(static held => held.Look),
+                        "False color key", "Stops above middle gray per false color band", scope => scope.Read(tone).Map(static held => held.Look),
                         Formed(tone, [Formation.AgXFalseColor]))),
             RowSource<ExposureState> exposure =>
                 Meter(exposure, stage).Cons(Of(exposure, exposure.Fields, stage, static _ => RowRules.Always)),
             RowSource<PointCurves> curves =>
-                Blocked(curves, stage, [CurveRows.Points(curves, "Curves", "Point curves over the stage input", stage, RowRules.Always)]),
+                Blocked(curves, stage, [CurveRows.Points(curves, "Curves", "Point curves over stage input", stage, RowRules.Always)]),
             RowSource<HueCurves> hues =>
-                Blocked(hues, stage, [CurveRows.Hues(hues, "Hue curves", "Hue curves over the stage input", stage, RowRules.Always)]),
+                Blocked(hues, stage, [CurveRows.Hues(hues, "Hue curves", "Hue curves over stage input", stage, RowRules.Always)]),
             RowSource<WheelsState> wheels =>
                 Blocked(wheels, stage, [ColorRows.Wheels(
-                    wheels, "Color wheels", "Tints over the global, shadow, midtone, and highlight ranges", stage.Map(static input => input.Context.Working), RowRules.Always)]),
+                    wheels, "Color wheels", "Tints over global, shadow, midtone, and highlight ranges", stage.Map(static input => input.Context.Working), RowRules.Always)]),
             RowSource<SelectiveColor> selective =>
                 Blocked(selective, stage, toSeq(RangeAxis.Items).Map(axis => ColorRows.Qualifier(
-                    selective, Qualified(axis), "Band of the stage input the grade acts on", axis, SelectiveColor.RangeOf, new RowField<SelectiveColor>(SelectiveColorParameter.Range),
+                    selective, Qualified(axis), "Stage input band to grade", axis, SelectiveColor.RangeOf, new RowField<SelectiveColor>(SelectiveColorParameter.Range),
                     Some<Func<SelectiveColor, Vector4, Vector4>>(static (graded, color) => graded.Graded()(color)), stage, RowRules.Always))),
             RowSource<HueIsolation> isolation =>
                 Blocked(isolation, stage, toSeq(RangeAxis.Items).Map(axis => ColorRows.Qualifier(
-                    isolation, Qualified(axis), "Band of the stage input kept in color", axis, HueIsolation.RangeOf, new RowField<HueIsolation>(HueIsolationParameter.Range),
+                    isolation, Qualified(axis), "Stage input band kept in color", axis, HueIsolation.RangeOf, new RowField<HueIsolation>(HueIsolationParameter.Range),
                     stage.Map<Func<HueIsolation, Vector4, Vector4>>(static input => (kept, color) => kept.Graded(input.Context.Working.Luminance)(color)), stage, RowRules.Always))),
             RowSource<Levels> levels =>
-                Blocked(levels, stage, [CurveRows.LevelPoints(levels, "Levels", "Black and white points over the stage histogram", stage, RowRules.Always)]),
+                Blocked(levels, stage, [CurveRows.LevelPoints(levels, "Levels", "Black and white points over stage histogram", stage, RowRules.Always)]),
             RowSource<CdlState> cdl =>
                 Seq(Opened(cdl), Saved(cdl)) + Of(cdl, cdl.Fields, stage, static _ => RowRules.Always),
             _ => Of(source, source.Fields, stage, static _ => RowRules.Always),
@@ -359,7 +359,7 @@ public static class SectionRows {
                     None: static () => IO.pure(unit)))(new CallbackSite(scope.Sink, typeof(ExposureState), nameof(ExposureState.Metered)), retain)
             from command in IO.lift(static () => new Eto.Forms.Command {
                 MenuText = RowText.Localize("Meter").Local, ToolBarText = RowText.Localize("Meter").Local,
-                ToolTip = RowText.Localize("Write the exposure that sets the stage input's trimmed mean luminance at middle gray").Local,
+                ToolTip = RowText.Localize("Write exposure placing trimmed mean luminance at middle gray").Local,
             })
             let show = stage.Match(Some: static input => input.Read, None: static () => IO.pure(Option<PixelFrame>.None))
                 .Bind(available => IO.lift(() => command.Enabled = available.IsSome)).Map(unit)
@@ -367,7 +367,7 @@ public static class SectionRows {
             from executed in Subscriptions.Attach(handler => command.Executed += handler, handler => command.Executed -= handler, Callbacks.Handler<System.EventArgs>(_ => Metered(scope, exposure, stage, mailbox, retain), site), retain)
             from button in ButtonRows.Push(command, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), show, None, None),
-            "Exposure meter", "Meters the stage input once and writes its exposure", RowRules.Always) { Wording = Wording.Library };
+            "Exposure meter", "Meters stage input once and writes exposure", RowRules.Always) { Wording = Wording.Library };
 
     private static IO<Unit> Metered(
         RowScope scope, RowSource<ExposureState> exposure, Option<StageInput> stage, Func<(Unit Key, Fin<ExposureState> Value), IO<Unit>> mailbox, Action<IDisposable> retain) =>
@@ -382,7 +382,7 @@ public static class SectionRows {
     // --- [CDL_FILES]
     private static ControlRow Opened(RowSource<CdlState> cdl) =>
         Pushed(new CommandRow.Run(
-            new CommandFace("cdl-open", "Open CDL...", "Read a correction from an ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
+            new CommandFace("cdl-open", "Open CDL...", "Read correction from ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
             None,
             scope => (
                 from paths in HostDialogs.ShowOpenDialog(new OpenFileDialog {
@@ -403,7 +403,7 @@ public static class SectionRows {
 
     private static ControlRow Saved(RowSource<CdlState> cdl) =>
         Pushed(new CommandRow.Run(
-            new CommandFace("cdl-save", "Save CDL...", "Write the correction as an ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
+            new CommandFace("cdl-save", "Save CDL...", "Write correction as ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
             None,
             scope => (
                 from held in scope.Read(cdl)

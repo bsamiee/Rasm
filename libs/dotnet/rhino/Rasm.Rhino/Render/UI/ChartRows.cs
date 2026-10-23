@@ -34,7 +34,7 @@ public sealed partial class ScopeParameter : IStateParameter<ScopeState> {
         new("Scope", "Chart the scope draws"));
     public static readonly ScopeParameter Counts = new("counts", new StateParameter<ScopeState>.Choice<CountScale>(
             lens(Options, Lens<ScopeOptions, CountScale>.New(static options => options.Counts, static counts => options => options with { Counts = counts }))),
-        new("Counts", "Scale of the histogram bin counts"));
+        new("Counts", "Scale of histogram bin counts"));
     public static readonly ScopeParameter Range = new("range", new StateParameter<ScopeState>.Choice<HistogramRange>(
             lens(Options, Lens<ScopeOptions, HistogramRange>.New(static options => options.Range, static range => options => options with { Range = range }))),
         new("Range", "Code range the histogram bins span"));
@@ -43,13 +43,13 @@ public sealed partial class ScopeParameter : IStateParameter<ScopeState> {
         new("Channels", "Channels the histogram traces"));
     public static readonly ScopeParameter Brightness = new("brightness", new StateParameter<ScopeState>.Choice<TraceBrightness>(
             lens(Options, Lens<ScopeOptions, TraceBrightness>.New(static options => options.Brightness, static brightness => options => options with { Brightness = brightness }))),
-        new("Brightness", "Trace brightness of the waveform, parade, and vectorscope"));
+        new("Brightness", "Trace brightness of waveform, parade, and vectorscope"));
     public static readonly ScopeParameter Aspect = new("aspect", new StateParameter<ScopeState>.Keyed<PlotAspect, float>(
             Lens<ScopeState, PlotAspect>.New(static state => state.Aspect, static aspect => state => state with { Aspect = aspect })),
-        new("Aspect", "Height of the chart against its width"));
+        new("Aspect", "Chart height against width"));
     public static readonly ScopeParameter Sample = new("sample", new StateParameter<ScopeState>.Keyed<SampleSquare, int>(
             Lens<ScopeState, SampleSquare>.New(static state => state.Sample, static sample => state => state with { Sample = sample })),
-        new("Sample", "Side in pixels of the square each pointer reading averages"));
+        new("Sample", "Pixels per side of square each pointer reading averages"));
 
     public StateParameter<ScopeState> Kind { get; }
 

@@ -7,4 +7,4 @@ rule:
     pattern: $SITE
     matches: rust-calendar-site
 message: '`$SITE` restates a calendar fact by hand'
-note: 'Hold the value as a `jiff` date, time, or timestamp and call its calendar method or `strftime("<format>")`'
+note: 'Type the value as `jiff` `civil::Date`, `Timestamp`, or `SignedDuration` and call `in_leap_year`, `days_in_month`, `as_hours`, or `strftime`'

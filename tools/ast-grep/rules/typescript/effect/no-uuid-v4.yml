@@ -11,4 +11,4 @@ rule:
         - inside: {kind: call_expression, field: function}
 fix: $CRYPTO.randomUUIDv7
 message: '`$MEMBER` generates identifiers with no time order'
-note: 'Call `randomUUIDv7()`, a time-ordered prefix keeps new and recent keys in few index pages'
+note: 'Call `randomUUIDv7()` on the same receiver'

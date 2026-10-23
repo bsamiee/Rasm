@@ -15,7 +15,7 @@
         "releaseTag": { "pattern": "{releaseGroupName}-{projectName}-v{version}" },
         "version": { "conventionalCommits": true, "versionActions": "./tools/nx/release.ts" },
         "conventionalCommits": { "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
-        "changelog": { "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "Release of {projectName} with no commits since its previous release.", "renderOptions": { "authors": false } }, "git": { "commit": false } },
+        "changelog": { "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } }, "git": { "commit": false } },
         "groups": { "macos": { "projects": [ "tag:output:appcast" ] }, "rhino": { "projects": [ "tag:output:rhp" ] }, "blender": { "projects": [ "tag:output:extension" ] }, "web": { "projects": [ "tag:output:cloudflare" ] } }
     },
     "namedInputs": {

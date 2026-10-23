@@ -22,4 +22,4 @@ transform:
     KEPT: {replace: {source: $ARGUMENTS, replace: '(\s*,\s*never)+\s*,?\s*>$', by: '>'}}
 fix: $NAME$KEPT
 message: '`$ARGUMENTS` restates the `never` defaults of its trailing type parameters'
-note: 'Omit each trailing type argument equal to its parameter default, `Effect.Effect<A>` reads as `Effect.Effect<A, never, never>`'
+note: 'Omit each trailing type argument equal to its `never` default'

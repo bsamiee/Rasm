@@ -111,8 +111,8 @@ passes = PassSet()
 paths = ScenePaths()
 framing = FrameSize()
 layering = (
-    Layering(key="export_layers", title="Export Layered Document", description="Writes the displayed render's layer stack as a layered TIFF an image editor opens", source=stacks),
-    Layering(key="export_ids", title="Export ID Document", description="Writes one layer per object or material ID of the displayed render as a layered TIFF", source=passes),
+    Layering(key="export_layers", title="Export Layered Document", description="Writes layer stack of displayed render as layered TIFF", source=stacks),
+    Layering(key="export_ids", title="Export ID Document", description="Writes object or material ID layers of displayed render as layered TIFF", source=passes),
 )
 
 # --- [QUEUE]

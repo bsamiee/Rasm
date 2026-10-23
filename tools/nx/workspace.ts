@@ -467,7 +467,7 @@ const deploymentTarget = (tree: Tree) =>
                     const rows = yield* Effect.forEach(Object.entries(DEPLOYMENT_ROWS), ([file, [pattern, row]]) => Effect.map(Effect.fromNullishOr(tree.read(file, 'utf-8')), (text) => ({ file, text, next: text.replace(pattern, row(version)) })));
                     const drifted = rows.filter(({ text, next }) => next !== text);
                     yield* Effect.forEach(drifted, ({ file, next }) => Effect.sync(() => tree.write(file, next)), { discard: true });
-                    return Array.match(drifted, { onEmpty: () => undefined, onNonEmpty: (changed) => ({ outOfSyncMessage: `${changed.map(Struct.get('file')).join(', ')} differ from the Package.swift macOS platform` }) });
+                    return Array.match(drifted, { onEmpty: () => undefined, onNonEmpty: (changed) => ({ outOfSyncMessage: `${changed.map(Struct.get('file')).join(', ')} differ from Package.swift macOS deployment target` }) });
                 }),
             ),
         ),

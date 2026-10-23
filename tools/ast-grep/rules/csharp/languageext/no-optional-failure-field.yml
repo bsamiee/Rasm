@@ -93,4 +93,4 @@ rule:
             - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}}
             - inside: {matches: member-with-data}
 message: '`$FIELD` holds an optional failure beside a success flag'
-note: Return `Fin<T>` or one union case per result state in place of a success flag beside a failure field
+note: 'Return `Fin<T>`, or a union with one case per result state'

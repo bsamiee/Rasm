@@ -155,10 +155,10 @@ public static class Conversions {
 
     // --- [TYPES]
     public static Fin<T> Cast<T>(object value) where T : notnull =>
-        value is T typed ? typed : Error.New($"{value.GetType().Name} is given where {typeof(T).Name} is required");
+        value is T typed ? typed : Error.New($"expected {typeof(T).Name}, got {value.GetType().Name}");
 
     public static Fin<T> Typed<T>(object value, string key) where T : notnull =>
-        value is T typed ? typed : Errors.ParseError($"key {key} holds a {value.GetType().Name} where a {typeof(T).Name} is read");
+        value is T typed ? typed : Errors.ParseError($"key {key} holds {value.GetType().Name}, expected {typeof(T).Name}");
 
     // --- [ANSWERS]
     public static Fin<Guid> Required(Guid id, string member) => Present(id).ToFin(new Refused(member, Refused.Declined));

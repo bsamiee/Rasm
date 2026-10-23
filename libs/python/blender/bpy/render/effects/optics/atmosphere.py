@@ -20,13 +20,13 @@ from blender.imaging.parameters import Gated, Motion
 
 
 def attenuated(shell: Shell[Atmosphere]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds distance-only attenuation and the medium's own associated coverage.
+    """Builds distance-only attenuation, inscattering, and alpha medium coverage.
 
     Args:
         shell: Source light, scene meters per unit, Depth, and medium inputs.
 
     Returns:
-        Scattered light and graph, or independent native construction faults.
+        Scattered light and graph, or graph faults.
     """
     inscatter, noise, attenuation, start, cutoff = Atmosphere.__struct_fields__
     _, value = Gated.__struct_fields__
@@ -111,7 +111,7 @@ atmosphere: CompositorEffect[Atmosphere] = CompositorEffect(
             row=lambda: atmosphere,
             key="transmittance_view",
             title=f"View {Atmosphere.title} Transmittance",
-            description="Shows the share of light kept through the medium",
+            description="Light share transmitted through medium",
             target=lambda: End(node="transmitted", socket="Value"),
         ),
     ),

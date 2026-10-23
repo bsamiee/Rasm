@@ -108,7 +108,7 @@ public readonly partial struct ViewWindow {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double centerX, ref double centerY, ref double width, ref double height) =>
         validationError = double.IsFinite(centerX) && double.IsFinite(centerY)
             && width is > 0d and < double.PositiveInfinity && height is > 0d and < double.PositiveInfinity ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"view window at ({centerX}, {centerY}) of {width}x{height} must be finite with positive size"));
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"View window at ({centerX}, {centerY}) of {width}x{height} must be finite with positive size"));
 }
 
 public sealed class Homography {
@@ -181,7 +181,7 @@ public sealed partial class FrameQuad : IConvertible<string> {
             ? null
             : toSeq(value.Split(',')).Traverse(static field => Invariant.Number<double>(field)).As().Case switch {
                 Seq<double> and [var x0, var y0, var x1, var y1, var x2, var y2, var x3, var y3] => Validate((x0, y0), (x1, y1), (x2, y2), (x3, y3), out item),
-                _ => new ValidationError($"frame quad '{value}' must be eight comma-separated numbers"),
+                _ => new ValidationError($"Frame quad '{value}' must be 8 comma-separated numbers"),
             };
     }
 
@@ -193,7 +193,7 @@ public sealed partial class FrameQuad : IConvertible<string> {
         validationError = double.IsFinite(topLeft.X) && double.IsFinite(topLeft.Y) && double.IsFinite(topRight.X) && double.IsFinite(topRight.Y)
             && double.IsFinite(bottomRight.X) && double.IsFinite(bottomRight.Y) && double.IsFinite(bottomLeft.X) && double.IsFinite(bottomLeft.Y)
             && (Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
-                is ( > 0, > 0, > 0, > 0) or ( < 0, < 0, < 0, < 0) ? null : new ValidationError("frame quad corners must be finite and form a convex quadrilateral");
+                is ( > 0, > 0, > 0, > 0) or ( < 0, < 0, < 0, < 0) ? null : new ValidationError("Frame quad corners must be finite and convex");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -241,7 +241,7 @@ public readonly partial struct LensFocus {
     public LensDistance FocusDistance { get; }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref LensDistance focalLength, ref LensDistance focusDistance) =>
-        validationError = (float)focusDistance > (float)focalLength ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"focus distance {focusDistance} must exceed focal length {focalLength}"));
+        validationError = (float)focusDistance > (float)focalLength ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Focus distance {focusDistance} must exceed focal length {focalLength}"));
 }
 
 public sealed record Camera {
@@ -486,11 +486,11 @@ public readonly record struct PanoramaView(SignedAngle Heading, Elevation Elevat
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanoramaViewParameter : IStateParameter<PanoramaView> {
     public static readonly PanoramaViewParameter Heading = new("heading", StateParameter.Bounded(Lens<PanoramaView, SignedAngle>.New(static view => view.Heading, static heading => view => view with { Heading = heading })),
-        new("Heading", "Turn of the view to the right"));
+        new("Heading", "Rightward turn of view"));
     public static readonly PanoramaViewParameter Elevation = new("elevation", StateParameter.Bounded(Lens<PanoramaView, Elevation>.New(static view => view.Elevation, static elevation => view => view with { Elevation = elevation })),
-        new("Elevation", "Tilt of the view upward"));
+        new("Elevation", "View upward tilt"));
     public static readonly PanoramaViewParameter Roll = new("roll", StateParameter.Bounded(Lens<PanoramaView, SignedAngle>.New(static view => view.Roll, static roll => view => view with { Roll = roll })),
-        new("Roll", "Turn of the view about its axis, counterclockwise"));
+        new("Roll", "Counterclockwise turn about view axis"));
 
     public StateParameter<PanoramaView> Kind { get; }
     public ParameterText Text { get; }

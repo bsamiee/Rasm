@@ -1,4 +1,4 @@
-"""Native report banners, held failures, and scoped synchronous cursor progress."""
+"""Report banners, held failures, and cursor progress."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -18,11 +18,11 @@ if TYPE_CHECKING:
 
 
 class Status(Line, frozen=True, kw_only=True):
-    """Native report banner followed by this extension's held failures."""
+    """Report banner over held failures."""
 
     @staticmethod
     def drawn(identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires drawing of complete native report entries in hold order."""
+        """Draws report banner, then held entries."""
 
         def marked(kind: "rna_enums.WmReportItems") -> tuple["rna_enums.IconItems", bool]:
             match kind:
@@ -55,7 +55,7 @@ class Status(Line, frozen=True, kw_only=True):
 
 @contextmanager
 def progressed(manager: bpy.types.WindowManager, total: int) -> Generator[Callable[[float], None]]:
-    """Scopes native cursor progress over a synchronous item's count."""
+    """Scopes cursor progress over synchronous item count."""
     manager.progress_begin(0, total)
     try:
         yield manager.progress_update

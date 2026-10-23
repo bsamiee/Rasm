@@ -167,5 +167,5 @@ rule:
                 - matches: catch-variable
                 - matches: exception-element
                 - matches: {languageext-error-binding: {name: {pattern: $ERROR}, type: {matches: {csharp-type-name: {name: {regex: '^(Error|\w*Exception)$'}}}}}}
-message: Error or exception `$ERROR` is classified by its message text
-note: 'Use `HasCode`, `IsType<E>`, `Is`, `HasException<E>`, or an exception type pattern'
+message: '`$ERROR` is classified by its message text'
+note: 'Classify the error through `IsType<E>()`, `HasException<E>()`, or an `is` pattern, `HasCode(ErrorCodes.<code>)` for a LanguageExt failure'

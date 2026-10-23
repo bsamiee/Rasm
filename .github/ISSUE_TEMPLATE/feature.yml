@@ -1,5 +1,5 @@
 name: Feature
-description: Propose a capability for a product or library
+description: Propose capability for product or library
 labels: [enhancement]
 body:
     - type: input
@@ -14,11 +14,11 @@ body:
       id: problem
       attributes:
         label: Problem
-        description: Task the product cannot do today and the workaround in use
+        description: Task product cannot do, with workaround in use
       validations:
         required: true
     - type: textarea
       id: proposal
       attributes:
         label: Proposal
-        description: Behavior that solves the problem, with host APIs or packages it uses
+        description: Behavior solving problem, with host APIs or packages it uses

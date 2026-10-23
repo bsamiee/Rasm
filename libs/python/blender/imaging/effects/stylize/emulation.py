@@ -22,7 +22,7 @@ class Subsampling(Choice):
     factors: tuple[int, int]
 
     def __init__(self, value: int, factors: tuple[int, int], label: str | None = None) -> None:
-        """Sets the chroma block width and height in luma blocks."""
+        """Sets chroma block width and height in luma blocks."""
         super().__init__(value, label)
         self.factors = factors
 
@@ -38,7 +38,7 @@ class Layout(Choice):
     geometry: tuple[float, float, float]
 
     def __init__(self, value: int, geometry: tuple[float, float, float]) -> None:
-        """Sets the black-matrix gap, column stagger, and row stagger in triad cells."""
+        """Sets black-matrix gap, column stagger, and row stagger in triad cells."""
         super().__init__(value)
         self.geometry = geometry
 
@@ -51,21 +51,20 @@ class Layout(Choice):
 
 
 class Compression(msgspec.Struct, frozen=True, kw_only=True):
-    """Repeated JPEG encode/decode generations at a coded picture width."""
+    """Repeated JPEG generations at a coded picture width."""
 
-    quality: Annotated[int, msgspec.Meta(ge=1, le=100, description="JPEG quality on the IJG scale")] = 60
-    coded_width: Annotated[
-        Gated[Annotated[int, msgspec.Meta(ge=1), Presentation(soft=Some((160.0, 1920.0)))]],
-        msgspec.Meta(description="Resize to this picture width before coding; disabled retains the entering raster"),
-    ] = Gated(enabled=False, value=640)
+    quality: Annotated[int, msgspec.Meta(ge=1, le=100, description="JPEG quality on IJG scale")] = 60
+    coded_width: Annotated[Gated[Annotated[int, msgspec.Meta(ge=1), Presentation(soft=Some((160.0, 1920.0)))]], msgspec.Meta(description="Picture width before coding, input raster size when off")] = (
+        Gated(enabled=False, value=640)
+    )
     subsampling: Annotated[Subsampling, msgspec.Meta(description="Chroma resolution relative to luma")] = Subsampling.YUV420
-    generations: Annotated[int, msgspec.Meta(ge=1, description="Successive JPEG encode and decode cycles"), Presentation(soft=Some((1.0, 8.0)))] = 1
+    generations: Annotated[int, msgspec.Meta(ge=1, description="JPEG encode and decode cycles"), Presentation(soft=Some((1.0, 8.0)))] = 1
 
     def cycled(self, rgb: npt.NDArray[np.uint8]) -> ImagingResult[npt.NDArray[np.uint8]]:
         """Applies successive native JPEG generations to coded RGB samples.
 
         Args:
-            rgb: Contiguous eight-bit RGB samples at the coded dimensions.
+            rgb: Contiguous eight-bit RGB samples at coded dimensions.
 
         Returns:
             Decoded RGB samples or the native JPEG refusal.
@@ -84,12 +83,11 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
         """Codes native RGB with optional box reduction and triangle reconstruction.
 
         Args:
-            source: Straight display-encoded RGB; its alpha lane is held by the caller.
-            coded: Admitted native data and display windows at the coded width,
-                or absence to retain the entering raster without resizing.
+            source: Straight display-encoded RGB, caller holding its alpha channel.
+            coded: Validated native data and display windows at coded width, or `Nothing` for input raster size.
 
         Returns:
-            Decoded RGB in the entering windows, native buffer failures, or JPEG refusal.
+            Decoded RGB in input windows, native buffer failures, or JPEG refusal.
         """
 
         def resized(image: OpenImageIO.ImageBuf, spec: OpenImageIO.ImageSpec, filtername: str) -> ImagingResult[OpenImageIO.ImageBuf]:
@@ -120,28 +118,24 @@ class Corruption(msgspec.Struct, frozen=True, kw_only=True):
     cell_width: Annotated[FrameExtent, msgspec.Meta(description="Corrupted cell width"), Presentation(soft=Some((0.005, 1.0)))] = 0.03
     cell_height: Annotated[FrameExtent, msgspec.Meta(description="Corrupted cell height"), Presentation(soft=Some((0.005, 1.0)))] = 0.03
     displacement: Annotated[NonNegative, msgspec.Meta(description="Greatest horizontal cell shift"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.004
-    split: Annotated[NonNegative, msgspec.Meta(description="Opposing red and blue offsets across the frame"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
-    chroma: Annotated[Unit, msgspec.Meta(description="Strength of struck cells' sign-preserving chroma power")] = 0.6
+    split: Annotated[NonNegative, msgspec.Meta(description="Opposing red and blue offsets across frame"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
+    chroma: Annotated[Unit, msgspec.Meta(description="Sign-preserving chroma power in struck cells")] = 0.6
 
 
 class Tape(msgspec.Struct, frozen=True, kw_only=True):
     """Time-base error, head switching, tracking disturbance, and dropouts."""
 
     jitter: Annotated[NonNegative, msgspec.Meta(description="Standard deviation of horizontal line displacement"), Presentation(soft=Some((0.0, 0.01)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.002
-    jitter_period: Annotated[NonNegative, msgspec.Meta(description="Vertical smoothing period of unit-variance line jitter"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0 / 65.0
+    jitter_period: Annotated[NonNegative, msgspec.Meta(description="Vertical jitter smoothing period"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0 / 65.0
     bounce: Annotated[NonNegative, msgspec.Meta(description="Greatest vertical frame shift"), Presentation(soft=Some((0.0, 0.02)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
-    head_switching: Annotated[NonNegative, msgspec.Meta(description="Height of the skewed bottom band"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0176
-    skew: Annotated[Finite, msgspec.Meta(description="Peak horizontal head-switching shift at nine tenths of the band"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME_WIDTH))] = (
-        0.05
-    )
-    tracking_shift: Annotated[Finite, msgspec.Meta(description="Horizontal displacement at the tracking band's center"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME_WIDTH))] = (
-        0.0
-    )
-    tracking_height: Annotated[Positive, msgspec.Meta(description="Height of the tracking band"), Presentation(soft=Some((0.0, 0.25)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.15
+    head_switching: Annotated[NonNegative, msgspec.Meta(description="Skewed bottom band height"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0176
+    skew: Annotated[Finite, msgspec.Meta(description="Peak horizontal head-switching shift at nine tenths of band"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.05
+    tracking_shift: Annotated[Finite, msgspec.Meta(description="Shift at tracking band center"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
+    tracking_height: Annotated[Positive, msgspec.Meta(description="Tracking band height"), Presentation(soft=Some((0.0, 0.25)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.15
     tracking_rate: Annotated[NonNegative, msgspec.Meta(description="Frame heights traveled upward per clock frame")] = 0.0
-    mistracking: Annotated[Unit, msgspec.Meta(description="Luma noise strength within the tracking band")] = 0.0
+    mistracking: Annotated[Unit, msgspec.Meta(description="Luma noise in tracking band")] = 0.0
     dropouts: Annotated[Unit, msgspec.Meta(description="Share of dropout-length cells struck per raster line"), Presentation(soft=Some((0.0, 0.2)))] = 0.02
-    dropout_length: Annotated[Positive, msgspec.Meta(description="Length of a fading dropout cell"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.04
+    dropout_length: Annotated[Positive, msgspec.Meta(description="Fading dropout cell length"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.04
 
 
 class Ghost(msgspec.Struct, frozen=True, kw_only=True):
@@ -156,31 +150,27 @@ class Signal(msgspec.Struct, frozen=True, kw_only=True):
 
     luma_blur: Annotated[NonNegative, msgspec.Meta(description="Horizontal luma bandwidth blur"), Presentation(soft=Some((0.0, 0.01)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0023
     chroma_blur: Annotated[NonNegative, msgspec.Meta(description="Horizontal color-difference bandwidth blur"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0073
-    chroma_vertical: Annotated[
-        NonNegative, msgspec.Meta(description="Vertical color-difference blur across raster lines"), Presentation(soft=Some((0.0, 0.02)), quantity=Some(Quantity.FRAME_HEIGHT))
-    ] = 0.0
-    chroma_delay: Annotated[
-        Finite, msgspec.Meta(description="Color-difference offset relative to luma, right above zero"), Presentation(soft=Some((-0.02, 0.02)), quantity=Some(Quantity.FRAME_WIDTH))
-    ] = 0.0
+    chroma_vertical: Annotated[NonNegative, msgspec.Meta(description="Vertical color-difference blur"), Presentation(soft=Some((0.0, 0.02)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
+    chroma_delay: Annotated[Finite, msgspec.Meta(description="Color-difference offset from luma, right above zero"), Presentation(soft=Some((-0.02, 0.02)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
     saturation: Annotated[NonNegative, msgspec.Meta(description="Color-difference gain"), Presentation(soft=Some((0.0, 2.0)))] = 1.0
     ringing: Annotated[Unit, msgspec.Meta(description="Second-difference overshoot at luma edges")] = 0.1
     cross_color: Annotated[Unit, msgspec.Meta(description="Fine luma detail decoded as NTSC subcarrier color")] = 0.0
     noise: Annotated[NonNegative, msgspec.Meta(description="Luma noise standard deviation per raster sample"), Presentation(soft=Some((0.0, 0.2)))] = 0.02
     chroma_noise: Annotated[NonNegative, msgspec.Meta(description="Color-difference noise standard deviation per raster sample"), Presentation(soft=Some((0.0, 0.2)))] = 0.03
-    hum: Annotated[Unit, msgspec.Meta(description="Depth of a mains hum bar drifting upward"), Presentation(soft=Some((0.0, 0.5)))] = 0.0
-    ghost: Annotated[Gated[Ghost], msgspec.Meta(description="Multipath echo of the whole signal")] = Gated(enabled=False, value=Ghost())
+    hum: Annotated[Unit, msgspec.Meta(description="Depth of mains hum bar drifting upward"), Presentation(soft=Some((0.0, 0.5)))] = 0.0
+    ghost: Annotated[Gated[Ghost], msgspec.Meta(description="Multipath echo of whole signal")] = Gated(enabled=False, value=Ghost())
 
 
 class Phosphors(msgspec.Struct, frozen=True, kw_only=True):
-    """Mean-preserving phosphor mask integrated over each pixel footprint."""
+    """Mean-preserving phosphor mask integrated per pixel footprint."""
 
-    layout: Annotated[Layout, msgspec.Meta(description="Red, green, and blue phosphor arrangement")] = Layout.APERTURE_GRILLE
-    triads: Annotated[int, msgspec.Meta(ge=1, description="Phosphor triads across the frame width"), Presentation(soft=Some((80.0, 1280.0)))] = 640
-    strength: Annotated[Unit, msgspec.Meta(description="Blend from the plain picture to the mean-one phosphor mask")] = 0.705394
+    layout: Annotated[Layout, msgspec.Meta(description="Phosphor arrangement")] = Layout.APERTURE_GRILLE
+    triads: Annotated[int, msgspec.Meta(ge=1, description="Phosphor triads across frame width"), Presentation(soft=Some((80.0, 1280.0)))] = 640
+    strength: Annotated[Unit, msgspec.Meta(description="Blend toward mean-one phosphor mask")] = 0.705394
 
 
 class Scanlines(msgspec.Struct, frozen=True, kw_only=True):
-    """Mean-preserving raster lines integrated over each pixel footprint."""
+    """Mean-preserving raster lines integrated per pixel footprint."""
 
     strength: Annotated[Unit, msgspec.Meta(description="Darkening between raster lines before mean normalization")] = 0.4
     interlaced: Annotated[bool, msgspec.Meta(description="Light alternate raster fields per pattern")] = False
@@ -190,14 +180,14 @@ class Display(msgspec.Struct, frozen=True, kw_only=True):
     """Picture tube showing a collapsed, glowing, scanned, and masked signal."""
 
     glow: Annotated[
-        Gated[Annotated[FrameLength, msgspec.Meta(title="Radius", description="Spread of the screen-glass Gaussian blur"), Presentation(soft=Some((0.0, 0.05)))]],
+        Gated[Annotated[FrameLength, msgspec.Meta(title="Radius", description="Gaussian glass blur"), Presentation(soft=Some((0.0, 0.05)))]],
         msgspec.Meta(description="Linear screen-glass scattering before scanlines and phosphors"),
     ] = Gated(enabled=False, value=0.01)
-    scanlines: Annotated[Gated[Scanlines], msgspec.Meta(description="Raster lines drawn by the beam")] = Gated(enabled=True, value=Scanlines())
-    phosphors: Annotated[Gated[Phosphors], msgspec.Meta(description="Phosphor mask on the glass")] = Gated(enabled=False, value=Phosphors())
-    curvature: Annotated[NonNegative, msgspec.Meta(description="Barrel bulge of the screen glass"), Presentation(soft=Some((0.0, 0.25)))] = 0.03
+    scanlines: Annotated[Gated[Scanlines], msgspec.Meta(description="Raster lines the beam draws")] = Gated(enabled=True, value=Scanlines())
+    phosphors: Annotated[Gated[Phosphors], msgspec.Meta(description="Phosphor mask on glass")] = Gated(enabled=False, value=Phosphors())
+    curvature: Annotated[NonNegative, msgspec.Meta(description="Screen glass barrel bulge"), Presentation(soft=Some((0.0, 0.25)))] = 0.03
     roll: Annotated[Finite, msgspec.Meta(description="Frame heights rolled per clock frame without vertical hold"), Presentation(soft=Some((-0.05, 0.05)))] = 0.0
-    collapse: Annotated[Unit, msgspec.Meta(description="Power-off collapse to a line, then a dot")] = 0.0
+    collapse: Annotated[Unit, msgspec.Meta(description="Power-off collapse to line, then dot")] = 0.0
 
 
 class Emulation(Effect, frozen=True, kw_only=True, tag=40):
@@ -209,10 +199,10 @@ class Emulation(Effect, frozen=True, kw_only=True, tag=40):
     corruption: Annotated[Gated[Corruption], msgspec.Meta(description="Digital picture corruption")] = Gated(enabled=False, value=Corruption())
     tape: Annotated[Gated[Tape], msgspec.Meta(description="Videotape playback errors")] = Gated(enabled=False, value=Tape())
     signal: Annotated[Gated[Signal], msgspec.Meta(description="Analog video bandwidth and noise")] = Gated(enabled=True, value=Signal())
-    display: Annotated[Gated[Display], msgspec.Meta(description="Picture tube showing the signal")] = Gated(enabled=True, value=Display())
-    lines: Annotated[int, msgspec.Meta(ge=1, description="Raster lines across the frame height"), Presentation(soft=Some((120.0, 1080.0)))] = 480
-    motion: Annotated[Motion, msgspec.Meta(description="Speed and hold of every pattern's clock")] = Motion()
-    seed: Annotated[Seed, msgspec.Meta(description="Variant of every random pattern")] = 0
+    display: Annotated[Gated[Display], msgspec.Meta(description="Picture tube showing signal")] = Gated(enabled=True, value=Display())
+    lines: Annotated[int, msgspec.Meta(ge=1, description="Raster lines across frame height"), Presentation(soft=Some((120.0, 1080.0)))] = 480
+    motion: Annotated[Motion, msgspec.Meta(description="Clock of every pattern")] = Motion()
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting every random pattern")] = 0
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -5,27 +5,24 @@ import type { Tables } from '#/tables';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Extents = Schema.Struct(Struct.Record(['ascender', 'descender', 'lineGap'], Schema.Finite));
-const Stroke = Schema.Struct({ position: Schema.Finite.annotate({ description: 'Stroke centre, negative below the baseline' }), thickness: Schema.Finite });
-class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('Metrics')(
-    {
-        extents: Schema.Struct({
-            hhea: Extents.annotate({ description: 'Horizontal header ascender, descender (negative), and line gap' }),
-            typo: Schema.OptionFromOptionalKey(Extents.annotate({ description: 'OS/2 typographic ascender, descender, and line gap at this instance; absent when the table states none' })),
-            win: Schema.OptionFromOptionalKey(Extents.mapFields(Struct.omit(['lineGap'])).annotate({ description: 'OS/2 Windows clipping ascent and descent at this instance, descent positive; absent when the table states none' })),
-            vertical: Schema.OptionFromOptionalKey(Extents.annotate({ description: 'Vertical header ascender, descender, and line gap at this instance; absent when the face has no vhea table' })),
-            useTypoMetrics: Schema.Boolean.annotate({ description: 'The face asks layout to take the typographic set over the header set' }),
-        }).annotate({ description: 'Every ascent and descent the face states, in em' }),
-        ...Record.map({ xHeight: 'OS/2 height of non-ascending lowercase letters at this instance', capHeight: 'OS/2 height of capital letters at this instance' }, (description) => Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: `${description}; absent when the table states none` }))),
-        underline: Schema.Struct({
-            post: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'The post table underline at this instance; absent when the face sets no stroke' })),
-            cff: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'The CFF Top DICT underline of a CFF face; absent when the face is not CFF or sets no stroke' })),
-        }).annotate({ description: 'Underline strokes the face states, in em' }),
-        strikeout: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'OS/2 strikeout stroke at this instance; absent when the face sets no stroke' })),
-        bounds: Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'Declared font-wide box at the default instance, in em' }),
-        italicAngle: Schema.Finite.annotate({ description: 'Degrees counterclockwise from vertical, negative for a right lean; the slnt axis value at this instance when the face has one' }),
-    },
-    { description: 'Vertical metrics, strokes, bounds, and slant the face states at this instance' },
-) {
+const Stroke = Schema.Struct({ position: Schema.Finite.annotate({ description: 'Stroke center, negative below baseline' }), thickness: Schema.Finite });
+class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('Metrics')({
+    extents: Schema.Struct({
+        hhea: Extents.annotate({ description: 'Values at default instance, descender negative' }),
+        typo: Schema.OptionFromOptionalKey(Extents.annotate({ description: 'OS/2 values' })),
+        win: Schema.OptionFromOptionalKey(Extents.mapFields(Struct.omit(['lineGap'])).annotate({ description: 'OS/2 Windows clipping values, descender positive' })),
+        vertical: Schema.OptionFromOptionalKey(Extents.annotate({ description: 'vhea values' })),
+        useTypoMetrics: Schema.Boolean.annotate({ description: 'Layout prefers typo over hhea' }),
+    }),
+    ...Struct.Record(['xHeight', 'capHeight'], Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'OS/2 value' }))),
+    underline: Schema.Struct({
+        post: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'post table stroke' })),
+        cff: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'CFF Top DICT stroke' })),
+    }),
+    strikeout: Schema.OptionFromOptionalKey(Stroke.annotate({ description: 'OS/2 stroke' })),
+    bounds: Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'head table box at default instance' }),
+    italicAngle: Schema.Finite.annotate({ description: 'Degrees counterclockwise from vertical, slnt axis value when present' }),
+}) {
     static readonly of = ({ font, tables, axes }: { readonly font: Font; readonly tables: typeof Tables.Type; readonly axes: ReadonlyArray<{ readonly tag: string; readonly value: number }> }) => {
         const em = (units: number) => units / font.face.upem;
         const metric = (tag: MetricsTag) => Option.map(Option.fromUndefinedOr(font.getMetricPosition(tag)), em);

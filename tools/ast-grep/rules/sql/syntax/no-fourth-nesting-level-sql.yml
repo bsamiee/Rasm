@@ -44,4 +44,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SCOPE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` opens a fourth nesting level of its statement'
-note: Rebuild the statement within three levels as a CTE or a join over its inputs
+note: Move the inner query into a CTE or join, and nested choices into one searched `case`

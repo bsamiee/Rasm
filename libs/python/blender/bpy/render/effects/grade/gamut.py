@@ -15,7 +15,7 @@ from blender.imaging.effects.grade.gamut import Channel, GamutCompression
 
 
 def compressed(shell: Shell[GamutCompression]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns compression with bounded powers and the defined zero-achromatic case."""
+    """Returns compression with bounded powers and defined zero-achromatic case."""
     _, cyan, magenta, yellow, power = GamutCompression.__struct_fields__
     exponent = End(node=INPUTS, socket=item_key(power))
     channels = ((cyan, "Red"), (magenta, "Green"), (yellow, "Blue"))

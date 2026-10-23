@@ -266,7 +266,7 @@ public readonly partial struct RampStop {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref RampPosition position, ref Vector4 color) =>
         validationError = Vector4.AllWhereAllBitsSet(Vector4.IsFinite(color)) && color.W.CompareTo(0f) >= 0 && color.W.CompareTo(1f) <= 0 ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"ramp stop color {color} must be finite with alpha in [0, 1]"));
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Ramp stop color {color} must be finite with alpha in [0, 1]"));
 }
 
 [SmartEnum<string>]
@@ -332,12 +332,12 @@ public sealed partial class Ramp : IConvertible<string> {
         return value is null ? null
             : value.Split(';') is [var key, .. var fields] && RampInterpolation.TryGet(key, out RampInterpolation? interpolation) && toSeq(fields).Traverse(static field => RampStop.Parse(field)).As().Case is Seq<RampStop> stops
                 ? Validate(stops, interpolation, out item)
-                : new ValidationError($"ramp '{value}' must be an interpolation key followed by ';'-separated 'position r g b a' stops");
+                : new ValidationError($"Ramp '{value}' must be interpolation key then ';'-separated 'position r g b a' stops");
     }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<RampStop> stops, ref RampInterpolation interpolation) =>
         validationError = stops.Count is >= 1 and <= 32 && stops.Zip(stops.Tail).ForAll(static pair => pair.First.Position <= pair.Second.Position) ? null
-            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"ramp must hold 1 to 32 stops in ascending position, not {stops.Count}"));
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Ramp must hold 1 to 32 stops in ascending position, holds {stops.Count}"));
 }
 
 public sealed class RampTable {
@@ -697,9 +697,9 @@ public sealed record FramePosition(FrameAxis X, FrameAxis Y) : IStateRecord<Fram
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FramePositionParameter : IStateParameter<FramePosition> {
     public static readonly FramePositionParameter X = new("x", StateParameter.Bounded(Lens<FramePosition, FrameAxis>.New(static position => position.X, static x => position => position with { X = x })),
-        new("X", "Position across the frame, rightward from the left edge"));
+        new("X", "Position rightward from left frame edge"));
     public static readonly FramePositionParameter Y = new("y", StateParameter.Bounded(Lens<FramePosition, FrameAxis>.New(static position => position.Y, static y => position => position with { Y = y })),
-        new("Y", "Position down the frame from the top edge"));
+        new("Y", "Position downward from top frame edge"));
 
     public StateParameter<FramePosition> Kind { get; }
     public ParameterText Text { get; }

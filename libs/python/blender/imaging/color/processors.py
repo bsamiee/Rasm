@@ -1,4 +1,4 @@
-"""Display formation, color-space transforms, and CPU processing of associated colors."""
+"""Display formation, colorspace transforms, and associated-color processing."""
 
 from collections.abc import Callable
 from functools import reduce
@@ -28,11 +28,11 @@ class Spaced(Protocol):
 
     @property
     def space(self) -> str:
-        """Colorspace or role in which the operation acts."""
+        """Process colorspace or role."""
         ...
 
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the operation without its process-space conversions."""
+        """Returns operation without process-space conversions."""
         ...
 
 
@@ -44,17 +44,17 @@ REC709_SCENE: Final = "lin_rec709_scene"
 
 
 class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
-    """Formation of scene-linear colors through a look and a display view."""
+    """Scene-linear formation through look and display view."""
 
     stage = Stage.FORMATION
     pointwise = True
-    display: Annotated[str, msgspec.Meta(min_length=1, description="Display device the frame is formed for"), GraphForm.SETTING]
-    view: Annotated[str, msgspec.Meta(min_length=1, description="View transform forming scene-linear colors for the display"), GraphForm.SETTING]
-    look: Annotated[Gated[Annotated[str, GraphForm.SETTING]], msgspec.Meta(description="Look applied ahead of the view transform")] = Gated(enabled=False, value="")
+    display: Annotated[str, msgspec.Meta(min_length=1, description="Target display device"), GraphForm.SETTING]
+    view: Annotated[str, msgspec.Meta(min_length=1, description="View transform of display"), GraphForm.SETTING]
+    look: Annotated[Gated[Annotated[str, GraphForm.SETTING]], msgspec.Meta(description="Look before view transform")] = Gated(enabled=False, value="")
 
     @classmethod
     def for_encoding(cls, config: PyOpenColorIO.Config, display: str, view: Option[str] = Nothing) -> ImagingResult[Option[tuple[Self, PyOpenColorIO.Processor]]]:
-        """Returns a certified matrix view and its native processor, absent when uncertified."""
+        """Returns first lookless matrix-only scene view with its processor, absent when none qualifies."""
 
         def discovered(name: str) -> ImagingResult[Option[tuple[Self, PyOpenColorIO.Processor]]]:
             candidate = cls(display=display, view=name)
@@ -91,13 +91,13 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
         )
 
     def colorspace(self, config: PyOpenColorIO.Config) -> Option[PyOpenColorIO.ColorSpace]:
-        """Returns the view's colorspace, resolving a shared view's display-name token."""
+        """Returns view colorspace, resolving shared view display-name token."""
         name = config.getDisplayViewColorSpaceName(self.display, self.view)
         return Option.of_optional(config.getColorSpace(self.display if name == PyOpenColorIO.OCIO_VIEW_USE_DISPLAY_NAME else name))
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the look and display view in Blender's CPU formation order."""
+        """Returns look and display view in Blender CPU formation order."""
         data = self.colorspace(config).filter(PyOpenColorIO.ColorSpace.isData).is_some()
         look = (
             Some(
@@ -124,7 +124,7 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
     def form(
         self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], *, source: str = PyOpenColorIO.ROLE_SCENE_LINEAR, exposure: Stops = 0.0, gamma: Gamma = 1.0
     ) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Returns associated display colors under view exposure and gamma, or typed build faults."""
+        """Returns associated display colors under view exposure and gamma."""
         exponent = 1.0 / max(gamma, float(np.spacing(np.float32(1))))
         return self.transform(config).bind(
             lambda op: processor(
@@ -145,7 +145,7 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
 
 
 def bracketed(entry: Spaced, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.GroupTransform]]:
-    """Returns an operation between scene-linear conversions, or no transform for a native effect."""
+    """Returns `entry` operation between scene-linear conversions, absent without one."""
     return entry.transform(config).map(
         lambda operation: operation.map(
             lambda op: PyOpenColorIO.GroupTransform([
@@ -158,7 +158,7 @@ def bracketed(entry: Spaced, config: PyOpenColorIO.Config) -> ImagingResult[Opti
 
 
 def xyz(config: PyOpenColorIO.Config, space: str) -> PyOpenColorIO.Transform:
-    """Returns a colorspace's conversion to CIE XYZ D65 through its reference interchange."""
+    """Returns `space` conversion to CIE XYZ D65 through interchange roles."""
     display = Option.of_optional(config.getColorSpace(space)).filter(lambda found: found.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY).is_some()
     return (
         PyOpenColorIO.ColorSpaceTransform(src=space, dst=PyOpenColorIO.ROLE_INTERCHANGE_DISPLAY)
@@ -171,7 +171,7 @@ def xyz(config: PyOpenColorIO.Config, space: str) -> PyOpenColorIO.Transform:
 
 
 def matrix(values: npt.NDArray[np.float64]) -> PyOpenColorIO.MatrixTransform:
-    """Returns an OCIO transform of a 3 by 3 color matrix with alpha passed through."""
+    """Returns OCIO transform of 3 by 3 color matrix, alpha passed through."""
     return PyOpenColorIO.MatrixTransform(matrix=block_diag(values, [1.0]).ravel().tolist())
 
 
@@ -194,12 +194,12 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 
 
 def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> ImagingResult[PyOpenColorIO.Processor]:
-    """Returns a configured processor, or the color provider refusal."""
+    """Returns processor, or color fault."""
     return colored(transform, lambda: config.getProcessor(transform))
 
 
 def joined(source: PyOpenColorIO.Config, source_space: str, config: PyOpenColorIO.Config, space: str) -> ImagingResult[PyOpenColorIO.Processor]:
-    """Returns a conversion between configs through native interchange roles, or typed build faults."""
+    """Returns processor between configs through interchange roles, or color fault."""
     return colored(PyOpenColorIO.ColorSpaceTransform(src=source_space, dst=space), lambda: PyOpenColorIO.Config.GetProcessorFromConfigs(source, source_space, config, space))
 
 
@@ -207,7 +207,7 @@ def joined(source: PyOpenColorIO.Config, source_space: str, config: PyOpenColorI
 
 
 def unassociated(values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-    """Returns a contiguous straight-color copy of RGB or RGBA, retaining color at zero alpha."""
+    """Returns contiguous straight copy of RGB or RGBA, color kept at zero alpha."""
     if (straight := (values.copy())).shape[-1] == 4:
         alpha = straight[..., 3:]
         np.divide(straight[..., :3], alpha, out=straight[..., :3], where=alpha != 0.0)
@@ -215,7 +215,7 @@ def unassociated(values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
 
 
 def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.float32]], npt.NDArray[np.float32]], values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-    """Returns associated colors from a native processor or a pure operation on straight RGB."""
+    """Applies OCIO processor or straight-RGB operation to associated colors."""
     formed = unassociated(values)
     if isinstance(operation, PyOpenColorIO.CPUProcessor):
         if formed.shape[-1] == 4:
@@ -234,10 +234,10 @@ def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.flo
 
 
 def basis(config: PyOpenColorIO.Config, space: str) -> ImagingResult[npt.NDArray[np.float64]]:
-    """Acquires a finite linear RGB-to-XYZ D65 matrix from native configured operations."""
+    """Returns linear RGB-to-XYZ D65 matrix of `space`, or base fault."""
     request = xyz(config, space)
 
-    def admitted(group: PyOpenColorIO.GroupTransform) -> ImagingResult[npt.NDArray[np.float64]]:
+    def composed(group: PyOpenColorIO.GroupTransform) -> ImagingResult[npt.NDArray[np.float64]]:
         unsupported = (ImagingBaseFault(space=space, transform=group),)
         matrices = tuple(op for op in group if isinstance(op, PyOpenColorIO.MatrixTransform))
         if len(matrices) != len(group):
@@ -251,11 +251,11 @@ def basis(config: PyOpenColorIO.Config, space: str) -> ImagingResult[npt.NDArray
             return Error(unsupported)
         return Ok(affine[:3, :3]) if np.isfinite(affine[:3]).all() and (affine[:3, 3:] == 0.0).all() else Error(unsupported)
 
-    return colored(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(admitted)
+    return colored(request, lambda: config.getProcessor(request).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(composed)
 
 
 def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-    """Returns signed RGB matching weights with unit channel integrals, or native domain faults."""
+    """Returns signed RGB matching weights with unit channel integrals."""
 
     def solved(values: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
         try:
@@ -274,12 +274,12 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
 
 
 def luma(config: PyOpenColorIO.Config) -> ImagingResult[npt.NDArray[np.float32]]:
-    """Returns the scene-linear Y row, or typed processor acquisition faults."""
+    """Returns scene-linear luminance coefficients, or color fault."""
     return processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)).map(lambda built: applied(built.getDefaultCPUProcessor(), np.eye(3, dtype=np.float32))[:, 1])
 
 
 def chromaticities(config: PyOpenColorIO.Config, space: str) -> ImagingResult[npt.NDArray[np.float64]]:
-    """Returns float64 xy rows of red, green, blue, and white, or typed build faults."""
+    """Returns float64 xy rows of red, green, blue, and white, or color fault."""
     return processor(config, xyz(config, space)).map(lambda built: coordinates(applied(built.getDefaultCPUProcessor(), np.vstack((np.eye(3, dtype=np.float32), np.ones((1, 3), dtype=np.float32))))))
 
 

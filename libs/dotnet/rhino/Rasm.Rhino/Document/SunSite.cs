@@ -83,14 +83,14 @@ public sealed partial class SunMoment : System.Numerics.IMinMaxValue<SunMoment>,
         item = null;
         return value is null ? null
             : LocalDateTimePattern.ExtendedIso.Parse(value) is { Success: true } parsed ? Validate(parsed.Value, provider, out item)
-            : new ValidationError($"{value} is no extended ISO local date and time");
+            : new ValidationError($"{value} is no extended ISO 8601 local date and time");
     }
 
     public string ToValue() => LocalDateTimePattern.ExtendedIso.Format(_value);
 
     public Fin<Unit> Write(Sun sun, TimeProvider clock) =>
         clock.LocalTimeZone.IsInvalidTime(_value.ToDateTimeUnspecified())
-            ? Error.New(string.Create(CultureInfo.InvariantCulture, $"{_value} falls in a skipped hour of the computer's time zone"))
+            ? Error.New(string.Create(CultureInfo.InvariantCulture, $"{_value} does not exist in local time zone"))
             : fun<DateTime, DateTimeKind>(sun.SetDateTime)(_value.ToDateTimeUnspecified(), DateTimeKind.Local);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref LocalDateTime value) {
@@ -399,7 +399,7 @@ public abstract partial record SunWindow : IConvertible<string> {
     private static Fin<TWindow> Bounded<TWindow>(LocalDateTime start, LocalDateTime end, Period step, Duration grain, Func<LocalDateTime, LocalDateTime, int, TWindow> window) =>
         (ValidationResults.Validated<SunMoment, LocalDateTime>(start),
          ValidationResults.Validated<SunMoment, LocalDateTime>(end),
-         start <= end ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study starts at {start} after its end {end}")),
+         start <= end ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study start {start} is after end {end}")),
          Some(step).Filter(held => held.Years is 0 && held.Months is 0 && held.ToDuration() >= grain)
              .ToFin(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study step {step} is no positive count of {grain}")))
              .Bind(held => Conversions.Whole(held.ToDuration(), grain)))
@@ -463,10 +463,10 @@ public static partial class SunMapper {
     [MapperIgnoreSource(nameof(SunLight.Site), Justification = "Written by Update(SunSite, Sun)")]
     private static partial void Map(SunLight light, Sun sun);
 
-    [MapperIgnoreSource(nameof(SunLight.Enabled), Justification = "Written by Map before the angles")]
-    [MapperIgnoreSource(nameof(SunLight.Intensity), Justification = "Written by Map before the angles")]
-    [MapperIgnoreSource(nameof(SunLight.ManualControlOn), Justification = "Written by Map before the angles")]
-    [MapperIgnoreSource(nameof(SunLight.Site), Justification = "Written by Update(SunSite, Sun) before the angles")]
+    [MapperIgnoreSource(nameof(SunLight.Enabled), Justification = "Written by Map before angles")]
+    [MapperIgnoreSource(nameof(SunLight.Intensity), Justification = "Written by Map before angles")]
+    [MapperIgnoreSource(nameof(SunLight.ManualControlOn), Justification = "Written by Map before angles")]
+    [MapperIgnoreSource(nameof(SunLight.Site), Justification = "Written by Update(SunSite, Sun) before angles")]
     private static partial void Place(SunLight light, Sun sun);
 
     [MapProperty(nameof(@SunSite.Place.Latitude), nameof(Sun.Latitude))]
@@ -480,7 +480,7 @@ public static partial class SunMapper {
     [MapProperty(nameof(@SunWindow.Start.Second), nameof(AnimationProperties.StartSeconds))]
     [MapProperty(nameof(@SunWindow.End.Minute), nameof(AnimationProperties.EndMinutes))]
     [MapProperty(nameof(@SunWindow.End.Second), nameof(AnimationProperties.EndSeconds))]
-    [MapperIgnoreSource(nameof(SunWindow.Step), Justification = "Written as the case's frame spacing")]
+    [MapperIgnoreSource(nameof(SunWindow.Step), Justification = "Written per case as frame spacing")]
     [MapperIgnoreSource(nameof(SunWindow.Frames), Justification = "Read by previews alone")]
     private static partial void Map(SunWindow window, AnimationProperties properties);
 

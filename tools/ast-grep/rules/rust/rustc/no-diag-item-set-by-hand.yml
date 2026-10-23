@@ -21,5 +21,5 @@ rule:
                 - pattern: $CX.is_diagnostic_item($A, $X) || $CX.is_diagnostic_item($B, $X)
                 - pattern: $CX.is_lang_item($X, $A) || $CX.is_lang_item($X, $B)
         - not: {inside: {stopBy: end, matches: rust-trait-of-assoc-test}}
-message: '`$X` repeats one item lookup per name of a set'
-note: 'Match one lookup against the set, `matches!(<value>.opt_diag_name(cx), Some(sym::A | sym::B))` or `tcx.as_lang_item` for lang items'
+message: 'Item lookup on `$X` repeats once per name'
+note: 'Match one lookup, `matches!(<value>.opt_diag_name(cx), Some(sym::A | sym::B))`, with `tcx.as_lang_item(<def_id>)` for lang items'

@@ -9,8 +9,7 @@ const executions = Effect.fnUntraced(function* (scheme: string) {
     const listed = {
         uri: `${scheme}://executions`,
         name: 'executions',
-        description:
-            'Calls that change state answered before their outcome, cancelled or refused while running, each with its arguments and completed outcome, including failures and requested input. A cancelled call, or a refusal linking here, can have run, so read its outcome here before repeating it. Reads drop a completed call after listing it',
+        description: 'Cancelled or refused state-changing calls that keep running. Read outcome before repeating a call, finished calls drop after one read',
         mimeType: 'application/json',
     };
     const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Array(Row))));

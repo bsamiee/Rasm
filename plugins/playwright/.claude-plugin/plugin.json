@@ -1,6 +1,6 @@
 {
     "name": "playwright",
-    "description": "Playwright browser automation and trace reading skills, test agents, and the test runner MCP server",
+    "description": "Playwright browser automation and trace skills, test agents, and test runner MCP server",
     "author": {
         "name": "Bardia Samiee"
     }

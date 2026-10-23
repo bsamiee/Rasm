@@ -25,7 +25,7 @@ const authenticate = Effect.fn('authenticate')(function* <E, R>(request: Request
     const url = new URL(request.url);
     const target = new URL(url.searchParams.get(contract.returnTo) ?? '/', url.origin);
     const headers = Headers.removeMany(Headers.fromInput(request.headers), Object.values(contract.headers));
-    const admitted = Effect.fromNullishOr(HttpServerRequest.fromWeb(request).cookies.CF_Authorization).pipe(
+    const identified = Effect.fromNullishOr(HttpServerRequest.fromWeb(request).cookies.CF_Authorization).pipe(
         Effect.flatMap((token) => Effect.tryPromise(() => jwtVerify(token, keys(access), { issuer: access.team, audience: access.aud }))),
         Effect.flatMap(({ payload }) => Schema.decodeUnknownEffect(Identity)(payload)),
         Effect.option,
@@ -34,7 +34,7 @@ const authenticate = Effect.fn('authenticate')(function* <E, R>(request: Request
     return yield* Match.value(url.pathname).pipe(
         Match.when(contract.paths.signin, () => Effect.succeed(Response.redirect(`${url.origin}${target.pathname}${target.search}${target.hash}`))),
         Match.when(contract.paths.signout, () => Effect.succeed(Response.redirect(`${url.origin}/cdn-cgi/access/logout`))),
-        Match.orElse(() => Effect.flatMap(admitted, forward)),
+        Match.orElse(() => Effect.flatMap(identified, forward)),
     );
 });
 

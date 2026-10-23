@@ -63,5 +63,5 @@ transform:
     ITEM_OVER_ARGUMENTS: {replace: {source: $ARGUMENTS, replace: '(?s)^.*$', by: '*item for item in '}}
     FLATTENED_LOOP: {replace: {source: $LOOP, replace: '(?s)^(.)\s*\w+\s+for\s+(\w+)\s+in\s+(.+?)\s+for\s+\w+\s+in\s+\w+\s*(.)$', by: '$1*$2 for $2 in $3$4'}}
 fix: $OPEN$LEFT$ITEM_OVER_ITERABLES$ITEM_OVER_ARGUMENTS$ITERABLES$ARGUMENTS$CLOSE$RIGHT$FLATTENED_LOOP
-message: '`$SITE` flattens iterables by hand'
-note: 'Write `(*<item> for <item> in <iterables>)`'
+message: '`$SITE` flattens iterables in place of comprehension unpacking'
+note: 'Write `[*<item> for <item> in <iterables>]`, with `{}` for a set and `()` for an iterator'

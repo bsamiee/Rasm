@@ -14,5 +14,5 @@ rule:
             all:
                 - inside: {stopBy: end, kind: assignment, has: {field: target, regex: '\.preSpawnProcessConfigurator$'}}
                 - not: {has: {stopBy: end, kind: call_expression, has: {nthChild: 1, regex: '^posix_spawnattr_getflags$'}}}
-message: '`$SITE` replaces the spawn flags swift-subprocess set before its configurator runs'
-note: 'Set the flags `posix_spawnattr_getflags` returns OR''d with the new flag to keep the `POSIX_SPAWN_CLOEXEC_DEFAULT` and signal flags Subprocess set'
+message: '`$SITE` overwrites the spawn flags swift-subprocess set before `preSpawnProcessConfigurator` runs'
+note: 'Pass `posix_spawnattr_setflags` the `posix_spawnattr_getflags` result OR''d with the new flag'

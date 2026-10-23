@@ -11,5 +11,5 @@ rule:
           has: {nthChild: 1, regex: '^(SwiftUI\.)?(StateObject|ObservedObject)(\.init)?$'}
         - kind: call_expression
           has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.environmentObject$'}}
-message: '`$SITE` holds or injects an `ObservableObject` through a Combine-era SwiftUI wrapper'
-note: 'Use `@State` for `@StateObject`, `@Environment` for `@EnvironmentObject`, and `@Bindable` for a bound `@ObservedObject`, else a plain property'
+message: '`$SITE` holds or injects a Combine `ObservableObject` through a SwiftUI wrapper'
+note: 'Hold the model in `@State`, inject it through `.environment(_:)` and `@Environment`, and pass it as a plain or `@Bindable` property'

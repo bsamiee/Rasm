@@ -1,4 +1,4 @@
-"""Native toolbar placement, tools, settings, and their registration lifetimes."""
+"""Workspace tools with toolbar placement, settings, and keymaps."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -36,47 +36,47 @@ type Placement = Appended | Grouped
 
 
 class View3D(msgspec.Struct, frozen=True, kw_only=True):
-    """3D Viewport toolbar of one native context mode."""
+    """3D Viewport toolbar of one context mode."""
 
     panel: ClassVar[type[VIEW3D_PT_tools_active]] = VIEW3D_PT_tools_active
     mode: "rna_enums.ContextModeItems"
 
 
 class ImageEditor(msgspec.Struct, frozen=True, kw_only=True):
-    """Image Editor toolbar of one native editor mode."""
+    """Image Editor toolbar of one editor mode."""
 
     panel: ClassVar[type[IMAGE_PT_tools_active]] = IMAGE_PT_tools_active
     mode: "rna_enums.SpaceImageModeAllItems"
 
 
 class NodeEditor(msgspec.Struct, frozen=True, kw_only=True):
-    """Node Editor toolbar, which has no mode selector."""
+    """Node Editor toolbar with no mode selector."""
 
     panel: ClassVar[type[NODE_PT_tools_active]] = NODE_PT_tools_active
     mode: ClassVar[None] = None
 
 
 class Sequencer(msgspec.Struct, frozen=True, kw_only=True):
-    """Sequencer toolbar of one native view type."""
+    """Sequencer toolbar of one view type."""
 
     panel: ClassVar[type[SEQUENCER_PT_tools_active]] = SEQUENCER_PT_tools_active
     mode: "rna_enums.SpaceSequencerViewTypeItems"
 
 
 class Appended(msgspec.Struct, frozen=True, kw_only=True):
-    """Toolbar entry appended with an optional preceding separator."""
+    """Toolbar entry appended after separator when set."""
 
     separator: bool = False
 
 
 class Grouped(msgspec.Struct, frozen=True, kw_only=True):
-    """Toolbar entry joining the existing group containing its native anchor."""
+    """Toolbar entry joining anchor tool's group."""
 
     anchor: str
 
 
 class Draft(msgspec.Struct, frozen=True, kw_only=True):
-    """Generated native tool class, resolved bindings, and owned acquisitions."""
+    """Tool class with key bindings and acquisitions."""
 
     tool: type[bpy.types.WorkSpaceTool]
     items: tuple[tuple[Chord, tuple[str, Writer]], ...]
@@ -84,7 +84,7 @@ class Draft(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
-    """Native toolbar tool with its operator, icon, cursor, and settings."""
+    """Toolbar tool with operator, icon, cursor, and settings."""
 
     key: Key
     title: str
@@ -101,7 +101,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     settings: Option[Callable[[bpy.types.Context, bpy.types.UILayout, bpy.types.WorkSpaceTool], None]] = Nothing
 
     def drafted(self, identity: Identity, toolbar: Toolbar) -> BlenderResult[Draft]:
-        """Builds the native class after resolving names, bindings, and pointer resources."""
+        """Builds tool class once names, bindings, gizmo, and cursor drawing resolve."""
         panel, mode = toolbar.panel, toolbar.mode
         match self.operator:
             case Operator(invoke=Option(tag="some", some=Pick(cursor=picked))):
@@ -114,11 +114,11 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
         bound = accumulated(placed.invocation(identity).map(lambda invocation: (chord, invocation)) for chord, placed in self.bindings.items())
 
         def built(parts: tuple[tuple[str, str], tuple[tuple[Option[str], Option[tuple[tuple[tuple[Band, Acquisition], ...], Drew]]], tuple[tuple[Chord, tuple[str, Writer]], ...]]]) -> Draft:
-            """Combines resolved names, bindings, gizmos, and pointer drawing into a native tool."""
+            """Returns tool draft."""
             (name, operator), ((gizmo, pointer), items) = parts
 
             def shown(_context: bpy.types.Context, layout: bpy.types.UILayout, tool: bpy.types.WorkSpaceTool) -> None:
-                """Draws the active tool's visible operator properties."""
+                """Draws visible tool operator properties."""
                 properties = tool.operator_properties(operator)
                 for prop in (held for held in properties.bl_rna.properties if not held.is_hidden):
                     layout.prop(properties, prop.identifier)
@@ -153,7 +153,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
-    """One toolbar entry or a group led by the first declared tool."""
+    """Toolbar entry, or group led by first tool."""
 
     toolbar: Toolbar
     tools: tuple[Tool[S], *tuple[Tool[S], ...]]
@@ -162,7 +162,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
     # --- [ACTIVATION]
 
     def invocation(self, identity: Identity, tool: Tool[S], *, cycle: bool = False, as_fallback: bool = False) -> BlenderResult[tuple[Operation, dict[str, object]]]:
-        """Builds Blender's native activation call for the tool and toolbar space."""
+        """Returns `wm.tool_set_by_id` call activating tool."""
         return identity.name(Name.OPERATOR, tool.key).map(
             lambda name: (bpy.ops.wm.tool_set_by_id, {"name": name, "space_type": self.toolbar.panel.bl_space_type, "cycle": cycle, "as_fallback": as_fallback})
         )
@@ -170,21 +170,21 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Builds native tool registration after every tool identity resolves."""
+        """Builds tool registration once every tool resolves."""
         return accumulated(tool.drafted(identity, self.toolbar) for tool in self.tools).map(
             lambda drafts: (*(row for draft in drafts for row in draft.rows), (Band.INTERFACE, self.registered(drafts)))
         )
 
     @contextmanager
     def registered(self, drafts: tuple[Draft, ...]) -> Generator[BlenderResult[None]]:
-        """Owns each successful native registration immediately and unwinds in reverse."""
+        """Registers tools and keymap items for the scope."""
         panel, mode = self.toolbar.panel, self.toolbar.mode
         owner = f"{panel.__name__}._tools[{mode!r}]"
         context = "All" if mode is None else heading(mode)
         bindings = tuple((draft, f"{panel.keymap_prefix} {context}, {tool.title}") for tool, draft in zip(self.tools, drafts))
 
         def planned(tools: list[object]) -> BlenderResult[Callable[[type[bpy.types.WorkSpaceTool]], None]]:
-            """Accumulates native placement and existing-tool collisions before registration."""
+            """Checks anchor presence and tool ID collisions."""
             grouped = frozenset(member.idname for item in tools if isinstance(item, tuple) and not isinstance(item, ToolDef) for member in item if isinstance(member, ToolDef))
             match self.placement:
                 case Appended(separator=separator):
@@ -201,7 +201,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
             ).map(lambda pair: pair[0])
 
         def configured(manager: bpy.types.WindowManager) -> BlenderResult[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]:
-            """Admits required native keyconfigs and accumulates collisions in each present map."""
+            """Resolves keyconfigs, refusing taken keymap names."""
             configs = manager.keyconfigs
             addon, default = Option.of_optional(configs.addon), Option.of_optional(configs.default)
             maps = tuple(pair for present in (addon, default) for config in present.to_list() for pair in config.keymaps.items())

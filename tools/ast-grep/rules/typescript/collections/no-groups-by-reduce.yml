@@ -183,4 +183,4 @@ rule:
 constraints:
     K: {not: {any: [{kind: identifier, pattern: $ACC}, {has: {stopBy: end, kind: identifier, pattern: $ACC}}]}}
 message: '`reduce` collects each `$X` into a bucket of `$ACC` under a computed key by hand'
-note: 'Call `Object.groupBy(<list>, <key>)` for a record, `Map.groupBy` for a `Map`, or `Array.groupBy` where the reduce or append is an `effect` call'
+note: 'Call `Object.groupBy(<list>, <key>)` for a record, `Map.groupBy` for a `Map`, or `Array.groupBy` in place of an `effect` `reduce` or `append`'

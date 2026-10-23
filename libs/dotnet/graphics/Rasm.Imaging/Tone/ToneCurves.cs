@@ -369,7 +369,7 @@ public static class ToneCurves {
         white.Match(
             Some: manual => formed(float.Exp2(manual.ToValue())),
             None: () => Measured(context, (_, samples) =>
-                ValidationResults.Validated<TWhite, float>((float)double.Log2(samples.FrameWhite)).MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"frame white {samples.FrameWhite} falls outside the scene white range"), error)).Map(measured => formed(float.Exp2(measured.ToValue())))));
+                ValidationResults.Validated<TWhite, float>((float)double.Log2(samples.FrameWhite)).MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"frame white {samples.FrameWhite} lies outside white point range"), error)).Map(measured => formed(float.Exp2(measured.ToValue())))));
 
     private static PixelPass.Frame Measured(PassContext context, Func<PixelFrame, LuminanceSamples, Fin<PixelPass>> formed) =>
         new((frame, progress) =>

@@ -8,7 +8,7 @@ fn debug_main_error(found: &str) {
     13 | fn main() -> Result<(), Failure> {
        |              ^^^^^^^^^^^^^^^^^^^
        |
-       = help: return `Result<_, std::error::Report<Failure>>` under `#![feature(error_reporter)]` to print `Display` and the `sources()` chain
+       = help: return `Result<(), std::error::Report<Failure>>` under `#![feature(error_reporter)]`
        = note: `#[warn(debug_main_error)]` on by default
     ");
 }
@@ -21,7 +21,7 @@ fn decode_without_path(found: &str) {
     30 | fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) }
        |                                                             ^^^^^^^^^^^^^^^^^
        |
-       = help: decode through `serde_path_to_error::deserialize`, whose error names the failing field path
+       = help: decode through `serde_path_to_error::deserialize`
        = note: `#[warn(decode_without_path)]` on by default
 
     warning: `Deserialize::deserialize` decodes `&mut Deserializer<StrRead<'_>>` without tracking the field path
@@ -30,7 +30,7 @@ fn decode_without_path(found: &str) {
     32 | fn qualified(text: &str) -> Result<Reply, serde_json::Error> { <Reply as Deserialize>::deserialize(&mut serde_json::Deserializer::fr...
        |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: decode through `serde_path_to_error::deserialize`, whose error names the failing field path
+       = help: decode through `serde_path_to_error::deserialize`
 
     warning: `Deserialize::deserialize` decodes `Value` without tracking the field path
       --> tools/dylint/examples/decode_without_path.rs:34:77
@@ -38,7 +38,7 @@ fn decode_without_path(found: &str) {
     34 | fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
        |                                                                             ^^^^^^^^^^^^^^^^^
        |
-       = help: decode through `serde_path_to_error::deserialize`, whose error names the failing field path
+       = help: decode through `serde_path_to_error::deserialize`
     ");
 }
 
@@ -267,7 +267,7 @@ fn discarded_error(found: &str) {
     110 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
         |                                           ^^^^^^^^^
         |
-        = help: collect into `validated::Validated<Vec<_>, _>` and call `.ok()` to keep every error
+        = help: collect the results into `validated::Validated<Vec<_>, ParseIntError>` and call `.ok()`
 
     warning: `into_iter` iterates the `Result` and skips its `ParseIntError`
        --> tools/dylint/examples/discarded_error.rs:110:80
@@ -841,7 +841,7 @@ fn error_field_without_sources(found: &str) {
     22 | fn displayed(text: &str) -> Result<u16, Unread> { parsed(text).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %error, "p...
        |                                                                                                                            ^^^^^
        |
-       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` with `%` or `field::display` under `#![feature(error_reporter)]`
        = note: `#[warn(error_field_without_sources)]` on by default
 
     warning: tracing field records error `Unread` outside `Report`
@@ -850,7 +850,7 @@ fn error_field_without_sources(found: &str) {
     24 | fn debugged(text: &str) -> Result<u16, Unread> { parsed(text).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = ?error, "po...
        |                                                                                                                           ^^^^^
        |
-       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` with `%` or `field::display` under `#![feature(error_reporter)]`
 
     warning: tracing field records error `dyn std::error::Error` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:26:120
@@ -858,7 +858,7 @@ fn error_field_without_sources(found: &str) {
     26 | ...r(|error| tracing::warn!({ EXCEPTION_MESSAGE } = error as &(dyn Error + 'static), "port unread")) }
        |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` with `%` or `field::display` under `#![feature(error_reporter)]`
 
     warning: tracing field records error `std::num::ParseIntError` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:28:122
@@ -866,7 +866,7 @@ fn error_field_without_sources(found: &str) {
     28 | ...spect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %error.source, "port unread")) }
        |                                                              ^^^^^^^^^^^^
        |
-       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` with `%` or `field::display` under `#![feature(error_reporter)]`
 
     warning: tracing field records error `Unread` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:30:140
@@ -874,7 +874,7 @@ fn error_field_without_sources(found: &str) {
     30 | ...or| drop(tracing::info_span!("port", { EXCEPTION_MESSAGE } = %error))) }
        |                                                                  ^^^^^
        |
-       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` with `%` or `field::display` under `#![feature(error_reporter)]`
 
     warning: tracing field records error `Unread` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:34:102
@@ -882,7 +882,7 @@ fn error_field_without_sources(found: &str) {
     34 |         tracing::info_span!("port", { EXCEPTION_MESSAGE } = Empty).record(EXCEPTION_MESSAGE, display(error));
        |                                                                                                      ^^^^^
        |
-       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` with `%` or `field::display` under `#![feature(error_reporter)]`
     "#);
 }
 
@@ -980,7 +980,7 @@ fn independent_question_marks(found: &str) {
     9 | |     let second = parse(right)?;
       | |_______________________________^
       |
-      = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+      = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
       = note: `#[warn(independent_question_marks)]` on by default
 
     warning: `?` on `first` returns before independent `second` is computed
@@ -990,7 +990,7 @@ fn independent_question_marks(found: &str) {
     15 | |     let second = parse(right)?;
        | |_______________________________^
        |
-       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+       = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `?` on `first` returns before independent `second` is computed
       --> tools/dylint/examples/independent_question_marks.rs:20:5
@@ -999,7 +999,7 @@ fn independent_question_marks(found: &str) {
     21 | |     let second = parse(right)?;
        | |_______________________________^
        |
-       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+       = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `?` on `start` returns before independent `end` is computed
       --> tools/dylint/examples/independent_question_marks.rs:26:5
@@ -1008,7 +1008,7 @@ fn independent_question_marks(found: &str) {
     27 | |     let end = parse(right)?;
        | |____________________________^
        |
-       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+       = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `?` on `parse(left)` returns before independent `parse(right)` is computed
       --> tools/dylint/examples/independent_question_marks.rs:62:78
@@ -1016,7 +1016,7 @@ fn independent_question_marks(found: &str) {
     62 | fn summed_inline(left: &str, right: &str) -> Result<u32, ParseIntError> { Ok(parse(left)?.strict_add(parse(right)?)) }
        |                                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+       = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `?` on `parse(left)` returns before independent `parse(right)` is computed
       --> tools/dylint/examples/independent_question_marks.rs:64:99
@@ -1024,7 +1024,7 @@ fn independent_question_marks(found: &str) {
     64 | fn built_inline(left: &str, right: &str) -> Result<Range<u32>, ParseIntError> { Ok(Range { start: parse(left)?, end: parse(right)? }) }
        |                                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+       = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `?` on `parse(left.trim())` returns before independent `parse(right)` is computed
       --> tools/dylint/examples/independent_question_marks.rs:66:81
@@ -1032,7 +1032,7 @@ fn independent_question_marks(found: &str) {
     66 | ...ult<(usize, u32), ParseIntError> { Ok((parse(left.trim())?.to_string().len(), parse(right)?.strict_add(1))) }
        |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+       = help: convert each result with `Validated::from`, combine them with `map2`, and call `.ok()`
 
     warning: `?` on `spelled(text)` returns before independent `borrowed(text)` is computed
        --> tools/dylint/examples/untyped_error.rs:346:9
@@ -1041,7 +1041,7 @@ fn independent_question_marks(found: &str) {
     347 | |         borrowed(text)?,
         | |______________________^
         |
-        = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+        = help: collect the results into `validated::Validated<Vec<_>, _>` and call `.ok()`
         = note: `#[warn(independent_question_marks)]` on by default
 
     warning: `?` on `loaded(Path::new("port"))` returns before independent `reported(Path::new("port")).map_err(projected)` is computed
@@ -1051,19 +1051,19 @@ fn independent_question_marks(found: &str) {
     385 | |         reported(Path::new("port")).map_err(projected)?,
         | |______________________________________________________^
         |
-        = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+        = help: collect the results into `validated::Validated<Vec<_>, _>` and call `.ok()`
     "#);
 }
 
 fn io_error_without_context(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `io::Error` built from text holds a failure callers cannot match
+    warning: `io::Error::new` wraps text callers cannot match
       --> tools/dylint/examples/io_error_without_context.rs:13:108
        |
     13 | ...ffer.is_empty() { Ok(0) } else { Err(io::Error::new(io::ErrorKind::InvalidData, "bad magic")) } }
        |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: build it from a typed error: `io::Error::new(kind, <thiserror value>)`
+       = help: pass a typed error to `io::Error::new` in place of the text
        = note: `#[warn(io_error_without_context)]` on by default
 
     warning: `StoreError` takes every `io::Error` through `From` and keeps no operation or subject
@@ -1072,7 +1072,7 @@ fn io_error_without_context(found: &str) {
     21 |     Read(#[from] io::Error),
        |     ^^^^
        |
-       = help: declare a variant holding an operation enum, the subject, and the `io::Error` source, and build it with `map_err` at each call
+       = help: replace `From<io::Error>` with `map_err` into a variant holding operation, subject, and `#[source] io::Error`
 
     warning: `JournalError` takes every `io::Error` through `From` and keeps no operation or subject
       --> tools/dylint/examples/io_error_without_context.rs:26:1
@@ -1080,25 +1080,25 @@ fn io_error_without_context(found: &str) {
     26 | struct JournalError {
        | ^^^^^^^^^^^^^^^^^^^
        |
-       = help: declare a variant holding an operation enum, the subject, and the `io::Error` source, and build it with `map_err` at each call
+       = help: replace `From<io::Error>` with `map_err` into a variant holding operation, subject, and `#[source] io::Error`
 
-    warning: `io::Error` built from text holds a failure callers cannot match
+    warning: `io::Error::new` wraps text callers cannot match
       --> tools/dylint/examples/io_error_without_context.rs:57:19
        |
     57 |         "" => Err(io::Error::new(io::ErrorKind::InvalidData, "port text is empty")),
        |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: build it from a typed error: `io::Error::new(kind, <thiserror value>)`
+       = help: pass a typed error to `io::Error::new` in place of the text
 
-    warning: `io::Error` built from text holds a failure callers cannot match
+    warning: `io::Error::other` wraps text callers cannot match
       --> tools/dylint/examples/io_error_without_context.rs:58:20
        |
     58 |         "-" => Err(io::Error::other(format!("port text {text} is a dash"))),
        |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: build it from a typed error: `io::Error::new(kind, <thiserror value>)`
+       = help: pass a typed error to `io::Error::other` in place of the text
 
-    warning: `io::Error` built from text holds a failure callers cannot match
+    warning: `io::Error::other` wraps text callers cannot match
       --> tools/dylint/examples/io_error_without_context.rs:68:62
        |
     68 |         Err(LoadError::Read { path: path.to_owned(), source: io::Error::other("path is empty") })
@@ -1112,16 +1112,16 @@ fn io_error_without_context(found: &str) {
     91 |     Io(#[source] io::Error),
        |     ^^
        |
-       = help: declare a variant holding an operation enum, the subject, and the `io::Error` source, and build it with `map_err` at each call
+       = help: replace `From<io::Error>` with `map_err` into a variant holding operation, subject, and `#[source] io::Error`
        = note: `#[warn(io_error_without_context)]` on by default
 
-    warning: `io::Error` built from text holds a failure callers cannot match
+    warning: `io::Error::other` wraps text callers cannot match
        --> tools/dylint/examples/stringified_error.rs:148:49
         |
     148 | fn handed(error: &ParseIntError) -> io::Error { io::Error::other(error.to_string()) }
         |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
-        = help: return a `thiserror` variant holding the subject and its typed source
+        = help: pass a typed error to `io::Error::other` in place of the text
         = note: `#[warn(io_error_without_context)]` on by default
     "#);
 }
@@ -1134,7 +1134,7 @@ fn manual_error_impl(found: &str) {
     12 | impl Error for Manual {}
        | ^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: derive `thiserror::Error` with an `#[error(..)]` message and `#[source]` on the wrapped error
+       = help: derive `thiserror::Error` and move the `Display` text into `#[error(..)]`
        = note: `#[warn(manual_error_impl)]` on by default
 
     warning: `ManualError` implements `core::error::Error` by hand
@@ -1143,79 +1143,79 @@ fn manual_error_impl(found: &str) {
     116 | impl error::Error for ManualError {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
-        = help: derive `thiserror::Error` with an `#[error(..)]` message and `#[source]` on the wrapped error
+        = help: derive `thiserror::Error`, move the `Display` text into `#[error(..)]`, and mark the field that `source` returns `#[source]`
         = note: `#[warn(manual_error_impl)]` on by default
     ");
 }
 
 fn partition_by_result(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:26:84
        |
     26 | fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) }
        |                                                                                    ^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result` and delete the unwraps after it
        = note: `#[warn(partition_by_result)]` on by default
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:28:85
        |
     28 | fn pathed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(Result::is_err) }
        |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result`, swap the halves, and delete the unwraps after it
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:30:85
        |
     30 | fn closed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| result.is_ok()) }
        |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result` and delete the unwraps after it
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:32:86
        |
     32 | fn negated(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| !result.as_ref().is_err()) }
        |                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result` and delete the unwraps after it
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:34:85
        |
     34 | fn called(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| Result::is_ok(result)) }
        |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result` and delete the unwraps after it
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:36:86
        |
     36 | fn matched(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| matches!(result, Ok(_))) }
        |                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result` and delete the unwraps after it
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:38:91
        |
     38 | fn dereferenced(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| (*result).is_err()) }
        |                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result`, swap the halves, and delete the unwraps after it
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:40:148
        |
     40 | ...t<u8, TryFromIntError>>) { results.into_iter().partition(|&result| result.is_ok()) }
        |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result` and delete the unwraps after it
 
-    warning: `partition` splits results by case and leaves each half wrapped in `Ok` or `Err`
+    warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
       --> tools/dylint/examples/partition_by_result.rs:43:25
        |
     43 |       results.into_iter().partition(|result| match result {
@@ -1225,7 +1225,7 @@ fn partition_by_result(found: &str) {
     46 | |     })
        | |______^
        |
-       = help: call `partition_result::<Vec<_>, Vec<_>, _, _>()` (`use itertools::Itertools as _;`) on owned results and delete the unwraps after it
+       = help: call `Itertools::partition_result` and delete the unwraps after it
     ");
 }
 
@@ -1275,99 +1275,99 @@ fn redundant_error_conversion(found: &str) {
        --> tools/dylint/examples/redundant_error_conversion.rs:127:37
         |
     127 |     let text = str::from_utf8(bytes).map_err(Into::<PortError>::into)?;
-        |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MachineApplicable: remove the `map_err` call
+        |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MachineApplicable: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:128:35
         |
     128 |     let port = text.trim().parse().map_err(PortError::from)?;
-        |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:133:37
         |
     133 |     let text = str::from_utf8(bytes).map_err(PortError::Text)?;
-        |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MachineApplicable: remove the `map_err` call
+        |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MachineApplicable: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:143:37
         |
     143 |     let text = str::from_utf8(bytes).map_err(LocatedError)?;
-        |                                     ^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MachineApplicable: remove the `map_err` call
+        |                                     ^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MachineApplicable: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:153:28
         |
     153 |     let text = text!(bytes).map_err(PortError::from)?;
-        |                            ^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MachineApplicable: remove the `map_err` call
+        |                            ^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MachineApplicable: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:159:37
         |
     159 |     let text = str::from_utf8(bytes).map_err(E::from)?;
-        |                                     ^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MachineApplicable: remove the `map_err` call
+        |                                     ^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MachineApplicable: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:164:85
         |
     164 |     let ports = lines.iter().map(|line| line.parse()).collect::<Result<Vec<_>, _>>().map_err(PortError::Parse)?;
-        |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:169:35
         |
     169 |     let port = text.parse::<u16>().map_err(ManualError)?;
-        |                                   ^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                   ^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:175:117
         |
     175 | ...Error> { text.trim().parse::<u16>().map_err(PortError::from)? } }
-        |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:180:35
         |
     180 |     let port = text.trim().parse().map_err(|error| PortError::from(error))?;
-        |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:185:37
         |
     185 |     let text = str::from_utf8(bytes).map_err(|error| PortError::Text(error))?;
-        |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MachineApplicable: remove the `map_err` call
+        |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MachineApplicable: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:192:36
         |
     192 |     let scale = text.trim().parse().map_err(ScaleError::Parse)?;
-        |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:201:43
         |
     201 |             let port = text.trim().parse().map_err(<PortError as From<_>>::from)?;
-        |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
 
     warning: `map_err` repeats the `From` conversion `?` applies
        --> tools/dylint/examples/redundant_error_conversion.rs:205:48
         |
     205 |             let port: u16 = text.trim().parse().map_err(PortError::Parse)?;
-        |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: remove the `map_err` call
-    applicability MaybeIncorrect: remove the `map_err` call
+        |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+    applicability MaybeIncorrect: delete the `map_err` call
     ");
 }
 
@@ -1379,7 +1379,7 @@ fn source_in_error_message(found: &str) {
     8 |     #[error("cannot read {path}: {source}")]
       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
       |
-      = help: delete field `source` from the message, reporters print it through `source()`
+      = help: delete field `source` from the message
       = note: `#[warn(source_in_error_message)]` on by default
 
     warning: `Parse` message prints its source field `0`
@@ -1388,7 +1388,7 @@ fn source_in_error_message(found: &str) {
     10 |     #[error("cannot parse the port: {0}")]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete field `0` from the message, reporters print it through `source()`
+       = help: delete field `0` from the message
 
     warning: `Wrapped` message prints its source field `0`
       --> tools/dylint/examples/source_in_error_message.rs:12:5
@@ -1396,7 +1396,7 @@ fn source_in_error_message(found: &str) {
     12 |     #[error("{0}")]
        |     ^^^^^^^^^^^^^^^
        |
-       = help: state the failure in the message in place of field `0`, reporters print the source through `source()`
+       = help: state the failure in the message in place of field `0`
 
     warning: `Write` message prints its source field `cause`
       --> tools/dylint/examples/source_in_error_message.rs:20:5
@@ -1404,7 +1404,7 @@ fn source_in_error_message(found: &str) {
     20 |     #[error("cannot write {cause:?}")]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete field `cause` from the message, reporters print it through `source()`
+       = help: delete field `cause` from the message
 
     warning: `Sync` message prints its source field `source`
       --> tools/dylint/examples/source_in_error_message.rs:25:5
@@ -1412,7 +1412,7 @@ fn source_in_error_message(found: &str) {
     25 |     #[error("cannot sync {}: {}", .path, .source)]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete field `source` from the message, reporters print it through `source()`
+       = help: delete field `source` from the message
 
     warning: `Flush` message prints its source field `0`
       --> tools/dylint/examples/source_in_error_message.rs:27:5
@@ -1420,7 +1420,7 @@ fn source_in_error_message(found: &str) {
     27 |     #[error("cannot flush {reason}", reason = .0)]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete field `0` from the message, reporters print it through `source()`
+       = help: delete field `0` from the message
 
     warning: `LoadError` message prints its source field `source`
       --> tools/dylint/examples/source_in_error_message.rs:36:1
@@ -1428,101 +1428,101 @@ fn source_in_error_message(found: &str) {
     36 | #[error("cannot load the settings: {source}")]
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete field `source` from the message, reporters print it through `source()`
+       = help: delete field `source` from the message
     "#);
 }
 
 fn stringified_error(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/option_fields_as_result.rs:90:59
        |
     90 |         Err(error) => Exchange { value: None, error: Some(error.to_string()) },
        |                                                           ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
        = note: `#[warn(stringified_error)]` on by default
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/stringified_error.rs:43:96
        |
     43 | fn field(text: &str) -> Result<u16, Failure> { parsed(text).map_err(|error| Failure { message: error.to_string() }) }
        |                                                                                                ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
        = note: `#[warn(stringified_error)]` on by default
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/stringified_error.rs:45:87
        |
     45 | fn wrapped(text: &str) -> Result<u16, Wrapped> { parsed(text).map_err(|error| Wrapped(format!("port: {error}"))) }
        |                                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/stringified_error.rs:47:102
        |
     47 | fn converted(text: &str) -> Result<u16, Wrapped> { parsed(text).map_err(|error| Wrapped(String::from(error.to_string().as_str()))) }
        |                                                                                                      ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/stringified_error.rs:49:97
        |
     49 | fn constructed(text: &str) -> Result<u16, Failure> { parsed(text).map_err(|error| Failure::new(&error.to_string())) }
        |                                                                                                 ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/stringified_error.rs:58:25
        |
     58 |         attempt.label = error.to_string();
        |                         ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/stringified_error.rs:65:23
        |
     65 |         let message = format!("{error:?}");
        |                       ^^^^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
       --> tools/dylint/examples/stringified_error.rs:70:78
        |
     70 | fn listed(error: &ParseIntError, messages: &mut Vec<String>) { messages.push(error.to_string()); }
        |                                                                              ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is returned where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is returned
       --> tools/dylint/examples/stringified_error.rs:76:75
        |
     76 | fn collected(errors: &[ParseIntError]) -> Vec<String> { errors.iter().map(ToString::to_string).collect() }
        |                                                                           ^^^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is returned where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is returned
       --> tools/dylint/examples/stringified_error.rs:78:49
        |
     78 | fn described(error: &ParseIntError) -> String { error.to_string() }
        |                                                 ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is returned where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is returned
       --> tools/dylint/examples/stringified_error.rs:83:19
        |
     83 |         message = error.to_string();
        |                   ^^^^^^^^^^^^^^^^^
        |
-       = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+       = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
     warning: text of error `std::num::ParseIntError` is compared
       --> tools/dylint/examples/stringified_error.rs:88:43
@@ -1578,23 +1578,23 @@ fn stringified_error(found: &str) {
     140 | fn fast(mode: Mode) -> bool { mode.to_string() == "fast" }
         |                               ^^^^^^^^^^^^^^^^
         |
-        = help: compare or match the value itself in place of its text
+        = help: compare or match `Mode` in place of its text
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
        --> tools/dylint/examples/stringified_error.rs:146:62
         |
     146 | fn rejected(error: &ParseIntError) -> RefusedError { refused(error.to_string()) }
         |                                                              ^^^^^^^^^^^^^^^^^
         |
-        = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+        = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
 
-    warning: text of error `std::num::ParseIntError` is stored where callers cannot match its cause
+    warning: text of error `std::num::ParseIntError` is stored
        --> tools/dylint/examples/untyped_error.rs:324:133
         |
     324 | ...p_err(|error: ParseIntError| serde_json::Value::String(error.to_string())) }
         |                                                           ^^^^^^^^^^^^^^^^^
         |
-        = help: hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it
+        = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
         = note: `#[warn(stringified_error)]` on by default
     "#);
 }
@@ -1682,7 +1682,7 @@ fn untyped_error(found: &str) {
     107 |     Invalid(Vec<PortError>),
         |     ^^^^^^^
         |
-        = help: hold the errors in a `nonempty_collections::NEVec`
+        = help: hold the errors as `nonempty_collections::NEVec<PortError>`
 
     warning: error `Unreachable` holds an erased `dyn Error` callers cannot match
        --> tools/dylint/examples/untyped_error.rs:143:5
@@ -1690,7 +1690,7 @@ fn untyped_error(found: &str) {
     143 |     Unreachable(#[source] Box<dyn Error + Send + Sync>),
         |     ^^^^^^^^^^^
         |
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: hold the wrapped error's concrete type as `#[source]`
 
     warning: error `Project` holds a report that erases each failure's type
        --> tools/dylint/examples/untyped_error.rs:161:5
@@ -1698,23 +1698,23 @@ fn untyped_error(found: &str) {
     161 |     Project(#[source] anyhow::Error),
         |     ^^^^^^^
         |
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: hold the wrapped error's concrete type as `#[source]`
 
-    warning: error `Format` holds a one-value source error that adds nothing to the variant
+    warning: error `Format` holds a source error with one value
        --> tools/dylint/examples/untyped_error.rs:167:5
         |
     167 |     Format(#[from] fmt::Error),
         |     ^^^^^^
         |
-        = help: delete the field, state the source's cause in the variant's message, and convert with a `map_err` closure matching the source's one value
+        = help: delete the field and build `Format` in a `map_err` closure
 
-    warning: error `Abandoned` holds a one-value source error that adds nothing to the variant
+    warning: error `Abandoned` holds a source error with one value
        --> tools/dylint/examples/untyped_error.rs:171:5
         |
     171 |     Abandoned(#[from] oneshot::error::RecvError),
         |     ^^^^^^^^^
         |
-        = help: delete the field, state the source's cause in the variant's message, and convert with a `map_err` closure matching the source's one value
+        = help: delete the field and build `Abandoned` in a `map_err` closure
 
     warning: `Result` error `String` is text callers cannot match
        --> tools/dylint/examples/untyped_error.rs:190:27
@@ -1775,7 +1775,7 @@ fn untyped_error(found: &str) {
         |
      85 | enum Code {
         | ^^^^^^^^^
-        = help: derive `thiserror::Error` on the type in place of its hand-written `Display`
+        = help: derive `thiserror::Error` on `Code` in place of its hand-written `Display`
 
     warning: `Result` error `Code` is a `Display` type that implements no `core::error::Error`
        --> tools/dylint/examples/untyped_error.rs:209:39
@@ -1788,7 +1788,7 @@ fn untyped_error(found: &str) {
         |
      85 | enum Code {
         | ^^^^^^^^^
-        = help: derive `thiserror::Error` on the type in place of its hand-written `Display`
+        = help: derive `thiserror::Error` on `Code` in place of its hand-written `Display`
 
     warning: `Result` error `Box<str>` is text callers cannot match
        --> tools/dylint/examples/untyped_error.rs:213:30
@@ -1852,15 +1852,15 @@ fn untyped_error(found: &str) {
     229 | fn planned(texts: &[&str]) -> Result<Vec<u16>, Vec<PortError>> {
         |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
-        = help: return `Result<T, NEVec<E>>` built by collecting into `validated::Validated`
+        = help: collect the results into `validated::Validated` and return `Result<_, NEVec<PortError>>` from `.ok()`
 
-    warning: function returns `Vec<PortError>`, where an empty collection means success
+    warning: function signals success with an empty `Vec<PortError>`
        --> tools/dylint/examples/untyped_error.rs:234:31
         |
     234 | fn audited(texts: &[&str]) -> Vec<PortError> { texts.iter().filter_map(|text| typed(text).err()).collect() }
         |                               ^^^^^^^^^^^^^^
         |
-        = help: return `Result<(), NEVec<E>>` built by collecting into `validated::Validated`
+        = help: collect the results into `validated::Validated` and return `Result<(), NEVec<PortError>>` from `.ok()`
 
     warning: `Result` error `String` is text callers cannot match
        --> tools/dylint/examples/untyped_error.rs:244:77
@@ -1966,7 +1966,7 @@ fn untyped_error(found: &str) {
     333 |     Other(#[from] anyhow::Error),
         |     ^^^^^
         |
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: hold the wrapped error's concrete type as `#[source]`
 
     warning: `Result` error `anyhow::Error` is a report that erases each failure's type
        --> tools/dylint/examples/untyped_error.rs:336:86
@@ -2003,7 +2003,7 @@ fn untyped_error(found: &str) {
         |
     268 |         "refused" => Err(ConfigError::Message(String::from("configuration refused the port"))),
         |                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
     warning: error `Detail` holds text callers cannot match
        --> tools/dylint/examples/untyped_error.rs:119:5
@@ -2016,7 +2016,7 @@ fn untyped_error(found: &str) {
         |
     269 |         "detail" => Err(ConfigError::Detail { detail: Box::from("port detail"), context: Cow::Borrowed("port context") }),
         |                                                                 ^^^^^^^^^^^^^
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
     warning: error `Reserved` holds text callers cannot match
        --> tools/dylint/examples/untyped_error.rs:129:5
@@ -2029,7 +2029,7 @@ fn untyped_error(found: &str) {
         |
     270 |         "reserved" => Err(ConfigError::Reserved { port: 80_u16.to_string() }),
         |                                                         ^^^^^^^^^^^^^^^^^^
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
     warning: error `Composed` holds text callers cannot match
        --> tools/dylint/examples/untyped_error.rs:131:5
@@ -2042,7 +2042,7 @@ fn untyped_error(found: &str) {
         |
     271 |         "composed" => Err(ConfigError::Composed(format!("{text} refused the port").into())),
         |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
     warning: error `Refusal` holds text callers cannot match
        --> tools/dylint/examples/untyped_error.rs:138:1
@@ -2055,7 +2055,7 @@ fn untyped_error(found: &str) {
         |
     277 | fn refused() -> Result<u16, Refusal> { Err(Refusal(Arc::from("port refused"))) }
         |                                                              ^^^^^^^^^^^^^^
-        = help: give the variant typed fields, with the wrapped error's own type as `#[source]`
+        = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
     warning: `Result` error `String` is text callers cannot match
      --> tools/dylint/examples/untyped_error_exported.rs:7:33

@@ -62,19 +62,19 @@ public sealed partial class DestinationParameter : IStateParameter<Destination> 
         "folder",
         new StateParameter<Destination>.Keyed<OutputFolder, string>(
             Lens<Destination, OutputFolder>.New(static destination => destination.Folder, static folder => destination => destination with { Folder = folder })),
-        new("Folder", "Folder the files are written to"));
+        new("Folder", "Absolute path or //<subfolder> beside saved document"));
 
     public static readonly DestinationParameter Stem = new(
         "stem",
         new StateParameter<Destination>.Keyed<Stem, string>(
             Lens<Destination, Stem>.New(static destination => destination.Stem, static stem => destination => destination with { Stem = stem })),
-        new("Name", "File name stem every target extends"));
+        new("Name", "File name stem, saved document name when empty"));
 
     public static readonly DestinationParameter Overwrite = new(
         "overwrite",
         new StateParameter<Destination>.Toggle(
             Lens<Destination, bool>.New(static destination => destination.Overwrite, static overwrite => destination => destination with { Overwrite = overwrite })),
-        new("Overwrite", "Replaces a file at the path, off takes the next free version"));
+        new("Overwrite", "Replaces existing files, off refuses taken paths"));
 
     public StateParameter<Destination> Kind { get; }
 
@@ -112,7 +112,7 @@ public static class Destinations {
         fresh.Traverse(scope => entries.Choose(entry => Naming.VersionOf(stem, scope, entry))
                 .Fold(Option<OutputVersion>.None, static (top, version) => top.Filter(held => held > version) | version)
                 .Match(Some: static top => top.Next(), None: static () => OutputVersion.MinValue)
-                .ToFin(Error.New($"{stem} {scope} holds the highest output version"))
+                .ToFin(Error.New($"{stem} {scope} has no next output version"))
                 .Map(version => (scope, version)))
             .As()
             .Map(static versions => toHashMap(versions));

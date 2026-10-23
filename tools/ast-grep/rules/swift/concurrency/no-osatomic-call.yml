@@ -9,5 +9,5 @@ rule:
         kind: simple_identifier
         regex: '^(OSAtomic(Add|Increment|Decrement|Or|And|Xor|CompareAndSwap|TestAndSet|TestAndClear)\w*|OSMemoryBarrier)$'
         pattern: $CALL
-message: '`$CALL` updates a plain integer through a libkern atomic'
+message: '`$CALL` is a deprecated libkern atomic over plain memory'
 note: 'Hold the value in `Atomic<Value>` from `Synchronization` and call its operation with an explicit ordering, `atomicMemoryFence(ordering:)` for a fence'

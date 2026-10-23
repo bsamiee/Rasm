@@ -43,7 +43,7 @@ public static class RenderOverrides {
             var claim => Captures.Swap(held => held.Active.ContainsKey(claim.Serial) || held.Retiring.ContainsKey(claim.Serial) ? held : (held.Active.Add(claim.Serial, claim.Capture), held.Retiring))
                 .Active.Find(claim.Serial).Exists(found => ReferenceEquals(found, claim.Capture))
                     ? Fin.Succ(claim)
-                    : Error.New($"Document {claim.Serial} already holds a render override"),
+                    : Error.New($"Document {claim.Serial} holds render override"),
         }, answer =>
             from held in IO.lift(answer)
             from before in scope.Group.Capture

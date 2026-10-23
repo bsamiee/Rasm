@@ -16,4 +16,4 @@ rule:
           inside: {kind: content, inside: {matches: {msbuild-element: {name: {matches: path-name}}}}}
     regex: '^["'']?([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-]|\\\\[A-Za-z0-9_.-])'
 message: '`$PATH` names a location by its absolute path on one machine'
-note: 'Compose the path, `$([MSBuild]::NormalizePath(''$(<Directory>)'', ''<segment>''))`'
+note: 'Compose the path from a directory property, `$([MSBuild]::NormalizePath(''$(<Directory>)'', ''<segment>''))`'

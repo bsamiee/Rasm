@@ -1,4 +1,4 @@
-"""RNA value trees, ordered native application, and persistent edit scopes."""
+"""RNA value trees, ordered writes, restoration, and owner scopes."""
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import reduce
@@ -26,15 +26,15 @@ type Persisted = Tree[tuple[tuple[object, str], object]]
 
 
 class Scoped[O: "bpy.types.bpy_struct[object]" = "bpy.types.bpy_struct[object]"](Protocol):
-    """Owners sharing a native struct type and a context-dependent selection."""
+    """Context-selected owners of one struct type."""
 
     @property
     def owner_type(self) -> type[O]:
-        """Native type of every selected owner."""
+        """Owner struct type."""
         ...
 
     def owners(self, context: bpy.types.Context, /) -> BlenderResult[tuple[O, ...]]:
-        """Returns selected owners in deterministic order, or every missing owner."""
+        """Returns selected owners in stable order."""
         ...
 
 
@@ -46,7 +46,7 @@ _FLOAT_STORAGE = np.dtype(np.float64).newbyteorder(">")
 
 
 class Applied(msgspec.Struct, frozen=True, kw_only=True):
-    """Partial native writes, their outcome, and optional restoration state."""
+    """Snapshot write outcome per path."""
 
     written: tuple[str, ...] = ()
     unchanged: tuple[str, ...] = ()
@@ -66,12 +66,12 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def refused(cls, faults: BlenderFaults) -> Self:
-        """Holds the faults that refused every write."""
+        """Returns outcome failing with faults."""
         return cls(outcome=Error(faults))
 
 
 class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
-    """Assignable values keyed by RNA paths relative to a native struct."""
+    """Assignable values keyed by path under struct type."""
 
     struct: str
     tree: Tree[Value]
@@ -80,7 +80,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, struct: "type[bpy.types.bpy_struct[object]]", values: Mapping[str, Value]) -> Self:
-        """Returns a stated value set for the native struct's members."""
+        """Returns snapshot of struct member values."""
         return cls(struct=struct.bl_rna.identifier, tree=Tree(roots=("",), owners={"": Owner(values=dict(values))}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     @classmethod
@@ -95,7 +95,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
     def capture(
         cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, prior: "Option[Snapshot] | Option[Tree[NativeValue]]" = Nothing, *, native: bool = False
     ) -> "BlenderResult[Snapshot | Tree[NativeValue]]":
-        """Captures new paths, retaining earliest priors or refusing an incompatible root."""
+        """Captures paths prior lacks, keeping prior values."""
         try:
             definition: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
         except ReferenceError as error:
@@ -295,7 +295,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def settings(cls, setting: Descriptor, compound: "tuple[type[bpy.types.bpy_struct[object]], ...]" = ()) -> tuple[Descriptor, ...]:
-        """Expands assignable leaves, retaining the caller's compound native pointers."""
+        """Expands setting into leaf descriptors, `compound` pointers kept whole."""
 
         def walked(struct: bpy.types.Struct, owner: str, entered: frozenset[str]) -> tuple[Descriptor, ...]:
             def member(prop: bpy.types.Property) -> tuple[Descriptor, ...]:
@@ -317,7 +317,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def members(struct: bpy.types.Struct) -> tuple[bpy.types.Property, ...]:
-        """Returns persistent settings definitions, excluding identity and registration."""
+        """Returns saved members except ID, name, and registered ones."""
         base = bpy.types.ID.bl_rna.properties.values()
         return tuple(
             prop
@@ -327,7 +327,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def _valued(prop: bpy.types.Property, *, native: bool = False) -> bool:
-        """Returns stored leaves, retaining live pointers and compounds for native recovery."""
+        """Whether property captures as value, native adding struct collections and curve or writable pointers."""
         match prop:
             case bpy.types.CollectionProperty():
                 return native and not isinstance(prop.fixed_type, bpy.types.ID)
@@ -341,7 +341,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
     # --- [APPLICATION]
 
     def apply(self, owner: Native, *, restoration: Option[Callable[[Tree[NativeValue]], BlenderResult[None]]] = Nothing) -> Applied:
-        """Returns partial writes and faults, optionally capturing actual restoration state."""
+        """Writes snapshot to owner, capturing restoration when given."""
         try:
             definition: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
         except ReferenceError as error:
@@ -363,7 +363,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         return msgspec.structs.replace(applied, restoration=before.map(lambda held: (held, self.capture(owner, Some(selected), native=True))))
 
     def selection(self, owner: Native) -> tuple[Descriptor, ...]:
-        """Resolves this sparse assignment's native members and compound roots."""
+        """Resolves members and compound roots assigned on owner."""
         return (
             *(
                 descriptor
@@ -381,7 +381,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def projected(self, owner: Native, current: "Snapshot", locked: frozenset[str] = frozenset()) -> "BlenderResult[tuple[Snapshot, Snapshot]]":
-        """Returns unlocked sparse assignments and their complete matching state."""
+        """Returns unlocked assignments with resulting current state."""
         try:
             definition: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
         except ReferenceError as error:
@@ -421,7 +421,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def _applied[W](cls, owner: Native, tree: Tree[W], projected: "Callable[[Descriptor, W], Value | bytes | bpy.types.bpy_struct[object] | Tree[NativeValue]]") -> Applied:
-        """Interprets persisted or native values through the same ordered RNA mutation."""
+        """Writes stored or native values in host order."""
         reports: list[Applied] = []
         completed: set[tuple[str, str]] = set()
 
@@ -536,7 +536,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
     def apply_all[O: "bpy.types.bpy_struct[object]"](
         self, scope: Scoped[O] | tuple[O, ...], /, *context: bpy.types.Context, restoration: Option[Callable[[O, Tree[NativeValue]], BlenderResult[None]]] = Nothing
     ) -> BlenderResult[tuple[Applied, ...]]:
-        """Applies to every selected owner, retaining scope and independent write faults."""
+        """Writes snapshot to every scope owner, one outcome each."""
 
         def applied(owners: tuple[O, ...]) -> tuple[Applied, ...]:
             match restoration:
@@ -558,7 +558,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def persisted(tree: Tree[NativeValue]) -> BlenderResult[Persisted]:
-        """Projects native recovery to the shared ID-reference store's codec surface."""
+        """Converts native restoration tree to ID-keyed stored form."""
 
         def member(row: NativeValue) -> BlenderResult[tuple[tuple[object, str], object]]:
             target, value = row
@@ -577,7 +577,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def decoded(tree: Persisted, *, compound: bool = False) -> BlenderResult[Tree[NativeValue]]:
-        """Admits stored native references and reconstructs keys from their current IDs."""
+        """Validates stored ID references and rebuilds keys from current IDs."""
         owners: dict[str, Owner[NativeValue]] = {}
 
         def member(key: str, name: str, row: tuple[tuple[object, str], object]) -> BlenderResult[None]:
@@ -627,12 +627,12 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def reverted(before: Persisted, after: Persisted) -> BlenderResult[None]:
-        """Decodes stored endpoints of one operation and restores the values still equal to its final state."""
+        """Decodes stored trees and restores values still at after state."""
         return paired(Snapshot.decoded(before), Snapshot.decoded(after)).bind(lambda pair: Snapshot.restore(*pair).outcome)
 
     @staticmethod
     def restore(before: Tree[NativeValue], after: Tree[NativeValue]) -> Applied:
-        """Restores live values still equal to this operation's actual final state."""
+        """Restores live values still at after state."""
 
         def located(target: NativeOwner) -> Option[Native]:
             return struct_at(*target) if isinstance(target, tuple) else Some(target)
@@ -701,12 +701,12 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def _reported(path: str, answer: "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]") -> Applied:
-        """Classifies one native write as changed, equal, or refused."""
+        """Classifies write as written, unchanged, or refused."""
         return answer.map(lambda prior: Applied(written=(path,)) if prior.is_some() else Applied(unchanged=(path,))).default_with(Applied.refused)
 
     @staticmethod
     def _value[V](descriptor: Descriptor, value: V) -> float | tuple[float, ...] | V:
-        """Projects exact captured float bits through their native scalar or array metadata."""
+        """Decodes captured float bits as scalar or array per property."""
         match descriptor.prop, value:
             case bpy.types.FloatProperty() as prop, bytes(bits):
                 values = np.frombuffer(bits, dtype=_FLOAT_STORAGE)
@@ -716,28 +716,28 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Endpoints(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
-    """Stored earliest and final values of one operation, the final ones absent while a write it began is unfinished."""
+    """Stored before and after values of one operation, after unset until write finishes."""
 
     before: Persisted
     after: Persisted | None = None
 
     def completed(self, owner: object, key: str) -> BlenderResult[Persisted]:
-        """Answers the stored final values, or their absence naming the unfinished write of an owner key."""
+        """Returns stored after values, absent fault before write finishes."""
         return Option.of_optional(self.after).to_result_with(lambda: (BlenderAbsentFault(owner=repr(owner), key=f"{key}.after"),))
 
     def decoded(self, owner: object, key: str) -> BlenderResult[tuple[Tree[NativeValue], Tree[NativeValue]]]:
-        """Decodes both stored trees, accumulating a before refusal with absent or refused final values."""
+        """Decodes before and after trees, accumulating faults of both."""
         return paired(Snapshot.decoded(self.before), self.completed(owner, key).bind(Snapshot.decoded))
 
 
 class Scenes(Case, frozen=True, kw_only=True, tag=1):
-    """Named scenes, or every nonruntime scene in native file order."""
+    """Named or every non-runtime scene in file order."""
 
     owner_type: ClassVar[type[bpy.types.Scene]] = bpy.types.Scene
     names: tuple[str, ...] | None = None
 
     def owners(self, _context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene, ...]]:
-        """Returns named scenes or nonruntime scenes, accumulating missing names."""
+        """Returns scenes, absent fault per missing name."""
         return (
             Option
             .of_optional(self.names)
@@ -747,36 +747,36 @@ class Scenes(Case, frozen=True, kw_only=True, tag=1):
 
 
 class ViewLayers(Case, frozen=True, kw_only=True, tag=2):
-    """Every view layer belonging to the selected scenes."""
+    """View layers of selected scenes."""
 
     owner_type: ClassVar[type[bpy.types.ViewLayer]] = bpy.types.ViewLayer
     scenes: tuple[str, ...] | None = None
 
     def owners(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.ViewLayer, ...]]:
-        """Returns view layers in scene and layer order, or all missing scene names."""
+        """Returns view layers in scene and layer order."""
         return Scenes(names=self.scenes).owners(context).map(lambda owners: tuple(layer for scene in owners for layer in scene.view_layers))
 
 
 class Selection(Case, frozen=True, kw_only=True, tag=3):
-    """Objects selected in the context's view layer."""
+    """Objects selected in context view layer."""
 
     owner_type: ClassVar[type[bpy.types.Object]] = bpy.types.Object
 
     @staticmethod
     def owners(context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-        """Returns selected objects in native view-layer order, or the context's absent view layer."""
+        """Returns selected objects in view layer order."""
         return rooted(bpy.types.ViewLayer, context).map(lambda layer: tuple(layer.objects.selected))
 
 
 class Objects(Case, frozen=True, kw_only=True, tag=4):
-    """Objects belonging to a named collection and its descendants."""
+    """Objects of named collection and its descendants."""
 
     title = "Collection Objects"
     owner_type: ClassVar[type[bpy.types.Object]] = bpy.types.Object
     collection: str
 
     def owners(self, _context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-        """Returns all collection objects, or the absent collection name."""
+        """Returns collection objects."""
         return (
             Option
             .of_optional(bpy.data.collections.get(self.collection))
@@ -789,7 +789,7 @@ class Objects(Case, frozen=True, kw_only=True, tag=4):
 
 
 def _session_key(block: bpy.types.ID, path: str) -> str:
-    """Owner key of a struct path inside an ID for the session, a root that `member_path` joins members under."""
+    """Returns `<session_uid>:<path>` owner key of struct path in ID."""
     return f"{block.session_uid}:{path}"
 
 

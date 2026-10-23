@@ -21,5 +21,5 @@ rule:
     all:
         - matches: block
         - follows: {stopBy: end, matches: block}
-message: '`extension` block repeats the receiver `$RECEIVER` an earlier block of its class declares'
-note: 'Declare every member over one receiver in one `extension` block, with subsection dividers inside it naming each family'
+message: '`extension` block repeats receiver `$RECEIVER` an earlier block of the class declares'
+note: 'Move the members into the earlier `extension` block over the same receiver, one subsection divider per family'

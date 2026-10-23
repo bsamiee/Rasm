@@ -14,9 +14,9 @@ const UploadRecovery = () => {
     const refreshRecovery = useAtomRefresh(pendingRequest);
     const [discarded, discard] = useAtom(discardRequest);
     const actions = {
-        incomplete: { label: 'Discard incomplete upload', description: 'Discard the incomplete upload and its stored data. Add the original file again to upload it.' },
-        cleanup: { label: 'Clean up upload data', description: 'Remove leftover upload data. The completed source file and its placements are kept.' },
-        removing: { label: 'Finish removal', description: 'Finish removing this source file and its remaining stored data.' },
+        incomplete: { label: 'Discard incomplete upload', description: 'Deletes partial upload data. Add original file again to upload it' },
+        cleanup: { label: 'Remove leftover upload data', description: 'Uploaded file and its placements stay' },
+        removing: { label: 'Finish removal', description: 'Deletes remaining upload data of removed file' },
     } satisfies Record<(typeof PendingUpload.Type)['status'], { readonly label: string; readonly description: string }>;
     const queuedUploads = new Set(files.flatMap((file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? [file.meta.prepared.asset.id] : [])));
     return (
@@ -36,7 +36,7 @@ const UploadRecovery = () => {
                 .onError(({ upload, error }) => (
                     <div className="mt-3">
                         <p className="hint mb-2 wrap-anywhere">{upload.name}</p>
-                        <RequestAlert conflict="This upload changed in another request. Refresh the list before trying again." error={error} />
+                        <RequestAlert conflict="Upload changed in another request. Refresh list and retry" error={error} />
                     </div>
                 ))
                 .orNull()}
@@ -49,16 +49,16 @@ const UploadRecovery = () => {
                 .onError((error) => <RequestAlert error={error} />)
                 .onSuccess((value) =>
                     value.length === 0 ? (
-                        <p className="hint mt-3">No incomplete uploads.</p>
+                        <p className="hint mt-3">No incomplete uploads</p>
                     ) : (
                         <>
-                            <p className="hint mt-3">Files interrupted before completion stay private. If this tab no longer has the file, discard its incomplete upload and add the original again.</p>
+                            <p className="hint mt-3">Interrupted uploads stay private. Discard uploads missing from queue and add their files again</p>
                             <ul className="divide-line mt-3 divide-y">
                                 {value.map((upload) => (
                                     <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3" key={upload.id}>
                                         <span className="min-w-0 flex-1 text-sm wrap-anywhere">{upload.name}</span>
-                                        <ConfirmDialog description={`${upload.name}: ${actions[upload.status].description}`} disabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
-                                        {queuedUploads.has(upload.id) && <p className="hint w-full">Retry or remove this file in the upload queue before discarding its stored data.</p>}
+                                        <ConfirmDialog description={`${upload.name} · ${actions[upload.status].description}`} disabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
+                                        {queuedUploads.has(upload.id) && <p className="hint w-full">Retry or remove file in upload queue first</p>}
                                     </li>
                                 ))}
                             </ul>

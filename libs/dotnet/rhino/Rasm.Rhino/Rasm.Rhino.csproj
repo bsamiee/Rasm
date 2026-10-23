@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Foundation for building any Rhino plug-in or app, wrapping RhinoCommon in LanguageExt effects with typed errors</Description>
+        <Description>RhinoCommon wrapped in LanguageExt effects with typed errors for Rhino plug-ins and apps</Description>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <MapperlyAbstractionsScope>runtime</MapperlyAbstractionsScope>
     </PropertyGroup>

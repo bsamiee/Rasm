@@ -34,4 +34,4 @@ rule:
             - inside: {matches: failure-callback, stopBy: end}
             - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
 message: '`$LOG` logs the failure as a message value'
-note: 'Pass the failure as a cause through `tapCause(Effect.logError)` of the same module, `Effect.logError(<text>, Cause.fail(<error>))`, or `Effect.ignore({ log: <level>, message: <text> })` where the failure is swallowed'
+note: 'Log a cause through `tapCause(Effect.logError)` or `Effect.logError(<text>, Cause.fail(<error>))`, `Effect.ignore({ log: <level> })` to discard'

@@ -268,7 +268,7 @@ public static class EventKind {
             (deliver, site, retain) => DisposalOps.Acquire(own =>
                 from debouncer in DisposalOps.Acquire(IO.lift(() => new Debouncer<Either<ErrorEventArgs, FileSystemEventArgs>>(clock, quiet, deliver, site)), static held => IO.lift(held.Timer.Dispose), held => own(held.Timer))
                 from watcher in DisposalOps.Acquire(IO.lift(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories }), own)
-                    .Catch(static error => error.HasException<ArgumentException>() || error.HasException<FileNotFoundException>(), error => IO.fail<FileSystemWatcher>(new FileRefused(directory.FullName, "names no folder a watcher can observe", error)))
+                    .Catch(static error => error.HasException<ArgumentException>() || error.HasException<FileNotFoundException>(), error => IO.fail<FileSystemWatcher>(new FileRefused(directory.FullName, "names no folder", error)))
                 let changed = Callbacks.Handler<FileSystemEventArgs>(args => debouncer.Post(Right(args)), site)
                 from attached in Seq(
                     Subscriptions.Attach<FileSystemEventHandler>(h => watcher.Changed += h, h => watcher.Changed -= h, changed.Invoke, own),

@@ -26,4 +26,4 @@ rule:
                                     - has: {field: value, matches: typescript-built-text}
         - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
 message: '`$CALLEE` runs a script source built from values'
-note: 'Keep the source constant and pass each value in `withArguments`, read as `arguments[0]` in JavaScript or `item 1 of arguments` in AppleScript'
+note: 'Pass a constant source and each value in the `withArguments` array, read as `arguments[0]` in JavaScript or `item 1 of arguments` in AppleScript'

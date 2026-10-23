@@ -25,5 +25,5 @@ rule:
                 - precedes: {kind: word, regex: '^\S'}
                 - follows: {kind: word, regex: '\S$'}
 fix: '"$VALUE"'
-message: 'Value `$VALUE` word-splits and glob-expands inside an alternate value expansion'
+message: 'Unquoted `$VALUE` word-splits and glob-expands inside the alternate value of `$CONDITION`'
 note: 'Quote the value, `${<condition>:+--option="$<value>"}`'

@@ -42,5 +42,5 @@ rule:
 message: '`$SPAWN` starts one thread per chunk of `$CHUNKS`'
 labels:
     SPAWN: {style: primary, message: 'Spawns one thread per chunk'}
-    CHUNKS: {style: secondary, message: 'Splits the work into chunks'}
-note: 'Call `rayon` `<slice>.par_chunks(<n>)` (`par_chunks_mut`, `par_chunks_exact`) with `.for_each(<work>)` or `.map(<work>).collect()`'
+    CHUNKS: {style: secondary, message: 'Splits work into chunks'}
+note: 'Call rayon `<slice>.par_chunks(<n>)` (`par_chunks_mut`, `par_chunks_exact`) with `.for_each(<work>)` or `.map(<work>).collect()`'

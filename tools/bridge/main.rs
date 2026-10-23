@@ -28,9 +28,9 @@ use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 #[derive(clap::Parser)]
 #[command(about)]
 struct Args {
-    #[arg(help = "Stdio MCP server to bridge, written after --")]
+    #[arg(help = "Stdio MCP server executable")]
     command: OsString,
-    #[arg(help = "Stdio MCP server arguments")]
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true, help = "Stdio MCP server arguments")]
     arguments: Vec<OsString>,
 }
 
@@ -40,11 +40,11 @@ struct Args {
 enum BridgeError {
     #[error("cannot spawn upstream server {}", command.display())]
     Spawn { command: OsString, source: io::Error },
-    #[error("upstream lifecycle failed")]
-    Lifecycle(#[source] Box<ClientInitializeError>),
-    #[error("upstream lifecycle ended without server info")]
+    #[error("upstream handshake failed")]
+    Handshake(#[source] Box<ClientInitializeError>),
+    #[error("upstream handshake sent no server info")]
     Unidentified,
-    #[error("upstream server ended")]
+    #[error("upstream server ended before shutdown")]
     Ended,
 }
 
@@ -88,8 +88,8 @@ impl Bridge {
         let (legacy, preferred_versions) = PROTOCOL_VERSIONS.iter().rev().cloned().partition::<Vec<_>, _>(ProtocolVersion::has_initialize);
         let lifecycle = ClientLifecycleMode::Auto { preferred_versions, legacy_version: legacy.into_iter().next() };
         let (upstream, stop) = (Upstream { config: ClientConfig::new(ClientCapabilities::default(), identity.clone()), notifier: notifier.clone() }, CancellationToken::new());
-        let service = serve_client_with_lifecycle_and_ct(upstream, transport, lifecycle, stop.clone()).await.map_err(|error| BridgeError::Lifecycle(Box::new(error)))?;
-        let (peer, ended) = (service.peer().clone(), service.waiting().map(|quit| tracing::info!(quit = ?quit, "upstream ended")).boxed().shared());
+        let service = serve_client_with_lifecycle_and_ct(upstream, transport, lifecycle, stop.clone()).await.map_err(|error| BridgeError::Handshake(Box::new(error)))?;
+        let (peer, ended) = (service.peer().clone(), service.waiting().map(|reason| tracing::info!(reason = ?reason, "upstream server ended")).boxed().shared());
         let ServerPeerInfo { protocol_version: version, mut capabilities, server_info, instructions, meta, .. } = Arc::unwrap_or_clone(peer.peer_info().ok_or(BridgeError::Unidentified)?);
         capabilities.logging = None;
         capabilities.resources.iter_mut().filter(|_| version.has_initialize()).for_each(|resources| resources.subscribe = None);

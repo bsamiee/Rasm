@@ -22,5 +22,5 @@ transform:
     REVERSED: {replace: {source: $MUTATE, replace: '^reverse$', by: toReversed}}
     COPYING: {replace: {source: $REVERSED, replace: '^sort$', by: toSorted}}
 fix: $LIST.$COPYING$ARGUMENTS
-message: '`$CALL` copies the list to `$MUTATE` the copy in place'
-note: 'Call `<list>.toReversed()` or `<list>.toSorted(<compare>)` for the reordered copy in one call'
+message: '`$CALL` copies `$LIST` to `$MUTATE` the copy in place'
+note: 'Call `<list>.toReversed()` or `<list>.toSorted(<compare>)`'

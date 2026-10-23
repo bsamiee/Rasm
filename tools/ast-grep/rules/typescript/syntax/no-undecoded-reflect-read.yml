@@ -86,4 +86,4 @@ rule:
                         - has: {field: name, kind: identifier, pattern: $VALUE}
                         - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $VALUE, matches: decoded}}
 message: '`$READ` reads `$KEY` as `any` with no decode'
-note: 'Read a member the typings declare as `<owner>.<member>`, after a `constructorName` match narrows a subclass, and decode or refine a member they omit where it is read, `Schema.decodeUnknownOption(<schema>)(Reflect.get(<owner>, <name>))` or `Option.liftPredicate(Reflect.get(<owner>, <name>), Predicate.is<Type>)`'
+note: 'Read a typed member as `<owner>.<member>`, else decode the read with `Schema.decodeUnknownOption(<schema>)` or refine with `Predicate.is<Type>`'

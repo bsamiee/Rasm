@@ -1,4 +1,4 @@
-"""Native node trees: group and output node classes, holders, sockets, node and link creation, link order, and content fingerprints."""
+"""Tree and node classes, holders, sockets, node and link creation, link order, and content fingerprints."""
 
 import functools
 import itertools
@@ -28,7 +28,7 @@ type Holder = bpy.types.NodeTree | bpy.types.Material | bpy.types.World | bpy.ty
 
 
 def group_node(kind: type[GraphTree]) -> type[GroupNode]:
-    """Returns the group node class a tree class nests its groups through."""
+    """Returns group node class of a tree class."""
     groups: dict[type[GraphTree], type[GroupNode]] = {
         bpy.types.CompositorNodeTree: bpy.types.CompositorNodeGroup,
         bpy.types.ShaderNodeTree: bpy.types.ShaderNodeGroup,
@@ -42,30 +42,34 @@ def tree_of(holder: bpy.types.Material | bpy.types.World | bpy.types.Light) -> B
 @overload
 def tree_of(holder: bpy.types.ID) -> BlenderResult[bpy.types.NodeTree]: ...
 def tree_of(holder: bpy.types.ID) -> BlenderResult[bpy.types.NodeTree]:
-    """Returns a group itself, else the node tree its holder embeds, or the holder's absent tree."""
+    """Returns group itself or embedded tree, `absent` fault for holder without one."""
     return (Some(holder) if isinstance(holder, bpy.types.NodeTree) else embedded(holder)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(holder), key=bpy.types.NodeTree.__name__),))
 
 
 def emptied[T: bpy.types.ID](holder: T) -> BlenderResult[T]:
-    """Removes every node of the tree a holder embeds, returning the holder."""
+    """Removes every node of holder tree, returning holder."""
     return tree_of(holder).map(lambda tree: tree.nodes.clear()).map(lambda _: holder)
 
 
 def socket_at(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, identifier: str) -> BlenderResult[bpy.types.NodeSocket]:
-    """Finds a socket by identifier alone, never by name.
+    """Finds socket by identifier alone.
 
     Args:
         sockets: Inputs or outputs of one node.
-        identifier: Native socket identifier, stable where names repeat or translate.
+        identifier: Socket identifier, stable where names repeat or translate.
 
     Returns:
-        `Ok` of the socket; `Error` of `absent` for an identifier the node holds no socket under.
+        `Ok` of socket. `Error` of `absent` for identifier with no socket.
     """
     return Option.of_optional(next((socket for socket in sockets if socket.identifier == identifier), None)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(sockets), key=identifier),))
 
 
 def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> BlenderResult[N]:
-    """Adds one node of a native class to a tree by the name `bpy.types` publishes it under, since add-ons rebind class-level `bl_rna`, its refusal answering `edit`, and a node of the other class an alias maps to removed again and answering `choice`."""
+    """Adds node by `bpy.types` class name.
+
+    Returns:
+        `Ok` of node. `Error` of `edit` for refused class, `choice` for alias add-ons rebind to another class, its node removed.
+    """
     identifier = kind.__name__
 
     def narrowed(made: bpy.types.Node) -> BlenderResult[N]:
@@ -82,7 +86,7 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Blend
 
 
 def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> BlenderResult[None]:
-    """Points a group node at a group, a group containing the node's own tree answering `edit`, since Blender leaves that write empty with no raise."""
+    """Points group node at group, `edit` fault for group containing node's tree."""
     host: bpy.types.NodeTree = node.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return (
         Error((BlenderEditFault(request=f"{node!r}.node_tree", error=ValueError(f"{group.name} contains {host.name}")),))
@@ -94,17 +98,17 @@ def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> BlenderResult[No
 def joined(
     tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.types.NodeSocket, *, verify_limits: bool = True, handle_dynamic_sockets: bool = False
 ) -> BlenderResult[bpy.types.NodeLink]:
-    """Links an output socket to an input socket of the same tree.
+    """Links output socket to input socket.
 
     Args:
         tree: Tree holding both sockets.
         source: Output socket.
-        target: Input socket, a virtual extend socket under `handle_dynamic_sockets`.
-        verify_limits: Whether the link replaces links past the target's limit.
-        handle_dynamic_sockets: Whether a virtual target grows the socket the link ends at.
+        target: Input socket, virtual extend socket under `handle_dynamic_sockets`.
+        verify_limits: Whether link replaces links past target limit.
+        handle_dynamic_sockets: Whether virtual target grows socket link ends at.
 
     Returns:
-        `Ok` of a valid link; `Error` of `edit` for a refused link or an invalid one the host created and the call removes, or of `absent` where the host answers no link.
+        `Ok` of valid link. `Error` of `edit` for refused link or invalid link the call removes, `absent` when host returns none.
     """
 
     def answered(link: bpy.types.NodeLink | None) -> BlenderResult[bpy.types.NodeLink]:
@@ -113,7 +117,7 @@ def joined(
                 return Ok(link)
             case bpy.types.NodeLink():
                 tree.links.remove(link)
-                return Error((BlenderEditFault(request=repr(tree.links), error=ValueError(f"{source!r} cannot feed {target!r}")),))
+                return Error((BlenderEditFault(request=repr(tree.links), error=ValueError(f"Link from {source!r} to {target!r} is invalid")),))
             case None:
                 return Error((BlenderAbsentFault(owner=repr(tree.links), key=repr((source, target))),))
 
@@ -124,7 +128,7 @@ def joined(
 
 
 def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...]) -> None:
-    """Orders links of a multi-input socket top to bottom as desired, within the slots they occupy, through native sort-id swaps."""
+    """Orders multi-input links top to bottom within their slots by sort ID swaps."""
     type Plan = tuple[tuple[bpy.types.NodeLink, ...], tuple[tuple[bpy.types.NodeLink, bpy.types.NodeLink], ...]]
 
     def planned(state: Plan, step: tuple[int, bpy.types.NodeLink]) -> Plan:
@@ -139,22 +143,21 @@ def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...
 
 
 def active_output(tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.NodeGroupOutput]:
-    """Returns a group's active Group Output node."""
+    """Returns active Group Output node."""
     return Option.of_optional(next((node for node in tree.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
         lambda: (BlenderAbsentFault(owner=repr(tree.nodes), key=bpy.types.NodeGroupOutput.__name__),)
     )
 
 
 def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[Option[ContentHash]]:
-    """Hashes observable native content of a tree or one node's upstream graph.
+    """Hashes observable content of tree or node upstream graph.
 
     Args:
-        owner: Complete tree, or target node whose incoming connections select its upstream closure.
+        owner: Whole tree, or node with incoming links selecting upstream closure.
 
     Returns:
-        The digest of persistent settings, socket defaults, ordered links, nested
-        groups, and image content when fully observable. Unobservable image
-        dependencies return `Nothing`; native capture faults remain errors.
+        `Ok` of digest over persistent settings, socket defaults, ordered links, nested groups, and image content.
+        `Ok` of `Nothing` for unobservable image dependency. `Error` of capture faults.
     """
     tree: bpy.types.NodeTree = owner if isinstance(owner, bpy.types.NodeTree) else owner.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     pending = list(owner.nodes) if isinstance(owner, bpy.types.NodeTree) else [owner]

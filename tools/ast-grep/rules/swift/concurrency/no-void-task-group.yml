@@ -57,5 +57,5 @@ transform:
             replace: '^((?:try\s+)?await\s+)?with(Throwing)?TaskGroup\(\s*of:\s*(?:Void|\(\))\.self\s*\)\s*'
             by: '${1}with${2}DiscardingTaskGroup '
 message: '`$SCOPE(of: Void.self)` keeps each finished child in a group its body never iterates'
-note: 'Call `withDiscardingTaskGroup`, or `withThrowingDiscardingTaskGroup` to rethrow the first child error'
+note: 'Call `withDiscardingTaskGroup`, or `withThrowingDiscardingTaskGroup` for `withThrowingTaskGroup`'
 fix: $DISCARDING

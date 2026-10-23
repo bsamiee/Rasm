@@ -9,7 +9,7 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, AdtDef};
+use rustc_middle::ty::{self, AdtDef, print::with_forced_trimmed_paths};
 use rustc_span::Spanned;
 
 use crate::{Place, access, constructed, impl_owner, is_error, is_text, pattern_fields, place};
@@ -117,6 +117,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let mirrored = states.contains(&(true, true)) && states.contains(&(false, false));
             (mirrored || states.contains(&(true, false)) && states.contains(&(false, true))).then_some((pair, mirrored))
         });
+        let held = |field: LocalDefId| option_arg_ty(cx, cx.tcx.type_of(field).instantiate_identity().skip_normalization());
         for (pair, mirrored) in decided {
             let name = |field: LocalDefId| cx.tcx.item_name(field);
             match pair {
@@ -134,8 +135,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         },
                     );
                 }
-                FieldPair::Outcome { value, error } if !mirrored => {
-                    let (value_name, error_name) = (name(value), name(error));
+                FieldPair::Outcome { value, error } if !mirrored && let Some((succeeded, failed)) = held(value).zip(held(error)) => {
+                    let (value_name, error_name, outcome) = (name(value), name(error), with_forced_trimmed_paths!(format!("Result<{succeeded}, {failed}>")));
                     span_lint_hir_and_then(
                         cx,
                         OPTION_FIELDS_AS_RESULT,
@@ -144,7 +145,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         format!("every construction of `{}` sets exactly one of success `{value_name}` and failure `{error_name}`", name(cx.tcx.local_parent(error))),
                         |diag| {
                             diag.span_note(cx.tcx.def_span(value), format!("`{value_name}` declared here"));
-                            diag.help(format!("replace `{value_name}` and `{error_name}` with one `Result`"));
+                            diag.help(format!("replace `{value_name}` and `{error_name}` with one `{outcome}` field"));
                         },
                     );
                 }

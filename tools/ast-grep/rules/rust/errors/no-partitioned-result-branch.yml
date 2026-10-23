@@ -66,5 +66,5 @@ rule:
         - any:
             - follows: {stopBy: end, matches: partitioned}
             - inside: {stopBy: {kind: 'function_item, closure_expression'}, follows: {stopBy: end, matches: partitioned}}
-message: '`$SITE` picks `Ok` or `Err` by testing the errors `partition_result` split off for emptiness'
-note: 'Collect the results with `<iterator>.collect::<validated::Validated<Vec<_>, _>>().ok()` for a `Result<Vec<T>, NEVec<E>>` holding every error'
+message: '`$SITE` selects `Ok` or `Err` by testing `$ERRORS` from `partition_result` for emptiness'
+note: 'Call `<iterator>.collect::<validated::Validated<Vec<_>, _>>().ok()` for a `Result<Vec<T>, NEVec<E>>` holding every error'

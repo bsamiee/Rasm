@@ -9,4 +9,4 @@ rule:
         - has: {field: name, regex: '(?i)^"?defer_foreign_keys"?$'}
         - has: {field: value, regex: '(?i)^[''"]?(off|no|false|0)[''"]?$'}
 message: '`$PRAGMA` clears pending foreign key violations and lets orphan rows commit'
-note: 'Delete the pragma and let the commit switch `defer_foreign_keys` off'
+note: 'Delete the pragma, commit switches `defer_foreign_keys` off'

@@ -38,4 +38,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [escaped]}}
 fix: $FIXED$KEPT
 message: '`_` in `$PATTERN` is a `like` wildcard for any one character'
-note: 'Escape each literal underscore as `!_` with `escape ''!''`'
+note: 'Escape each literal `_` as `!_` and each `!` as `!!` under `escape ''!''`'

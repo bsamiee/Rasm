@@ -69,7 +69,7 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                                 Rotate view
                             </Button>
                         </Toolbar>
-                        <p className="hint py-2">Select text to copy. Use Pan or focus the drawing and press arrow keys to move.</p>
+                        <p className="hint py-2">Select text to copy. Drag with Pan on or press arrow keys on focused sheet to move</p>
                     </details>
                     <details className="min-w-0 open:basis-full" onToggle={(event) => event.currentTarget.open || viewer.pdf.eventBus.dispatch('findbarclose', {})}>
                         <summary className="min-h-11 cursor-pointer content-center text-sm">Find</summary>
@@ -96,14 +96,14 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                                 <ChevronRight className="size-4" />
                             </Button>
                             <span className="text-muted basis-full text-xs" role="status">
-                                {query === '' ? 'Search drawing numbers or text.' : `${viewer.matches.current} of ${viewer.matches.total} matches`}
+                                {query === '' ? 'Search drawing numbers or text' : `${viewer.matches.current} of ${viewer.matches.total} matches`}
                             </span>
                         </div>
                     </details>
                 </ZoomControls>
             )}
             <motion.div aria-label={sheetLabel(current, document.numPages)} className="viewer-stage relative" layoutId={layoutId} onDoubleClick={() => pan && viewer?.pdf.increaseScale()} onPan={(_event, info) => pan && viewer?.pdf.panBy(info.delta.x, info.delta.y)} role="region">
-                {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Safari leaves scroll containers out of keyboard focus, arrow-key panning needs a focusable PDF.js container */}
+                {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Safari skips scroll containers in focus order, arrow-key panning needs focusable PDF.js container */}
                 <div className="sheet-scroller" data-pan={pan || undefined} ref={ref} tabIndex={0}>
                     <div className="pdfViewer" />
                 </div>
@@ -120,7 +120,7 @@ const PdfSheet = ({ placement, layoutId }: { placement: Extract<typeof Placement
     const retry = useAtomRefresh(pdfDocument(url));
     return AsyncResult.builder(useAtomValue(pdfDocument(url)))
         .onInitial(() => <MediaLoading />)
-        .onError(() => <MediaFailure href={url} linkLabel="Open original PDF" message="This document could not be displayed." onRetry={retry} />)
+        .onError(() => <MediaFailure href={url} linkLabel="Open original PDF" message="PDF failed to load" onRetry={retry} />)
         .onSuccess((document) => (layoutId === undefined ? <SheetPreview document={document} page={placement.page.number} /> : <SheetViewer document={document} layoutId={layoutId} placement={placement} />))
         .render();
 };

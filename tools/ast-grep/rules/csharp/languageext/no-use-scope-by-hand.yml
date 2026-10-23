@@ -167,5 +167,5 @@ transform:
             replace: '(?s)^(.*)$'
             by: '$1).Bracket()'
 fix: $USE_CALL$BRACKET_CALL$SECOND_FIXED$TAIL_FIXED
-message: "Scope over `$RESOURCE_TEXT$SX_TEXT` closes through `Bracket` by hand"
-note: 'Write `use(<acquire>).Bind(<resource> => <body>).Bracket()` with one `Bracket()` at the first `use` for every `use` inside it'
+message: 'Scope over `$RESOURCE_TEXT$SX_TEXT` closes through `Bracket` by hand'
+note: 'Write `use(<acquire>).Bind(<resource> => <body>).Bracket()`, one `Bracket()` at the first `use` for every nested `use`'

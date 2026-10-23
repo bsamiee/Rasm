@@ -62,7 +62,7 @@ internal static partial class SweepMapper {
     [MapProperty(nameof(Tolerances.Absolute), nameof(SweepTwoRail.SweepTolerance))]
     [MapProperty(nameof(Tolerances.Angle), nameof(SweepTwoRail.AngleToleranceRadians))]
     [MapValue(nameof(SweepTwoRail.UseLegacySweeper), true)]
-    [MapperIgnoreTarget(nameof(SweepTwoRail.AutoAdjust), Justification = "The legacy sweeper reads no AutoAdjust")]
+    [MapperIgnoreTarget(nameof(SweepTwoRail.AutoAdjust), Justification = "Ignored under UseLegacySweeper")]
     internal static partial SweepTwoRail ToSweepTwoRail(Tolerances tolerances, bool closedSweep, bool maintainHeight);
 }
 
@@ -148,7 +148,7 @@ public static class Lofts {
             from loops in Copies.Acquire(() => Curve.JoinCurves(edges.Map(static edge => edge.Curve), settings.Tolerance), nameof(Curve.JoinCurves), owned)
             from closed in IO.lift(Fin<Unit> () => loops.IsEmpty == edges.IsEmpty && loops.ForAll(static loop => loop.IsClosed)
                 ? unit
-                : Error.New(ErrorCodes.ValidationFailed, $"{nameof(Brep.CreateVariationalPatch)} requires edges that join into closed loops"))
+                : Error.New(ErrorCodes.ValidationFailed, $"{nameof(Brep.CreateVariationalPatch)} requires edges forming closed loops"))
             select closed, DisposalOps.Release)
         from token in cancelToken
         from solved in Copies.Owned(
@@ -157,7 +157,7 @@ public static class Lofts {
                 Results: results, Cancelled: token.IsCancellationRequested),
             static made => Optional(made.Patch)
                 .ToFin(Conversions.Present(made.Results.Error).Match(
-                    Some: static reason => new Refused(nameof(Brep.CreateVariationalPatch), $"failed: {reason}"),
+                    Some: static reason => new Refused(nameof(Brep.CreateVariationalPatch), $"failed. {reason}"),
                     None: () => made.Cancelled ? Errors.Cancelled : new Refused(nameof(Brep.CreateVariationalPatch), Refused.Absent)))
                 .Bind(static patch => Measurements.Valid(patch, nameof(Brep.CreateVariationalPatch)))
                 .Map(patch => (Patch: patch, Report: new PatchReport(

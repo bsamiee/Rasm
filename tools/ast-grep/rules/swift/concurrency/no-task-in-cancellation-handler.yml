@@ -28,5 +28,5 @@ rule:
             - has: {kind: call_suffix, has: {stopBy: end, matches: handler-body}}
 transform:
     HEAD: {replace: {source: $TASK, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` from a synchronous cancellation handler runs with no happens-before relation to the awaiting frame'
+message: '`$HEAD` in a synchronous cancellation handler runs with no happens-before relation to the awaiting frame'
 note: 'Cancel synchronously inside the handler, resume or finish a continuation, or await cleanup as a child task of an enclosing group'

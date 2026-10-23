@@ -14,7 +14,7 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
         const held = Effect.fnUntraced(function* <A, E, R>(changes: Stream.Stream<A, E, R>, subject: string) {
             const [first, rest] = yield* Stream.peel(changes, Sink.head());
             const latest = yield* Effect.flatMap(
-                Effect.fromOption(first, () => new Cause.NoSuchElementError(`${subject} ended before its first value`)),
+                Effect.fromOption(first, () => new Cause.NoSuchElementError(`${subject} stream ended before first value`)),
                 SubscriptionRef.make,
             );
             yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(latest, value)));
@@ -61,11 +61,11 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/automat
                     const sent = Effect.fnUntraced(
                         function* (clientId: number, request: RpcMessage.RequestEncoded) {
                             const { reply } = yield* execute({ pid, ...event(yield* Schema.decodeUnknownEffect(Schema.String)(parser.encode(request))), artifacts: [] });
-                            // biome-ignore lint/nursery/noUnsafeTypeAssertion: the RpcClient decodes each message part through codecFor, as Effect's own protocols do with the parser's output
+                            // biome-ignore lint/nursery/noUnsafeTypeAssertion: RpcClient decodes each part through codecFor
                             const responses = parser.decode(yield* Schema.decodeUnknownEffect(Schema.String)(reply)) as readonly RpcMessage.FromServerEncoded[];
                             yield* Effect.forEach(responses, (response) => writeResponse(clientId, response), { discard: true });
                         },
-                        (effect, _, request) => Effect.mapError(effect, (cause) => RpcClientError.RpcClientError.make({ reason: RpcClientError.RpcClientDefect.make({ message: `${request.tag} request to process ${pid}`, cause }) })),
+                        (effect, _, request) => Effect.mapError(effect, (cause) => RpcClientError.RpcClientError.make({ reason: RpcClientError.RpcClientDefect.make({ message: `${request.tag} request to process ${pid} failed`, cause }) })),
                     );
                     return {
                         send: (clientId: number, request: RpcMessage.FromClientEncoded) => (request._tag === 'Request' ? sent(clientId, request) : Effect.void),

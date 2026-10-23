@@ -101,5 +101,5 @@ rule:
                 - all: [{has: {field: left, matches: sign}}, {has: {field: right, matches: floored-magnitude}}]
                 - all: [{has: {field: left, matches: floored-magnitude}}, {has: {field: right, matches: sign}}]
 fix: $MATH.trunc($N)
-message: '`ceil` and `floor` truncate `$N` by its sign'
+message: 'Sign test with `floor` or `ceil` truncates `$N` toward zero by hand'
 note: 'Call `Math.trunc(<n>)`'

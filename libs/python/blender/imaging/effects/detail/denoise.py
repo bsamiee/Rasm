@@ -21,7 +21,7 @@ class Guides(Choice):
 
 
 class Prefilter(Choice):
-    """Treatment of guides before filtering color."""
+    """Guide denoising before color filtering."""
 
     NONE = 1
     FAST = 2
@@ -41,17 +41,17 @@ class Quality(Choice):
 
 
 class Filter(msgspec.Struct, frozen=True, kw_only=True):
-    """One Open Image Denoise filter over a color input."""
+    """Open Image Denoise filter over color input."""
 
-    guides: Annotated[Guides, msgspec.Meta(description="Render passes guiding the filter")] = Guides.ALBEDO_NORMAL
-    prefilter: Annotated[Prefilter, msgspec.Meta(description="Treatment of guides before filtering color")] = Prefilter.ACCURATE
-    quality: Annotated[Quality, msgspec.Meta(description="Filter quality against its run time")] = Quality.FOLLOW_SCENE
+    guides: Annotated[Guides, msgspec.Meta(description="Passes guiding filter")] = Guides.ALBEDO_NORMAL
+    prefilter: Annotated[Prefilter, msgspec.Meta(description="Guide denoising before filtering")] = Prefilter.ACCURATE
+    quality: Annotated[Quality, msgspec.Meta(description="Quality against run time")] = Quality.FOLLOW_SCENE
 
 
 class Frame(Case, frozen=True, kw_only=True, tag=1):
     """Incoming frame denoised as one image."""
 
-    filter: Annotated[Filter, msgspec.Meta(description="Filter over the frame")] = Filter()
+    filter: Annotated[Filter, msgspec.Meta(description="Filter over frame")] = Filter()
 
 
 class Passes(Case, frozen=True, kw_only=True, tag=2):
@@ -66,14 +66,14 @@ class Passes(Case, frozen=True, kw_only=True, tag=2):
         emission=Gated(enabled=False, value=Filter()),
         environment=Gated(enabled=False, value=Filter()),
     )
-    occlusion: Annotated[Gated[Filter], msgspec.Meta(title="Ambient Occlusion", description="Filter over the occlusion pass")] = Gated(enabled=False, value=Filter())
+    occlusion: Annotated[Gated[Filter], msgspec.Meta(title="Ambient Occlusion", description="Filter over occlusion pass")] = Gated(enabled=False, value=Filter())
 
 
 class Groups(Case, frozen=True, kw_only=True, tag=3):
     """Light-group passes filtered before recombination."""
 
     title = "Light Groups"
-    filter: Annotated[Filter, msgspec.Meta(description="Filter over each light group pass")] = Filter()
+    filter: Annotated[Filter, msgspec.Meta(description="Filter per light group pass")] = Filter()
 
 
 class SpatialDenoise(Effect, frozen=True, kw_only=True, tag=19):
@@ -83,11 +83,9 @@ class SpatialDenoise(Effect, frozen=True, kw_only=True, tag=19):
     title = "Denoise"
     pointwise = False
     fireflies: Annotated[
-        Gated[Annotated[float, msgspec.Meta(ge=1.0, le=10.0)]],
-        msgspec.Meta(title="Firefly Threshold", description="Luminance ratio over the fourth brightest ring neighbor marking a firefly"),
-        Presentation(decimals=Some(2)),
+        Gated[Annotated[float, msgspec.Meta(ge=1.0, le=10.0)]], msgspec.Meta(title="Firefly Threshold", description="Luminance over fourth brightest ring neighbor"), Presentation(decimals=Some(2))
     ] = Gated(enabled=True, value=2.0)
-    target: Annotated[Frame | Passes | Groups, msgspec.Meta(description="Frame or recombined terms to denoise")] = Frame()
+    target: Annotated[Frame | Passes | Groups, msgspec.Meta(description="Frame or light terms to denoise")] = Frame()
 
 
 class TemporalDenoise(Effect, frozen=True, kw_only=True, tag=20):
@@ -95,11 +93,11 @@ class TemporalDenoise(Effect, frozen=True, kw_only=True, tag=20):
 
     stage = Stage.DENOISE
     pointwise = False
-    hue: Annotated[NonNegative, msgspec.Meta(title="Hue Threshold", description="Circular hue distance at which a neighbor's weight reaches zero")] = 0.1
-    saturation: Annotated[NonNegative, msgspec.Meta(title="Saturation Threshold", description="Chroma distance at which a neighbor's weight reaches zero")] = 0.05
-    value: Annotated[NonNegative, msgspec.Meta(title="Value Threshold", description="Value distance at which a neighbor's weight reaches zero")] = 0.05
-    max_weight: Annotated[float, msgspec.Meta(ge=0.0, le=1 / 3, description="Largest share contributed by each neighboring frame")] = 0.3
-    tolerance: Annotated[NonNegative, msgspec.Meta(title="Motion Tolerance", description="Allowed reverse-motion disagreement in pixels")] = 1.0
+    hue: Annotated[NonNegative, msgspec.Meta(title="Hue Threshold", description="Hue distance zeroing neighbor weight")] = 0.1
+    saturation: Annotated[NonNegative, msgspec.Meta(title="Saturation Threshold", description="Chroma distance zeroing neighbor weight")] = 0.05
+    value: Annotated[NonNegative, msgspec.Meta(title="Value Threshold", description="Value distance zeroing neighbor weight")] = 0.05
+    max_weight: Annotated[float, msgspec.Meta(ge=0.0, le=1 / 3, description="Largest share per neighbor frame")] = 0.3
+    tolerance: Annotated[NonNegative, msgspec.Meta(title="Motion Tolerance", description="Allowed reverse-motion error in pixels")] = 1.0
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

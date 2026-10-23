@@ -72,5 +72,5 @@ rule:
           all:
             - has: {kind: 'string_literal, raw_string_literal', regex: '\{[^{}]*:[^{}]*\$\}'}
             - has: {stopBy: end, matches: shortfall}
-message: '`$PAD` pads text by a byte or char count where display width decides the column'
-note: 'Subtract `<text>.width()` of `unicode_width::UnicodeWidthStr` from the column width, and pass that count to `repeat` or a `{:<width$}` placeholder'
+message: '`$PAD` pads text by byte or char count in place of display width'
+note: 'Pad by `<column>.saturating_sub(<text>.width())` with `unicode_width::UnicodeWidthStr`'

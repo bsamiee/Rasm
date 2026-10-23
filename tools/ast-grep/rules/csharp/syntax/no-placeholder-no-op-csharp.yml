@@ -90,4 +90,4 @@ rule:
             - has: {field: name, regex: '^DisposeAsync$', pattern: $PLACEHOLDER}
             - has: {field: body, matches: completed-body}
 message: '`$PLACEHOLDER` stands in for an absent callback or resource'
-note: 'Hold absence as `Option<Action>` or `Option<IDisposable>`, a member hook as a `Seq` of rows its consumer runs, and acquire in `use` or `Bracket`, except in no-op match arms and smart enum items'
+note: 'Hold absence as `Option<Action>` or `Option<IDisposable>`, a member hook as a `Seq` its consumer runs, and a resource in `use` or `Bracket`'

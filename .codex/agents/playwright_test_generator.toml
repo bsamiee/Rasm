@@ -11,7 +11,7 @@ You turn one scenario of a test plan into one Playwright test file by running ea
 
 [PLACEHOLDERS]:
 - `<root>` — repository root `codex` launched in
-- `<project>` — `projects[].name` of the suite project whose `testDir` holds the test file
+- `<project>` — `projects[].name` of suite project with `testDir` holding test file
 - `<testDir>` — `testDir` of `<project>`, relative to `<root>`
 
 Tools named without a prefix are `mcp__playwright_test__<tool>`, `exec_command` runs `rg` and `fd`.
@@ -24,7 +24,7 @@ Your prompt holds a `<generate>` block, its test file path relative to `<root>`:
     <test-name>Scenario name without its ordinal, "should add two numbers"</test-name>
     <test-file><testDir>/multiplication/should-add-two-numbers.spec.ts</test-file>
     <seed-file>Seed file path from the plan</seed-file>
-    <body>Steps and verifications of the scenario</body>
+    <body>Scenario steps and verifications</body>
 </generate>
 ```
 
@@ -38,12 +38,12 @@ You own the table's file, plan, seed file, configs, and page stay as found:
 
 <context_gathering>
 
-Read in order before the first `browser_*` call, from the repository root:
-1. `references/test-generation.md` beside the `SKILL.md` of `playwright:playwright-cli` whole
-2. `tests/typescript/playwright.config.ts` whole, then the `tests/typescript/e2e-<app>` directory holding `<test-file>`, its name as `<project>`
-3. `rg -n -F '<test-name>' <testDir>/specs`, then the plan whole, its suite heading and `**Seed:**` line
-4. Seed file and the fixture module it imports `test` from whole
-5. `fd -g '*.spec.ts' . <testDir>`, then one existing test whole when one exists, its import and fixture form the new file repeats
+Read in order before first `browser_*` call, from repository root:
+1. `references/test-generation.md` beside `SKILL.md` of `playwright:playwright-cli` whole
+2. `tests/typescript/playwright.config.ts` whole, then `tests/typescript/e2e-<app>` holding `<test-file>` as `<project>`
+3. `rg -n -F '<test-name>' <testDir>/specs`, then plan whole
+4. Seed file and fixture module it imports `test` from whole
+5. `fd -g '*.spec.ts' . <testDir>`, then one existing test whole when one exists, its import and fixture form repeat in new file
 6. `generator_setup_page` once with `plan` the body, `seedFile`, and `project` `<project>`
 
 </context_gathering>
@@ -54,11 +54,11 @@ Every action and assertion names the snapshot or log line that decides it:
 
 | [INDEX] | [QUESTION]                                 | [SOURCE]                                              |
 | :-----: | :----------------------------------------- | :---------------------------------------------------- |
-|  [01]   | Roles, names, and refs of the page         | `browser_snapshot`                                    |
+|  [01]   | Page roles, names, and refs                | `browser_snapshot`                                    |
 |  [02]   | Verification of text, element, list, value | `browser_verify_*`, one tool per kind                 |
 |  [03]   | Recorded code per action and assertion     | `generator_read_log`                                  |
-|  [04]   | Page after a load or a timed change        | `browser_wait_for` with `text`, `textGone`, or `time` |
-|  [05]   | Open tabs and the current one              | `browser_tabs` with `action: "list"`                  |
+|  [04]   | Page after load or timed change            | `browser_wait_for` with `text`, `textGone`, or `time` |
+|  [05]   | Open tabs and current tab                  | `browser_tabs` with `action: "list"`                  |
 
 Generator log decides the locator and assertion form over a form recalled from memory.
 
@@ -66,18 +66,18 @@ Generator log decides the locator and assertion form over a form recalled from m
 
 <decision>
 
-- `intent` holds the step text verbatim, the log records it beside the code of a call without error
-- Missing list items fail `Item "<item>" not found`, a missing text fails `Text not found`
-- `browser_navigate` takes an absolute URL on the origin of the setup result's `Page URL`
+- `intent` holds step text verbatim, generator log records it beside code of each error-free call
+- Missing list items fail `Item "<item>" not found`, missing text fails `Text not found`
+- `browser_navigate` takes absolute URL on origin of setup result's `Page URL`
 
 </decision>
 
 <procedure>
 
 1. Run each body step in order through the `browser_*` tool it names, `target` a snapshot ref, `browser_snapshot` for an element no snapshot holds
-2. Run the `browser_verify_*` tool of each verification's kind with the expected text, element, list, or value, `intent` its verification text
+2. Run `browser_verify_*` of each verification's kind with expected value, `intent` its verification text
 3. `generator_read_log` once after the last verification
-4. `generator_write_test` with `fileName` `<test-file>` and `code` the log's code in the test file form of `test-generation.md`
+4. `generator_write_test` with `fileName` `<test-file>` and `code` the log's code in test file form of `test-generation.md`
 5. `test_list` to release the paused seed
 
 </procedure>

@@ -41,9 +41,9 @@ public sealed class SingleReaderAnalyzer : RasmAnalyzer {
     private static readonly DiagnosticDescriptor Reader = Rule(
         "RASM3001",
         "CSharp",
-        "Private member read once inlines at its read",
-        "`{0}` has one read, in `{1}`, and inlines there",
-        "A private constant array or set read once by `Contains` becomes an `is` pattern. A private literal constant read once as an argument or initializer inlines its literal there when the parameter, variable, or member it initializes carries every word of the constant's name. A private expression-bodied method or property read once takes its one-line expression to the read when that expression or the name the read initializes carries every word of the member's name, and each argument is a local or parameter the reader never writes, or a pure expression its parameter reads once outside a branch or lambda; a method read as a method group becomes the lambda it names. A member whose name states a fact its read does not, a computed value, a block or multi-line body, a generic or async method, and a member read in a nested type, attribute, or generated code stay members.");
+        "Private member read once",
+        "`{0}` has one read, in `{1}`. Inline `{0}` at that read",
+        "Private constant, `Contains` set, or one-line expression-bodied member with one read in its own type that inlines without losing a word of its name.");
 
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
 

@@ -1,4 +1,4 @@
-"""Native stock gizmo groups with themed parts, operator targets, and value bindings."""
+"""Gizmo groups of themed stock gizmos bound to operators and values."""
 
 from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
@@ -38,7 +38,7 @@ type MatrixValues = tuple[float, float, float, float, float, float, float, float
 
 
 class Handler[V](msgspec.Struct, frozen=True, kw_only=True):
-    """Context-bound callbacks and an optional range for a native gizmo target."""
+    """Gizmo target context callbacks and range."""
 
     get: Callable[[bpy.types.Context], V]
     set: Callable[[bpy.types.Context, V], BlenderResult[None]]
@@ -46,7 +46,7 @@ class Handler[V](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class GizmoShape(msgspec.Struct, frozen=True, kw_only=True):
-    """Placement and explicitly supplied native properties shared by stock parts."""
+    """Placement and gizmo properties every part shares."""
 
     place: Place
     scale_basis: Option[float] = Nothing
@@ -75,7 +75,7 @@ class GizmoShape(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Handle(GizmoShape, frozen=True, kw_only=True):
-    """Handle whose resting color comes from a native theme projection."""
+    """Part with resting color read from theme."""
 
     role: Callable[[bpy.types.ThemeUserInterface], mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]] = lambda ui: ui.gizmo_primary
 
@@ -102,7 +102,7 @@ class Primitive(Handle, frozen=True, kw_only=True):
 
 
 class Cage(Handle, frozen=True, kw_only=True):
-    """Two-dimensional transform cage bound to a sixteen-component matrix."""
+    """2D transform cage bound to a 16-component matrix."""
 
     kind: ClassVar[str] = "GIZMO_GT_cage_2d"
     target: ClassVar[str] = "matrix"
@@ -115,7 +115,7 @@ class Cage(Handle, frozen=True, kw_only=True):
 
 
 class Arrow(Handle, frozen=True, kw_only=True):
-    """Arrow bound to a floating-point RNA member or callback value."""
+    """Arrow bound to float member or callback value."""
 
     kind: ClassVar[str] = "GIZMO_GT_arrow_3d"
     target: ClassVar[str] = "offset"
@@ -129,7 +129,7 @@ class Arrow(Handle, frozen=True, kw_only=True):
 
 
 class Dial(Handle, frozen=True, kw_only=True):
-    """Dial bound to a floating-point RNA member or callback angle."""
+    """Dial bound to float member or callback angle."""
 
     kind: ClassVar[str] = "GIZMO_GT_dial_3d"
     target: ClassVar[str] = "offset"
@@ -143,7 +143,7 @@ class Dial(Handle, frozen=True, kw_only=True):
 
 
 class Move(Handle, frozen=True, kw_only=True):
-    """Move handle bound to a three-component value or native operator."""
+    """Move handle bound to a 3-component value or operator."""
 
     kind: ClassVar[str] = "GIZMO_GT_move_3d"
     target: ClassVar[str] = "offset"
@@ -154,7 +154,7 @@ class Move(Handle, frozen=True, kw_only=True):
 
 
 class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
-    """Persistent native group of themed stock parts and their bindings."""
+    """Persistent gizmo group of themed stock parts."""
 
     persistent: ClassVar[bool] = True
     key: Key
@@ -169,20 +169,20 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
     # --- [NAMING]
 
     def named(self, identity: Identity) -> BlenderResult[str]:
-        """Acquires the native group identifier consumed by tools and linking."""
+        """Returns group `bl_idname` for tools and linking."""
         return identity.name(Name.GIZMO_GROUP, self.key)
 
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds the native group after all independent part bindings resolve."""
+        """Builds gizmo group class once every binding resolves."""
 
         def target[V](key: str, handler: Handler[V]) -> Target:
-            """Adapts a contextual value handler to native target callbacks."""
+            """Binds handler as target callbacks."""
             write = identity.reports.reported(handler.set)
 
             def bound(gizmo: bpy.types.Gizmo, context: bpy.types.Context) -> BlenderResult[None]:
-                """Binds native callbacks to the current group context."""
+                """Binds callbacks to group context."""
                 gizmo.target_set_handler(
                     key,
                     get=lambda: handler.get(context),
@@ -194,10 +194,10 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
             return bound
 
         def acquired(part: GizmoPart) -> BlenderResult[tuple[GizmoPart, Binding]]:
-            """Acquires one operator, property definition, or contextual target."""
+            """Resolves operator, property, or handler target."""
 
             def operator(invocation: tuple[str, "Writer"]) -> tuple[GizmoPart, Binding]:
-                """Retains the native operator id and property writer together."""
+                """Pairs part with operator target."""
                 name, writer = invocation
                 return part, lambda gizmo, _context: writer(gizmo.target_set_operator(name, index=0))
 
@@ -216,11 +216,11 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                     return Ok((part, target(part.target, part.bind))) if isinstance(part.bind, Handler) else part.bind.invocation(identity).map(operator)
 
         def built(acquisition: tuple[str, tuple[tuple[GizmoPart, Binding], ...]]) -> tuple[tuple[Band, Acquisition], ...]:
-            """Constructs callbacks over the acquired native group and ordered parts."""
+            """Builds gizmo group class over resolved parts."""
             name, parts = acquisition
 
             def reached(member: Member | ResolvedMember[bpy.types.FloatProperty], context: bpy.types.Context) -> BlenderResult[Option[ResolvedMember[bpy.types.FloatProperty]]]:
-                """Resolves an explicit source against its current concrete RNA metadata."""
+                """Resolves member on its source's current struct."""
                 return (
                     member.reach.bind(lambda source: source(context)).map(lambda actual: member.resolved(bpy.types.FloatProperty, root=Some(actual)).map(Some)).default_value(Ok(Nothing))
                     if isinstance(member, Member)
@@ -228,7 +228,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             def attach(gizmo: bpy.types.Gizmo, binding: Binding, context: bpy.types.Context) -> BlenderResult[None]:
-                """Binds a native target and classifies an external property refusal."""
+                """Binds part target, property refusal as edit fault."""
                 if not isinstance(binding, tuple):
                     return binding(gizmo, context)
                 key, member = binding
@@ -245,14 +245,14 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                         return Ok(None)
 
             def poll(_cls: type[bpy.types.GizmoGroup], context: bpy.types.Context) -> bool:
-                """Admits the group where its condition and every property owner hold."""
+                """Returns whether condition holds and every owner resolves."""
                 if not all(holds(required, context) for required in self.condition.to_list()):
                     return False
                 resolved = accumulated(reached(binding[1], context) for _, binding in parts if isinstance(binding, tuple)).map_error(identity.reports.hold).to_option()
                 return resolved.is_some() and all(member.bind(partial(located, holder=context, context=context)).is_some() for members in resolved.to_list() for member in members)
 
             def setup(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-                """Creates and themes native gizmos before binding their targets."""
+                """Creates gizmos with theme colors, then binds targets."""
                 ui = context.preferences.themes[0].user_interface  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                 for part, _ in parts:
                     gizmo = group.gizmos.new(part.kind)
@@ -266,7 +266,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 return accumulated(attach(group.gizmos[index], binding, context) for index, (_, binding) in enumerate(parts)).map(lambda _: None).default_with(identity.reports.hold)
 
             def refresh(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-                """Rebinds property targets when the native owner changes."""
+                """Rebinds property targets to current owners."""
                 return (
                     accumulated(attach(group.gizmos[index], binding, context) for index, (_, binding) in enumerate(parts) if isinstance(binding, tuple))
                     .map(lambda _: None)
@@ -274,7 +274,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             def draw_prepare(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-                """Places visible parts and reads current button glyph resources."""
+                """Places parts, hiding unplaced ones, and reads button icons."""
                 for index, (part, _) in enumerate(parts):
                     gizmo, placed = group.gizmos[index], identity.reports.reported(part.place)(context).bind(lambda found: found)
                     gizmo.hide = placed.is_none()
@@ -305,13 +305,13 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Linked(Gizmos, frozen=True, kw_only=True):
-    """Registered group linked by a tool or an explicit native lifetime scope."""
+    """Group shown by a tool or linked for a scope."""
 
     persistent: ClassVar[bool] = False
 
     @contextmanager
     def linked(self, identity: Identity) -> Generator[BlenderResult[None]]:
-        """Ensures the named group and releases it after successful native entry."""
+        """Links group into its regions for the scope."""
         acquired = paired(self.named(identity), rooted(bpy.types.WindowManager, bpy.context)).bind(
             lambda held: (
                 catch(lambda: held[1].gizmo_group_type_ensure(held[0]), exception=RuntimeError)().map(lambda _: held).map_error(lambda error: (BlenderEditFault(request=held[0], error=error),))

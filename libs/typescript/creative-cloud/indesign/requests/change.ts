@@ -14,9 +14,9 @@ import { Mutation } from '#/dom/transactions';
 class Change extends Mutation.extend<Change>('Change')(
     {
         target: Specifier,
-        values: Schema.JsonObject.annotate({ description: 'Fields to write by name. Enumeration members by name, named objects (styles, layers, parents, fonts) by name or {type, specifier}, swatches by name, measurements as points or unit strings; a record writes into a nested preference object' }),
+        values: Schema.JsonObject.annotate({ description: 'Values by field name, names for enumerators and named objects, {type, specifier} for other objects, points or unit strings for measurements, records for nested preferences' }),
     },
-    { description: "Writes fields of one object through InDesign's own setters in one undo step, decoding each value by the field's declared type; every refused field is reported, a nested field as its path" },
+    { description: 'Writes object fields in one undo step, failures name every refused field by path' },
 ) {
     static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String) }));
     static readonly write: (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<readonly string[], Cause.UnknownError | Unmatched, Model> = Effect.fnUntraced(function* (target, values) {

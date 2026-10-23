@@ -1,2 +1,2 @@
-#0 `value.Match(Some: static held => held, None: static () => 0)` returns one case unchanged, `IfNone` passes it through and handles the other
-#1 `value.Match(Succ: static held => held, Fail: static _ => 0)` returns one case unchanged, `IfFail` passes it through and handles the other
+#0 `Match` returns the `Some` value unchanged. Replace with `value.IfNone(static () => 0)`
+#1 `Match` returns the `Succ` value unchanged. Replace with `value.IfFail(static _ => 0)`

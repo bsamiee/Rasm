@@ -1,7 +1,7 @@
 {
     "name": "@rasm/automation",
     "private": true,
-    "description": "Drives installed Adobe applications from Node through a Swift helper process, with the frontmost application unchanged",
+    "description": "Drives Adobe applications through a Swift helper without changing frontmost application",
     "sideEffects": false,
     "type": "module",
     "imports": {

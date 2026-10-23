@@ -40,4 +40,4 @@ transform:
     MILLIS_READ: {replace: {source: $READ, replace: '^as_secs_(f32|f64)$', by: '.as_millis_$1()'}}
 fix: $HEAD$SECS_C$MILLIS_C$MICROS_C$NANOS_C$ARGUMENT$D$MILLIS_READ
 message: '`$FACTOR` converts a duration unit by a literal factor'
-note: 'Call the `Duration` constructor of the count''s unit and read milliseconds through `as_millis_f64()`'
+note: 'Call the count''s unit `Duration` constructor, or `as_millis_f64()` (`#![feature(duration_millis_float)]`) for `as_secs_f64() * 1000.0`'

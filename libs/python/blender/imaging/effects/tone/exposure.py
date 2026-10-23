@@ -1,4 +1,4 @@
-"""Scene-linear exposure gain and bilateral local contrast about middle grey."""
+"""Scene-linear exposure gain and bilateral local contrast about middle gray."""
 
 from typing import Annotated, ClassVar, override
 
@@ -14,11 +14,11 @@ from blender.imaging.parameters import Stops, Unit
 
 
 class Exposure(Effect, frozen=True, kw_only=True, tag=1):
-    """Scales scene-linear light by a power of two while preserving alpha."""
+    """Scales scene-linear light by a power of two, keeping alpha."""
 
     stage = Stage.EXPOSURE
     pointwise = True
-    stops: Annotated[Stops, msgspec.Meta(title="Exposure", description="Gain in stops, each stop doubling the light")] = 0.0
+    stops: Annotated[Stops, msgspec.Meta(title="Exposure", description="Gain in stops, each stop doubling light")] = 0.0
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
@@ -27,7 +27,7 @@ class Exposure(Effect, frozen=True, kw_only=True, tag=1):
 
 
 class LocalExposure(Effect, frozen=True, kw_only=True, tag=2):
-    """Compresses broad tones toward middle grey and scales detail about their base."""
+    """Compresses broad tones toward middle gray and scales detail about their base."""
 
     stage = Stage.LOCAL_EXPOSURE
     pointwise = False
@@ -36,9 +36,9 @@ class LocalExposure(Effect, frozen=True, kw_only=True, tag=2):
     grid_radius: ClassVar[float] = 3.0 * 64.0 / 1920.0
     grid_slices: ClassVar[int] = 32
     grid_range: ClassVar[tuple[float, float]] = (-8.0, 4.0)
-    highlights: Annotated[Unit, msgspec.Meta(description="Base contrast above grey, 0 flattening it to grey")] = 1.0
-    shadows: Annotated[Unit, msgspec.Meta(description="Base contrast below grey, 0 flattening it to grey")] = 1.0
-    clarity: Annotated[float, msgspec.Meta(ge=1.0, le=2.2, description="Detail scale about the base")] = 1.0
+    highlights: Annotated[Unit, msgspec.Meta(description="Base contrast above middle gray, 0 flat")] = 1.0
+    shadows: Annotated[Unit, msgspec.Meta(description="Base contrast below middle gray, 0 flat")] = 1.0
+    clarity: Annotated[float, msgspec.Meta(ge=1.0, le=2.2, description="Detail scale about base")] = 1.0
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

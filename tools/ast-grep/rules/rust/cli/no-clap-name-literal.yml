@@ -42,5 +42,5 @@ rule:
                                 - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
                                 - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
         - not: {matches: rust-test-scope}
-message: '`$KEY` spells `$NAME`, a name clap derives from the annotated item or the package'
-note: 'Name the field, variant, or struct after its flag, value, or id and delete the key: a flag keeps a bare `long`, an enum whose values take another case takes `#[value(rename_all = <case>)]`, a flattened `Args` struct takes `#[group(skip)]`, and a top-level command reads the package name'
+message: '`$KEY` spells `$NAME` in place of the name clap derives from the item or package'
+note: 'Name the item or package after the literal, delete the key or `long`''s value, with `#[value(rename_all)]` on `ValueEnum`, `#[group(skip)]` on `Args`'

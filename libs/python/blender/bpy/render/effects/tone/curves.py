@@ -1,4 +1,4 @@
-"""Native tone curves, rendering primaries, and photoreceptor compositor graphs."""
+"""Tone curves, rendering primaries, and photoreceptor compositor graphs."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
@@ -56,7 +56,7 @@ from blender.imaging.parameters import Gated
 
 
 class _ResponseRequest(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Native render demand retaining its handles and observed source state."""
+    """Response render request with host handles and observed state."""
 
     scene: bpy.types.Scene
     entries: tuple[bpy.types.SceneCompositorEffect, ...]
@@ -73,7 +73,7 @@ class _ResponseRequest(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
-    """Scoped native response sampling outside drawing, with a read-only chart."""
+    """Response sampling outside drawing, with read-only chart."""
 
     stack: EffectStack[E]
     sampling: Sampling
@@ -90,7 +90,7 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
     # --- [READOUT]
 
     def chart(self, metrics: Metrics) -> BlenderResult[Option[TracePlot]]:
-        """Reads cached RGB responses and records the device-column demand."""
+        """Charts cached RGB responses, recording device columns."""
         self.columns = round(Well.scope(metrics).plot.width)
 
         def plotted(held: tuple[_ResponseRequest, npt.NDArray[np.float32], tuple[float, ...]]) -> TracePlot:
@@ -110,7 +110,7 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
     # --- [DEMAND]
 
     def fed(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[PreviewJob, ...]]:
-        """Returns current native demand, retaining unobservable request identity."""
+        """Returns current preview jobs, reusing request while observed state holds."""
         if not self.columns:
             return Ok(())
 
@@ -214,7 +214,7 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
         )
 
     def rendered(self, identity: Identity, request: _ResponseRequest) -> BlenderResult[None]:
-        """Samples the supplied native chain and publishes only its current demand."""
+        """Samples chain and publishes values only for current request."""
         positions = (np.arange(request.columns, dtype=np.float32) + 0.5) / request.columns
         low, high = request.window
         levels = (GREY * np.exp2(low + (high - low) * positions)).astype(np.float32)
@@ -233,14 +233,14 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
     # --- [LIFETIME]
 
     def cleared(self) -> BlenderResult[tuple[PreviewJob, ...]]:
-        """Withdraws the current source and its cached response."""
+        """Clears current request and cached response."""
         changed = self.wanted.is_some() or self.cached.is_some()
         self.wanted, self.cached = Nothing, Nothing
         return (self.signal.fired() if changed else Ok(None)).map(lambda _: ())
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Holds the queue feed and retires native invalidation callbacks before state."""
+        """Holds queue feed, removing invalidation callbacks before clearing."""
         with ExitStack() as scopes:
 
             def invalidated() -> BlenderResult[Option[str]]:
@@ -276,7 +276,7 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
 
 
 def nonnegative(color: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Desaturates negative channels toward their non-negative mean."""
+    """Desaturates negative channels toward non-negative mean."""
     return Fragment.joined(
         node("negative_channels", bpy.types.ShaderNodeSeparateXYZ, {"Vector": color}, {}),
         vector("mean", "DOT_PRODUCT", color, (1.0 / 3.0,) * 3),
@@ -291,7 +291,7 @@ def nonnegative(color: Operand) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def curved(shell: Shell[ToneCurve]) -> BlenderResult[tuple[Fragment, End]]:
-    """Applies a live per-channel curve over admitted native rendering primaries."""
+    """Applies live per-channel curve over rendering primaries."""
     curve, _, application = ToneCurve.__struct_fields__
     preserve_hue, red, green, blue, purity_field = Application.__struct_fields__
     config, record, source = shell.config, shell.record, shell.source
@@ -728,7 +728,7 @@ def neutralized(source: Operand) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def adapted(shell: Shell[Photoreceptor]) -> BlenderResult[tuple[Fragment, End]]:
-    """Uses Blender's native photoreceptor with zero reserved for automatic contrast."""
+    """Runs R/D Photoreceptor tonemap, disabled contrast passing zero as automatic."""
     intensity, contrast, light_adaptation, chromatic_adaptation = Photoreceptor.__struct_fields__
     _, value = Gated.__struct_fields__
     return (
@@ -859,7 +859,7 @@ def habled(shell: Shell[Hable]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def normalized(_identity: Identity, _scene: bpy.types.Scene, record: Hable) -> BlenderResult[Mapping[Key, Value]]:
-    """Derives native Hable coefficients from the evaluated authored record."""
+    """Derives Hable coefficients from evaluated record."""
     _, _, _, _, _, _, scene_white = Hable.__struct_fields__
     return (
         Result[Option[tuple[float, float]], BlenderFaults]
@@ -869,13 +869,13 @@ def normalized(_identity: Identity, _scene: bpy.types.Scene, record: Hable) -> B
 
 
 def tony(table: str | Traversable) -> CompositorEffect[Tony]:
-    """Binds the canonical Tony McMapface table supplied by an asset catalog.
+    """Binds canonical Tony McMapface table from asset catalog.
 
     Args:
         table: Canonical SPI3D catalog resource or file path.
 
     Returns:
-        Native Rec.709 row with direct rational shaping and tetrahedral sampling.
+        Rec.709 row with direct rational shaping and tetrahedral sampling.
     """
 
     def mapped(shell: Shell[Tony]) -> BlenderResult[tuple[Fragment, End]]:
@@ -895,7 +895,7 @@ def tony(table: str | Traversable) -> CompositorEffect[Tony]:
 
 
 def encoded(call: Call[Named]) -> BlenderResult[Outcome]:
-    """Selects the first encoding-only native view and disables its look."""
+    """Selects first encoding-only view and disables its look."""
 
     def chosen(scene: bpy.types.Scene, config: PyOpenColorIO.Config, held: Option[DisplayView]) -> BlenderResult[Outcome]:
         display = held.map(lambda record: record.display).default_value(viewed(scene).display)
@@ -910,7 +910,7 @@ def encoded(call: Call[Named]) -> BlenderResult[Outcome]:
                         lambda view: written(scene, "view_settings.look", "None").map(lambda look: view.is_some() or look.is_some())
                     )
                 )
-                .map(lambda changed: Done() if changed else Unchanged(reason=f"The formation already encodes through {target.view}"))
+                .map(lambda changed: Done() if changed else Unchanged(reason=f"Formation encodes through {target.view}"))
             )
 
         return (
@@ -926,7 +926,7 @@ def encoded(call: Call[Named]) -> BlenderResult[Outcome]:
 
 
 def whitened[T: (ToneCurve, Hable)](record: T, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> BlenderResult[T]:
-    """Returns a measured white override from covered associated scene-linear pixels."""
+    """Returns white override measured from covered scene-linear pixels."""
     match record.curve if isinstance(record, ToneCurve) else record:
         case Logarithmic() | ReinhardExtended() | Hable() as curve:
             curve_field, _, _ = ToneCurve.__struct_fields__
@@ -952,7 +952,7 @@ def prepared[T: (ToneCurve, Hable)](
     _frame: CameraFrame,
     _entry: bpy.types.SceneCompositorEffect,
 ) -> BlenderResult[tuple[T, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Returns an effective automatic-white record without changing authored controls."""
+    """Returns effective automatic-white record, authored controls unchanged."""
     match record.curve if isinstance(record, ToneCurve) else record:
         case Logarithmic(scene_white=Gated(enabled=False)) | ReinhardExtended(scene_white=Gated(enabled=False)) | Hable(scene_white=Gated(enabled=False)):
             effective: BlenderResult[T] = ImagingBufferFault.pixels(image).map_error(BlenderImagingFault.lifted).bind(lambda pixels: whitened(record, config, pixels))
@@ -964,7 +964,7 @@ def prepared[T: (ToneCurve, Hable)](
 def measured[T: (ToneCurve, Hable)](
     row: CompositorEffect[T], identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]
 ) -> BlenderResult[Option[str]]:
-    """Writes an explicit measured white override, preserving the entry's blend, and names an undo step where the white changed."""
+    """Writes measured white override, keeping entry blend, naming undo step on change."""
 
     def sampled(config: PyOpenColorIO.Config, held: Entry[T]) -> BlenderResult[Option[str]]:
         match held.effect.curve if isinstance(held.effect, ToneCurve) else held.effect:
@@ -981,13 +981,13 @@ def measured[T: (ToneCurve, Hable)](
 
 
 def metered[T: ToneCurve | Hable](row: CompositorEffect[T], reading: ViewerRead, call: Call[Named]) -> BlenderResult[Outcome]:
-    """Arms entering-frame measurement for a curve with a scene-white parameter."""
+    """Arms stage input measurement for curves with scene white."""
 
     def armed(entry: bpy.types.SceneCompositorEffect, held: Entry[T]) -> BlenderResult[Outcome]:
         return (
             reading.entering(call.identity, entry).map(lambda _: Done())
             if isinstance(held.effect.curve if isinstance(held.effect, ToneCurve) else held.effect, (Logarithmic, ReinhardExtended, Hable))
-            else Ok(Unchanged(reason="This curve has no scene-white parameter"))
+            else Ok(Unchanged(reason="Curve has no scene white parameter"))
         )
 
     return call.root(bpy.types.Scene).bind(lambda scene: row.named(call.identity, scene, call.record.name)).bind(lambda entry: row.read(call.identity, entry).bind(lambda held: armed(entry, held)))
@@ -1001,12 +1001,12 @@ initial_view: Option[Callable[[PyOpenColorIO.Config, bpy.types.Scene], BlenderRe
         lambda view: view.map(lambda pair: pair[0]).to_result_with(lambda: (BlenderAbsentFault(owner=scene.name, key=DisplayView.for_encoding.__name__),)),
     )
 )
-encode_formation = Operator(key="encode_formation", title="Use Display Encoding", description="Selects an encoding-only formation after the tone curve", form=Named, run=encoded)
+encode_formation = Operator(key="encode_formation", title="Use Display Encoding", description="Select encoding-only formation after tone curve", form=Named, run=encoded)
 reading = ViewerRead(consume=lambda identity, scene, entry, file: measured(tone_curve, identity, scene, entry, file))
 meter_white = Operator(
     key="meter_white",
     title="Measure Scene White",
-    description="Measures the curve's scene white from its entering frame",
+    description="Measure curve scene white from stage input",
     form=Named,
     run=lambda call: metered(tone_curve, reading, call),
     undo=False,
@@ -1030,7 +1030,7 @@ normalization = tuple(
         key=item_key(Hable.normalization.__name__, name.lower()),
         name=name,
         kind=bpy.types.NodeSocketVector,
-        description="Log magnitude and sign of a Hable coefficient derived from the evaluated record",
+        description="Log magnitude and sign of Hable coefficient from evaluated record",
         members={Descriptor(root=bpy.types.NodeTreeInterfaceSocket, owner="", prop=bpy.types.NodeTreeInterfaceSocket.bl_rna.properties["hide_in_modifier"]): True},
     )
     for name in ("Slope", "Intercept")
@@ -1042,7 +1042,7 @@ hable: CompositorEffect[Hable] = CompositorEffect(
     initial_view=initial_view,
     inputs=normalization,
     derived=Some(normalized),
-    admitted=Some(lambda record: record.normalization().map(lambda _: record)),
+    validated=Some(lambda record: record.normalization().map(lambda _: record)),
     preparation=Some(prepared),
     registrables=(encode_formation, hable_meter_white, hable_reading),
 )

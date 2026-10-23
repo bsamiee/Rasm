@@ -32,5 +32,5 @@ rule:
 fix:
     template: ''
     expandStart: {regex: '^;$'}
-message: 'String after `$NAME` is a docstring Python never attaches'
-note: 'Delete the string and state its fact in the name or annotated type'
+message: 'String after `$NAME` is a docstring Python discards'
+note: 'Delete the string and state its fact in a name or annotated type'

@@ -60,4 +60,4 @@ rule:
 labels:
     EARLIER: {style: secondary, message: 'Earlier read of the same key'}
 message: '`$LOOKUP` reads `$KEY` from `$MAP` a second time'
-note: 'Read the key once through `Find` or `TryGetValue` and branch on that result with `Map`, `Match`, or a `Some` pattern'
+note: 'Read `<key>` once through `Find` or `TryGetValue` and branch on its result with `Map`, `Match`, or a `Some` pattern'

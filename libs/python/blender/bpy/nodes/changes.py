@@ -1,4 +1,4 @@
-"""Reconciliation of desired graphs onto native trees: change rows, their phased writes, owned groups, and node content."""
+"""Desired graph reconciliation onto node trees, owned groups, and node content."""
 
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -32,13 +32,13 @@ type TreeChange = Structural | Alteration | Connected | Reordered | Valued | Res
 
 
 class Configured(msgspec.Struct, frozen=True, kw_only=True):
-    """Tree members differing from the graph."""
+    """Graph members tree lacks."""
 
     members: dict[Descriptor, Value]
 
 
 class Removed(msgspec.Struct, frozen=True, kw_only=True):
-    """First holder of a mark whose key the desired graph lacks, named by its node name."""
+    """Owned node graph lacks or declares as another class."""
 
     name: str
 
@@ -51,7 +51,7 @@ class Added(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Altered(msgspec.Struct, frozen=True, kw_only=True):
-    """Node's differing desired parts."""
+    """Node parts live node lacks."""
 
     key: Key
     members: dict[Descriptor, Value] = msgspec.field(default_factory=dict)
@@ -60,7 +60,7 @@ class Altered(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Valued(msgspec.Struct, frozen=True, kw_only=True):
-    """Node's differing socket values by address."""
+    """Socket values live node lacks, by address."""
 
     key: Key
     inputs: dict[str, Value] = msgspec.field(default_factory=dict)
@@ -68,26 +68,26 @@ class Valued(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Disconnected(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned link the graph lacks."""
+    """Owned link graph lacks."""
 
     link: bpy.types.NodeLink
 
 
 class Connected(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired link the tree lacks."""
+    """Link tree lacks."""
 
     link: Link
 
 
 class Reordered(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired top-to-bottom order of owned connections at one input."""
+    """Desired link order at one input, top to bottom."""
 
     target: End
     sources: tuple[End, ...]
 
 
 class Changes(msgspec.Struct, frozen=True, kw_only=True):
-    """Reconcile rows in apply phases, `Changes()` for a current tree."""
+    """Rows by write phase, `Changes()` for current tree."""
 
     structure: tuple[Structural, ...] = ()
     alterations: tuple[Alteration, ...] = ()
@@ -100,15 +100,15 @@ class Changes(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> BlenderResult[Changes]:
-    """Reads a tree against a desired graph, writing nothing.
+    """Reads tree against desired graph, writing nothing.
 
     Args:
-        desired: Graph of an embedded tree, or a group whose graph and interface the tree declares.
+        desired: Embedded tree graph, or group with graph and interface.
         tree: Owned tree to read.
-        identity: Extension whose marks find owned nodes.
+        identity: Extension marking owned nodes.
 
     Returns:
-        `Ok` of the rows an apply writes, `Changes()` for a current tree; `Error` of `absent` or `choice` for a content member the node's class lacks, or of `register` for a refused stored-key name.
+        `Ok` of rows. `Error` of `absent` or `choice` for content member node class lacks, `register` for refused attachment name.
     """
 
     def referenced[T: bpy.types.ID](live: bpy.types.Node, identifier: str, kind: type[T]) -> Option[T]:
@@ -287,15 +287,15 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
 
 
 def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> BlenderResult[Changes]:
-    """Writes the rows `changes` answers, phase by phase.
+    """Writes `changes` rows phase by phase.
 
     Args:
-        desired: Graph of an embedded tree, or a group whose graph and interface the tree declares.
+        desired: Embedded tree graph, or group with graph and interface.
         tree: Owned tree to write.
-        identity: Extension whose marks find and mark owned nodes.
+        identity: Extension marking owned nodes.
 
     Returns:
-        `Ok` of the rows written; `Error` of the faults `changes` answers, or of every `edit`, `absent`, or `choice` fault a phase's writes answer.
+        `Ok` of rows written. `Error` of `changes` faults, or every `edit`, `absent`, or `choice` fault from phase writes.
     """
 
     def phased(name: str, rows: Changes) -> BlenderResult[Changes]:
@@ -319,7 +319,7 @@ def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: I
 
 
 def owned(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, bpy.types.Node]:
-    """Marked nodes of a tree by key, the first in tree order holding a key, a later holder being a copy the user made and keeps."""
+    """Marked nodes by key, first in tree order over later user copies."""
     return dict(reversed(tuple((mark.key, node) for node in tree.nodes for mark in Mark.read(identity, node).to_list())))
 
 
@@ -327,14 +327,14 @@ def applied(row: TreeChange, tree: bpy.types.NodeTree, identity: Identity, slot:
     """Writes one change row onto a tree.
 
     Args:
-        row: Change row to write.
-        tree: Owned tree the row names.
-        identity: Extension whose marks find and mark owned nodes.
-        slot: ID property name of the stored item keys.
-        nodes: Marked nodes by key as `owned` reads them before the row's phase.
+        row: Row to write.
+        tree: Owned tree row names.
+        identity: Extension marking owned nodes.
+        slot: ID property name holding stored item keys.
+        nodes: `owned` result before row phase.
 
     Returns:
-        `Ok` once written; `Error` of `edit` for a refused node type or write, of `absent` for an unresolved node, item, or socket, or of `choice` for a refused enum identifier.
+        `Ok` once written. `Error` of `edit` for refused node class or write, `absent` for unresolved node, item, or socket, `choice` for refused enum identifier.
     """
 
     def node(key: Key) -> BlenderResult[bpy.types.Node]:
@@ -395,15 +395,15 @@ def applied(row: TreeChange, tree: bpy.types.NodeTree, identity: Identity, slot:
 
 
 def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Nothing) -> BlenderResult[bpy.types.NodeTree]:
-    """Reuses or builds a group's tree and reconciles it.
+    """Reconciles reused or built group tree.
 
     Args:
         group: Owned group to make.
-        identity: Extension whose marks find and mark the group and its nodes.
-        of: Data-block the group serves, so a single group of one scene stays that scene's.
+        identity: Extension marking group and its nodes.
+        of: Data-block a single group stays with.
 
     Returns:
-        `Ok` of the group's tree; `Error` of the faults its reconcile answers, a tree the call built removed with them.
+        `Ok` of group tree. `Error` of reconcile faults, removing any tree the call built.
     """
     return group.ownership.made(
         identity,
@@ -414,15 +414,15 @@ def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Not
 
 
 def stored(content: Content, live: bpy.types.Node, identity: Identity) -> BlenderResult[None]:
-    """Writes declared content onto an acquired native node.
+    """Writes declared content onto a node.
 
     Args:
-        content: Ramp, curves, image, group, menu, or file-output storage to write.
-        live: Native node retained by its caller's resource scope.
+        content: Ramp, curve, image, group, menu, or File Output items to write.
+        live: Node caller resource scope holds.
         identity: Extension owning referenced groups, images, and content marks.
 
     Returns:
-        `Ok` after writing; native snapshot, image, group, and RNA faults remain typed errors.
+        `Ok` once written. `Error` of snapshot, image, group, and RNA faults.
     """
 
     def ordered(
@@ -477,13 +477,13 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
 
 
 def valued(live: bpy.types.Node, sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: Mapping[str, Value], slot: str) -> BlenderResult[None]:
-    """Writes socket defaults by native identifier or declared interface key."""
+    """Writes socket defaults by identifier or interface item key."""
     keyed = _keyed(live, slot)
     return accumulated(socket_at(sockets, keyed.get(address, address)).bind(lambda socket: written(socket, "default_value", value)) for address, value in values.items()).map(lambda _: None)
 
 
 def _tree(content: Ramp | CurvePoints) -> Tree[Value]:
-    """Lowers a ramp or curve points into the settings tree its node stores, keyed by RNA path from the node, each collection an owner of its items as `Snapshot.capture` reads it."""
+    """Ramp or curve point settings by node RNA path, collections owning items as `Snapshot.capture` reads them."""
     match content:
         case Ramp(stops=stops, interpolation=interpolation, mode=mode, hue_path=hue_path):
             elements = tuple(f"color_ramp.elements[{index}]" for index in range(len(stops)))
@@ -515,7 +515,7 @@ def _tree(content: Ramp | CurvePoints) -> Tree[Value]:
 
 
 def _framed(live: bpy.types.Node) -> BlenderResult[bpy.types.ImageUser | bpy.types.CompositorNodeImage]:
-    """Struct holding a node's frame window: a compositor image node itself, a shader image node's `image_user`."""
+    """Frame window holder, compositor image node itself or shader image node `image_user`."""
     match live:
         case bpy.types.CompositorNodeImage():
             return Ok(live)
@@ -526,12 +526,12 @@ def _framed(live: bpy.types.Node) -> BlenderResult[bpy.types.ImageUser | bpy.typ
 
 
 def _narrowed[N: bpy.types.Node](live: bpy.types.Node, kind: type[N], member: str) -> BlenderResult[N]:
-    """Node as the class holding a member, `absent` holding the member for any other class."""
+    """Node as class declaring member, else `absent` fault naming member."""
     return Ok(live) if isinstance(live, kind) else Error((BlenderAbsentFault(owner=repr(live), key=member),))
 
 
 def _keyed(node: bpy.types.Node, slot: str) -> dict[str, str]:
-    """Address to socket identifier: interface item keys on a group boundary or group node, item names on a Menu Switch or File Output, empty for any other node."""
+    """Socket identifiers by item key on group input, output, or group node, by item name on Menu Switch or File Output."""
     match node:
         case bpy.types.NodeGroupInput() | bpy.types.NodeGroupOutput():
             return addresses(node.id_data, slot)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

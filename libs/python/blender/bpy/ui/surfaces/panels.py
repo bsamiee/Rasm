@@ -1,4 +1,4 @@
-"""Panel rows registered under a Properties tab, a stock panel, a Sidebar tab, another region, or a popover."""
+"""Panels in a Properties tab, stock panel, Sidebar tab, region, or popover."""
 
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import contextmanager, ExitStack
@@ -34,7 +34,7 @@ type Placed = FixedPlacement | PopoverPanel
 type PanelPlacement = Placed | Docked
 
 
-# --- [ROSTERS] --------------------------------------------------------------------------
+# --- [CHOICES] --------------------------------------------------------------------------
 
 tabs = Choices(lambda *_: enumerated(bpy.types.SpaceProperties.bl_rna.properties["context"]))
 editors = Choices(
@@ -54,30 +54,30 @@ categories = Choices(
 
 
 class Tab(Case, frozen=True, kw_only=True, tag=1):
-    """Stock Properties editor tab the panels join."""
+    """Stock Properties tab panels join."""
 
     title: ClassVar[str] = "Properties Tab"
-    tab: Annotated[str, msgspec.Meta(description="Properties editor tab the panels join"), tabs]
+    tab: Annotated[str, msgspec.Meta(description="Properties tab for extension panels"), tabs]
 
 
 class Sidebar(Case, frozen=True, kw_only=True, tag=2):
-    """Extension's own tab in an editor's Sidebar, carrying the product mark."""
+    """Extension Sidebar tab with product mark icon."""
 
     title: ClassVar[str] = "Sidebar Tab"
-    space: Annotated[str, msgspec.Meta(title="Editor", description="Editor whose Sidebar holds the extension's tab"), editors]
+    space: Annotated[str, msgspec.Meta(title="Editor", description="Editor showing extension Sidebar tab"), editors]
     category: str
 
 
 class Joined(Case, frozen=True, kw_only=True, tag=3):
-    """Stock tab in an editor's Sidebar the panels join."""
+    """Stock Sidebar tab panels join."""
 
     title: ClassVar[str] = "Shared Sidebar Tab"
-    space: Annotated[str, msgspec.Meta(title="Editor", description="Editor whose Sidebar holds the tab"), editors]
-    category: Annotated[str, msgspec.Meta(title="Tab", description="Sidebar tab the panels join"), categories]
+    space: Annotated[str, msgspec.Meta(title="Editor", description="Editor holding Sidebar tab"), editors]
+    category: Annotated[str, msgspec.Meta(title="Tab", description="Sidebar tab for extension panels"), categories]
 
 
 class Child(msgspec.Struct, frozen=True, kw_only=True):
-    """Stock panel the panels nest under."""
+    """Stock parent panel."""
 
     parent: type[bpy.types.Panel]
 
@@ -90,7 +90,7 @@ class EditorRegion(msgspec.Struct, frozen=True, kw_only=True, gc=False):
 
 
 class PopoverPanel(msgspec.Struct, frozen=True, kw_only=True):
-    """Top bar popover a `rows.Popover` row opens by key from any editor."""
+    """Top bar popover a `rows.Popover` row opens from any editor."""
 
     units: Option[int] = Nothing
 
@@ -102,14 +102,14 @@ class Docked(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Mirror(msgspec.Struct, frozen=True, kw_only=True):
-    """Further placement of a panel's sections, polled by its own condition."""
+    """Extra panel placement with its own poll condition."""
 
     at: FixedPlacement
     condition: Option[Condition] = Nothing
 
 
 class Panel(msgspec.Struct, frozen=True, kw_only=True):
-    """Section placed as a registered panel with its mirrors and child panels."""
+    """Section registered as panel with mirrors and children."""
 
     section: Section
     at: PanelPlacement
@@ -121,7 +121,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Drawing(msgspec.Struct, frozen=True, kw_only=True):
-    """Class's idname, label, and section paints."""
+    """Panel class name, label, and section draws."""
 
     name: str
     title: str
@@ -129,7 +129,7 @@ class Drawing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PanelSite(msgspec.Struct, frozen=True, kw_only=True):
-    """One placement of a panel with its class, child classes, order, header, and condition."""
+    """Panel placement with resolved drawings."""
 
     at: PanelPlacement
     condition: Option[Condition]
@@ -140,22 +140,14 @@ class PanelSite(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Panels(msgspec.Struct, frozen=True, kw_only=True):
-    """Row registering panels, their child panels, and the value popovers of every section they and the preferences page place."""
+    """Row registering panels, child panels, and section value popovers."""
 
     panels: tuple[Panel, ...]
     page: Option[PreferencesPage] = Nothing
     header: Mapping[type[Placed], tuple[RowContent, ...]] = msgspec.field(default_factory=dict)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Realizes every site once and pairs the sections' acquisitions with the generator owning every class.
-
-        Args:
-            identity: Identity whose names, reports, mark, and preferences the panels read.
-
-        Returns:
-            `Ok` of section declarations and the `INTERFACE` acquisition; native realization and registration
-            failures belong to that acquisition.
-        """
+        """Builds panel placements once, returning section acquisitions and one registration scope."""
         headers = (*(row for panel in self.panels for row in panel.header), *chain.from_iterable(self.header.values()))
         roots = (*(section for panel in self.panels for section in (panel.section, *panel.children)), *(section for page in self.page.to_list() for section in page.sections), *headers)
         popovers = {popover.key: Panel(section=popover, at=PopoverPanel()) for popover in reached(roots)}
@@ -314,7 +306,7 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def reached(rows: Iterable[RowContent | Registrable]) -> Iterator[Section]:
-    """Answers declared section popovers through nested content and its acquired owners."""
+    """Yields section popovers of nested rows and registrable owners."""
     for row in rows:
         if isinstance(row, Section):
             yield from row.popovers
@@ -332,22 +324,22 @@ def reached(rows: Iterable[RowContent | Registrable]) -> Iterator[Section]:
 
 
 def enumerated(prop: bpy.types.Property) -> Iterator[tuple[str, str, str, str, int]]:
-    """Answers an RNA property's enum items as roster items, a property of another type holding none."""
+    """Returns enum property items as choice items, none for other properties."""
     return ((item.identifier, item.name, item.description, item.icon, item.value) for held in (prop,) if isinstance(held, bpy.types.EnumProperty) for item in held.enum_items)
 
 
 def stated[T](panel: type[bpy.types.Panel], member: Callable[[type[bpy.types.Panel]], T]) -> Option[T]:
-    """Answers a registration member a panel class states, a mixin's included, absent where it states none."""
+    """Returns registration member a panel class or mixin states."""
     return catch(lambda: member(panel), exception=AttributeError)().to_option()
 
 
 def registered() -> tuple[type[bpy.types.Panel], ...]:
-    """Answers every registered Python panel class, a class deriving from a concrete panel included."""
+    """Returns every registered Python panel class, subclasses included."""
     return tuple(panel for name in dir(bpy.types) for panel in Option.of_optional(bpy.types.Panel.bl_rna_get_subclass_py(name)).to_list())
 
 
 def sidebars() -> dict[str, tuple[str, ...]]:
-    """Answers each editor holding a registered Sidebar panel with the tabs its panels state."""
+    """Returns registered Sidebar tabs per editor."""
     panels = tuple(panel for panel in registered() if panel.bl_region_type == "UI")
     return {
         space: tuple(sorted({tab for panel in panels if panel.bl_space_type == space for tab in stated(panel, lambda held: held.bl_category).to_list()}))

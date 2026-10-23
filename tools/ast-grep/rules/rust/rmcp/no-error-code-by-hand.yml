@@ -121,4 +121,4 @@ transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 fix: $FIXED
 message: '`$HEAD` restates an error code rmcp names'
-note: 'Call the `ErrorData` constructor named for the code (`invalid_params`) or name the `ErrorCode` constant'
+note: 'Call the `ErrorData` constructor named for its code (`ErrorData::invalid_params`), or name the `ErrorCode` constant'

@@ -59,14 +59,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let logger: Logger = Logger(for: AppDelegate.self)
         launch = Task(name: "Launch Relay") { [self] in
             switch await LoginShell.environment(within: .seconds(5)).map(AccountStore.init(environment:)) {
-                case .failure(.run(.deadline(.cancelled))): logger.info("Launch canceled by quit before the login shell environment arrived")
+                case .failure(.run(.deadline(.cancelled))): logger.info("Quit canceled launch during login shell read")
                 case let launched:
                     store = launched
                     switch launched {
                         case .success(let started):
-                            logger.notice("Launched from the login shell environment, starting account work")
+                            logger.notice("Launched with login shell environment")
                             started.start()
-                        case .failure(let error): logger.error("Launch stopped, reading the login shell environment failed: \(error, privacy: .public)")
+                        case .failure(let error): logger.error("Login shell environment read failed with \(error, privacy: .public), launch stopped")
                     }
             }
         }

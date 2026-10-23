@@ -1,4 +1,4 @@
-"""Sections under a host header with their record fields, value-set slots, item sections, and preset listings."""
+"""Header sections with record fields, value sets, and preset listings."""
 
 from collections.abc import Callable, Mapping
 import datetime
@@ -65,41 +65,41 @@ type Action = operators.Operator[Named] | operators.Operator[Renamed] | operator
 
 
 class Verb(Enum):
-    """Operator rows a store and its preset listing place, each keyed `<verb>_<stem>`."""
+    """Store and listing operator rows, each keyed `<verb>_<stem>`."""
 
-    RESET = ("Reset Values", "Reset every value of the section to its default", "LOOP_BACK", True)
-    COPY = ("Copy Values", "Copy the section's values to the clipboard", "COPYDOWN", False)
-    PASTE = ("Paste Values", "Paste the clipboard's values into the section's hosts", "PASTEDOWN", True)
-    OLDER = ("Older Values", "Restore the older neighbour in the section's history", "BACK", "History Step")
-    NEWER = ("Newer Values", "Restore the newer neighbour in the section's history", "FORWARD", "History Step")
-    RESTORE = ("Restore Values", "Restore this value set of the section's history", "RECOVER_LAST", True)
-    FORGET = ("Remove Entry", "Remove this value set from the section's history", "X", True)
-    APPLY = ("Apply Preset", "Apply this preset", "PRESET", True)
-    SAVE = ("Add Preset", "Add the current values as a preset", "ADD", False)
-    DELETE = ("Remove Preset", "Remove this saved preset file", "X", False)
-    IMPORT = ("Import Presets", "Copy preset files into the saved presets", "IMPORT", False)
-    EXPORT = ("Export Preset", "Write this preset to a chosen file", "EXPORT", False)
-    REPLACE = ("Replace Preset", "Replace this saved preset with the current values", "FILE_REFRESH", False)
-    RENAME = ("Rename Preset", "Rename this saved preset file", "GREASEPENCIL", False)
-    PREVIOUS = ("Previous Preset", "Apply the preceding preset", "BACK", True)
-    NEXT = ("Next Preset", "Apply the following preset", "FORWARD", True)
-    LOCK = ("Lock Value", "Keep or release this value when a preset applies", "LOCKED", True)
+    RESET = ("Reset Values", "Reset section values to defaults", "LOOP_BACK", True)
+    COPY = ("Copy Values", "Copy section values to clipboard", "COPYDOWN", False)
+    PASTE = ("Paste Values", "Paste clipboard values into section", "PASTEDOWN", True)
+    OLDER = ("Older Values", "Restore older value set", "BACK", "History Step")
+    NEWER = ("Newer Values", "Restore newer value set", "FORWARD", "History Step")
+    RESTORE = ("Restore Values", "Restore value set from history", "RECOVER_LAST", True)
+    FORGET = ("Remove Entry", "Remove value set from history", "X", True)
+    APPLY = ("Apply Preset", "Apply preset", "PRESET", True)
+    SAVE = ("Add Preset", "Save section values as preset", "ADD", False)
+    DELETE = ("Remove Preset", "Delete preset files", "X", False)
+    IMPORT = ("Import Presets", "Copy files into saved presets", "IMPORT", False)
+    EXPORT = ("Export Preset", "Write presets to files", "EXPORT", False)
+    REPLACE = ("Replace Preset", "Replace preset with section values", "FILE_REFRESH", False)
+    RENAME = ("Rename Preset", "Rename preset file", "GREASEPENCIL", False)
+    PREVIOUS = ("Previous Preset", "Apply previous preset", "BACK", True)
+    NEXT = ("Next Preset", "Apply next preset", "FORWARD", True)
+    LOCK = ("Lock Value", "Keep value when presets apply", "LOCKED", True)
 
     def __init__(self, title: str, description: str, icon: "IconItems", undo: bool | str) -> None:
-        """Holds the verb's title, description, icon, and undo choice."""
+        """Holds verb operator fields."""
         self.title = title
         self.description = description
         self.icon = icon
         self.undo = undo
 
     def key(self, stem: Key) -> Key:
-        """Operator key of the verb over a store or preset key."""
+        """Returns operator key over store or preset key."""
         return f"{self.name.lower()}_{stem}"
 
     def row[T: msgspec.Struct](
         self, stem: Key, form: type[T], run: Callable[[operators.Call[T]], BlenderResult[operators.Outcome]], invoke: Option[operators.Invoke[T, None]] = Nothing
     ) -> operators.Operator[T]:
-        """Operator row of the verb over a stem, internal, drawn with the verb's icon, and undone as the verb states."""
+        """Builds internal verb operator over stem."""
         return operators.Operator(key=self.key(stem), title=self.title, description=self.description, icon=Some(self.icon), internal=True, form=form, run=run, undo=self.undo, invoke=invoke)
 
 
@@ -109,18 +109,18 @@ class Section(Row, Registrable, Protocol):
 
     @property
     def key(self) -> Key:
-        """Key every idname of the section derives from."""
+        """Key every section idname derives from."""
 
     @property
     def title(self) -> str:
-        """Title the section's header draws."""
+        """Title section header draws."""
 
     @property
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
-        """Values popovers of the section's store."""
+        """Values popovers of section store."""
 
     def realized(self, identity: Identity) -> BlenderResult["Drawn"]:
-        """Realizes the section into its panel and layout panel paints."""
+        """Realizes section into panel and layout panel draws."""
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -133,37 +133,37 @@ class Picked(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Locked(msgspec.Struct, frozen=True, kw_only=True):
-    """Record field a lock row flips."""
+    """Field a lock row toggles."""
 
-    field: Annotated[str, msgspec.Meta(description="Key of the record field the lock keeps")]
+    field: Annotated[str, msgspec.Meta(description="Field to lock or unlock")]
 
 
 class Named(msgspec.Struct, frozen=True, kw_only=True):
     """Preset an apply, remove, or export row names."""
 
-    stem: Annotated[str, msgspec.Meta(title="Preset", description="Stem of the preset file")]
+    stem: Annotated[str, msgspec.Meta(title="Preset", description="Preset file stem")]
 
 
 class Renamed(Named, frozen=True, kw_only=True):
-    """Saved preset and its requested new file name."""
+    """Saved preset and its new file name."""
 
     name: PresetName
 
 
 class Saved(msgspec.Struct, frozen=True, kw_only=True):
-    """Name entered in the native save-preset dialog."""
+    """Name entered in save-preset dialog."""
 
     name: PresetName
 
 
 class Selected(msgspec.Struct, frozen=True, kw_only=True):
-    """Presets selected in shown order for independent file operations."""
+    """Selected presets in shown order."""
 
     items: Annotated[tuple[Named, ...], msgspec.Meta(min_length=1)]
 
 
 class Actions(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator row of each verb over one preset listing."""
+    """Verb operator rows over one preset listing."""
 
     apply: operators.Operator[Named]
     save: operators.Operator[Saved]
@@ -192,7 +192,7 @@ class Actions(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Drawn(msgspec.Struct, frozen=True, kw_only=True):
-    """Section drawing for a panel's header enable, preset area, body, and layout panel over a holder."""
+    """Section draws for panel header, body, and layout panel."""
 
     head: Option[SurfaceDraw]
     tail: Option[SurfaceDraw]
@@ -201,7 +201,7 @@ class Drawn(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
-    """One catalog's native apply, file, and neighbouring-preset actions."""
+    """Preset catalog actions."""
 
     preset: Preset[T]
     current: Callable[[bpy.types.Context], BlenderResult[T]]
@@ -210,16 +210,16 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
     @property
     def key(self) -> Key:
-        """Key of the menu `surfaces.menus` registers over the listing and a `Pulldown` opens."""
+        """Listing menu key a `Pulldown` opens."""
         return Listing.keyed(self.preset)
 
     @staticmethod
     def keyed[S: msgspec.Struct](preset: Preset[S]) -> Key:
-        """Key of the menu over a preset's listing, read before any listing exists."""
+        """Returns listing menu key of a preset before any listing exists."""
         return f"{preset.key}_presets"
 
     def commands(self, identity: Identity) -> Actions:
-        """Apply, add, remove, import, export, replace, rename, and neighbour rows."""
+        """Builds verb rows over listing."""
         stem, shown, json = self.preset.key, bpy.path.display_name, lambda _: (".json",)
         (renamed,) = frozenset(Renamed.__struct_fields__) - frozenset(Named.__struct_fields__)
 
@@ -233,7 +233,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             normalized = AddPresetBase.as_filename(name).casefold()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             return Error((BlenderCollisionFault(request=name, error=self.preset.folder(identity)),)) if any(key.casefold() == normalized for key in self.preset.listed(identity)) else Ok(name)
 
-        def neighbour(call: operators.Call[operators.Empty], step: int) -> BlenderResult[operators.Outcome]:
+        def neighbor(call: operators.Call[operators.Empty], step: int) -> BlenderResult[operators.Outcome]:
             if not (values := tuple(read(value) for value in self.preset.listed(identity).values())):
                 return Ok(operators.Unchanged(reason="No presets"))
             return (
@@ -260,7 +260,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 .bind(lambda pair: self.preset.written(*pair))
                 .map(lambda _: operators.Done())
             ),
-            invoke=Some(operators.Confirm[Named](message=Some(lambda _context, record: Ok(f"Replace the preset {shown(record.stem)}")), confirm_text=Some("Replace"))),
+            invoke=Some(operators.Confirm[Named](message=Some(lambda _context, record: Ok(f"Replace preset {shown(record.stem)} with section values?")), confirm_text=Some("Replace"))),
         )
 
         def saved(call: operators.Call[Saved]) -> BlenderResult[operators.Done]:
@@ -333,12 +333,12 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 ),
                 draw=Some(lambda layout, _context, properties: layout.prop(properties, renamed)),
             ),
-            previous=Verb.PREVIOUS.row(stem, operators.Empty, lambda call: neighbour(call, -1)),
-            following=Verb.NEXT.row(stem, operators.Empty, lambda call: neighbour(call, 1)),
+            previous=Verb.PREVIOUS.row(stem, operators.Empty, lambda call: neighbor(call, -1)),
+            following=Verb.NEXT.row(stem, operators.Empty, lambda call: neighbor(call, 1)),
         )
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Realizes native apply entries, single-item file actions, and add/import asks."""
+        """Realizes apply entries with file actions and add and import buttons."""
         commands = self.commands(identity)
         apply, delete, export = commands.apply, commands.delete, commands.export
         footer = (OperatorButton(target=commands.save, text=Some("")), OperatorButton(target=commands.load, text=Some("")))
@@ -373,12 +373,12 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         return accumulated(realized(row, identity) for row in footer).map(draw)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Acquires the listing's rows."""
+        """Acquires listing rows."""
         return Ok(tuple(self.commands(identity).verbs.values()))
 
 
 class Slots[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Store bound to the identity: its attachment, history, operator rows, listing, and header slot draws."""
+    """Store bound to an identity."""
 
     attached: Attached[T]
     history: ValueHistory[T, Host, None]
@@ -391,7 +391,7 @@ class Slots[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Attached record's value sets: reset, presets with locks, clipboard, and history."""
+    """Value sets of an attached record."""
 
     attachment: Attachment[T]
     retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
@@ -401,7 +401,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def panel(self) -> Key:
-        """Key of the values popover."""
+        """Key of values popover."""
         return f"{self.attachment.key}_values"
 
     @property
@@ -410,7 +410,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return Single(key=self.panel, title="Values", rows=(Values(store=self),))
 
     def bound(self, identity: Identity) -> BlenderResult[Slots[T]]:
-        """Binds the attachment, admits a scope whose owners hold it, and builds the verb rows and header slots."""
+        """Binds attachment to scope owners holding it, then builds store rows."""
         return (
             self.attachment
             .bound(identity)
@@ -426,12 +426,12 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def slotted(self, identity: Identity, attached: Attached[T]) -> BlenderResult[Slots[T]]:
-        """Builds the store's rows over its bound attachment."""
+        """Builds store rows over bound attachment."""
         history = ValueHistory(form=attached.group.record, read=attached.read, write=attached.write, storage=attached.struct, key=Slot.HISTORY)
         stem = self.attachment.key
-        vacant = operators.Unchanged(reason="History holds no entry there")
+        vacant = operators.Unchanged(reason="No history entry at offset")
 
-        def settled[V](change: Option[V]) -> operators.Outcome:
+        def concluded[V](change: Option[V]) -> operators.Outcome:
             return change.map(lambda _: operators.Done()).default_value(vacant)
 
         def now() -> datetime.datetime:
@@ -448,7 +448,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def stepped(context: bpy.types.Context, offset: int) -> BlenderResult[operators.Outcome]:
-            return paired(hosted(attached.name, context), retained()).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(settled)
+            return paired(hosted(attached.name, context), retained()).bind(lambda pair: history.stepped(pair[0], offset, now(), pair[1])).map(concluded)
 
         def scoped(call: operators.Call[operators.Empty], host: Host) -> BlenderResult[Option[operators.Done]]:
             return (
@@ -474,7 +474,7 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         }
         picked = {
             Verb.RESTORE: Verb.RESTORE.row(stem, Picked, lambda call: stepped(call.context, call.record.offset)),
-            Verb.FORGET: Verb.FORGET.row(stem, Picked, lambda call: hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.record.offset)).map(settled)),
+            Verb.FORGET: Verb.FORGET.row(stem, Picked, lambda call: hosted(attached.name, call.context).bind(lambda host: history.removed(host, call.record.offset)).map(concluded)),
         }
         lock = Verb.LOCK.row(stem, Locked, lambda call: hosted(attached.name, call.context).map(lambda host: attached.toggled(host, call.record.field)).map(lambda _: operators.Done()))
         listing = self.presets.map(
@@ -495,28 +495,28 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Acquires the store's verb rows and its listing's rows."""
+        """Acquires store verb rows, listing rows, and field rows."""
         return self.bound(identity).map(lambda slots: (*slots.plain.values(), *slots.picked.values(), slots.lock, *slots.listing.to_list(), *acquired(tuple(self.fields.values()))))
 
 
 class Hosted[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Store beside the member naming its host."""
+    """Store beside member naming its host."""
 
     host: Member
     store: Store[T]
 
 
 class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
-    """Store's value sets in its popover: presets and locks, clipboard, and history."""
+    """Store value sets in its popover."""
 
     store: Store[T]
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains the store supplying this value editor's native commands."""
+        """Acquires attachment and store operators."""
         return Ok((self.store.attachment, self.store))
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Realizes the listing, locks, clipboard and step buttons, and the history entries of the store."""
+        """Realizes listing, locks, clipboard, and history rows."""
 
         def built(slots: Slots[T]) -> BlenderResult[RowDraw]:
             attached, history = slots.attached, slots.history
@@ -566,7 +566,7 @@ class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
 
 class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Section's realized header enable, header rows, body rows, and store fields."""
+    """Realized section parts."""
 
     name: str
     gate: Option[tuple[ResolvedMember, RowDraw]]
@@ -578,7 +578,7 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, identity: Identity, key: Key, rows: tuple[RowContent, ...], header: tuple[RowContent, ...], enable: Option[Member], slots: Option[Slots[T]]) -> BlenderResult[Self]:
-        """Realizes a section's parts once at acquisition, its rows and store scalars on one grid."""
+        """Realizes section parts at acquisition, rows and store scalars on one grid."""
         walk = slots.map(lambda held: fields(held.attached.group, identity, held.fields).map(Some)).default_value(Ok(Nothing))
         gate = enable.map(
             lambda member: member.resolved(bpy.types.BoolProperty).bind(lambda held: realized(Property(target=held, text=Some("")), identity).map(lambda draw: Some((held, draw))))
@@ -595,12 +595,12 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return paired(paired(identity.name(Name.ATTACHMENT, key), gate), paired(accumulated(realized(row, identity) for row in header), walk)).bind(built)
 
     def head(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-        """Draws the enable with no text."""
+        """Draws textless header enable."""
         for _, draw in self.gate.to_list():
             draw(layout, holder, context)
 
     def tail(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context) -> None:
-        """Draws the header rows, then the store slots with the host as the context pointer."""
+        """Draws header rows, then store slots with host as context pointer."""
         line = layout.row(align=True)
         for draw in self.header:
             draw(line, holder, context)
@@ -610,7 +610,7 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 draw(line, holder, context)
 
     def body(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context, prefix: str) -> None:
-        """Draws the rows over the holder and the store fields over the host's group, inactive while the enable is off."""
+        """Draws rows and store fields, inactive while enable is off."""
         layout.use_property_split, layout.use_property_decorate = True, True
         layout.active = layout.active and all(starmap(getattr, self.gate.bind(lambda pair: located(pair[0], holder, context)).to_list()))
         for draw in self.rows:
@@ -634,7 +634,7 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         *,
         active: bool = True,
     ) -> Option[bpy.types.UILayout]:
-        """Draws a layout panel's header and answers its body while open."""
+        """Draws layout panel header, returning body while open."""
         header, body = opened.starmap(layout.panel_prop).default_with(lambda: layout.panel(idname, default_closed=True))
         header.active = header.active and active
         header.context_pointer_set(self.name, holder)
@@ -651,7 +651,7 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
-    """Rows under a host header over one holder, with an optional store of its host."""
+    """Rows under header over one holder."""
 
     key: Key
     title: str
@@ -663,15 +663,15 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
 
     @property
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
-        """Values popover of the store."""
+        """Values popover of store."""
         return tuple(hosted.store.popover for hosted in self.store.to_list())
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Acquires the lists and nested sections among the rows and the store's rows."""
+        """Acquires registrable rows and store rows."""
         return Ok((*acquired((*self.rows, *self.header)), *(row for hosted in self.store.to_list() for row in (hosted.store.attachment, hosted.store))))
 
     def realized(self, identity: Identity) -> BlenderResult[Drawn]:
-        """Realizes the section into its panel and layout panel paints."""
+        """Realizes section into panel and layout panel draws."""
         hosting = self.store.map(lambda hosted: paired(hosted.host.resolved().bind(lambda bound: fits(bound, (hosted.store.attachment.owner,))), hosted.store.bound(identity)).map(Some)).default_value(
             Ok(Nothing)
         )
@@ -704,12 +704,12 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
         ).map(drawn)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Answers the section as a layout panel row."""
+        """Returns section as layout panel row."""
         return self.realized(identity).map(lambda drawn: drawn.inline)
 
 
 class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
-    """One section per item of a host collection, the item the holder and the store's host."""
+    """Section per collection item, item as holder and store host."""
 
     key: Key
     title: str
@@ -724,15 +724,15 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
 
     @property
     def popovers(self) -> tuple[Single[operators.Empty], ...]:
-        """Values popover of the store."""
+        """Values popover of store."""
         return tuple(store.popover for store in self.store.to_list())
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Acquires the lists and nested sections among the rows and the store's rows."""
+        """Acquires registrable rows and store rows."""
         return Ok((*acquired((*self.rows, *self.header, *self.empty)), *(row for store in self.store.to_list() for row in (store.attachment, store))))
 
     def realized(self, identity: Identity) -> BlenderResult[Drawn]:
-        """Realizes one layout panel per item, the store bound to the item type."""
+        """Realizes layout panel per item, store bound to item type."""
 
         def items(
             bound: ResolvedMember[bpy.types.CollectionProperty],
@@ -778,7 +778,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
         )
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Answers the item sections as one row."""
+        """Returns item sections as one row."""
         return self.realized(identity).map(lambda drawn: drawn.inline)
 
 
@@ -786,14 +786,14 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
 
 
 def hosted(name: str, context: bpy.types.Context) -> BlenderResult[Host]:
-    """Answers the host a header's context pointer names, or `absent` where no header set it."""
+    """Returns host from header context pointer, absent fault when unset."""
     return catch(lambda: getattr(context, name), exception=AttributeError)().map_error(lambda _: (BlenderAbsentFault(owner="bpy.context", key=name),))
 
 
 def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
     group: RecordGroup[T, S], identity: Identity, replacements: Mapping[MemberDescriptorType, RowContent] = MappingProxyType({})
 ) -> BlenderResult[tuple[tuple[RowContent, ...], Nest]]:
-    """Realizes native fields as scalar rows and nested record, union, or collection panels."""
+    """Realizes fields as scalar rows and nested record, union, or collection panels."""
     supplied = {slot.__name__: row for slot, row in replacements.items() if issubclass(typing.get_origin(group.record) or group.record, slot.__objclass__)}
 
     def inside(found: tuple[tuple[RowContent, ...], Nest]) -> BlenderResult[Nest]:

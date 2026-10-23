@@ -36,5 +36,5 @@ rule:
             any:
                 - has: {stopBy: end, matches: instrument-option}
                 - has: {stopBy: end, matches: rust-instrument-fields, has: {matches: error-field}}
-message: '`$NAME` names an error field by hand'
-note: 'Record the error as `{ EXCEPTION_MESSAGE } = %Report::new(error)` with the `opentelemetry_semantic_conventions::attribute` constant'
+message: '`$NAME` records an error outside field `exception.message`'
+note: 'Record `{ EXCEPTION_MESSAGE } = %std::error::Report::new(<error>)` with the `opentelemetry_semantic_conventions::attribute` constant'

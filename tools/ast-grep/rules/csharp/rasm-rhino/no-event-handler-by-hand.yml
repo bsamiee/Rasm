@@ -199,4 +199,4 @@ rule:
                         has: {field: right, kind: identifier, pattern: $LOCAL}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Handler$'}}}}
 message: 'Event handler over `$ARGS` runs its effect through `$CALLBACK` by hand'
-note: Use `Callbacks.Handler<TArgs>(<args> => <effect>, <site>)`, with `TArgs` the event argument type the delegate names
+note: 'Call `Callbacks.Handler<TArgs>(<args> => <effect>, <site>)` with the event argument type as `TArgs`'

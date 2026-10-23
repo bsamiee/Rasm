@@ -30,5 +30,5 @@ rule:
                             - has: {stopBy: end, matches: process-environment}
                             - not: {has: {stopBy: end, matches: reshaped}}
         - not: {has: {stopBy: end, matches: reshaped}}
-message: '`$SITE` copies the environment of this process into a custom environment'
-note: 'Pass `Environment.inherit`, with `updating(_:)` for overrides and removals (a `nil` value removes a key)'
+message: '`$SITE` copies `ProcessInfo.processInfo.environment` into a custom environment'
+note: 'Pass `Environment.inherit`, or `.inherit.updating(<changes>)` with a `nil` value for each removed key'

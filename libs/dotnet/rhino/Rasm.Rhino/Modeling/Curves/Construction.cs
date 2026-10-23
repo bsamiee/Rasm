@@ -21,7 +21,7 @@ public sealed record ArchSpan {
     public static Fin<ArchSpan> Of(Line baseline, Vector3d normal) =>
         new Plane(baseline.From, baseline.Direction, Vector3d.CrossProduct(normal, baseline.Direction)) switch {
             { IsValid: true } frame => new ArchSpan(baseline, frame),
-            _ => Error.New(ErrorCodes.ValidationFailed, "arch baseline and normal span no valid plane"),
+            _ => Error.New(ErrorCodes.ValidationFailed, "Arch baseline and normal span no plane"),
         };
 
     public double Height(Point3d point) => (point - Midpoint) * Frame.YAxis;
@@ -83,7 +83,7 @@ public abstract partial record ArchForm {
         public static Fin<Raised> Of(RaisedArch kind, double ratio) =>
             double.Abs(ratio) is > 0 and var magnitude && kind.Ratios.IncludesParameter(magnitude)
                 ? new Raised(kind, ratio)
-                : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"arch rise ratio {ratio} lies outside ratios {kind.Ratios}"));
+                : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Arch rise ratio {ratio} has magnitude outside {kind.Ratios}"));
 
         public static Raised Nearest(RaisedArch kind, ArchSpan span, double height, Tolerances tolerances) =>
             new(kind, double.CopySign(double.Clamp(double.Abs(height) / span.Baseline.Length, double.Min(double.Max(kind.Ratios.T0, tolerances.Absolute / span.Baseline.Length), kind.Ratios.T1), kind.Ratios.T1), height));

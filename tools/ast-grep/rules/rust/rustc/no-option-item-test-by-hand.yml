@@ -17,5 +17,5 @@ transform:
     REFERENCE: {replace: {source: $PARAM, replace: '^[^&].*$', by: ''}}
     COPIED: {replace: {source: $REFERENCE, replace: '^&.*$', by: '.copied()'}}
 fix: $X$COPIED.$TEST($CX, $NAME)
-message: '`$X.is_some_and(..)` opens the `Option` only to call `$TEST` on its value'
-note: 'Call the test on the `Option` through `MaybeDef` (`use clippy_utils::res::MaybeDef as _;`), after `copied()` for an `Option<&T>`'
+message: '`$X.is_some_and(..)` tests the `Option` value through `$TEST` by hand'
+note: 'Call `<option>.is_diag_item(..)` or `is_lang_item(..)` (`use clippy_utils::res::MaybeDef as _;`), after `copied()` for an `Option<&T>`'

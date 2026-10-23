@@ -1,3 +1,3 @@
-#0 `Task.Run(() => count + 1)` starts work and discards its awaitable, no caller observes its failure or completion
-#1 `Task.Delay(1)` starts work and discards its awaitable, no caller observes its failure or completion
-#2 `ValueTask.FromResult(1)` starts work and discards its awaitable, no caller observes its failure or completion
+#0 `_ =` discards awaitable `Task.Run(() => count + 1)`. Await `Task.Run(() => count + 1)` or return it to an awaiting caller
+#1 `_ =` discards awaitable `Task.Delay(1)`. Await `Task.Delay(1)` or return it to an awaiting caller
+#2 `_ =` discards awaitable `ValueTask.FromResult(1)`. Await `ValueTask.FromResult(1)` or return it to an awaiting caller

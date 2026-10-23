@@ -157,6 +157,6 @@ rule:
                     - not: {has: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}}
             - not: {matches: inlined-past-third-level}
 message: '`$NAME` has one reader'
-note: 'Declare `<name>` in its reader as a local `let` or `func` or in the `[weak self]` callback that calls it, or inline a `<name>` that states no fact'
+note: 'Declare `<name>` as a local `let` or `func` in its reader or in the `[weak self]` callback calling it, or inline a `<name>` stating no fact'
 labels:
     READER: {style: secondary, message: Only reader}

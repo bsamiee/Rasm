@@ -120,4 +120,4 @@ fix:
     template: $SINGLE_PATTERN$FIRST_PATTERN$SECOND_JOINED$CONDITION
     expandEnd: {stopBy: end, follows: {stopBy: end, kind: where_keyword}, any: [{matches: compared}, {matches: compared-pair}]}
 message: 'Case pattern binds `$NAME` only to compare it in a `where` clause or condition'
-note: 'Match each value inside the pattern (`.<case>(<value>)`, `.<case>(.<code> as <Error>)`), and an `||` chain as `case .<case>(<a>), .<case>(<b>)`'
+note: 'Match the value inside the pattern (`.<case>(<value>)`, `.<case>(.<code> as <Error>)`), an `||` chain as `case .<case>(<a>), .<case>(<b>)`'

@@ -13,5 +13,5 @@ rule:
         - not: {matches: {msbuild-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']?\s*false\s*["'']?$'}}}}
 transform:
     PATH_TEXT: {replace: {source: $PATH, replace: '^["'']|["'']$', by: ''}}
-message: '`Reference` resolves `$PATH_TEXT` from a package folder or a project output that no restore or build order produces'
+message: '`Reference` reads `$PATH_TEXT` from a package folder or project output outside restore and build order'
 note: Reference a package through `PackageReference` and a project through `ProjectReference`

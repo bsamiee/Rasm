@@ -74,4 +74,4 @@ rule:
             - has: {field: value, kind: 'string, concatenated_string, parenthesized_expression, tuple, list, dictionary', matches: literal}
             - has: {field: subscript, any: [{matches: literal}, {kind: slice, not: {has: {pattern: $_, not: {matches: literal}}}}]}
 message: '`$S` computes a literal from literals'
-note: 'Write one literal holding the result'
+note: 'Write the resulting literal'

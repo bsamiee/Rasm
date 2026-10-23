@@ -50,5 +50,5 @@ rule:
           all:
             - has: {kind: variable_declaration, all: [{has: {field: type, matches: optional}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FACT}}}]}
             - inside: {matches: error-members}
-message: 'Error record `$RECORD` holds the optional fact `$FACT`'
-note: 'Use one error record or case per present fact with the fact as a required field'
+message: 'Error record `$RECORD` holds optional field `$FACT`'
+note: 'Split the record into one record per case, the fact required in each case that has it'

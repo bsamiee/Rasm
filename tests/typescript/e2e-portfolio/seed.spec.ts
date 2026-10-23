@@ -4,5 +4,5 @@ import { test } from '#/fixtures';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 test('seed', async ({ page }) => {
-    await expect(page).toHaveTitle('Architecture — Portfolio');
+    await expect(page).toHaveTitle('Architecture · Portfolio');
 });

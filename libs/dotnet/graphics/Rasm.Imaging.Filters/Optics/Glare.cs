@@ -172,15 +172,15 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IrisParameter : IStateParameter<Iris> {
     public static readonly IrisParameter Blades = new("blades", StateParameter.Bounded(Lens<Iris, ApertureBlades>.New(static iris => iris.Blades, static blades => iris => iris with { Blades = blades }), new Presentation<int>()),
-        new("Flaps", "Aperture blades shaping each out-of-focus disc and diffraction spike"));
+        new("Flaps", "Aperture blade count shaping bokeh and diffraction spikes"));
     public static readonly IrisParameter Rotation = new("rotation", StateParameter.Bounded(Lens<Iris, SignedAngle>.New(static iris => iris.Rotation, static rotation => iris => iris with { Rotation = rotation })),
-        new("Angle", "Turn of the aperture blades, counterclockwise"));
+        new("Angle", "Counterclockwise turn of aperture blades"));
     public static readonly IrisParameter Roundness = new("roundness", StateParameter.Bounded(Lens<Iris, AxisFraction>.New(static iris => iris.Roundness, static roundness => iris => iris with { Roundness = roundness })),
-        new("Roundness", "Blade curvature from straight edges at 0% to a circle at 100%"));
+        new("Roundness", "Blade curvature from straight at 0% to circle at 100%"));
     public static readonly IrisParameter Obstruction = new("obstruction", StateParameter.Bounded(Lens<Iris, AxisFraction>.New(static iris => iris.Obstruction, static obstruction => iris => iris with { Obstruction = obstruction })),
-        new("Catadioptric size", "Central obstruction of a mirror lens, a ring in place of a disc"));
+        new("Catadioptric size", "Mirror lens central obstruction turning bokeh into rings"));
     public static readonly IrisParameter Squeeze = new("squeeze", StateParameter.Bounded(Lens<Iris, AnamorphicSqueeze>.New(static iris => iris.Squeeze, static squeeze => iris => iris with { Squeeze = squeeze }), new Presentation<float>()),
-        new("Anamorphic", "Horizontal squeeze of the aperture, 2 for a 2x anamorphic lens"));
+        new("Anamorphic", "Horizontal aperture squeeze, 2 for 2x anamorphic lens"));
 
     public StateParameter<Iris> Kind { get; }
     public ParameterText Text { get; }
@@ -256,7 +256,7 @@ public sealed partial class DirtSpecksParameter : IStateParameter<DirtSpecks> {
     public static readonly DirtSpecksParameter Scale = new("scale", StateParameter.Bounded(
         Lens<DirtSpecks, ShortSideExtent>.New(static specks => specks.Scale, static scale => specks => specks with { Scale = scale }),
         ShortSideExtent.Presentation with { Soft = (0.001f * ReferenceFrame.GreaterSide, 0.5f * ReferenceFrame.GreaterSide), Scale = TrackScale.Linear }),
-        new("Scale", "Size of the dirt features as a share of the frame's short side"));
+        new("Scale", "Dirt feature size in frame short sides"));
     public static readonly DirtSpecksParameter Seed = new("seed", StateParameter.Bounded(Lens<DirtSpecks, Seed>.New(static specks => specks.Seed, static seed => specks => specks with { Seed = seed })),
         new("Seed", "Number selecting the dirt field"));
 
@@ -329,15 +329,15 @@ public sealed unsafe record Bloom(AxisFraction Size, AxisFraction Strength, Opti
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BloomParameter : IStateParameter<Bloom> {
     public static readonly BloomParameter Size = new("size", StateParameter.Bounded(Lens<Bloom, AxisFraction>.New(static bloom => bloom.Size, static size => bloom => bloom with { Size = size })),
-        new("Size", "Reach of the spread across the frame"));
+        new("Size", "Spread reach across the frame"));
     public static readonly BloomParameter Strength = new("strength", StateParameter.Bounded(Lens<Bloom, AxisFraction>.New(static bloom => bloom.Strength, static strength => bloom => bloom with { Strength = strength })),
-        new("Strength", "Share of the light the lens scatters, total light kept"));
+        new("Strength", "Share of light the lens scatters with total light kept"));
     public static readonly BloomParameter Dirt = new("dirt", new StateParameter<Bloom>.Loaded<ImageFile, ImagePath, string>(Lens<Bloom, Option<ImageFile>>.New(static bloom => bloom.Dirt, static dirt => bloom => bloom with { Dirt = dirt }), ImageFile.Load, static file => file.Path),
-        new("Lens dirt", "Scene-linear image of dust and smudges the scattered light shows"));
+        new("Lens dirt", "Scene-linear dust and smudge image scattered light shows"));
     public static readonly BloomParameter Specks = new("specks", new StateParameter<Bloom>.OptionalRecord<DirtSpecks>(Lens<Bloom, Gated<DirtSpecks>>.New(static bloom => bloom.Specks, static specks => bloom => bloom with { Specks = specks })),
         new("Specks", "Procedural lens dirt in place of the dirt image"));
     public static readonly BloomParameter DirtGain = new("dirt-gain", StateParameter.Bounded(Lens<Bloom, DirtGain>.New(static bloom => bloom.DirtGain, static gain => bloom => bloom with { DirtGain = gain }), new Presentation<float> { Soft = (Optics.DirtGain.MinValue, Optics.DirtGain.Unity) }),
-        new("Dirt intensity", "Gain of the dirt over the scattered light"));
+        new("Dirt intensity", "Dirt gain over scattered light"));
 
     public StateParameter<Bloom> Kind { get; }
     public ParameterText Text { get; }
@@ -449,9 +449,9 @@ public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStat
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StarGlareParameter : IStateParameter<StarGlare> {
     public static readonly StarGlareParameter Iris = new("iris", new StateParameter<StarGlare>.Record<Iris>(Lens<StarGlare, Iris>.New(static glare => glare.Iris, static iris => glare => glare with { Iris = iris })),
-        new("Aperture", "Outline of the lens opening each out-of-focus disc and diffraction spike takes"));
+        new("Aperture", "Lens opening shaping bokeh and diffraction spikes"));
     public static readonly StarGlareParameter AiryRadius = new("airy-radius", StateParameter.Bounded(Lens<StarGlare, ShortSideLength>.New(static glare => glare.Radius, static radius => glare => glare with { Radius = radius }), ShortSideLength.Presentation with { Soft = (1.25f / ReferenceFrame.Height, 64f / ReferenceFrame.Height) }),
-        new("Core", "Radius of the first dark ring around a point light, as a share of the frame's short side"));
+        new("Core", "First dark ring radius around point lights in frame short sides"));
 
     public StateParameter<StarGlare> Kind { get; }
     public ParameterText Text { get; }
@@ -529,7 +529,7 @@ public sealed partial class HalationParameter : IStateParameter<Halation> {
     public static readonly HalationParameter Highlight = new("highlight", new StateParameter<Halation>.Record<HighlightKey>(Lens<Halation, HighlightKey>.New(static halation => halation.Highlight, static highlight => halation => halation with { Highlight = highlight })),
         new("Highlights", "Highlights that re-expose the film"));
     public static readonly HalationParameter Radius = new("radius", StateParameter.Bounded(Lens<Halation, ShortSideLength>.New(static halation => halation.Radius, static radius => halation => halation with { Radius = radius }), ShortSideLength.Presentation with { Soft = (ShortSideLength.MinValue, 64f / ReferenceFrame.Height) }),
-        new("Radius", "Halo radius as a share of the frame's short side"));
+        new("Radius", "Halo radius in frame short sides"));
     public static readonly HalationParameter Color = new("color", new StateParameter<Halation>.Color(Lens<Halation, Swatch>.New(static halation => halation.Color, static color => halation => halation with { Color = color })),
         new("Color", "Scene-linear color weighting the halo"));
 

@@ -110,5 +110,5 @@ transform:
     DEFAULT_VALUE: rewrite($FALLBACK, rewriters=[value, implicit-none])
     ASYNC: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: 'await '}}
 fix: $PREFIX $ASYNC$NEXT($IT, $DEFAULT_VALUE)
-message: '`try` around `$NEXT($IT)` supplies a literal default on `StopIteration` or `StopAsyncIteration`'
+message: '`try` around `$NEXT($IT)` catches `$ERROR` to supply a literal default'
 note: 'Call `next(<iterator>, <default>)` or `await anext(<iterator>, <default>)`'

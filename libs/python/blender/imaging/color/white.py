@@ -20,19 +20,19 @@ from blender.imaging.parameters import Presentation, Quantity, Rgb
 
 
 class White(msgspec.Struct, frozen=True, kw_only=True):
-    """Correlated color temperature and signed tint from the Planckian locus."""
+    """Color temperature and signed tint from Planckian locus."""
 
     temperature: Annotated[
         float,
-        msgspec.Meta(ge=1800.0, le=100000.0, description="Correlated color temperature of the white"),
+        msgspec.Meta(ge=1800.0, le=100000.0, description="Correlated color temperature"),
         Presentation(soft=Some((2000.0, 11000.0)), step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE)),
     ] = 6500.0
-    tint: Annotated[float, msgspec.Meta(ge=-150.0, le=150.0, description="Offset from the Planckian locus, positive toward green"), Presentation(step=Some(0.01), decimals=Some(1))] = 10.0
+    tint: Annotated[float, msgspec.Meta(ge=-150.0, le=150.0, description="Planckian locus offset, positive toward green"), Presentation(step=Some(0.01), decimals=Some(1))] = 10.0
 
     @staticmethod
     @functools.cache
     def locus() -> npt.NDArray[np.float64]:
-        """Returns read-only published Robertson rows of mired, u, v, and isotherm slope."""
+        """Returns read-only Robertson rows of mired, u, v, and isotherm slope."""
         rows = np.array(robertson1968.DATA_ISOTEMPERATURE_LINES_ROBERTSON1968, dtype=np.float64)
         rows.setflags(write=False)
         return rows
@@ -48,7 +48,7 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, color: Rgb) -> ImagingResult[Option[Self]]:
-        """Solves a neutral pick, distinguishing processor faults from colors outside the white domain."""
+        """Solves white of neutral pick, absent outside Robertson table or field bounds."""
 
         def solved(built: PyOpenColorIO.Processor) -> Option[Self]:
             tristimulus = applied(built.getDefaultCPUProcessor(), np.array(color, dtype=np.float32)).astype(np.float64)
@@ -70,7 +70,7 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def adaptation(source: npt.NDArray[np.float64], target: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """Returns the float64 Bradford matrix between whites normalized to Y = 1."""
+    """Returns float64 Bradford matrix between whites normalized to Y = 1."""
     cone = np.asarray(CAT_BRADFORD, dtype=np.float64)
     return np.linalg.solve(cone, ((cone @ target) / target[1] / ((cone @ source) / source[1]))[:, np.newaxis] * cone)
 

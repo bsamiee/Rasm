@@ -69,5 +69,5 @@ rule:
                                         has: {any: [{has: {field: arguments, has: {pattern: $P}}}, {has: {field: object, pattern: $P}}]}
 transform:
     F: {replace: {source: $CALL, replace: '\s*\([\s\S]*$', by: ''}}
-message: Method `$FN` forwards its parameters unchanged to `$F`
-note: 'Call the callee at each use and delete the method'
+message: '`$FN` forwards its parameters unchanged to `$F`'
+note: 'Widen `<callee>` to the forwarding method''s visibility, call it at each call site, and delete the method'

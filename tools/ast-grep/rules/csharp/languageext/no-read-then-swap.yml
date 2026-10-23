@@ -95,6 +95,6 @@ rule:
                 inside: {kind: 'tuple_expression, argument_list'}
                 precedes: {stopBy: end, has: {stopBy: {matches: callback}, matches: swap}}
 labels:
-    WRITE: {style: secondary, message: 'Writes the cell the earlier read observed'}
+    WRITE: {style: secondary, message: 'Writes the atom an earlier read observed'}
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: 'Compute next state inside one `Swap` transition and read the value it returns, or call `FindOrAdd`, `TryAdd`, or `SwapKey` on a keyed cell'
+note: 'Read the atom inside one `Swap` transition and use the value it returns, `FindOrAdd`, `TryAdd`, or `SwapKey` for an `AtomHashMap`'

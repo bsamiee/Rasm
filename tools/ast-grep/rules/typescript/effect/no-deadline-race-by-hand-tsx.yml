@@ -21,5 +21,5 @@ rule:
         - has: {field: arguments, has: {matches: sleep-branch}}
 transform:
     HEAD: {replace: {source: $RACE, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-message: '`$HEAD` races its source against `Effect.sleep` to compose a deadline fallback by hand'
-note: 'Call `Effect.timeoutOrElse({ duration, orElse })`, or `Effect.timeoutOption` for `Option.none()` in place of `TimeoutError`'
+message: '`$HEAD` races its source against `Effect.sleep` for a deadline fallback'
+note: 'Call `Effect.timeoutOrElse(<source>, { duration, orElse })`, or `Effect.timeoutOption(<source>, <duration>)` for `Option.none()` on timeout'

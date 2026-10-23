@@ -129,5 +129,5 @@ transform:
     CALL: {rewrite: {source: $BODY, rewriters: [unwrapped-base, base, argument]}}
     MUTABLECALL: {rewrite: {source: $MUTABLEBODY, rewriters: [mutable-unwrapped-base, mutable-base]}}
 fix: $CALL$MUTABLECALL
-message: 'Closure hands `$TARGET` to a call as a pointer the call converts to on its own'
-note: 'Pass `<target>` directly, a `String`, `[Element]`, or `&<value>` argument converting to the parameter''s pointer type'
+message: 'Closure converts `$TARGET` to a pointer the call accepts by implicit conversion'
+note: 'Pass `<target>` as the argument, `&<target>` for `withUnsafeMutableBufferPointer`, and delete the closure'

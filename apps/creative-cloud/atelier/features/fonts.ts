@@ -9,21 +9,21 @@ import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const specimen = Schema.Struct({ face: Face, shaped: Shaped.annotate({ description: 'Shaped run; positions are in em and differ from InDesign-composed text and document coordinates' }) });
+const specimen = Schema.Struct({ face: Face, shaped: Shaped.annotate({ description: 'Em positions, not InDesign composition or document coordinates' }) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const faces = Automation.use((automation) => registerResource({ uri: 'atelier://faces', name: 'faces', description: 'Faces available to CoreText, each with the file holding it', mimeType: 'application/json', schema: Schema.Array(AvailableFace), changes: Stream.empty, content: automation.faces() }));
+const faces = Automation.use((automation) => registerResource({ uri: 'atelier://faces', name: 'faces', description: 'CoreText faces with file holding each', mimeType: 'application/json', schema: Schema.Array(AvailableFace), changes: Stream.empty, content: automation.faces() }));
 const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<ReturnType<typeof routes>>) {
     const [automation, indesignScript, path, files] = yield* Effect.all([Automation, InDesignScript, Path.Path, FileSystem.FileSystem]);
     const hosts = yield* indesignScript.hosts;
     const tool = Tool.make('font', {
-        description: 'Shapes text in a face opened by name, at the instance an instance PostScript name or variation settings select; with application, InDesign answers with its own view of the font',
+        description: 'Shapes text in named face or instance. With application, returns InDesign font view',
         parameters: Instance.pipe(
             Schema.fieldsAssign({
                 ...Run.fields,
-                text: Run.fields.text.annotate({ description: 'One script and direction run to shape and check for glyphs; omitted text returns no glyph geometry' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
-                name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(FaceName.ast)}; InDesign takes its native font name or specifier` }),
+                text: Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
+                name: Schema.String.annotate({ description: `${SchemaAST.resolveDescription(FaceName.ast)}, or InDesign font name or specifier` }),
             }),
         ),
         success: Schema.Union([Schema.Struct({ ...AvailableFace.fields, specimen }), Schema.Struct({ ...FontView.fields, specimen: Schema.OptionFromOptionalKey(specimen) })]),
@@ -43,7 +43,7 @@ const font = Effect.fnUntraced(function* ({ indesign, listed }: Effect.Success<R
     });
     yield* registerRoutedTool({
         ...indesign,
-        fields: { application: Schema.OptionFromOptionalKey(listed(hosts).annotate({ description: 'Installed InDesign that answers, absent for CoreText' })) },
+        fields: { application: Schema.OptionFromOptionalKey(listed(hosts).annotate({ description: 'InDesign that answers, CoreText when absent' })) },
         resolve: ({ application }) => Effect.transposeOption(Option.map(application, (name) => indesign.resolve({ application: Option.some(name), pid: Option.none() }))),
         depends: Option.match({ onNone: () => Effect.succeed([]), onSome: indesign.depends }),
     })(tool, typeset);

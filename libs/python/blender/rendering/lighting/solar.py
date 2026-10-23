@@ -1,4 +1,4 @@
-"""NOAA sun positions, solar days, sun paths, and sun studies of a site."""
+"""NOAA sun positions, solar days, sun paths, and studies."""
 
 import calendar
 import datetime
@@ -22,7 +22,7 @@ type SunStudy = DayStudy | SeasonStudy
 
 
 class Polar(Enum):
-    """Day on which the sun crosses no horizon."""
+    """Day sun crosses no horizon."""
 
     DAY = auto()
     NIGHT = auto()
@@ -37,35 +37,35 @@ DAY_SECONDS: Final = datetime.timedelta(days=1).total_seconds()
 
 
 class Site(msgspec.Struct, frozen=True, kw_only=True):
-    """Place on Earth with the time zone of its clock."""
+    """Place on Earth with clock time zone."""
 
-    latitude: Annotated[Elevation, msgspec.Meta(description="Angle north of the equator")] = 0.0
+    latitude: Annotated[Elevation, msgspec.Meta(description="Angle north of equator")] = 0.0
     longitude: Annotated[Turn, msgspec.Meta(description="Angle east of Greenwich")] = 0.0
     north: Annotated[Turn, msgspec.Meta(description="True north counterclockwise from +Y")] = 0.0
-    zone: Annotated[str, msgspec.Meta(title="Time Zone", description="IANA time zone of the site's clock")] = "UTC"
+    zone: Annotated[str, msgspec.Meta(title="Time Zone", description="IANA time zone of site clock")] = "UTC"
 
 
 class LocalTime(msgspec.Struct, frozen=True, kw_only=True):
-    """Calendar date and clock time on a site's clock."""
+    """Calendar date and time on site clock."""
 
-    year: Annotated[int, msgspec.Meta(ge=datetime.MINYEAR, le=datetime.MAXYEAR, description="Calendar year")] = 2000
-    month: Annotated[int, msgspec.Meta(ge=1, le=12, description="Month of the year")] = 1
-    day: Annotated[int, msgspec.Meta(ge=1, le=31, description="Day of the month, continuing into the next month past its end")] = 1
-    hour: Annotated[int, msgspec.Meta(ge=0, le=23, description="Hour on the site's clock")] = 12
-    minute: Annotated[int, msgspec.Meta(ge=0, le=59, description="Minute of the hour")] = 0
+    year: Annotated[int, msgspec.Meta(ge=datetime.MINYEAR, le=datetime.MAXYEAR)] = 2000
+    month: Annotated[int, msgspec.Meta(ge=1, le=12)] = 1
+    day: Annotated[int, msgspec.Meta(ge=1, le=31, description="Day of month, rolling into next month")] = 1
+    hour: Annotated[int, msgspec.Meta(ge=0, le=23, description="Hour on site clock")] = 12
+    minute: Annotated[int, msgspec.Meta(ge=0, le=59)] = 0
 
     @property
     def date(self) -> datetime.date:
-        """Calendar date the fields state."""
+        """Calendar date, days past month end rolling forward."""
         return datetime.date(self.year, self.month, 1) + datetime.timedelta(days=self.day - 1)
 
     def moment(self, zone: zoneinfo.ZoneInfo) -> datetime.datetime:
-        """Forms the aware wall time on the admitted site's clock."""
+        """Returns aware wall time in zone."""
         return datetime.datetime.combine(self.date, datetime.time(self.hour, self.minute), tzinfo=zone)
 
 
 class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """True azimuth and geometric elevation at the site's moments, in radians."""
+    """True azimuth and geometric elevation in radians."""
 
     azimuth: npt.NDArray[np.float64]
     elevation: npt.NDArray[np.float64]
@@ -75,18 +75,18 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @property
     def rotation(self) -> npt.NDArray[np.float64]:
-        """Clockwise angle from scene +Y for the sky and lamp."""
+        """Clockwise angle from scene +Y for sky and lamp."""
         return self.azimuth - self.north
 
     @property
     def vectors(self) -> npt.NDArray[np.float64]:
-        """Unit vectors toward the sun in scene axes, shaped (..., 3), +Z up."""
+        """Unit vectors toward sun in scene axes, shaped (..., 3), +Z up."""
         rotation, horizontal = self.rotation, np.cos(self.elevation)
         return np.stack((np.sin(rotation) * horizontal, np.cos(rotation) * horizontal, np.sin(self.elevation)), axis=-1)
 
     @staticmethod
     def equatorial(longitude: float, seconds: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Returns NOAA declination and hour angle for POSIX seconds and east longitude."""
+        """Returns NOAA declination and hour angle."""
         days = seconds / DAY_SECONDS
         t = (days - 10957.5) / 36525.0
         mean = np.radians(np.mod(280.46646 + t * (36000.76983 + t * 0.0003032), 360.0))
@@ -110,7 +110,7 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, site: Site, declination: npt.NDArray[np.float64], hour: npt.NDArray[np.float64]) -> Self:
-        """Forms pole-safe positions from declination and hour angle, unwrapping time last."""
+        """Returns pole-safe positions, azimuth unwrapped along time axis."""
         sine, cosine = np.sin(declination), np.cos(declination)
         latitude_sine, latitude_cosine = math.sin(site.latitude), math.cos(site.latitude)
         meridian = cosine * np.cos(hour)
@@ -121,13 +121,13 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def at(cls, site: Site, seconds: npt.NDArray[np.float64]) -> Self:
-        """Returns positions shaped as the POSIX seconds, with time on the last axis."""
+        """Returns positions shaped as POSIX seconds, time on last axis."""
         return cls.of(site, *cls.equatorial(site.longitude, seconds))
 
     # --- [REFRACTION]
 
     def apparent(self) -> Self:
-        """Returns the position with NOAA atmospheric refraction added to elevation."""
+        """Adds NOAA atmospheric refraction to elevation."""
         degrees = np.degrees(self.elevation)
         band = np.digitize(degrees, (-0.575, 5.0, 85.0), right=True)
         arcseconds = np.piecewise(
@@ -144,21 +144,21 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Daylight(msgspec.Struct, frozen=True, kw_only=True):
-    """Sunrise and sunset of a day the sun crosses the horizon."""
+    """Sunrise and sunset."""
 
     sunrise: datetime.datetime
     sunset: datetime.datetime
 
 
 class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
-    """Solar noon of a local date with its daylight or polar case."""
+    """Solar noon with daylight or polar case."""
 
     noon: datetime.datetime
     light: Daylight | Polar
 
     @classmethod
     def of(cls, site: Site, date: datetime.date, zone: zoneinfo.ZoneInfo) -> RenderingResult[Self]:
-        """Returns local solar noon and horizon crossings, or native calendar overflow."""
+        """Solves solar noon and horizon crossings, time fault on overflow."""
         side = np.array([0.0, -1.0, 1.0], dtype=np.float64)
         latitude_sine, latitude_cosine = math.sin(site.latitude), math.cos(site.latitude)
         horizon = math.cos(math.radians(90.833))
@@ -188,7 +188,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Hourly analemmas and the year's above-horizon sky band in scene unit vectors."""
+    """Hourly analemmas and yearly sky band as scene unit vectors."""
 
     spacing: ClassVar[float] = math.radians(1.0)
     analemmas: npt.NDArray[np.float64]
@@ -196,7 +196,7 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @property
     def faces(self) -> npt.NDArray[np.int64]:
-        """Surface quads as index rows of four corners."""
+        """Sky band quads as rows of four corner indices."""
         grid = np.arange(math.prod(self.surface.shape[:2]), dtype=np.int64).reshape(self.surface.shape[:2])
         return np.stack((grid[:-1, :-1], grid[:-1, 1:], grid[1:, 1:], grid[1:, :-1]), axis=-1).reshape(-1, 4)
 
@@ -218,19 +218,19 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class DayStudy(Case, frozen=True, kw_only=True, tag=1):
-    """Moments stepped in minutes of elapsed time from the start."""
+    """Moments stepped by elapsed minutes."""
 
     title = "Day"
-    start: Annotated[LocalTime, msgspec.Meta(description="Date and clock time of the first frame")] = LocalTime(hour=6)
+    start: Annotated[LocalTime, msgspec.Meta(description="Date and time of first frame")] = LocalTime(hour=6)
     minutes: Annotated[int, msgspec.Meta(ge=1, le=1440, title="Step", description="Minutes between frames")] = 30
     frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
 
 
 class SeasonStudy(Case, frozen=True, kw_only=True, tag=2):
-    """One moment per stepped date at the start's clock time in the site's zone."""
+    """Moments stepped by days at one clock time."""
 
     title = "Season"
-    start: Annotated[LocalTime, msgspec.Meta(description="First date and the clock time of every frame")] = LocalTime(hour=6)
+    start: Annotated[LocalTime, msgspec.Meta(description="First date and clock time of every frame")] = LocalTime(hour=6)
     days: Annotated[int, msgspec.Meta(ge=1, le=366, title="Step", description="Days between frames")] = 30
     frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
 
@@ -239,7 +239,7 @@ class SeasonStudy(Case, frozen=True, kw_only=True, tag=2):
 
 
 def moments(study: SunStudy, zone: zoneinfo.ZoneInfo) -> RenderingResult[tuple[datetime.datetime, ...]]:
-    """Returns every study moment, or the native overflow of its complete sequence."""
+    """Returns study moments, time fault on overflow."""
     first = study.start.moment(zone)
     match study:
         case DayStudy(minutes=minutes):

@@ -1,4 +1,4 @@
-"""Persistent main-loop work held by an extension's registration scope."""
+"""Persistent main-loop timers under registration scope."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -15,29 +15,29 @@ from blender.bpy.faults import BlenderResult
 
 
 class Timer(msgspec.Struct, frozen=True, kw_only=True):
-    """Main-loop work first run after its first interval, answering its next interval, absent to stop."""
+    """Main-loop work returning next interval, Nothing to stop."""
 
     body: Callable[[], BlenderResult[Option[float]]]
     first_interval: float = 0.0
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds one persistent timer acquisition.
+        """Builds timer acquisition.
 
         Args:
-            identity: Extension whose reports hold callback failures.
+            identity: Extension with reports holding callback faults.
 
         Returns:
-            Ok of one timer-band acquisition, idle in background mode where Blender runs no event loop.
+            Ok of one timer-band acquisition, idle in background mode.
         """
         body = identity.reports.reported(self.body)
 
         def ticked() -> float | None:
-            """Translates the reported interval into Blender's timer answer."""
+            """Returns next interval, or `None` to stop timer."""
             return body().bind(lambda interval: interval).to_optional()
 
         @contextmanager
         def registered() -> Generator[None]:
-            """Holds the timer until it stops or the registration scope closes."""
+            """Holds timer until it stops or registration scope closes."""
             bpy.app.timers.register(ticked, first_interval=self.first_interval, persistent=True)
             try:
                 yield

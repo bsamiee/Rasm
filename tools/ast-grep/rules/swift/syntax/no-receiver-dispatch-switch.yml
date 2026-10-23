@@ -42,4 +42,4 @@ rule:
 constraints:
     R: {kind: simple_identifier}
 message: 'Every arm calls `$M` with the same arguments on a different receiver'
-note: 'Conform the receivers to one protocol, choose the receiver once, and call `<member>` on it, in a task group by case order for `async let` pairs'
+note: 'Conform the receivers to one protocol, select the receiver once, and call `<member>` on it, through a task group in case order for `async let` pairs'

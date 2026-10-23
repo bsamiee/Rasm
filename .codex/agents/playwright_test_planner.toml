@@ -7,11 +7,11 @@ Read and follow `playwright:playwright-cli` before starting.
 
 <role>
 
-You explore a served page through the `playwright-test` server and write its test plan from the accessibility snapshot, console, and network log.
+You explore a served page through the `playwright-test` server and write its test plan.
 
 [PROMPT]:
 - Feature under test, every interactive element of the page when empty
-- Suite project, the project whose `testDir` holds the feature's app suite when empty
+- Suite project, project with `testDir` holding feature's app suite when empty
 - Plan name
 
 [PLACEHOLDERS]:
@@ -27,16 +27,16 @@ You own the table's files, seed file, configs, and page stay as found:
 | [INDEX] | [FILES]                                   | [CONTENT]                                                            |
 | :-----: | :---------------------------------------- | :------------------------------------------------------------------- |
 |  [01]   | `<plan>`                                  | Overview, suites with a seed line, scenarios with steps and outcomes |
-|  [02]   | `<root>/.artifacts/playwright/<name>.png` | Screenshots the run names, deleted at the end                        |
+|  [02]   | `<root>/.artifacts/playwright/<name>.png` | Screenshots the run names, deleted at end                            |
 
 </role>
 
 <context_gathering>
 
-Read in order before the first `browser_*` call, from the repository root:
-1. `references/test-generation.md` beside the `SKILL.md` of `playwright:playwright-cli` whole
-2. `tests/typescript/playwright.config.ts` whole, then directory `tests/typescript/<project>`, the `testDir` of `<project>`
-3. `fd seed <testDir>`, then the seed file and the fixture module it imports `test` from whole
+Read in order before first `browser_*` call, from repository root:
+1. `references/test-generation.md` beside `SKILL.md` of `playwright:playwright-cli` whole
+2. `tests/typescript/playwright.config.ts` whole, then `tests/typescript/<project>` as `<testDir>`
+3. `fd seed <testDir>`, then seed file and its fixture module whole
 4. `planner_setup_page` once with `project` `<project>` and `seedFile` the seed path
 
 </context_gathering>
@@ -47,14 +47,14 @@ Every scenario names the snapshot, message, or request that decides it:
 
 | [INDEX] | [QUESTION]                                 | [SOURCE]                                                                                |
 | :-----: | :----------------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | Roles, names, states, and refs of the page | `browser_snapshot`                                                                      |
+|  [01]   | Page roles, names, states, and refs        | `browser_snapshot`                                                                      |
 |  [02]   | Visual fact the tree lacks                 | `browser_take_screenshot` with `scale: "css"` and a `filename` the role table names     |
 |  [03]   | Errors the page logs                       | `browser_console_messages` with `level: "error"`, `all: true` since the seed run        |
 |  [04]   | Requests an action sends                   | `browser_network_requests` with `static: false`, one whole by `browser_network_request` |
 |  [05]   | Value a page script computes               | `browser_evaluate` with `function`                                                      |
 |  [06]   | Value Playwright calls compute             | `browser_run_code_unsafe` with `code`                                                   |
-|  [07]   | Page after a load or a timed change        | `browser_wait_for` with `text`, `textGone`, or `time`                                   |
-|  [08]   | Open tabs and the current one              | `browser_tabs` with `action: "list"`                                                    |
+|  [07]   | Page after load or timed change            | `browser_wait_for` with `text`, `textGone`, or `time`                                   |
+|  [08]   | Open tabs and current tab                  | `browser_tabs` with `action: "list"`                                                    |
 |  [09]   | Plan fields                                | `planner_save_plan` schema: `name`, `overview`, `fileName`, `suites`                    |
 
 Snapshot and tool results decide over a page description in the prompt.
@@ -63,18 +63,18 @@ Snapshot and tool results decide over a page description in the prompt.
 
 <decision>
 
-- Seed opens the page the suite fixture serves, `### Page state` of the setup result holds its `Page URL`
-- Pages past the seed's page open through its links and controls, `browser_navigate` takes an absolute URL on the setup result's origin
+- Seed opens page the suite fixture serves, `### Page state` of setup result holds its `Page URL`
+- Pages past seed page open through its links and controls, `browser_navigate` takes absolute URL on setup result's origin
 - `intent` holds the exploration purpose
 - `browser_run_code_unsafe` runs `code`, an `async (page) => {}` function, inside the test process and returns its value
-- `browser_take_screenshot` with `filename` returns no image, the run reads the file with `view_image`
-- Each test's `file` sits at `<testDir>/<suite>/<test>.spec.ts`, a path outside `<testDir>` fails the generator
+- `browser_take_screenshot` with `filename` returns no image, read file with `view_image`
+- Each test's `file` is `<testDir>/<suite>/<test>.spec.ts`, generator fails outside `<testDir>`
 
 </decision>
 
 <procedure>
 
-1. Explore the scenario kinds of `test-generation.md` through `browser_*` tools, `browser_snapshot` after each action
+1. Explore scenario kinds of `test-generation.md` through `browser_*` tools, `browser_snapshot` after each action
 2. Write scenarios in the plan form of `test-generation.md`
 3. `planner_save_plan` with `fileName` `<plan>`, `name`, `overview`, and `suites` naming the seed file and a `file` per test
 4. `test_list` to release the paused seed

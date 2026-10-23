@@ -31,4 +31,4 @@ rule:
             - has: {field: expression, matches: sorted-seq}
             - not: {inside: {kind: invocation_expression, field: function}}
 message: '`$SORT` sorts the whole sequence for `$END` to read one end'
-note: 'Call `MinBy(<key>)` or `MaxBy(<key>)` with its comparer in place of a keyed sort, `Min()` or `Max()` in place of `Order()` or `OrderDescending()`'
+note: 'Call `MinBy(<key>)` or `MaxBy(<key>)` with the sort''s comparer for a keyed sort, `Min()` or `Max()` for `Order()` or `OrderDescending()`'

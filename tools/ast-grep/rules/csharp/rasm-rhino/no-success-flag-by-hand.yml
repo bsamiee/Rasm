@@ -372,4 +372,4 @@ fix:
     template: $OPEN$NOT$SUCCEEDED$RUN$EFFECT$VOID$VOIDED, $ABSENT_TAIL$SITE)$CLOSE
     expandStart: {stopBy: end, any: [{kind: local_declaration_statement}, {kind: identifier, regex: '^_$', inside: {kind: assignment_expression}}]}
 message: 'Success flag at `$SITE` is $BUILT$DROPPED'
-note: 'Use `Callbacks.Succeeded(<effect>, [<absent>,] <site>)`, its negation for a failure flag, or `Callbacks.Run` for a discarded flag'
+note: 'Call `Callbacks.Succeeded(<effect>, [<absent>,] <site>)`, negated for a failure flag, `Callbacks.Run(<effect>, <site>)` for a discarded flag'

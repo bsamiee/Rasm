@@ -121,5 +121,5 @@ rule:
                 - all:
                     - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: other-effect}}
                     - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: unit-effect}}
-message: Branch on `$CONDITION` pairs a unit effect with another effect
-note: 'Write `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()`'
+message: 'Branch on `$CONDITION` pairs a no-op `Unit` effect with another effect'
+note: 'Write `when(<condition>, <effect>).As()`, or `unless(<condition>, <effect>).As()` where the effect runs on `false`'

@@ -53,5 +53,5 @@ rule:
                         - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: error-record}}, {has: {field: name, regex: '^Unless$'}}]}
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: tested, pattern: $TESTED}, not: {has: {pattern: $NAMED}}}}
 fix: nameof($RECEIVER)
-message: '`nameof($NAMED)` names the predicate `$PROP` that `$TESTED` reads in place of the checked value'
-note: 'Use `nameof(<receiver>)` of the value the predicate reads'
+message: '`nameof($NAMED)` names predicate `$PROP` in place of the value `$TESTED` reads'
+note: 'Write `nameof(<receiver>)` for the value the predicate reads'

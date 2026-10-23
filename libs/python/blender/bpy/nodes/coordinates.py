@@ -1,4 +1,4 @@
-"""Compositor image coordinates: camera frame positions, data-window pixel grids, and their Map UV placements."""
+"""Compositor camera frame positions, data-window pixel grids, and Map UV placements."""
 
 from typing import Literal
 
@@ -15,7 +15,7 @@ from blender.imaging.faults import paired
 
 
 class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
-    """Camera frame positions of a source: shares of the displayed greater side, frame fractions, that side in pixels, per-axis pixels, and the Map UV placement, each the built pair of its node."""
+    """Source camera frame in displayed greater-side shares, frame fractions, pixels, and Map UV placement."""
 
     point: tuple[Fragment, End]
     extent: tuple[Fragment, End]
@@ -27,7 +27,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PixelGrid(msgspec.Struct, frozen=True, kw_only=True):
-    """Data-window UV centres and increments, displayed pixel centres, and the single-value window offset, each with its native graph."""
+    """Data-window UV centers and steps, displayed pixel centers, and single-value window offset."""
 
     base: tuple[Fragment, End]
     inverse: tuple[Fragment, End]
@@ -35,15 +35,15 @@ class PixelGrid(msgspec.Struct, frozen=True, kw_only=True):
     offset: tuple[Fragment, End]
 
     def at(self, key: Key, offset: Operand, scale: Operand) -> BlenderResult[tuple[Fragment, End]]:
-        """Builds the Map UV coordinate `offset ⊙ scale + base` of a pixel offset.
+        """Builds Map UV coordinate `offset ⊙ scale + base`.
 
         Args:
-            key: Key of the result node.
-            offset: Operand of the offset in pixels.
-            scale: Operand of the grid's `inverse` or a signed multiple of it.
+            key: Result node key.
+            offset: Offset in pixels.
+            scale: Grid `inverse` or a signed multiple of it.
 
         Returns:
-            `Ok` of the fragment and its `Vector` end; `Error` of the faults `node` answers.
+            `Ok` of fragment and `Vector` end. `Error` of `node` faults.
         """
         return vector(key, "MULTIPLY_ADD", offset, scale, self.base)
 
@@ -52,16 +52,16 @@ class PixelGrid(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def framed(key: Key, source: Operand, aspect: Operand, scale: Operand = 1.0) -> BlenderResult[FrameSpace]:
-    """Builds the frame positions of the camera frame centred in a source, over its displayed frame.
+    """Builds positions of camera frame centered in source.
 
     Args:
-        key: Prefix of the build's node keys.
-        source: Operand of the image whose pixels the build reads.
-        aspect: Operand of the pixel aspect `pixel_aspect_x / pixel_aspect_y`.
-        scale: Operand of the camera frame's share of each side of the source, 1 for a source holding the camera frame alone.
+        key: Prefix of built node keys.
+        source: Image the build reads pixels from.
+        aspect: Pixel aspect `pixel_aspect_x / pixel_aspect_y`.
+        scale: Camera frame share of each source side, 1 for a source holding camera frame alone.
 
     Returns:
-        `Ok` of the source's `FrameSpace`, each field carrying the nodes upstream of it; `Error` of the faults `node` answers.
+        `Ok` of source `FrameSpace`, each field holding nodes upstream of it. `Error` of `node` faults.
     """
 
     def spaced(
@@ -112,43 +112,43 @@ def framed(key: Key, source: Operand, aspect: Operand, scale: Operand = 1.0) -> 
 
 
 def gridded(key: Key, image: Operand) -> BlenderResult[PixelGrid]:
-    """Builds data-window UVs, pixel centres, and the single-value window offset.
+    """Builds pixel grid of image.
 
     Args:
-        key: Prefix of the grid's node keys.
-        image: Operand of the image whose pixels the grid samples.
+        key: Prefix of grid node keys.
+        image: Image grid samples.
 
     Returns:
-        `Ok` of the grid, each field carrying the nodes upstream of it; `Error` of the faults `node` answers.
+        `Ok` of grid, each field holding nodes upstream of it. `Error` of `node` faults.
     """
     return _coordinates(key, image).map(lambda parts: parts[0])
 
 
 def sampled(key: Key, frame: FrameSpace, fraction: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Maps a camera frame fraction onto the Map UV coordinate of the source holding that frame, with coverage 1 in Z.
+    """Maps camera frame fraction to Map UV coordinate of source holding frame, coverage 1 in Z.
 
     Args:
-        key: Key of the result node.
-        frame: Frame space of the source the coordinate samples.
-        fraction: Operand of a position as fractions of the camera frame from its bottom-left corner.
+        key: Result node key.
+        frame: Frame space of sampled source.
+        fraction: Position as camera frame fractions from bottom-left corner.
 
     Returns:
-        `Ok` of the fragment and its `Vector` end; `Error` of the faults `node` answers.
+        `Ok` of fragment and `Vector` end. `Error` of `node` faults.
     """
     return vector(key, "MULTIPLY_ADD", fraction, frame.placing, frame.margin)
 
 
 def pixels(key: Key, frame: FrameSpace, length: Operand, kind: Literal["FLOAT", "VECTOR"] = "FLOAT") -> BlenderResult[tuple[Fragment, End]]:
-    """Converts a `FRAME_GREATER` length or offset into stored pixels of the frame space `framed` built.
+    """Converts `FRAME_GREATER` length or offset to stored pixels.
 
     Args:
-        key: Key of the result node, its axis split keyed `<key>_axes`.
-        frame: Frame space of the source the length measures.
-        length: Operand of a length, or of an offset or 2D size in displayed units.
-        kind: `FLOAT` for a length in stored X pixels, `VECTOR` for per-axis stored pixels.
+        key: Result node key, axis split keyed `<key>_axes`.
+        frame: `framed` space of measured source.
+        length: Length, offset, or 2D size in displayed units.
+        kind: `FLOAT` for stored X pixels, `VECTOR` for per-axis stored pixels.
 
     Returns:
-        `Ok` of the fragment and its pixel end; `Error` of the faults `node` answers.
+        `Ok` of fragment and pixel end. `Error` of `node` faults.
     """
     match kind:
         case "VECTOR":
@@ -158,19 +158,19 @@ def pixels(key: Key, frame: FrameSpace, length: Operand, kind: Literal["FLOAT", 
 
 
 def lensed() -> BlenderResult[Fragment]:
-    """Builds the active camera keyed `camera` and its camera info keyed `lens`."""
+    """Builds Active Camera node `camera` and Camera Info node `lens`."""
     return node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": ended("camera", "Active Camera")(camera)}, {}))
 
 
 def shorter(key: Key, extent: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds the smaller side of a 2D extent, its axis split keyed `<key>_sides`."""
+    """Builds smaller side of 2D extent, axis split keyed `<key>_sides`."""
     return node(f"{key}_sides", bpy.types.ShaderNodeSeparateXYZ, {"Vector": extent}, {}).bind(
         lambda sides: math(key, "MINIMUM", ended(f"{key}_sides", "X")(sides), End(node=f"{key}_sides", socket="Y"))
     )
 
 
 def _coordinates(key: Key, image: Operand) -> BlenderResult[tuple[PixelGrid, tuple[Fragment, End]]]:
-    """Builds native data and display coordinates over the realized source domain."""
+    """Builds data and display coordinates over realized source."""
     realized, coordinates, dimensions = item_key(key, "realized"), item_key(key, "coordinates"), item_key(key, "dimensions")
     information, offset = item_key(key, "information"), item_key(key, "window_offset")
 

@@ -118,5 +118,5 @@ rule:
         - all:
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
             - has: {field: function, pattern: $FAIL, matches: options-callee}
-message: '`$FAIL` fails with `$ERROR`, an error built from text'
-note: 'Fail with the error `Effect.tryPromise` or `Effect.fromOption` types, or with a tagged variant of typed fields where a consumer matches its case'
+message: '`$FAIL` fails with `$ERROR`, a literal or an error built from text'
+note: 'Fail with a tagged variant of typed fields, or with the error `Effect.tryPromise` or `Effect.fromOption` types'

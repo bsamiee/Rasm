@@ -1,4 +1,4 @@
-use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::{diagnostics::span_lint_hir_and_then, source::snippet};
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{
     def::DefKind,
@@ -26,25 +26,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 provided
             },
         );
-        let shared = provided.into_iter().filter(|(declared, constants)| {
-            matches!(tcx.associated_item(*declared).kind, AssocKind::Const { .. })
+        let shared = provided.into_iter().filter_map(|(declared, constants)| {
+            let &first = constants.first()?;
+            (matches!(tcx.associated_item(declared).kind, AssocKind::Const { .. })
                 && constants.len() > 1
                 && tcx.all_impls(tcx.parent(declared.to_def_id())).count() == constants.len()
-                && constants.array_windows().all(|&[earlier, later]| equal_bodies(cx, earlier, later, |_, _, _, _| false).is_some())
+                && constants.array_windows().all(|&[earlier, later]| equal_bodies(cx, earlier, later, |_, _, _, _| false).is_some()))
+            .then(|| (declared, snippet(cx, tcx.hir_body_owned_by(first).value.span, ".."), constants))
         });
-        for (declared, constants) in shared {
+        for (declared, value, constants) in shared {
             let (name, owner) = (tcx.item_name(declared), tcx.item_name(tcx.parent(declared.to_def_id())));
-            span_lint_hir_and_then(
-                cx,
-                DUPLICATE_TRAIT_CONSTANT,
-                tcx.local_def_id_to_hir_id(declared),
-                tcx.def_span(declared),
-                format!("every `{owner}` impl sets `{name}` to the same value"),
-                |diag| {
-                    diag.span_note(constants.iter().map(|&constant| tcx.def_span(constant)).collect::<Vec<_>>(), "set here");
-                    diag.help(format!("set the default of `{owner}::{name}` to the value and delete `{name}` from each impl"));
-                },
-            );
+            span_lint_hir_and_then(cx, DUPLICATE_TRAIT_CONSTANT, tcx.local_def_id_to_hir_id(declared), tcx.def_span(declared), format!("every `{owner}` impl sets `{name}` to `{value}`"), |diag| {
+                diag.span_note(constants.iter().map(|&constant| tcx.def_span(constant)).collect::<Vec<_>>(), "set here");
+                diag.help(format!("set the default of `{owner}::{name}` to `{value}` and delete `{name}` from each impl"));
+            });
         }
     }
 }

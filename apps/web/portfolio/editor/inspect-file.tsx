@@ -28,11 +28,11 @@ const inspectFile = Effect.fn('inspectFile')(
                 new Cause.UnknownError(
                     error,
                     Match.value({ error, mime }).pipe(
-                        Match.when({ error: { _tag: 'InspectError', reason: { _tag: 'Protected' } } }, () => 'This PDF is password protected and was not added. Remove it and add an unlocked export.'),
-                        Match.when({ error: { _tag: 'InspectError' }, mime: Match.is(...PdfAsset.fields.mime.literals) }, () => 'This PDF could not be read and was not added. Remove it and add a fresh PDF export.'),
-                        Match.when({ error: { _tag: 'InspectError' }, mime: Match.is(...VideoAsset.fields.mime.literals) }, () => 'This browser cannot play the video, so it was not added. Remove it, export it as H.264 MP4 or VP9 WebM, and add the export.'),
-                        Match.when({ error: { _tag: 'InspectError' } }, () => 'This image could not be read and was not added. Remove it and add a fresh export.'),
-                        Match.orElse(() => 'This file could not be read and was not added. Retry it, or remove it and add it again.'),
+                        Match.when({ error: { _tag: 'InspectError', reason: { _tag: 'Protected' } } }, () => 'PDF is password protected. Remove it and add unlocked export'),
+                        Match.when({ error: { _tag: 'InspectError' }, mime: Match.is(...PdfAsset.fields.mime.literals) }, () => 'Browser cannot read PDF. Remove it and add new export'),
+                        Match.when({ error: { _tag: 'InspectError' }, mime: Match.is(...VideoAsset.fields.mime.literals) }, () => 'Browser cannot play video. Remove it and add H.264 MP4 or VP9 WebM export'),
+                        Match.when({ error: { _tag: 'InspectError' } }, () => 'Browser cannot read image. Remove it and add new export'),
+                        Match.orElse(() => 'Browser cannot read file. Retry or add it again'),
                     ),
                 ),
         ),

@@ -50,4 +50,4 @@ fix:
     template: $PROGRAM
     expandEnd: {regex: '^,$', not: {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: runner-step}}}}}
 message: '`$DIE` turns the failure into a defect that `$RUN` squashes to the same thrown value'
-note: 'Run the program itself, `Effect.runPromise` and `Effect.runSync` accept any error type and throw a cause''s first failure or first defect alike'
+note: 'Remove `Effect.orDie` or the dying `Effect.catch` and pass the failing program to the runner'

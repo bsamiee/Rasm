@@ -18,14 +18,14 @@ from blender.imaging.parameters import Choice
 
 
 class Role(Choice):
-    """What a pass holds, deciding its stored type."""
+    """Pass content deciding stored type."""
 
     COLOR = 1
     DATA = 2
 
 
 class Layout(Choice):
-    """How a file holds its passes."""
+    """Pass arrangement in file."""
 
     PARTS = 1, "Multipart"
     INTERLEAVED = 2
@@ -35,7 +35,7 @@ class Layout(Choice):
 
 
 class Pass(msgspec.Struct, frozen=True, kw_only=True):
-    """Pass a write stores: its layer name, channel ids, and role."""
+    """Pass to write."""
 
     layer: str
     channels: tuple[str, ...]
@@ -43,7 +43,7 @@ class Pass(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Window(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame inside a larger data window: its offset and size."""
+    """Frame offset and size inside data window."""
 
     x: int
     y: int
@@ -52,14 +52,14 @@ class Window(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Channel(msgspec.Struct, frozen=True, kw_only=True):
-    """Channel id and its position among its part's channels."""
+    """Channel ID and index among part channels."""
 
     name: str
     index: int
 
 
 class Layer(msgspec.Struct, frozen=True, kw_only=True):
-    """Channels of one part sharing the text before their last dot."""
+    """Part channels sharing name before last dot."""
 
     part: int
     name: str
@@ -67,7 +67,7 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Part(msgspec.Struct, frozen=True, kw_only=True):
-    """One part of a file: its size, channel names, and string header attributes."""
+    """File part with string header attributes."""
 
     index: int
     width: int
@@ -77,14 +77,14 @@ class Part(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
-    """Parts of a multilayer file at its path."""
+    """Multilayer file path and parts."""
 
     path: str
     parts: tuple[Part, ...]
 
     @property
     def layers(self) -> tuple[Layer, ...]:
-        """Every part's layers in channel order."""
+        """Part layers in channel order."""
         return tuple(
             Layer(
                 part=part.index, name=name, channels=tuple(Channel(name=channel.rpartition(".")[2], index=index) for index, channel in enumerate(part.channels) if channel.rpartition(".")[0] == name)
@@ -101,7 +101,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             path: File to index.
 
         Returns:
-            The file's parts; the `read` case holding the path and OpenImageIO's text.
+            Indexed file, or `read` fault.
         """
 
         def indexed(image: OpenImageIO.ImageInput) -> ImagingResult[Self]:
@@ -121,14 +121,14 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         return opened(path, indexed)
 
     def plane(self, layer: Layer, channels: tuple[Channel, ...]) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Reads channels of one layer as a float32 plane in the order given.
+        """Reads layer channels as float32 plane.
 
         Args:
-            layer: Layer holding the channels.
-            channels: Channels of the layer in the order the plane holds them.
+            layer: Layer holding channels.
+            channels: Layer channels in plane order.
 
         Returns:
-            The `(height, width, len(channels))` plane; the `read` case holding the path and OpenImageIO's text.
+            `(height, width, len(channels))` plane, or `read` fault.
         """
         first, last = min(channel.index for channel in channels), max(channel.index for channel in channels) + 1
 
@@ -149,19 +149,19 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 def written(
     path: str, passes: tuple[Pass, ...], layout: Layout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], ImagingResult[npt.NDArray[np.float32]]]
 ) -> ImagingResult[str]:
-    """Writes passes to one file, each pass's plane supplied when its part writes.
+    """Writes passes to one file, reading each plane when its part writes.
 
     Args:
         path: File to write.
         passes: Passes in file order.
         layout: One part per pass, or every pass in one part.
-        storage: Stored type of color passes and the file's compression.
+        storage: Color pass stored type and file compression.
         size: Width and height of every pass.
-        fields: Text fields every part's header stores.
+        fields: Text fields stored in every part header.
         plane: Plane of a pass, read once per pass.
 
     Returns:
-        The path; the `write` case holding the path and OpenImageIO's text or the `OSError`.
+        Path, or `write` fault.
     """
     groups = tuple((item,) for item in passes) if layout is Layout.PARTS else (passes,)
     lossy = storage.compression.filter(lambda compression: compression.lossy).is_some()
@@ -187,16 +187,16 @@ def written(
 
 
 def rewritten(path: str, display: Option[Window], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compressions]) -> ImagingResult[str]:
-    """Publishes changed windows and channel names after reading and closing the original file.
+    """Rewrites windows and channel names after closing file, skipping unchanged files.
 
     Args:
         path: File to rewrite.
-        display: Frame inside the data window, `Nothing` keeping the windows the file holds.
-        channels: Pure channel-name transform for each native part, preserving order and channel count.
-        compression: Explicit codec the source owner knows but the reader omits, `Nothing` keeping the header's own.
+        display: Frame inside data window, `Nothing` keeping file windows.
+        channels: Pure channel-name transform per part, keeping order and count.
+        compression: Codec for parts whose header names none, `Nothing` adding none.
 
     Returns:
-        The path; the `read` or `write` case holding the path and OpenImageIO's text or the `OSError`.
+        Path, or `read` or `write` fault.
     """
 
     def parts(image: OpenImageIO.ImageInput) -> ImagingResult[Option[tuple[Subimage[np.float32], ...]]]:

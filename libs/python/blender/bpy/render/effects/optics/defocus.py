@@ -1,4 +1,4 @@
-"""Camera and spatial defocus fields, shared iris geometry, and native bokeh gathering."""
+"""Camera and spatial defocus fields, shared iris geometry, and bokeh gathering."""
 
 from math import pi, tau
 
@@ -29,17 +29,16 @@ def outlined(
     """Returns outer and obstructed inner iris boundary fields.
 
     Args:
-        key: Prefix of the boundary's native node keys.
-        point: Iris-centered XY position, with squeeze and reflection already applied.
-        radius: Circumradius in the position's units.
+        key: Node key prefix.
+        point: Iris-centered XY position after squeeze and reflection.
+        radius: Circumradius in position units.
         blades: Polygon side count.
-        rotation: Clockwise turn of a vertex from vertical.
-        roundness: Interpolation from the blade outline to a circle.
-        obstruction: Central mirror as a fraction of the outer outline.
+        rotation: Clockwise turn of vertex from vertical.
+        roundness: Blend from blade outline to circle.
+        obstruction: Central mirror as a share of outer outline.
 
     Returns:
-        Signed outer and inner offsets, positive outside each boundary, with their
-        shared graph, or accumulated native construction faults.
+        Signed outer and inner offsets, positive outside each boundary, with shared graph, or accumulated graph faults.
     """
     polar = node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {}).bind(
         lambda axes: math(f"{key}_angle", "ARCTAN2", ended(f"{key}_axes", "Y")(axes), End(node=f"{key}_axes", socket="X"))
@@ -81,16 +80,16 @@ def outlined(
 
 
 def iris[R: Effect](key: Key, shell: Shell[R], *path: Key, shift: Operand = 0.0) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds the native Bokeh Image from the record's aperture panel.
+    """Builds Bokeh Image node from aperture panel.
 
     Args:
-        key: Identity of the Bokeh Image node.
-        shell: Group source and native field endpoints.
-        *path: Aperture panel's path from the record root.
-        shift: Native bokeh color shift.
+        key: Bokeh Image node key.
+        shell: Group source and field endpoints.
+        *path: Aperture panel path from record root.
+        shift: Bokeh color shift.
 
     Returns:
-        The bokeh image and graph, or native construction faults.
+        Bokeh image and graph, or graph faults.
     """
     blades, rotation, roundness, obstruction = Aperture.__struct_fields__
     return node(
@@ -114,7 +113,7 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
         shell: Source image, physical frame measures, focus cases, and field sockets.
 
     Returns:
-        The gathered image and graph, or accumulated native construction faults.
+        Gathered image and graph, or accumulated graph faults.
     """
     inlet = shell.socket
     focus, aperture, radius_field, fringe = Defocus.__struct_fields__
@@ -203,7 +202,7 @@ def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def matched(call: Call[Named]) -> BlenderResult[Outcome]:
-    """Copies scene-camera aperture settings into a named defocus entry."""
+    """Copies scene camera f-stop and iris into named entry."""
 
     def converted(camera: bpy.types.Camera, held: Entry[Defocus]) -> BlenderResult[Entry[Defocus]]:
         (f_stop_field,) = msgspec.structs.fields(DepthOfField)
@@ -234,11 +233,7 @@ def matched(call: Call[Named]) -> BlenderResult[Outcome]:
                 .bind(lambda held: converted(found[0], held))
                 .bind(lambda record: defocus.write(call.identity, scene, found[1], record))
                 .map(
-                    lambda changed: (
-                        Done(notes=(("INFO", f"{found[1].name} takes the f-stop and iris of {found[0].name}"),))
-                        if changed
-                        else Unchanged(reason=f"{found[1].name} already holds the f-stop and iris of {found[0].name}")
-                    )
+                    lambda changed: Done(notes=(("INFO", f"Copied f-stop and iris from {found[0].name}"),)) if changed else Unchanged(reason=f"{found[1].name} matches {found[0].name} f-stop and iris")
                 )
             )
         )
@@ -255,8 +250,8 @@ defocus: CompositorEffect[Defocus] = CompositorEffect(
     requested=Some(lambda _record, layer: PassRequest.depth(layer, precise=True)),
     cameras={"dof.use_dof": False},
     registrables=(
-        Operator(key="match_camera_iris", title="Match Camera", description="Sets f-stop and iris from the scene camera", form=Named, run=matched),
-        inspection(lambda: defocus, "defocus_radius", "View Defocus Radius", "Shows the radius gathered at each pixel", lambda: End(node="select", socket="Output")),
+        Operator(key="match_camera_iris", title="Match Camera", description="Set f-stop and iris from scene camera", form=Named, run=matched),
+        inspection(lambda: defocus, "defocus_radius", "View Defocus Radius", "Gather radius per pixel", lambda: End(node="select", socket="Output")),
     ),
 )
 

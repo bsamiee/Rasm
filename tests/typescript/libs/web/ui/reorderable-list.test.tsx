@@ -19,7 +19,7 @@ const _sheets = async () => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('moves one item after a later target and before an earlier one through the move menu', async () => {
+it('moves one item past later and earlier targets through Move menu', async () => {
     const { screen, move, order } = await _sheets();
     await move(0, 'Detail');
     expect(order()).toEqual(['section', 'detail', 'plan']);
@@ -34,14 +34,14 @@ it('moves one item after a later target and before an earlier one through the mo
         )
         .toEqual(['plan', 'section', 'detail']);
 });
-it('moves a selected block as one and keeps its relative order', async () => {
+it('moves selected items as one block in relative order', async () => {
     const { select, move, order } = await _sheets();
     await select('Plan');
     await select('Section');
     await move(0, 'Detail');
     expect(order()).toEqual(['detail', 'plan', 'section']);
 });
-it('renders actions only while a selection exists and counts the selected keys', async () => {
+it('renders actions only during selection with selected count', async () => {
     const { screen, select } = await _sheets();
     await expect.element(screen.getByRole('status')).not.toBeInTheDocument();
     await select('Section');
@@ -49,7 +49,7 @@ it('renders actions only while a selection exists and counts the selected keys',
     await select('Section');
     await expect.element(screen.getByRole('status')).not.toBeInTheDocument();
 });
-it('disables moving when the selection covers every item', async () => {
+it('disables moving when selection covers every item', async () => {
     const { screen, select } = await _sheets();
     await select('Plan');
     await select('Section');
@@ -63,17 +63,17 @@ it('disables moving when the selection covers every item', async () => {
         )
         .toEqual([true, true, true]);
 });
-it('disables moving in a list of one item', async () => {
+it('disables moving in one-item list', async () => {
     const screen = await render(<Single.Component />);
     await expect.element(screen.getByRole('button', { name: 'Move' })).toBeDisabled();
 });
-it('reorders through a pointer drag of a row onto the lower half of a later row', async () => {
+it('reorders by pointer drag onto lower half of later row', async () => {
     const { screen, order } = await _sheets();
     const target = screen.getByRole('row', { name: 'Detail' });
     await userEvent.dragAndDrop(screen.getByRole('row', { name: 'Plan' }), target, { targetPosition: { x: 1, y: target.element().getBoundingClientRect().height - 2 } });
     expect(order()).toEqual(['section', 'detail', 'plan']);
 });
-it('reorders through keyboard drag and drop from the drag button, starting at the dragged position', async () => {
+it('reorders by keyboard drag and drop from drag button starting at dragged row', async () => {
     const { screen, order } = await _sheets();
     await userEvent.tab();
     await userEvent.keyboard('{ArrowRight}{ArrowRight}');
@@ -81,7 +81,7 @@ it('reorders through keyboard drag and drop from the drag button, starting at th
     await userEvent.keyboard('{Enter}{ArrowDown}{Enter}');
     expect(order()).toEqual(['section', 'plan', 'detail']);
 });
-it('exposes the grid, its rows, and their controls by role and name', async () => {
+it('exposes grid, rows, and row controls by role and name', async () => {
     const { screen } = await _sheets();
     await expect.element(screen.getByRole('grid', { name: 'Sheets' })).toMatchAriaInlineSnapshot(`
       - grid "Sheets":

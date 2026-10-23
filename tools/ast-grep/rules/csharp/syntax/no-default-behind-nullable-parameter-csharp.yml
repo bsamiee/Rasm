@@ -140,5 +140,5 @@ rule:
                         - has: {kind: modifier, regex: '^(override|abstract|extern)$'}
                         - has: {kind: explicit_interface_specifier}
                 has: {field: body, has: {stopBy: end, any: [{matches: resolution}, {matches: relayed}], all: [{matches: unshadowed}]}}
-message: 'Parameter `$PARAMETER` accepts null and the body resolves null to `$DEFAULT`'
-note: Use a constant default in the signature, else `Option<T>` resolved with `IfNone` at its boundary or one overload per case
+message: 'Parameter `$PARAMETER` defaults to null and the body resolves null to `$DEFAULT`'
+note: 'Set the default in the signature when constant, else take `Option<T>` resolved with `IfNone` or declare one overload per case'

@@ -91,7 +91,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             ])}`,
         ]);
     });
-    it.effect('composes a store whose client names camelCase fields as snake_case columns in every statement form', () =>
+    it.effect('maps camelCase fields to snake_case columns in every statement form', () =>
         Effect.gen(function* () {
             const sql = yield* SqlClient.SqlClient;
             yield* atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
@@ -100,7 +100,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.deepStrictEqual(yield* sql.withoutTransforms()`SELECT parent_id FROM children`, [{ parent_id: 'p' }]);
         }).pipe(Effect.provide(store(declared(parents, children), client))),
     );
-    define('creates declared tables in an empty store, enforces references, and decodes rows', (applyCatalog, _, sql) =>
+    define('creates declared tables with enforced references and decoded rows', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             assert.deepStrictEqual(yield* children.select('parentId', ['p']), [
@@ -110,7 +110,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.isTrue((yield* Effect.flip(sql`INSERT INTO children ${sql.insert({ id: 'c', parentId: 'missing', rank: 3 })}`))._tag === 'SqlError');
         }),
     );
-    define('renames declared columns and tables and keeps every row', (applyCatalog) =>
+    define('renames declared tables and columns keeping rows', (applyCatalog) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             assert.deepStrictEqual(yield* applyCatalog(declared(renamed, kids)), { tables: [], columns: [], indexes: [], references: [] });
@@ -119,7 +119,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.isTrue((yield* Effect.flip(rows('children')))._tag === 'SqlError');
         }),
     );
-    define('renames back with every row when an older catalog runs after a rename', (applyCatalog, _, sql) =>
+    define('renames back keeping rows when older catalog runs after rename', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             yield* applyCatalog(declared(renamed, kids));
@@ -137,7 +137,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             );
         }),
     );
-    define('keeps a newer column and its data when an older catalog reconciles after it', (applyCatalog, _, sql) =>
+    define('keeps newer column and data when older catalog reconciles', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             yield* applyCatalog(declared(extended, kids));
@@ -151,7 +151,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             ]);
         }),
     );
-    define('drops a declared retired column and table and retypes a declared column with its rows', (applyCatalog) =>
+    define('drops retired column and table and retypes column keeping rows', (applyCatalog) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             yield* applyCatalog(declared(extended, kids));
@@ -165,7 +165,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.isTrue((yield* Effect.flip(rows('kids')))._tag === 'SqlError');
         }),
     );
-    define('keeps a re-added column that reuses a retired name when the retiring catalog runs again', (applyCatalog, _, sql) =>
+    define('keeps re-added column with retired name when retiring catalog runs again', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             yield* applyCatalog(declared(extended, kids));
@@ -178,7 +178,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open', extra: 7 }]);
         }),
     );
-    define('plans nothing when the store already matches its catalog', (applyCatalog) =>
+    define('plans nothing when store matches catalog', (applyCatalog) =>
         Effect.gen(function* () {
             const full = declared(extended, kids, accounts, events, notes, values, blobs);
             yield* seeded(applyCatalog);
@@ -193,13 +193,13 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.deepStrictEqual(yield* shape, before);
         }),
     );
-    define('settles concurrent reconciles of one catalog', () =>
+    define('finishes concurrent reconciles of one catalog', () =>
         Effect.gen(function* () {
             yield* Effect.all([apply(declared(parents, children), Option.none()), apply(declared(parents, children), Option.none())], { concurrency: 'unbounded' });
             assert.deepStrictEqual(yield* rows('children'), []);
         }),
     );
-    define('keeps every row and column when two catalogs rebuild and extend one table concurrently', (applyCatalog) =>
+    define('keeps rows and columns when concurrent catalogs rebuild and extend one table', (applyCatalog) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             const [extension, rebuild] = yield* Effect.all([Effect.exit(apply(declared(annotated, children), Option.none())), Effect.exit(apply(declared(reopened, children), Option.none()))], { concurrency: 'unbounded' });
@@ -208,7 +208,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.deepStrictEqual((yield* rows('children')).length, 2);
         }),
     );
-    define('refuses a new required column without a default, and a tenant table and a search over a non-integer key outside PostgreSQL', (applyCatalog, _, sql) =>
+    define('refuses added required column without default on every store, tenant tables and non-integer search keys outside PostgreSQL', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             yield* seeded(applyCatalog);
             const refused = (catalog: Catalog) => Effect.map(Effect.flip(apply(catalog, Option.none())), (error) => error._tag === 'ReconcileError' && error.findings);
@@ -226,7 +226,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             );
         }),
     );
-    define('stores 64-bit integers, JSON keys, bytes, instants, booleans, options, and bounded values on every store', (applyCatalog, _, sql) =>
+    define('stores 64-bit integers, JSON keys, bytes, instants, booleans, options, and bounded values', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             const written = Array.map(['2026-10-17T12:00:00.123Z', '1969-07-20T20:17:40.500Z'] as const, (at, index) => ({
                 id: `019a0000-0000-7000-8000-00000000000${index}`,
@@ -251,7 +251,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.isTrue((yield* Effect.flip(sql`UPDATE ${sql('values')} SET code = 'abc'`))._tag === 'SqlError');
         }),
     );
-    define('writes and reads collections through one parameter with upsert, delete, and latest per key', (applyCatalog) =>
+    define('writes and reads collections as one parameter with upsert, remove, and latest per key', (applyCatalog) =>
         Effect.gen(function* () {
             const volume = 150;
             const tenants = [2, 0, 1] as const;
@@ -271,7 +271,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.deepStrictEqual((yield* events.select('tenant', tenants)).length, volume - volume / tenants.length);
         }),
     );
-    define('enforces partial case-insensitive unique keys and reads JSON projections', (applyCatalog) =>
+    define('enforces partial case-insensitive unique keys and reads virtual columns from JSON', (applyCatalog) =>
         Effect.gen(function* () {
             yield* applyCatalog(declared(accounts));
             const account = (id: string, email: string, deleted: boolean) => ({ id, email, deletedAt: deleted ? DateTime.makeUnsafe('2026-10-17T00:00:00.000Z') : null, profile: { plan: 'pro' } });
@@ -283,7 +283,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             );
         }),
     );
-    define('searches declared text columns by words and by trigrams and follows updates', (applyCatalog, _, sql) =>
+    define('searches declared text columns by word and trigram across updates', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             yield* applyCatalog(declared(notes, fragments));
             const written = Array.make({ id: 1, title: 'Concrete shell', body: 'Thin vaults' }, { id: 2, title: 'Timber frame', body: 'Glulam beams' }, { id: 3, title: 'Café crème', body: 'Voûte mince' });
@@ -321,7 +321,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             orElse: () => Effect.void,
         }),
     );
-    define('moves a declared retype of 32-bit and text JSON columns to the current types with every row', (applyCatalog, _, sql) =>
+    define('retypes integer and text JSON columns to bigint and jsonb keeping rows', (applyCatalog, _, sql) =>
         sql.onDialectOrElse({
             pg: () =>
                 Effect.gen(function* () {

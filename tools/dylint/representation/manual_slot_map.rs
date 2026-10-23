@@ -7,7 +7,7 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, Ty, TyCtxt, print::with_forced_trimmed_paths};
 
 use crate::{Place, access, expanded_externally, impl_owner, path, place, resolve};
 
@@ -86,12 +86,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let tcx = cx.tcx;
         for (free, recycled) in mem::take(&mut self.free_lists) {
             let owner = tcx.local_parent(free);
-            if let Some(slots) = tcx.adt_def(owner).all_fields().filter_map(|field| field.did.as_local()).find(|&field| {
-                let declared = tcx.type_of(field).instantiate_identity().skip_normalization();
-                matches!(declared.kind(), ty::Adt(vector, args) if vector.is_diag_item(cx, sym::Vec) && option_arg_ty(cx, args.type_at(0)).is_some())
-            }) && recycled.iter().filter(|&&(_, body)| self.mutated.contains(&(slots, body))).map(|&(recycling, _)| recycling).collect::<FxHashSet<_>>().len() == 2
+            if let Some((slots, held)) =
+                tcx.adt_def(owner).all_fields().filter_map(|field| field.did.as_local()).find_map(|field| match tcx.type_of(field).instantiate_identity().skip_normalization().kind() {
+                    ty::Adt(vector, args) if vector.is_diag_item(cx, sym::Vec) => Some((field, option_arg_ty(cx, args.type_at(0))?)),
+                    _ => None,
+                })
+                && recycled.iter().filter(|&&(_, body)| self.mutated.contains(&(slots, body))).map(|&(recycling, _)| recycling).collect::<FxHashSet<_>>().len() == 2
             {
-                let (name, slots_name, free_name) = (tcx.item_name(owner), tcx.item_name(slots), tcx.item_name(free));
+                let (name, slots_name, free_name, held) = (tcx.item_name(owner), tcx.item_name(slots), tcx.item_name(free), with_forced_trimmed_paths!(held.to_string()));
                 span_lint_hir_and_then(
                     cx,
                     MANUAL_SLOT_MAP,
@@ -99,7 +101,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     tcx.def_span(owner),
                     format!("`{name}` tracks reusable indexes of `{slots_name}` in free list `{free_name}` by hand"),
                     |diag| {
-                        diag.help("hold `slotmap::SlotMap<K, T>`, `insert` returns a generational key and `remove` frees its slot");
+                        diag.help(format!("replace `{slots_name}` and `{free_name}` with one `slotmap::SlotMap<K, {held}>` keyed by a `slotmap::new_key_type!` key"));
                     },
                 );
             }

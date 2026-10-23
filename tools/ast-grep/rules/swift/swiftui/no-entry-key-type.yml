@@ -6,5 +6,5 @@ rule:
     kind: inheritance_specifier
     pattern: $KEY
     regex: '^(SwiftUI\.)?(EnvironmentKey|FocusedValueKey|TransactionKey|ContainerValueKey)$'
-message: '`$KEY` conformance declares a key type and an accessor by hand for one value entry'
-note: 'Declare `@Entry var <name>: <Value> = <default>` in the values extension, and `@Entry var <name>: <Value>?` in `FocusedValues`'
+message: '`$KEY` conformance declares a key type and accessor by hand'
+note: 'Declare `@Entry var <name>: <Value> = <default>` in the `<Values>` extension, `@Entry var <name>: <Value>?` in `FocusedValues`'

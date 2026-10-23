@@ -114,7 +114,7 @@ enum Failure {
     Decode { line: String, source: serde_path_to_error::Error<serde_json::Error> },
     #[error("bridge ended before listening\n{log}")]
     Unready { log: String },
-    #[error("MCP client initialization failed")]
+    #[error("MCP client handshake failed")]
     Initialize(#[from] Box<ClientInitializeError>),
     #[error("MCP request failed")]
     Request(#[from] ServiceError),
@@ -187,7 +187,7 @@ async fn tools_list_and_graceful_shutdown() -> Result<(), NEVec<Failure>> {
 }
 
 #[tokio::test]
-#[ignore = "requires the OTLP Collector container"]
+#[ignore = "requires OpenTelemetry Collector container"]
 async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
     let (otlp, health, file) = (4318_u16, 13133_u16, "/telemetry.jsonl");
     let config = json!({
@@ -217,7 +217,7 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
     let (event, log, pid) = exchange(Some(&endpoint), params).await?;
     assert_eq!([event.service.as_str(), event.instance.as_str()], [SERVICE, INSTANCE], "bridge resource ignored OTEL_SERVICE_NAME or OTEL_RESOURCE_ATTRIBUTES\n{log}");
     let correlated = log.lines().map(decode::<Correlated>).collect::<Validated<Vec<_>, _>>().ok()?;
-    assert!(correlated.iter().any(|line| line.context.as_ref().is_some_and(|context| TraceId::from_hex(&context.trace_id) == Ok(trace))), "no log line carries trace {trace}\n{log}");
+    assert!(correlated.iter().any(|line| line.context.as_ref().is_some_and(|context| TraceId::from_hex(&context.trace_id) == Ok(trace))), "no log line holds trace {trace}\n{log}");
     collector.stop().await.map_err(Failure::from)?;
     let (code, output, copied) = future::join3(collector.exit_code(), collector.stderr_to_vec(), collector.copy_file_from(file, Vec::new())).await;
     collector.rm().await.map_err(Failure::from)?;
@@ -245,7 +245,7 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
                 && span.parent_span_id == parent.to_bytes()
                 && span.kind() == SpanKind::Server
                 && method.iter().all(|attribute| span.attributes.contains(attribute))),
-        "no server span for tools/list joined trace {trace} under {parent} on the bridge resource\n{output}"
+        "no tools/list server span joined trace {trace} under span {parent} on bridge resource\n{output}"
     );
     assert!(
         exported
@@ -261,7 +261,7 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
                 _ => &[],
             })
             .any(|point| point.count > 0 && method.iter().all(|attribute| point.attributes.contains(attribute))),
-        "no tools/list operation duration recorded\n{output}"
+        "no mcp.server.operation.duration point recorded for tools/list\n{output}"
     );
     let records = exported
         .iter()
@@ -270,10 +270,10 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
         .flat_map(|resource| &resource.scope_logs)
         .flat_map(|scope| &scope.log_records)
         .collect::<Vec<_>>();
-    assert!(records.iter().any(|record| record.body == Some(AnyValue::from(Value::from("shutting down")))), "no shutdown log exported\n{output}");
+    assert!(records.iter().any(|record| record.body == Some(AnyValue::from(Value::from("shutting down")))), "no \"shutting down\" log record exported\n{output}");
     assert!(
         records.iter().any(|record| record.body == Some(AnyValue::from(Value::from("request completed"))) && method.iter().all(|attribute| record.attributes.contains(attribute))),
-        "request log carries no request span fields\n{output}"
+        "no \"request completed\" log record holds mcp.method.name=tools/list\n{output}"
     );
     Ok(())
 }

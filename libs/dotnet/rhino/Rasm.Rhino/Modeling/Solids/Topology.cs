@@ -97,7 +97,7 @@ public static class SolidTopology {
             booleanUnion: static (at, union) => Copies.Acquire(
                 Fin<Brep[]> () => Brep.CreateBooleanUnion(union.Breps, at.Tolerance, union.ManifoldOnly, out Point3d[] naked, out Point3d[] bad, out Point3d[] nonManifold) is { } results
                     ? results
-                    : new Refused(nameof(Brep.CreateBooleanUnion), string.Create(CultureInfo.InvariantCulture, $"answered nothing over {naked.Length} naked, {bad.Length} bad intersection, and {nonManifold.Length} non-manifold edge points")),
+                    : new Refused(nameof(Brep.CreateBooleanUnion), string.Create(CultureInfo.InvariantCulture, $"returned nothing, {naked.Length} naked edge, {bad.Length} bad intersection, {nonManifold.Length} non-manifold edge points")),
                 nameof(Brep.CreateBooleanUnion), at.Retain),
             booleanIntersection: static (at, intersection) => Copies.Acquire(() => Brep.CreateBooleanIntersection(intersection.First, intersection.Second, at.Tolerance, intersection.ManifoldOnly), nameof(Brep.CreateBooleanIntersection), at.Retain),
             booleanDifference: static (at, difference) => Copies.Acquire(() => Brep.CreateBooleanDifference(difference.First, difference.Second, at.Tolerance, difference.ManifoldOnly), nameof(Brep.CreateBooleanDifference), at.Retain),
@@ -326,7 +326,7 @@ public static class SolidTopology {
 
     public static IO<PointContainment> Containment(Brep brep, Point3d point, Tolerances tolerances) =>
         IO.lift(Fin<PointContainment> () =>
-            !brep.IsSolid ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Brep.IsPointInside)} requires a closed oriented manifold brep")
+            !brep.IsSolid ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Brep.IsPointInside)} requires solid brep")
             : brep.IsPointInside(point, tolerances.Absolute, strictlyIn: true) ? PointContainment.Inside
             : brep.IsPointInside(point, tolerances.Absolute, strictlyIn: false) ? PointContainment.Coincident
             : PointContainment.Outside);

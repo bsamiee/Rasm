@@ -44,44 +44,44 @@ class Lobe(Choice):
 
 
 class PerEmitter(Case, frozen=True, kw_only=True, tag=1):
-    """One group per holder, named by the holder."""
+    """Group per holder, named after holder."""
 
 
 class Shared(Case, frozen=True, kw_only=True, tag=2):
-    """One named group every holder of the kind joins."""
+    """Named group every holder of kind joins."""
 
-    name: Annotated[str, msgspec.Meta(min_length=1, title="Group", description="Light group every holder of the kind joins")] = "Emission"
+    name: Annotated[str, msgspec.Meta(min_length=1, title="Group", description="Group every holder joins")] = "Emission"
 
 
 class Ungrouped(Case, frozen=True, kw_only=True, tag=3):
-    """No light group, the holder's light reaching Combined alone."""
+    """No group, holder reaching Combined alone."""
 
     title = "None"
 
 
 class Membership(msgspec.Struct, frozen=True, kw_only=True):
-    """Light group rule per emitter kind and for the world."""
+    """Light group rule per emitter kind and world."""
 
-    lights: Annotated[Gated[Grouping], msgspec.Meta(description="Light group of each light object")] = Gated(enabled=True, value=PerEmitter())
-    emissive: Annotated[Gated[Grouping], msgspec.Meta(description="Light group of each emissive object")] = Gated(enabled=True, value=Shared())
-    world: Annotated[Gated[Grouping], msgspec.Meta(description="Light group of the world")] = Gated(enabled=True, value=PerEmitter())
+    lights: Annotated[Gated[Grouping], msgspec.Meta(description="Group of each light object")] = Gated(enabled=True, value=PerEmitter())
+    emissive: Annotated[Gated[Grouping], msgspec.Meta(description="Group of each emissive object")] = Gated(enabled=True, value=Shared())
+    world: Annotated[Gated[Grouping], msgspec.Meta(description="World light group")] = Gated(enabled=True, value=PerEmitter())
 
 
 class Assignment(msgspec.Struct, frozen=True, kw_only=True):
-    """Membership rule over the owners an assignment writes to."""
+    """Membership rule with owners it writes to."""
 
     membership: Annotated[Membership, msgspec.Meta(description="Light group rule per kind")] = Membership()
-    scope: Annotated[Scope, msgspec.Meta(description="Owners whose emitters and worlds take groups")] = Scenes()
+    scope: Annotated[Scope, msgspec.Meta(description="Owners to group")] = Scenes()
 
 
 class Split(msgspec.Struct, frozen=True, kw_only=True):
-    """Ray kinds a split light reaches through its own children."""
+    """Ray kinds split light reaches through children."""
 
-    lobes: Annotated[frozenset[Lobe], msgspec.Meta(description="Ray kinds each split light reaches through its own child")] = frozenset(Lobe)
+    lobes: Annotated[frozenset[Lobe], msgspec.Meta(description="Ray kinds with one split child each")] = frozenset(Lobe)
 
 
 class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
-    """Row of membership, member selection, and lobe split operators."""
+    """Light group operators and section."""
 
     children: ClassVar[dict[Lobe, Ownership[bpy.types.Object]]] = {lobe: Ownership(kind=bpy.types.Object, key=lobe.name.lower(), saved=Saved.USED) for lobe in Lobe}
     cycles: ClassVar[Option[Setting]] = Some(
@@ -90,14 +90,14 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def lights(layer: bpy.types.ViewLayer) -> dict[bpy.types.Object, bpy.types.Light]:
-        """Returns selected objects paired with their native light data."""
+        """Returns selected objects with light data."""
         return {item: light for item in layer.objects.selected for light in (item.data,) if isinstance(light, bpy.types.Light)}
 
     commands: ClassVar[tuple[Operator[Assignment], Operator[Empty], Operator[Split], Operator[Empty], Operator[Empty]]] = (
         Operator(
             key="light_groups_assign",
             title="Assign Light Groups",
-            description="Write the light groups a rule names onto a scope's emitters and worlds",
+            description="Write rule light groups to emitters and worlds in scope",
             form=Assignment,
             condition=cycles,
             run=lambda call: assigned(call.record.membership, call.record.scope, call.context).map(
@@ -109,7 +109,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="light_group_select",
             title="Select Group Members",
-            description="Select the objects sharing the active emitter's light group",
+            description="Select objects in light group of active emitter",
             form=Empty,
             condition=cycles,
             run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: focused(layer).bind(lambda item: picked(members(item, layer), layer))).map(lambda _: Done()),
@@ -117,7 +117,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="light_split",
             title="Split Lobes",
-            description="Give each selected light one child per ray kind, each in its own light group",
+            description="Split selected lights into one light group child per ray kind",
             form=Split,
             condition=cycles,
             run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: lobed(layer, call.record, call.identity)),
@@ -125,7 +125,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="light_split_toggle",
             title="Toggle Split",
-            description="Swap view layer visibility between split lights and their children",
+            description="Swap visibility of selected split lights and their children",
             form=Empty,
             condition=cycles,
             run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: toggled(layer, call.identity)),
@@ -133,7 +133,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
         Operator(
             key="light_unsplit",
             title="Remove Split",
-            description="Remove the selected lights' split children and render the lights again",
+            description="Remove split children and render selected lights again",
             form=Empty,
             condition=cycles,
             run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: unsplit(layer, call.identity)),
@@ -141,15 +141,11 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
     )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers each lobe row's ownership merge and the five operators.
-
-        Returns:
-            `Ok` of every band and acquisition pair, or every construction fault.
-        """
+        """Returns lobe child ownerships and section."""
         return Ok((*LightGroupEdits.children.values(), self.section()))
 
     def section(self) -> Section:
-        """Section drawing the active object's light group and the group operators."""
+        """Returns active object light group field and operators."""
         active = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)))
         return Single(
             key="light_groups",
@@ -165,15 +161,15 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -> BlenderResult[Option[frozenset[str]]]:
-    """Writes the light groups a rule names onto a scope's emitters and worlds.
+    """Writes rule light groups to emitters and worlds in scope.
 
     Args:
-        membership: Rule per kind, a gate off leaving that kind.
-        scope: Owners whose emitters and scene worlds take groups.
-        context: Context the scope's `owners` reads.
+        membership: Rule per kind, kinds with gate off unchanged.
+        scope: Owners to group.
+        context: Context `scope.owners` reads.
 
     Returns:
-        `Ok` of the group names a changed holder took, `Nothing` where every holder already held its group; `absent` for a missing scope name and `edit` per refused write.
+        Group names written, `Nothing` when every holder held its group, or `absent` and `edit` faults.
     """
 
     def named(grouping: Grouping, holder: bpy.types.Object | bpy.types.World) -> str:
@@ -206,27 +202,27 @@ def assigned(membership: Membership, scope: Scope, context: bpy.types.Context) -
 
 
 def used(scene: bpy.types.Scene) -> frozenset[str]:
-    """Answers every light group name a scene's objects and world hold."""
+    """Returns light group names of scene objects and world."""
     return frozenset(name for name in (*(item.lightgroup for item in scene.objects), *Option.of_optional(scene.world).map(lambda world: world.lightgroup).to_list()) if name)
 
 
 def members(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> frozenset[bpy.types.Object]:
-    """Answers the objects of a view layer sharing an object's light group, none for an ungrouped object."""
+    """Returns view layer objects in light group of object, none for ungrouped object."""
     return frozenset(other for other in view_layer.objects if item.lightgroup and other.lightgroup == item.lightgroup)
 
 
 def split(master: bpy.types.Object, light: bpy.types.Light, record: Split, view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-    """Makes one child per lobe sharing a light's data, each reaching one ray kind.
+    """Creates one child per lobe sharing light data and hides master in renders.
 
     Args:
-        master: Light object split.
-        light: Native data admitted with the master.
-        record: Lobes the children take.
-        view_layer: View layer hiding the split children while the master is edited.
+        master: Light object to split.
+        light: Light data of master.
+        record: Lobes to create children for.
+        view_layer: View layer hiding split children.
         identity: Identity marking each child.
 
     Returns:
-        `Ok` of the children in lobe order; `edit` and the reconcile's faults.
+        Children in lobe order, or `absent` and `edit` faults.
     """
     group, holders = master.lightgroup or master.name, tuple(master.users_collection)
     stale = tuple(item for lobe, row in LightGroupEdits.children.items() if lobe not in record.lobes for item in row.serving(identity, master))
@@ -263,28 +259,20 @@ def split(master: bpy.types.Object, light: bpy.types.Light, record: Split, view_
 
 
 def splits(view_layer: bpy.types.ViewLayer, identity: Identity) -> dict[bpy.types.Object, tuple[bpy.types.Object, ...]]:
-    """Answers each selected light holding split children with those children.
-
-    Args:
-        view_layer: View layer whose selection names the lights.
-        identity: Identity reading the children's marks.
-
-    Returns:
-        Split lights in selection order with their children.
-    """
+    """Returns selected split lights in selection order with children."""
     return {master: held for master in LightGroupEdits.lights(view_layer) if (held := tuple(item for row in LightGroupEdits.children.values() for item in row.serving(identity, master)))}
 
 
 def lobed(view_layer: bpy.types.ViewLayer, record: Split, identity: Identity) -> BlenderResult[Outcome]:
-    """Splits each selected light into its lobe children.
+    """Splits each selected light into lobe children.
 
     Args:
-        view_layer: View layer whose selection names the lights.
-        record: Lobes the children take.
+        view_layer: Layer with selected lights.
+        record: Lobes to create children for.
         identity: Identity marking each child.
 
     Returns:
-        `Ok` of `Done`, `Unchanged` where the layer selects no light; every split's faults.
+        `Done`, `Unchanged` when no light is selected, or split faults.
     """
     if not (lights := LightGroupEdits.lights(view_layer)):
         return Ok(Unchanged(reason="No light selected"))
@@ -292,14 +280,14 @@ def lobed(view_layer: bpy.types.ViewLayer, record: Split, identity: Identity) ->
 
 
 def toggled(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[Outcome]:
-    """Swaps layer visibility between selected split lights and their children.
+    """Swaps visibility of selected split lights and children.
 
     Args:
-        view_layer: View layer whose selection names the lights and whose base flags change.
-        identity: Identity reading the children's marks.
+        view_layer: Layer with selected lights.
+        identity: Identity reading child marks.
 
     Returns:
-        `Ok` of `Done`, `Unchanged` where the layer selects no split light; the `edit` faults of each refused write.
+        `Done`, `Unchanged` when no split light is selected, or `edit` faults.
     """
     if not (held := splits(view_layer, identity)):
         return Ok(Unchanged(reason="No split light selected"))
@@ -309,14 +297,14 @@ def toggled(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResul
 
 
 def unsplit(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[Outcome]:
-    """Removes the selected split lights' children and shows those lights in renders.
+    """Removes split children of selected lights and renders lights again.
 
     Args:
-        view_layer: View layer whose selection names the lights.
-        identity: Identity reading the children's marks.
+        view_layer: Layer with selected lights.
+        identity: Identity reading child marks.
 
     Returns:
-        `Ok` of `Done` noting the children removed, `Unchanged` where the layer selects no split light; `edit` for a refused write.
+        `Done` noting removed child count, `Unchanged` when no split light is selected, or `edit` faults.
     """
     if not (held := splits(view_layer, identity)):
         return Ok(Unchanged(reason="No split light selected"))

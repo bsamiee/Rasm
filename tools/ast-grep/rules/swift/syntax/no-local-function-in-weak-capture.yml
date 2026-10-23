@@ -44,8 +44,8 @@ rule:
                     kind: statements
                     not: {inside: {stopBy: end, matches: weak-closure}}
                     has: {matches: self-reader, has: {field: name, pattern: $FUNCTION}}
-message: 'Local function `$FUNCTION` holds `self` strongly from its declaration and keeps the owner of its `[weak self]` caller alive'
-note: 'Hold the body inline in the closure and read `self` through the weak capture'
+message: '`[weak self]` closure holds `self` strongly through local function `$FUNCTION`'
+note: 'Inline `<function>` into the closure body and read `self` through the weak capture'
 labels:
     CAPTURE: {style: primary}
     FUNCTION: {style: secondary, message: Captures `self` strongly}

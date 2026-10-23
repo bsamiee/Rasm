@@ -51,5 +51,5 @@ rule:
         - {any: [{matches: statement}, {matches: assignment}], matches: status-read}
         - {matches: emptiness-test}
         - {matches: path-test}
-message: 'Script looks up `$PROGRAM` to decide whether to run it'
+message: '`$PROGRAM` lookup decides whether the script runs it'
 note: Call `<program>` by name in place of the lookup and its branch

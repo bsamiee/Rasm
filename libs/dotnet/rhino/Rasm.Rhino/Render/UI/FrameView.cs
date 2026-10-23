@@ -51,7 +51,7 @@ public sealed partial class FrameRegion : IConvertible<string> {
     public RectangleF Edges => RectangleF.FromSides(Left, Top, Right, Bottom);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref AxisFraction left, ref AxisFraction top, ref AxisFraction right, ref AxisFraction bottom) =>
-        validationError = left < right && top < bottom ? null : new ValidationError("frame left lies at or right of its right, or top at or below its bottom");
+        validationError = left < right && top < bottom ? null : new ValidationError("frame region needs left < right and top < bottom");
 
     internal static ValidationError? Validate(RectangleF edges, out FrameRegion? item) {
         item = null;
@@ -60,7 +60,7 @@ public sealed partial class FrameRegion : IConvertible<string> {
             && AxisFraction.Validate(edges.Right, CultureInfo.InvariantCulture, out AxisFraction right) is null
             && AxisFraction.Validate(edges.Bottom, CultureInfo.InvariantCulture, out AxisFraction bottom) is null
                 ? Validate(left, top, right, bottom, out item)
-                : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"frame edges {edges} hold a fraction outside [{AxisFraction.MinValue}, {AxisFraction.MaxValue}]"));
+                : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"frame edges {edges} hold fraction outside [{AxisFraction.MinValue}, {AxisFraction.MaxValue}]"));
     }
 
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out FrameRegion? item) {

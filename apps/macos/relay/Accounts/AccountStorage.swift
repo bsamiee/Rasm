@@ -25,8 +25,8 @@ nonisolated enum AccountStorageFailure: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-            case .read(let error): "Could not read accounts.json: \(error.localizedDescription)"
-            case .write(let error): "Could not save accounts.json: \(error.localizedDescription)"
+            case .read(let error): "Could not read accounts.json. \(error.localizedDescription)"
+            case .write(let error): "Could not save accounts.json. \(error.localizedDescription)"
             case .invalidData: "Invalid data in accounts.json"
         }
     }

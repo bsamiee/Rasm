@@ -76,5 +76,5 @@ fix:
     template: $NEXT$PREV$UNFIXED
     expandStart: {matches: removable-predecessor}
     expandEnd: {matches: removable-successor}
-message: 'Body discards parameter `$P`'
-note: 'Delete the parameter from the signature and every call, mark an override `@typing.override`, or name a parameter a host callback fixes `_<name>`'
+message: 'Statement discards unread parameter `$P`'
+note: 'Delete the statement, parameter, and call arguments, mark an override `@typing.override`, or rename a host callback parameter `_<name>`'

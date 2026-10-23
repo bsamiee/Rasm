@@ -74,22 +74,22 @@ public sealed partial class BackgroundParameter : IStateParameter<BackgroundStat
             BackgroundStyle.Gradient => "Gradient",
             BackgroundStyle.Environment => "360˚ environment",
         }),
-        new("Background", "What the rendering shows behind the scene"));
+        new("Background", "Backdrop style behind scene"));
     public static readonly BackgroundParameter BackgroundColorTop = new("background-color-top", new StateParameter<BackgroundState>.Color(
         Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorTop, static color => state => state with { BackgroundColorTop = color })),
-        new("Solid color", "Background color, the top of a gradient"));
+        new("Solid color", "Background color, gradient top color"));
     public static readonly BackgroundParameter BackgroundColorBottom = new("background-color-bottom", new StateParameter<BackgroundState>.Color(
         Lens<BackgroundState, Swatch>.New(static state => state.BackgroundColorBottom, static color => state => state with { BackgroundColorBottom = color })),
-        new("Gradient", "Bottom color of a gradient background"));
+        new("Gradient", "Gradient bottom color"));
     public static readonly BackgroundParameter BackdropEnvironment = new("backdrop-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
         Lens<BackgroundState, Option<Guid>>.New(static state => state.BackdropEnvironment, static environment => state => state with { BackdropEnvironment = environment })),
-        new("Background environment", "Environment used by an environment background"));
+        new("Background environment", "Environment for 360˚ environment background"));
     public static readonly BackgroundParameter ScaleBackgroundToFit = new("scale-background-to-fit", new StateParameter<BackgroundState>.Toggle(
         Lens<BackgroundState, bool>.New(static state => state.ScaleBackgroundToFit, static on => state => state with { ScaleBackgroundToFit = on })),
-        new("Stretch to fit", "Stretches the viewport's wallpaper to the rendering"));
+        new("Stretch to fit", "Stretches viewport wallpaper to rendering"));
     public static readonly BackgroundParameter ReflectionOverride = new("custom-env-for-refl-and-refr-on", new StateParameter<BackgroundState>.Toggle(
         Lens<BackgroundState, bool>.New(static state => state.ReflectionOverride, static on => state => state with { ReflectionOverride = on })),
-        new("Use custom environment for reflections", "Reflects a chosen environment in place of the background's"));
+        new("Use custom environment for reflections", "Reflects chosen environment in place of background"));
     public static readonly BackgroundParameter ReflectionEnvironment = new("reflection-environment", new StateParameter<BackgroundState>.OptionalRaw<Guid>(
         Lens<BackgroundState, Option<Guid>>.New(static state => state.ReflectionEnvironment, static environment => state => state with { ReflectionEnvironment = environment })),
         new("Reflection environment", "Environment selected for custom reflections"));
@@ -136,10 +136,10 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
 public sealed partial class LightingParameter : IStateParameter<LightingState> {
     public static readonly LightingParameter SkylightEnabled = new("skylight-on", new StateParameter<LightingState>.Toggle(
         Lens<LightingState, bool>.New(static state => state.SkylightEnabled, static on => state => state with { SkylightEnabled = on })),
-        new("Skylight", "Lights the scene with the skylighting environment"));
+        new("Skylight", "Lights scene with skylighting environment"));
     public static readonly LightingParameter SkylightingOverride = new("skylight-custom-environment-on", new StateParameter<LightingState>.Toggle(
         Lens<LightingState, bool>.New(static state => state.SkylightingOverride, static on => state => state with { SkylightingOverride = on })),
-        new("Use custom environment for skylighting", "Lights with a chosen environment in place of the background's"));
+        new("Use custom environment for skylighting", "Lights with chosen environment in place of background"));
     public static readonly LightingParameter SkylightingEnvironment = new("skylighting-environment", new StateParameter<LightingState>.OptionalRaw<Guid>(
         Lens<LightingState, Option<Guid>>.New(static state => state.SkylightingEnvironment, static environment => state => state with { SkylightingEnvironment = environment })),
         new("Skylighting environment", "Environment selected for custom skylighting"));

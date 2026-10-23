@@ -152,7 +152,7 @@ docker             = { run = '{% if os() == "macos" %}exec env -C "$COLIMA_HOME"
 
 # --- [TASKS] ----------------------------------------------------------------------------
 [tasks."docker:update"]
-description = "Upgrade Colima's VM engine packages and restart the VM onto them, the Linux host engine belongs to its package manager"
+description = "Updates Colima VM engine and restarts VM on macOS"
 run         = '''
 {% if os() == "macos" %}
 mise daemons start docker

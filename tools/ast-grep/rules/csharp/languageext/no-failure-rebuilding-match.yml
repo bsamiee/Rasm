@@ -152,5 +152,5 @@ constraints:
         kind: argument
         has: {matches: fail-arm}
         not: {has: {stopBy: end, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}}}
-message: '`$VALUE` is matched to rebuild the `None`, `Left`, or failure case it holds'
-note: 'Use `Bind(<continuation>)`, `Map` for a plain-value continuation, or `IO.lift(<fin>).Bind(<continuation>)` for an effect continuation'
+message: '`$VALUE` is unwrapped only to rebuild the `None`, `Left`, or `Fail` case it holds'
+note: 'Call `<value>.Bind(<continuation>)`, `Map` for a plain-value continuation, `IO.lift(<fin>).Bind(<continuation>)` for an effect continuation'

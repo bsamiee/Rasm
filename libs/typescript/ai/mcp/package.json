@@ -1,7 +1,7 @@
 {
     "name": "@rasm/mcp",
     "private": true,
-    "description": "Streamable HTTP MCP servers from Effect tools, resources, and RPC groups, with telemetry, completion ranking, content blocks, resource values that refuse or report on a tool call, and a record of cancelled calls that change state",
+    "description": "Streamable HTTP MCP servers from Effect tools, resources, and RPC groups with telemetry",
     "sideEffects": false,
     "type": "module",
     "imports": {

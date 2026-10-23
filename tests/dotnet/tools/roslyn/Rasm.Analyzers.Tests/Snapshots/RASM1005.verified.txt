@@ -1,2 +1,2 @@
-#0 `[.. held, value * 2]` copies `held` on every step
-#1 `[.. held, value]` copies `held` on every step
+#0 `[.. held, value * 2]` copies `held` on every step. Replace with `held.Add(value * 2)`
+#1 `[.. held, value]` copies `held` on every step. Replace with `held.Add(value)`

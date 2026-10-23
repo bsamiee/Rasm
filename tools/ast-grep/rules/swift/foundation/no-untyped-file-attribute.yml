@@ -50,4 +50,4 @@ rule:
                 any: [{matches: swift-declaration-scope}, {kind: source_file}]
                 has: {stopBy: end, kind: simple_identifier, regex: '^attributesOfItem$'}
 message: '`$SITE` reads or writes a file attribute through an untyped API'
-note: 'Read `url.resourceValues(forKeys:)` properties or `FilePath.stat(followTargetSymlink:)` fields, and write through `setResourceValues(_:)`'
+note: 'Read `<url>.resourceValues(forKeys:)` properties or `FilePath.stat(followTargetSymlink:)` fields, and write through `setResourceValues(_:)`'

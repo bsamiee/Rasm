@@ -139,5 +139,5 @@ transform:
 fix:
     template: '$RETURN$LOCAL$HEAD$TEST$CASE$VALUE { $IN } else { $OUT }$NEWLINE$WHOLE_RETURN$CALL_RETURN$CTOR_OPEN$BEFORE_ARGS$LABEL_COLON$ARGUMENT$TAIL_ARGS$CTOR_CLOSE'
     expandEnd: {kind: control_transfer_statement}
-message: 'One case yields `$IN` and every other case `$OUT`'
+message: 'Match yields `$IN` for one pattern and `$OUT` for every other'
 note: 'Write `if case <pattern> = <value> { <matched> } else { <other> }`, or `<value> == <case>` for an `Equatable` type'

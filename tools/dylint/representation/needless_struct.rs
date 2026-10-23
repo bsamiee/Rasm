@@ -2,7 +2,7 @@ use clippy_utils::{diagnostics::span_lint_hir_and_then, res::MaybeDef as _, sym}
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{Expr, ExprKind, Item, ItemKind, Pat, PatKind, StructTailExpr, VariantData, def_id::LocalDefId};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::Ty;
+use rustc_middle::ty::{Ty, print::with_forced_trimmed_paths};
 
 use crate::{expanded_externally, exported, generated};
 
@@ -63,7 +63,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         for (&structure, _) in self.structs.iter().filter(|&(_, &needless)| needless) {
             let name = cx.tcx.item_name(structure);
-            let held = cx.tcx.type_of(cx.tcx.adt_def(structure).non_enum_variant().single_field().did).instantiate_identity().skip_normalization();
+            let held = with_forced_trimmed_paths!(cx.tcx.type_of(cx.tcx.adt_def(structure).non_enum_variant().single_field().did).instantiate_identity().skip_normalization().to_string());
             span_lint_hir_and_then(
                 cx,
                 NEEDLESS_STRUCT,

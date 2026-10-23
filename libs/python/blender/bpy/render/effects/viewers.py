@@ -1,4 +1,4 @@
-"""Owned effect viewers and scoped delivery of their evaluated input planes."""
+"""Owned Viewer nodes and entering frame delivery to effect reads."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -36,38 +36,38 @@ from blender.imaging.files.images import ImageFile
 
 
 class ViewTarget(Named, frozen=True, kw_only=True):
-    """Entry and the output inside its group to inspect."""
+    """Entry and group output to inspect."""
 
     node: Annotated[str, msgspec.Meta(min_length=1)] = INPUTS
     socket: Annotated[str, msgspec.Meta(min_length=1)] = Shell.image
 
 
 class EntryRegion(Named, frozen=True, kw_only=True):
-    """Entry and normalized region of its entering plane."""
+    """Entry and normalized region of entering frame."""
 
     region: Region = Region()
 
 
 class Unread(msgspec.Struct, frozen=True, kw_only=True):
-    """Entry whose region contains no value its read can consume."""
+    """Entry with no readable value in region."""
 
     entry: str
 
     @property
     def message(self) -> str:
-        """Names the missing covered input for the native poll message."""
-        return f"Requires a covered region of the frame entering {self.entry} holding a value its effect reads"
+        """Poll message naming entry without readable region."""
+        return f"Region of frame entering {self.entry} holds no value its effect reads"
 
 
 class Arm(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Entry and optional crop waiting for one compositor completion."""
+    """Entry name and optional crop awaiting compositor completion."""
 
     name: str
     region: Option[Region]
 
 
 class Armed(msgspec.Struct, kw_only=True):
-    """Pending input read owned by each native scene handle."""
+    """Pending read per scene and captured reads awaiting delivery."""
 
     entries: dict[Handle[bpy.types.Scene], Arm] = msgspec.field(default_factory=dict)
     captured: set[Arm] = msgspec.field(default_factory=set)
@@ -77,17 +77,17 @@ class Armed(msgspec.Struct, kw_only=True):
 
 
 class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """One consumer with deferred delivery and independently scoped pending reads."""
+    """Entering frame consumer with deferred delivery."""
 
     consume: Consume
     armed: Armed = msgspec.field(default_factory=Armed)
 
     def entering(self, identity: Identity, entry: bpy.types.SceneCompositorEffect, region: Option[Region] = Nothing) -> BlenderResult[None]:
-        """Shows the entry input and replaces this scene's pending read."""
+        """Views entry input, replacing scene's pending read."""
         return shown(identity, entry, End(node=INPUTS, socket=Shell.image)).map(lambda _: self.armed.entries.update({Handle.of(entry.id_data): Arm(name=entry.name, region=region)}))  # type: ignore[arg-type, type-var]
 
     def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-        """Consumes captured pixels only while their original read remains demanded."""
+        """Consumes captured pixels while capture is scene's pending read."""
         self.armed.captured.discard(arm)
         if self.armed.entries.get(handle) is not arm:
             return Ok(Nothing)
@@ -104,7 +104,7 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Captures the exclusive completion buffer and defers consumption under one scope."""
+        """Yields handlers capturing compositor result for deferred pending reads."""
         try:
             with identity.reports.deferred(lambda handle, arm, file: self.delivered(identity, handle, arm, file)) as deferred:
 
@@ -144,7 +144,7 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class EffectViewer:
-    """Inspection and input-reading commands for offered and pinned stack entries."""
+    """View, clear, and read commands for offered and pinned entries."""
 
     stack: EffectStack
     viewing: Operator[ViewTarget]
@@ -155,7 +155,7 @@ class EffectViewer:
     leaving: ClassVar[End] = End(node=OUTPUTS, socket=Shell.result)
 
     def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> BlenderResult[StackEntry]:
-        """Finds a named offered or pinned entry without claiming a user's group."""
+        """Finds named offered or pinned entry, skipping user groups."""
         pinned = frozenset(row.ownership.key for row in self.stack.pinned)
         return Option.of_optional(
             next(
@@ -170,7 +170,7 @@ class EffectViewer:
         ).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=name),))
 
     def __init__(self, *, stack: EffectStack) -> None:
-        """Retains the original inspection, clear, and read command declarations."""
+        """Declares view, clear, and read commands."""
         self.stack = stack
 
         def view(call: Call[ViewTarget], inspected: EditorState) -> BlenderResult[Done]:
@@ -190,7 +190,7 @@ class EffectViewer:
                             Option
                             .of_optional(next(iter(query.located(manager.windows)), None))
                             .map(lambda at: inspected.applied(at.area).map(lambda _: Done()))
-                            .default_value(Ok(Done(notes=(("INFO", "No compositor node editor shows the effect's group"),))))
+                            .default_value(Ok(Done(notes=(("INFO", "No compositor Node Editor open"),))))
                         )
                     )
                 )
@@ -203,7 +203,7 @@ class EffectViewer:
             return (
                 Result[ViewerRead, BlenderFaults]
                 .bind(reading, lambda reading: reading.entering(call.identity, entry, Some(call.record.region)))
-                .map(lambda _: Done(notes=(("INFO", f"Reading the frame entering {entry.name}"),)))
+                .map(lambda _: Done(notes=(("INFO", f"Reading frame entering {entry.name}"),)))
             )
 
         def read(call: Call[EntryRegion]) -> BlenderResult[Done]:
@@ -223,22 +223,22 @@ class EffectViewer:
                 call
                 .root(bpy.types.Scene)
                 .bind(lambda scene: self.entry(call.identity, scene, call.record.name))
-                .bind(lambda held: cleared(call.identity, held.entry).map(lambda removed: Done() if removed else Unchanged(reason=f"{held.entry.name} shows no viewer")))
+                .bind(lambda held: cleared(call.identity, held.entry).map(lambda removed: Done() if removed else Unchanged(reason=f"{held.entry.name} has no Viewer")))
             )
 
         self.viewing = Operator(
             key="effect_view",
             title="View Output",
-            description="Shows an output inside the effect in place of the stack's result",
+            description="Show effect group output in place of stack result",
             form=ViewTarget,
             run=lambda call: EditorState.of(bpy.types.SpaceNodeEditor, {"node_tree_sub_type": "SCENE", "show_backdrop": True}).bind(lambda inspected: view(call, inspected)),
             internal=True,
         )
-        self.clearing = Operator(key="effect_view_clear", title="Clear Viewer", description="Removes the effect's Viewer, so the stack's result shows again", form=Named, run=clear, internal=True)
-        self.reading = Operator(key="effect_read", title="Read Frame", description="Hands a region of the frame entering the effect to its own read", form=EntryRegion, run=read, internal=True)
+        self.clearing = Operator(key="effect_view_clear", title="Clear Viewer", description="Remove effect Viewer to show stack result", form=Named, run=clear, internal=True)
+        self.reading = Operator(key="effect_read", title="Read Frame", description="Read region of entering frame", form=EntryRegion, run=read, internal=True)
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns the three original command declarations for central registration."""
+        """Returns view, clear, and read commands."""
         return Ok((self.viewing, self.clearing, self.reading))
 
 
@@ -246,7 +246,7 @@ class EffectViewer:
 
 
 def inspection(row: Callable[[], Placeable], key: Key, title: str, description: str, target: Callable[[], End]) -> Operator[Named]:
-    """Declares a row-specific inspection without walking its parameters at import."""
+    """Declares row inspection command, resolving row at call time."""
 
     def run(call: Call[Named]) -> BlenderResult[Done]:
         offered = row()
@@ -262,7 +262,7 @@ def inspection(row: Callable[[], Placeable], key: Key, title: str, description: 
 
 
 def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End, *, pending: bool = False) -> BlenderResult[None]:
-    """Connects a marked viewer to an owned endpoint and activates its entry."""
+    """Connects owned Viewer to target end and activates entry."""
 
     def viewed(tree: bpy.types.NodeTree, name: str) -> BlenderResult[None]:
         def source(sockets: dict[Key, str]) -> BlenderResult[End]:
@@ -311,7 +311,7 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
 
 
 def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bool]:
-    """Removes the owned viewer and its stored target while preserving unmarked native nodes, answering whether either existed."""
+    """Removes owned Viewer and stored target, answering whether either existed."""
 
     def removed(tree: bpy.types.NodeTree, name: str, *, stored: bool) -> BlenderResult[bool]:
         return marked(identity, tree).map(lambda viewer: applied(Removed(name=viewer.name), tree, identity, name, owned(tree, identity)).map(lambda _: True)).default_value(Ok(stored))
@@ -324,13 +324,13 @@ def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Blend
 
 
 def grouped(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[tuple[bpy.types.NodeTree, str]]:
-    """Returns the native group and its declared interface storage slot."""
+    """Returns entry group and interface slot name."""
     tree: BlenderResult[bpy.types.NodeTree] = Option.of_optional(entry.node_group).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="node_group"),))
     return Result[bpy.types.NodeTree, BlenderFaults].bind(tree, lambda tree: slot(identity).map(lambda name: (tree, name)))
 
 
 def marked(identity: Identity, tree: bpy.types.NodeTree) -> Option[bpy.types.Node]:
-    """Returns the native viewer carrying this extension's reserved mark."""
+    """Returns Viewer node that extension marks as owned."""
     return Option.of_optional(owned(tree, identity).get(Shell.viewer))
 
 

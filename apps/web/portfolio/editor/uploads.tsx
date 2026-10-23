@@ -22,11 +22,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
     const [selected, setSelected] = useState<string>();
     const [target, setTarget] = useAtom(destination);
     const key = (value: Destination) => (value.kind === 'entry' ? value.id : value.kind);
-    const options = [
-        { target: { kind: 'library' } as const, label: 'Private file library' },
-        { target: { kind: 'hero' } as const, label: 'Hero placement — one file' },
-        ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: `${entryTitle(entry)} · ${String.capitalize(entry.kind)}` })),
-    ].map((option) => ({
+    const options = [{ target: { kind: 'library' } as const, label: 'Library' }, { target: { kind: 'hero' } as const, label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: `${entryTitle(entry)} · ${String.capitalize(entry.kind)}` }))].map((option) => ({
         ...option,
         id: key(option.target),
     }));
@@ -56,7 +52,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                         />
                     ) : (
                         <p className="hint">
-                            Destination: {options.find((option) => option.id === key(selectedFile.meta.destination))?.label ?? 'Removed entry'} · {selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Fixed after processing starts'}
+                            Destination · {options.find((option) => option.id === key(selectedFile.meta.destination))?.label ?? 'Removed entry'} · {selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Locked after processing starts'}
                         </p>
                     )}
                 </div>
@@ -80,14 +76,14 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                         </MenuButton>
                     </div>
                 )}
-                <p className="hint mt-3">Choose PDF sheets after upload. Images and videos are placed directly.</p>
-                {pending.length > 0 && <p className="hint mt-3">Keep this browser tab open until uploads finish. You can close the editor.</p>}
-                <p className="hint mt-3">Publishing a PDF sheet makes the entire original document public, including unselected pages.</p>
+                <p className="hint mt-3">Images and videos place directly. Choose PDF sheets after upload</p>
+                {pending.length > 0 && <p className="hint mt-3">Keep tab open until uploads finish. Closing editor is safe</p>}
+                <p className="hint mt-3">Publishing any sheet makes whole PDF public</p>
                 <details className="hint mt-3">
                     <summary className="min-h-11 cursor-pointer content-center">Upload guidance</summary>
-                    <p>File destinations lets you change a queued file’s target before processing starts. The destination above applies to new files.</p>
-                    <p className="mt-2">Done clears the queue. Files remain in the library under “Add to entry”.</p>
-                    <p className="mt-2">Export CAD and BIM files as PDF or images.</p>
+                    <p>File destinations retargets queued files until processing starts</p>
+                    <p className="mt-2">Done clears queue. Uploaded files stay in library</p>
+                    <p className="mt-2">Export CAD and BIM files as PDF or images</p>
                 </details>
             </div>
         </>

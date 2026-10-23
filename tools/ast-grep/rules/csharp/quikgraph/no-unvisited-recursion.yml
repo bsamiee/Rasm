@@ -107,4 +107,4 @@ rule:
                         - has: {stopBy: end, matches: recursion}
         - not: {has: {field: body, has: {stopBy: {matches: function}, matches: membership-test}}}
 message: '`$NAME` recurses into every successor of `$NODE` with no visited test'
-note: 'Walk a QuikGraph `AdjacencyGraph` with `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm`'
+note: 'Load the nodes into a QuikGraph `AdjacencyGraph` and walk it with `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm`'

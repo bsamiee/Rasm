@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Xunit.Sdk;
@@ -60,7 +61,7 @@ public static class TestAssertions {
         ForAll(definition.Generator, definition.Property, seed, iter, time, threads);
     }
     public static void Verify<T>(params PropertyDefinition<T>[] definitions) {
-        NonEmpty(definitions, "Verify requires property definitions");
+        NonEmpty(definitions);
         _ = definitions.AsIterable().Iter(static definition => { Cancel(); Verify(definition); });
     }
     public static void Replay<T>(Gen<T> gen, Action<T> property, string seed) => ForAll(gen, property, seed, iter: 1L);
@@ -68,12 +69,12 @@ public static class TestAssertions {
 
     // --- [METAMORPHIC]
     public static void Metamorphic<T, TResult>(Gen<T> gen, Func<T, TResult> f, params MetamorphicRelation<T, TResult>[] relations) {
-        NonEmpty(relations, "Metamorphic requires relations");
+        NonEmpty(relations);
         ForAll(gen, value => {
             TResult source = f(value);
             _ = relations.AsIterable().Iter(relation => {
                 TResult transformed = f(relation.Transform(value));
-                Assert.True(relation.Relate(value, source, transformed), $"Metamorphic relation '{relation.Name}' failed: source={source}, transformed={transformed}");
+                Assert.True(relation.Relate(value, source, transformed), $"{relation.Name}: source={source}, transformed={transformed}");
             });
         });
     }
@@ -81,7 +82,7 @@ public static class TestAssertions {
     // --- [APPROXIMATION]
     public static void Equal(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, NumericComparison comparison, string label = nameof(Equal)) {
         Assert.True(left.Length == right.Length, string.Create(CultureInfo.InvariantCulture, $"{label}: length {left.Length} != {right.Length}"));
-        Assert.True(comparison.Matches(left, right, tolerance), $"{label} ({comparison}): {Render(left)} vs {Render(right)} exceed ({tolerance})");
+        Assert.True(comparison.Matches(left, right, tolerance), $"{label} ({comparison}): {Render(left)} != {Render(right)} within {tolerance}");
     }
 
     private static string Render(ReadOnlySpan<double> values) {
@@ -99,7 +100,7 @@ public static class TestAssertions {
         string? seed = null, long iter = -1L, int time = -1, int threads = -1) =>
         ForAll(generator, value => {
             (TResult actual, TResult expected) = (implementation(value), reference(value));
-            Assert.True(equal.IfNone(EqualityComparer<TResult>.Default.Equals)(actual, expected), $"Differential test failed: implementation={actual}, reference={expected}");
+            Assert.True(equal.IfNone(EqualityComparer<TResult>.Default.Equals)(actual, expected), $"Differential: implementation={actual} != reference={expected}");
         }, seed, iter, time, threads);
     public static void Differential<T>(Gen<T> generator, Func<T, double> implementation, Func<T, double> reference, Tolerance tolerance, NumericComparison comparison,
         string? seed = null, long iter = -1L, int time = -1, int threads = -1) =>
@@ -107,25 +108,25 @@ public static class TestAssertions {
 
     // --- [RESULT_ASSERTIONS]
     public static T SuccValue<T>(Fin<T> result, string label) =>
-        result.IfFail(error => throw new XunitException($"{label}: expected Succ, got Fail: {error.Message}"));
+        result.IfFail(error => throw new XunitException($"{label}: expected Succ, got Fail({error.Message})"));
     public static void Succ<T>(Fin<T> result, Action<T>? then = null) {
         T value = SuccValue(result, nameof(Succ));
         then?.Invoke(value);
     }
     public static void Fail<T>(Fin<T> result, Action<Error>? then = null) =>
-        _ = result.Match(Succ: static value => throw new XunitException($"Expected Fail, got Succ: {value}"), Fail: error => then?.Invoke(error));
+        _ = result.Match(Succ: static value => throw new XunitException($"Expected Fail, got Succ({value})"), Fail: error => then?.Invoke(error));
     public static void Valid<T>(Validation<Error, T> result, Action<T>? then = null) =>
-        _ = result.Match(Fail: static error => throw new XunitException($"Expected Valid, got Invalid: {error.Message}"), Succ: value => then?.Invoke(value));
+        _ = result.Match(Fail: static error => throw new XunitException($"Expected Valid, got Invalid({error.Message})"), Succ: value => then?.Invoke(value));
     public static void Invalid<T>(Validation<Error, T> result, Action<Error>? then = null) =>
-        _ = result.Match(Fail: error => then?.Invoke(error), Succ: static value => throw new XunitException($"Expected Invalid, got Valid: {value}"));
+        _ = result.Match(Fail: error => then?.Invoke(error), Succ: static value => throw new XunitException($"Expected Invalid, got Valid({value})"));
     public static void Some<T>(Option<T> result, Action<T>? then = null) =>
         _ = result.Match(Some: value => then?.Invoke(value), None: static () => throw new XunitException("Expected Some, got None"));
     public static void None<T>(Option<T> result) =>
-        _ = result.Match(Some: static value => throw new XunitException($"Expected None, got Some: {value}"), None: static () => unit);
+        _ = result.Match(Some: static value => throw new XunitException($"Expected None, got Some({value})"), None: static () => unit);
 
     // --- [DISTRIBUTION]
     public static void ChiSquared<T>(Gen<T> gen, Func<T, int> bucket, params int[] expected) {
-        Assert.True(expected.Length > 1, "ChiSquared requires at least 2 expected buckets");
+        Assert.True(expected.Length > 1, "ChiSquared needs at least 2 buckets");
         int[] actual = new int[expected.Length];
         ForAll(gen, value => actual[bucket(value)]++, iter: expected.Sum(), threads: 1);
         Check.ChiSquared(expected, actual, sigma: 12.0);
@@ -136,7 +137,7 @@ public static class TestAssertions {
         ForAll(gen, value => {
             byte[] raw = JsonSerializer.SerializeToUtf8Bytes(value, contract);
             T decoded = JsonSerializer.Deserialize(raw, contract) ?? throw new XunitException($"RoundtripBytes decoded null for {typeof(T).Name}");
-            Assert.True(raw.AsSpan().SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(decoded, contract)), $"RoundtripBytes not byte-identical for {typeof(T).Name}");
+            Assert.True(raw.AsSpan().SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(decoded, contract)), $"RoundtripBytes re-encode of {typeof(T).Name} changes bytes");
         }, seed, iter, time, threads);
 
     // --- [CASE_TABLES]
@@ -148,7 +149,7 @@ public static class TestAssertions {
         _ = items.AsIterable().Iter(item => { Cancel(); assertion?.Invoke(item); });
     }
     public static void CaseTable(params (string Label, Func<bool> Evaluate, bool Required)[] rows) {
-        NonEmpty(rows, "CaseTable requires rows");
+        NonEmpty(rows);
         _ = rows.AsIterable().Iter(static row => {
             Cancel();
             bool actual = row.Evaluate();
@@ -158,17 +159,18 @@ public static class TestAssertions {
 
     // --- [VALUE_OBJECTS]
     public static void ValueObjects<TIn, TValueObject>(params ValueObjectCase<TIn, TValueObject>[] cases) {
-        NonEmpty(cases, "ValueObjects requires cases");
+        NonEmpty(cases);
         _ = cases.AsIterable().Iter(static testCase => {
             Cancel();
             ForAll(testCase.Valid, value => Assert.True(
-                testCase.Equal.IfNone(EqualityComparer<TIn>.Default.Equals)(value, testCase.Read(SuccValue(testCase.Create(value), $"Valid input rejected for {typeof(TValueObject).Name}: {value}"))),
-                $"Round-trip mismatch for {typeof(TValueObject).Name}: {value}"));
-            ForAll(testCase.Invalid, value => Assert.True(testCase.Create(value).IsFail, $"Invalid input accepted for {typeof(TValueObject).Name}: {value}"));
+                testCase.Equal.IfNone(EqualityComparer<TIn>.Default.Equals)(value, testCase.Read(SuccValue(testCase.Create(value), $"{typeof(TValueObject).Name} rejects valid input {value}"))),
+                $"{typeof(TValueObject).Name} round trip changes {value}"));
+            ForAll(testCase.Invalid, value => Assert.True(testCase.Create(value).IsFail, $"{typeof(TValueObject).Name} accepts invalid input {value}"));
         });
     }
 
     // --- [PRECONDITIONS]
-    private static void NonEmpty<T>(T[] table, string label) => Assert.True(table.Length > 0, label);
+    private static void NonEmpty<T>(T[] table, [CallerArgumentExpression(nameof(table))] string name = "", [CallerMemberName] string caller = "") =>
+        Assert.True(table.Length > 0, $"{caller} needs {name}");
     private static void Cancel() => TestContext.Current.CancellationToken.ThrowIfCancellationRequested();
 }

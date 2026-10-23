@@ -107,5 +107,5 @@ rule:
                     inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: test-call}}}
             - matches: tested
             - pattern: $TESTED
-message: 'Absence test reads `$TESTED`, a pointer Blender never leaves empty'
-note: 'Read the member as present, with a `union-attr` ignore where the stub types it optional'
+message: 'Absence test reads `$TESTED`, a pointer Blender never sets to `None`'
+note: 'Read `<member>` without the test, with `# type: ignore[union-attr]  # ty: ignore[unresolved-attribute]` where a stub types it optional'

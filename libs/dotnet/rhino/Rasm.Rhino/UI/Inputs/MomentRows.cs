@@ -67,7 +67,7 @@ public static class MomentRows {
             DisposalOps.Acquire(owned =>
             from command in IO.lift(static () => new Command())
             from faced in IO.lift(() => {
-                (command.ToolBarText, command.ToolTip) = (RowText.Localize("Time format").Local, RowText.Localize("Steps the time format Rhino's Sun panel shares").Local);
+                (command.ToolBarText, command.ToolTip) = (RowText.Localize("Time format").Local, RowText.Localize("Cycles time format shared with Rhino Sun panel").Local);
             })
             from live in TextRows.Live(moment, (_, keep) => ButtonRows.Push(command, keep), (held, at) => Shown(held, zone, at), scope, owned)
             from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,

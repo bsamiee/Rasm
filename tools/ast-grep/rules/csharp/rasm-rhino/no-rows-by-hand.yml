@@ -199,4 +199,4 @@ constraints:
     ITEMS: {matches: reference-items}
 fix: Conversions.Rows($ITEMS)
 message: '`$ITEMS` drops null rows by hand'
-note: 'Use `Conversions.Rows(<items>)`'
+note: 'Call `Conversions.Rows(<items>)`'

@@ -21,7 +21,7 @@ enum Atelier {
             defer { extendLifetime((updater, updaterDelegate)) }
             try await EffectRPC.serve(reading: .standardInput, writing: .standardOutput) { (request: Request) in await request.perform(definitions: definitions) }
         } catch {
-            Logger(for: Self.self).fault("Stopped reading requests: \(error, privacy: .public)")
+            Logger(for: Self.self).fault("Atelier stopped with \(error, privacy: .public)")
             exit(EXIT_FAILURE)
         }
     }

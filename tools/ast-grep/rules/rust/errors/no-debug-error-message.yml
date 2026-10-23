@@ -11,5 +11,5 @@ rule:
         kind: token_tree
         stopBy: {kind: attribute}
         inside: {kind: attribute, field: arguments, has: {nthChild: 1, kind: identifier, regex: '^(error|display)$', pattern: $ATTRIBUTE}, inside: {kind: attribute_item}}
-message: '`#[$ATTRIBUTE($MESSAGE)]` renders a value through `Debug`'
-note: 'Render each value through `Display`, and a collection through an argument (`.items.iter().format(", ")` with `itertools::Itertools::format`)'
+message: '`#[$ATTRIBUTE($MESSAGE)]` formats a value through `Debug`'
+note: 'Format each value through `Display`, a collection through argument `.<field>.iter().format(", ")` (`use itertools::Itertools as _;`)'

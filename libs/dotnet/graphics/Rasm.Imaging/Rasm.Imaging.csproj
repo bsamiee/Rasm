@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Foundation for building any imaging app or render pipeline on color-managed scene-linear frames</Description>
+        <Description>Color-managed scene-linear frames for imaging apps and render pipelines</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">

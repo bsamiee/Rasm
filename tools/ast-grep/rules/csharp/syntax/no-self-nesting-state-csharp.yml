@@ -42,5 +42,5 @@ rule:
                         - pattern: $STATE
                         - {kind: collection_expression, has: {kind: collection_element, has: {kind: expression_element, has: {pattern: $STATE}}}}
         - inside: {stopBy: {matches: function}, matches: fixed-point-loop}
-message: '`$STATE` wraps its previous value on each pass of a loop that stops once it stops changing, the loop never reaches a fixed point'
-note: Join each pass into a value from a finite set (a set union, a bounded shape, the operand roots) in place of a constructor wrapping the prior state
+message: '`$STATE` wraps its previous value each pass and never equals it in the fixed-point test'
+note: 'Join each pass into a value from a finite set (set union, bounded shape, operand roots) in place of a constructor over the prior state'

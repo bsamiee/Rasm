@@ -170,4 +170,4 @@ rule:
                 - has: {field: body, has: {matches: forwarded-read}}
                 - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: forwarded-read}}, {has: {kind: computed_getter, has: {matches: forwarded-read}}}]}
 message: 'Declaration passes its parameters and fixed values unchanged to `$F`'
-note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise initializer, and move a `<Protocol>` conformance to the forwarded type'
+note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init, move a conformance the declaration satisfies to the forwarded type'

@@ -1,4 +1,4 @@
-"""Scoped native panel, menu, header, and hovered-button draw additions."""
+"""Rows appended to stock panels, menus, headers, and context menus."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -24,14 +24,14 @@ type Destination = type[Extended] | ContextMenu
 
 
 class ContextMenu(msgspec.Struct, frozen=True, kw_only=True):
-    """Native context menu restricted to buttons bound to one struct type."""
+    """Context menu showing rows on buttons of one struct type alone."""
 
     menu: type[UI_MT_button_context_menu | UI_MT_list_item_context_menu]
     hovered: "type[bpy.types.bpy_struct[object]]"
 
 
 class Append(msgspec.Struct, frozen=True, kw_only=True):
-    """Rows added to a native surface for the extension's registration scope."""
+    """Rows drawn on stock panel, menu, header, or context menu."""
 
     target: Destination
     rows: tuple[Row | RowDraw, ...]
@@ -39,7 +39,7 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
     condition: Option[Condition] = Nothing
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains nested declarations and builds the scoped native draw manager."""
+        """Returns row acquisitions and appended draw scope."""
         destination = self.target
         target = destination.menu if isinstance(destination, ContextMenu) else destination
         separator_after = self.prepend and not isinstance(destination, ContextMenu)

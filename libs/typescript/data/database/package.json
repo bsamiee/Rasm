@@ -1,7 +1,7 @@
 {
     "name": "@rasm/database",
     "private": true,
-    "description": "Relational stores for apps on D1, SQLite, and PostgreSQL: Effect Schema tables reconciled against the live database, and atomic statement groups",
+    "description": "D1, SQLite, and PostgreSQL stores reconciling live databases to Effect Schema tables, with atomic batches",
     "sideEffects": false,
     "type": "module",
     "imports": {

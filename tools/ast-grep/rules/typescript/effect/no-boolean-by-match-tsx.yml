@@ -81,4 +81,4 @@ transform:
     PREDICATE: rewrite($CALL, rewriters=[boolean, negated-boolean, data-first, data-last])
 fix: $PREDICATE
 message: '`$M.match` maps one case to `true` and the other to `false`'
-note: 'Call `<module>.is<Case>(<value>)` for the same boolean, and write `<value>` or `!<value>` in place of `Boolean.match`'
+note: 'Call `<module>.is<Case>(<value>)`, or write `<value>` or `!<value>` in place of `Boolean.match`'

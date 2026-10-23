@@ -148,4 +148,4 @@ rule:
                             - has: {field: name, pattern: $SELF}
                             - has: {kind: base_list, has: {kind: generic_name, regex: '^I[A-Z]', has: {kind: type_argument_list, has: {kind: identifier, pattern: $SELF}}}}
 message: '`$NAME` forwards `$READ` unchanged'
-note: 'Read `<owner>.<member>` or `<owner>[<index>]` at each use'
+note: 'Delete the member and read `<owner>.<member>` or `<owner>[<index>]` at each use'

@@ -9,4 +9,4 @@ rule:
 constraints:
     N: {kind: integer_literal}
 message: '`$R` collects into a `Vec` only to read windows of `$N` items'
-note: 'Call `<iterator>.map_windows(|window: &[_; <n>]| <value>)` (`#![feature(iter_map_windows)]`) when the closure output borrows nothing from the window'
+note: 'Call `<iterator>.map_windows(|window: &[_; <n>]| <value>)` (`#![feature(iter_map_windows)]`) when the output borrows nothing from the window'

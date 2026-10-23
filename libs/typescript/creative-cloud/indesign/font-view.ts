@@ -13,17 +13,17 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
     family: Schema.String,
     style: Schema.OptionFromOptionalKey(Schema.String),
     status: Schema.String,
-    uses: Schema.Array(Specifier).annotate({ description: 'Text and styles of the active document set in this face' }),
+    uses: Schema.Array(Specifier).annotate({ description: 'Active document text and styles set in the face' }),
     installed: Schema.OptionFromOptionalKey(
         Schema.Struct({
             postscriptName: Schema.String,
             fullName: Schema.String,
             version: Schema.String,
             type: Schema.String,
-            location: Schema.String.annotate({ description: 'File path, or a label for a face with no readable file' }),
-            styles: Schema.Array(Schema.String).annotate({ description: 'Styles of the family InDesign lists' }),
-            axes: Schema.OptionFromOptionalKey(Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Finite })).annotate({ description: 'Design axes of a variable instance in fvar order, by the axis name InDesign shows, values rounded to two decimals' })),
-            features: Schema.Array(Schema.String).annotate({ description: 'OpenTypeFeature members the face holds in GSUB or GPOS' }),
+            location: Schema.String.annotate({ description: 'File path, or label without readable file' }),
+            styles: Schema.Array(Schema.String).annotate({ description: 'Style names' }),
+            axes: Schema.OptionFromOptionalKey(Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Finite })).annotate({ description: 'Instance axes by InDesign name in fvar order, values to 2 decimals' })),
+            features: Schema.Array(Schema.String).annotate({ description: 'OpenTypeFeature members in GSUB or GPOS' }),
             allows: Schema.Struct(Struct.Record(['outlines', 'pdfEmbedding', 'editableEmbedding', 'restrictedPrinting'], Schema.Boolean)),
         }),
     ),
@@ -65,7 +65,7 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
                           ),
                       ]
                     : [[], []],
-            catch: (cause) => new Cause.UnknownError(cause, `faces of ${face.name}`),
+            catch: (cause) => new Cause.UnknownError(cause, `styles and features of ${face.name}`),
         });
         const axes = Option.liftThrowable(() => Array.zipWith(face.designAxesName, face.designAxesValues, (name, value) => ({ name, value })))();
         return yield* read(FontView, face.toSpecifier(), () => ({

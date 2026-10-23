@@ -1,4 +1,4 @@
-"""Group interfaces: desired sockets with their menu items and panels, record interfaces, stored item keys, and their native diff and writes."""
+"""Desired group interfaces, record interfaces, stored item keys, and live interface writes."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from enum import Enum
@@ -36,13 +36,13 @@ class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class MenuItems(msgspec.Struct, frozen=True, kw_only=True):
-    """Ordered items of a Menu Switch."""
+    """Ordered Menu Switch items."""
 
     items: tuple[MenuItem, ...]
 
     @classmethod
     def of(cls, choices: type[Enum] | tuple[type[Case], ...], description: str = "") -> Self:
-        """Constructs native node-menu items from enum members sharing a description or tagged-union cases described by their docstrings."""
+        """Builds items from enum members sharing one description, or from tagged cases described by docstrings."""
         return (
             cls(items=tuple(MenuItem(name=case.title, description=Option.of_optional(case.__doc__).default_value("")) for case in choices))
             if isinstance(choices, tuple)
@@ -51,7 +51,7 @@ class MenuItems(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Socket(msgspec.Struct, frozen=True, kw_only=True):
-    """Interface socket keyed by its parameter key, a menu socket with the items a group input holds only while linked to a Menu Switch."""
+    """Interface socket by parameter key, group input menu items kept only while linked to a Menu Switch."""
 
     key: Key
     name: str
@@ -62,20 +62,20 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Interface(msgspec.Struct, frozen=True, kw_only=True):
-    """Group interface of output sockets, input sockets, and panels in Blender's order."""
+    """Group interface items in Blender order."""
 
     outputs: tuple[Socket, ...] = ()
     inputs: tuple[Socket, ...] = ()
     panels: tuple["InterfacePanel", ...] = ()
 
     def walked(self, parent: Option[Key] = Nothing) -> Iterator[tuple[Key, DesiredItem, Option[Key], int]]:
-        """Walks the interface items preorder.
+        """Walks interface items in preorder.
 
         Args:
-            parent: Key of the panel holding these items, `Nothing` at the root.
+            parent: Key of panel holding items, `Nothing` at root.
 
         Yields:
-            Each item's key, the item (a socket paired with its side, or a panel), its parent key, and its native position under its parent, after the toggle socket Blender keeps first in a toggled panel.
+            Item key, socket with side or panel, parent key, and position after toggle socket a toggled panel holds first.
         """
         items: tuple[DesiredItem, ...] = (*((socket, "OUTPUT") for socket in self.outputs), *((socket, "INPUT") for socket in self.inputs), *self.panels)
         for position, item in enumerate(items, int(isinstance(self, InterfacePanel) and self.toggle.is_some())):
@@ -88,7 +88,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, kind: type[msgspec.Struct]) -> BlenderResult["Interface"]:
-        """Constructs a record's input interface from native fields and their inspected types."""
+        """Builds record input interface from field types."""
         refused = {"DISTANCE_CAMERA": "NONE", "POWER": "NONE", "XYZ_LENGTH": "TRANSLATION"}
 
         def faced(parts: Iterable[tuple[Socket | InterfacePanel, ...]]) -> Interface:
@@ -248,7 +248,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class InterfacePanel(Interface, frozen=True, kw_only=True):
-    """Interface panel holding its own sockets and panels, with an optional enable toggle."""
+    """Interface panel with optional toggle."""
 
     key: Key
     name: str
@@ -258,20 +258,20 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
 
 
 class Withdrawn(msgspec.Struct, frozen=True, kw_only=True):
-    """Stored interface item the interface no longer declares as it stands."""
+    """Stored item interface drops or redeclares."""
 
     key: Key
 
 
 class Declared(msgspec.Struct, frozen=True, kw_only=True):
-    """Interface item to create from its desired entry."""
+    """Interface item to create."""
 
     key: Key
     entry: DesiredItem
 
 
 class Restated(msgspec.Struct, frozen=True, kw_only=True):
-    """Interface item's differing parts and place."""
+    """Item parts and place to write."""
 
     key: Key
     kind: Option[type[bpy.types.NodeSocket]] = Nothing
@@ -287,17 +287,17 @@ class Restated(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def described(annotation: object) -> str:
-    """Returns the outermost `msgspec.Meta` description of an annotation, empty for none as native item text holds absence."""
+    """Returns outermost `msgspec.Meta` description, empty when absent."""
     return next((meta.description for meta in reversed(markers(annotation, msgspec.Meta)) if meta.description is not None), "")
 
 
 def item_key(*parts: Key | int | type[Case]) -> Key:
-    """Joins a row key path into one interface item key, a case class entering as its lowered name and an item index as its number."""
+    """Joins key path into item key, case classes as lowercase names."""
     return "_".join(part.__name__.lower() if isinstance(part, type) else str(part) for part in parts)
 
 
 def under[I: Interface](prefix: Key, face: I) -> I:
-    """Answers an interface with every socket and panel key joined under a prefix through `item_key`, the form a group nested in another's panel takes."""
+    """Returns interface with every key prefixed through `item_key`, for a group nested in another group's panel."""
     return msgspec.structs.replace(
         face,
         outputs=tuple(msgspec.structs.replace(socket, key=item_key(prefix, socket.key)) for socket in face.outputs),
@@ -307,17 +307,17 @@ def under[I: Interface](prefix: Key, face: I) -> I:
 
 
 def slot(identity: Identity) -> BlenderResult[str]:
-    """Returns the ID property name a group stores its item keys under, or the refused attachment name."""
+    """Returns ID property name holding group item keys, or refused attachment name fault."""
     return identity.name(Name.ATTACHMENT, "interface")
 
 
 def addresses(tree: bpy.types.NodeTree, slot: str) -> dict[Key, str]:
-    """Reads a group's item key to live socket identifier map, a panel key answering its toggle socket."""
+    """Reads live socket identifiers by item key, panel keys mapping to toggle sockets."""
     return {key: socket.identifier for key, item in _resolved(tree, slot).items() for socket in (Some(item) if isinstance(item, bpy.types.NodeTreeInterfaceSocket) else _toggle(item)).to_list()}
 
 
 def kept(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> dict[Key, InterfaceItem]:
-    """Live items of a group that keep an interface item's key, kind, side, and toggle presence."""
+    """Live items matching item key, kind, side, and toggle presence."""
     resolved = _resolved(tree, slot)
 
     def matched(entry: DesiredItem, item: InterfaceItem) -> bool:
@@ -333,16 +333,15 @@ def kept(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> dict[Key,
 
 
 def interfaced(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> tuple[tuple[Withdrawn, ...], tuple[Declared, ...], tuple[Restated, ...]]:
-    """Reads a group's live interface against a desired one, writing nothing.
+    """Reads live interface against desired one, writing nothing.
 
     Args:
-        tree: Group whose interface the rows read.
-        interface: Interface the group declares.
-        slot: ID property name of the stored item keys.
+        tree: Group to read.
+        interface: Interface group declares.
+        slot: ID property name holding stored item keys.
 
     Returns:
-        Items to withdraw (last first), items to declare, and differing parts of every item, each item of a panel holding a
-        fresh or misplaced item placed again in preorder, since a move shifts its siblings.
+        Items to withdraw last first, items to declare, and differing parts per item, siblings of each new or misplaced item placed again in preorder.
     """
     entries = tuple(interface.walked())
     inverse = {identifier: key for key, identifier in _items(tree, slot).items()}
@@ -350,7 +349,7 @@ def interfaced(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> tup
     wanted = frozenset(key for key, *_ in entries)
     fresh = wanted - held.keys()
     placed = {key: (Option.of_optional(item.parent).bind(lambda panel: Option.of_optional(inverse.get(panel.identifier))), item.position) for key, item in held.items()}
-    unsettled = frozenset(parent for key, _, parent, position in entries if key in fresh or placed.get(key) != (parent, position) or any(frame in fresh for frame in parent.to_list()))
+    shifted = frozenset(parent for key, _, parent, position in entries if key in fresh or placed.get(key) != (parent, position) or any(frame in fresh for frame in parent.to_list()))
 
     def restated(key: Key, entry: DesiredItem, place: Option[tuple[Option[Key], int]]) -> Option[Restated]:
         def changed[T](now: T, wanted: T) -> Option[T]:
@@ -385,7 +384,7 @@ def interfaced(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> tup
     return (
         tuple(Withdrawn(key=key) for identifier in reversed(_live(tree)) for key in Option.of_optional(inverse.get(identifier)).to_list() if key not in wanted or key in fresh),
         tuple(Declared(key=key, entry=entry) for key, entry, _, _ in entries if key in fresh),
-        tuple(row for key, entry, parent, position in entries for row in restated(key, entry, Some((parent, position)) if parent in unsettled else Nothing).to_list()),
+        tuple(row for key, entry, parent, position in entries for row in restated(key, entry, Some((parent, position)) if parent in shifted else Nothing).to_list()),
     )
 
 
@@ -394,11 +393,11 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
 
     Args:
         row: Interface row to write.
-        tree: Group the row names.
-        slot: ID property name of the stored item keys.
+        tree: Group row names.
+        slot: ID property name holding stored item keys.
 
     Returns:
-        `Ok` once written; `Error` of `absent` for an unresolved item, of `edit` for a socket type the tree refuses, or of each refused write.
+        `Ok` once written. `Error` of `absent` for unresolved item, `edit` per refused socket type or write.
     """
     face: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
@@ -479,7 +478,7 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
 
 
 def _toggle(item: bpy.types.NodeTreeInterfaceItem) -> Option[bpy.types.NodeTreeInterfaceSocket]:
-    """Panel's toggle socket, `Nothing` for a socket or a panel holding none."""
+    """Panel toggle socket, `Nothing` for items without one."""
     match item:
         case bpy.types.NodeTreeInterfacePanel():
             return Option.of_optional(next((child for child in item.interface_items if isinstance(child, bpy.types.NodeTreeInterfaceSocket) and child.is_panel_toggle), None))
@@ -488,7 +487,7 @@ def _toggle(item: bpy.types.NodeTreeInterfaceItem) -> Option[bpy.types.NodeTreeI
 
 
 def _items(tree: bpy.types.NodeTree, slot: str) -> dict[str, str | int]:
-    """Stored item key to item identifier, one group per item since keys built from nested panel paths pass the 63-byte limit of an ID property name."""
+    """Item identifiers by stored key, list entries holding keys past 63-byte ID property name limit."""
     return {row["key"]: row["identifier"] for row in Option.of_optional(tree.get(slot)).filter(lambda value: isinstance(value, list)).default_value([])}
 
 
@@ -498,7 +497,7 @@ def _live(tree: bpy.types.NodeTree) -> dict[str | int, InterfaceItem]:
 
 
 def _resolved(tree: bpy.types.NodeTree, slot: str) -> dict[Key, InterfaceItem]:
-    """Stored item key to its live socket or panel, omitting keys whose item the interface no longer holds."""
+    """Live items by stored key, removed items left out."""
     live = _live(tree)
     return {key: live[identifier] for key, identifier in _items(tree, slot).items() if identifier in live}
 

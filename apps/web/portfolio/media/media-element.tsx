@@ -34,11 +34,11 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
     return Match.value(placement).pipe(
         Match.when(
             () => attempt.failed,
-            () => <MediaFailure href={url} linkLabel="Open original" message={placement.kind === 'video' ? 'This video could not be played.' : 'This image could not be displayed.'} onRetry={() => setAttempt(({ count }) => ({ count: count + 1, failed: false }))} />,
+            () => <MediaFailure href={url} linkLabel="Open original" message={placement.kind === 'video' ? 'Video failed to play' : 'Image failed to load'} onRetry={() => setAttempt(({ count }) => ({ count: count + 1, failed: false }))} />,
         ),
         Match.discriminatorsExhaustive('kind')({
             pdf: (sheet) => (
-                <ErrorBoundary fallback={<MediaFailure href={url} linkLabel="Open original PDF" message="The PDF viewer could not be loaded." />}>
+                <ErrorBoundary fallback={<MediaFailure href={url} linkLabel="Open original PDF" message="PDF viewer failed to load" />}>
                     <Suspense fallback={<MediaLoading />}>
                         <PdfSheet layoutId={layoutId} placement={sheet} />
                     </Suspense>
@@ -48,11 +48,11 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                 thumbnail && poster !== undefined ? (
                     <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={mediaUrl(poster)} srcSet={imageSourceSet(poster)} width={width} />
                 ) : (
-                    // biome-ignore lint/a11y/useMediaCaption: Uploads hold no timed text, owners burn captions into the video and write transcripts as descriptions
+                    // biome-ignore lint/a11y/useMediaCaption: Uploads hold no timed text, owners burn in captions and write transcripts as descriptions
                     <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline={true} poster={poster && mediaUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
                 ),
             image: ({ framing, asset }) => (
-                // biome-ignore lint/a11y/noNoninteractiveElementInteractions: The error event is the only load failure signal an img element reports
+                // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Error event is the only load failure signal of img
                 <img
                     alt={label}
                     className={expanded ? 'block max-w-none' : { contain: 'block size-full object-contain', cover: 'block size-full object-cover object-(--media-focus)' }[framing.mode]}

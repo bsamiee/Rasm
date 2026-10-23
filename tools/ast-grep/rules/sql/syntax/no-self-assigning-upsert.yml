@@ -22,4 +22,4 @@ rule:
 transform:
     HEAD: {replace: {source: $UPSERT, replace: '(?is)^(.*?\bupdate\b).*$', by: '$1'}}
 message: '`$HEAD` rewrites each conflicting row with its own values'
-note: 'Write `on conflict (<key>) do nothing returning <columns>` and read existing keys in one unit (PostgreSQL `union all` select, SQLite batch statement)'
+note: 'Write `on conflict (<key>) do nothing returning <columns>` and select existing rows in one transaction (PostgreSQL `union all`, SQLite batch)'

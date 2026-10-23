@@ -1,4 +1,4 @@
-"""Native operators, invocation forms, property placements, and macros."""
+"""Operators, invocation forms, property placements, and macros."""
 
 from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -39,15 +39,15 @@ type Outcome = Done | Unchanged
 
 
 class Placed(Protocol):
-    """Operator identity and the writer filling its placement properties."""
+    """Operator placement with property writer."""
 
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Returns the native identifier and writer or the placement's failures."""
+        """Returns operator name and writer."""
         ...
 
 
 class InvokePopup(Enum):
-    """Native property redo or enum search popup."""
+    """Redo properties popup or enum search popup."""
 
     REDO = auto()
     SEARCH = auto()
@@ -57,11 +57,11 @@ class InvokePopup(Enum):
 
 
 class Empty(msgspec.Struct, frozen=True, kw_only=True):
-    """Record of an operator without properties."""
+    """Record of operator without properties."""
 
 
 class Done(msgspec.Struct, frozen=True, kw_only=True):
-    """Body that wrote at least one change, its report entries, and independent failures skipped."""
+    """Body result with changes, report entries, and skipped faults."""
 
     notes: tuple[tuple["rna_enums.WmReportItems", str], ...] = ()
     skipped: Option[BlenderFaults] = Nothing
@@ -73,13 +73,13 @@ class Done(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Unchanged(msgspec.Struct, frozen=True, kw_only=True):
-    """Body whose work set held nothing to change, with the reason reported to the user."""
+    """Body result with no change, reason reported as INFO."""
 
     reason: str
 
 
 class Call[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Body invocation with its native context, record, and files."""
+    """Body invocation with context, record, and file paths."""
 
     identity: Identity
     context: bpy.types.Context
@@ -87,12 +87,12 @@ class Call[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     paths: tuple[Path, ...] = ()
 
     def root[K: "bpy.types.bpy_struct[object]"](self, kind: type[K]) -> BlenderResult[K]:
-        """Returns a required native context root or its typed absence."""
+        """Returns required context root."""
         return rooted(kind, self.context)
 
 
 class Confirm[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Confirmation before execution, with optional computed text and button label."""
+    """Confirmation before execution with computed message."""
 
     message: Option[Callable[[bpy.types.Context, T], BlenderResult[str]]] = Nothing
     confirm_text: Option[str] = Nothing
@@ -114,41 +114,41 @@ class Properties(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Suppressible[T: msgspec.Struct](Properties, frozen=True, kw_only=True):
-    """Confirmation whose successful execution can disable its preference ask."""
+    """Confirmation dialog with checkbox clearing `ask_<key>` preference on success."""
 
     message: Callable[[bpy.types.Context, T], str]
     icon: "rna_enums.IconItems" = "NONE"
 
 
 class Floating(msgspec.Struct, frozen=True, kw_only=True):
-    """Property popup that does not execute the body."""
+    """Property popup running no body."""
 
     width: int = bpy.types.WindowManager.bl_rna.functions["invoke_popup"].parameters["width"].default  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     auto_keymap: bool = False
 
 
 class Open[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Native import browser choosing files of the record's current formats."""
+    """Import file browser filtering by record formats."""
 
     extensions: Callable[[T], tuple[str, ...]]
     confirm_text: str = ""
 
 
 class Save[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Native export browser with optional final output destinations."""
+    """Export file browser with optional output destinations."""
 
     extensions: Callable[[T], tuple[str, *tuple[str, ...]]]
     destinations: Option[Callable[[Path, T], tuple[Path, ...]]] = Nothing
 
 
 class Pick(msgspec.Struct, frozen=True, kw_only=True):
-    """Native pending invocation waiting for a pointer location under its cursor."""
+    """Invocation waiting for pointer location under cursor."""
 
     cursor: "rna_enums.WindowCursorItems"
 
 
 class Command(msgspec.Struct, frozen=True, kw_only=True):
-    """Action's identity, native text, availability, icon, and search visibility."""
+    """Command with poll condition and search visibility."""
 
     key: Key
     title: str
@@ -161,19 +161,19 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
 
     @abstractmethod
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds native registrations for this command under its extension identity."""
+        """Builds command registrations."""
         ...
 
     # --- [PLACEMENT]
 
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Returns the command identity without setting placement properties."""
+        """Returns operator name with no-op writer."""
         return identity.name(Name.OPERATOR, self.key).map(lambda name: (name, lambda _: Ok(None)))
 
     # --- [CLASS_MEMBERS]
 
     def namespace(self, name: str, flags: frozenset["rna_enums.OperatorTypeFlagItems"]) -> dict[str, object]:
-        """Returns native class members and a deferred typed poll failure message."""
+        """Returns class members with poll message of condition faults."""
 
         def poll(cls: type[bpy.types.Operator], context: bpy.types.Context) -> bool:
             faults = self.condition.bind(lambda condition: check(condition, context).swap().to_option())
@@ -191,7 +191,7 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
-    """Typed record and body registered with its native invocation and undo behavior."""
+    """Typed record and body with invocation form and undo."""
 
     form: type[T]
     run: Callable[[Call[T]], BlenderResult[Outcome]]
@@ -207,16 +207,16 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
     @property
     def ask(self) -> str:
-        """Preference identifier for this action's suppressible confirmation."""
+        """Preference identifier of suppressible confirmation."""
         return f"ask_{self.key}"
 
     @property
     def invoked(self) -> bool:
-        """Whether a placement needs invocation to open its form or seed properties."""
+        """Whether placement invokes to open form or seed properties."""
         return self.invoke.is_some() or self.seed.is_some()
 
     def bound(self, identity: Identity) -> BlenderResult[tuple[str, RecordGroup[T, bpy.types.Operator]]]:
-        """Returns the registered operator and its original acquired record binding."""
+        """Returns operator name and class record binding."""
 
         def held(name: str) -> BlenderResult[tuple[str, RecordGroup[T, bpy.types.Operator]]]:
             module, _, operation = name.partition(".")
@@ -236,15 +236,15 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
     @override
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds property groups, the operator class, and its modal release scope."""
+        """Builds property groups, operator class, and modal release scope."""
         return paired(identity.name(Name.OPERATOR, self.key), RecordGroup.bound(identity, f"operator_{self.key}", self.form)).map(
             lambda pair: (*((Band.GROUPS, nested) for nested in pair[1].nested), *((Band.OPERATORS, item) for item in self.built(identity, *pair)))
         )
 
-    # --- [NATIVE_CLASS]
+    # --- [OPERATOR_CLASS]
 
     def built(self, identity: Identity, name: str, group: RecordGroup[T]) -> tuple[Acquisition, ...]:
-        """Builds the native callbacks and class additions of one invocation form."""
+        """Builds operator class and lifetime scopes of its invocation form."""
         made = group.struct.__annotations__
         flags: frozenset[rna_enums.OperatorTypeFlagItems] = frozenset({"REGISTER", "PRESET"} if self.presets else {"REGISTER"})
         match self.undo:
@@ -352,7 +352,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                     .map(lambda keywords: manager.invoke_confirm(operator, event, **keywords))
                 )
             case Suppressible() as suppressed:
-                members["__annotations__"] = made | {"suppress": bpy.props.BoolProperty(name="Don't ask again", options={"SKIP_SAVE"})}
+                members["__annotations__"] = made | {"suppress": bpy.props.BoolProperty(name="Do not show again", options={"SKIP_SAVE"})}
 
                 def asking(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
                     for layout in Option.of_optional(operator.layout).to_list():
@@ -531,34 +531,34 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
 
 
 class Own[T: msgspec.Struct, S = None](msgspec.Struct, frozen=True, kw_only=True):
-    """Placement of an operator with its complete typed property record."""
+    """Placement of owned operator with typed record."""
 
     command: Operator[T, S]
     values: T
 
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Returns the operator identity and writer of its supplied record."""
+        """Returns operator name and writer of supplied record."""
         return identity.name(Name.OPERATOR, self.command.key).map(lambda name: (name, lambda properties: self.command.bound(identity).bind(lambda pair: pair[1].write(properties, self.values))))
 
 
 class Acquired(msgspec.Struct, frozen=True, kw_only=True):
-    """Placement by the key of an operator built during registration."""
+    """Placement by key of operator built during registration."""
 
     key: Key
 
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Returns the extension identifier without setting placement properties."""
+        """Returns operator name with no-op writer."""
         return identity.name(Name.OPERATOR, self.key).map(lambda name: (name, lambda _: Ok(None)))
 
 
 class Stock(msgspec.Struct, frozen=True, kw_only=True):
-    """Placement of an existing operator with native RNA property values."""
+    """Placement of stock operator with RNA property values."""
 
     operator: Operation
     values: Mapping[str, Value] = msgspec.field(default_factory=dict)
 
     def invocation(self, _identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Resolves native operator properties and returns their write boundary."""
+        """Resolves stock operator name and property writer."""
         idname = self.operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
         def member(kind: bpy.types.Struct, key: str) -> BlenderResult[Descriptor]:
@@ -579,13 +579,13 @@ class Stock(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Macro(Command, frozen=True, kw_only=True):
-    """Native operator steps executed as one undo step and redo entry."""
+    """Operator steps run in one undo step and redo entry."""
 
     steps: tuple[Placed, *tuple[Placed, ...]]
 
     @override
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds the native macro class and defines its steps after class registration."""
+        """Builds macro class, defining its steps after class registration."""
 
         def built(name: str) -> tuple[tuple[Band, Acquisition], ...]:
             kind: type[bpy.types.Macro] = type(name, (bpy.types.Macro,), self.namespace(name, frozenset({"REGISTER", "UNDO"})))
@@ -603,7 +603,7 @@ class Macro(Command, frozen=True, kw_only=True):
 
 
 def answered(applied: Applied, reason: str, notes: tuple[tuple["rna_enums.WmReportItems", str], ...] = ()) -> BlenderResult[Outcome]:
-    """Answers written paths as a change beside the write faults, the faults where nothing was written, or the reason nothing changed."""
+    """Returns Done skipping write faults when a path was written, else write faults, else Unchanged."""
     match applied.written, applied.outcome.swap().to_option():
         case (_, *_), skipped:
             return Ok(Done(notes=notes, skipped=skipped))
@@ -614,7 +614,7 @@ def answered(applied: Applied, reason: str, notes: tuple[tuple["rna_enums.WmRepo
 
 
 def tallied(edits: tuple[BlenderResult[object], ...], notes: tuple[tuple["rna_enums.WmReportItems", str], ...] = ()) -> BlenderResult[Done]:
-    """Answers independent item edits as a change holding the refused items' faults, or every fault where no item changed."""
+    """Returns Done skipping faults when any item changed, else every fault."""
     return accumulated(edits).map(lambda _: Done(notes=notes)).or_else_with(lambda faults: Error(faults) if all(edit.is_error() for edit in edits) else Ok(Done(notes=notes, skipped=Some(faults))))
 
 

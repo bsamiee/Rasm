@@ -13,5 +13,5 @@ rule:
           all:
             - has: {field: name, regex: '^options$'}
             - has: {field: value, regex: '\bregularExpression\b'}
-message: '`$SITE` compiles a pattern string through `NSRegularExpression` at run time'
-note: 'Write `/<pattern>/` or a `RegexBuilder` `Regex { }`, `Regex(<string>)` for a run-time pattern, and search through the `String` regex algorithms'
+message: '`$SITE` compiles a regex from a pattern string at run time through Foundation'
+note: 'Write `/<pattern>/` or `Regex { }`, `try Regex(<string>)` for a run-time pattern, and search through `String` regex algorithms'

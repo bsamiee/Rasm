@@ -1,4 +1,4 @@
-"""Native piecewise tonal-zone grading on OCIO's scene-linear stop axis."""
+"""Piecewise tonal-zone grading on OCIO scene-linear stop axis."""
 
 import functools
 
@@ -27,7 +27,7 @@ _ZONE = ("input", "adjustment", start, width)
 
 
 def _grouped(key: Key, title: str, inputs: tuple[Key, ...], body: BlenderResult[tuple[Fragment, End]]) -> BlenderResult[NodeGroup]:
-    """Builds a hidden scalar group from its interface and complete curve body."""
+    """Builds hidden scalar group from inputs and curve body."""
     return body.bind(
         lambda built: NodeGroup.built(
             f"zones_{key}",
@@ -46,7 +46,7 @@ def _grouped(key: Key, title: str, inputs: tuple[Key, ...], body: BlenderResult[
 
 @functools.cache
 def _segment() -> BlenderResult[NodeGroup]:
-    """Builds the quadratic piece whose slope varies linearly between endpoints."""
+    """Builds quadratic piece with linear slope between endpoints."""
     value, start, end, level, entering, leaving = (End(node=INPUTS, socket=key) for key in _PIECE)
     run, span, share, bend, half, slope, piece = (End(node=key) for key in ("run", "span", "share", "bend", "half", "slope", "piece"))
     return _grouped(
@@ -67,7 +67,7 @@ def _segment() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _inverse() -> BlenderResult[NodeGroup]:
-    """Builds the stable root of a quadratic piece."""
+    """Builds stable root of quadratic piece."""
     value, start, end, level, entering, leaving = (End(node=INPUTS, socket=key) for key in _PIECE)
     span, bend, square, linear, constant, squared, product, discriminant, root, denominator, numerator, share, piece = (
         End(node=key) for key in ("span", "bend", "square", "linear", "constant", "squared", "product", "discriminant", "root", "denominator", "numerator", "share", "piece")
@@ -96,7 +96,7 @@ def _inverse() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _pivot() -> BlenderResult[NodeGroup]:
-    """Builds forward and inverse quadratic pairs joined at the pivot midpoint."""
+    """Builds forward and inverse quadratic pairs joined at pivot midpoint."""
     value, low, high, low_slope, high_slope, reverse = (End(node=INPUTS, socket=key) for key in _PIVOT)
     span, middle, slopes, knee, below, above, entry, leave, inward, entry_back, outward, leave_back, under, inside, beneath, within = (
         End(node=key) for key in ("span", "middle", "slopes", "knee", "below", "above", "entry", "leave", "inward", "entry_back", "outward", "leave_back", "under", "inside", "beneath", "within")
@@ -146,7 +146,7 @@ def _pivot() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _slope() -> BlenderResult[NodeGroup]:
-    """Builds OCIO's end slope symmetric about adjustment one."""
+    """Builds OCIO end slope symmetric about adjustment one."""
     adjustment = End(node=INPUTS, socket="adjustment")
     offset, deviation, lean, slope = (End(node=key) for key in ("offset", "deviation", "lean", "slope"))
     return _grouped(
@@ -164,7 +164,7 @@ def _slope() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _highlights() -> BlenderResult[NodeGroup]:
-    """Builds the highlight pivot pair with its native minimum gap."""
+    """Builds highlight pivot pair with minimum gap."""
     value, adjustment, start, width = (End(node=INPUTS, socket=key) for key in _ZONE)
     pivot, limit, low, reverse = (End(node=key) for key in ("pivot", "limit", "low", "reverse"))
     slope = End(node="slope", socket="value")
@@ -189,7 +189,7 @@ def _highlights() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _shadows() -> BlenderResult[NodeGroup]:
-    """Builds the shadow pivot pair with its native minimum gap."""
+    """Builds shadow pivot pair with minimum gap."""
     value, adjustment, start, width = (End(node=INPUTS, socket=key) for key in _ZONE)
     pivot, limit, high, reverse = (End(node=key) for key in ("pivot", "limit", "high", "reverse"))
     slope = End(node="slope", socket="value")
@@ -214,7 +214,7 @@ def _shadows() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _midtones() -> BlenderResult[NodeGroup]:
-    """Builds the equal-area midtone curve between native linear-style endpoints."""
+    """Builds equal-area midtone curve between linear-style endpoints."""
     value, adjustment, start, width = (End(node=INPUTS, socket=key) for key in _ZONE)
     (
         least,
@@ -483,7 +483,7 @@ def _whites() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _blacks() -> BlenderResult[NodeGroup]:
-    """Builds black compression and inverse expansion around the shadow-derived start."""
+    """Builds black compression and inverse expansion from shadow-derived start."""
     value, adjustment, start, width = (End(node=INPUTS, socket=key) for key in _ZONE)
     low, mean, reach, drop, floor, under, inside, below, toe, gain, run, scaled, sunk, shifted, inward, line, lifted, unscaled, back, increasing = (
         End(node=key)
@@ -558,7 +558,7 @@ def _blacks() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _contrast_end() -> BlenderResult[NodeGroup]:
-    """Builds one contrast shoulder, reflected for the negative endpoint."""
+    """Builds contrast shoulder, reflected for negative endpoint."""
     value, gain, limit = (End(node=INPUTS, socket=key) for key in ("input", "gain", "limit"))
     flat, plus, level, first, center, room, least, doubled, last, extent, wide, narrow, shifted, stretched, middle, lift, rest, gap, tilt, past, tail, linear, before, inside = (
         End(node=key)
@@ -640,7 +640,7 @@ def _contrast_end() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def _contrast() -> BlenderResult[NodeGroup]:
-    """Builds native S-contrast with independent positive and negative shoulders."""
+    """Builds S-contrast with independent positive and negative shoulders."""
     value, contrast = (End(node=INPUTS, socket=key) for key in ("input", "contrast"))
     stretch, capped, squeeze, steep, floored, gentle, reflected, negative, lower = (
         End(node=key) for key in ("stretch", "capped", "squeeze", "steep", "floored", "gentle", "reflected", "negative", "lower")
@@ -677,7 +677,7 @@ def _contrast() -> BlenderResult[NodeGroup]:
 
 
 def zoned(shell: Shell[Zones]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns the full per-channel tonal-zone chain with master placement and native clamp."""
+    """Returns per-channel tonal-zone chain with master placement and clamp."""
     blacks, shadows, midtones, highlights, whites, s_contrast = Zones.__struct_fields__
     master, red, green, blue, start, width = Zone.__struct_fields__
     channels = ((red, "Red"), (green, "Green"), (blue, "Blue"))

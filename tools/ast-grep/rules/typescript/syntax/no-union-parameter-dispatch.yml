@@ -54,5 +54,5 @@ rule:
                 - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
 transform:
     OVERLOAD: {replace: {source: $SIGNATURE, replace: '(?s)^(?:function\s+)?([^(<]+).*$', by: '$1'}}
-message: '`$PARAMETER$OVERLOAD` selects the behavior by argument shape at runtime'
+message: '`$PARAMETER$OVERLOAD` selects behavior by argument shape at runtime'
 note: 'Decode the argument to one shape (`Schema.ArrayEnsure`), or declare one function per shape'

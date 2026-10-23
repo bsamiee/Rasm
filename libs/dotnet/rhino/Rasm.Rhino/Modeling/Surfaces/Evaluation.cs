@@ -26,7 +26,7 @@ public static class SurfaceEvaluation {
 
     public static IO<SurfaceCurvature> Curvature(Surface surface, Point2d uv, Action<IDisposable> retain) =>
         from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)))
-        from sampled in IO.lift(Fin<Point2d> () => surface.IsAtSingularity(at.X, at.Y, exact: false) ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Surface.CurvatureAt)} takes no point at a singularity") : at)
+        from sampled in IO.lift(Fin<Point2d> () => surface.IsAtSingularity(at.X, at.Y, exact: false) ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Surface.CurvatureAt)} point lies at singularity") : at)
         from curvature in Copies.Owned(
             () => surface.CurvatureAt(sampled.X, sampled.Y),
             static answer => Refused.UnlessFound(answer, nameof(Surface.CurvatureAt)).Bind(static value => Refused.UnlessValid(value.IsSet, value, nameof(Surface.CurvatureAt))),

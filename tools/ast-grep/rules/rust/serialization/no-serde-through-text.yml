@@ -74,4 +74,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 message: '`$HEAD` serializes or deserializes a value through `Display` or `FromStr` text by hand'
-note: 'Replace the impl with `serde_with::SerializeDisplay` and `DeserializeFromStr`, or a field marked `#[serde_as(as = "DisplayFromStr")]`'
+note: 'Derive `serde_with::SerializeDisplay` and `DeserializeFromStr` in place of the impl, or mark a field `#[serde_as(as = "DisplayFromStr")]`'

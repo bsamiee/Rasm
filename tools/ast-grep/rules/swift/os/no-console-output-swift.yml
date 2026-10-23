@@ -72,4 +72,4 @@ rule:
         - matches: result
           not: {matches: host-entry}
 message: '`$OUT` writes a diagnostic outside `Logger` or a result outside the program entry'
-note: 'Log diagnostics through `Logger` with `privacy:` on each interpolation, and write results to stdout from `main` of the `@main` type or `main.swift`'
+note: 'Log diagnostics through `Logger`, and write results to stdout from `main` of the `@main` type or from `main.swift`'

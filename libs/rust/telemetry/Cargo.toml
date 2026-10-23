@@ -8,7 +8,7 @@ edition.workspace    = true
 keywords             = ["tracing", "opentelemetry", "otlp", "logging"]
 license.workspace    = true
 repository.workspace = true
-description          = "Process telemetry: JSON log lines on a writer, OTLP export of traces, metrics, and logs per signal, propagators, and the panic hook"
+description          = "Process telemetry with stderr JSON logs, per-signal OTLP export, propagators, and panic hook"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

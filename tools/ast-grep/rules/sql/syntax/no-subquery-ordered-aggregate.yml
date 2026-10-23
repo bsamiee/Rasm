@@ -81,4 +81,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [ordered, unwrapped]}}
 fix: $FIXED$KEPT
 message: '`$AGGREGATE` ignores the input order `$ORDER` sets'
-note: 'Move `order by <key>` from the subquery or common table expression into the call as `<aggregate>(<arguments> order by <key>)`'
+note: 'Move `order by <key>` from the subquery or CTE into the call, `<aggregate>(<arguments> order by <key>)`'

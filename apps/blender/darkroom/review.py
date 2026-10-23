@@ -1,4 +1,4 @@
-"""Frame charts, metering, calibration, render controls, and persistent history."""
+"""Frame charts, metering, chart calibration, render slots, and render history."""
 
 from pathlib import Path
 

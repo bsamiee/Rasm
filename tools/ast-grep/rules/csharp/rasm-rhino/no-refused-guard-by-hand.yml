@@ -170,4 +170,4 @@ labels:
     CHECKED: {style: primary, message: 'Condition the guard takes'}
     REFUSAL: {style: secondary, message: 'Refusal the guard builds'}
 message: '`$CHECKED` chooses between a value and `Refused` by hand'
-note: 'Call the reason''s `Refused` guard, `Unless` or its index overload for `Declined`, `UnlessFound` for `Absent`, `UnlessValid` for `Invalid`'
+note: 'Call `Refused.Unless` for `Declined`, `Refused.UnlessFound` for `Absent`, `Refused.UnlessValid` for `Invalid`'

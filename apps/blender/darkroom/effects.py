@@ -1,4 +1,4 @@
-"""Darkroom's effect chain, its Sidebar copy, and the strip, asset, and preview rows over it."""
+"""Effect stack, Sidebar mirror, and strip, asset, and preview rows."""
 
 from importlib.resources import files
 

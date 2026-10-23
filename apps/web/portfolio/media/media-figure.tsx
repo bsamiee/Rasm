@@ -29,10 +29,10 @@ const ExpandedViewer = ({ placement, layoutId, description }: { placement: Exclu
                 </div>
                 {placement.kind === 'image' && (
                     <Text className="viewer-hint" elementType="p" slot="description">
-                        Scroll or pinch to zoom. Drag or use arrow keys to move. Use + and − to zoom.
+                        Scroll, pinch, or press + and − to zoom. Drag or press arrow keys to move
                     </Text>
                 )}
-                <ErrorBoundary fallback={<MediaFailure href={mediaUrl(placement.asset)} linkLabel="Open original" message="The expanded viewer could not be loaded." />}>
+                <ErrorBoundary fallback={<MediaFailure href={mediaUrl(placement.asset)} linkLabel="Open original" message="Viewer failed to load" />}>
                     <Suspense fallback={<MediaLoading />}>
                         <ZoomViewer layoutId={layoutId} placement={placement} />
                     </Suspense>

@@ -29,7 +29,7 @@ public static class GrasshopperPlugins {
         from scoped in IO.lift(() => PluginServer.ScopePlugin(location))
         from loaded in IO.lift(Fin<Unit> () => PluginServer.LoadPlugin(location, out FailureInfo failure)
             ? unit
-            : new Expected($"{failure.Location} failed to load with {failure.Kind}: {failure.Reason}", 0, Optional(failure.Exception).Map(static exception => Error.New(exception))))
+            : new Expected($"{failure.Location} failed to load ({failure.Kind}), {failure.Reason}", 0, Optional(failure.Exception).Map(static exception => Error.New(exception))))
         select loaded;
 }
 

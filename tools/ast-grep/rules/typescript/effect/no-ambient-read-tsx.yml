@@ -72,6 +72,6 @@ rule:
           not: {any: [{inside: {kind: call_expression, field: function}}, {inside: {kind: member_expression, field: object}}, {inside: {kind: import_specifier}}]}
     pattern: $READ
 message: '`$READ` reads host time or randomness as an ambient value'
-note: 'Take the value as an argument or read it from a `Clock` or `Random` service'
+note: 'Read time from `Clock` or `DateTime.now` and randomness from `Random`, or take the value as a parameter'
 labels:
     READ: {style: primary}

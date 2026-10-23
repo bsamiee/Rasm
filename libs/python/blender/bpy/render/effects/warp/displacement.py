@@ -42,15 +42,14 @@ def prepared(
         identity: Extension owning capture and effect inputs.
         scene: Evaluated scene supplying held motion clocks.
         record: Evaluated gated displacement controls.
-        config: Working color configuration used for luminance and map files.
-        source: Associated entering image with native DATA and FULL windows.
+        config: Color configuration for luminance and map files.
+        source: Associated stage input with DATA and FULL windows.
         precision: Caller-selected pixel integration and replicate error policy.
         frame: Original camera pixel aspect and share of overscan.
-        entry: Evaluated native entry supplying its keyed following exposure gain.
+        entry: Evaluated entry supplying keyed exposure gain of later entries.
 
     Returns:
-        Unchanged controls and jointly estimated image, displacement, and drop coverage,
-        or typed image, color, and native input faults.
+        Unchanged controls and jointly estimated image, displacement, and drop coverage, or image, color, and input faults.
     """
     if not any(value.enabled for value in msgspec.structs.astuple(record) if isinstance(value, Gated)):
         return Ok((record, {}))
@@ -114,8 +113,8 @@ displacement: CompositorEffect[Displacement] = CompositorEffect(
     inputs=(exposure.gain,),
     animated=Some(exposure.keyed),
     registrables=(
-        inspection(lambda: displacement, "displacement_field", "View Displacement", "Shows integrated displacement in displayed frame units", lambda: End(node="displacement", socket="Image")),
-        inspection(lambda: displacement, "raindrop_coverage", "View Raindrops", "Shows integrated refracting drop and trail coverage", lambda: End(node="drops", socket="Image")),
+        inspection(lambda: displacement, "displacement_field", "View Displacement", "Integrated displacement in displayed frame units", lambda: End(node="displacement", socket="Image")),
+        inspection(lambda: displacement, "raindrop_coverage", "View Raindrops", "Integrated refracting drop and trail coverage", lambda: End(node="drops", socket="Image")),
     ),
 )
 

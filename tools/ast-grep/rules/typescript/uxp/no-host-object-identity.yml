@@ -46,5 +46,5 @@ rule:
             - has: {field: arguments, has: {matches: enumerator}}
 transform:
     CALL_HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-message: '`$COMPARISON$CALL_HEAD` compares InDesign objects by identity or by rendered text'
-note: 'Compare with `<enum>.equals(<v>)`, test membership with `<items>.some((x) => x.equals(<enum>))`, and read or dedupe by `everyItem().id` or `.name`'
+message: '`$COMPARISON$CALL_HEAD` compares InDesign objects by identity or rendered text'
+note: 'Call `<enumerator>.equals(<value>)`, `<list>.some((x) => x.equals(<enumerator>))` for membership, or compare DOM objects by `id` or `name`'

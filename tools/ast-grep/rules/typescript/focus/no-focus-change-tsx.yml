@@ -47,4 +47,4 @@ rule:
             - has: {field: arguments, has: {nthChild: 2, kind: array, has: {kind: 'string, template_string', matches: activating-script}}}
         - has: {field: arguments, any: [{matches: activating-line}, {has: {matches: activating-line}}]}
 message: '`$SITE` takes focus from the frontmost application'
-note: 'Pass `-g` to `open` ahead of `--args`, and send no AppleScript `activate`, `AXRaise`, or `frontmost` write'
+note: 'Pass `-g` to `open` ahead of `--args`, or remove `activate`, `AXRaise`, and `set frontmost` from the `osascript` source'

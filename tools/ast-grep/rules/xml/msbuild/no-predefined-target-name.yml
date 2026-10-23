@@ -41,5 +41,5 @@ transform:
     RENAMED: rewrite($TARGET, rewriters=[attach, rename])
     PREDEFINED_NAME: {replace: {source: $PREDEFINED, replace: '["'']', by: ''}}
 fix: $RENAMED
-message: 'Target `$PREDEFINED_NAME` takes a name the SDK target imported after the project body replaces'
+message: 'SDK targets imported after the project body replace target `$PREDEFINED_NAME`'
 note: Give the target its own name and attach it with `BeforeTargets` or `AfterTargets`

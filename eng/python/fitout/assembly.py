@@ -1,4 +1,4 @@
-"""Assemble Blender extensions and import folders from the locked Python runtime."""
+"""Builds Blender extension archives and import folders from uv lock."""
 
 import ast
 from pathlib import Path, PurePosixPath
@@ -50,12 +50,12 @@ class _Root(msgspec.Struct, frozen=True):
 
 
 def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = None) -> Result[subprocess.CompletedProcess[bytes], subprocess.CalledProcessError]:
-    """Run a child process on the given or inherited streams, its nonzero exit the error."""
+    """Runs child process, nonzero exit as error."""
     return catch(lambda: subprocess.run(command, stdout=stdout, stderr=stderr, check=True), exception=subprocess.CalledProcessError)()
 
 
 def _interpreter(blender: Path) -> Result[_Interpreter, subprocess.CalledProcessError]:
-    """Return Blender's Python executable and the extension platform Blender names for its host."""
+    """Returns Blender Python executable and host extension platform."""
     probe = "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))"
     return _ran(blender, "--background", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE).map(
         lambda host: msgspec.json.decode(host.stderr, type=_Interpreter)
@@ -63,7 +63,7 @@ def _interpreter(blender: Path) -> Result[_Interpreter, subprocess.CalledProcess
 
 
 def _requirements(root: _Root, lock: Path, *exported: str) -> Result[Path, subprocess.CalledProcessError]:
-    """Return `lock` once it holds the locked runtime closure, leaving out the packages Blender bundles."""
+    """Returns `lock` holding locked runtime closure without packages Blender bundles."""
     excluded = (*("--no-emit-package", Requirement(entry).name) for entry in root.tool.uv.constraint_dependencies)
     return _ran(
         "uv", "export", "--locked", "--no-default-groups", "--no-editable", "--no-hashes", "--format", "requirements.txt", *exported, *excluded, "--output-file", lock, stdout=subprocess.DEVNULL
@@ -73,16 +73,16 @@ def _requirements(root: _Root, lock: Path, *exported: str) -> Result[Path, subpr
 def pack(
     source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, OSError | subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]]:
-    """Build a Blender extension holding the first-party packages as submodules and every other distribution as a wheel, one archive per platform Blender names.
+    """Builds host platform extension archive, first-party packages as submodules and other distributions as wheels.
 
     Args:
-        source: Extension directory containing its manifest and assets.
-        directory: Folder the archives replace, holding nothing else once built.
-        version: Semantic version the manifest takes.
-        blender: Blender executable, supplied by BLENDER_PATH.
+        source: Extension directory with manifest and assets.
+        directory: Folder built archive replaces.
+        version: Semantic version written to manifest.
+        blender: Blender executable.
 
     Returns:
-        Zero once built, or the failed child processes, every icon render's together, or the failed archive placement.
+        Zero, or failed child process, icon render failure group, or archive placement error.
     """
     root = msgspec.toml.decode(Path("pyproject.toml").read_bytes(), type=_Root)
     icons = source / "icons"
@@ -155,14 +155,14 @@ def pack(
 
 
 def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> Result[int, subprocess.CalledProcessError]:
-    """Sync a folder Blender's interpreter imports from to the distributions `pack` bundles as wheels, reinstalling only those whose version or tags differ.
+    """Syncs Blender import folder to distributions `pack` bundles, reinstalling only on version or tag change.
 
     Args:
-        target: Folder holding the synced packages.
-        blender: Blender executable, supplied by BLENDER_PATH.
+        target: Folder of synced packages.
+        blender: Blender executable.
 
     Returns:
-        Zero once synced, or the failed child process.
+        Zero, or failed child process.
     """
     root = msgspec.toml.decode(Path("pyproject.toml").read_bytes(), type=_Root)
     with tempfile.TemporaryDirectory() as folder:

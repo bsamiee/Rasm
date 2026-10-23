@@ -149,23 +149,23 @@ public sealed partial class RangeAxis {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HueRangeParameter : IStateParameter<HueRange> {
     public static readonly HueRangeParameter HueCenter = new("hue-center", RangeAxis.Hue.Kinds.Center,
-        new("Center", "Middle of the band the range selects"));
+        new("Center", "Middle of selected band"));
     public static readonly HueRangeParameter HueWidth = new("hue-width", RangeAxis.Hue.Kinds.Width,
-        new("Width", "Span fully inside the band"));
+        new("Width", "Full-strength span"));
     public static readonly HueRangeParameter HueSoftness = new("hue-softness", RangeAxis.Hue.Kinds.Softness,
-        new("Softness", "Falloff span outside each edge of the band"));
+        new("Softness", "Falloff past each band edge"));
     public static readonly HueRangeParameter SaturationCenter = new("saturation-center", RangeAxis.Saturation.Kinds.Center,
-        new("Center", "Middle of the band the range selects"));
+        new("Center", "Middle of selected band"));
     public static readonly HueRangeParameter SaturationWidth = new("saturation-width", RangeAxis.Saturation.Kinds.Width,
-        new("Width", "Span fully inside the band"));
+        new("Width", "Full-strength span"));
     public static readonly HueRangeParameter SaturationSoftness = new("saturation-softness", RangeAxis.Saturation.Kinds.Softness,
-        new("Softness", "Falloff span outside each edge of the band"));
+        new("Softness", "Falloff past each band edge"));
     public static readonly HueRangeParameter LumaCenter = new("luma-center", RangeAxis.Luma.Kinds.Center,
-        new("Center", "Middle of the band the range selects"));
+        new("Center", "Middle of selected band"));
     public static readonly HueRangeParameter LumaWidth = new("luma-width", RangeAxis.Luma.Kinds.Width,
-        new("Width", "Span fully inside the band"));
+        new("Width", "Full-strength span"));
     public static readonly HueRangeParameter LumaSoftness = new("luma-softness", RangeAxis.Luma.Kinds.Softness,
-        new("Softness", "Falloff span outside each edge of the band"));
+        new("Softness", "Falloff past each band edge"));
 
     public StateParameter<HueRange> Kind { get; }
     public ParameterText Text { get; }
@@ -215,9 +215,9 @@ public sealed partial class SelectiveColorParameter : IStateParameter<SelectiveC
         RampInterpolation.Linear);
 
     public static readonly SelectiveColorParameter Range = new("range", new StateParameter<SelectiveColor>.Record<HueRange>(SelectiveColor.RangeOf),
-        new("Range", "Band of the stage input the grade acts on"));
+        new("Range", "Band of stage input graded"));
     public static readonly SelectiveColorParameter HueShift = new("hue-shift", StateParameter.Bounded(Lens<SelectiveColor, SignedAngle>.New(static state => state.Shift, static shift => state => state with { Shift = shift }), SignedAngle.Presentation with { Stops = Shifts }),
-        new("Hue shift", "Turn added to the hue of qualified pixels"));
+        new("Hue shift", "Hue turn on qualified pixels"));
     public static readonly SelectiveColorParameter Saturation = new("saturation", StateParameter.Bounded(Lens<SelectiveColor, Magnitude>.New(static state => state.Saturation, static saturation => state => state with { Saturation = saturation }), ContrastGradeParameter.Chroma),
         new("Saturation", "Saturation gain on qualified pixels"));
     public static readonly SelectiveColorParameter Exposure = new("exposure", StateParameter.Bounded(Lens<SelectiveColor, Exposure>.New(static state => state.Exposure, static exposure => state => state with { Exposure = exposure })),
@@ -256,7 +256,7 @@ public sealed record HueIsolation(HueRange Range) : IStateRecord<HueIsolation, H
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HueIsolationParameter : IStateParameter<HueIsolation> {
     public static readonly HueIsolationParameter Range = new("range", new StateParameter<HueIsolation>.Record<HueRange>(HueIsolation.RangeOf),
-        new("Range", "Band of the stage input kept in color"));
+        new("Range", "Band of stage input kept in color"));
 
     public StateParameter<HueIsolation> Kind { get; }
     public ParameterText Text { get; }

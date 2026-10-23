@@ -194,7 +194,7 @@ public sealed record ViewCatalog(Seq<View> Rows) {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-public sealed record UnheldView(Type View, Option<Error> Cause = default) : Expected($"{View.Name} is a view its host cannot hold", 0, Cause);
+public sealed record UnheldView(Type View, Option<Error> Cause = default) : Expected($"Host cannot hold {View.Name}", 0, Cause);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ShownSubscription(Func<Action<IDisposable>, IO<Unit>> listen) : IDisposable {

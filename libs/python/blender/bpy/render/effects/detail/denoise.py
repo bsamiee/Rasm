@@ -47,20 +47,20 @@ class Pair(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, layer: Callable[[str], End], family: Option[Family]) -> Self:
-        """Uses a family's color pass when present, and Cycles' guides otherwise."""
+        """Returns Cycles denoising guides, family color pass as albedo when present."""
         albedo = family.filter(lambda held: bool(held.color)).map(lambda held: held.socket("color"))
         return cls(albedo=layer(albedo.default_value("Denoising Albedo")), normal=layer("Denoising Normal"))
 
 
 class Gate(msgspec.Struct, frozen=True, kw_only=True):
-    """Enable and amount operands of a denoised term."""
+    """Enable and amount of denoised term."""
 
     enabled: Operand
     amount: Operand
 
 
 class Filters(msgspec.Struct, frozen=True, kw_only=True):
-    """Native parameter paths of every spatial filter and its target."""
+    """Input key paths of spatial filters and target."""
 
     target: KeyPath
     fireflies: KeyPath
@@ -71,7 +71,7 @@ class Filters(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls) -> Self:
-        """Derives paths from the record's native slot and term metadata."""
+        """Derives paths from record field names."""
         fireflies, target_field = SpatialDenoise.__struct_fields__
         (filter_frame,) = Frame.__struct_fields__
         terms, occlusion = Passes.__struct_fields__
@@ -89,12 +89,12 @@ class Filters(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def filters(self) -> tuple[KeyPath, ...]:
-        """Frame path followed by every term, occlusion, and group path."""
+        """Frame, term, occlusion, and group paths in order."""
         return self.frame, *structs.astuple(self.terms), self.occlusion, self.groups
 
 
 class Plane(msgspec.Struct, frozen=True, kw_only=True):
-    """Written sequence path and the image output holding its plane."""
+    """Written sequence path and image output of its plane."""
 
     path: str
     name: str
@@ -116,7 +116,7 @@ class Rendered(msgspec.Struct, frozen=True, kw_only=True):
             record: Color thresholds, reverse-motion tolerance, and neighbor weight bound.
 
         Returns:
-            The compositor-only sequence group, or accumulated native graph faults.
+            Compositor-only sequence group, or accumulated graph faults.
         """
 
         def loaded(key: Key, plane: Plane, offset: int) -> BlenderResult[tuple[Fragment, End]]:
@@ -208,7 +208,7 @@ class Rendered(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def guided(layer: str) -> BlenderResult[PassRequest]:
-    """Requests Cycles' denoising guides on a view layer."""
+    """Requests Cycles denoising guide passes."""
 
     def requested(flag: Descriptor[bpy.types.BoolProperty], engine: Descriptor[bpy.types.EnumProperty]) -> PassRequest:
         return PassRequest(layer=layer, flags=frozenset({flag}), condition=Some(Setting(descriptor=engine, accepted=("CYCLES",))))
@@ -219,7 +219,7 @@ def guided(layer: str) -> BlenderResult[PassRequest]:
 
 
 def motioned(layer: str) -> BlenderResult[tuple[PassRequest, Setting]]:
-    """Requests pixel motion and disables motion blur for the sequence render."""
+    """Requests vector pass with motion blur off for sequence render."""
 
     def requested(flag: Descriptor[bpy.types.BoolProperty], blur: Descriptor[bpy.types.BoolProperty]) -> tuple[PassRequest, Setting]:
         return PassRequest(layer=layer, flags=frozenset({flag})), Setting(descriptor=blur, accepted=(False,))
@@ -230,7 +230,7 @@ def motioned(layer: str) -> BlenderResult[tuple[PassRequest, Setting]]:
 
 
 def settings() -> BlenderResult[tuple[Descriptor, ...]]:
-    """Resolves the native compositor denoise device and quality settings."""
+    """Resolves compositor denoise device and quality settings."""
     return accumulated(
         Descriptor.resolve(bpy.types.Scene, f"render.{member}", bpy.types.EnumProperty)
         for member in ("compositor_denoise_device", "compositor_denoise_preview_quality", "compositor_denoise_final_quality")
@@ -238,13 +238,13 @@ def settings() -> BlenderResult[tuple[Descriptor, ...]]:
 
 
 def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
-    """Builds the shared firefly suppression and HDR denoise group.
+    """Builds shared firefly and HDR denoise group.
 
     Args:
         working: Working-space luminance group with image input and luminance output.
 
     Returns:
-        The unit group with filtered and noisy outputs, or accumulated graph faults.
+        Group with filtered and noisy outputs, or accumulated graph faults.
     """
     image = End(node=INPUTS, socket=COLOR_INPUT.key)
     fireflies, _ = SpatialDenoise.__struct_fields__
@@ -397,7 +397,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
 
 
 def unit(key: Key, group: NodeGroup, path: KeyPath, socket: Callable[[Key], End], source: Operand, pair: Pair) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds one unit from its filter path, guide ends, and firefly controls."""
+    """Builds denoise unit with filter path, guides, and firefly controls."""
     fireflies, _ = SpatialDenoise.__struct_fields__
     _, value = Gated.__struct_fields__
     controls = {field.name: socket(item_key(*path, field.name)) for field in structs.fields(Filter)} | {held: socket(held) for held in (fireflies, item_key(fireflies, value))}
@@ -405,24 +405,24 @@ def unit(key: Key, group: NodeGroup, path: KeyPath, socket: Callable[[Key], End]
 
 
 def gated(key: Key, source: Operand, filtered: tuple[Fragment, End], gate: Gate) -> BlenderResult[tuple[Fragment, End]]:
-    """Blends enabled denoise against its firefly-cleaned input, retaining disabled source."""
+    """Mixes denoised result over firefly-cleaned input, source passing through when disabled."""
     body, result = filtered
     return mixed(f"{key}_amount", "RGBA", gate.amount, (body, structs.replace(result, socket="noisy")), filtered).bind(lambda blended: switched(key, "RGBA", gate.enabled, source, blended))
 
 
 def filing(terms: tuple[tuple[str, End], ...]) -> Filing:
-    """Routes denoised terms to the layered beauty output."""
+    """Routes denoised terms to beauty layers."""
     return Filing(output=Output.BEAUTY, kind=Kind.LAYERED, sources=tuple(Source(name=f"{label} Denoised", end=end, kind="RGBA", dimensions=Nothing, output=Output.BEAUTY) for label, end in terms))
 
 
 def denoised(shell: Shell[SpatialDenoise]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds all filter units and the selected spatial target.
+    """Builds filter units and selected target.
 
     Args:
         shell: Entry inputs, target menus, working config, and render-layer endpoints.
 
     Returns:
-        The target image with its cleaned frame baseline, or accumulated graph faults.
+        Target image with cleaned frame baseline, or accumulated graph faults.
     """
     paths, pair = Filters.of(), Pair.of(shell.layer, Nothing)
 
@@ -459,7 +459,7 @@ spatial_denoise: CompositorEffect[SpatialDenoise] = CompositorEffect(
             row=lambda: spatial_denoise,
             key=item_key(SpatialDenoise, "frame"),
             title="View Denoised Frame",
-            description="Shows the frame filter output before the target selection and entry blend",
+            description="Frame filter output before target selection",
             target=lambda: End(node=item_key(*Filters.of().frame), socket=COLOR_RESULT.key),
         ),
     ),

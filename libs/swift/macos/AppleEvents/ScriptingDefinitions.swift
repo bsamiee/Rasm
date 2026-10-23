@@ -14,10 +14,10 @@ public enum DefinitionFailure: CustomNSError, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-            case .requiresRunning(let url): "\(url.path(percentEncoded: false)) names no OSAScriptingDefinition and is not running. Launch it to read its dictionary"
+            case .requiresRunning(let url): "\(url.path(percentEncoded: false)) has no OSAScriptingDefinition, launch it to read its dictionary"
             case .unmatched(let miss): miss.errorDescription
             case .osa(let status): "OSACopyScriptingDefinitionFromURL failed (\(status))"
-            case .xml(let error): "Unreadable scripting definition XML: \(error.localizedDescription)"
+            case .xml: "Scripting definition XML unreadable"
         }
     }
 

@@ -44,7 +44,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 cx.tcx.def_span(holder),
                 with_forced_trimmed_paths!(format!("`{implementor}` takes every `io::Error` through `From` and keeps no operation or subject")),
                 |diag| {
-                    diag.help("declare a variant holding an operation enum, the subject, and the `io::Error` source, and build it with `map_err` at each call");
+                    diag.help("replace `From<io::Error>` with `map_err` into a variant holding operation, subject, and `#[source] io::Error`");
                 },
             );
         }
@@ -59,10 +59,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && arguments.iter().any(|argument| is_text(cx, cx.typeck_results().expr_ty(argument)))
         {
             let enclosing = cx.tcx.typeck_root_def_id(cx.tcx.hir_enclosing_body_owner(expr.hir_id).to_def_id());
-            let streamed = matches!(cx.tcx.def_kind(enclosing), DefKind::Fn | DefKind::AssocFn)
-                && result_parts(cx, awaited_output(cx.tcx, enclosing)).is_some_and(|(_, error)| error.opt_def_id() == Some(io_error));
-            span_lint_hir_and_then(cx, IO_ERROR_WITHOUT_CONTEXT, expr.hir_id, expr.span, "`io::Error` built from text holds a failure callers cannot match", |diag| {
-                diag.help(if streamed { "build it from a typed error: `io::Error::new(kind, <thiserror value>)`" } else { "return a `thiserror` variant holding the subject and its typed source" });
+            let streamed = matches!(cx.tcx.def_kind(enclosing), DefKind::Fn | DefKind::AssocFn) && {
+                let output = awaited_output(cx.tcx, enclosing);
+                result_parts(cx, output).map_or(output, |(_, error)| error).opt_def_id() == Some(io_error)
+            };
+            let constructor = cx.tcx.item_name(callee);
+            span_lint_hir_and_then(cx, IO_ERROR_WITHOUT_CONTEXT, expr.hir_id, expr.span, format!("`io::Error::{constructor}` wraps text callers cannot match"), |diag| {
+                diag.help(if streamed {
+                    format!("pass a typed error to `io::Error::{constructor}` in place of the text")
+                } else {
+                    String::from("return a `thiserror` variant holding the subject and its typed source")
+                });
             });
         }
     }

@@ -16,7 +16,7 @@ class LinkView extends Schema.TaggedClass<LinkView, { readonly brand: unique sym
     edited: Schema.Boolean,
     size: Schema.Finite.annotate({ description: 'Source file size in bytes' }),
     date: Schema.String.annotate({ description: 'Source file modification date' }),
-    parent: Reference.annotate({ description: 'Graphic or story the link places' }),
+    parent: Reference.annotate({ description: 'Placed graphic or story' }),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<Link>('linkResourceURI')), Option.map(LinkView.of));
     static readonly of = (link: Link) =>

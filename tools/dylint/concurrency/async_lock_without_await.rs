@@ -189,7 +189,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (name, path, owner_name) = (cx.tcx.item_name(*lock), cx.tcx.def_path_str(*lock), owner.name(cx));
             span_lint_hir_and_then(cx, ASYNC_LOCK_WITHOUT_AWAIT, owner.hir_id(cx), owner.span(cx), format!("no `{path}` guard of `{owner_name}` is held across an `.await`"), |diag| {
                 diag.span_note(sites.iter().map(|site| site.call).collect::<Vec<_>>(), format!("`{owner_name}` is locked here"));
-                diag.help(format!("declare `std::sync::nonpoison::{name}` in place of `{path}`"));
+                diag.help(format!("declare `std::sync::nonpoison::{name}` in place of `{path}` and lock it with no `.await`"));
             });
         }
     }

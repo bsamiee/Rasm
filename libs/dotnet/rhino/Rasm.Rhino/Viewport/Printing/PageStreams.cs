@@ -113,7 +113,7 @@ public static class PageStreams {
                 select new CapturedPage(retain => NamedViews.Read(held.Doc, named.Name, view => Projected(held.Doc, row, view.Viewport, named.Frame, retain)), None)));
 
     private static IO<TValue> Pages<TValue>(RhinoDoc doc, Seq<PageSource> sources, Func<Seq<CapturedPage>, IO<TValue>> body) =>
-        from live in IO.lift(() => doc.IsHeadless ? Error.New("a headless document captures no page") : Fin.Succ(unit))
+        from live in IO.lift(() => doc.IsHeadless ? Error.New("headless document captures no page") : Fin.Succ(unit))
         from result in DisposalOps.Within((Action<IDisposable> retain) =>
             sources.TraverseM(source => Held(doc, source, retain)).As()
                 .Bind(held => held.TraverseM(entry => Planned(doc, entry.Source, entry.Rows)).As())

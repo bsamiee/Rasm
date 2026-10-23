@@ -156,7 +156,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
             return subtree.some(owned) && reached.isSubsetOf(new Set(subtree.map(Struct.get('pid')))) && !subtree.some((member) => exempt.has(member.pid) || member.uid !== uid) ? subtree.filter(({ state }) => !state.startsWith('Z')) : [];
         });
     const signal = (pid: number, value: NodeJS.Signals | 0) =>
-        Effect.try({ try: () => process.kill(pid, value), catch: (cause) => new Cause.UnknownError(cause, `cannot signal process ${pid}`) }).pipe(
+        Effect.try({ try: () => process.kill(pid, value), catch: (cause) => new Cause.UnknownError(cause, `Signal to PID ${pid} failed`) }).pipe(
             Effect.catchIf(
                 ({ cause }) => Predicate.hasProperty(cause, 'code') && cause.code === 'ESRCH',
                 () => Effect.succeed(false),

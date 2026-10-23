@@ -33,7 +33,7 @@ class Files(Protocol):
     """Files written by marked compositor outputs for one scene frame."""
 
     def written(self, scene: bpy.types.Scene, frame: int, identity: Identity) -> BlenderResult[tuple["Written", ...]]:
-        """Returns the frame's written files or their naming faults."""
+        """Returns frame's written files."""
         ...
 
 
@@ -41,7 +41,7 @@ class Files(Protocol):
 
 
 class Written(msgspec.Struct, frozen=True, kw_only=True):
-    """Written file and the storage, pass names, and display window its owner supplies."""
+    """Written file with storage, pass names, and display window."""
 
     path: str
     output: Output
@@ -55,12 +55,12 @@ class Written(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, convention: Conventions, layer: str, passes: Map[str, str]) -> Option[Self]:
-        """Constructs a written file when its native depth has a storage representation."""
+        """Returns written file when native depth maps to a storage depth."""
         return depth(settings).map(lambda held: cls(path=path, output=output, kind=kind(settings), depth=held, layer=layer, compression=compression(settings), convention=convention, passes=passes))
 
 
 class Finish(msgspec.Struct, frozen=True, kw_only=True):
-    """One finishing operation and the written storage classes it consumes."""
+    """Finishing operation and written storage classes it consumes."""
 
     run: Body
     outputs: frozenset[Output] = frozenset(Output)
@@ -68,24 +68,24 @@ class Finish(msgspec.Struct, frozen=True, kw_only=True):
     depths: frozenset[Depth] = frozenset(Depth)
 
     def accepts(self, file: Written) -> bool:
-        """Returns whether the operation consumes the file's class and storage."""
+        """Returns whether operation consumes file."""
         return file.output in self.outputs and file.kind in self.kinds and file.depth in self.depths
 
 
 class Finishing(msgspec.Struct, frozen=True, kw_only=True):
-    """Finishing operations and native handlers owning one render-job bracket."""
+    """Finishing operations with handlers spanning one render job."""
 
     rows: tuple[Finish, ...]
     files: Files
 
     def finished(self, scene: bpy.types.Scene, files: tuple[Written, ...], identity: Identity) -> BlenderResult[None]:
-        """Binds operations per file and accumulates independent files' faults."""
+        """Chains operations per file, faults accumulating across files."""
         return accumulated(functools.reduce(lambda done, row: done.bind(lambda _: row.run(scene, file, identity)), (row for row in self.rows if row.accepts(file)), Ok(None)) for file in files).map(
             lambda _: None
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Declares handlers that bind registered framing when each event runs."""
+        """Declares handlers binding registered framing per event."""
         running: set[int] = set()
 
         def bracket(scene: bpy.types.Scene, *, started: bool) -> BlenderResult[None]:
@@ -130,7 +130,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
-    """Returns the current frame's written native paths per active view, omitting movies, unsupported depths, and still writes `frame_path` does not name."""
+    """Returns current frame's existing `frame_path` files per active view, omitting movies and unsupported depths."""
     render, settings = scene.render, scene.render.image_settings
     views = tuple(view.name for view in render.views if view.use) if render.use_multiview and settings.views_format == "INDIVIDUAL" else ("",)
     return (
@@ -147,12 +147,12 @@ def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
 
 
 def stamped(identity: Identity) -> Mapping[str, str]:
-    """Returns the extension's software name and version for exported file metadata."""
+    """Returns extension name and version as exported file metadata."""
     return {"Software": f"{identity.manifest.name} {identity.manifest.version}"}
 
 
 def rewritten_file(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> BlenderResult[None]:
-    """Publishes changed display windows and one-channel pass names through native imaging."""
+    """Rewrites file display window and one-channel pass names."""
 
     def channels(names: tuple[str, ...]) -> tuple[str, ...]:
         counts = Counter(name.rpartition(".")[0] for name in names)

@@ -61,4 +61,4 @@ rule:
             - has: {field: function, pattern: $RACE, matches: rust-future-select}
             - has: {field: arguments, has: {matches: cancel-operand}}
 message: '`$RACE$BANG` races one future against `$CANCELLED()` by hand'
-note: 'Await `<token>.run_until_cancelled(<future>)`, `None` on cancellation with the future dropped'
+note: 'Await `<token>.run_until_cancelled(<future>)` (`run_until_cancelled_owned` on an owned token) and match `None` as cancellation'

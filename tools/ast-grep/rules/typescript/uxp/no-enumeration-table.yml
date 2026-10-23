@@ -32,4 +32,4 @@ rule:
             - has: {matches: member-entry, has: {nthChild: 2, matches: host-member}}
             - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: member-entry}]}}}
 message: 'Table restates members of `$ENUMERATION` under keys of its own'
-note: 'Read the member as `Reflect.get(<enumeration>, <name>)` narrowed by `instanceof indesign.Enumerator`, `<name>` in upper snake, camel, or lowercase'
+note: 'Read the member as `Reflect.get(<enumeration>, <name>)` narrowed by `instanceof Enumerator`, with `<name>` in upper snake, camel, or lowercase'

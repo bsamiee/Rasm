@@ -57,7 +57,7 @@ public sealed partial class HueCurve<TKind> : IConvertible<string> where TKind :
         item = null;
         return value is null ? null
             : CurvePoint.Parse(value).Case is Seq<CurvePoint> points ? Validate(points, out item)
-            : new ValidationError($"hue curve '{value}' must be a list of curve points");
+            : new ValidationError($"hue curve '{value}' did not parse as curve points");
     }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<CurvePoint> points) =>
@@ -67,7 +67,7 @@ public sealed partial class HueCurve<TKind> : IConvertible<string> where TKind :
             })
             && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X)
                 ? null
-                : new ValidationError($"{TKind.Kind} curve must hold at least two points within its axes in ascending input order");
+                : new ValidationError($"{TKind.Kind} curve needs 2 or more points inside axes, inputs ascending");
 }
 
 public sealed record HueCurves(

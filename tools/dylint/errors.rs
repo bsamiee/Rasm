@@ -11,7 +11,7 @@ use crate::{bounds_of, is_error, is_text, pointee};
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Clone, Copy, strum::IntoStaticStr)]
-enum UntypedKind {
+enum UntypedKind<'tcx> {
     #[strum(serialize = "text callers cannot match")]
     Text,
     #[strum(serialize = "a primitive that names no failure")]
@@ -25,7 +25,7 @@ enum UntypedKind {
     #[strum(serialize = "a report that erases each failure's type")]
     Report,
     #[strum(serialize = "a collection of errors that can be empty")]
-    Many,
+    Many(Ty<'tcx>),
     #[strum(serialize = "a collection of text callers cannot match")]
     Messages,
     #[strum(serialize = "a `Display` type that implements no `core::error::Error`")]
@@ -34,7 +34,7 @@ enum UntypedKind {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn untyped_kind<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> Option<UntypedKind> {
+fn untyped_kind<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> Option<UntypedKind<'tcx>> {
     let (error_trait, display) = (cx.tcx.get_diagnostic_item(sym::Error)?, cx.tcx.get_diagnostic_item(sym::Display)?);
     match error.kind() {
         _ if error.is_unit() => Some(UntypedKind::Unit),
@@ -57,7 +57,7 @@ fn untyped_kind<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> Option<Untyped
                 }) =>
             Some(UntypedKind::Report),
         ty::Adt(collection, args) if matches!(collection.opt_diag_name(cx), Some(sym::Vec | sym::BTreeSet)) =>
-            is_error(cx, args.type_at(0)).then_some(UntypedKind::Many).or_else(|| is_text(cx, args.type_at(0)).then_some(UntypedKind::Messages)),
+            is_error(cx, args.type_at(0)).then_some(UntypedKind::Many(args.type_at(0))).or_else(|| is_text(cx, args.type_at(0)).then_some(UntypedKind::Messages)),
         _ => error
             .opt_def_id()
             .filter(|_| {

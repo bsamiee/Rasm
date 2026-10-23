@@ -21,5 +21,5 @@ rule:
         - has: {kind: template_substitution, has: {matches: string-parameter}}
         - not: {has: {kind: template_substitution, nthChild: 2}}
 fix: $X
-message: '`$CONVERSION` converts parameter `$X` to the type its annotation declares'
-note: 'Read the parameter directly, a template holding one string substitution returns the string unchanged'
+message: '`$CONVERSION` converts `string` parameter `$X` to `string`'
+note: 'Read the parameter directly'

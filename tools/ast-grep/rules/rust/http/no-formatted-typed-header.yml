@@ -8,4 +8,4 @@ rule:
     not: {matches: rust-macro-argument}
     regex: '^b?"((?i:(authorization|proxy-authorization):\s*)?(?i:bearer|basic) (\{[A-Za-z0-9_:]*\}|")|(?i:(range|content-range):\s*)?bytes[= ](\{|[0-9]|"))'
 message: '`$HEADER` spells an `Authorization` or byte-range header value by hand'
-note: 'Build the header as a `headers` typed value and insert it with `HeaderMapExt::typed_insert` or read it with `typed_get`'
+note: 'Write and read typed `headers::Authorization`, `Range`, or `ContentRange` values through `HeaderMapExt::typed_insert` and `typed_get`'

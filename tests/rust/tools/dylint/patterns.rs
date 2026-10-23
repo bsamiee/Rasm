@@ -28,7 +28,7 @@ fn rest_pattern_workspace_field(found: &str) {
     49 |         Gesture::Pinch(first, ..) => first,
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: write `_` in place of `..` for each field it covers
+       = help: replace `..` with `_`
 
     warning: `..` covers `Token` fields the pattern leaves unnamed
       --> tools/dylint/examples/rest_pattern_workspace_field.rs:63:9

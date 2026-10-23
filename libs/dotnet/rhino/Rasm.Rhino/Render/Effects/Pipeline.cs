@@ -81,7 +81,7 @@ public static class RenderRuns {
     public static Option<RenderRun> Find(Guid rendering) => runs.Value.Find(entry => entry.Rendering == rendering).Map(static entry => entry.Run);
 
     internal static Error NativeOutput(Guid rendering, Seq<Guid> effects) =>
-        Error.New($"Rendering {rendering} cannot reconstruct the requested output around native effects {string.Join(", ", effects)}");
+        Error.New($"Rendering {rendering} cannot rebuild output around native effects {string.Join(", ", effects)}");
 
     public static Option<(Guid Rendering, RenderRun Run)> Rendered =>
         runs.Value.Head.Filter(static latest => latest.Run.Formed.IsSome);

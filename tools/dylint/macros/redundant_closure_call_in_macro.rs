@@ -5,7 +5,7 @@ use rustc_span::{ExpnKind, MacroKind};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(REDUNDANT_CLOSURE_CALL_IN_MACRO: "closures a local `macro_rules!` takes as an `expr` fragment, or declares with parameters, and calls in its expansion");
+lint!(REDUNDANT_CLOSURE_CALL_IN_MACRO: "closure arguments and parameterized closure declarations that a local `macro_rules!` expansion calls");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -19,9 +19,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && (passed || !arguments.is_empty())
         {
             let (message, help) = if passed {
-                ("calls its closure argument", "match the closure as `|$<param>:pat_param| $<body>:expr` in the macro matcher and transcribe the body with each parameter bound to its argument")
+                ("calls its closure argument", "match the closure as `|$parameter:ident $(: $type:ty)?| $body:expr` and expand to `{ let $parameter $(: $type)? = <argument>; $body }`")
             } else {
-                ("calls the closure it declares", "bind each argument with `let <parameter> = <argument>;` and transcribe the body")
+                ("calls the closure it declares", "replace the call with `{ let <parameter> = <argument>; <body> }`")
             };
             span_lint_hir_and_then(cx, REDUNDANT_CLOSURE_CALL_IN_MACRO, callee.hir_id, callee.span, format!("`{name}!` {message} in its expansion"), |diag| {
                 if passed {

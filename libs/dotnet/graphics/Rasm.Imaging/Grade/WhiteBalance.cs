@@ -27,7 +27,7 @@ public sealed record WhiteBalanceState(ColorTemperature Temperature, Tint Tint) 
                 sum += pixel.W > 0f && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(pixel.AsVector3())) ? Vector256.Create(pixel.X, pixel.Y, pixel.Z, 1d) : Vector256<double>.Zero;
         }
         return sum[3] is 0d
-            ? Error.New($"white balance region {bounds} holds no covered pixel of finite value")
+            ? Error.New($"white balance region {bounds} holds no covered finite pixel")
             : Adaptation.Correlate(working, Vector256.Narrow(sum / sum[3], Vector256<double>.Zero).GetLower().AsVector3())
                 .Map(static white => new WhiteBalanceState(white.Temperature, white.Tint));
     }
@@ -41,9 +41,9 @@ public sealed partial class WhiteBalanceParameter : IStateParameter<WhiteBalance
         "temperature",
         StateParameter.Bounded(Lens<WhiteBalanceState, ColorTemperature>.New(static state => state.Temperature, static temperature => state => state with { Temperature = temperature }),
         new Presentation<double> { Unit = ColorTemperature.Unit, Soft = (2000d, 11000d), Step = 1d, Decimals = 0 }),
-        new("Temperature", "Kelvin of the light the image renders neutral"));
+        new("Temperature", "Kelvin of light rendered neutral"));
     public static readonly WhiteBalanceParameter Tint = new("tint", StateParameter.Bounded(Lens<WhiteBalanceState, Tint>.New(static state => state.Tint, static tint => state => state with { Tint = tint }), new Presentation<double> { Origin = (double)Color.Tint.Neutral }),
-        new("Tint", "Offset of that white off the blackbody locus, positive toward green"));
+        new("Tint", "Neutral light offset from blackbody locus, positive toward green"));
 
     public StateParameter<WhiteBalanceState> Kind { get; }
     public ParameterText Text { get; }

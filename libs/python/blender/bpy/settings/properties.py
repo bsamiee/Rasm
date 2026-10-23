@@ -1,4 +1,4 @@
-"""Native record fields bound to Blender properties and custom-property metadata."""
+"""Record fields bound to Blender properties, display units, and dynamic enums."""
 
 from collections.abc import Callable, Iterable, Mapping
 from enum import Enum
@@ -19,7 +19,6 @@ from blender.bpy.data.rna.descriptors import IdName, written
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.faults import BlenderReadFault, BlenderResult
 from blender.bpy.settings.shapes import (
-    bare,
     Color,
     Components,
     Declared,
@@ -44,6 +43,7 @@ from blender.bpy.settings.shapes import (
     Shape,
     Tagged,
     Text,
+    unwrapped,
     Vector,
 )
 from blender.imaging.faults import accumulated, paired
@@ -64,14 +64,14 @@ type EnumItems = tuple[tuple[str, str, str, str | int, int] | None, ...]
 
 
 class Choices(msgspec.Struct, frozen=True, eq=False):
-    """Dynamic native rows with persistent identifiers, each distinct row set retained since Blender reads its strings after the callback returns."""
+    """Dynamic enum rows with stable identifier numbers, row sets kept alive for Blender reads."""
 
     source: "Callable[[Identity, bpy.types.bpy_struct[object], bpy.types.Context | None], EnumRows]"
     numbers: dict[str, int] = msgspec.field(default_factory=dict)
     rows: dict[EnumItems, EnumItems] = msgspec.field(default_factory=dict)
 
     def defined(self, identity: Identity, key: str, default: object) -> bpy.props._PropertyDeferred:
-        """Builds native callbacks retaining identifiers across item changes."""
+        """Builds enum property keeping identifier numbers across item changes."""
 
         def number(identifier: str) -> int:
             return self.numbers.setdefault(identifier, len(self.numbers))
@@ -90,7 +90,7 @@ class Choices(msgspec.Struct, frozen=True, eq=False):
 
 
 class Definition[T: bpy.types.ID = bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
-    """Host property options and callbacks attached to a record annotation."""
+    """Property options and callbacks a record annotation declares."""
 
     options: frozenset["rna_enums.PropertyFlagItems"] = frozenset({"ANIMATABLE"})
     text: "rna_enums.PropertySubtypeStringItems" = "NONE"
@@ -100,7 +100,7 @@ class Definition[T: bpy.types.ID = bpy.types.ID](msgspec.Struct, frozen=True, kw
 
 
 class Unit(msgspec.Struct, frozen=True, kw_only=True):
-    """Numeric display units and the conversion from record to host storage."""
+    """Numeric display units and scale from record to host storage."""
 
     number: "rna_enums.PropertySubtypeNumberItems" = "NONE"
     vector: "rna_enums.PropertySubtypeNumberArrayItems" = "NONE"
@@ -114,7 +114,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, annotation: object, kind: native.Type) -> Self:
-        """Returns the host presentation of the selected annotation and numeric kind."""
+        """Returns display units of annotation and numeric kind."""
         match kind:
             case native.Metadata(type=inner):
                 return cls.of(annotation, inner)
@@ -125,14 +125,14 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
             case native.FloatType(ge=low, le=high):
                 return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if (low, high) == (0, 1) else "NONE"))
             case native.TupleType(item_types=items):
-                factor = all(isinstance(item, native.FloatType) and (item.ge, item.le) == (0, 1) for item in map(bare, items))
+                factor = all(isinstance(item, native.FloatType) and (item.ge, item.le) == (0, 1) for item in map(unwrapped, items))
                 return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if factor else "NONE"))
             case _:
                 return cls.quantified(annotation).default_with(cls)
 
     @classmethod
     def quantified(cls, annotation: object) -> Option[Self]:
-        """Returns the host presentation of the annotation's declared quantity, absent without one."""
+        """Returns display units of annotation quantity, `Nothing` when absent."""
         match Presentation.of(annotation).quantity:
             case Option(tag="some", some=Quantity.LENGTH):
                 return Some(cls(number="DISTANCE", vector="XYZ_LENGTH"))
@@ -153,31 +153,30 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def extent(cls, low: float | None, high: float | None) -> Option[float]:
-        """Returns the positive width of a span whose ends both lie inside float32 storage, absent for an open, empty, or storage-wide span."""
+        """Returns positive span width inside float32 range, `Nothing` otherwise."""
         return Some(high - low) if low is not None and high is not None and -cls.largest < low < high < cls.largest else Nothing
 
     def spanned(self, presentation: Presentation, bounds: tuple[float, float]) -> tuple[float, float, Self]:
-        """Returns the drawn span in host units, the declared soft span else the hard bounds, with this presentation over it, a factor slider drawn as a plain number over a span without an extent."""
+        """Returns host-unit soft span else bounds, dropping factor subtype for an unbounded span."""
         low, high = presentation.soft.map(lambda limits: (limits[0] * self.scale, limits[1] * self.scale)).default_value(bounds)
         return low, high, self if self.number != "FACTOR" or self.extent(low, high).is_some() else msgspec.structs.replace(self, number="NONE")
 
     def counted(self, presentation: Presentation, kind: native.IntType) -> tuple[int, int, Self]:
-        """Returns an integer kind's drawn span in whole values, the declared soft span else the admissible values, with this presentation over it."""
+        """Returns whole-value soft span else valid range, with units."""
         low, high, shown = self.spanned(presentation, self.integral(kind))
         return round(low), round(high), shown
 
     def drawn(self, presentation: Presentation, span: tuple[float, float], default: Option[float | tuple[float, ...]]) -> dict[str, float]:
-        """Native step and precision in host units over a drawn span.
+        """Returns step and precision keywords over a drawn span.
 
         Args:
-            presentation: Display settings of the field.
+            presentation: Field display settings.
             span: Drawn span in host units.
-            default: Stored host default, absent for a field with none.
+            default: Stored host default, `Nothing` when absent.
 
         Returns:
-            The declared step, else a hundredth of a finite span, capped at the leading decimal of the default's smallest nonzero component, per click and drag pixel in
-            Blender's hundredth units; the declared decimals, else those reaching the step and a finite span's low end where they exceed Blender's default precision,
-            widened to the default's shortest decimal digits within Blender's precision range.
+            `step` in Blender hundredths, declared step else hundredth of finite span, capped at smallest nonzero default's leading decimal.
+            `precision` of declared decimals, else step and span low end decimals above Blender default, widened to shortest default decimals.
         """
         extent = self.extent(*span)
         values = default.map(lambda value: value if isinstance(value, tuple) else (value,)).default_value(())
@@ -200,7 +199,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def endpoints(kind: native.Type) -> tuple[Option[tuple[float, bool]], Option[tuple[float, bool]]]:
-        """Returns a numeric kind's declared low and high endpoints with whether each admits itself, the tightest across a tuple's or record's items."""
+        """Returns declared low and high endpoints with inclusiveness, tightest across items."""
         match kind:
             case native.Metadata(type=inner):
                 return Unit.endpoints(inner)
@@ -218,27 +217,27 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def integral(kind: native.Type) -> tuple[int, int]:
-        """Returns a kind's first and last admissible integers clamped to native int32 storage, an open end at the storage limit."""
+        """Returns first and last valid integers clamped to int32, open ends at limit."""
         storage = np.iinfo(np.int32)
         low, high = Unit.endpoints(kind)
 
-        def admitted(side: Option[tuple[float, bool]], inward: int, limit: int) -> int:
+        def included(side: Option[tuple[float, bool]], inward: int, limit: int) -> int:
             return side.map(lambda end: min(max(int(end[0]) + (0 if end[1] else inward), int(storage.min)), int(storage.max))).default_value(limit)
 
-        return admitted(low, 1, int(storage.min)), admitted(high, -1, int(storage.max))
+        return included(low, 1, int(storage.min)), included(high, -1, int(storage.max))
 
     @staticmethod
     def interval(kind: native.Type) -> tuple[float | None, float | None]:
-        """Returns a kind's first and last admissible doubles."""
+        """Returns first and last valid doubles."""
         low, high = Unit.endpoints(kind)
 
-        def admitted(side: Option[tuple[float, bool]], inward: float) -> float | None:
+        def included(side: Option[tuple[float, bool]], inward: float) -> float | None:
             return side.map(lambda end: end[0] if end[1] else math.nextafter(end[0], inward)).default_value(None)
 
-        return admitted(low, math.inf), admitted(high, -math.inf)
+        return included(low, math.inf), included(high, -math.inf)
 
     def bounds(self, kind: native.Type) -> BlenderResult[tuple[float, float]]:
-        """Returns a kind's first and last admissible values in native float32 storage, an open end at the storage limit, or the interval holding no finite storage value."""
+        """Returns first and last valid float32 values, open ends at range limit."""
 
         def stored(endpoint: float | None, inward: float) -> BlenderResult[float]:
             if endpoint is None:
@@ -248,11 +247,11 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
             outside = float(candidate) / self.scale < endpoint if inward > 0 else float(candidate) / self.scale > endpoint
             with np.errstate(over="ignore"):
                 boundary = float(np.nextafter(candidate, np.float32(inward))) if outside else float(candidate)
-            return Ok(boundary) if -self.largest <= boundary <= self.largest else Error((BlenderReadFault(request=repr(kind), error=ValueError("No finite native float32 storage endpoint")),))
+            return Ok(boundary) if -self.largest <= boundary <= self.largest else Error((BlenderReadFault(request=repr(kind), error=ValueError("Endpoint has no finite float32 value")),))
 
         def ordered(ends: tuple[float, float]) -> BlenderResult[tuple[float, float]]:
             low, high = ends
-            return Error((BlenderReadFault(request=repr(kind), error=ValueError("No native float32 storage value in interval")),)) if low > high else Ok(ends)
+            return Error((BlenderReadFault(request=repr(kind), error=ValueError("Interval holds no float32 value")),)) if low > high else Ok(ends)
 
         low, high = self.interval(kind)
         return accumulated((stored(low, math.inf), stored(high, -math.inf))).bind(lambda ends: ordered((ends[0], ends[1])))
@@ -264,7 +263,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
     def stored(self, value: object, kind: native.TupleType | native.StructType) -> BlenderResult[tuple[float, ...]]: ...
 
     def stored(self, value: object, kind: native.FloatType | native.TupleType | native.StructType) -> BlenderResult[float | tuple[float, ...]]:
-        """Returns native float32 storage or a value outside its declared interval."""
+        """Returns float32 host value, `read` fault outside declared interval."""
 
         def converted(interval: tuple[float, float]) -> BlenderResult[float | tuple[float, ...]]:
             bounded = typing.Annotated[float, msgspec.Meta(ge=interval[0], le=interval[1])]
@@ -287,7 +286,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
     def restored(self, value: object, kind: native.TupleType | native.StructType) -> BlenderResult[tuple[float, ...]]: ...
 
     def restored(self, value: object, kind: native.FloatType | native.TupleType | native.StructType) -> BlenderResult[float | tuple[float, ...]]:
-        """Returns native numeric storage in domain units or a storage-range fault."""
+        """Returns host value in domain units, `read` fault outside range."""
 
         def converted(interval: tuple[float, float]) -> BlenderResult[float | tuple[float, ...]]:
             bounded = typing.Annotated[float, msgspec.Meta(ge=interval[0], le=interval[1])]
@@ -295,20 +294,20 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
                 source = np.asarray(value, dtype=np.float64).tolist()
             except (TypeError, ValueError) as error:
                 return Error((BlenderReadFault(request=repr(kind), error=error),))
-            admitted: Result[float | tuple[float, ...], msgspec.ValidationError]
+            checked: Result[float | tuple[float, ...], msgspec.ValidationError]
             match kind:
                 case native.FloatType():
-                    admitted = catch(lambda: msgspec.convert(source, bounded) / self.scale, exception=msgspec.ValidationError)()
+                    checked = catch(lambda: msgspec.convert(source, bounded) / self.scale, exception=msgspec.ValidationError)()
                 case native.TupleType(item_types=items) | native.StructType(fields=items):
                     sized = typing.Annotated[tuple[bounded, ...], msgspec.Meta(min_length=len(items), max_length=len(items))]
-                    admitted = catch(lambda: tuple(item / self.scale for item in msgspec.convert(source, sized)), exception=msgspec.ValidationError)()
-            return admitted.map_error(lambda error: (BlenderReadFault(request=repr(kind), error=error),))
+                    checked = catch(lambda: tuple(item / self.scale for item in msgspec.convert(source, sized)), exception=msgspec.ValidationError)()
+            return checked.map_error(lambda error: (BlenderReadFault(request=repr(kind), error=error),))
 
         return self.bounds(kind).bind(converted)
 
 
 class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Constructed native classes binding one record to host storage."""
+    """Property group classes binding one record to host storage."""
 
     record: type[T]
     struct: type[S]
@@ -318,7 +317,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
 
     @property
     def nested(self) -> tuple[type[bpy.types.PropertyGroup], ...]:
-        """Nested classes from the retained native property declarations."""
+        """Nested property group classes, children first."""
 
         def classes(struct: "type[bpy.types.bpy_struct[object]]") -> tuple[type[bpy.types.PropertyGroup], ...]:
             return tuple(
@@ -334,12 +333,12 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
 
     @staticmethod
     def default(struct: "type[bpy.types.bpy_struct[object]]", name: str) -> object:
-        """Record default a constructed native class retains for one field, `NODEFAULT` where it retains none."""
+        """Returns built class field default, `NODEFAULT` when absent."""
         return vars(struct)[RecordGroup.retained].get(name, msgspec.NODEFAULT)
 
     @staticmethod
     def body(*structs: "type[bpy.types.bpy_struct[object]]") -> dict[str, object]:
-        """Class body a host class takes from constructed native classes: their annotations and retained record defaults."""
+        """Returns class body of annotations and record defaults."""
         return {
             "__annotations__": {k: v for struct in structs for k, v in struct.__annotations__.items()},
             RecordGroup.retained: {k: v for struct in structs for k, v in vars(struct)[RecordGroup.retained].items()},
@@ -349,7 +348,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
 
     @staticmethod
     def components(field: msgspec.structs.FieldInfo) -> tuple[msgspec.structs.FieldInfo, ...]:
-        """Derives ordered native fields from each fixed tuple's actual annotations."""
+        """Returns item fields of fixed tuple field in order."""
         return tuple(
             msgspec.structs.FieldInfo(name=name, encode_name=name, type=annotation, default=field.default[index - 1] if field.default is not msgspec.NODEFAULT else msgspec.NODEFAULT)
             for index, annotation in enumerate(items(field.type), 1)
@@ -358,7 +357,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
 
     @staticmethod
     def entries(field: msgspec.structs.FieldInfo, shape: Entries) -> tuple[msgspec.structs.FieldInfo, ...]:
-        """Derives finite dictionary members as the existing enabled/value fields."""
+        """Returns gated field per enum member of dictionary field."""
         return tuple(
             msgspec.structs.FieldInfo(
                 name=member.name,
@@ -373,7 +372,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
     def bound[R: msgspec.Struct](
         identity: Identity, root: Key, record: type[R], changed: Option[Changed] = Nothing, bindings: Option[Mapping[MemberDescriptorType, Choices]] = Nothing
     ) -> "BlenderResult[RecordGroup[R]]":
-        """Builds the host classes with native constraints, defaults, and callbacks."""
+        """Builds property group classes of record."""
 
         def group(path: Key, definitions: dict[str, bpy.props._PropertyDeferred], defaults: Option[dict[str, object]] = Nothing) -> BlenderResult[type[bpy.types.PropertyGroup]]:
             return identity.name(Name.GROUP, path).map(lambda name: type(name, (bpy.types.PropertyGroup,), {"__annotations__": definitions, RecordGroup.retained: defaults.default_value({})}))
@@ -444,7 +443,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                     case Nested(record=record):
                         return pointer(recorded(path, record, default))
                     case Gate(value=Option(tag="none")) if default is msgspec.NODEFAULT:
-                        return Error((BlenderReadFault(request=repr(field), error=TypeError("A gate whose graph owns the value needs a record default")),))
+                        return Error((BlenderReadFault(request=repr(field), error=TypeError("Gate with graph-owned value needs record default")),))
                     case Gate(record=record):
                         return pointer(recorded(path, record, default, Some(name)))
                     case Integer(kind=whole):
@@ -465,7 +464,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                             else Choices(
                                 lambda *_: (
                                     *((name, name, space.getDescription()) for space in PyOpenColorIO.GetCurrentConfig().getColorSpaces() for name in (space.getName(),)),
-                                    (PyOpenColorIO.ROLE_SCENE_LINEAR, "Working Space", "Working color space of the current file"),
+                                    (PyOpenColorIO.ROLE_SCENE_LINEAR, "Working Space", "Scene-linear shading and compositing space"),
                                 )
                             )
                             if isinstance(shape, Text) and shape.space
@@ -541,14 +540,14 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                     prop.keywords.update(updating(field.name))
                 if not presentation.quantity.map(lambda quantity: quantity in {Quantity.LENGTH, Quantity.ANGLE}).default_value(False):
                     bounds = tuple(
-                        f"{label if inclusive else exclusive}: {value * unit.scale:g}"
+                        f"{label if inclusive else exclusive} {value * unit.scale:g}"
                         for side, label, exclusive in zip(
                             Unit.endpoints(shape.kind) if isinstance(shape, Number | Vector | Color | Integer) else (Nothing, Nothing), ("Min", "Max"), ("Above", "Below")
                         )
                         for value, inclusive in side.to_list()
                         if abs(value * unit.scale) < Unit.largest
                     )
-                    default_text = (f"Default: {shown(blank)}",) if blank is not msgspec.NODEFAULT and field.default_factory is msgspec.NODEFAULT else ()
+                    default_text = (f"Default {shown(blank)}",) if blank is not msgspec.NODEFAULT and field.default_factory is msgspec.NODEFAULT else ()
                     prop.keywords["description"] = ". ".join(part for part in (description, *bounds, *default_text) if part)
                 return prop
 
@@ -600,7 +599,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
 
     @property
     def pointer(self: "RecordGroup[T, bpy.types.PropertyGroup]") -> bpy.props._PropertyDeferred:
-        """Root pointer definition with native override support."""
+        """Root pointer property, library overridable."""
         prop = bpy.props.PointerProperty(type=self.struct, override={"LIBRARY_OVERRIDABLE"})
         prop.keywords.update(Option.of_optional(self.record.__doc__).map(lambda doc: {"description": doc}).default_value({}))
         return prop
@@ -608,7 +607,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
     # --- [READING]
 
     def read(self, holder: "bpy.types.bpy_struct[object]") -> BlenderResult[T]:
-        """Constructs the record from the acquired native field representations."""
+        """Reads record from property values."""
 
         def value(field: msgspec.structs.FieldInfo, shape: Shape, owner: "bpy.types.bpy_struct[object]", default: object) -> BlenderResult[object]:
             held = (
@@ -677,7 +676,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
     # --- [WRITING]
 
     def write(self, holder: "bpy.types.bpy_struct[object]", record: T) -> BlenderResult[None]:
-        """Writes independent changed leaves through the native RNA writer."""
+        """Writes record leaves through `written`."""
 
         def value(field: msgspec.structs.FieldInfo, shape: Shape, owner: "bpy.types.bpy_struct[object]", desired: object, default: object) -> BlenderResult[None]:
             match shape:
@@ -751,7 +750,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
         return stored(holder, record, self.struct, self.record)
 
     def reset(self, holder: "bpy.types.bpy_struct[object]") -> BlenderResult[None]:
-        """Restores acquired native defaults, writing record defaults into collections RNA cannot default, and returns read or write refusals."""
+        """Restores property defaults, writing record defaults into collections RNA cannot default."""
 
         def reset(owner: "bpy.types.bpy_struct[object]", definitions: dict[str, bpy.props._PropertyDeferred]) -> BlenderResult[None]:
             outcomes: list[BlenderResult[None]] = []

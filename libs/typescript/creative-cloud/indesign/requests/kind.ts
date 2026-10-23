@@ -1,14 +1,11 @@
 import { Unmatched } from '@rasm/search';
 import { Array, Cache, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { bare, Field, Member, Method } from '#/dom/dictionary';
+import { Field, Member, Method, undeclared } from '#/dom/dictionary';
 import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')(
-    { name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Class or enumeration name, in any case; absent lists every name' })) },
-    { description: 'Native declarations of the host dictionary: every class and enumeration name, or one class with its lineage, fields, and methods, or one enumeration with the members change takes by name' },
-) {
+class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')({ name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Name in any case, absent lists every name' })) }, { description: 'Dictionary class and enumeration names, or one declaration' }) {
     static readonly Result = Schema.TaggedUnion({
         Index: { classes: Schema.Array(Schema.String), enumerations: Schema.Array(Schema.String) },
         Class: { name: Schema.String, parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }), fields: Schema.Array(Field), methods: Schema.Array(Method) },
@@ -34,7 +31,7 @@ class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')
                                 parents: Option.isSome(row) ? lineage(name) : Effect.succeed([]),
                                 fields: Effect.forEach(
                                     live.filter(([, { get }]) => get !== undefined),
-                                    ([key]) => Option.match(Record.get(fields, key), { onNone: () => bare(key), onSome: Effect.succeed }),
+                                    ([key]) => Option.match(Record.get(fields, key), { onNone: () => undeclared(key), onSome: Effect.succeed }),
                                 ),
                                 methods: Effect.forEach(
                                     live.filter(([, { value: method }]) => Predicate.isFunction(method) && method !== type),

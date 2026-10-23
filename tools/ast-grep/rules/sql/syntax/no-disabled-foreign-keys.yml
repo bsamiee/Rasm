@@ -8,5 +8,5 @@ rule:
     all:
         - has: {field: name, regex: '(?i)^"?foreign_keys"?$'}
         - has: {field: value, regex: '(?i)^[''"]?(off|no|false|0)[''"]?$'}
-message: '`$PRAGMA` disables foreign key enforcement outside a transaction, D1, and Durable Objects'
-note: 'Open a rebuild with `pragma defer_foreign_keys = on` and declare rebuilt children against the temporary name of their rebuilt parent'
+message: '`$PRAGMA` disables foreign key enforcement only outside a transaction, D1, and Durable Objects'
+note: 'Open the rebuild with `pragma defer_foreign_keys = on` and point rebuilt children at their rebuilt parent''s temporary name'

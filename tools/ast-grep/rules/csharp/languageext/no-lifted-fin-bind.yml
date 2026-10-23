@@ -171,5 +171,5 @@ transform:
 fix:
     template: '$HELD$HEAD$LIFT$VALUE_TYPE$ARGUMENT'
     expandEnd: {kind: from_clause}
-message: "`IO.lift` over a `Fin` or `Either` thunk binds a second lift of the result"
-note: 'Use `IO.lift<A>(<thunk>)` with success type `A`'
+message: '`IO.lift` of a `Fin` or `Either` result binds `IO.lift` again to unwrap it'
+note: 'Call `IO.lift<A>(<thunk>)` with the thunk returning `Fin<A>` or `Either<Error, A>`'

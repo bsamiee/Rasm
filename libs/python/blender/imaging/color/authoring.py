@@ -1,4 +1,4 @@
-"""Native OCIO formation rows, merged configurations, archives, and installations."""
+"""OCIO formation rows, merged configs, archives, and installations."""
 
 import copy
 from enum import auto, Enum
@@ -26,23 +26,12 @@ class DynamicRange(Enum):
 
     @staticmethod
     def absolute(space: PyOpenColorIO.ColorSpace) -> bool:
-        """Returns whether native interop metadata identifies absolute PQ luminance.
-
-        Args:
-            space: Display color space.
-        """
+        """Returns whether display colorspace interop ID names PQ luminance."""
         return space.getInteropID().rpartition(":")[2].startswith("pq_")  # type: ignore[attr-defined, no-any-return]  # ty: ignore[unresolved-attribute]
 
 
 def dynamic_range_of(space: PyOpenColorIO.ColorSpace) -> DynamicRange:
-    """Reads Blender's HDR classification from native encoding.
-
-    Args:
-        space: Display color space.
-
-    Returns:
-        HIGH for HDR or extended-range video; STANDARD otherwise.
-    """
+    """Classifies display colorspace as Blender does, HIGH for HDR or EDR video."""
     return DynamicRange.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else DynamicRange.STANDARD
 
 
@@ -50,7 +39,7 @@ def dynamic_range_of(space: PyOpenColorIO.ColorSpace) -> DynamicRange:
 
 
 class Formation(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene-to-display view transform with its output range and scoped looks."""
+    """Scene-to-display view transform with output range and scoped looks."""
 
     view: PyOpenColorIO.ViewTransform
     dynamic_range: DynamicRange = DynamicRange.STANDARD
@@ -58,17 +47,17 @@ class Formation(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, name: str, description: str, transform: PyOpenColorIO.Transform, space: str, dynamic_range: DynamicRange = DynamicRange.STANDARD) -> Self:
-        """Brackets an operation in its primaries between scene and display interchange.
+        """Wraps `transform` between scene and display interchange roles.
 
         Args:
             name: View transform and shared view name.
-            description: Text shown by a host.
+            description: Text hosts show.
             transform: Scene-to-display-linear operation in `space` primaries.
-            space: Color space or role the operation reads and writes.
+            space: Colorspace or role `transform` reads and writes.
             dynamic_range: Output range.
 
         Returns:
-            A formation with inline tables retained for staging.
+            Formation with inline tables kept for staging.
         """
         return cls(
             view=PyOpenColorIO.ViewTransform(
@@ -86,13 +75,13 @@ class Formation(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
-    """Native formation, display, look, and file-rule rows merged into a base config."""
+    """Formation, display, look, and file-rule rows merged into base config."""
 
     # --- [ROWS]
 
     @staticmethod
     def merging() -> PyOpenColorIO.ConfigMergingParameters:  # type: ignore[name-defined]  # ty: ignore[unresolved-attribute]
-        """Returns native merge defaults with base roles and color spaces preferred."""
+        """Returns merge defaults preferring base roles and colorspaces."""
         parameters = PyOpenColorIO.ConfigMergingParameters.Create()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         parameters.setRoles(PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         parameters.setColorspaces(PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -109,14 +98,14 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     # --- [OUTPUTS]
 
     def staged(self, base: PyOpenColorIO.Config, stage: pathlib.Path) -> ImagingResult[PyOpenColorIO.Config]:
-        """Stages native rows and inline tables into a merged configuration.
+        """Stages rows and inline tables into merged config.
 
         Args:
             base: Config supplying reference spaces, roles, rules, and existing views.
             stage: Folder receiving base files, LUT folders, and generated CLFs.
 
         Returns:
-            The merged config, or `color` and `write` faults from native authoring and file operations.
+            Merged config, or `color` and `write` faults.
         """
         rows = PyOpenColorIO.Config()
         tables: dict[str, str] = {}
@@ -225,14 +214,14 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def archived(self, base: PyOpenColorIO.Config, path: pathlib.Path) -> ImagingResult[pathlib.Path]:
-        """Stages and atomically publishes an OCIO archive.
+        """Stages and atomically publishes OCIO archive.
 
         Args:
             base: Config the rows merge into.
             path: Archive destination.
 
         Returns:
-            The published path, or `color` and `write` faults including resource cleanup failures.
+            Published path, or `color` and `write` faults.
         """
 
         def encoded(config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
@@ -241,14 +230,14 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         return staging(path, lambda stage: self.staged(base, stage.parent).bind(encoded))
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> ImagingResult[pathlib.Path]:
-        """Replaces a configuration folder whole with a staged config and all its files.
+        """Replaces config folder whole with staged config and its files.
 
         Args:
             base: Config the rows merge into.
-            folder: Installation folder a host reads at its next start.
+            folder: Folder hosts read on next start.
 
         Returns:
-            The installed config path, or `color` and `write` faults including resource cleanup failures.
+            Installed config path, or `color` and `write` faults.
         """
 
         def replaced(stage: pathlib.Path, config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:

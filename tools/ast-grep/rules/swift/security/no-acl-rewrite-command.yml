@@ -18,5 +18,5 @@ rule:
         - kind: simple_identifier
           regex: '^kSecAttrAccess$'
           pattern: $COMMAND
-message: '`$COMMAND` rewrites an item ACL or partition list the owning program''s next write restores'
-note: 'Update data through `add-generic-password -U` or `SecItemUpdate` with no `-T`, `-A`, or `kSecAttrAccess`, leaving ACLs to the owning program'
+message: '`$COMMAND` rewrites the ACL or partition list a keychain item''s owning program sets'
+note: 'Update item data through `add-generic-password -U` or `SecItemUpdate` with no `-T`, `-A`, or `kSecAttrAccess`'

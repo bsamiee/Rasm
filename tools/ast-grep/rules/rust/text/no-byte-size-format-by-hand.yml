@@ -38,5 +38,5 @@ rule:
         - all:
             - matches: scaled-division
             - not: {inside: {matches: scaled-division}}
-message: '`$FORMAT` formats a byte count with a unit picked by hand'
+message: '`$FORMAT` scales or labels a byte count by hand'
 note: 'Format `bytesize::ByteSize::b(<bytes>)`, with `.display().si()` for decimal units and `as_kib`, `as_mib`, or `as_gib` for a scaled count'

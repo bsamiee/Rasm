@@ -8,4 +8,4 @@ rule:
     pattern: $IMPORT
     has: {kind: 'aliased_import, dotted_name', regex: '^annotations\b'}
 message: '`$IMPORT` stores annotations as strings'
-note: 'Delete the import'
+note: 'Delete `annotations` from the `__future__` import'

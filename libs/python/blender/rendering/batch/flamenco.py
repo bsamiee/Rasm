@@ -1,4 +1,4 @@
-"""Render queues submitted to a Flamenco Manager, each blend file placed in its storage."""
+"""Render queue submission to Flamenco Manager."""
 
 import base64
 from collections.abc import Callable
@@ -27,7 +27,7 @@ from blender.rendering.faults import Cause, RenderingFaults, RenderingReadFault,
 
 
 class ShamanFileStatus(StrEnum):
-    """State of a file on the Shaman server."""
+    """File state on Shaman server."""
 
     UNKNOWN = "unknown"
     UPLOADING = "uploading"
@@ -49,39 +49,39 @@ PLATFORM: Final = platform.system().lower()
 
 
 class Flamenco(Case, frozen=True, kw_only=True, tag=3):
-    """Jobs submitted to a Flamenco Manager, each blend file placed in its storage."""
+    """Jobs submitted to Flamenco Manager."""
 
     script: ClassVar[str] = "rasm_render.js"
     kind: ClassVar[str] = PurePath(script).stem.replace("_", "-")
     server: Annotated[Endpoint, msgspec.Meta(title="Manager", description="Flamenco Manager address")] = Endpoint(url="http://localhost:8080")
-    priority: Annotated[int, msgspec.Meta(description="Order among the Manager's queued jobs"), Presentation(soft=Some((1.0, 100.0)))] = 50
+    priority: Annotated[int, msgspec.Meta(description="Order among queued jobs"), Presentation(soft=Some((1.0, 100.0)))] = 50
     chunk: Annotated[int, msgspec.Meta(ge=1, le=sys.maxsize, title="Chunk Size", description="Frames each task renders"), Presentation(soft=Some((1.0, 4096.0)))] = 10
-    paused: Annotated[bool, msgspec.Meta(title="Submit Paused", description="Hold each job until the Manager starts it")] = False
-    tag: Annotated[Gated[str], msgspec.Meta(title="Worker Tag", description="Worker tag that takes the jobs, every worker while off")] = Gated(enabled=False, value="")
+    paused: Annotated[bool, msgspec.Meta(title="Submit Paused", description="Jobs wait for start from Manager")] = False
+    tag: Annotated[Gated[str], msgspec.Meta(title="Worker Tag", description="Workers taking jobs, every worker when off")] = Gated(enabled=False, value="")
 
 
 class SharedStorageLocation(msgspec.Struct, frozen=True, kw_only=True):
-    """Native job storage mapped to the submitting platform and its Shaman state."""
+    """Platform job storage path with Shaman state."""
 
     location: str
     shaman_enabled: bool = msgspec.field(name="shamanEnabled")
 
 
 class AvailableJobType(msgspec.Struct, frozen=True, kw_only=True):
-    """Job type a Manager runs."""
+    """Job type Manager runs."""
 
     name: str
     etag: str
 
 
 class AvailableJobTypes(msgspec.Struct, frozen=True, kw_only=True):
-    """Job types a Manager runs."""
+    """Job types Manager runs."""
 
     job_types: tuple[AvailableJobType, ...]
 
 
 class WorkerTag(msgspec.Struct, frozen=True, kw_only=True):
-    """Tag naming a group of workers."""
+    """Tag naming worker group."""
 
     name: str
     id: str | None = None
@@ -89,13 +89,13 @@ class WorkerTag(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class WorkerTagList(msgspec.Struct, frozen=True, kw_only=True):
-    """Worker tags a Manager holds."""
+    """Worker tags Manager holds."""
 
     tags: tuple[WorkerTag, ...] = ()
 
 
 class Manager(msgspec.Struct, frozen=True, kw_only=True):
-    """Manager answers a submission reads."""
+    """Manager state submission reads."""
 
     storage: SharedStorageLocation
     job_type: Option[AvailableJobType]
@@ -103,7 +103,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ShamanFileSpec(msgspec.Struct, frozen=True, kw_only=True):
-    """File by SHA-256, size, and place in the checkout."""
+    """File by SHA-256, size, and checkout path."""
 
     sha: str
     size: int
@@ -111,7 +111,7 @@ class ShamanFileSpec(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ShamanFileSpecWithStatus(ShamanFileSpec, frozen=True, kw_only=True):
-    """File with its state on the Shaman server."""
+    """File with Shaman server state."""
 
     status: ShamanFileStatus
 
@@ -123,39 +123,39 @@ class ShamanRequirementsRequest(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ShamanRequirementsResponse(msgspec.Struct, frozen=True, kw_only=True):
-    """Files of a requirements request the Shaman server lacks."""
+    """Requested files Shaman server lacks."""
 
     files: tuple[ShamanFileSpecWithStatus, ...]
 
 
 class ShamanCheckout(msgspec.Struct, frozen=True, kw_only=True):
-    """Files linked into a checkout folder."""
+    """Files linked into checkout folder."""
 
     files: tuple[ShamanFileSpec, ...]
     checkout_path: str = msgspec.field(name="checkoutPath")
 
 
 class ShamanCheckoutResult(msgspec.Struct, frozen=True, kw_only=True):
-    """Checkout folder the Manager created."""
+    """Checkout folder Manager created."""
 
     checkout_path: str = msgspec.field(name="checkoutPath")
 
 
 class JobStorageInfo(msgspec.Struct, frozen=True, kw_only=True):
-    """Shaman checkout a job's files sit in."""
+    """Shaman checkout holding job files."""
 
     shaman_checkout_id: str
 
 
 class JobRequest(msgspec.Struct, frozen=True, kw_only=True):
-    """Opaque native command argument and its known render step count."""
+    """Opaque render command argument with step count."""
 
     argument: str
     steps: int
 
 
 class JobTasks(msgspec.Struct, frozen=True, kw_only=True):
-    """Native frame requests from one saved file and their prerequisite queue parts."""
+    """Frame requests of one blend file with prerequisite parts."""
 
     blendfile: str
     output_root: str
@@ -164,7 +164,7 @@ class JobTasks(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class SubmittedJob(msgspec.Struct, frozen=True, kw_only=True):
-    """Job posted to the Manager."""
+    """Job posted to Manager."""
 
     name: str
     type: str
@@ -178,13 +178,13 @@ class SubmittedJob(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ManagerJob(msgspec.Struct, frozen=True, kw_only=True):
-    """Job as the Manager answers a submission."""
+    """Submitted job ID."""
 
     id: str
 
 
 class ManagerFiles(msgspec.Struct, frozen=True, kw_only=True):
-    """Manager path by source file, and the Shaman checkout holding them."""
+    """Manager path per source file with Shaman checkout."""
 
     files: dict[str, str]
     storage: Option[JobStorageInfo]
@@ -194,7 +194,7 @@ class ManagerFiles(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def queried(client: httpx2.Client) -> RenderingResult[Manager]:
-    """Reads the Manager's configuration, job types, and worker tags."""
+    """Reads Manager state."""
 
     def built(found: tuple[tuple[SharedStorageLocation, AvailableJobTypes], WorkerTagList]) -> Manager:
         (storage, types), tags = found
@@ -209,7 +209,7 @@ def queried(client: httpx2.Client) -> RenderingResult[Manager]:
 
 
 def placed(client: httpx2.Client, manager: Manager, queue: RenderQueue) -> RenderingResult[ManagerFiles]:
-    """Places a queue's blend files in the Manager's storage."""
+    """Uploads blend files to Shaman when enabled, else copies them to Manager storage."""
     local = {PurePath(str(part), PurePath(job.file).name).as_posix(): job for part, job in {job.file: (part, job) for part, job in enumerate(queue.jobs)}.values()}
     files = local.items()
     folder = queue.stem
@@ -265,7 +265,7 @@ def placed(client: httpx2.Client, manager: Manager, queue: RenderQueue) -> Rende
 
 
 def submitted(client: httpx2.Client, target: Flamenco, queue: RenderQueue, render_command: str) -> RenderingResult[tuple[RenderingResult[str], ...]]:
-    """Submits independent dependency components as native task graphs."""
+    """Submits each prerequisite-joined job group as one Manager job."""
 
     def posted(stored: ManagerFiles, job_type: Option[AvailableJobType]) -> RenderingResult[tuple[RenderingResult[str], ...]]:
         components = DisjointSet(range(len(queue.jobs)))

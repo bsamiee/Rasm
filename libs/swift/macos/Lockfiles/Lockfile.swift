@@ -91,7 +91,7 @@ public enum LockfileFailure: CustomNSError, LocalizedError {
         switch self {
             case .held(let url): "\(url.path(percentEncoded: false)) is held"
             case .compromised(let url): "\(url.path(percentEncoded: false)) changed while held"
-            case .filesystem(let error): "Lockfile operation failed: \(error.localizedDescription)"
+            case .filesystem(let error): "Lockfile operation failed. \(error.localizedDescription)"
         }
     }
 

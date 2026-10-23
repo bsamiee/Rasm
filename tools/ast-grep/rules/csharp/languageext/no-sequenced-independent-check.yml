@@ -81,4 +81,4 @@ rule:
 labels:
     EARLIER_STEP: {style: secondary, message: 'Runs first and stops the query on failure'}
 message: '`$LATER` waits on `$EARLIER` but reads nothing it binds'
-note: 'Combine independent checks with `(<check>, <check>).Apply(<combine>).As()` or `Seq(<checks>).Traverse(identity).As()` and bind dependent steps alone'
+note: 'Combine independent checks through `(<check>, <check>).Apply(<combine>).As()` or `<items>.Traverse(<check>).As()`, bind dependent steps alone'

@@ -1,4 +1,4 @@
-"""Native white-point balance over scene-linear color."""
+"""White-point balance over scene-linear color."""
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
@@ -24,14 +24,14 @@ from blender.imaging.parameters import Rgb
 
 
 def balanced(shell: Shell[WhiteBalance]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds native white-point balance from record-derived white sockets."""
+    """Builds white-point balance from record white sockets."""
     source, target = WhiteBalance.__struct_fields__
     whites = {f"{side} {field.replace('_', ' ').title()}": shell.socket(key, field) for side, key in (("Input", source), ("Output", target)) for field in White.__struct_fields__}
     return node("balance", bpy.types.CompositorNodeColorBalance, {"Image": shell.source, "Fac": 1.0, "Type": "White Point", **whites}, {}).map(ended("balance", "Image"))
 
 
 def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-    """Sets the source white from the covered mean of the entering region, naming an undo step where the white changed."""
+    """Sets source white to covered mean of entering region, naming undo step on change."""
 
     def solved(config: PyOpenColorIO.Config, held: Entry[WhiteBalance]) -> BlenderResult[Option[str]]:
         found: BlenderResult[Option[White]] = (

@@ -1,1 +1,1 @@
-#0 `doc` accesses `RhinoDoc` in a lambda that runs off the UI thread
+#0 `RhinoDoc` read `doc` runs off the UI thread in a `Task.Run` callback. Read it in an `IO` run through `OnUiThread()` and pass the callback values or duplicated geometry

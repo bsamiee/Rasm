@@ -1,4 +1,4 @@
-"""Desired object state, native stack edits, mesh geometry, evaluated bounds, and scoped writes."""
+"""Object state, stacks, mesh geometry, bounds, and scoped writes."""
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial, reduce
@@ -45,7 +45,7 @@ class StackEntry(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ObjectState(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired concerns of an object, with Nothing leaving each concern unchanged."""
+    """Desired object state, each field unchanged when `Nothing`."""
 
     data: Option[Handle[bpy.types.ID]] = Nothing
     parent: Option[Handle[bpy.types.Object]] = Nothing
@@ -60,7 +60,7 @@ class ObjectState(msgspec.Struct, frozen=True, kw_only=True):
     shader_effects: Option[Mapping[str, StackEntry]] = Nothing
 
     def stacks(self, item: bpy.types.Object) -> tuple[tuple[Stack, Option[Entries]], ...]:
-        """Pairs native stacks with their desired entries in declaration order."""
+        """Returns object stacks with desired entries."""
         return ((item.vertex_groups, self.vertex_groups), (item.modifiers, self.modifiers), (item.constraints, self.constraints), (item.shader_effects, self.shader_effects))
 
 
@@ -72,7 +72,7 @@ class WorldBounds(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Restacked(msgspec.Struct, frozen=True, kw_only=True):
-    """Structural edits and desired native creation parameters of a stack."""
+    """Structural edits and desired creation parameters of stack."""
 
     stack: Stack
     edits: tuple[Edit[str], ...]
@@ -80,19 +80,19 @@ class Restacked(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Swapped(msgspec.Struct, frozen=True, kw_only=True):
-    """Replacement data of an object."""
+    """Replacement object data."""
 
     data: bpy.types.ID
 
 
 class Parented(msgspec.Struct, frozen=True, kw_only=True):
-    """Replacement parent of an object."""
+    """Replacement object parent."""
 
     parent: bpy.types.Object
 
 
 class Resized(msgspec.Struct, frozen=True, kw_only=True):
-    """Change in material-slot count."""
+    """Slot count change."""
 
     materials: bpy.types.IDMaterials
     before: int
@@ -100,7 +100,7 @@ class Resized(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Layered(msgspec.Struct, frozen=True, kw_only=True):
-    """Differing base flags of one view layer."""
+    """Hide and select changes in one view layer."""
 
     view_layer: bpy.types.ViewLayer
     hidden: Option[bool]
@@ -108,14 +108,14 @@ class Layered(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Reconciled(msgspec.Struct, frozen=True, kw_only=True):
-    """Applied object changes and native snapshot outcomes."""
+    """Applied object changes and snapshot outcomes."""
 
     changes: tuple[ObjectChange, ...]
     applied: tuple[Applied, ...]
 
 
 class SubdivisionLevels(msgspec.Struct, frozen=True, kw_only=True):
-    """Viewport and render levels supplied by native subdivision metadata."""
+    """Subdivision levels with Subsurf bounds and labels."""
 
     native: ClassVar[dict[str, bpy.types.IntProperty]] = {prop.identifier: prop for prop in bpy.types.SubsurfModifier.bl_rna.properties if isinstance(prop, bpy.types.IntProperty)}
     viewport: ClassVar[bpy.types.IntProperty] = native["levels"]
@@ -131,10 +131,10 @@ class SubdivisionLevels(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class LevelEdit(msgspec.Struct, frozen=True, kw_only=True):
-    """Subdivision levels and the objects receiving them."""
+    """Levels and target objects."""
 
     levels: Annotated[SubdivisionLevels, msgspec.Meta(description="Viewport and render subdivision levels")] = SubdivisionLevels()
-    scope: Annotated[Scope, msgspec.Meta(description="Objects whose modifiers take the levels")] = Selection()
+    scope: Annotated[Scope, msgspec.Meta(description="Objects to write")] = Selection()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -142,7 +142,7 @@ class LevelEdit(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def descendants(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> tuple[bpy.types.Object, ...]:
-    """Returns descendants in preorder from one parent map over the view layer."""
+    """Returns view layer descendants of object in preorder."""
     children: dict[bpy.types.Object, list[bpy.types.Object]] = {}
     for child in view_layer.objects:
         if (parent := child.parent) is not None:
@@ -151,7 +151,7 @@ def descendants(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> tupl
 
 
 def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) -> Option[WorldBounds]:
-    """Returns evaluated world bounds, or Nothing when every object lacks bounds."""
+    """Returns evaluated world bounds, `Nothing` without bounds."""
     corners = tuple(
         evaluated.matrix_world @ Vector(corner)
         for evaluated in (item.evaluated_get(depsgraph) for item in items)
@@ -165,7 +165,7 @@ def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) ->
 
 
 def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collection) -> BlenderResult[bpy.types.Object]:
-    """Creates and joins an object, releasing it when native membership is refused."""
+    """Creates object linked into collection, removing it on fault."""
     return kept(BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(name, data.to_optional())), lambda item: joined(collection, (item,)).map(lambda _: item))
 
 
@@ -173,7 +173,7 @@ def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collect
 
 
 def restacked(stack: Stack, entries: Entries) -> BlenderResult[tuple[Restacked, ...]]:
-    """Plans a desired stack through its native creation choices and move capability."""
+    """Returns stack edits toward entries, recreating out-of-order entries without `move`."""
     functions = stack.bl_rna.functions  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     inputs = tuple(parameter for parameter in functions["new"].parameters if not parameter.is_output)
     choices = {parameter.identifier: tuple(item.identifier for item in parameter.enum_items) for parameter in inputs if isinstance(parameter, bpy.types.EnumProperty)}
@@ -189,7 +189,7 @@ def restacked(stack: Stack, entries: Entries) -> BlenderResult[tuple[Restacked, 
 
 
 def restack(row: Restacked) -> tuple[Step, ...]:
-    """Constructs removals and target-ordered native insertions and moves."""
+    """Returns removal, insertion, and move steps in target order."""
     stack, functions, parameters = row.stack, row.stack.bl_rna.functions, dict(row.wanted)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     named = any(parameter.identifier == "name" for parameter in functions["new"].parameters)
 
@@ -231,7 +231,7 @@ def restack(row: Restacked) -> tuple[Step, ...]:
 def diverged(
     state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...], data: Option[bpy.types.ID], parent: Option[bpy.types.Object]
 ) -> BlenderResult[tuple[ObjectChange, ...]]:
-    """Returns concerns differing from the state and its resolved data and parent, accumulating independent planning refusals."""
+    """Returns changes from object to state, accumulating independent faults."""
     editing = Setting(descriptor=Descriptor(root=bpy.types.Object, owner="", prop=bpy.types.Object.bl_rna.properties["mode"]), accepted=("EDIT",))
 
     def swapped(block: bpy.types.ID) -> BlenderResult[tuple[ObjectChange, ...]]:
@@ -271,7 +271,7 @@ def diverged(
 
 
 def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
-    """Returns each change's dependent host writes."""
+    """Returns dependent writes of change."""
 
     def refused(error: RuntimeError) -> BlenderFaults:
         return (BlenderEditFault(request=repr(item), error=error),)
@@ -305,7 +305,7 @@ def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
 
 
 def reconciling(state: ObjectState) -> BlenderResult[Callable[[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], BlenderResult[Reconciled]]]:
-    """Resolves the state's data and parent once, returning each object's reconciliation of structure, then independent value sets, the placement written as the transform in the parent's frame."""
+    """Resolves state handles once, returning per-object reconcile writing placement in parent frame."""
     framed = state.placement.map(
         lambda matrix: Snapshot.of(
             bpy.types.Object,
@@ -341,7 +341,7 @@ def reconciling(state: ObjectState) -> BlenderResult[Callable[[bpy.types.Object,
 
 
 def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
-    """Reconciles one object with the state."""
+    """Reconciles object to state."""
     return reconciling(state).bind(lambda each: each(item, layers))
 
 
@@ -349,15 +349,15 @@ def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.typ
 
 
 def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.NDArray[np.int64]) -> BlenderResult[None]:
-    """Writes a mesh's vertices and faces where they differ from its live geometry.
+    """Writes mesh vertices and faces when they differ from live geometry.
 
     Args:
-        mesh: Mesh whose geometry is reconciled.
-        vertices: Vertex positions in native float32 storage, one row per vertex.
-        faces: Vertex indices of each face in corner order, one row per face of equal corner count.
+        mesh: Mesh to write.
+        vertices: Vertex positions as float32, one row per vertex.
+        faces: Corner vertex indices, one row per face of equal corner count.
 
     Returns:
-        `Ok` once the live geometry matches; `edit` for a refused rebuild.
+        `Ok` once geometry matches, or `edit` fault.
     """
     live, corners, starts = np.empty(len(mesh.vertices) * 3, np.float32), np.empty(len(mesh.loops), np.int32), np.empty(len(mesh.polygons), np.int32)
     for name, member, buffer in (("position", "vector", live), (".corner_vert", "value", corners)):
@@ -378,7 +378,7 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
 
 
 def targets(scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[tuple[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], ...]]:
-    """Returns each reached object once and every view layer reaching it."""
+    """Returns scope objects once with their view layers."""
 
     def reaching(layers: tuple[bpy.types.ViewLayer, ...]) -> tuple[tuple[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], ...]:
         owners: dict[bpy.types.Object, list[bpy.types.ViewLayer]] = {}
@@ -395,21 +395,20 @@ def targets(scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[tup
 
 
 def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[Reconciled, ...]]:
-    """Reconciles a scope, accumulating every independent object's refusals."""
+    """Reconciles every scope object to state, accumulating faults."""
     return paired(reconciling(state), targets(scope, context)).bind(lambda pair: accumulated(starmap(*pair)))
 
 
 def levelled(levels: SubdivisionLevels, scope: Scope, context: bpy.types.Context) -> BlenderResult[Outcome]:
-    """Writes subdivision levels through each Subsurf and Multires modifier's native range function.
+    """Writes subdivision levels to each Subsurf and Multires modifier in scope.
 
     Args:
         levels: Viewport and render levels.
-        scope: Objects whose modifiers take the levels.
-        context: Context the scope's `targets` reads.
+        scope: Objects to write.
+        context: Context `targets` reads.
 
     Returns:
-        `Ok` of `Done` holding the refusals of independent modifiers beside a changed one, `Unchanged` where no modifier in scope takes a new level;
-        the scope's faults, and every modifier's refusals where none changed.
+        `Done` with skipped faults when a modifier changed, `Unchanged` when no level changes, or scope and modifier faults when none changed.
     """
     snapshots = {snapshot.struct: snapshot for snapshot in (Snapshot.of(kind, msgspec.structs.asdict(levels)) for kind in (bpy.types.SubsurfModifier, bpy.types.MultiresModifier))}
 
@@ -433,7 +432,7 @@ def levelled(levels: SubdivisionLevels, scope: Scope, context: bpy.types.Context
 subdivision: Operator[LevelEdit] = Operator(
     key="subdivision_levels",
     title="Set Subdivision Levels",
-    description="Writes viewport and render subdivision levels across a scope",
+    description="Write subdivision levels to modifiers in scope",
     form=LevelEdit,
     run=lambda call: levelled(call.record.levels, call.record.scope, call.context),
     presets=True,

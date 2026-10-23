@@ -105,22 +105,23 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         };
         let overridden = || {
             let own = merged(expr);
-            let earlier = iter::successors(Some(receiver), |&step| match expr_or_init(cx, step).kind {
+            let steps = iter::successors(Some(receiver), |&step| match expr_or_init(cx, step).kind {
                 ExprKind::MethodCall(_, inner, ..) | ExprKind::Call(_, [inner, ..]) if typeck.expr_ty(inner) == typeck.expr_ty(step) => Some(inner),
                 _ => None,
             })
             .map(|step| expr_or_init(cx, step))
-            .flat_map(|step| if self.seeded.is_some_and(|builder| fn_def_id(cx, step) == Some(builder)) { self.readers.iter().map(|&(reader, _)| Some(reader)).collect() } else { merged(step) })
-            .flatten()
-            .collect::<FxHashSet<_>>();
+            .collect::<Vec<_>>();
+            let seeds = |step: &Expr<'_>| self.seeded.is_some_and(|builder| fn_def_id(cx, step) == Some(builder));
+            let earlier = steps.iter().flat_map(|&step| if seeds(step) { self.readers.iter().map(|&(reader, _)| Some(reader)).collect() } else { merged(step) }).flatten().collect::<FxHashSet<_>>();
             let later = iter::successors(method_call_on(cx, expr), |&(step, _)| method_call_on(cx, step)).flat_map(|(step, _)| merged(step)).flatten().collect::<FxHashSet<_>>();
-            own.iter().rposition(Option::is_none).map_or_default(|last| {
+            let readers = own.iter().rposition(Option::is_none).map_or_default(|last| {
                 self.readers
                     .iter()
                     .copied()
                     .filter(|(reader, _)| !later.contains(reader) && own.iter().rposition(|&detected| detected == Some(*reader)).map_or_else(|| earlier.contains(reader), |at| at < last))
                     .collect::<Vec<_>>()
-            })
+            });
+            (readers, steps.iter().any(|&step| seeds(step)))
         };
         let quoted = |variable: &str| format!("`{variable}`");
         let (variables, help) = if let Some(&variables) = self.setters.get(&called) {
@@ -132,18 +133,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             match typeck.expr_ty(receiver).peel_refs().ty_adt_def().and_then(|builder| self.signals.get(&builder.did())) {
                 Some(signal) => {
                     let scoped = quoted(&format!("OTEL_EXPORTER_OTLP_{signal}_{setting}"));
-                    (format!("{scoped}, {every}"), format!("delete the call and set {scoped} for this signal or {every} for every signal"))
+                    (format!("{scoped}, {every}"), format!("delete the call and set {scoped} for {} or {every} for every signal", signal.to_lowercase()))
                 }
                 None => (every.clone(), format!("delete the call and set {every} in the process environment")),
             }
         } else if self.detectors.contains(&called)
-            && let overridden = overridden()
+            && let (overridden, seeded) = overridden()
             && !overridden.is_empty()
         {
-            (
-                overridden.iter().map(|&(_, variable)| quoted(variable)).join(", "),
-                format!("merge {} after every other detector, starting from `Resource::builder_empty()`", overridden.iter().map(|&(reader, _)| quoted(cx.tcx.item_name(reader).as_str())).join(", ")),
-            )
+            let detectors = overridden.iter().map(|&(reader, _)| quoted(cx.tcx.item_name(reader).as_str())).join(", ");
+            let start = if seeded { ", starting from `Resource::builder_empty()`" } else { "" };
+            (overridden.iter().map(|&(_, variable)| quoted(variable)).join(", "), format!("merge {detectors} after every other detector{start}"))
         } else {
             return;
         };

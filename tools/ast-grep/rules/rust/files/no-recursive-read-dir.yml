@@ -63,5 +63,5 @@ rule:
 labels:
     READ: {style: primary, message: 'Lists one directory level'}
     STEP: {style: secondary, message: 'Descends into each entry'}
-message: '`$READ` walks a directory tree by hand from each entry'
-note: 'Iterate `ignore::WalkBuilder::new(<root>).standard_filters(false).build()`, setting builder options for depth, links, order, and parallel walks'
+message: '`$READ` walks a directory tree by hand'
+note: 'Iterate `ignore::WalkBuilder::new(<root>).standard_filters(false).build()`, setting depth, links, and order on the builder'

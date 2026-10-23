@@ -1,4 +1,4 @@
-"""Editable lighting references, seeded distributions, and Lambertian sphere images."""
+"""Lighting references and Lambertian sphere images."""
 
 from collections.abc import Mapping
 import colorsys
@@ -26,7 +26,7 @@ from blender.rendering.outputs.framing import Side
 
 
 class Family(Choice):
-    """Family of lighting references."""
+    """Lighting reference family."""
 
     SKY = 1, "Time of Day"
     STUDIO = 2
@@ -36,7 +36,7 @@ class Family(Choice):
 
 
 class ReferenceDistribution(Choice):
-    """Color and spatial strategy for a seeded lighting reference."""
+    """Seeded reference color and placement strategy."""
 
     BALANCED = 1
     VIVID = 2
@@ -47,7 +47,7 @@ class ReferenceDistribution(Choice):
 
 
 class DistantLight(msgspec.Struct, frozen=True, kw_only=True):
-    """Directional radiance and its exposure offset for a sphere image."""
+    """Directional light with exposure stops."""
 
     direction: tuple[Finite, Finite, Finite]
     color: Rgb[Finite]
@@ -55,7 +55,7 @@ class DistantLight(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Highlight(msgspec.Struct, frozen=True, kw_only=True):
-    """One colored Gaussian glow centered in a reference frame."""
+    """Colored Gaussian glow."""
 
     position: Position = (0.5, 0.5)
     sharpness: Annotated[NonNegative, Presentation(soft=Some((0.55, 2.4)))] = 1.2
@@ -64,25 +64,25 @@ class Highlight(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Dapple(msgspec.Struct, frozen=True, kw_only=True):
-    """Seeded spots with independent position, sharpness, and intensity draws."""
+    """Seeded random spots."""
 
     count: Annotated[int, msgspec.Meta(ge=0)] = 12
     sharpness: Annotated[NonNegative, Presentation(soft=Some((8.0, 22.0)))] = 8.0
     intensity: Annotated[NonNegative, Presentation(soft=Some((0.3, 0.8)))] = 0.3
-    sharpness_spread: Annotated[NonNegative, msgspec.Meta(description="Uniform variation above the minimum sharpness"), Presentation(soft=Some((0.0, 14.0)))] = 14.0
-    intensity_spread: Annotated[NonNegative, msgspec.Meta(description="Uniform variation above the minimum intensity"), Presentation(soft=Some((0.0, 0.5)))] = 0.5
+    sharpness_spread: Annotated[NonNegative, msgspec.Meta(description="Variation above sharpness"), Presentation(soft=Some((0.0, 14.0)))] = 14.0
+    intensity_spread: Annotated[NonNegative, msgspec.Meta(description="Variation above intensity"), Presentation(soft=Some((0.0, 0.5)))] = 0.5
     seed: Seed = 0
 
 
 class Blinds(msgspec.Struct, frozen=True, kw_only=True):
-    """Horizontal slat shadows across the reference."""
+    """Horizontal slat shadows."""
 
     cycles: Annotated[NonNegative, Presentation(soft=Some((5.0, 7.0)))] = 6.0
     shade: Unit = 0.45
 
 
 class Rim(msgspec.Struct, frozen=True, kw_only=True):
-    """Colored glow rising toward the edges of the reference."""
+    """Colored glow rising toward edges."""
 
     amount: Annotated[NonNegative, Presentation(soft=Some((0.0, 1.2)))] = 0.6
     color: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
@@ -91,7 +91,7 @@ class Rim(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Roll(msgspec.Struct, frozen=True, kw_only=True):
-    """Draw of arbitrary editable fields over their presentation ranges."""
+    """Random draw of editable fields over presentation ranges."""
 
     highlights: Annotated[int, msgspec.Meta(ge=1, le=8)] = 3
     saturation: Unit = 0.8
@@ -99,7 +99,7 @@ class Roll(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
-    """Editable scene-linear reference with floor, glows, shadows, and edge light."""
+    """Scene-linear lighting reference image."""
 
     tint: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
     level: Annotated[NonNegative, Presentation(soft=Some((0.03, 0.55)))] = 0.08
@@ -114,7 +114,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def drawn(cls, distribution: ReferenceDistribution, seed: Seed) -> Self:
-        """Draws an editable reference under the selected distribution and seed."""
+        """Draws editable reference from distribution and seed."""
         generator = rng(content_hash(ReferenceDistribution), seed, int(distribution))
         gels = cls.gels()
         match distribution:
@@ -179,7 +179,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def gels() -> dict[str, Rgb]:
-        """Returns the named source colors in scene-linear RGB."""
+        """Returns named gel colors in scene-linear RGB."""
         return {
             "Warm": Rgb(red=1.0, green=0.78, blue=0.5),
             "Deep Warm": Rgb(red=1.0, green=0.58, blue=0.28),
@@ -198,7 +198,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     @functools.cache
     def catalog(cls) -> Mapping[Family, Mapping[str, Self]]:
-        """Constructs every named source recipe in its family."""
+        """Returns named reference recipes per family."""
         gels = cls.gels()
         warm, deep, neutral, cool = gels["Warm"], gels["Deep Warm"], gels["Neutral"], gels["Cool"]
         sky, magenta, cyan, pink = gels["Sky"], gels["Magenta"], gels["Cyan"], gels["Pink"]
@@ -286,7 +286,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def rolled(cls, roll: Roll) -> Self:
-        """Draws native fields recursively over their declared presentation ranges."""
+        """Draws fields recursively over declared presentation ranges."""
         generator = rng(content_hash(Roll), roll.seed)
 
         def drawn(kind: msgspec.inspect.Type, annotation: object) -> Option[object]:
@@ -315,7 +315,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
         return msgspec.structs.replace(cls(), **fields(cls))
 
     def plane(self, size: Side) -> RenderingResult[npt.NDArray[np.float32]]:
-        """Returns unclipped float32 RGB at pixel centers of a square side."""
+        """Returns unclipped float32 RGB of square image."""
 
         def formed() -> RenderingResult[npt.NDArray[np.float32]]:
             def glow(x: float, y: float, sharpness: float) -> npt.NDArray[np.float64]:
@@ -354,13 +354,13 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _grid(side: Side) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Returns pixel-center offsets from the center of a square image in half sides, right and up, rows top first."""
+    """Returns pixel-center offsets in half sides, y up, rows top first."""
     centers = (np.arange(side, dtype=np.float64) + 0.5 - side / 2.0) / (side / 2.0)
     return np.meshgrid(centers, -centers)
 
 
 def _ball(side: Side) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """Returns the silhouette normals and pixel coverage of the sphere inscribed in a square image."""
+    """Returns inscribed sphere normals and coverage, silhouette normals outside."""
     radius = side / 2.0
     xs, ys = _grid(side)
     reach = np.hypot(xs, ys)
@@ -373,7 +373,7 @@ def _ball(side: Side) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
 
 
 def sphere(lights: tuple[DistantLight, ...], size: Side) -> RenderingResult[npt.NDArray[np.float32]]:
-    """Returns a square float32 associated RGBA sphere under directional radiance."""
+    """Returns associated-alpha float32 RGBA sphere under distant lights."""
 
     def formed() -> RenderingResult[npt.NDArray[np.float32]]:
         normals, coverage = _ball(size)
@@ -384,7 +384,7 @@ def sphere(lights: tuple[DistantLight, ...], size: Side) -> RenderingResult[npt.
 
 
 def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) -> RenderingResult[npt.NDArray[np.float32]]:
-    """Returns a gray Lambertian ball under placed lights, or typed color-processor faults."""
+    """Returns gray Lambertian ball under placed lights."""
 
     def rendered(temperature_colors: tuple[npt.NDArray[np.float64], ...]) -> RenderingResult[npt.NDArray[np.float32]]:
         normals, coverage = _ball(size)
@@ -433,11 +433,11 @@ def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) 
         )
         return Ok(np.ascontiguousarray(lit, dtype=np.float32))
 
-    def admitted(row: npt.NDArray[np.float32]) -> RenderingResult[npt.NDArray[np.float64]]:
+    def validated(row: npt.NDArray[np.float32]) -> RenderingResult[npt.NDArray[np.float64]]:
         return guarded(RenderingArithmeticFault, placements, lambda: Ok(np.asarray(msgspec.convert(row.tolist(), type=Rgb[Finite]), dtype=np.float64)))
 
     def tinted(built: PyOpenColorIO.Processor) -> RenderingResult[tuple[npt.NDArray[np.float64], ...]]:
-        return accumulated(admitted(row) for row in applied(built.getDefaultCPUProcessor(), np.array(temperatures, dtype=np.float32)))
+        return accumulated(validated(row) for row in applied(built.getDefaultCPUProcessor(), np.array(temperatures, dtype=np.float32)))
 
     temperatures = tuple(White(temperature=placement.light.temperature.value, tint=0.0).xyz for placement in placements.lights if placement.light.temperature.enabled)
     colors = (

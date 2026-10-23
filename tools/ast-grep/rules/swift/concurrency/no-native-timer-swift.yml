@@ -25,4 +25,4 @@ rule:
                 - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.schedule$'}}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^after$'}}}}
 message: '`$NAME` waits on a dispatch, run loop, or thread timer outside Swift concurrency'
-note: 'Await `Task.sleep(for:)` in a task, or `clock.sleep(until:)` on an advancing deadline to repeat, cancel the task, and use `TimelineView` in views'
+note: 'Await `Task.sleep(for:)`, or `<clock>.sleep(until:)` on an advancing deadline to repeat, in a task its owner cancels, and render views through `TimelineView`'

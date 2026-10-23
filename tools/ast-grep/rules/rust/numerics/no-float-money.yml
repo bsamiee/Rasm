@@ -27,4 +27,4 @@ rule:
                 - has: {field: return_type, matches: float-type}
                 - not: {matches: rust-trait-or-extern-function}
 message: '`$DECLARATION` holds money as a binary float'
-note: 'Type the amount as `rust_decimal::Decimal` and round through `round_dp_with_strategy`, its serde impls write the exact value as a string'
+note: 'Type the amount as `rust_decimal::Decimal` and round through `round_dp_with_strategy(<places>, RoundingStrategy::<strategy>)`'

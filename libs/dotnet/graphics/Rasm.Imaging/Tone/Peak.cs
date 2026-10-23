@@ -61,11 +61,11 @@ public sealed partial class PeakParameter : IStateParameter<PeakMapping> {
     new Presentation<float> {
         Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LuminanceUnit.Nit), Soft = ((float)Nits.ReferenceWhite, (float)Nits.MaxValue), Step = 1f, Decimals = 0,
     }),
-        new("Target peak", "Brightest luminance of the display the highlights roll off into"));
+        new("Target peak", "Brightest display luminance highlights roll into"));
     public static readonly PeakParameter Black = new("display-black", StateParameter.Bounded(Lens<PeakMapping, AxisFraction>.New(static mapping => mapping.Black, static black => mapping => mapping with { Black = black }), AxisFraction.Presentation with { Soft = ((float)AxisFraction.MinValue, 1e-3f), Decimals = 4 }),
-        new("Display black", "Display black as a share of the target peak"));
+        new("Display black", "Display black as share of peak"));
     public static readonly PeakParameter Knee = new("knee-offset", StateParameter.Bounded(Lens<PeakMapping, KneeOffset>.New(static mapping => mapping.Knee, static knee => mapping => mapping with { Knee = knee }), new Presentation<float> { Step = 0.01f, Decimals = 2 }),
-        new("Knee offset", "Distance below the target peak where the rolloff begins, its minimum the BT.2390 knee"));
+        new("Knee offset", "Distance below target peak where rolloff begins, BT.2390 knee at minimum"));
 
     public StateParameter<PeakMapping> Kind { get; }
     public ParameterText Text { get; }

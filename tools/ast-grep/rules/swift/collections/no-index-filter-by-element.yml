@@ -45,5 +45,5 @@ rule:
             any:
                 - has: {kind: lambda_literal, matches: test-closure}
                 - has: {kind: value_arguments, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: test-closure}}}
-message: '`$C.indices.filter` walks indices to test the element at each one'
-note: 'Call `<collection>.indices(where: <test>)` and pass the `RangeSet` to its consumers'
+message: '`$C.indices.filter` subscripts `$C` to test the element at each index'
+note: 'Call `<collection>.indices(where: <test>)` and pass the `RangeSet` to consumers'

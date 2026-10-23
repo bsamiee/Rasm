@@ -13,8 +13,8 @@ import { layerHttp } from '#/server';
 const main = <E>(manifest: { readonly name: string; readonly version: string; readonly description: string }, app: Layer.Layer<never, E, McpServer.McpServer | HttpRouter.HttpRouter | NodeServices.NodeServices>): void => {
     const name = manifest.name.slice(manifest.name.lastIndexOf('/') + 1);
     const settings = {
-        listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.mapTryCatch(NetAddress.inetAddressFromStringUnsafe, String), Flag.withDescription('Socket address the Streamable HTTP endpoint listens on, as host:port or [IPv6]:port')),
-        hosts: Flag.String('allowed-host').pipe(Flag.atLeast(1), Flag.withFallbackConfig(Config.Array(Schema.String, 'MCP_ALLOWED_HOSTS')), Flag.withDefault([]), Flag.withDescription('Host authority answered beside loopback names and the bound address')),
+        listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.mapTryCatch(NetAddress.inetAddressFromStringUnsafe, String), Flag.withDescription('Endpoint address as host:port or [IPv6]:port')),
+        hosts: Flag.String('allowed-host').pipe(Flag.atLeast(1), Flag.withFallbackConfig(Config.Array(Schema.String, 'MCP_ALLOWED_HOSTS')), Flag.withDefault([]), Flag.withDescription('Accepted Host header beyond loopback and bound address')),
         log: Flag.Literals('log', LogLevel.values).pipe(Flag.withFallbackConfig(Config.LogLevel('MCP_LOG')), Flag.withDefault('Info' as const), Flag.withDescription('Minimum log level')),
     };
     Command.make(

@@ -1,4 +1,4 @@
-"""Native output format value sets and the storage facts of written files."""
+"""Output format value sets and written file storage."""
 
 from enum import Enum
 from typing import Self
@@ -35,7 +35,7 @@ class Holder(Enum):
     ITEM = bpy.types.NodeCompositorFileOutputItem, "format"
 
     def __init__(self, struct: "type[bpy.types.bpy_struct[object]]", pointer: str) -> None:
-        """Retains the native owner and its pointer."""
+        """Stores owner and pointer."""
         self.struct, self.pointer = struct, pointer
 
 
@@ -51,7 +51,7 @@ class Verdict(Enum):
     """How a writer uses an output choice."""
 
     HONORED = "Honored"
-    COLORSPACE = "Color-space conversion without the display transform"
+    COLORSPACE = "No display transform"
     UNSUPPORTED = "Unsupported"
 
 
@@ -59,7 +59,7 @@ class Verdict(Enum):
 
 
 class Readout(msgspec.Struct, frozen=True, kw_only=True):
-    """One output choice and the writer's outcome, rendered by the library."""
+    """Output choice and writer outcome shown as one label."""
 
     caption: str
     value: str
@@ -68,7 +68,7 @@ class Readout(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def text(self) -> str:
         """Choice and outcome shown beside output controls."""
-        return f"{self.caption}: {self.value} — {self.verdict.value}"
+        return f"{self.caption} · {self.value} · {self.verdict.value}"
 
 
 class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
@@ -80,7 +80,7 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, output: Output, kind: Kind) -> BlenderResult[Self]:
-        """Returns the node format or the unsupported scene-output class or image layout."""
+        """Returns node format, choice faults for an unsupported class or layout."""
         match kind:
             case Kind.LAYERED:
                 container = Ok({"media_type": "MULTI_LAYER_IMAGE", "file_format": "OPEN_EXR_MULTILAYER"})
@@ -99,7 +99,7 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def typed(cls, kind: DataType) -> BlenderResult[Option[Self]]:
-        """Returns a full-float item override for data sockets and no color override."""
+        """Returns full-float item override for data sockets, Nothing for color."""
         return (
             cls.of(Output.DATA, Kind.EXR).map(
                 lambda settings: Some(msgspec.structs.replace(settings, holder=Holder.ITEM, own=Snapshot.of(Holder.ITEM.struct, {"override_node_format": True, "save_as_render": False})))
@@ -109,7 +109,7 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def applied(self, target: bpy.types.Node | bpy.types.NodeCompositorFileOutputItem) -> BlenderResult[Applied]:
-        """Applies owner settings before the format they constrain, returning native outcomes."""
+        """Applies owner settings before format they constrain."""
         own = self.own.apply(target)
 
         def formatted() -> BlenderResult[Applied]:
@@ -123,12 +123,12 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def writer(name: str) -> Option[Format]:
-    """Returns the provider's named writer or absence."""
+    """Returns named writer."""
     return Option.of_optional(next((row for row in Format.writable() if row.name == name), None))
 
 
 def sample(selected: Format, depth: Depth) -> BlenderResult[Depth]:
-    """Admits a requested channel type against the owning writer's stored depths."""
+    """Accepts a depth the writer stores."""
     accepted = selected.depths
     return Ok(depth) if depth in accepted else Error((BlenderChoiceFault(path=selected.name, identifier=depth.name, accepted=tuple(member.name for member in accepted)),))
 
@@ -142,7 +142,7 @@ def display_space(config: PyOpenColorIO.Config, display: str) -> BlenderResult[s
             choice
             .bind(lambda pair: pair[0].colorspace(config))
             .map(PyOpenColorIO.ColorSpace.getName)
-            .to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"display encoding: {display}"),))
+            .to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"display encoding {display}"),))
         ),
     )
 
@@ -157,7 +157,7 @@ def readouts(selected: Format, depth: Depth, display: str, config: PyOpenColorIO
 
 
 def native_readouts(settings: bpy.types.ImageFormatSettings, display: str, *, save_as_render: bool) -> tuple[Readout, Readout, Readout]:
-    """Describes native settings and whether their write applies the display transform."""
+    """Describes native settings and whether writes apply display transform."""
     return (
         Readout(caption="Format", value=settings.file_format, verdict=Verdict.HONORED),
         Readout(caption="Depth", value=depth(settings).map(lambda value: value.label).default_value(f"{settings.color_depth}-bit"), verdict=Verdict.HONORED),
@@ -166,7 +166,7 @@ def native_readouts(settings: bpy.types.ImageFormatSettings, display: str, *, sa
 
 
 def output_rows(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-    """Draws the actual native output format, depth, and display policy."""
+    """Draws native output format, depth, and display policy."""
     for scene in Option.of_optional(context.scene).to_list():
         settings = scene.render.image_settings
         display = (settings.display_settings if settings.color_management == "OVERRIDE" else scene.display_settings).display_device  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -175,12 +175,12 @@ def output_rows(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[objec
 
 
 def kind(settings: bpy.types.ImageFormatSettings) -> Kind:
-    """Classifies the native image container."""
+    """Classifies image container."""
     return Kind.LAYERED if settings.media_type == "MULTI_LAYER_IMAGE" else Kind.EXR if settings.file_format == "OPEN_EXR" else Kind.IMAGE
 
 
 def depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
-    """Returns rasm storage for supported native depths, omitting packed 10/12-bit files."""
+    """Returns storage depth, Nothing for packed 10-bit and 12-bit files."""
     match settings.color_depth:
         case "8":
             return Some(Depth.UINT8)
@@ -193,12 +193,12 @@ def depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
 
 
 def compression(settings: bpy.types.ImageFormatSettings) -> Option[Compressions]:
-    """Supplies the HTJ2K codec absent from the reader's header metadata."""
+    """Supplies HTJ2K codec absent from reader's header metadata."""
     return Some(Plain(codec=Codec.HTJ2K32)) if kind(settings) is not Kind.IMAGE and settings.exr_codec == "HTJ2K" else Nothing
 
 
 def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
-    """Returns the native still suffix, including the JPEG2000 codec distinction."""
+    """Returns native still suffix, `.jp2` or `.j2c` by JPEG2000 codec."""
     named = {
         "BMP": ".bmp",
         "IRIS": ".rgb",
@@ -241,7 +241,7 @@ def owners(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
 
 
 writers = Choices(lambda _identity, _owner, _context: ((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in Format.writable()))
-displays = Choices(lambda _identity, _owner, _context: ((name, name, "Display encoding of the written still") for name in PyOpenColorIO.GetCurrentConfig().getDisplays()))
+displays = Choices(lambda _identity, _owner, _context: ((name, name, "Still display encoding") for name in PyOpenColorIO.GetCurrentConfig().getDisplays()))
 presets = Preset(key="image_formats", form=Snapshot)
 format_listing = Listing(
     preset=presets,
@@ -249,7 +249,7 @@ format_listing = Listing(
     matches=lambda context, values: (
         rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(scene.render.image_settings)).map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
     ),
-    applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.render.image_settings), "Output format already holds this preset")),
+    applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.render.image_settings), "Output format already holds preset")),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -61,7 +61,7 @@ public sealed record Sharpen(Steepness Sharpness) : IStateRecord<Sharpen, Sharpe
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SharpenParameter : IStateParameter<Sharpen> {
     public static readonly SharpenParameter Sharpness = new("sharpness", StateParameter.Bounded(Lens<Sharpen, Steepness>.New(static sharpen => sharpen.Sharpness, static sharpness => sharpen => sharpen with { Sharpness = sharpness }), new Presentation<float>()),
-        new("Sharpness", "Gain of each pixel's difference from its four axis neighbors, none across an edge whose exposed luminance step reaches 1"));
+        new("Sharpness", "Gain of pixel difference from four axis neighbors, none across exposed luminance steps of 1 or more"));
 
     public StateParameter<Sharpen> Kind { get; }
     public ParameterText Text { get; }
@@ -153,11 +153,11 @@ public sealed record LocalContrast(AxisFraction Highlights, AxisFraction Shadows
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LocalContrastParameter : IStateParameter<LocalContrast> {
     public static readonly LocalContrastParameter Highlights = new("highlights", StateParameter.Bounded(Lens<LocalContrast, AxisFraction>.New(static contrast => contrast.Highlights, static highlights => contrast => contrast with { Highlights = highlights })),
-        new("Highlights", "Base contrast above middle gray, 100% unchanged and 0% flat"));
+        new("Highlights", "Base contrast above middle gray, 100% unchanged, 0% flat"));
     public static readonly LocalContrastParameter Shadows = new("shadows", StateParameter.Bounded(Lens<LocalContrast, AxisFraction>.New(static contrast => contrast.Shadows, static shadows => contrast => contrast with { Shadows = shadows })),
-        new("Shadows", "Base contrast below middle gray, 100% unchanged and 0% flat"));
+        new("Shadows", "Base contrast below middle gray, 100% unchanged, 0% flat"));
     public static readonly LocalContrastParameter Detail = new("detail", StateParameter.Bounded(Lens<LocalContrast, DetailStrength>.New(static contrast => contrast.Detail, static detail => contrast => contrast with { Detail = detail }), new Presentation<float>()),
-        new("Clarity", "Detail contrast about the base, 1 unchanged"));
+        new("Clarity", "Detail contrast around base, 1 unchanged"));
 
     public StateParameter<LocalContrast> Kind { get; }
     public ParameterText Text { get; }

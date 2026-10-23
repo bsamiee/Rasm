@@ -28,4 +28,4 @@ rule:
                         - has: {field: name, has: {field: bound_identifier, pattern: $RENDER}}
                         - has: {field: value, matches: rendering}
 message: '`$RENDER` enters a log message as text rendered from a value'
-note: 'Interpolate the value itself with `privacy:`, `OSLogInterpolation` takes an `Error`, an `NSObject`, a metatype, or a `CustomStringConvertible` as it is'
+note: 'Interpolate the `Error`, `NSObject`, metatype, or `CustomStringConvertible` value itself with `privacy:`, and write a literal into the message'

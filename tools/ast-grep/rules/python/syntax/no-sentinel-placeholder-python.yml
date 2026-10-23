@@ -67,5 +67,5 @@ rule:
                         - not: {has: {nthChild: {position: 2, ofRule: {matches: enum-member}}}}
                         - not: {has: {pattern: $_, not: {any: [{matches: enum-member}, {matches: marker-statement}]}}}
                     inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
-message: '`$NAME` is a sentinel standing for absence by identity'
-note: 'Use `Option[<T>]` with `Nothing` for absence, `<T> | None` with `None` on a field msgspec decodes'
+message: '`$NAME` is a sentinel that marks absence by identity'
+note: 'Use `Option[<T>]` with `Nothing`, `<T> | None` with `None` on a field msgspec decodes'

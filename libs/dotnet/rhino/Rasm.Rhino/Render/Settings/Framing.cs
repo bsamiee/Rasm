@@ -87,36 +87,36 @@ public sealed record SafeFrameState(
 public sealed partial class SafeFrameParameter : IStateParameter<SafeFrameState> {
     public static readonly SafeFrameParameter Enabled = new("on", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
-        new("Show in active view", "Draws the safe frame in the active view"));
+        new("Show in active view", "Draws safe frame in active view"));
     public static readonly SafeFrameParameter PerspectiveOnly = new("perspective-only", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.PerspectiveOnly, static on => state => state with { PerspectiveOnly = on })),
-        new("Perspective views only", "Draws the safe frame in perspective views alone"));
+        new("Perspective views only", "Draws safe frame in perspective views alone"));
     public static readonly SafeFrameParameter FieldsOn = new("field-display-on", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.FieldsOn, static on => state => state with { FieldsOn = on })),
-        new("Show 4x3 field grid", "Draws the 4 by 3 field grid"));
+        new("Show 4x3 field grid", "Draws 4 by 3 field grid"));
     public static readonly SafeFrameParameter LiveFrameOn = new("live-frame-on", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.LiveFrameOn, static on => state => state with { LiveFrameOn = on })),
-        new("Live area", "Draws the live area the rendering covers"));
+        new("Live area", "Draws area rendering covers"));
     public static readonly SafeFrameParameter ActionFrameOn = new("action-frame-on", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.ActionFrameOn, static on => state => state with { ActionFrameOn = on })),
-        new("Action area", "Draws the action safe area"));
+        new("Action area", "Draws action safe area"));
     public static readonly SafeFrameParameter ActionFrameLinked = new("action-frame-link", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.ActionFrameLinked, static linked => state => state with { ActionFrameLinked = linked })),
-        new("Action area linked", "Scales the action area alike on both axes"));
+        new("Action area linked", "Scales action area alike on both axes"));
     public static readonly SafeFrameParameter ActionFrameXScale = new("action-frame-x-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameXScale, static scale => state => state with { ActionFrameXScale = scale })),
-        new("Action frame X", "Action area width as a share of the frame"));
+        new("Action frame X", "Action area width as share of frame"));
     public static readonly SafeFrameParameter ActionFrameYScale = new("action-frame-y-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.ActionFrameYScale, static scale => state => state with { ActionFrameYScale = scale })),
-        new("Action frame Y", "Action area height as a share of the frame"));
+        new("Action frame Y", "Action area height as share of frame"));
     public static readonly SafeFrameParameter TitleFrameOn = new("title-frame-on", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.TitleFrameOn, static on => state => state with { TitleFrameOn = on })),
-        new("Title area", "Draws the title safe area"));
+        new("Title area", "Draws title safe area"));
     public static readonly SafeFrameParameter TitleFrameLinked = new("title-frame-link", new StateParameter<SafeFrameState>.Toggle(
         Lens<SafeFrameState, bool>.New(static state => state.TitleFrameLinked, static linked => state => state with { TitleFrameLinked = linked })),
-        new("Title area linked", "Scales the title area alike on both axes"));
+        new("Title area linked", "Scales title area alike on both axes"));
     public static readonly SafeFrameParameter TitleFrameXScale = new("title-frame-x-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameXScale, static scale => state => state with { TitleFrameXScale = scale })),
-        new("Title frame X", "Title area width as a share of the frame"));
+        new("Title frame X", "Title area width as share of frame"));
     public static readonly SafeFrameParameter TitleFrameYScale = new("title-frame-y-scale", StateParameter.Bounded(Lens<SafeFrameState, FrameFraction>.New(static state => state.TitleFrameYScale, static scale => state => state with { TitleFrameYScale = scale })),
-        new("Title frame Y", "Title area height as a share of the frame"));
+        new("Title frame Y", "Title area height as share of frame"));
 
     public StateParameter<SafeFrameState> Kind { get; }
 
@@ -153,7 +153,7 @@ public sealed partial class RenderRegion {
             Framing.Edge(frame.Width, Right), Framing.Edge(frame.Height, Bottom));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref FrameFraction left, ref FrameFraction top, ref FrameFraction right, ref FrameFraction bottom) =>
-        validationError = left < right && top < bottom ? null : new ValidationError("frame left lies at or right of its right, or top at or below its bottom");
+        validationError = left < right && top < bottom ? null : new ValidationError("Region needs left before right and top above bottom");
 }
 
 public sealed class OverscanFrame {

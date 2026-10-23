@@ -31,26 +31,26 @@ type PanoramaModes = Equirectangular | CentralCylindrical | MirrorBall | Fisheye
 
 
 class Sampling(Case, frozen=True, kw_only=True):
-    """Frame mapping with its editable source-border sampling rule."""
+    """Frame mapping with editable border sampling."""
 
-    extension: Annotated[Extension, msgspec.Meta(description="Content sampled past the frame edge")] = Extension.MIRROR
+    extension: Annotated[Extension, msgspec.Meta(description="Source sampling past frame edges")] = Extension.MIRROR
 
 
 class Fold(Sampling, frozen=True, kw_only=True):
     """Frame positions folded about a common center."""
 
-    center: Annotated[Position, msgspec.Meta(description="Point the fold turns about")] = (0.5, 0.5)
+    center: Annotated[Position, msgspec.Meta(description="Point fold turns about")] = (0.5, 0.5)
 
 
 class Kaleidoscope(Fold, frozen=True, kw_only=True, tag=9):
-    """Mirror lines meeting at a center with a zoom about that center."""
+    """Mirror lines and zoom about one center."""
 
-    mirrors: Annotated[int, msgspec.Meta(ge=1, description="Mirror lines through the center"), Presentation(soft=Some((1.0, 16.0)))] = 3
-    angle: Annotated[Turn, msgspec.Meta(description="Turn of the first mirror line from the horizontal")] = math.pi / 2.0
-    zoom: Annotated[float, msgspec.Meta(ge=2.0**-15, le=2.0**15, description="Magnification about the fold center"), Presentation(soft=Some((1.0 / 16.0, 16.0)))] = 1.0
+    mirrors: Annotated[int, msgspec.Meta(ge=1, description="Mirror lines through center"), Presentation(soft=Some((1.0, 16.0)))] = 3
+    angle: Annotated[Turn, msgspec.Meta(description="First mirror line turn from horizontal")] = math.pi / 2.0
+    zoom: Annotated[float, msgspec.Meta(ge=2.0**-15, le=2.0**15, description="Magnification about fold center"), Presentation(soft=Some((1.0 / 16.0, 16.0)))] = 1.0
 
     def folded(self, local: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Reflects displayed offsets into the first wedge and applies the centered zoom."""
+        """Reflects displayed offsets into first wedge and applies centered zoom."""
         wedge = math.pi / self.mirrors
         bearing = self.angle + np.abs(np.mod(np.arctan2(local[..., 1], local[..., 0]) - self.angle + wedge, 2.0 * wedge) - wedge)
         radius = np.hypot(local[..., 0], local[..., 1]) / self.zoom
@@ -67,11 +67,11 @@ class Polar(Sampling, frozen=True, kw_only=True, tag=11):
     """Full rectangular turn wrapped into a disc or unwrapped from one."""
 
     title = "Polar Coordinates"
-    extension: Annotated[Extension, msgspec.Meta(description="Content sampled past the frame edge")] = Extension.CLIP
-    conversion: Annotated[PolarConversion, msgspec.Meta(description="Wrap the rectangular image into a disc or unwrap its disc")] = PolarConversion.RECTANGULAR_TO_POLAR
+    extension: Annotated[Extension, msgspec.Meta(description="Source sampling past frame edges")] = Extension.CLIP
+    conversion: Annotated[PolarConversion, msgspec.Meta(description="Conversion direction")] = PolarConversion.RECTANGULAR_TO_POLAR
 
     def mapped(self, samples: npt.NDArray[np.float64], span: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Maps covered bottom-left samples using the displayed frame's inscribed circle.
+        """Maps covered bottom-left samples through displayed frame's inscribed circle.
 
         Args:
             samples: Source positions followed by their geometric coverage.
@@ -95,7 +95,7 @@ class Panoramic(Sampling, frozen=True, kw_only=True, tag=12):
     """Perspective frame sampled into a native panorama projection."""
 
     title = "Panorama"
-    projection: Annotated[PanoramaModes, msgspec.Meta(description="Panorama receiving the perspective frame")] = Equirectangular()
+    projection: Annotated[PanoramaModes, msgspec.Meta(description="Panorama receiving perspective frame")] = Equirectangular()
 
 
 type Modes = Kaleidoscope | Tiling | Polar | Panoramic
@@ -106,10 +106,10 @@ class Projection(Effect, frozen=True, kw_only=True, tag=39):
 
     stage = Stage.WARP
     pointwise = False
-    mode: Annotated[Modes, msgspec.Meta(description="Fold about a center or panorama receiving the frame")] = Kaleidoscope()
+    mode: Annotated[Modes, msgspec.Meta(description="Frame mapping")] = Kaleidoscope()
 
     def mapping(self, camera: Camera) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
-        """Maps output samples to source positions and carries their projection coverage."""
+        """Maps output samples to source positions and keeps their projection coverage."""
         match self.mode:
             case Kaleidoscope() as kaleidoscope:
                 span = camera.lens.displayed

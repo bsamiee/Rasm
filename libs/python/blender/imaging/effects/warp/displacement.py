@@ -25,7 +25,7 @@ from blender.imaging.parameters import Choice, Finite, FrameExtent, FrameLength,
 
 
 class Front(Choice):
-    """Travelling bands or circular waves with radial and tangential motion."""
+    """Traveling bands or circular waves with radial and tangential motion."""
 
     LINEAR = 1
     RADIAL = 2
@@ -34,7 +34,7 @@ class Front(Choice):
 
 
 class MapReading(Choice):
-    """Interpretation of a source image as a coordinate field."""
+    """Source image reading as a coordinate field."""
 
     GRADIENT = 1
     LUMA = 2, "Luminance"
@@ -57,84 +57,82 @@ class Surface(Choice):
 class Twirl(msgspec.Struct, frozen=True, kw_only=True):
     """Turn about a center with a smooth falloff to a radius."""
 
-    center: Annotated[Position, msgspec.Meta(description="Point the twirl turns about")] = (0.5, 0.5)
-    radius: Annotated[FrameExtent, msgspec.Meta(description="Distance where the turn reaches zero"), Presentation(soft=Some((0.001, 1.0)))] = 0.5
-    angle: Annotated[Finite, msgspec.Meta(description="Turn at the center, counterclockwise above zero"), Presentation(soft=Some((-2.0 * math.tau, 2.0 * math.tau)), quantity=Some(Quantity.ANGLE))] = (
-        6.1
-    )
+    center: Annotated[Position, msgspec.Meta(description="Point twirl turns about")] = (0.5, 0.5)
+    radius: Annotated[FrameExtent, msgspec.Meta(description="Distance where turn reaches zero"), Presentation(soft=Some((0.001, 1.0)))] = 0.5
+    angle: Annotated[Finite, msgspec.Meta(description="Counterclockwise turn at center"), Presentation(soft=Some((-2.0 * math.tau, 2.0 * math.tau)), quantity=Some(Quantity.ANGLE))] = 6.1
     falloff: Annotated[Positive, msgspec.Meta(description="Radial falloff power")] = 1.0
-    arms: Annotated[int, msgspec.Meta(ge=0, description="Angular lobes of the turn, zero giving a uniform twirl"), GraphForm.SETTING] = 0
-    arm_offset: Annotated[Finite, msgspec.Meta(description="Rotation of the angular lobes"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    arms: Annotated[int, msgspec.Meta(ge=0, description="Angular turn lobes, uniform at zero"), GraphForm.SETTING] = 0
+    arm_offset: Annotated[Finite, msgspec.Meta(description="Angular lobe turn"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
 
 
 class Wave(msgspec.Struct, frozen=True, kw_only=True):
-    """Ripple across travelling periodic wave fronts."""
+    """Ripple across traveling periodic wave fronts."""
 
-    amplitude: Annotated[FrameLength, msgspec.Meta(description="Farthest offset across the wave"), Presentation(soft=Some((0.0, 0.1)))] = 0.02
+    amplitude: Annotated[FrameLength, msgspec.Meta(description="Farthest wave offset"), Presentation(soft=Some((0.0, 0.1)))] = 0.02
     wavelength: Annotated[FrameExtent, msgspec.Meta(description="Distance between crests"), Presentation(soft=Some((0.01, 1.0)))] = math.tau / (20.0 * math.sqrt(2.0))
-    direction: Annotated[Finite, msgspec.Meta(description="Direction the wave travels"), Presentation(soft=Some((-math.pi, math.pi)), quantity=Some(Quantity.ANGLE))] = 0.0
-    phase: Annotated[Finite, msgspec.Meta(description="Phase added to the travelling wave in radians"), Presentation(soft=Some((-math.pi, math.pi)), quantity=Some(Quantity.ANGLE))] = 0.0
-    motion: Annotated[Motion, msgspec.Meta(description="Clock of the crests, one crest per clock frame")] = Motion(speed=0.5 * 10.0 / math.tau / 24.0)
+    direction: Annotated[Finite, msgspec.Meta(description="Wave travel direction"), Presentation(soft=Some((-math.pi, math.pi)), quantity=Some(Quantity.ANGLE))] = 0.0
+    phase: Annotated[Finite, msgspec.Meta(description="Wave phase offset"), Presentation(soft=Some((-math.pi, math.pi)), quantity=Some(Quantity.ANGLE))] = 0.0
+    motion: Annotated[Motion, msgspec.Meta(description="Crest clock, one crest per clock frame")] = Motion(speed=0.5 * 10.0 / math.tau / 24.0)
     profile: Annotated[Profile, msgspec.Meta(description="Periodic wave profile"), GraphForm.SETTING] = Profile.SIN
-    front: Annotated[Front, msgspec.Meta(description="Shape and displacement direction of the wave fronts"), GraphForm.SETTING] = Front.LINEAR
+    front: Annotated[Front, msgspec.Meta(description="Wave front shape and displacement direction"), GraphForm.SETTING] = Front.LINEAR
     count: Annotated[int, msgspec.Meta(ge=1, description="Waves superposed with equal total weight"), GraphForm.SETTING] = 1
-    wavelength_variation: Annotated[float, msgspec.Meta(ge=0.0, lt=1.0, description="Share each wavelength shrinks below its maximum")] = 0.0
-    amplitude_variation: Annotated[Unit, msgspec.Meta(description="Share each wave's amplitude shrinks below its maximum")] = 0.0
-    spread: Annotated[Finite, msgspec.Meta(description="Angular span of the wave directions"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    axes: Annotated[tuple[Finite, Finite], msgspec.Meta(description="Signed displacement multiplier on each frame axis")] = (1.0, 1.0)
-    center: Annotated[Position, msgspec.Meta(description="Center of circular wave fronts")] = (0.5, 0.5)
-    radius: Annotated[FrameExtent, msgspec.Meta(description="Reach of circular wave fronts")] = 0.5
-    seed: Annotated[Seed, msgspec.Meta(description="Independent wavelength, amplitude, and phase per wave")] = 0
+    wavelength_variation: Annotated[float, msgspec.Meta(ge=0.0, lt=1.0, description="Share each wavelength shrinks below maximum")] = 0.0
+    amplitude_variation: Annotated[Unit, msgspec.Meta(description="Share each amplitude shrinks below maximum")] = 0.0
+    spread: Annotated[Finite, msgspec.Meta(description="Angular span of wave directions"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    axes: Annotated[tuple[Finite, Finite], msgspec.Meta(description="Signed displacement multiplier per axis")] = (1.0, 1.0)
+    center: Annotated[Position, msgspec.Meta(description="Circular front center")] = (0.5, 0.5)
+    radius: Annotated[FrameExtent, msgspec.Meta(description="Circular front reach")] = 0.5
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting each wave's variation")] = 0
 
 
 class Turbulence(msgspec.Struct, frozen=True, kw_only=True):
     """Movement along evolving fractal noise."""
 
-    amplitude: Annotated[FrameLength, msgspec.Meta(description="Farthest offset the noise reaches"), Presentation(soft=Some((0.0, 0.2)))] = 0.1
-    basis: Annotated[Basis, msgspec.Meta(description="Texture sampled for each displacement axis")] = Perlin(
+    amplitude: Annotated[FrameLength, msgspec.Meta(description="Farthest noise offset"), Presentation(soft=Some((0.0, 0.2)))] = 0.1
+    basis: Annotated[Basis, msgspec.Meta(description="Noise sampled per displacement axis")] = Perlin(
         size=0.5, stretch=1.0, octaves=Octaves(), distortion=0.0, cut=Cut(interpolation=Interpolation.LINEAR)
     )
-    axes: Annotated[tuple[Finite, Finite], msgspec.Meta(description="Signed displacement multiplier on each frame axis")] = (1.0, 1.0)
-    motion: Annotated[Motion, msgspec.Meta(description="Clock of the noise, one noise unit per clock frame")] = Motion(speed=0.5 / 24.0)
-    seed: Annotated[Seed, msgspec.Meta(description="Noise variant")] = 0
+    axes: Annotated[tuple[Finite, Finite], msgspec.Meta(description="Signed displacement multiplier per axis")] = (1.0, 1.0)
+    motion: Annotated[Motion, msgspec.Meta(description="Noise clock, one noise unit per clock frame")] = Motion(speed=0.5 / 24.0)
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
 
 
 class Sphere(msgspec.Struct, frozen=True, kw_only=True):
     """Bulge or pinch inside a circle with a hemisphere mapping."""
 
-    center: Annotated[Position, msgspec.Meta(description="Center of the sphere")] = (0.5, 0.5)
-    radius: Annotated[FrameExtent, msgspec.Meta(description="Radius of the sphere"), Presentation(soft=Some((0.001, 1.0)))] = 0.15
+    center: Annotated[Position, msgspec.Meta(description="Sphere center")] = (0.5, 0.5)
+    radius: Annotated[FrameExtent, msgspec.Meta(description="Sphere radius"), Presentation(soft=Some((0.001, 1.0)))] = 0.15
     amount: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Bulge above zero, pinch below zero")] = 0.1
-    axes: Annotated[tuple[Unit, Unit], msgspec.Meta(description="Share of the bulge along each axis, (1,0) horizontal and (0,1) vertical")] = (1.0, 1.0)
+    axes: Annotated[tuple[Unit, Unit], msgspec.Meta(description="Bulge share per axis")] = (1.0, 1.0)
 
 
 class Luma(msgspec.Struct, frozen=True, kw_only=True):
-    """Move bright and dark content in opposite directions."""
+    """Moves bright and dark content in opposite directions."""
 
     amplitude: Annotated[FrameLength, msgspec.Meta(description="Offset approached by bright content, black moving against it"), Presentation(soft=Some((0.0, 0.1)))] = 0.02
     direction: Annotated[Finite, msgspec.Meta(description="Direction bright content moves"), Presentation(soft=Some((-math.pi, math.pi)), quantity=Some(Quantity.ANGLE))] = 0.0
-    softness: Annotated[FrameLength, msgspec.Meta(description="Blur of the luminance height"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
+    softness: Annotated[FrameLength, msgspec.Meta(description="Luminance height blur"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
 
 
 class Bubbles(msgspec.Struct, frozen=True, kw_only=True):
-    """Refract through the frame's luminance height."""
+    """Refracts through frame luminance height."""
 
-    amplitude: Annotated[FrameLength, msgspec.Meta(description="Refraction through the luminance height"), Presentation(soft=Some((0.0, 0.1)))] = 0.02
-    softness: Annotated[FrameLength, msgspec.Meta(description="Blur and finite-difference span of the luminance height, zero giving no displacement"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
+    amplitude: Annotated[FrameLength, msgspec.Meta(description="Refraction strength"), Presentation(soft=Some((0.0, 0.1)))] = 0.02
+    softness: Annotated[FrameLength, msgspec.Meta(description="Height blur and finite-difference span, no displacement at zero"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
 
 
 class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
     """Drops showing an inverted, blurred view around their centers."""
 
     drops: Annotated[Population, msgspec.Meta(description="Drops placed one per cell at most")] = Population(spacing=1.0 / (2.0 * 3.8), size=0.5, spread=0.0, softness=0.05)
-    refraction: Annotated[NonNegative, msgspec.Meta(description="Radii of the scene each drop shows inverted"), Presentation(soft=Some((0.0, 10.0)))] = 2.0
-    blur: Annotated[FrameLength, msgspec.Meta(description="Blur of the view inside each drop"), Presentation(soft=Some((0.0, 0.02)))] = 14.6 / 1920.0
-    direction: Annotated[Finite, msgspec.Meta(description="Slant of the drops' fall from straight down"), Presentation(soft=Some((-math.pi / 3.0, math.pi / 3.0)), quantity=Some(Quantity.ANGLE))] = 0.0
-    motion: Annotated[Motion, msgspec.Meta(description="Clock of the fall, one drop spacing per clock frame")] = Motion(speed=0.01 / (24.0 * drops.spacing))
-    trails: Annotated[Unit, msgspec.Meta(description="Height of the receding trail behind each falling drop")] = 0.0
-    seed: Annotated[Seed, msgspec.Meta(description="Stable drop population variant")] = 0
-    strength: Annotated[Finite, msgspec.Meta(description="Signed refraction through the receding trail height"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.0
-    softness: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the receding trail height"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
+    refraction: Annotated[NonNegative, msgspec.Meta(description="Scene radii each drop shows inverted"), Presentation(soft=Some((0.0, 10.0)))] = 2.0
+    blur: Annotated[FrameLength, msgspec.Meta(description="View blur inside each drop"), Presentation(soft=Some((0.0, 0.02)))] = 14.6 / 1920.0
+    direction: Annotated[Finite, msgspec.Meta(description="Drop fall slant from straight down"), Presentation(soft=Some((-math.pi / 3.0, math.pi / 3.0)), quantity=Some(Quantity.ANGLE))] = 0.0
+    motion: Annotated[Motion, msgspec.Meta(description="Fall clock, one drop spacing per clock frame")] = Motion(speed=0.01 / (24.0 * drops.spacing))
+    trails: Annotated[Unit, msgspec.Meta(description="Trail height behind each drop")] = 0.0
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting drop population")] = 0
+    strength: Annotated[Finite, msgspec.Meta(description="Signed refraction through trail height"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.0
+    softness: Annotated[FrameLength, msgspec.Meta(description="Trail height blur radius"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
 
     def sampled(self, points: npt.NDArray[np.float64], reference_frame: float) -> ImagingResult[npt.NDArray[np.float64]]:
         """Returns continuous inversion offsets, coverage, and receding trail height."""
@@ -171,42 +169,42 @@ class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
 class Map(msgspec.Struct, frozen=True, kw_only=True):
     """Image read as luminance, slope, offsets, or absolute source coordinates."""
 
-    source: Annotated[str | None, msgspec.Meta(description="Image file path, absent to read the entering image"), GraphForm.SETTING] = None
-    reading: Annotated[MapReading, msgspec.Meta(description="Meaning of the image channels"), GraphForm.SETTING] = MapReading.OFFSETS
-    axes: Annotated[Position, msgspec.Meta(description="Signed offset on each frame axis")] = (0.02, 0.02)
-    tile: Annotated[Gated[tuple[FrameExtent, FrameExtent]], msgspec.Meta(description="Repeated map tile dimensions")] = Gated(enabled=False, value=(1.0, 1.0))
-    rotation: Annotated[Finite, msgspec.Meta(description="Turn of the map and its displacement axes"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    softness: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the luminance height"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
+    source: Annotated[str | None, msgspec.Meta(description="Image file path, input image when absent"), GraphForm.SETTING] = None
+    reading: Annotated[MapReading, msgspec.Meta(description="Image channel meaning"), GraphForm.SETTING] = MapReading.OFFSETS
+    axes: Annotated[Position, msgspec.Meta(description="Signed offset per axis")] = (0.02, 0.02)
+    tile: Annotated[Gated[tuple[FrameExtent, FrameExtent]], msgspec.Meta(description="Map tile size")] = Gated(enabled=False, value=(1.0, 1.0))
+    rotation: Annotated[Finite, msgspec.Meta(description="Map and displacement axes turn"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    softness: Annotated[FrameLength, msgspec.Meta(description="Luminance height blur radius"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
 
 
 class Refraction(msgspec.Struct, frozen=True, kw_only=True):
     """Refraction and blur through a periodic or frosted glass height."""
 
     surface: Annotated[Surface, msgspec.Meta(description="Glass height function"), GraphForm.SETTING] = Surface.FROSTED
-    size: Annotated[FrameExtent, msgspec.Meta(description="Width of the glass cells")] = 0.1
+    size: Annotated[FrameExtent, msgspec.Meta(description="Glass cell width")] = 0.1
     strength: Annotated[Finite, msgspec.Meta(description="Signed displacement per unit slope in glass-cell coordinates"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.02
-    softness: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the glass height"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
-    blur: Annotated[FrameLength, msgspec.Meta(description="Blur radius of the refracted image"), Presentation(soft=Some((0.0, 0.02)))] = 0.0
-    seed: Annotated[Seed, msgspec.Meta(description="Variant of the frosted height")] = 0
+    softness: Annotated[FrameLength, msgspec.Meta(description="Glass height blur radius"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
+    blur: Annotated[FrameLength, msgspec.Meta(description="Refracted image blur radius"), Presentation(soft=Some((0.0, 0.02)))] = 0.0
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting frosted height")] = 0
 
 
 class Displacement(Effect, frozen=True, kw_only=True, tag=37):
-    """Compose geometric, image-driven, glass, and falling-drop displacement fields."""
+    """Composes geometric, image-driven, glass, and falling-drop displacement fields."""
 
     stage = Stage.WARP
     pointwise = False
     twirl: Annotated[Gated[Twirl], msgspec.Meta(description="Turn about a center with a smooth falloff")] = Gated(enabled=False, value=Twirl())
-    wave: Annotated[Gated[Wave], msgspec.Meta(description="Ripple across travelling periodic wave fronts")] = Gated(enabled=False, value=Wave())
+    wave: Annotated[Gated[Wave], msgspec.Meta(description="Ripple across traveling periodic wave fronts")] = Gated(enabled=False, value=Wave())
     turbulence: Annotated[Gated[Turbulence], msgspec.Meta(description="Movement along evolving fractal noise")] = Gated(enabled=False, value=Turbulence())
     sphere: Annotated[Gated[Sphere], msgspec.Meta(description="Bulge or pinch inside a circle")] = Gated(enabled=False, value=Sphere())
-    luma: Annotated[Gated[Luma], msgspec.Meta(description="Movement of bright and dark content in opposite directions")] = Gated(enabled=False, value=Luma())
-    bubbles: Annotated[Gated[Bubbles], msgspec.Meta(description="Refraction through the frame's luminance height")] = Gated(enabled=False, value=Bubbles())
-    raindrops: Annotated[Gated[Raindrops], msgspec.Meta(description="Drops on the lens showing the scene inverted")] = Gated(enabled=False, value=Raindrops())
+    luma: Annotated[Gated[Luma], msgspec.Meta(description="Bright and dark content moving apart")] = Gated(enabled=False, value=Luma())
+    bubbles: Annotated[Gated[Bubbles], msgspec.Meta(description="Refraction through frame luminance height")] = Gated(enabled=False, value=Bubbles())
+    raindrops: Annotated[Gated[Raindrops], msgspec.Meta(description="Drops on lens showing scene inverted")] = Gated(enabled=False, value=Raindrops())
     map: Annotated[Gated[Map], msgspec.Meta(description="Image-driven offsets or absolute coordinates")] = Gated(enabled=False, value=Map())
-    refraction: Annotated[Gated[Refraction], msgspec.Meta(description="Refract through a glass height")] = Gated(enabled=False, value=Refraction())
-    extension: Annotated[tuple[Extension, Extension], msgspec.Meta(description="Sampling rule past each source axis")] = (Extension.EXTEND, Extension.EXTEND)
-    filtername: Annotated[str, msgspec.Meta(description="Reconstruction filter name supplied by the native sampler"), GraphForm.SETTING] = "triangle"
-    filterwidth: Annotated[Positive, msgspec.Meta(description="Full filter support width in source pixels")] = 2.0
+    refraction: Annotated[Gated[Refraction], msgspec.Meta(description="Refraction through glass height")] = Gated(enabled=False, value=Refraction())
+    extension: Annotated[tuple[Extension, Extension], msgspec.Meta(description="Source sampling past frame edges per axis")] = (Extension.EXTEND, Extension.EXTEND)
+    filtername: Annotated[str, msgspec.Meta(description="Native reconstruction filter name"), GraphForm.SETTING] = "triangle"
+    filterwidth: Annotated[Positive, msgspec.Meta(description="Filter support width in source pixels")] = 2.0
 
     def applied(
         self,
@@ -423,7 +421,7 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                 return accumulated(
                     ImagingBufferFault.located(np.ascontiguousarray(plane, dtype=np.float32), image)
                     for plane in (estimate.value[..., :channels], estimate.value[..., channels : channels + 2], estimate.value[..., channels + 2 :])
-                ).map(lambda buffers: estimate.carrying((buffers[0], buffers[1], buffers[2])))
+                ).map(lambda buffers: estimate.holding((buffers[0], buffers[1], buffers[2])))
 
             observations = np.zeros((precision.replicates, height, width, channels + 3), dtype=np.float64)
             return (

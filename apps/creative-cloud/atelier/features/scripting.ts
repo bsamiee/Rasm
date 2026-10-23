@@ -31,7 +31,7 @@ const dictionaries = Effect.gen(function* () {
     });
     yield* registerResourceTemplate`adobe://dictionary/${application}/${kind}/${McpSchema.param('name', Schema.String)}`({
         name: 'dictionary_term',
-        description: 'Scripting definition XML of every declaration with the kind and name',
+        description: 'Scripting definition XML matching kind and name',
         mimeType: 'application/xml',
         schema: Schema.String,
         changes: SubscriptionRef.changes(automation.installations),
@@ -50,7 +50,7 @@ const command = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
     const [automation, hosts] = yield* Effect.all([Automation, InDesignScript.use(Struct.get('hosts'))]);
     const forms = { Command: Predicate.not(hosts), Element: Function.constTrue } satisfies Record<(typeof Form.Type)['_tag'], Predicate.Predicate<Installation>>;
     const tool = Tool.make('command', {
-        description: "Runs a dictionary command of an application other than InDesign, or Accessibility actions on an application's status elements; Element actions answer a dialog requiring an answer, Command is refused while one shows, and answering a dialog an application shows while launching can activate it",
+        description: 'Command runs outside InDesign, refused while a dialog requires an answer. Element runs Accessibility actions on status elements, an answer during launch can activate application',
         parameters: Schema.Struct({}),
         success: Schema.Union([Execute.Result.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Attachment, Schema.ErrorInstance())) })), Schema.Void]),
     });
@@ -70,8 +70,8 @@ const executeScript = Effect.fnUntraced(function* ({ application }: Effect.Succe
     const [automation, indesignScript] = yield* Effect.all([Automation, InDesignScript]);
     const hosts = yield* indesignScript.hosts;
     const tool = Tool.make('execute_script', {
-        description: "Runs source in InDesign as UXP JavaScript, TypeScript stripped of types, and in any other application in the runtime of its dictionary's script command, whose errors arrive as the host raises them; ExtendScript alert, confirm, and prompt activate their application before showing",
-        parameters: Schema.Struct({ code: Schema.String.annotate({ description: 'Function body with its return value as result' }) }),
+        description: 'Runs UXP JavaScript or type-stripped TypeScript in InDesign, dictionary script command elsewhere, host errors unchanged. ExtendScript alert, confirm, and prompt activate application',
+        parameters: Schema.Struct({ code: Schema.String.annotate({ description: 'Function body returning result' }) }),
         success: ExecuteScript.Result,
     }).annotateMerge(
         Context.make(

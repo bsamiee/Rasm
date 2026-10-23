@@ -15,7 +15,7 @@ public enum LoginShellFailure: CustomNSError, LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .unlisted(let uid): "getpwuid found no user database entry for uid \(uid)"
-            case .run(let error): "Login shell environment read failed: \(error.localizedDescription)"
+            case .run(let error): "Login shell environment read failed. \(error.localizedDescription)"
             case .markerNotFound: "Login shell printed no environment"
         }
     }

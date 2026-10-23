@@ -44,13 +44,13 @@ public sealed partial class TitleRule {
     public static readonly TitleRule Optional = new(mandatory: false, static (_, text) => text);
     public static readonly TitleRule Revision = new(mandatory: false, static (alphabet, text) => RevisionIndex.FromLetters(alphabet, text).Map(static index => index.ToString()));
     public static readonly TitleRule IssueDate = new(mandatory: true, static (_, text) =>
-        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : Error.New(ErrorCodes.ValidationFailed, $"issue date {text} must be an ISO date"));
+        LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? LocalDatePattern.Iso.Format(parsed.Value) : Error.New(ErrorCodes.ValidationFailed, $"issue date {text} is no ISO 8601 date"));
 
     public bool Mandatory { get; }
 
     public Fin<Option<string>> Accept(TitleField field, RevisionAlphabet alphabet, Option<string> entry) =>
         entry.Match(
-            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} entry is invalid", error)),
+            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} has invalid entry", error)),
             None: () => Mandatory ? Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} has no entry") : Option<string>.None);
 
     [UseDelegateFromConstructor]

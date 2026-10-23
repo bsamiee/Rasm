@@ -25,7 +25,7 @@ const releaseObjects = Effect.fnUntraced(function* (release: Release) {
     const [released, failures] = yield* Effect.partition(objects, ({ key, uploadId }) => Effect.as(deleteObject(key, uploadId), key), { concurrency: 'unbounded' });
     yield* Array.match(released, { onEmpty: () => Effect.void, onNonEmpty: (keys) => finishRelease(release.assetId, keys) });
     if (Array.isReadonlyArrayNonEmpty(failures)) {
-        yield* Effect.logError('object release failed', ...failures.map(Cause.fail));
+        yield* Effect.logError('object delete failed', ...failures.map(Cause.fail));
         return yield* HttpApiError.ServiceUnavailable.make();
     }
 });

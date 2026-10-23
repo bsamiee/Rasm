@@ -68,5 +68,5 @@ rule:
         - not: {matches: rust-test-scope}
 transform:
     HEAD: {replace: {source: $DOCUMENT, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` builds a document as untyped text or an untyped value keyed by string'
-note: 'Declare a `#[derive(Deserialize, Serialize, JsonSchema)]` type per document, write it with `serde_json`, and derive its schema with `schema_for!`'
+message: '`$HEAD` builds a JSON document as text or a string-keyed value with no declared type'
+note: 'Declare a `#[derive(Serialize, Deserialize, JsonSchema)]` record per document and write it through `serde_json`'

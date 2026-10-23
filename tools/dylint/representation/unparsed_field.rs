@@ -15,13 +15,16 @@ use crate::{Access, access, accessed_field, expanded_externally, exported, gener
 
 pub(crate) struct Pass {
     from_str: Option<DefId>,
+    deserialize: Option<DefId>,
     parses: FxIndexMap<LocalDefId, Option<Vec<HirId>>>,
 }
 
 lint!(Pass; UNPARSED_FIELD: "crate-private text fields of structs that every read parses into one type");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { from_str: path(tcx, PathNS::Type, "core::str::FromStr"), parses: FxIndexMap::default() } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        Self { from_str: path(tcx, PathNS::Type, "core::str::FromStr"), deserialize: path(tcx, PathNS::Type, "serde::Deserialize"), parses: FxIndexMap::default() }
+    }
 
     fn read(&mut self, cx: &LateContext<'_>, field: LocalDefId, parse: Option<HirId>) {
         if !exported(cx, field) && is_text(cx, cx.tcx.type_of(field).instantiate_identity().skip_normalization()) {
@@ -86,9 +89,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         });
         for (field, first, target) in unparsed {
             let (name, shown) = (cx.tcx.item_name(field), with_forced_trimmed_paths!(target.to_string()));
+            let owner = cx.tcx.type_of(cx.tcx.local_parent(field)).instantiate_identity().skip_normalization();
+            let help = if self.deserialize.is_some_and(|deserialize| cx.tcx.non_blanket_impls_for_ty(deserialize, owner).next().is_some()) {
+                format!("declare `{name}` as `{shown}` with `#[serde_as(as = \"serde_with::DisplayFromStr\")]`")
+            } else {
+                format!("declare `{name}` as `{shown}` and parse the text where it enters")
+            };
             span_lint_hir_and_then(cx, UNPARSED_FIELD, cx.tcx.local_def_id_to_hir_id(field), cx.tcx.def_span(field), format!("field `{name}` holds text every read parses into `{shown}`"), |diag| {
                 diag.span_note(cx.tcx.hir_span(first), "parsed here");
-                diag.help(format!("declare `{name}` as `{shown}` and parse the text where it enters, through clap's `value_parser` or `serde_with::DisplayFromStr`"));
+                diag.help(help);
             });
         }
     }

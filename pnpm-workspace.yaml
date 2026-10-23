@@ -18,8 +18,8 @@ catalog:
     '@effect/platform-browser': 4.0.6
     '@effect/opentelemetry': 4.0.5
     # --- [SERIALIZATION_MESSAGING]
-    jsesc: 3.1.0 # JavaScript literals for native Acrobat scripts
-    '@types/jsesc': 3.0.3 # Types for native-script literal serialization
+    jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
+    '@types/jsesc': 3.0.3
     '@solana/codecs': 8.5.1-canary-20261022083205 # Bidirectional binary format declarations for Adobe palette exchange
     hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.16.0
@@ -27,7 +27,7 @@ catalog:
     '@connectrpc/connect': 2.2.0
     '@connectrpc/connect-web': 2.2.0
     '@msgpack/msgpack': 3.1.3
-    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for the argus MCP server
+    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for argus MCP server
     vscode-languageserver-textdocument: 1.0.16
     rfc6902: 5.3.0
     fast-xml-parser: 5.11.2
@@ -112,7 +112,7 @@ catalog:
     '@effect/ai-openrouter': 4.0.6
     '@effect/ai-openai-compat': 4.0.6
     '@modelcontextprotocol/ext-apps': 2.0.3 # MCP application protocol and browser client
-    '@panzoom/panzoom': 4.6.2 # Native pointer and gesture transforms for snapshot presentation
+    '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
     '@openfeature/server-sdk': 1.23.0
     '@opentelemetry/api': 1.10.0
     '@opentelemetry/context-async-hooks': 3.0.0
@@ -255,7 +255,7 @@ catalog:
     fontkit: 2.0.4
     '@types/fontkit': 2.0.9
     harfbuzzjs: 1.6.3 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
-    ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through the compiler API
+    ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through compiler API
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
@@ -314,7 +314,7 @@ catalog:
     '@openai/sites-vite-plugin': 0.2.0
     '@cloudflare/build-output-utils': 0.9.3 # Build Output tree reader for hosting programs
     cf: 1.0.0-beta.20 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
-    '@effect/tsgo': 0.56.0 # Effect diagnostics in the patched `tsc` typecheck and language server
+    '@effect/tsgo': 0.56.0 # Effect diagnostics in patched `tsc` and language server
     typescript: 7.1.0-dev.20261020.3 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
     '@effect/docgen': 4.0.5
     '@effect/openapi-generator': 4.0.5
@@ -330,7 +330,7 @@ catalog:
     '@biomejs/biome': 2.6.2
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     tree-sitter-sqlite3: 0.1.0
-    tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#0.7.4-with-generated-files # Newest release tag holding the generated parser, npm stops at 0.7.1 and the plain tag omits `src/parser.c`
+    tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#0.7.4-with-generated-files # Newest release tag with generated parser, npm stops at 0.7.1 and plain tag omits `src/parser.c`
     '@swc/core': 1.16.19-nightly-20261015.1
     '@swc/cli': 0.8.1
     tslib: 2.8.1
@@ -361,7 +361,7 @@ catalog:
 # --- [CATALOGS] -------------------------------------------------------------------------
 catalogs:
     docgen:
-        typescript: npm:typescript@6.0.3 # Compiler API for Storybook prop docgen, the default catalog `typescript` exports none
+        typescript: npm:typescript@6.0.3 # Compiler API for Storybook prop docgen, default catalog `typescript` exports none
 
 # --- [OVERRIDES] ------------------------------------------------------------------------
 overrides:

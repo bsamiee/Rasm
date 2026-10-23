@@ -130,5 +130,5 @@ transform:
 fix:
     template: $BIND$INLINE$WRAP$UNFIXED
     expandStart: {matches: binding-statement}
-message: 'Assignment to `$N` precedes its first evaluation in an `if` condition'
-note: 'Move one-line `<value>` into its first evaluation, as `(<name> := (<value>))` where a later statement, loop pass, or closure reads `<name>`'
+message: '`$N = $V` precedes the `if` condition that first reads `$N`'
+note: 'Move `<value>` into the condition, as `(<name> := (<value>))` where a later statement, loop pass, or closure reads `<name>`'

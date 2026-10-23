@@ -38,5 +38,5 @@ rule:
 labels:
     B: {style: primary, message: 'Builder written by hand'}
     BUILD: {style: secondary, message: 'Builds the value'}
-message: '`$B` sets each member through a hand-written setter before `$BUILD`'
-note: 'Replace the builder with field defaults and a struct literal, or with `#[bon::builder]` on a function taking optional arguments'
+message: '`$B` sets members through hand-written setters before `$BUILD`'
+note: 'Replace the builder with field defaults and a struct literal, or `#[bon::builder]` on a function with optional arguments'

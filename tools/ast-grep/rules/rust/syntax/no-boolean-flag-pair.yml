@@ -53,4 +53,4 @@ labels:
     FIRST: {style: secondary, message: 'First flag'}
     SECOND: {style: secondary, message: 'Second flag'}
 message: '`$NAME` spreads one choice over `bool`, `&bool`, `Option<bool>`, or `Option<()>` flags'
-note: 'Take one enum with a variant per combination the code handles'
+note: 'Replace the flags with one enum holding a variant per combination the code handles'

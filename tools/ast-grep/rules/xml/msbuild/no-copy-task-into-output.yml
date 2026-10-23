@@ -10,4 +10,4 @@ rule:
 transform:
     DESTINATION_TEXT: {replace: {source: $DESTINATION, replace: '^["'']|["'']$', by: ''}}
 message: '`$TASK` writes into `$DESTINATION_TEXT`, an output no referencing project receives'
-note: Declare a `None` or `Content` item with `CopyToOutputDirectory` or `CopyToPublishDirectory`
+note: Add a `None` or `Content` item with `CopyToOutputDirectory="PreserveNewest"` or `CopyToPublishDirectory="PreserveNewest"`

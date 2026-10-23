@@ -9,5 +9,5 @@ rule:
         field: macro
         pattern: $MACRO
         regex: '^(::)?((rustc_lint|rustc_session|rustc_lint_defs|dylint_linting)::)?(declare_lint|declare_tool_lint|declare_lint_pass|impl_lint_pass|declare_late_lint|declare_pre_expansion_lint|impl_late_lint|impl_pre_expansion_lint)$'
-message: '`$MACRO!` declares a lint or its pass beside the `lint!` row that states both'
+message: '`$MACRO!` declares a lint or lint pass outside `lint!`'
 note: 'Declare the lint through `lint!` (`NAME: ".."`, `default Pass; ..`, or `Pass; ..`) and add its module path to `lints!`'

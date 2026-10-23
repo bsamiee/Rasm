@@ -102,5 +102,5 @@ rule:
                     - has: {field: consequence, matches: returning}
                     - precedes: {kind: return_statement}
             - matches: two-member-file-enum
-message: 'Fallback branch over `$ENUM` sends a member the code never names to another member''s result'
-note: Switch over the enum with one arm per member and no catch-all arm
+message: 'Fallback branch over `$ENUM` sends every member the branches never name to one member''s result'
+note: 'Write a `switch` over the enum with one arm per member and no `_` arm'

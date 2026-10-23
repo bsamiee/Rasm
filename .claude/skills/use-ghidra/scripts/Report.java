@@ -52,6 +52,6 @@ final class Report {
                                 .formatted(program.getName(), program.getLanguageID(), counts));
         Files.createDirectories(out.toAbsolutePath().getParent());
         Files.write(out, Stream.concat(index, body).toList());
-        return "Wrote %s: %s".formatted(out, counts);
+        return "Wrote %s %s".formatted(out, counts);
     }
 }

@@ -23,7 +23,7 @@ from blender.imaging.parameters import Case, Gated
 
 
 def luminance(config: PyOpenColorIO.Config) -> BlenderResult[NodeGroup]:
-    """Returns working-space Y through Blender's live scene-linear conversion."""
+    """Returns working-space Y group from scene-linear conversion."""
     return (
         converted("xyz", config, PyOpenColorIO.ROLE_SCENE_LINEAR, PyOpenColorIO.ROLE_INTERCHANGE_DISPLAY, End(node=INPUTS, socket="image"))
         .bind(lambda xyz: node("xyz_split", bpy.types.CompositorNodeSeparateColor, {"Image": xyz}, {"mode": "RGB"}))
@@ -40,7 +40,7 @@ def luminance(config: PyOpenColorIO.Config) -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def edge() -> BlenderResult[NodeGroup]:
-    """Returns a smoothstep feather with an inclusive hard edge at zero softness."""
+    """Returns smoothstep edge group, inclusive step at zero softness."""
     distance, softness = End(node=INPUTS, socket="distance"), End(node=INPUTS, socket="softness")
     soft = (
         math("negative", "MULTIPLY", softness, -1.0)
@@ -71,7 +71,7 @@ def edge() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def band() -> BlenderResult[NodeGroup]:
-    """Returns a feathered interval, empty when its upper bound precedes its lower."""
+    """Returns feathered interval group, empty when high is below low."""
     value, low, high, softness = (End(node=INPUTS, socket=name) for name in ("value", "low", "high", "softness"))
     return (
         edge()
@@ -101,7 +101,7 @@ def band() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def shape() -> BlenderResult[NodeGroup]:
-    """Returns rotated box and ellipse keys in displayed camera-frame coordinates."""
+    """Returns rotated box and ellipse key group over displayed frame."""
     outline, position_shape, size_shape, rotation, feather_shape = msgspec.structs.fields(Shape)
     position, size, angle, feather = (End(node=INPUTS, socket=field.name) for field in (position_shape, size_shape, rotation, feather_shape))
 
@@ -161,7 +161,7 @@ def shape() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def wipe() -> BlenderResult[NodeGroup]:
-    """Returns a corner-normalized wipe with exact hidden and revealed endpoints."""
+    """Returns corner-normalized wipe group, exact at both ends."""
     completion, angle, softness = (End(node=INPUTS, socket=name) for name in Transition.__struct_fields__)
 
     def traveled(space: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
@@ -218,7 +218,7 @@ def wipe() -> BlenderResult[NodeGroup]:
 
 @functools.cache
 def qualifier() -> BlenderResult[NodeGroup]:
-    """Returns native HSY hue, saturation, and LIN-wrapped luminance selection."""
+    """Returns qualifier group over HSY hue, saturation, and log luminance."""
     entering = End(node=INPUTS, socket="image")
     forward = PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
@@ -289,7 +289,7 @@ def qualifier() -> BlenderResult[NodeGroup]:
 
 
 def matte(working: NodeGroup) -> BlenderResult[NodeGroup]:
-    """Returns clamped alpha or associated working-space Y, optionally inverted."""
+    """Returns track matte group keying clamped alpha or associated working-space Y."""
     image = End(node=INPUTS, socket="image")
     channel, invert = msgspec.structs.fields(TrackMatte)
     return (
@@ -323,7 +323,7 @@ def matte(working: NodeGroup) -> BlenderResult[NodeGroup]:
 
 
 def relayed(outer: Callable[[Key], Operand], interface: Interface) -> dict[Key, Operand]:
-    """Returns operands for native input sockets and enabled panel toggles."""
+    """Returns operands for group input sockets and panel toggles."""
 
     def entered(item: DesiredItem) -> bool:
         match item:
@@ -337,7 +337,7 @@ def relayed(outer: Callable[[Key], Operand], interface: Interface) -> dict[Key, 
 
 @functools.cache
 def joined(*, opening: bool) -> BlenderResult[NodeGroup]:
-    """Returns one mask join, using the operation's identity for the opening mask."""
+    """Returns mask join group, opening mask joining onto operation identity."""
     key_mask, operation_mask, invert = msgspec.structs.fields(Mask)
     heads = (
         Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),
@@ -386,7 +386,7 @@ def joined(*, opening: bool) -> BlenderResult[NodeGroup]:
 
 
 def masked(key: Key, count: int, entering: Operand, aspect: Operand, scale: Operand, outer: Callable[[Key], Operand]) -> BlenderResult[Option[tuple[Fragment, End]]]:
-    """Returns ordered mask coverage, absent for an empty mask list."""
+    """Returns chained mask coverage, Nothing at zero count."""
 
     def joined_at(index: int, group: NodeGroup, running: Option[tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
         heads: dict[Key, Operand] = {"image": entering, "aspect": aspect, "scale": scale, **running.map(lambda pair: {"running": pair}).default_value({})}
@@ -400,16 +400,16 @@ def masked(key: Key, count: int, entering: Operand, aspect: Operand, scale: Oper
 
 
 def _framed_key(key: Key, name: str, form: type[msgspec.Struct], body: Callable[[FrameSpace], BlenderResult[tuple[Fragment, End]]]) -> BlenderResult[NodeGroup]:
-    """Builds a key group over the displayed camera frame of its image.
+    """Builds key group over displayed frame of its image.
 
     Args:
         key: Group key.
         name: Group name.
-        form: Settings record whose fields follow the image, aspect, and scale inputs.
-        body: Key build over the image's frame space.
+        form: Settings record with fields after image, aspect, and scale inputs.
+        body: Key graph over image frame space.
 
     Returns:
-        `Ok` of the group with one float `key` output; `Error` of the faults the interface, frame, or body answers.
+        Group with one float `key` output, or accumulated interface, frame, or body faults.
     """
     image, aspect, scale = (End(node=INPUTS, socket=socket) for socket in ("image", "aspect", "scale"))
     return paired(Interface.of(form), framed("frame", image, aspect, scale).bind(body)).bind(

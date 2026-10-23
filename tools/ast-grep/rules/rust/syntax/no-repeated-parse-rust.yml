@@ -40,5 +40,5 @@ rule:
             - inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: after-parse}
         - not: {matches: parse-stream}
         - not: {matches: rust-test-scope}
-message: '`$SECOND` repeats a parse of `$INPUT` an earlier expression of the block performs'
-note: 'Parse the input once at the boundary into its domain type and pass the value'
+message: '`$SECOND` parses `$INPUT` again after an earlier parse in the block'
+note: 'Parse the input once at the boundary into its domain type and pass the domain value'

@@ -4,7 +4,7 @@ import { Array, Effect, Option, Schema } from 'effect';
 
 class InspectError extends Schema.TaggedError<InspectError, { readonly brand: unique symbol }>()('InspectError', { reason: Schema.TaggedUnion({ Protected: {}, Unreadable: {} }), cause: Schema.Defect() }) {
     override get message(): string {
-        return InspectError.fields.reason.match(this.reason, { Protected: () => 'The PDF is password protected', Unreadable: () => 'The browser cannot read this file' });
+        return InspectError.fields.reason.match(this.reason, { Protected: () => 'PDF is password protected', Unreadable: () => 'Browser cannot read file' });
     }
 }
 

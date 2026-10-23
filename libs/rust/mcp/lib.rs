@@ -75,7 +75,7 @@ enum Operation {
     Runtime,
     #[display("bind {_0}")]
     Bind(SocketAddr),
-    #[display("read bound socket address")]
+    #[display("read bound address")]
     Address,
     #[display("listen for shutdown signals")]
     Signal,
@@ -91,9 +91,9 @@ pub const PROTOCOL_VERSIONS: &[ProtocolVersion] = &[ProtocolVersion::V_2025_06_1
 
 #[derive(Args)]
 struct Options {
-    #[arg(long, env = "MCP_LISTEN", help = "Socket address of the Streamable HTTP endpoint")]
+    #[arg(long, env = "MCP_LISTEN", help = "Streamable HTTP endpoint address")]
     listen: SocketAddr,
-    #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host authority to answer beside loopback names and bound address")]
+    #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host header accepted beside loopback and bound address")]
     allowed_host: Vec<Authority>,
     #[command(flatten)]
     telemetry: rasm_telemetry::Options,
@@ -113,13 +113,13 @@ pub enum Invalid {
 pub enum Unserved {
     #[error("{uri} names no resource, list resources and resource templates")]
     Unrouted { uri: String },
-    #[error("{uri} holds a variable that is not percent-encoded UTF-8")]
+    #[error("{uri} variable percent-decodes to invalid UTF-8")]
     Unencoded { uri: String, source: Utf8Error },
-    #[error("{uri} variables break its template, read resources/templates/list for variable forms")]
+    #[error("{uri} variables break template, read resources/templates/list")]
     Malformed { uri: String, source: serde_path_to_error::Error<de::Error> },
     #[error("{name} names no tool, list tools")]
     Unlisted { name: Cow<'static, str> },
-    #[error("requestState names no paused call of this tool with these arguments, call again without it")]
+    #[error("requestState matches no paused call, call again without requestState")]
     Unparked,
     #[error("server is shutting down, call again after restart")]
     Stopping,

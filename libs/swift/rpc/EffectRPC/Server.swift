@@ -52,7 +52,7 @@ public enum EffectRPC: Sendable {
         let send: @Sendable (FromServer) -> Void = { message in
             switch message.line(encoder) {
                 case .success(let data): sink.yield(data)
-                case .failure(let error): logger.debug("Dropped unencodable response: \(error, privacy: .public)")
+                case .failure(let error): logger.debug("Response encode failed: \(error, privacy: .public)")
             }
         }
         @concurrent @Sendable func answer(_ id: JSONValue, _ request: Result<Request, any Error>, acknowledged acks: AsyncStream<Void>) async {
@@ -88,7 +88,7 @@ public enum EffectRPC: Sendable {
                     case .success(.request(let id, let request)): await calls.start(id) { acks in await answer(id, request, acknowledged: acks) }
                     case .success(.interrupt(let id)): await calls.interrupt(id)
                     case .success(.ack(let id)): await calls.acknowledge(id)
-                    case .failure(let error): logger.debug("Dropped undecodable message: \(error, privacy: .public)")
+                    case .failure(let error): logger.debug("Message decode failed: \(error, privacy: .public)")
                 }
             }
             sink.finish()

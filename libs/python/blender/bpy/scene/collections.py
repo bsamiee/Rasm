@@ -1,4 +1,4 @@
-"""Collection membership, placement, instancing, and native data-block lifetimes."""
+"""Collection membership, placement, instancing, and lifetimes."""
 
 from collections.abc import Iterable
 from contextlib import ExitStack
@@ -28,26 +28,26 @@ type LayerPath = tuple[bpy.types.LayerCollection, tuple[bpy.types.LayerCollectio
 
 
 class Joined(msgspec.Struct, frozen=True, kw_only=True):
-    """Member linked into a collection."""
+    """Member link."""
 
     member: Member
 
 
 class Parted(msgspec.Struct, frozen=True, kw_only=True):
-    """Member unlinked from a collection."""
+    """Member unlink."""
 
     member: Member
 
 
 class Sorted(msgspec.Struct, frozen=True, kw_only=True):
-    """Member entry assigned a position in the custom Outliner order."""
+    """Member moved to index in custom Outliner order."""
 
     member: Member
     index: int
 
 
 class CollectionTree(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired membership, order, and flags; absent concerns remain unchanged."""
+    """Desired collection state, absent fields unchanged."""
 
     members: Option[tuple[Handle[Member], ...]] = Nothing
     kinds: frozenset[type[bpy.types.Object] | type[bpy.types.Collection]] = frozenset((bpy.types.Object, bpy.types.Collection))
@@ -59,7 +59,7 @@ class CollectionTree(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def entry(collection: bpy.types.Collection, member: Member) -> BlenderResult[bpy.types.CollectionObject | bpy.types.CollectionChild]:
-    """Returns a member's native entry, or absence when it is outside the collection."""
+    """Returns member entry, failing when member is outside collection."""
 
     def found[E, M](entries: Iterable[E], items: Iterable[M]) -> BlenderResult[E]:
         return Option.of_optional(next((held for held, item in zip(entries, items) if item == member), None)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(collection), key=member.name),))
@@ -72,7 +72,7 @@ def entry(collection: bpy.types.Collection, member: Member) -> BlenderResult[bpy
 
 
 def parents(collection: bpy.types.Collection) -> tuple[bpy.types.Collection, ...]:
-    """Returns direct parents in native data order, including embedded scene masters."""
+    """Returns direct parents, scene collections included."""
     users = bpy.data.user_map(subset=(collection,))[collection]
     return tuple(
         holder for holder in (*(held for held in bpy.data.collections if held in users), *(scene.collection for scene in bpy.data.scenes if scene in users)) if collection in holder.children.values()
@@ -97,7 +97,7 @@ def membership(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
 
 
 def applied(collection: bpy.types.Collection, change: MembershipChange) -> BlenderResult[None]:
-    """Applies one change, returning a native membership or write refusal."""
+    """Applies membership change."""
 
     def linked(item: Member, row: Joined | Parted) -> None:
         match item:
@@ -122,7 +122,7 @@ def applied(collection: bpy.types.Collection, change: MembershipChange) -> Blend
 
 
 def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> BlenderResult[tuple[MembershipChange, ...]]:
-    """Reconciles dependent membership changes and then flags, retaining native faults."""
+    """Applies membership changes, then values, stopping at first fault."""
     initial: BlenderResult[None] = Ok(None)
     return membership(tree, collection).bind(
         lambda rows: reduce(lambda done, row: done.bind(lambda _: applied(collection, row)), rows, initial).bind(
@@ -132,14 +132,14 @@ def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
 
 
 def joined(collection: bpy.types.Collection, members: tuple[Member, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
-    """Links absent members once, accumulating native refusals in input order."""
+    """Links absent members once, accumulating faults in input order."""
     held = frozenset((*collection.objects, *collection.children))
     rows = tuple(Joined(member=item) for item in dict.fromkeys(members) if item not in held)
     return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
 
 
 def parted(collection: bpy.types.Collection, members: tuple[Member, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
-    """Unlinks present members once, accumulating native refusals in input order."""
+    """Unlinks present members once, accumulating faults in input order."""
     held = frozenset((*collection.objects, *collection.children))
     rows = tuple(Parted(member=item) for item in dict.fromkeys(members) if item in held)
     return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
@@ -149,7 +149,7 @@ def parted(collection: bpy.types.Collection, members: tuple[Member, ...]) -> Ble
 
 
 def walked(root: bpy.types.LayerCollection) -> Block[LayerPath]:
-    """Returns the layer tree in preorder, each node beside its root-first ancestors."""
+    """Returns layer tree in preorder, each node with ancestors root first."""
 
     def expanded(frontier: tuple[LayerPath, ...]) -> Option[tuple[LayerPath, tuple[LayerPath, ...]]]:
         match frontier:
@@ -163,7 +163,7 @@ def walked(root: bpy.types.LayerCollection) -> Block[LayerPath]:
 
 
 def landing(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Collection]:
-    """Returns the active collection's first editable ancestor, or native placement absence."""
+    """Returns active collection or nearest editable included ancestor."""
     layers: dict[bpy.types.Collection, bpy.types.LayerCollection] = {}
     for node, _ in walked(view_layer.layer_collection):
         layers.setdefault(node.collection, node)
@@ -186,13 +186,13 @@ def landing(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Collecti
 
 
 def moved(item: bpy.types.Object, target: bpy.types.Collection, scene: bpy.types.Scene) -> BlenderResult[tuple[MembershipChange, ...]]:
-    """Joins before leaving other editable scene collections, preserving the object's base."""
+    """Moves object to target from other editable scene collections, keeping its base."""
     held = tuple(collection for collection in (scene.collection, *scene.collection.children_recursive) if collection != target and item in collection.objects.values() and _editable(collection))
     return joined(target, (item,)).bind(lambda first: accumulated(parted(collection, (item,)) for collection in held).map(lambda rest: (*first, *chain.from_iterable(rest))))
 
 
 def instanced(collection: bpy.types.Collection, target: bpy.types.Collection, name: str) -> BlenderResult[bpy.types.Object]:
-    """Creates and links a named empty instance, removing it on naming, write, or link refusal."""
+    """Creates named empty instancing collection in target, removing it on fault."""
     return kept(
         BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(name, None)),
         lambda item: named(item, name).bind(
@@ -209,17 +209,17 @@ def _editable(collection: bpy.types.Collection) -> bool:
 
 
 def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bpy.types.Collection]:
-    """Creates a named collection, removing it on a name collision or refused parent link."""
+    """Creates named collection under parent, removing it on fault."""
     return kept(BlenderEditFault.attempted(name, lambda: bpy.data.collections.new(name)), lambda made: named(made, name).bind(lambda block: _parented(block, parent)))
 
 
 def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection]) -> BlenderResult[bpy.types.Collection]:
-    """Returns a shallow native copy, or copy absence or a parent-link refusal."""
+    """Returns shallow copy linked into parent, removing it on fault."""
     return kept(_copied(collection), lambda made: _parented(made, parent))
 
 
 def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, copies: frozenset[type[bpy.types.ID]]) -> BlenderResult[bpy.types.Collection]:
-    """Duplicates a local hierarchy and selected object data, rolling back every acquired ID."""
+    """Duplicates local hierarchy with object data of `copies` types, removing every copy on fault."""
 
     def expanded(frontier: tuple[bpy.types.Collection, ...]) -> Option[tuple[bpy.types.Collection, tuple[bpy.types.Collection, ...]]]:
         match frontier:
@@ -346,13 +346,13 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
 
 
 def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> BlenderResult[bpy.types.Collection]:
-    """Creates a group beside an object's scene memberships, rolling it back on refusal."""
+    """Wraps object in collection under its editable holders or scene collection, removing it on fault."""
     holders = tuple(held for held in (scene.collection, *scene.collection.children_recursive) if item in held.objects.values() and _editable(held)) or (scene.collection,)
     return kept(founded(Nothing, name), lambda made: joined(made, (item,)).bind(lambda _: accumulated(joined(held, (made,)) for held in holders)).map(lambda _: made))
 
 
 def ungrouped(collection: bpy.types.Collection) -> BlenderResult[int]:
-    """Reparents members before removing a collection, or returns every refused parent link."""
+    """Dissolves collection into its parents, returning removed count."""
     members = (*collection.objects, *collection.children)
 
     return accumulated(
@@ -361,7 +361,7 @@ def ungrouped(collection: bpy.types.Collection) -> BlenderResult[int]:
 
 
 def deleted(collection: bpy.types.Collection) -> BlenderResult[int]:
-    """Removes a hierarchy and newly orphaned objects, returning the count or native refusal."""
+    """Removes hierarchy and objects it orphans, returning removed count."""
     tree, items = tuple(dict.fromkeys((collection, *collection.children_recursive))), tuple(collection.all_objects)
     return released(tree).bind(lambda count: released(tuple(item for item in items if item.users == 0)).map(lambda orphans: count + orphans))
 

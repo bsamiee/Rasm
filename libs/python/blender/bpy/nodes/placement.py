@@ -28,14 +28,14 @@ from blender.imaging.faults import accumulated
 
 
 class NodeSize(msgspec.Struct, frozen=True, kw_only=True):
-    """Node's drawn width and height in node space."""
+    """Drawn node size in node space."""
 
     width: float
     height: float
 
     @classmethod
     def of(cls, node: bpy.types.Node, view: RegionView) -> Self:
-        """Returns drawn dimensions converted by the region's interface scale."""
+        """Returns drawn dimensions over region interface scale."""
         size, scale = node.dimensions, view.scale
         return cls(width=size.x / scale, height=size.y / scale)
 
@@ -50,7 +50,7 @@ class NodeSpacing(msgspec.Struct, frozen=True, kw_only=True):
     def arranged[K: Hashable](
         self, sizes: Mapping[K, NodeSize], links: tuple[tuple[K, int, K], ...], bands: Mapping[K, Option[K]], origin: Callable[[K], tuple[float, float]]
     ) -> dict[K, tuple[float, float]]:
-        """Returns DAG positions by link depth, source socket order, and frame band."""
+        """Returns node positions by link depth, source socket order, and frame band."""
         if not sizes:
             return {}
         feeds = {key: tuple((source, slot) for source, slot, target in links if target == key) for key in sizes}
@@ -68,14 +68,14 @@ class NodeSpacing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Arranger(msgspec.Struct, frozen=True, kw_only=True):
-    """Registration row arranging owned nodes whenever their editor draws."""
+    """Registration row arranging owned nodes on each editor draw."""
 
     spacing: NodeSpacing = NodeSpacing()
 
     # --- [MEASUREMENT]
 
     def owned(self, tree: bpy.types.NodeTree, identity: Identity, view: RegionView, location: Descriptor[bpy.types.FloatProperty]) -> tuple[tuple[str, tuple[float, float]], ...]:
-        """Returns changed owned positions after every owned node has drawn dimensions."""
+        """Returns changed owned node positions once every owned node draws."""
         marked = {node.name: node for node in tree.nodes if not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()}
         sizes = {name: NodeSize.of(node, view) for name, node in marked.items()}
         slots = {socket.as_pointer(): slot for node in marked.values() for slot, socket in enumerate(node.outputs)}
@@ -87,7 +87,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
         bands = {name: Option.of_optional(node.parent).map(lambda parent: parent.name) for name, node in marked.items()}
 
         def origin(root: str) -> tuple[float, float]:
-            """Returns the first root's native canvas position."""
+            """Returns canvas position of first root."""
             position = marked[root].location_absolute
             return position.x, position.y
 
@@ -97,14 +97,14 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Resolves canvas placement and acquires its scoped native draw handler."""
+        """Registers scoped draw handler over node location member."""
 
         @contextmanager
         def drawn(location: Descriptor[bpy.types.FloatProperty]) -> Generator[BlenderResult[None]]:
-            """Retires pending writes before removing the handler that publishes them."""
+            """Retires pending writes before removing draw handler."""
 
             def moved(held: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> BlenderResult[Option[str]]:
-                """Resolves current data and writes surviving owned nodes without an undo step."""
+                """Writes owned node positions still in tree, with no undo step."""
                 desired = dict(places)
                 return (
                     held
@@ -123,7 +123,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
             with ExitStack() as resources, identity.reports.deferred(moved) as later:
 
                 def drew() -> None:
-                    """Measures the active editable tree and queues its changed owned positions."""
+                    """Queues changed owned node positions of active editable tree."""
                     context = bpy.context
                     match context.space_data, context.window, context.area, context.region:
                         case bpy.types.SpaceNodeEditor(

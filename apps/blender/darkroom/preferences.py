@@ -22,7 +22,7 @@ class Settings(msgspec.Struct, frozen=True, kw_only=True):
 
     queue: Annotated[Queueing, msgspec.Meta(title="Render Queue", description="Target, notices, power hold, heartbeat, and Flamenco scripts folder of queued renders")] = Queueing()
     review: Annotated[Reviewing, msgspec.Meta(title="Stored Renders", description="Render history the image editor keeps")] = Reviewing()
-    previews: Annotated[NodePreviews, msgspec.Meta(title="Node Previews", description="Node editor thumbnails, their trees, preview light, and drawing")] = NodePreviews()
+    previews: Annotated[NodePreviews, msgspec.Meta(title="Node Previews", description="Node editor thumbnails")] = NodePreviews()
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

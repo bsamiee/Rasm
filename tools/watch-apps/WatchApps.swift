@@ -35,7 +35,7 @@ enum Line: Encodable, Sendable {
 @main
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Observe and drive installed applications in the background, exiting 1 after printing a fail line",
+        abstract: "Observes and drives installed applications in background. Commands exit 1 after a fail line",
         subcommands: [Watch.self, Launch.self, Read.self, Perform.self, Set.self],
     )
 
@@ -79,13 +79,13 @@ struct WatchApps: AsyncParsableCommand {
 }
 
 struct Installed: ParsableArguments {
-    @Argument(help: "Bundle identifiers or display names of installed applications, matched without case or diacritics")
+    @Argument(help: "Bundle identifiers or display names of installed applications, case and diacritics ignored")
     var names: [String]
 }
 
 struct Watch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Print the state of each running instance at start and on each change: the dialogs and sheets that require an answer, unresponsive, or exited"
+        abstract: "Prints dialogs and sheets requiring an answer, hangs, and exits of running instances at start and on each change"
     )
 
     @OptionGroup var installed: Installed
@@ -115,27 +115,27 @@ struct Watch: AsyncParsableCommand {
 
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Open each application in the background, with no document window unless documents are named, and print its state once it finishes launching"
+        abstract: "Opens each application in background and prints its state once launched. Document windows open only for --document files"
     )
 
     @OptionGroup var installed: Installed
 
-    @Flag(help: "Open a new instance when one is running")
+    @Flag(help: "Opens another instance when one runs")
     var new: Bool = false
 
-    @Flag(help: "Launch the instance hidden, its windows and dialogs off screen")
+    @Flag(help: "Opens new instance hidden with windows and dialogs off screen")
     var hides: Bool = false
 
-    @Option(help: "File the application opens, once per file")
+    @Option(help: "File to open, one per flag")
     var document: [String] = []
 
-    @Option(parsing: .unconditionalSingleValue, help: "Command-line argument the new instance receives, once per argument")
+    @Option(parsing: .unconditionalSingleValue, help: "Command-line argument of new instance, one per flag")
     var arguments: [String] = []
 
     @Option(
-        help: "NAME=VALUE variable the new instance's environment holds, once per variable",
+        help: "NAME=VALUE environment variable of new instance, one per flag",
         transform: { entry in
-            guard let split: String.Index = entry.firstIndex(of: "=") else { throw ValidationError("\(entry) names no NAME=VALUE variable") }
+            guard let split: String.Index = entry.firstIndex(of: "=") else { throw ValidationError("\(entry) is no NAME=VALUE variable") }
             return (String(entry[..<split]), String(entry[entry.index(after: split)...]))
         },
     )
@@ -176,12 +176,12 @@ struct Launch: AsyncParsableCommand {
 
 struct Read: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Print the full state of each running instance once"
+        abstract: "Prints full state of each running instance once"
     )
 
     @OptionGroup var installed: Installed
 
-    @Option(help: "Process identifier of the one instance to read, among several running")
+    @Option(help: "Process ID of one instance to read")
     var pid: pid_t?
 
     func run() async throws {
@@ -203,9 +203,9 @@ struct Read: AsyncParsableCommand {
 
 struct Target: ParsableArguments {
     @Argument(
-        help: "Id of an element from a read or watch line",
+        help: "Element ID from read or watch line",
         transform: { id in
-            guard let element: Data = Data(base64Encoded: id) else { throw ValidationError("\(id) is no element id") }
+            guard let element: Data = Data(base64Encoded: id) else { throw ValidationError("\(id) is no element ID") }
             return element
         },
     )
@@ -221,12 +221,12 @@ struct Target: ParsableArguments {
 
 struct Perform: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Perform an Accessibility action the element lists and exit, printing nothing unless it fails"
+        abstract: "Performs one element Accessibility action, silent unless it fails"
     )
 
     @OptionGroup var target: Target
 
-    @Argument(help: "Accessibility action the element lists")
+    @Argument(help: "Accessibility action from element actions")
     var action: String
 
     func run() async throws {
@@ -235,11 +235,11 @@ struct Perform: AsyncParsableCommand {
 }
 
 struct Set: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Set the element's AXValue to text and exit, printing nothing unless it fails")
+    static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Sets element AXValue to text, silent unless write fails")
 
     @OptionGroup var target: Target
 
-    @Argument(help: "Text the element's AXValue receives")
+    @Argument(help: "Text for element AXValue")
     var value: String
 
     func run() async throws {

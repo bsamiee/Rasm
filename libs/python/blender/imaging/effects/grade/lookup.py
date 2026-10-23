@@ -25,7 +25,7 @@ class Lookup(Effect, frozen=True, kw_only=True, tag=18):
     pointwise = True
     source: Annotated[str, msgspec.Meta(min_length=1, title="File", description="LUT file in a format OpenColorIO reads"), GraphForm.IMAGE]
     space: Annotated[ColorSpace, msgspec.Meta(title="Color Space", description="Color space the LUT reads and writes")] = PyOpenColorIO.ROLE_COLOR_PICKING
-    prefix: Annotated[Gated[Lattice], msgspec.Meta(title="Prefix Sampling", description="Authored domain and resolution for hosts sampling operations before the first 3D table")] = Gated(
+    prefix: Annotated[Gated[Lattice], msgspec.Meta(title="Prefix Sampling", description="Authored domain and resolution for hosts sampling operations before first 3D table")] = Gated(
         enabled=False, value=Lattice()
     )
 

@@ -6,5 +6,5 @@ rule:
     kind: call_expression
     has: {nthChild: 1, regex: '^(Observation\.)?withObservationTracking$'}
     not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^options$'}}}}}
-message: '`withObservationTracking` reports one change through an `onChange` callback that must register again for the next'
-note: 'Iterate `for await <value> in Observations { <model>.<property> }`, or call `withContinuousObservation(options:)` for a synchronous handler'
+message: '`withObservationTracking` without `options:` reports one change per registration to `onChange`'
+note: 'Iterate `for await <value> in Observations { <model>.<property> }`, or call `withContinuousObservation(options:apply:)` for a synchronous handler'

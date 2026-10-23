@@ -1,4 +1,4 @@
-"""Soft points in depth layers covering the frame, emitting light, or both."""
+"""Soft points in depth layers covering frame, emitting light, or both."""
 
 from collections.abc import Callable, Iterable
 from fractions import Fraction
@@ -23,7 +23,7 @@ from blender.imaging.parameters import AtLeastOne, Finite, FrameExtent, FrameLen
 
 
 class Mark(msgspec.Struct, frozen=True, kw_only=True):
-    """One stable population member with exact global center and physical radius."""
+    """Stable population member with exact global center and physical radius."""
 
     cell: tuple[int, int]
     center: tuple[Fraction, Fraction]
@@ -43,17 +43,17 @@ class Particle(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Population(msgspec.Struct, frozen=True, kw_only=True):
-    """Soft discs in Voronoi cells: their presence, size, fade, and edge."""
+    """Soft discs in Voronoi cells with presence, size, fade, and edge."""
 
-    spacing: Annotated[FrameExtent, msgspec.Meta(description="Cell width at the nearest layer as a share of the frame's greater side"), Presentation(soft=Some((0.002, 0.1)), decimals=Some(4))] = 0.01
+    spacing: Annotated[FrameExtent, msgspec.Meta(description="Cell width at nearest layer over greater frame side"), Presentation(soft=Some((0.002, 0.1)), decimals=Some(4))] = 0.01
     density: Annotated[Unit, msgspec.Meta(description="Share of cells holding a particle")] = 0.5
-    size: Annotated[float, msgspec.Meta(gt=0.0, le=0.5, description="Particle diameter as a share of its cell")] = 0.2
-    variation: Annotated[Unit, msgspec.Meta(description="Share each particle's diameter shrinks below the size")] = 0.5
-    spread: Annotated[NonNegative, msgspec.Meta(description="Stops each particle's coverage falls below full"), Presentation(soft=Some((0.0, 10.0)), step=Some(0.01), decimals=Some(3))] = 1.0
-    softness: Annotated[Unit, msgspec.Meta(description="Share of the radius the edge fades over before pixel filtering")] = 0.5
+    size: Annotated[float, msgspec.Meta(gt=0.0, le=0.5, description="Particle diameter over cell width")] = 0.2
+    variation: Annotated[Unit, msgspec.Meta(description="Diameter shrink share below size")] = 0.5
+    spread: Annotated[NonNegative, msgspec.Meta(description="Per-particle coverage drop in stops"), Presentation(soft=Some((0.0, 10.0)), step=Some(0.01), decimals=Some(3))] = 1.0
+    softness: Annotated[Unit, msgspec.Meta(description="Edge fade over radius before pixel filtering")] = 0.5
 
     def marks(self, bounds: tuple[Fraction, Fraction, Fraction, Fraction], *, seed: Seed, stream: int = 0) -> tuple[Mark, ...]:
-        """Enumerates every cell whose disc can intersect positive global bounds."""
+        """Enumerates cells with discs able to intersect positive global bounds."""
         left, bottom, right, top = bounds
         spacing = Fraction(self.spacing)
         radius = Fraction(self.size) / 2
@@ -66,7 +66,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(self.marked(cell, draw, Fraction(self.spacing)) for cell in cells for draw in (uniforms(cell, seed=seed, stream=stream, count=6),) if draw[0] < self.density)
 
     def marked(self, cell: tuple[int, int], draw: npt.NDArray[np.float64], spacing: Fraction, scale: float = 1.0) -> Mark:
-        """Constructs one occupied cell from its draws at a lattice spacing and depth scale."""
+        """Constructs occupied cell from its draws at lattice spacing and depth scale."""
         return Mark(
             cell=cell,
             center=((Fraction(cell[0]) + Fraction(0.25 + 0.5 * float(draw[4]))) * spacing, (Fraction(cell[1]) + Fraction(0.25 + 0.5 * float(draw[5]))) * spacing),
@@ -106,37 +106,35 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Particles(Effect, frozen=True, kw_only=True, tag=33):
-    """Soft points in depth layers covering the frame or emitting light: rain, snow, sparks, dust, and stars."""
+    """Soft points in depth layers covering frame or emitting light (rain, snow, sparks, dust, stars)."""
 
     stage = Stage.GENERATE
     pointwise = False
-    population: Annotated[Population, msgspec.Meta(description="Spacing, share, size, brightness, and edge of the particles")] = Population()
-    coverage: Annotated[Gated[Spectrum], msgspec.Meta(description="Scene-linear color and ramp coverage graded by particle tone")] = Gated(enabled=True, value=Tint())
+    population: Annotated[Population, msgspec.Meta(description="Particle layout, size, and edge")] = Population()
+    coverage: Annotated[Gated[Spectrum], msgspec.Meta(description="Scene-linear cover color by particle tone")] = Gated(enabled=True, value=Tint())
     emission: Annotated[Gated[Emission], msgspec.Meta(description="Light a particle adds")] = Gated(enabled=False, value=Emission())
-    incandescence: Annotated[Unit, msgspec.Meta(description="Share of the emitted spectrum modulated by blackbody color")] = 0.0
-    temperature: Annotated[Incandescence, msgspec.Meta(description="Blackbody band multiplying the emitted spectrum")] = Incandescence()
-    motion: Annotated[Motion, msgspec.Meta(description="Nearest layer's travel in shares of the frame's greater side per scene frame")] = Motion(speed=2.5 / 24.0)
-    direction: Annotated[Finite, msgspec.Meta(description="Travel direction of the particles"), Presentation(quantity=Some(Quantity.ANGLE))] = -math.pi / 2.0
-    turbulence: Annotated[
-        FrameLength, msgspec.Meta(description="Sway of the nearest layer crossing the wind field as a share of the frame's greater side"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(4))
-    ] = 0.0
-    wind: Annotated[Basis, msgspec.Meta(description="Texture sampled independently along both displacement axes")] = Perlin(
+    incandescence: Annotated[Unit, msgspec.Meta(description="Blackbody share of emitted color")] = 0.0
+    temperature: Annotated[Incandescence, msgspec.Meta(description="Blackbody band multiplying emitted spectrum")] = Incandescence()
+    motion: Annotated[Motion, msgspec.Meta(description="Nearest layer travel in greater frame sides per scene frame")] = Motion(speed=2.5 / 24.0)
+    direction: Annotated[Finite, msgspec.Meta(description="Particle travel direction"), Presentation(quantity=Some(Quantity.ANGLE))] = -math.pi / 2.0
+    turbulence: Annotated[FrameLength, msgspec.Meta(description="Nearest layer sway over greater frame side"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(4))] = 0.0
+    wind: Annotated[Basis, msgspec.Meta(description="Texture displacing each axis independently")] = Perlin(
         size=1.0 / 3.2, stretch=1.0, octaves=Octaves(), distortion=0.0, cut=Cut(interpolation=Interpolation.LINEAR)
     )
-    evolution: Annotated[Finite, msgspec.Meta(description="Wind field's signed evolution per scene frame")] = 0.0
-    motion_blur: Annotated[bool, msgspec.Meta(description="Streak each particle across the scene's shutter")] = True
+    evolution: Annotated[Finite, msgspec.Meta(description="Signed wind field evolution per scene frame")] = 0.0
+    motion_blur: Annotated[bool, msgspec.Meta(description="Streaks each particle across scene shutter")] = True
     layers: Annotated[int, msgspec.Meta(ge=1, description="Depth layers drawn from far to near"), GraphForm.SETTING] = 3
-    depth: Annotated[AtLeastOne, msgspec.Meta(description="Distance of the farthest layer over the nearest"), Presentation(soft=Some((1.0, 16.0)), decimals=Some(2))] = 4.0
-    depth_variation: Annotated[Unit, msgspec.Meta(description="Random depth within each layer's interval")] = 0.0
-    focus: Annotated[Unit, msgspec.Meta(description="Focused depth between the nearest and farthest layers")] = 1.0
-    defocus: Annotated[FrameLength, msgspec.Meta(description="Radius added per difference in reciprocal depth"), Presentation(soft=Some((0.0, 0.05)))] = 0.0
+    depth: Annotated[AtLeastOne, msgspec.Meta(description="Farthest layer distance over nearest"), Presentation(soft=Some((1.0, 16.0)), decimals=Some(2))] = 4.0
+    depth_variation: Annotated[Unit, msgspec.Meta(description="Random depth within each layer interval")] = 0.0
+    focus: Annotated[Unit, msgspec.Meta(description="Focused depth between nearest and farthest layers")] = 1.0
+    defocus: Annotated[FrameLength, msgspec.Meta(description="Blur radius per reciprocal depth difference"), Presentation(soft=Some((0.0, 0.05)))] = 0.0
     iris: Annotated[Aperture, msgspec.Meta(description="Projected particle outline")] = Aperture()
-    squeeze: Annotated[Positive, msgspec.Meta(description="Horizontal compression of the particle outline")] = 1.0
+    squeeze: Annotated[Positive, msgspec.Meta(description="Horizontal compression of particle outline")] = 1.0
     fringe: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Channel radius shift, toward blue above zero")] = 0.0
-    fade: Annotated[Unit, msgspec.Meta(description="Share of the trail fading from its head toward its tail")] = 0.0
-    twinkle: Annotated[Unit, msgspec.Meta(description="Share of each particle's light modulated over time")] = 0.0
-    scintillation: Annotated[Motion, msgspec.Meta(title="Twinkle Clock", description="Independent rate and hold of the twinkle field")] = Motion(speed=0.0)
-    seed: Annotated[Seed, msgspec.Meta(description="Field of equal statistics the entry samples")] = 0
+    fade: Annotated[Unit, msgspec.Meta(description="Trail share fading toward tail")] = 0.0
+    twinkle: Annotated[Unit, msgspec.Meta(description="Light share flickering over time")] = 0.0
+    scintillation: Annotated[Motion, msgspec.Meta(title="Twinkle Clock", description="Independent twinkle field rate and hold")] = Motion(speed=0.0)
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
 
     def applied(
         self,
@@ -148,7 +146,7 @@ class Particles(Effect, frozen=True, kw_only=True, tag=33):
         precision: Precision,
         spectrum: Callable[[Spectrum, npt.NDArray[np.float64]], ImagingResult[npt.NDArray[np.float64]]],
     ) -> ImagingResult[Estimate[OpenImageIO.ImageBuf]]:
-        """Integrates all particle supports, shutter paths, and ordered intrinsic occlusion."""
+        """Integrates particle supports, shutter paths, and ordered intrinsic occlusion."""
 
         def computed() -> ImagingResult[Estimate[OpenImageIO.ImageBuf]]:
             if (source := (plane.get_pixels(OpenImageIO.DOUBLE))) is None:
@@ -295,7 +293,7 @@ class Particles(Effect, frozen=True, kw_only=True, tag=33):
                             estimate = msgspec.structs.replace(Estimate.of(observations, precision), normalization=Some((unit_area, area_error)) if particles and self.emission.enabled else Nothing)
                             if not (output := (plane.copy(OpenImageIO.DOUBLE))).set_pixels(output.roi, estimate.value):
                                 return Error((ImagingBufferFault(request=output, error=output.geterror()),))
-                            return Ok(estimate.carrying(output))
+                            return Ok(estimate.holding(output))
 
         return guarded(ImagingNumericFault, self, computed)
 

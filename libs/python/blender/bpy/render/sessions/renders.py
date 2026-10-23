@@ -1,4 +1,4 @@
-"""Session renders and scoped scene overrides."""
+"""Renders with temporary scene overrides."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -46,7 +46,7 @@ from blender.rendering.history import Retention
 
 
 class Into(Choice):
-    """Native Render Result slot receiving the next render."""
+    """Render Result slot receiving next render."""
 
     DISPLAYED = 1, "Displayed Slot"
     NEW = 2, "New Slot"
@@ -59,7 +59,7 @@ class Isolation(Choice):
     HIDDEN = 2, "Hidden"
 
 
-# --- [ROSTERS] --------------------------------------------------------------------------
+# --- [CHOICES] --------------------------------------------------------------------------
 
 value_sets: Preset[Snapshot] = Preset(key="render_override", form=Snapshot)
 value_set_names = Choices(value_sets.entries)
@@ -73,7 +73,7 @@ layers = Choices(
 
 
 class Launch(msgspec.Struct, frozen=True, kw_only=True):
-    """Final or viewport render and its native destination."""
+    """Render options and destination slot."""
 
     animation: Annotated[bool, msgspec.Meta(title="Animation")] = False
     write: Annotated[bool, msgspec.Meta(title="Write Still")] = False
@@ -82,20 +82,20 @@ class Launch(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ValueSet(msgspec.Struct, frozen=True, kw_only=True):
-    """Stored native scene values applied for one render."""
+    """Scene value preset for one render."""
 
     name: Annotated[str, msgspec.Meta(title="Value Set"), value_set_names]
 
 
 class Isolated(msgspec.Struct, frozen=True, kw_only=True):
-    """Selection isolation and optional selected-object shadow catching."""
+    """Isolation of unselected objects, shadow catching on selected."""
 
     mode: Annotated[Isolation, msgspec.Meta(title="Others")] = Isolation.HOLDOUT
     catcher: Annotated[bool, msgspec.Meta(title="Shadow Catcher")] = False
 
 
 class RenderOverride(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene values and selection isolation held for a native render."""
+    """Overrides applied for one render."""
 
     values: Gated[ValueSet] = Gated(enabled=False, value=ValueSet(name=""))
     isolated: Gated[Isolated] = Gated(enabled=False, value=Isolated())
@@ -105,7 +105,7 @@ class RenderOverride(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
-    """Native final and viewport renders with scoped settings."""
+    """Render operators with temporary scene overrides."""
 
     stack: EffectStack
 
@@ -119,7 +119,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Retains native declarations and recovery state through render retirement."""
+        """Holds declarations and override recovery until running render finishes."""
         scope = ExitStack()
         pending: set[bpy.types.Scene] = set()
 
@@ -275,11 +275,11 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                         .or_else_with(undone)
                     )
 
-                def admitted(roots: tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> BlenderResult[Done]:
+                def checked(roots: tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> BlenderResult[Done]:
                     scene = roots[0]
                     return recovery.read(scene).bind(lambda held: Error((BlenderCollisionFault(request=repr(scene), error=recovery.name),)) if held.is_some() else scene_render(*roots))
 
-                return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(admitted)
+                return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(checked)
 
             viewport = Setting(descriptor=Descriptor(root=bpy.types.SpaceView3D, owner="", prop=bpy.types.SpaceView3D.bl_rna.properties["type"]), accepted=("VIEW_3D",))
             return Ok((
@@ -289,7 +289,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                 Operator(
                     key=self.render,
                     title="Render",
-                    description="Render into the selected Render Result slot with scoped scene values",
+                    description="Render into chosen slot with temporary scene overrides",
                     form=Launch,
                     invoke=Some(Properties()),
                     undo=False,
@@ -298,7 +298,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                 Operator(
                     key=self.viewport,
                     title="Render Viewport",
-                    description="Render the 3D view with scoped scene values",
+                    description="Render 3D view with temporary scene overrides",
                     form=Launch,
                     invoke=Some(Properties()),
                     undo=False,
@@ -330,7 +330,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def section(retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing) -> Single[RenderOverride]:
-        """Places native render actions beside the context scene's scoped override."""
+        """Returns section of render buttons and override settings."""
         return Single(
             key="render",
             title="Render",
@@ -340,7 +340,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def baking() -> Single:
-        """Places the native bake action, writable settings, format, and preset menu."""
+        """Returns section of bake button, settings, image format, and presets."""
         return Single(
             key="bake",
             title="Bake",
@@ -357,7 +357,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def isolation(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, isolated: Isolated) -> BlenderResult[tuple[tuple[bpy.types.Object, Snapshot], ...]]:
-    """Constructs native object settings for selection isolation."""
+    """Builds per-object holdout, camera visibility, or shadow catcher snapshots."""
 
     def values(item: bpy.types.Object, paths: tuple[str, ...]) -> dict[str, bool]:
         holdout, visible, catcher = paths
@@ -369,7 +369,7 @@ def isolation(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, isolated: Isol
 
 
 def noted(member: str, version: int, key: ContentHash) -> Snapshot:
-    """Constructs the render stamp's member, version, and original settings digest."""
+    """Builds stamp note of member, version, and pre-override settings digest."""
     return Snapshot.of(bpy.types.Scene, {"render.use_stamp_note": True, "render.stamp_note_text": f"{member} v{version} {key.hex()}"})
 
 

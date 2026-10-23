@@ -6,7 +6,7 @@ public import Foundation
 public struct Activation: LocalizedError, Sendable {
     public let command: ScriptingDictionary.Command
 
-    public var errorDescription: String? { "\(command.name) (\(command.code.sdef)) activates an application, nothing was sent" }
+    public var errorDescription: String? { "Activating command \(command.name) (\(command.code.sdef)) refused" }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

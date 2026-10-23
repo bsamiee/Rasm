@@ -57,5 +57,5 @@ rule:
                 - inside: {stopBy: end, matches: reader-closure}
                 - has: {field: value, has: {stopBy: end, matches: proxy-length}}
             - has: {field: value, has: {stopBy: end, matches: measured}}
-message: '`$SCALE` sizes `.frame` from the measured container as a hand-written fraction'
-note: 'Read `configuration.fractionCompleted` in a `ProgressViewStyle`, or `containerRelativeFrame(_:) { length, _ in length * fraction }`'
+message: '`$SCALE` sizes `.frame` as a fraction of a measured container length'
+note: 'Call `.containerRelativeFrame(<axes>) { length, _ in length * <fraction> }`, or read `configuration.fractionCompleted` in a `ProgressViewStyle`'

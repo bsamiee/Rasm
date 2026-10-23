@@ -22,10 +22,10 @@ interface Call {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WORKTREE = 'creates a second checkout. Work in the main checkout';
-const UNPLACED = 'runs after a directory change the hook cannot resolve. Run cd with a named directory first';
-const ALIAS = 'defines an alias that can hide a refused subcommand';
-const OVERWRITES = 'overwrites working-tree files. Edit the files';
+const WORKTREE = 'creates second checkout. Work in main checkout';
+const UNPLACED = 'runs after unresolved directory change. Run cd to named directory first';
+const ALIAS = 'defines alias that can hide refused subcommand';
+const OVERWRITES = 'overwrites working-tree files. Edit files';
 const BREAK = /(?<!\\)(?:\\\\)*\\n/u;
 const EXPANDS = /[$`]/u;
 const GLOB = /[*?[{]/u;
@@ -37,7 +37,7 @@ const NAMED = /[\p{L}\p{N}]/u;
 // --- [DELETE]
 
 const deletes = ({ system: { root, home }, script: { commands }, project }: Call): readonly string[] => {
-    const finder = 'Run the finder with -exec or -X';
+    const finder = 'find -exec or fd -X';
     const removing = (invocation: Invocation): readonly Invocation[] => {
         if (invocation[0] !== 'git') {
             return ['rm', 'rimraf', 'trash', 'unlink', 'shred'].includes(invocation[0]) ? [invocation] : [];
@@ -77,20 +77,20 @@ const deletes = ({ system: { root, home }, script: { commands }, project }: Call
             (name: string, scope: (word: string) => string, start: Option<string>, selective: boolean) =>
             (word: string): readonly string[] => {
                 if (loose.has(word) && EXPANDS.test(word)) {
-                    return [`${name} deletes ${word}, which the shell expands at run time. ${finder}, or name the path`];
+                    return [`${name} deletes ${word} expanded at run time. Name path or use ${finder}`];
                 }
                 const place = anchored(word, loose.has(word), start);
                 if (place.kind === 'none') {
                     return [`${name} ${UNPLACED}`];
                 }
-                return root.kind === 'some' && !selective && within(root.value, place.value) ? [`${name} deletes ${scope(word)}, at or above repository root. Name a directory beneath it, or run nx run ${project}:clean`] : [];
+                return root.kind === 'some' && !selective && within(root.value, place.value) ? [`${name} deletes ${scope(word)} at or above repository root. Name directory beneath root or run nx run ${project}:clean`] : [];
             };
         const { options, inner } = operands(last);
         const [remover] = removing(last);
         const [feeder] = chain.slice(0, -1).filter(([name]) => declared(name).stdin === 'always');
         if (remover !== undefined) {
             const name = program === 'git' ? 'git rm' : program;
-            return feeder === undefined ? operands(remover).inputs.flatMap(judge(name, String, cwd, false)) : [`${name} deletes paths ${feeder[0]} reads from standard input. ${finder}`];
+            return feeder === undefined ? operands(remover).inputs.flatMap(judge(name, String, cwd, false)) : [`${name} deletes paths ${feeder[0]} reads from standard input. Use ${finder}`];
         }
         if (!(options.includes('-delete') || invocations(inner).some((launched) => removing(launched).length > 0))) {
             return [];
@@ -110,7 +110,7 @@ const flagged = (args: readonly string[], reason: string, words: readonly string
 
 const GIT = new Map(
     Object.entries<(args: readonly string[], present: (word: string) => boolean) => readonly string[]>({
-        branch: (args) => flagged(args, 'deletes or force-moves a branch', ['-d', '-D', '-M', '--delete'], ['--force']),
+        branch: (args) => flagged(args, 'deletes or force-moves branch', ['-d', '-D', '-M', '--delete'], ['--force']),
         checkout: (args, present) => {
             const forced = flagged(args, 'discards local changes', ['-f', '-B', '-p', '--patch', '--ours', '--theirs'], ['--force']);
             const [first, ...more] = args.filter((word) => word === '-' || !word.startsWith('-'));
@@ -128,14 +128,14 @@ const GIT = new Map(
             const forced = flagged(args, 'discards working-tree or index state', ['--hard', '--merge', '--keep'], []);
             const targets = args.filter((word) => !word.startsWith('-'));
             const [target] = targets;
-            return forced.length > 0 || target === undefined || args.includes('--') || targets.some(present) ? forced : [`${target} moves HEAD and drops commits from the branch`];
+            return forced.length > 0 || target === undefined || args.includes('--') || targets.some(present) ? forced : [`${target} moves HEAD and drops branch commits`];
         },
         restore: (args) => {
             const { options } = operands(['git', ...args]);
             return options.some((name) => name === '-S' || name === '--staged') && !options.some((name) => name === '-W' || name === '--worktree') ? [] : [OVERWRITES];
         },
         revert: () => ['reverses committed history'],
-        stash: ([first]) => (first === 'list' || first === 'show' ? [] : ['hides uncommitted work other agents depend on. Commit to a branch']),
+        stash: ([first]) => (first === 'list' || first === 'show' ? [] : ['hides uncommitted work other agents depend on. Commit to branch']),
         switch: (args) => flagged(args, 'discards local changes', ['-f', '-C', '--discard-changes'], ['--force']),
         worktree: ([first]) => (first === 'list' ? [] : [WORKTREE]),
     }),
@@ -183,11 +183,11 @@ const git = async ({ system: { exists, root, home }, script: { commands } }: Cal
 
 // --- [BACKGROUND]
 
-const detached = ({ script: { commands, background } }: Call): readonly string[] => (background && !commands.some(({ invocations: chain }) => chain.some(([program]) => program === 'wait')) ? ['A job started with & outlives this call. Wait for it in the command, or set run_in_background'] : []);
+const detached = ({ script: { commands, background } }: Call): readonly string[] => (background && !commands.some(({ invocations: chain }) => chain.some(([program]) => program === 'wait')) ? ['Job started with & outlives call. Add wait or set run_in_background'] : []);
 
 // --- [STDIN]
 
-const stdin = ({ script: { commands } }: Call): readonly string[] => commands.flatMap(({ fed, words, invocations: chain }) => (!fed && chain.some(waits) ? [`${words.map(({ text }) => text).join(' ')} waits on standard input nothing feeds. Pass a file or pipe input`] : []));
+const stdin = ({ script: { commands } }: Call): readonly string[] => commands.flatMap(({ fed, words, invocations: chain }) => (!fed && chain.some(waits) ? [`${words.map(({ text }) => text).join(' ')} waits on unfed standard input. Pass file or pipe input`] : []));
 
 // --- [INLINE]
 
@@ -196,7 +196,7 @@ const inline = ({ script: { commands } }: Call): readonly string[] =>
         chain.flatMap((invocation) => {
             const [program] = invocation;
             const { code } = declared(program);
-            return code !== undefined && (operands(invocation).options.some((name) => code.includes(name)) || (fed && waits(invocation))) ? [`${program} runs an inline program. Edit files with Edit or sd, run installed tools by name`] : [];
+            return code !== undefined && (operands(invocation).options.some((name) => code.includes(name)) || (fed && waits(invocation))) ? [`${program} runs inline program. Edit with Edit or sd, run installed tools by name`] : [];
         }),
     );
 
@@ -219,7 +219,7 @@ const without = (program: string, words: Script['commands'][number]['words'], dr
 const commandDecision = async (system: System, command: string, project: string): Promise<Decision> => {
     const parsed = await parse(system, command);
     if (parsed.kind === 'fault') {
-        return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join(', ') : `${value.program} failed, ${String(value.cause)}`)).join('. ')}` };
+        return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join('. ') : `${value.program} failed. ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project };
     const reasons = new Set((await Promise.all([deletes, git, stdin, inline, detached].map((policy) => policy(call)))).flat());
@@ -247,7 +247,7 @@ const commandDecision = async (system: System, command: string, project: string)
                     return without(program, rest, ['-a', '--all']);
                 case 'refurb': {
                     const text = 'python -m tools.refurb';
-                    return [{ start, end, text, notice: some(`refurb ran as ${text} over the mypy cache`) }];
+                    return [{ start, end, text, notice: some(`refurb ran as ${text} over mypy cache`) }];
                 }
                 default:
                     return [];

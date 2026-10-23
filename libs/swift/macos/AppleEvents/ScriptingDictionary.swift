@@ -239,8 +239,8 @@ public enum DictionaryFailure: CustomNSError, LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .unmatched(let miss): miss.errorDescription
-            case .unencodable(let type): "Value has no descriptor of type \(type.sdef)"
-            case .undated(let text, let error): "\(text) is no ISO 8601 date: \(error.localizedDescription)"
+            case .unencodable(let type): "Value has no \(type.sdef) descriptor"
+            case .undated(let text, _): "\(text) is no ISO 8601 date"
         }
     }
 

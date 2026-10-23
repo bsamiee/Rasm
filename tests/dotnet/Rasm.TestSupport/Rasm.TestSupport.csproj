@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Reusable xUnit v3 test support for property-based, metamorphic, and reference-checked tests over CsCheck generators</Description>
+        <Description>xUnit v3 support for property-based, metamorphic, and reference-checked CsCheck tests</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Testing">

@@ -112,13 +112,13 @@ public sealed record Posterize(LevelCount Levels, AxisFraction RetainHue, AxisFr
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PosterizeParameter : IStateParameter<Posterize> {
     public static readonly PosterizeParameter Levels = new("levels", StateParameter.Bounded(Lens<Posterize, LevelCount>.New(static posterize => posterize.Levels, static levels => posterize => posterize with { Levels = levels }), new Presentation<int> { Soft = (2, 256) }),
-        new("Levels", "Output levels per channel, evenly spaced from black to white"));
+        new("Levels", "Even output levels per channel from black to white"));
     public static readonly PosterizeParameter RetainHue = new("retain-hue", StateParameter.Bounded(Lens<Posterize, AxisFraction>.New(static posterize => posterize.RetainHue, static retain => posterize => posterize with { RetainHue = retain })),
-        new("Retain hue", "Share of the input's hue kept at the rounded saturation and luma"));
+        new("Retain hue", "Share of input hue kept at rounded saturation and luma"));
     public static readonly PosterizeParameter DitherStrength = new("dither-strength", StateParameter.Bounded(Lens<Posterize, AxisFraction>.New(static posterize => posterize.DitherStrength, static strength => posterize => posterize with { DitherStrength = strength })),
-        new("Dither amount", "Share of the dither offset, 0% rounding each pixel to its nearest level or color"));
+        new("Dither amount", "Dither offset, 0% rounding to nearest level or color"));
     public static readonly PosterizeParameter DitherCell = new("dither-cell", StateParameter.OptionalBounded(Lens<Posterize, Gated<ShortSideExtent>>.New(static posterize => posterize.DitherCell, static cell => posterize => posterize with { DitherCell = cell }), ShortSideExtent.Presentation with { Soft = (0.001f, 0.25f) }),
-        new("Dither cell", "Ordered dither cell as a share of the frame's short side, off drawing one cell per pixel"));
+        new("Dither cell", "Ordered dither cell in frame short sides, off drawing one cell per pixel"));
 
     public StateParameter<Posterize> Kind { get; }
     public ParameterText Text { get; }
@@ -139,9 +139,9 @@ public sealed partial class PaletteReductionParameter : IStateParameter<PaletteR
     public static readonly PaletteReductionParameter Colors = new("colors", StateParameter.Bounded(Lens<PaletteReduction, ColorCount>.New(static reduction => reduction.Colors, static colors => reduction => reduction with { Colors = colors }), new Presentation<int> { Scale = TrackScale.Log }),
         new("Colors", "Palette size the frame's colors split into by variance"));
     public static readonly PaletteReductionParameter Dithering = new("dithering", new StateParameter<PaletteReduction>.Choice<PaletteDither>(Lens<PaletteReduction, PaletteDither>.New(static reduction => reduction.Dithering, static dithering => reduction => reduction with { Dithering = dithering })),
-        new("Dither", "Ordered matrix or error diffusion kernel spreading each pixel's rounding error"));
+        new("Dither", "Ordered matrix or error diffusion kernel spreading rounding error"));
     public static readonly PaletteReductionParameter DitherStrength = new("dither-strength", StateParameter.Bounded(Lens<PaletteReduction, AxisFraction>.New(static reduction => reduction.DitherStrength, static strength => reduction => reduction with { DitherStrength = strength })),
-        new("Dither amount", "Share of the dither offset, 0% rounding each pixel to its nearest level or color"));
+        new("Dither amount", "Dither offset, 0% rounding to nearest level or color"));
 
     public StateParameter<PaletteReduction> Kind { get; }
     public ParameterText Text { get; }
@@ -162,11 +162,11 @@ public sealed record PaletteMapping(Palette Palette, PaletteDither Dithering, Ax
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PaletteMappingParameter : IStateParameter<PaletteMapping> {
     public static readonly PaletteMappingParameter Palette = new("palette", new StateParameter<PaletteMapping>.Swatches<Palette>(Lens<PaletteMapping, Palette>.New(static mapping => mapping.Palette, static palette => mapping => mapping with { Palette = palette })),
-        new("Palette", "Display colors each pixel maps to the nearest of"));
+        new("Palette", "Colors each pixel maps to by nearest match"));
     public static readonly PaletteMappingParameter Dithering = new("dithering", new StateParameter<PaletteMapping>.Choice<PaletteDither>(Lens<PaletteMapping, PaletteDither>.New(static mapping => mapping.Dithering, static dithering => mapping => mapping with { Dithering = dithering })),
-        new("Dither", "Ordered matrix or error diffusion kernel spreading each pixel's rounding error"));
+        new("Dither", "Ordered matrix or error diffusion kernel spreading rounding error"));
     public static readonly PaletteMappingParameter DitherStrength = new("dither-strength", StateParameter.Bounded(Lens<PaletteMapping, AxisFraction>.New(static mapping => mapping.DitherStrength, static strength => mapping => mapping with { DitherStrength = strength })),
-        new("Dither amount", "Share of the dither offset, 0% rounding each pixel to its nearest level or color"));
+        new("Dither amount", "Dither offset, 0% rounding to nearest level or color"));
 
     public StateParameter<PaletteMapping> Kind { get; }
     public ParameterText Text { get; }

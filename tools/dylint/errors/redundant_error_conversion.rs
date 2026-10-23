@@ -86,7 +86,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     converted.hir_id,
                     diag,
                     removed,
-                    "remove the `map_err` call",
+                    "delete the `map_err` call",
                     "",
                     if fixed_error(cx, source) && !inferred_return(cx, expr.hir_id) { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect },
                 );

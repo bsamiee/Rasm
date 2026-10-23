@@ -63,14 +63,14 @@ public sealed record DenoiseState(DenoiseGuides Guides, GuidePrefilter Prefilter
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DenoiseParameter : IStateParameter<DenoiseState> {
     public static readonly DenoiseParameter Guides = new("guides", new StateParameter<DenoiseState>.Choice<DenoiseGuides>(Lens<DenoiseState, DenoiseGuides>.New(static state => state.Guides, static guides => state => state with { Guides = guides })),
-        new("Passes", "Render passes that tell the denoiser surface detail from noise"));
+        new("Passes", "Render passes separating surface detail from noise"));
     public static readonly DenoiseParameter Prefilter = new("prefilter", new StateParameter<DenoiseState>.Enumerated<GuidePrefilter>(Lens<DenoiseState, GuidePrefilter>.New(static state => state.Prefilter, static prefilter => state => state with { Prefilter = prefilter }),
         static prefilter => prefilter is GuidePrefilter.Off ? "None" : prefilter.ToString()),
-        new("Prefilter", "Cleans noise from the guide passes before they guide the image"));
+        new("Prefilter", "Cleans noise from guide passes before denoising"));
     public static readonly DenoiseParameter Quality = new("quality", new StateParameter<DenoiseState>.Choice<DenoiseQuality>(Lens<DenoiseState, DenoiseQuality>.New(static state => state.Quality, static quality => state => state with { Quality = quality })),
         new("Quality", "Denoiser model, slower and sharper at higher quality"));
     public static readonly DenoiseParameter Blend = new("blend", StateParameter.Bounded(Lens<DenoiseState, AxisFraction>.New(static state => state.Blend, static blend => state => state with { Blend = blend })),
-        new("Blend", "Mixes the denoised image over the noisy render"));
+        new("Blend", "Mix of denoised image over noisy render"));
 
     public StateParameter<DenoiseState> Kind { get; }
     public ParameterText Text { get; }
@@ -157,9 +157,9 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
         oidnGetDeviceError(device, out nint message) switch {
             OidnError.None => unit,
             OidnError.Cancelled => Errors.Cancelled,
-            OidnError.UnsupportedHardware => Error.New($"Open Image Denoise does not support this hardware: {Marshal.PtrToStringUTF8(message)}"),
+            OidnError.UnsupportedHardware => Error.New($"Open Image Denoise does not support host hardware. {Marshal.PtrToStringUTF8(message)}"),
             (OidnError.Unknown or OidnError.InvalidArgument or OidnError.InvalidOperation or OidnError.OutOfMemory) and var failed =>
-                throw new InvalidOperationException($"Open Image Denoise failed with {failed}: {Marshal.PtrToStringUTF8(message)}"),
+                throw new InvalidOperationException($"Open Image Denoise failed with {failed}. {Marshal.PtrToStringUTF8(message)}"),
         };
 
     // --- [LIFECYCLE]
@@ -191,11 +191,11 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
         from selected in IO.lift(Seq<(string Role, GuideChannel Channel)>(("albedo", GuideChannel.Albedo), ("normal", GuideChannel.Normal))
             .Filter(input => state.Guides.Channels.Exists(channel => channel == input.Channel))
             .Traverse(input =>
-                from frame in guides.Find(input.Channel).ToFin(Error.New($"selected {input.Role} denoise guide is absent"))
+                from frame in guides.Find(input.Channel).ToFin(Error.New($"Denoise {input.Role} guide is absent"))
                 let view = frame.Window
                 let target = color.Window
                 from covered in guard(frame.Extent == color.Extent && view.Left <= target.Left && view.Top <= target.Top && view.Right >= target.Right && view.Bottom >= target.Bottom,
-                    Error.New($"selected {input.Role} denoise guide window {view} does not cover the color window {target} on its canvas"))
+                    Error.New($"Denoise {input.Role} guide window {view} does not cover color window {target} on its canvas"))
                 select (input.Role, Frame: frame)).As().Map(static selected => selected))
         from token in cancelToken
         from result in IO.lift(() => Denoised(state, color, selected, token, rows))
@@ -205,9 +205,9 @@ public sealed partial class Denoiser : IFrameJob<Denoiser, DenoiseState> {
         using Lock.Scope serialized = gate.EnterScope();
         int version = oidnGetDeviceInt(device, "version");
         if (state.Quality.Since > version)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"denoise quality {state.Quality} needs Open Image Denoise {state.Quality.Since}, the host holds {version}"));
+            return Error.New(string.Create(CultureInfo.InvariantCulture, $"Denoise quality {state.Quality} needs Open Image Denoise {state.Quality.Since}, host has {version}"));
         if (color.Size.Width > MaxSide || color.Size.Height > MaxSide)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"denoise frame {color.Size.Width}x{color.Size.Height} exceeds the {MaxSide} pixel side Open Image Denoise accepts"));
+            return Error.New(string.Create(CultureInfo.InvariantCulture, $"Denoise frame {color.Size.Width}x{color.Size.Height} exceeds Open Image Denoise {MaxSide} pixel side limit"));
         nuint bytes = (nuint)color.Block.Length * sizeof(float);
         (nuint size, Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs) = (Role: "color", Frame: color).Cons(selected).Fold(
             (Size: (nuint)0, Inputs: Seq<(string Role, PixelFrame Frame, nuint Offset)>()),

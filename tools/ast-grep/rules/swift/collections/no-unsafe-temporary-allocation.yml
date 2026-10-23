@@ -9,5 +9,5 @@ rule:
         any:
             - {kind: simple_identifier, regex: '^withUnsafeTemporaryAllocation$'}
             - {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^withUnsafeTemporaryAllocation$'}}}
-message: '`withUnsafeTemporaryAllocation` hands its closure an unsafe pointer to the temporary buffer'
+message: '`withUnsafeTemporaryAllocation` hands its closure an unsafe pointer to temporary storage'
 note: 'Call `withTemporaryAllocation(of:capacity:)` for an `OutputSpan<T>` or `withTemporaryAllocation(byteCount:alignment:)` for an `OutputRawSpan`'

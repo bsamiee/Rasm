@@ -1,7 +1,7 @@
 {
     "name": "@rasm/e2e-portfolio",
     "private": true,
-    "description": "Playwright journeys over the served portfolio, one app instance with its own stores per worker",
+    "description": "Playwright journeys over served portfolio with one app instance and empty stores per worker",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"

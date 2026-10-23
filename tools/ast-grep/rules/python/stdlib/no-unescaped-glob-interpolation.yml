@@ -79,5 +79,5 @@ rewriters:
 transform:
     ESCAPED: {rewrite: {source: $FIXABLE, rewriters: [escape]}}
 fix: $ESCAPED$KEPT
-message: 'Glob pattern interpolates `$VALUE` unescaped, reading its `*`, `?`, and `[` as pattern syntax'
+message: 'Glob pattern reads `*`, `?`, and `[` in interpolated `$VALUE` as wildcards'
 note: 'Interpolate `glob.escape(<value>)`'

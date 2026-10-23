@@ -1,4 +1,4 @@
-"""Native RGB and HSY curve tables, editable knots, and covered-frame insertion."""
+"""RGB and HSY curve tables with knots inserted from covered frames."""
 
 from bisect import bisect_left
 
@@ -19,10 +19,10 @@ from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, config_of, hsy, logarithmic
 from blender.bpy.render.effects.stack import CompositorEffect, Shell
 from blender.bpy.render.effects.viewers import Unread, ViewerRead
-from blender.bpy.settings.shapes import bare
+from blender.bpy.settings.shapes import unwrapped
 from blender.imaging.color.processors import applied, lin_to_log, luma, processor, unassociated
 from blender.imaging.compositing.blending import Entry
-from blender.imaging.effects.grade.curves import admitted, Curves, HueCurves, sampled
+from blender.imaging.effects.grade.curves import Curves, HueCurves, sampled, validated
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.files.images import ImageFile
 from blender.imaging.parameters import Knot
@@ -33,16 +33,16 @@ from blender.imaging.parameters import Knot
 
 
 def _bindings(record: Curves | HueCurves) -> dict[str, tuple[Points, CurvePoints]]:
-    """Resolves native knot axes, sampled rows, and editor viewports once per field."""
+    """Resolves knot axes, sampled rows, and editor viewports per field."""
     return {
         field.name: (
             tuple((float(left), float(right)) for left, right in sampled(curve, 257, (low_x, high_x))),
             CurvePoints(maps=(tuple((point.x, point.y) for point in knots),), clip=Some((low_x, low_y, high_x, high_y)), handle="AUTO", clipped=True),
         )
         for field, curve, knots in zip(msgspec.structs.fields(type(record)), record.curves(), msgspec.structs.astuple(record))
-        for shape in (bare(native.type_info(field.type)),)
+        for shape in (unwrapped(native.type_info(field.type)),)
         if isinstance(shape, native.VarTupleType) and isinstance(shape.item_type, native.StructType)
-        for axes in ({axis.name: bare(axis.type) for axis in shape.item_type.fields},)
+        for axes in ({axis.name: unwrapped(axis.type) for axis in shape.item_type.fields},)
         for x, y in (tuple(axes[axis] for axis in Knot.__struct_fields__),)
         if isinstance(x, native.FloatType) and isinstance(y, native.FloatType)
         for low_x, high_x, low_y, high_y in (tuple(next(bound for bound in choices if bound is not None) for choices in ((x.ge, x.gt), (x.le, x.lt), (y.ge, y.gt), (y.le, y.lt))),)
@@ -53,7 +53,7 @@ def _bindings(record: Curves | HueCurves) -> dict[str, tuple[Points, CurvePoints
 
 
 def curved(shell: Shell[Curves]) -> BlenderResult[tuple[Fragment, End]]:
-    """Applies channel tables before the master table on both compositor devices."""
+    """Applies channel tables, then master table."""
     bindings = _bindings(shell.record)
     red, green, blue, master = Curves.__struct_fields__
     identity = tuple((value, value) for value, _ in bindings[master][0])
@@ -85,7 +85,7 @@ def curved(shell: Shell[Curves]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def hue_curved(shell: Shell[HueCurves]) -> BlenderResult[tuple[Fragment, End]]:
-    """Maps all seven native HSY curves in OCIO's saturation and luma order."""
+    """Maps HSY curves in OCIO saturation and luma order."""
     bindings = _bindings(shell.record)
     hue_hue, hue_sat, hue_lum, lum_sat, sat_sat, lum_lum, sat_lum = HueCurves.__struct_fields__
     hue, saturation = (End(node="split", socket=key) for key in ("Red", "Green"))
@@ -136,7 +136,7 @@ def hue_curved(shell: Shell[HueCurves]) -> BlenderResult[tuple[Fragment, End]]:
 def consumed[R: (Curves, HueCurves)](
     row: CompositorEffect[R], identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, plane: ImageFile[np.float32]
 ) -> BlenderResult[Option[str]]:
-    """Inserts knots at the covered RGB mean, preserving the entry's blend, and names an undo step where the curves changed."""
+    """Inserts knots at covered RGB mean, keeping entry blend, naming undo step on change."""
     unread = (BlenderUnmetFault(requirement=Unread(entry=entry.name)),)
     if not (covered := straight[..., :3][straight[..., 3] > 0.0] if (straight := (unassociated(plane.pixels))).shape[-1] == 4 else straight[..., :3].reshape(-1, 3)).size:
         return Error(unread)
@@ -219,13 +219,13 @@ def consumed[R: (Curves, HueCurves)](
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 curves: CompositorEffect[Curves] = CompositorEffect(
-    record=Curves, graph=curved, straight=True, admitted=Some(admitted), registrables=(ViewerRead(consume=lambda identity, scene, entry, plane: consumed(curves, identity, scene, entry, plane)),)
+    record=Curves, graph=curved, straight=True, validated=Some(validated), registrables=(ViewerRead(consume=lambda identity, scene, entry, plane: consumed(curves, identity, scene, entry, plane)),)
 )
 hue_curves: CompositorEffect[HueCurves] = CompositorEffect(
     record=HueCurves,
     graph=hue_curved,
     straight=True,
-    admitted=Some(admitted),
+    validated=Some(validated),
     registrables=(ViewerRead(consume=lambda identity, scene, entry, plane: consumed(hue_curves, identity, scene, entry, plane)),),
 )
 

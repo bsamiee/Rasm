@@ -37,7 +37,7 @@ rule:
                 kind: control_transfer_statement
                 regex: '^return(\s+[\w.]+)?$'
                 not: {precedes: {regex: '[\s\S]'}}
-message: '`$WAIT` repeats the wait on every remaining child task that `withTaskGroup` runs after its body returns'
+message: '`$WAIT` repeats the wait `withTaskGroup` runs on remaining child tasks after its body returns'
 note: 'Delete the wait'
 fix:
     template: $PREV

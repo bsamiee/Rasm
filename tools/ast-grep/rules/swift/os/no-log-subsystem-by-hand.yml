@@ -13,5 +13,5 @@ rule:
                 any:
                     - not: {has: {kind: value_argument}}
                     - has: {kind: value_argument, has: {field: name, regex: '^subsystem$'}}
-message: '`$TYPE` takes a subsystem the site spells or the default'
-note: 'Construct through `Logger(category:)` to derive the subsystem from the hosting bundle once'
+message: '`$TYPE` spells a subsystem at the call site or logs under the empty default'
+note: 'Construct `Logger(for: <Owner>.self)` from `CurrentProcess` in place of `OSLog`, and `OSSignposter(logger:)` over it'

@@ -6,5 +6,5 @@ rule:
     kind: function_call
     pattern: _CALL
     has: {field: name, regex: '(?i)^(changes|total_changes|last_insert_rowid)$'}
-message: '`$CALL` reads in a later statement what an earlier write did'
-note: 'Return written rows through `returning <columns>` on the write, an empty result means no row changed'
+message: '`$CALL` reads the change count or rowid an earlier write left on the connection'
+note: 'Add `returning <columns>` to the write and read its rows, an empty result means no row changed'

@@ -1,2 +1,2 @@
-#0 `Apply` over 2 lifted `Fin` operands keeps one failure
-#1 `Apply` over 2 lifted `Fin` operands keeps one failure
+#0 `Apply` over 2 `IO.lift` operands keeps one `Fin` failure. Call `Apply` on the `Fin` values inside one `IO.lift`
+#1 `Apply` over 2 `IO.lift` operands keeps one `Fin` failure. Call `Apply` on the `Fin` values inside one `IO.lift`

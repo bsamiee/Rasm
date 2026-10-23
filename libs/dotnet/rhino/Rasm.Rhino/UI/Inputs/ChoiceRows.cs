@@ -32,7 +32,7 @@ public abstract partial record MenuEntry {
 internal static partial class MenuPickMapper {
     [MapProperty(nameof(MenuPick.Item.Caption), nameof(CheckMenuItem.Text))]
     [MapProperty(nameof(MenuPick.Item.Marked), nameof(CheckMenuItem.Checked))]
-    [MapperIgnoreSource(nameof(MenuPick.Item.Run), Justification = "The item's Click handler runs it")]
+    [MapperIgnoreSource(nameof(MenuPick.Item.Run), Justification = "Item's Click handler runs it")]
     internal static partial void Apply(MenuPick.Item item, CheckMenuItem target);
 }
 

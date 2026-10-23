@@ -6,22 +6,22 @@ import { Settings, Tag } from '#/tags';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Run = Schema.Struct({
-    text: Schema.String.annotate({ description: 'One script and direction run to shape and check for glyphs' }),
-    features: Settings(Feature, 'OpenType feature setting in HarfBuzz syntax: tag, +tag, -tag, tag=value, or tag[start:end] over UTF-16 offsets, the cluster values of the shaped glyphs'),
-    language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'OpenType language system tag layout.languageSystems reports, such as SRB or TRK; absent shapes with the script default' })),
-    script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'OpenType script tag layout.languageSystems reports, such as cyrl or arab; absent takes the script of the text' })),
-    direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Absent takes the direction of the script' })),
+    text: Schema.String.annotate({ description: 'Text in one script and direction' }),
+    features: Settings(Feature, 'HarfBuzz feature (tag, -tag, tag=value, tag[start:end] in UTF-16 offsets)'),
+    language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })),
+    script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })),
+    direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })),
 });
 class Shaped extends Schema.Class<Shaped, { readonly brand: unique symbol }>('Shaped')({
     glyphs: Schema.Array(
         Schema.Struct({
-            glyph: Schema.Int.annotate({ description: 'Glyph ID in the face' }),
-            cluster: Schema.Int.annotate({ description: 'UTF-16 offset in the input text of the first character the glyph shows; a ligature spans several characters' }),
+            glyph: Schema.Int.annotate({ description: 'Glyph ID' }),
+            cluster: Schema.Int.annotate({ description: 'UTF-16 offset of first character glyph shows' }),
             ...Struct.Record(['xAdvance', 'yAdvance', 'xOffset', 'yOffset'], Schema.Finite),
-            extents: Schema.OptionFromOptionalKey(Schema.Struct(Struct.Record(['xBearing', 'yBearing', 'width', 'height'], Schema.Finite)).annotate({ description: 'Glyph bounds from its origin; positive y is up, height normally negative. Top is yOffset + yBearing above the pen baseline' })),
+            extents: Schema.OptionFromOptionalKey(Schema.Struct(Struct.Record(['xBearing', 'yBearing', 'width', 'height'], Schema.Finite)).annotate({ description: 'Bounds from glyph origin, y up, height negative' })),
         }),
-    ).annotate({ description: 'Shaped text in visual glyph order with default and requested features at this instance, positions in em' }),
-    missing: Schema.Array(Schema.String).annotate({ description: 'Characters of the text the face shaped to no glyph; default-ignorable characters shape to invisible glyphs' }),
+    ).annotate({ description: 'Visual order, positions in em' }),
+    missing: Schema.Array(Schema.String).annotate({ description: 'Characters with no glyph, default-ignorables excluded' }),
 }) {
     static readonly of = (face: Face, { text, features, language, script, direction }: typeof Run.Type) => {
         const em = (units: number) => units / face.unitsPerEm;

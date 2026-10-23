@@ -73,5 +73,5 @@ rule:
                 - has: {kind: parameter, has: {field: name, pattern: $SOURCE}}
                 - not: {has: {kind: parameter, nthChild: 2}}
         - has: {matches: path-body}
-message: "Mapping method returns the source member path `$PATH`"
-note: "Use `[MapProperty(nameof(@<Source>.<Path>), nameof(<Target>.<Member>))]` in place of the method and its `Use` reference"
+message: 'Mapping method returns source member path `$PATH`'
+note: 'Replace the method and its `Use` reference with `[MapProperty(nameof(@<source>.<path>), nameof(<target>.<member>))]`'

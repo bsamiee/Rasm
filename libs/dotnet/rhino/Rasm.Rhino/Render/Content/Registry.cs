@@ -61,7 +61,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
                 read(path).Bind(source => Contents.FreeFloating(None, source, retain)).Bind(static created => IO.lift(() =>
                     RuntimeSerialNumber(created.Content) > 0
                         ? Fin.Succ<RenderContent?>(Adopted(created))
-                        : Error.New($"Content {created.Content.Id} has no managed serializer identity")).Uninterruptible()), DisposalOps.Release))),
+                        : Error.New($"render content {created.Content.Id} has no runtime serial number")).Uninterruptible()), DisposalOps.Release))),
             static () => null,
             static () => null,
             new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(Read)));

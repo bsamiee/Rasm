@@ -57,5 +57,5 @@ rule:
 transform:
     TRACKED: {replace: {source: $DECL, replace: '@ObservationIgnored\s+', by: ''}}
 fix: $TRACKED
-message: 'Computed member reads `$NAME`, an `@ObservationIgnored` property no observer sees change'
-note: 'Drop `@ObservationIgnored` from `<property>`'
+message: '`@ObservationIgnored` hides changes to `$NAME` from observers of a computed member that reads it'
+note: 'Delete `@ObservationIgnored`'

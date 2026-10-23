@@ -17,6 +17,16 @@ use rustc_middle::ty::TyCtxt;
 
 use crate::{access, expanded_externally, resolve};
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, strum::IntoStaticStr)]
+enum Drain {
+    #[strum(serialize = "futures::stream::StreamExt::for_each")]
+    Awaited,
+    #[strum(serialize = "futures::stream::TryStreamExt::try_for_each")]
+    Tried,
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
@@ -51,9 +61,10 @@ impl Pass {
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        fn awaited_read<'tcx>(scrutinee: &'tcx Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
-            desugar_await(scrutinee).or_else(|| match scrutinee.kind {
-                ExprKind::MethodCall(_, operand, ..) | ExprKind::Match(&Expr { kind: ExprKind::Call(_, [operand]), .. }, _, MatchSource::TryDesugar(_)) => awaited_read(operand),
+        fn awaited_read<'tcx>(scrutinee: &'tcx Expr<'tcx>) -> Option<(&'tcx Expr<'tcx>, Drain)> {
+            desugar_await(scrutinee).map(|read| (read, Drain::Awaited)).or_else(|| match scrutinee.kind {
+                ExprKind::MethodCall(_, operand, ..) => awaited_read(operand),
+                ExprKind::Match(&Expr { kind: ExprKind::Call(_, [operand]), .. }, _, MatchSource::TryDesugar(_)) => awaited_read(operand).map(|(read, _)| (read, Drain::Tried)),
                 _ => None,
             })
         }
@@ -76,7 +87,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
         if let Some(looped) = WhileLet::hir(expr)
             && !expanded_externally(cx, expr.span)
-            && let Some(read) = awaited_read(looped.let_expr)
+            && let Some((read, drain)) = awaited_read(looped.let_expr)
             && let Some(method) = fn_def_id(cx, read)
             && let Some(&wrapper) = self.reads.get(&method)
             && let ExprKind::MethodCall(_, source, ..) = read.kind
@@ -88,7 +99,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         {
             let name = cx.tcx.hir_name(local);
             span_lint_hir_and_then(cx, MANUAL_STREAM, expr.hir_id, looped.let_span, format!("`while let` awaits `{}` on `{name}` one item at a time", cx.tcx.item_name(method)), |diag| {
-                diag.help(format!("wrap `{name}` in `tokio_stream::wrappers::{wrapper}` and replace the loop with `StreamExt` combinators"));
+                diag.help(format!("wrap `{name}` in `tokio_stream::wrappers::{wrapper}` and replace the loop with `{}`", <&str>::from(drain)));
             });
         }
     }

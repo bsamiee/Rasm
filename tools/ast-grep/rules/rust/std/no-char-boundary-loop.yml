@@ -39,4 +39,4 @@ transform:
     ROUND: {replace: {source: $FLOOR, replace: '^\+=?$', by: 'ceil_char_boundary'}}
 fix: '$I = $S.$ROUND($I);'
 message: '`$I` steps one byte at a time to a char boundary of `$S`'
-note: 'Assign `<index> = <text>.floor_char_boundary(<index>)` for a decrementing loop and `<text>.ceil_char_boundary(<index>)` for an incrementing one'
+note: 'Assign `<index> = <text>.floor_char_boundary(<index>)` when decrementing and `<text>.ceil_char_boundary(<index>)` when incrementing'

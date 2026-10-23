@@ -19,4 +19,4 @@ transform:
     STRIPPED: {replace: {source: $PUNCTUATED, replace: '[.!?;:,]+"$', by: '"'}}
 fix: $STRIPPED$KEPT
 message: '`#[error($MESSAGE)]` opens with a capital or closes with punctuation'
-note: 'Open with a lowercase word, a proper noun or backticked code name after it, and end without punctuation'
+note: 'Open with a lowercase word ahead of any proper noun or backticked code name, and delete trailing punctuation'

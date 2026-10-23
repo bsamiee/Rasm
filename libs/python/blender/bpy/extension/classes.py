@@ -1,4 +1,4 @@
-"""Class registration ordered by native property and panel dependencies."""
+"""Class registration in dependency order."""
 
 from collections.abc import Generator, Iterator
 import contextlib
@@ -25,7 +25,7 @@ class Classes(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def order(self) -> BlenderResult[tuple[type, ...]]:
-        """Members after their property targets and parent panels, or the refusing cycle."""
+        """Members after their property targets and parent panels."""
         panels = {panel.bl_idname: panel for panel in self.members if issubclass(panel, bpy.types.Panel)}
         graph = {
             cls: tuple(member for member in self.members if member in targets)
@@ -49,13 +49,12 @@ class Classes(msgspec.Struct, frozen=True, kw_only=True):
         """Returns managers registering members in dependency order.
 
         Returns:
-            One manager per member yielding Ok(None) after acquisition or a register fault;
-            an ordering cycle returns one manager yielding that fault before any acquisition.
+            One manager per member, or one yielding cycle fault.
         """
 
         @contextlib.contextmanager
         def registered(cls: type) -> Generator[BlenderResult[None]]:
-            """Yields the native class registration and releases whatever Blender holds, a property refusal leaving the class registered."""
+            """Yields registration result, unregistering held class at exit."""
             register, unregister = bpy.utils.register_classes_factory((cls,))
             try:
                 register()

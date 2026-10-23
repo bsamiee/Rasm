@@ -249,4 +249,4 @@ rule:
                                           has: {field: body, kind: invocation_expression, has: {field: function, matches: boundary-callee}}
                                         - matches: boundary-callee
 message: '`$NAME` forwards its parameters unchanged to `$CALLEE`'
-note: 'Call `<callee>` at each use, `IO.lift(<receiver>.<member>)` where an effect composes, `fun(<action>)` for an `Action` in expression position'
+note: 'Delete the member and call `<callee>` at each use, through `IO.lift(<receiver>.<member>)` in an effect, `fun(<action>)` for an `Action` value'

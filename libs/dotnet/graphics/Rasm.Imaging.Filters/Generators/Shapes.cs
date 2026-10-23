@@ -207,23 +207,23 @@ public sealed partial class ShapePrimitiveParameter : IStateParameter<ShapePrimi
     public static readonly ShapePrimitiveParameter Kind = new("kind", new StateParameter<ShapePrimitive>.Choice<ShapeKind>(Lens<ShapePrimitive, ShapeKind>.New(static shape => shape.Kind, static kind => shape => shape with { Kind = kind })),
         new("Shape", "Figure the distance field draws"));
     public static readonly ShapePrimitiveParameter Placement = new("placement", new StateParameter<ShapePrimitive>.Record<Placement>(Lens<ShapePrimitive, Placement>.New(static shape => shape.Placement, static placement => shape => shape with { Placement = placement })),
-        new("Placement", "Position and turn of the figure"));
+        new("Placement", "Figure position and turn"));
     public static readonly ShapePrimitiveParameter Width = new("width", StateParameter.Bounded(Lens<ShapePrimitive, ShortSideLength>.New(static shape => shape.Width, static width => shape => shape with { Width = width }), Extent),
-        new("Width", "Half width as a share of the selected frame side"));
+        new("Width", "Half width in frame sides Fit selects"));
     public static readonly ShapePrimitiveParameter Height = new("height", StateParameter.Bounded(Lens<ShapePrimitive, ShortSideLength>.New(static shape => shape.Height, static height => shape => shape with { Height = height }), Extent),
-        new("Height", "Half height as a share of the selected frame side"));
+        new("Height", "Half height in frame sides Fit selects"));
     public static readonly ShapePrimitiveParameter Roundness = new("roundness", StateParameter.Bounded(Lens<ShapePrimitive, AxisFraction>.New(static shape => shape.Roundness, static roundness => shape => shape with { Roundness = roundness })),
-        new("Roundness", "Corner radius as a share of the shorter half extent"));
+        new("Roundness", "Corner radius as share of shorter half extent"));
     public static readonly ShapePrimitiveParameter Exponent = new("exponent", StateParameter.Bounded(Lens<ShapePrimitive, SuperellipseExponent>.New(static shape => shape.Exponent, static exponent => shape => shape with { Exponent = exponent }), new Presentation<float> { Scale = TrackScale.Log, Origin = (float)SuperellipseExponent.Ellipse }),
-        new("Exponent", "Superellipse exponent, 1 a diamond, 2 an ellipse, above 2 a squircle"));
+        new("Exponent", "Superellipse exponent, 1 diamond, 2 ellipse, above 2 squircle"));
     public static readonly ShapePrimitiveParameter Sides = new("sides", StateParameter.Bounded(Lens<ShapePrimitive, SideCount>.New(static shape => shape.Sides, static sides => shape => shape with { Sides = sides }), new Presentation<int> { Step = 1 }),
         new("Sides", "Polygon side count"));
     public static readonly ShapePrimitiveParameter Inset = new("inset", StateParameter.Bounded(Lens<ShapePrimitive, AxisFraction>.New(static shape => shape.Inset, static inset => shape => shape with { Inset = inset })),
-        new("Inset", "Star inset of a polygon, the band of a ring, the arm width of a cross"));
+        new("Inset", "Polygon star inset, ring band, or cross arm width"));
     public static readonly ShapePrimitiveParameter Apex = new("apex", StateParameter.Bounded(Lens<ShapePrimitive, SignedFraction>.New(static shape => shape.Apex, static apex => shape => shape with { Apex = apex }), SignedFraction.Presentation with { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) }),
-        new("Apex", "Horizontal position of the triangle's top vertex between its left and right edges"));
+        new("Apex", "Triangle top vertex position between left and right edges"));
     public static readonly ShapePrimitiveParameter Fit = new("fit", new StateParameter<ShapePrimitive>.Choice<ShapeFit>(Lens<ShapePrimitive, ShapeFit>.New(static shape => shape.Fit, static fit => shape => shape with { Fit = fit })),
-        new("Fit", "Frame side the shape dimensions follow"));
+        new("Fit", "Frame side figure dimensions follow"));
 
     StateParameter<ShapePrimitive> IStateParameter<ShapePrimitive>.Kind => Parameter;
 
@@ -272,19 +272,19 @@ public sealed partial class ShapeStyleParameter : IStateParameter<ShapeStyle> {
     private static readonly Presentation<float> Ring = ShortSideLength.Presentation with { Soft = (0f, 0.1f) };
 
     public static readonly ShapeStyleParameter Fill = new("fill", new StateParameter<ShapeStyle>.OptionalColor(Lens<ShapeStyle, Gated<Swatch>>.New(static style => style.Fill, static value => style => style with { Fill = value })),
-        new("Fill", "Color inside the boundary, off drawing the outline alone"));
+        new("Fill", "Color inside boundary, off draws outline alone"));
     public static readonly ShapeStyleParameter Outline = new("outline", new StateParameter<ShapeStyle>.Color(Lens<ShapeStyle, Swatch>.New(static style => style.Outline, static value => style => style with { Outline = value })),
-        new("Outline", "Color of the band around the boundary"));
+        new("Outline", "Color of band around boundary"));
     public static readonly ShapeStyleParameter OutlineWidth = new("outline-width", StateParameter.Bounded(Lens<ShapeStyle, ShortSideLength>.New(static style => style.OutlineWidth, static value => style => style with { OutlineWidth = value }), Ring),
-        new("Outline width", "Width of the outline band as a share of the frame's short side"));
+        new("Outline width", "Outline band width in frame short sides"));
     public static readonly ShapeStyleParameter OutlineOffset = new("outline-offset", StateParameter.Bounded(Lens<ShapeStyle, ShortSideLength>.New(static style => style.OutlineOffset, static value => style => style with { OutlineOffset = value }), Ring),
-        new("Outline offset", "Distance of the outline from the boundary as a share of the frame's short side"));
+        new("Outline offset", "Outline distance from boundary in frame short sides"));
     public static readonly ShapeStyleParameter Feather = new("feather", StateParameter.Bounded(Lens<ShapeStyle, ShortSideLength>.New(static style => style.Feather, static value => style => style with { Feather = value }), ShortSideLength.Presentation with { Soft = (0f, 0.25f) }),
-        new("Feather", "Edge softness as a share of the frame's short side, 0% one pixel wide"));
+        new("Feather", "Edge softness in frame short sides, 0% one pixel wide"));
     public static readonly ShapeStyleParameter Roughness = new("roughness", StateParameter.Bounded(Lens<ShapeStyle, ShortSideLength>.New(static style => style.Roughness, static value => style => style with { Roughness = value }), ShortSideLength.Presentation with { Soft = (0f, 0.02f) }),
-        new("Rough edge", "Noise displacement of the edge as a share of the frame's short side"));
+        new("Rough edge", "Edge noise displacement in frame short sides"));
     public static readonly ShapeStyleParameter Inverted = new("inverted", new StateParameter<ShapeStyle>.Toggle(Lens<ShapeStyle, bool>.New(static style => style.Inverted, static inverted => style => style with { Inverted = inverted })),
-        new("Invert", "Fills outside the boundary"));
+        new("Invert", "Fills outside boundary"));
 
     public StateParameter<ShapeStyle> Kind { get; }
     public ParameterText Text { get; }
@@ -329,21 +329,21 @@ public sealed record Shapes(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ShapesParameter : IStateParameter<Shapes> {
     public static readonly ShapesParameter First = new("first", new StateParameter<Shapes>.Record<ShapePrimitive>(Lens<Shapes, ShapePrimitive>.New(static shape => shape.First, static first => shape => shape with { First = first })),
-        new("First", "First figure of the combination"));
+        new("First", "First figure to combine"));
     public static readonly ShapesParameter Second = new("second", new StateParameter<Shapes>.Record<ShapePrimitive>(Lens<Shapes, ShapePrimitive>.New(static shape => shape.Second, static second => shape => shape with { Second = second })),
-        new("Second", "Second figure of the combination"));
+        new("Second", "Second figure to combine"));
     public static readonly ShapesParameter Operation = new("operation", new StateParameter<Shapes>.OptionalChoice<ShapeOperation>(Lens<Shapes, Option<ShapeOperation>>.New(static shape => shape.Operation, static operation => shape => shape with { Operation = operation }), "None"),
-        new("Operation", "Combination of the first shape with the second"));
+        new("Operation", "Combination of first figure with second"));
     public static readonly ShapesParameter Smoothing = new("smoothing", StateParameter.Bounded(Lens<Shapes, ShortSideLength>.New(static shape => shape.Smoothing, static smoothing => shape => shape with { Smoothing = smoothing }), ShortSideLength.Presentation with { Soft = (0f, 0.25f) }),
-        new("Smoothing", "Blend width of the combination as a share of the frame's short side"));
+        new("Smoothing", "Combination blend width in frame short sides"));
     public static readonly ShapesParameter Progress = new("progress", StateParameter.Bounded(Lens<Shapes, AxisFraction>.New(static shape => shape.Progress, static progress => shape => shape with { Progress = progress })),
-        new("Progress", "Morph from the first shape at 0% to the second at 100%"));
+        new("Progress", "Morph from first figure at 0% to second at 100%"));
     public static readonly ShapesParameter Style = new("style", new StateParameter<Shapes>.Record<ShapeStyle>(Lens<Shapes, ShapeStyle>.New(static shape => shape.Style, static style => shape => shape with { Style = style })),
-        new("Style", "Fill and boundary of the generated figure"));
+        new("Style", "Figure fill and boundary"));
     public static readonly ShapesParameter Layer = new("layer", new StateParameter<Shapes>.Record<GeneratedLayer>(Lens<Shapes, GeneratedLayer>.New(static shape => shape.Layer, static layer => shape => shape with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly ShapesParameter Seed = new("seed", StateParameter.Bounded(Lens<Shapes, Seed>.New(static shape => shape.Seed, static seed => shape => shape with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
 
     public StateParameter<Shapes> Kind { get; }
     public ParameterText Text { get; }
@@ -385,35 +385,35 @@ public sealed record Lightning(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LightningParameter : IStateParameter<Lightning> {
     public static readonly LightningParameter Placement = new("placement", new StateParameter<Lightning>.Record<Placement>(Lens<Lightning, Placement>.New(static bolt => bolt.Placement, static placement => bolt => bolt with { Placement = placement })),
-        new("Placement", "Position and turn of the field"));
+        new("Placement", "Field position and turn"));
     public static readonly LightningParameter Length = new("length", StateParameter.Bounded(Lens<Lightning, ShortSideLength>.New(static bolt => bolt.Length, static length => bolt => bolt with { Length = length })),
-        new("Length", "Half the stroke length as a share of the frame's short side"));
+        new("Length", "Half stroke length in frame short sides"));
     public static readonly LightningParameter Thickness = new("thickness", StateParameter.Bounded(Lens<Lightning, ShortSideLength>.New(static bolt => bolt.Thickness, static thickness => bolt => bolt with { Thickness = thickness }), ShortSideLength.Presentation with { Soft = (0f, 0.02f) }),
-        new("Thickness", "Width of the stroke as a share of the frame's short side"));
+        new("Thickness", "Stroke width in frame short sides"));
     public static readonly LightningParameter Depth = new("depth", StateParameter.Bounded(Lens<Lightning, SubdivisionDepth>.New(static bolt => bolt.Depth, static depth => bolt => bolt with { Depth = depth }), new Presentation<int> { Step = 1 }),
         new("Detail", "Subdivisions of each displaced segment"));
     public static readonly LightningParameter Displacement = new("displacement", StateParameter.Bounded(Lens<Lightning, AxisFraction>.New(static bolt => bolt.Displacement, static displacement => bolt => bolt with { Displacement = displacement })),
         new("Displacement", "Share of each segment's length the stroke wanders by"));
     public static readonly LightningParameter Branches = new("branches", StateParameter.Bounded(Lens<Lightning, BranchCount>.New(static bolt => bolt.Branches, static branches => bolt => bolt with { Branches = branches }), new Presentation<int> { Step = 1 }),
-        new("Branches", "Forks from the stroke's midpoints"));
+        new("Branches", "Forks from stroke midpoints"));
     public static readonly LightningParameter Reach = new("reach", StateParameter.Bounded(Lens<Lightning, AxisFraction>.New(static bolt => bolt.Reach, static reach => bolt => bolt with { Reach = reach })),
-        new("Reach", "Share of the stroke length the branches reach"));
+        new("Reach", "Branch length as share of stroke length"));
     public static readonly LightningParameter Spread = new("spread", StateParameter.Bounded(Lens<Lightning, ForkSpread>.New(static bolt => bolt.Spread, static spread => bolt => bolt with { Spread = spread }), new Presentation<float> { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) }),
-        new("Spread", "Angle by which the branches turn from the stroke"));
+        new("Spread", "Angle branches turn from stroke"));
     public static readonly LightningParameter Taper = new("taper", StateParameter.Bounded(Lens<Lightning, AxisFraction>.New(static bolt => bolt.Taper, static taper => bolt => bolt with { Taper = taper })),
-        new("Taper", "Width of each branch against the stroke before narrowing to its tip"));
+        new("Taper", "Branch base width relative to stroke, narrowing to tip"));
     public static readonly LightningParameter Speed = new("speed", StateParameter.Bounded(Lens<Lightning, Frequency>.New(static bolt => bolt.Speed, static speed => bolt => bolt with { Speed = speed })),
         new("Speed", "Noise units per second the bolt changes through"));
     public static readonly LightningParameter Style = new("style", new StateParameter<Lightning>.Record<ShapeStyle>(Lens<Lightning, ShapeStyle>.New(static bolt => bolt.Style, static style => bolt => bolt with { Style = style })),
-        new("Style", "Fill and boundary of the generated figure"));
+        new("Style", "Figure fill and boundary"));
     public static readonly LightningParameter Layer = new("layer", new StateParameter<Lightning>.Record<GeneratedLayer>(Lens<Lightning, GeneratedLayer>.New(static bolt => bolt.Layer, static layer => bolt => bolt with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly LightningParameter Seed = new("seed", StateParameter.Bounded(Lens<Lightning, Seed>.New(static bolt => bolt.Seed, static seed => bolt => bolt with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly LightningParameter Timing = new("timing", new StateParameter<Lightning>.Record<Timing>(Lens<Lightning, Timing>.New(static bolt => bolt.Timing, static timing => bolt => bolt with { Timing = timing })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
     public static readonly LightningParameter Hold = new("hold", StateParameter.Bounded(Lens<Lightning, Hold>.New(static bolt => bolt.Hold, static hold => bolt => bolt with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
 
     public StateParameter<Lightning> Kind { get; }
     public ParameterText Text { get; }
@@ -444,15 +444,15 @@ public sealed partial class GradientParameter : IStateParameter<Gradient> {
     public static readonly GradientParameter Kind = new("kind", new StateParameter<Gradient>.Choice<GradientKind>(Lens<Gradient, GradientKind>.New(static gradient => gradient.Kind, static kind => gradient => gradient with { Kind = kind })),
         new("Type", "Field the ramp runs over"));
     public static readonly GradientParameter Placement = new("placement", new StateParameter<Gradient>.Record<Placement>(Lens<Gradient, Placement>.New(static gradient => gradient.Placement, static placement => gradient => gradient with { Placement = placement })),
-        new("Placement", "Position and turn of the field"));
+        new("Placement", "Field position and turn"));
     public static readonly GradientParameter Width = new("width", StateParameter.Bounded(Lens<Gradient, ShortSideExtent>.New(static gradient => gradient.Width, static width => gradient => gradient with { Width = width }), Extent),
-        new("Width", "Half width the ramp spans as a share of the frame's short side"));
+        new("Width", "Ramp half width in frame short sides"));
     public static readonly GradientParameter Height = new("height", StateParameter.Bounded(Lens<Gradient, ShortSideExtent>.New(static gradient => gradient.Height, static height => gradient => gradient with { Height = height }), Extent),
-        new("Height", "Half height the ramp spans as a share of the frame's short side"));
+        new("Height", "Ramp half height in frame short sides"));
     public static readonly GradientParameter Colors = new("colors", new StateParameter<Gradient>.Gradient(Lens<Gradient, Ramp>.New(static gradient => gradient.Colors, static colors => gradient => gradient with { Colors = colors })),
-        new("Colors", "Display colors and coverage along the ramp"));
+        new("Colors", "Display color and coverage along ramp"));
     public static readonly GradientParameter Layer = new("layer", new StateParameter<Gradient>.Record<GeneratedLayer>(Lens<Gradient, GeneratedLayer>.New(static gradient => gradient.Layer, static layer => gradient => gradient with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
 
     StateParameter<Gradient> IStateParameter<Gradient>.Kind => Parameter;
 
@@ -482,15 +482,15 @@ public sealed record CornerGradient(Swatch TopLeft, Swatch TopRight, Swatch Bott
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CornerGradientParameter : IStateParameter<CornerGradient> {
     public static readonly CornerGradientParameter TopLeft = new("top-left", new StateParameter<CornerGradient>.Color(Lens<CornerGradient, Swatch>.New(static corners => corners.TopLeft, static color => corners => corners with { TopLeft = color })),
-        new("Top left", "Display color at the top left corner"));
+        new("Top left", "Display color at top left corner"));
     public static readonly CornerGradientParameter TopRight = new("top-right", new StateParameter<CornerGradient>.Color(Lens<CornerGradient, Swatch>.New(static corners => corners.TopRight, static color => corners => corners with { TopRight = color })),
-        new("Top right", "Display color at the top right corner"));
+        new("Top right", "Display color at top right corner"));
     public static readonly CornerGradientParameter BottomRight = new("bottom-right", new StateParameter<CornerGradient>.Color(Lens<CornerGradient, Swatch>.New(static corners => corners.BottomRight, static color => corners => corners with { BottomRight = color })),
-        new("Bottom right", "Display color at the bottom right corner"));
+        new("Bottom right", "Display color at bottom right corner"));
     public static readonly CornerGradientParameter BottomLeft = new("bottom-left", new StateParameter<CornerGradient>.Color(Lens<CornerGradient, Swatch>.New(static corners => corners.BottomLeft, static color => corners => corners with { BottomLeft = color })),
-        new("Bottom left", "Display color at the bottom left corner"));
+        new("Bottom left", "Display color at bottom left corner"));
     public static readonly CornerGradientParameter Layer = new("layer", new StateParameter<CornerGradient>.Record<GeneratedLayer>(Lens<CornerGradient, GeneratedLayer>.New(static corners => corners.Layer, static layer => corners => corners with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
 
     public StateParameter<CornerGradient> Kind { get; }
     public ParameterText Text { get; }
@@ -527,27 +527,27 @@ public sealed partial class GridParameter : IStateParameter<Grid> {
     public static readonly GridParameter Pattern = new("pattern", new StateParameter<Grid>.Choice<GridPattern>(Lens<Grid, GridPattern>.New(static grid => grid.Pattern, static pattern => grid => grid with { Pattern = pattern })),
         new("Pattern", "Lines alone or filled cells"));
     public static readonly GridParameter Placement = new("placement", new StateParameter<Grid>.Record<Placement>(Lens<Grid, Placement>.New(static grid => grid.Placement, static placement => grid => grid with { Placement = placement })),
-        new("Placement", "Position and turn of the field"));
+        new("Placement", "Field position and turn"));
     public static readonly GridParameter Cell = new("cell", StateParameter.Bounded(Lens<Grid, ShortSideExtent>.New(static grid => grid.Cell, static cell => grid => grid with { Cell = cell }), ShortSideExtent.Presentation with { Soft = (0.01f, 1f) }),
-        new("Cell", "Cell height as a share of the frame's short side"));
+        new("Cell", "Cell height in frame short sides"));
     public static readonly GridParameter Aspect = new("aspect", StateParameter.Bounded(Lens<Grid, PositiveMagnitude>.New(static grid => grid.Aspect, static aspect => grid => grid with { Aspect = aspect }), Tracks.Aspect),
         new("Aspect", "Cell width over cell height"));
     public static readonly GridParameter Offset = new("offset", StateParameter.Bounded(Lens<Grid, AxisFraction>.New(static grid => grid.Offset, static offset => grid => grid with { Offset = offset })),
-        new("Brick offset", "Share of a cell every second brick row shifts by"));
+        new("Brick offset", "Share of cell every second brick row shifts by"));
     public static readonly GridParameter LineWidth = new("line-width", StateParameter.Bounded(Lens<Grid, ShortSideLength>.New(static grid => grid.LineWidth, static width => grid => grid with { LineWidth = width }), Line),
-        new("Line width", "Line width as a share of the frame's short side"));
+        new("Line width", "Line width in frame short sides"));
     public static readonly GridParameter Feather = new("feather", StateParameter.Bounded(Lens<Grid, ShortSideLength>.New(static grid => grid.Feather, static feather => grid => grid with { Feather = feather }), Line),
-        new("Feather", "Edge softness as a share of the frame's short side, 0% one pixel wide"));
+        new("Feather", "Edge softness in frame short sides, 0% one pixel wide"));
     public static readonly GridParameter LineColor = new("line-color", new StateParameter<Grid>.Color(Lens<Grid, Swatch>.New(static grid => grid.LineColor, static color => grid => grid with { LineColor = color })),
-        new("Line color", "Display color of the lines"));
+        new("Line color", "Display color of lines"));
     public static readonly GridParameter CellColor = new("cell-color", new StateParameter<Grid>.Color(Lens<Grid, Swatch>.New(static grid => grid.CellColor, static color => grid => grid with { CellColor = color })),
-        new("Cell color", "Display color of the cells"));
+        new("Cell color", "Display color of cells"));
     public static readonly GridParameter AlternateColor = new("alternate-color", new StateParameter<Grid>.Color(Lens<Grid, Swatch>.New(static grid => grid.AlternateColor, static color => grid => grid with { AlternateColor = color })),
-        new("Alternate color", "Display color of every other checker cell and the far end of the brick tints"));
+        new("Alternate color", "Display color of alternate checker cells and far brick tint end"));
     public static readonly GridParameter Layer = new("layer", new StateParameter<Grid>.Record<GeneratedLayer>(Lens<Grid, GeneratedLayer>.New(static grid => grid.Layer, static layer => grid => grid with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly GridParameter Seed = new("seed", StateParameter.Bounded(Lens<Grid, Seed>.New(static grid => grid.Seed, static seed => grid => grid with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
 
     public StateParameter<Grid> Kind { get; }
     public ParameterText Text { get; }
@@ -575,21 +575,21 @@ public sealed partial class StripesParameter : IStateParameter<Stripes> {
     public static readonly StripesParameter Profile = new("profile", new StateParameter<Stripes>.Choice<WaveProfile>(Lens<Stripes, WaveProfile>.New(static stripes => stripes.Profile, static profile => stripes => stripes with { Profile = profile })),
         new("Profile", "Level across each stripe period"));
     public static readonly StripesParameter Placement = new("placement", new StateParameter<Stripes>.Record<Placement>(Lens<Stripes, Placement>.New(static stripes => stripes.Placement, static placement => stripes => stripes with { Placement = placement })),
-        new("Placement", "Position and turn of the field"));
+        new("Placement", "Field position and turn"));
     public static readonly StripesParameter Wavelength = new("wavelength", StateParameter.Bounded(Lens<Stripes, ShortSideExtent>.New(static stripes => stripes.Wavelength, static wavelength => stripes => stripes with { Wavelength = wavelength }), ShortSideExtent.Presentation with { Soft = (0.01f, 1f) }),
-        new("Wavelength", "Period of the stripes as a share of the frame's short side"));
+        new("Wavelength", "Stripe period in frame short sides"));
     public static readonly StripesParameter Bend = new("bend", StateParameter.Bounded(Lens<Stripes, SignedAngle>.New(static stripes => stripes.Bend, static bend => stripes => stripes with { Bend = bend })),
-        new("Bend", "Fold of the stripes about the center line, 0 straight bands"));
+        new("Bend", "Stripe fold about center line, 0 straight"));
     public static readonly StripesParameter Phase = new("phase", StateParameter.Bounded(Lens<Stripes, AxisFraction>.New(static stripes => stripes.Phase, static phase => stripes => stripes with { Phase = phase })),
-        new("Phase", "Share of a period the stripes shift by"));
+        new("Phase", "Share of period stripes shift by"));
     public static readonly StripesParameter Speed = new("speed", StateParameter.Bounded(Lens<Stripes, Frequency>.New(static stripes => stripes.Speed, static speed => stripes => stripes with { Speed = speed }), Frequency.Presentation with { Soft = (-4f, 4f) }),
         new("Speed", "Periods per second the stripes scroll"));
     public static readonly StripesParameter Colors = new("colors", new StateParameter<Stripes>.Gradient(Lens<Stripes, Ramp>.New(static stripes => stripes.Colors, static colors => stripes => stripes with { Colors = colors })),
-        new("Colors", "Display colors and coverage across one period"));
+        new("Colors", "Display color and coverage across one period"));
     public static readonly StripesParameter Layer = new("layer", new StateParameter<Stripes>.Record<GeneratedLayer>(Lens<Stripes, GeneratedLayer>.New(static stripes => stripes.Layer, static layer => stripes => stripes with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly StripesParameter Timing = new("timing", new StateParameter<Stripes>.Record<Timing>(Lens<Stripes, Timing>.New(static stripes => stripes.Timing, static timing => stripes => stripes with { Timing = timing })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
 
     public StateParameter<Stripes> Kind { get; }
     public ParameterText Text { get; }
@@ -628,17 +628,17 @@ public sealed partial class LetterboxParameter : IStateParameter<Letterbox> {
     private static readonly Presentation<float> Margin = ShortSideLength.Presentation with { Soft = (0f, 0.1f * ReferenceFrame.GreaterSide) };
 
     public static readonly LetterboxParameter Aspect = new("aspect", StateParameter.OptionalBounded(Lens<Letterbox, Gated<PositiveMagnitude>>.New(static bars => bars.Aspect, static aspect => bars => bars with { Aspect = aspect }), Tracks.Aspect),
-        new("Aspect", "Width over height of the window the bars leave, off following the full frame"));
+        new("Aspect", "Width over height of window between bars, off follows frame"));
     public static readonly LetterboxParameter Inset = new("inset", StateParameter.Bounded(Lens<Letterbox, ShortSideLength>.New(static bars => bars.Inset, static inset => bars => bars with { Inset = inset }), Margin),
-        new("Inset", "Margin inside the window as a share of the frame's short side"));
+        new("Inset", "Window margin in frame short sides"));
     public static readonly LetterboxParameter Radius = new("radius", StateParameter.Bounded(Lens<Letterbox, ShortSideLength>.New(static bars => bars.Radius, static radius => bars => bars with { Radius = radius }), Margin),
-        new("Roundness", "Radius of the window's corners as a share of the frame's short side"));
+        new("Roundness", "Window corner radius in frame short sides"));
     public static readonly LetterboxParameter Style = new("style", new StateParameter<Letterbox>.Record<ShapeStyle>(Lens<Letterbox, ShapeStyle>.New(static bars => bars.Style, static style => bars => bars with { Style = style })),
-        new("Style", "Fill and boundary of the generated figure"));
+        new("Style", "Figure fill and boundary"));
     public static readonly LetterboxParameter Layer = new("layer", new StateParameter<Letterbox>.Record<GeneratedLayer>(Lens<Letterbox, GeneratedLayer>.New(static bars => bars.Layer, static layer => bars => bars with { Layer = layer })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly LetterboxParameter Seed = new("seed", StateParameter.Bounded(Lens<Letterbox, Seed>.New(static bars => bars.Seed, static seed => bars => bars with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
 
     public StateParameter<Letterbox> Kind { get; }
     public ParameterText Text { get; }

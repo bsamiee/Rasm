@@ -99,4 +99,4 @@ rule:
         - not: {matches: rust-statement-loop}
         - not: {matches: test-reads-written-state}
 message: '`for` selects elements by test `$TEST` at the top of its body'
-note: 'Select with `<iterator>.filter(<test>)`, `.filter_map(<f>)` for a binding the body reads, or `.flatten()` over nested options'
+note: 'Iterate `<iterator>.filter(<test>)`, `.filter_map(<f>)` for a binding the body reads, or `.flatten()` over `Option` or `Result` elements'

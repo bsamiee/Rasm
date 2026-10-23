@@ -170,9 +170,7 @@ private struct AccountSettings: View {
                     Text("Automatic").tag(SessionPolicy.automatic)
                 }
             } footer: {
-                Text(
-                    "Manual starts a session from the card, Automatic sends “hi” when a new session can start"
-                )
+                Text("Manual starts sessions from the card. Automatic sends “hi” when a session can start")
             }
 
             Section {

@@ -62,4 +62,4 @@ rule:
         - any: [{matches: rust-variant-name-match}, {matches: name-match}]
         - not: {inside: {kind: impl_item, stopBy: end, has: {field: body, has: {matches: constant-table}}}}
 message: '`$METHOD` of `$T` spells one string literal per variant'
-note: 'Derive `derive_more::Display` with `#[display("<text>")]` or `strum::IntoStaticStr` with `#[strum(serialize = "<text>")]` per variant'
+note: 'Derive `strum::IntoStaticStr` with `#[strum(serialize = "<text>")]` or `derive_more::Display` with `#[display("<text>")]` per variant'

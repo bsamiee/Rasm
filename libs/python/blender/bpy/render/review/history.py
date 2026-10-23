@@ -1,4 +1,4 @@
-"""Render history: each completed render stored with its settings, browsed, restored, diffed, compared, and removed."""
+"""Finished renders stored with their settings snapshots."""
 
 from collections.abc import Callable
 import datetime
@@ -60,25 +60,25 @@ entries = Choices(
 class Reviewing(msgspec.Struct, frozen=True, kw_only=True):
     """Render history retention."""
 
-    retention: Annotated[Retention, msgspec.Meta(title="Render History", description="Completed renders kept, newest first")] = Retention(interval=0.0)
+    retention: Annotated[Retention, msgspec.Meta(title="Render History", description="Renders kept, newest first")] = Retention(interval=0.0)
 
 
 class Browsing(msgspec.Struct, frozen=True, kw_only=True):
-    """Session view state of the history browser."""
+    """History browser session state."""
 
-    shown: Annotated[str, msgspec.Meta(title="Before", description="Stored render the compare draws as the before frame"), entries] = ""
-    difference: Annotated[bool, msgspec.Meta(title="Difference", description="Tint each pixel by its perceived difference from the before frame")] = False
-    newest: Annotated[str, msgspec.Meta(title="Newest", description="Key of the newest stored render"), Definition(options=frozenset({"HIDDEN"}))] = ""
+    shown: Annotated[str, msgspec.Meta(title="Before", description="Stored render drawn as before frame"), entries] = ""
+    difference: Annotated[bool, msgspec.Meta(title="Difference", description="Tints pixels by perceived difference from before frame")] = False
+    newest: Annotated[str, msgspec.Meta(title="Newest", description="Newest stored render key"), Definition(options=frozenset({"HIDDEN"}))] = ""
 
 
 class Noting(msgspec.Struct, frozen=True, kw_only=True):
     """Note on a stored render."""
 
-    note: Annotated[str, msgspec.Meta(title="Note", description="Note on the stored render")] = ""
+    note: Annotated[str, msgspec.Meta(title="Note", description="Stored render note")] = ""
 
 
 class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator rows of the render history, one field per row a section places."""
+    """History operators, one field per section button."""
 
     restore: Operator[Empty]
     diff: Operator[Empty]
@@ -91,7 +91,7 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, identity: Identity) -> Self:
-        """Builds the history's operator rows over one identity."""
+        """Builds operators over identity."""
 
         def restored(call: Call[Empty]) -> BlenderResult[Outcome]:
             return (
@@ -99,7 +99,7 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda pair: paired(decoded(files(identity, pair[1].key)[1], Snapshot), call.root(bpy.types.Scene)))
                 .bind(
                     lambda pair: answered(
-                        applied := pair[0].apply(pair[1]), "Scene settings already match the stored render", (("INFO", f"Restored {len(applied.written)} settings, {len(applied.skipped)} skipped"),)
+                        applied := pair[0].apply(pair[1]), "Scene settings match stored render", (("INFO", f"Restored {len(applied.written)} settings, {len(applied.skipped)} skipped"),)
                     )
                 )
             )
@@ -108,18 +108,18 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
             def noted[V](edit: Edit[V]) -> str:
                 match edit:
                     case Reparametrized(key=key, before=before, after=after):
-                        return f"{key}: {', '.join(sorted(before.keys() | after.keys()))}"
+                        return f"{key} changed {', '.join(sorted(before.keys() | after.keys()))}"
                     case Inserted(key=key):
-                        return f"{key}: added"
+                        return f"{key} added"
                     case Deleted(key=key):
-                        return f"{key}: removed"
+                        return f"{key} removed"
                     case Moved(key=key):
-                        return f"{key}: moved"
+                        return f"{key} moved"
 
             return (
                 chosen(identity, call.context)
                 .bind(lambda pair: paired(decoded(files(identity, pair[1].key)[1], Snapshot), call.root(bpy.types.Scene).bind(Snapshot.capture)))
-                .map(lambda snapshots: Done(notes=tuple(("INFO", noted(edit)) for edit in diff(snapshots[0].tree, snapshots[1].tree)) or (("INFO", "Settings match the stored render"),)))
+                .map(lambda snapshots: Done(notes=tuple(("INFO", noted(edit)) for edit in diff(snapshots[0].tree, snapshots[1].tree)) or (("INFO", "Settings match stored render"),)))
             )
 
         def opened(call: Call[Empty]) -> BlenderResult[Done]:
@@ -127,7 +127,7 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
                 return revealed(call.context).bind(
                     lambda found: found.map(
                         lambda located: showing(image).bind(lambda state: state.applied(located.area)).map(lambda _: Done(notes=(("INFO", f"Showing {image.name}"),)))
-                    ).default_value(Ok(Done(notes=(("INFO", "Opened the render view; open the entry again to show it there"),))))
+                    ).default_value(Ok(Done(notes=(("INFO", "Opened render view, open entry again to show it"),))))
                 )
 
             return chosen(identity, call.context).bind(lambda pair: loaded(str(files(identity, pair[1].key)[0]), Tag(view_as_render=Some(True)))).bind(shown)
@@ -159,25 +159,25 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
             return held(identity).bind(lambda history: kept(identity, history, msgspec.structs.replace(history, entries=()))).map(lambda _: Done())
 
         return cls(
-            restore=Operator(key="history_restore", title="Restore Settings", description="Apply the stored render's settings to the scene", form=Empty, run=restored),
-            diff=Operator(key="history_diff", title="Compare Settings", description="Report the settings the scene changed since the stored render", form=Empty, run=diffed, undo=False),
-            open=Operator(key="history_open", title="Open Render", description="Show the stored render in the render view", form=Empty, run=opened, undo=False),
-            measure=Operator(key="history_measure", title="Measure Difference", description="Grade the stored render against the shown frame", form=Empty, run=measured, undo=False),
+            restore=Operator(key="history_restore", title="Restore Settings", description="Applies stored settings to scene", form=Empty, run=restored),
+            diff=Operator(key="history_diff", title="Compare Settings", description="Reports settings changed since stored render", form=Empty, run=diffed, undo=False),
+            open=Operator(key="history_open", title="Open Render", description="Shows stored render", form=Empty, run=opened, undo=False),
+            measure=Operator(key="history_measure", title="Measure Difference", description="Grades stored render against shown frame", form=Empty, run=measured, undo=False),
             note=Operator(
                 key="history_note",
                 title="Edit Note",
-                description="Write a note on the stored render",
+                description="Writes stored render note",
                 form=Noting,
                 run=noting,
                 invoke=Some(Properties()),
                 seed=Some(lambda record, _event: chosen(identity, bpy.context).map(lambda pair: Noting(note=pair[1].value)).default_value(record)),
                 undo=False,
             ),
-            remove=Operator(key="history_remove", title="Remove Render", description="Delete the stored render and its files", form=Empty, run=removed, undo=False),
+            remove=Operator(key="history_remove", title="Remove Render", description="Deletes stored render and files", form=Empty, run=removed, undo=False),
             clear=Operator(
                 key="history_clear",
                 title="Clear History",
-                description="Delete every stored render and its files",
+                description="Deletes every stored render",
                 form=Empty,
                 run=cleared,
                 invoke=Some(Confirm(confirm_text=Some("Clear"), icon="WARNING")),
@@ -186,7 +186,7 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
             folder=Operator(
                 key="history_folder",
                 title="Open History Folder",
-                description="Open the folder holding the stored renders",
+                description="Opens stored render folder",
                 form=Empty,
                 undo=False,
                 run=lambda _: called(bpy.ops.wm.path_open, {"filepath": str(folder(identity))}).map(lambda _: Done()),
@@ -195,7 +195,7 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
-    """Row keeping each completed render with its settings, its browser state, operators, compare, and difference mask."""
+    """History row with browser, operators, compare, and difference mask."""
 
     settings: Callable[[Identity], BlenderResult[Reviewing]]
     glyph: Glyph
@@ -203,16 +203,16 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def compare(self) -> CompareView:
-        """Compare of the shown entry over the editor's frame, refreshed on each browser field."""
+        """Shown entry over editor frame, redrawn on browser change."""
         return CompareView(key="history_compare", glyph=self.glyph, read=lambda identity, _: before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=watched)
 
     @property
     def page_rows(self) -> tuple[Registrable, ...]:
-        """Browser state and the compare state, which the preferences page acquires."""
+        """Browser and compare state preferences page acquires."""
         return (browsing, self.compare.state)
 
     def section(self) -> Single:
-        """Render History section: the Before icon view, the shown entry's note, the difference toggle, and the operator buttons."""
+        """Returns Render History section."""
 
         def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
             commands = HistoryCommands.of(identity)
@@ -244,7 +244,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
         return held(identity).map(lambda history: tuple(tiled(identity, entry.key, self.scale) for entry in history.entries if not previews.current(entry.key.hex(), entry.key, self.scale)))
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers preview and feed resources beside the retained native declarations."""
+        """Returns preview and feed resources beside native declarations."""
         return watched(identity).map(
             lambda refreshes: (
                 (Band.RESOURCES, Previews(identity=identity)),
@@ -268,12 +268,12 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def folder(identity: Identity) -> Path:
-    """Answers the history folder under the extension's user folder."""
+    """Returns history folder under extension user folder."""
     return identity.folder / "history"
 
 
 def files(identity: Identity, key: ContentHash) -> tuple[Path, Path]:
-    """Answers an entry's frame and snapshot paths."""
+    """Returns frame and snapshot paths."""
     stem = folder(identity) / key.hex()
     return stem.with_suffix(".exr"), stem.with_suffix(".json")
 
@@ -288,7 +288,7 @@ def decoded[T](path: Path, form: type[T]) -> BlenderResult[T]:
 
 
 def held(identity: Identity) -> BlenderResult[History[str]]:
-    """Reads the history, empty where no file stands."""
+    """Reads history, empty without a file."""
     path = folder(identity) / "history.json"
     return decoded(path, History[str]).or_else_with(
         lambda faults: Ok(History[str]()) if all(isinstance(fault, BlenderReadFault) and isinstance(fault.error, FileNotFoundError) for fault in faults) else Error(faults)
@@ -296,7 +296,7 @@ def held(identity: Identity) -> BlenderResult[History[str]]:
 
 
 def kept(identity: Identity, before: History[str], after: History[str]) -> BlenderResult[None]:
-    """Writes a history, then deletes the files and tiles of each entry it dropped."""
+    """Writes history, then deletes files and tiles of each dropped entry."""
     path, dropped = folder(identity) / "history.json", {entry.key for entry in before.entries} - {entry.key for entry in after.entries}
 
     def written() -> None:
@@ -311,7 +311,7 @@ def kept(identity: Identity, before: History[str], after: History[str]) -> Blend
 
 
 def composite(path: Path) -> BlenderResult[npt.NDArray[np.float32]]:
-    """Reads the plane a stored frame displays: Blender's first Combined layer, the composite ahead of the view layers, or the sequencer's unnamed plane."""
+    """Reads first Combined or unnamed layer of a stored frame."""
     name = "Combined"
 
     def selected(file: Multilayer) -> BlenderResult[npt.NDArray[np.float32]]:
@@ -361,7 +361,7 @@ def tiled(identity: Identity, key: ContentHash, scale: float, plane: Option[npt.
 
 
 def recorded(identity: Identity, settings: Callable[[Identity], BlenderResult[Reviewing]], scale: float, feed: Feed, scene: bpy.types.Scene, path: str) -> BlenderResult[Option[str]]:
-    """Stores a completed render with its settings snapshot under the retention policy."""
+    """Stores finished render with settings snapshot under retention."""
     moment = datetime.datetime.now(datetime.UTC)
 
     def stored(manager: bpy.types.WindowManager, snapshot: Snapshot, plane: npt.NDArray[np.float32], history: History[str], reviewing: Reviewing, attached: Attached[Browsing]) -> BlenderResult[None]:
@@ -393,7 +393,7 @@ def recorded(identity: Identity, settings: Callable[[Identity], BlenderResult[Re
 
 
 def chosen(identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[History[str], Entry[str]]]:
-    """Answers the history and the entry the browser shows, `absent` where the history holds no shown entry."""
+    """Returns history and shown entry, absent fault without one."""
     return paired(paired(browsing.bound(identity), rooted(bpy.types.WindowManager, context)).bind(lambda pair: pair[0].read(pair[1])), held(identity)).bind(
         lambda pair: (
             Block
@@ -407,12 +407,12 @@ def chosen(identity: Identity, context: bpy.types.Context) -> BlenderResult[tupl
 
 
 def watched(identity: Identity) -> BlenderResult[tuple[Refresh, ...]]:
-    """Answers a refresh on each browser field of the identity's attachment."""
+    """Returns a refresh per browser field."""
     return browsing.bound(identity).map(lambda attached: tuple(Watch(owner=attached.group.struct, identifier=row.name) for row in msgspec.structs.fields(Browsing)))
 
 
 def before(identity: Identity) -> BlenderResult[Option[Before]]:
-    """Answers the shown entry's composited plane captioned with its number, `Nothing` while no entry shows."""
+    """Returns shown entry plane captioned with its number, `Nothing` while no entry shows."""
     return (
         chosen(identity, bpy.context)
         .map(Some)
@@ -426,7 +426,7 @@ def before(identity: Identity) -> BlenderResult[Option[Before]]:
 
 
 def difference(identity: Identity) -> BlenderResult[Option[tuple[Tint, ...]]]:
-    """Answers the perceptual difference tint of the shown entry against the shown frame while the browser's difference toggle holds."""
+    """Returns perceptual difference tint against shown frame while difference is on."""
     context = bpy.context
     ink = color(context.preferences.themes[0].info.info_error_text)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     return (
@@ -438,7 +438,7 @@ def difference(identity: Identity) -> BlenderResult[Option[tuple[Tint, ...]]]:
 
 
 def compared(identity: Identity, context: bpy.types.Context) -> BlenderResult[Comparison]:
-    """Compares the shown entry's frame with the frame the editor shows."""
+    """Compares shown entry frame with frame editor shows."""
 
     def beneath(history: History[str]) -> BlenderResult[Entry[str]]:
         def shown(space: bpy.types.SpaceImageEditor) -> BlenderResult[Entry[str]]:

@@ -170,4 +170,4 @@ rule:
 constraints:
     OUT: {kind: identifier}
 message: 'Empty fallback on host out array `$OUT` hides whether the host filled it'
-note: Read the out array directly where the host always fills it, or consume `Optional(<array>)` as an `Option` where the host leaves it null for absence
+note: 'Read the out array directly where the host always fills it, `Optional(<array>)` where a null array means absence'

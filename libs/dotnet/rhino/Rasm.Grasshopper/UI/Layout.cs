@@ -33,7 +33,7 @@ public readonly partial struct Extent {
     public CanvasLength Maximum { get; }
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref CanvasLength minimum, ref CanvasLength ideal, ref CanvasLength maximum) =>
-        validationError = minimum <= ideal && ideal <= maximum ? null : new ValidationError("extent needs minimum, ideal, and maximum in ascending order");
+        validationError = minimum <= ideal && ideal <= maximum ? null : new ValidationError("extent needs minimum <= ideal <= maximum");
 }
 
 public readonly record struct Distribution(Orientation Axis, Seq<Guid> Objects);

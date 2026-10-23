@@ -7,5 +7,5 @@ rule:
     any:
         - has: {kind: type_annotation, has: {field: name, regex: '^(Observation\.)?ObservationRegistrar$'}}
         - has: {field: value, kind: call_expression, has: {nthChild: 1, regex: '^(Observation\.)?ObservationRegistrar$'}}
-message: 'Stored `ObservationRegistrar` restates the access and mutation calls the `@Observable` macro writes'
-note: 'Declare the type `@Observable final class` with plain stored properties'
+message: 'Stored `ObservationRegistrar` restates access and mutation tracking that `@Observable` generates'
+note: 'Mark the class `@Observable` and delete its registrar with each `access(_:keyPath:)` and `withMutation(of:keyPath:_:)` call'

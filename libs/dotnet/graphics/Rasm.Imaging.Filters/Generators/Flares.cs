@@ -13,7 +13,7 @@ namespace Rasm.Imaging.Filters.Generators;
 [ValueObject<Guid>(SkipIParsable = true)]
 public readonly partial struct LightTarget {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
-        validationError = value == Guid.Empty ? new ValidationError("light target must be a non-empty identifier") : null;
+        validationError = value == Guid.Empty ? new ValidationError("Light target identifier is empty") : null;
 }
 
 internal readonly record struct Occluder(PixelFrame Depth, float Source) {
@@ -44,9 +44,9 @@ public sealed partial class FlareAnchor : ICaptioned {
     public static readonly FlareAnchor Frame = new("frame", "Frame position", [], static (position, _, context) =>
         Some((position.Point(context.Extent), Option<float>.None)));
     public static readonly FlareAnchor Sun = new("sun", "Sun", [GuideChannel.Depth], static (_, _, context) =>
-        context.Lights.ToFin(Error.New("sun flare anchor needs the scene lights")).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
+        context.Lights.ToFin(Error.New("Sun flare anchor needs scene lights")).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
     public static readonly FlareAnchor Light = new("light", "Light", [GuideChannel.Depth], static (_, light, context) =>
-        light.Traverse(target => context.Lights.ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"light flare anchor {target} needs the scene lights"))).Map(lights =>
+        light.Traverse(target => context.Lights.ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"Light flare anchor {target} needs scene lights"))).Map(lights =>
             (from point in lights.Points.Find(target) from camera in context.Camera from located in camera.Pixel(point) select (located.Point, Depth: Some(located.Depth)))
             | lights.Directions.Find(target).Bind(direction => Distant(direction, context)))).As().Map(static located => located.Flatten()));
 
@@ -81,13 +81,13 @@ public sealed record FlareSource(FlareAnchor Anchor, FramePosition Position, Opt
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FlareSourceParameter : IStateParameter<FlareSource> {
     public static readonly FlareSourceParameter Anchor = new("anchor", new StateParameter<FlareSource>.Choice<FlareAnchor>(Lens<FlareSource, FlareAnchor>.New(static s => s.Anchor, static v => s => s with { Anchor = v })),
-        new("Source", "What the generated light converges on"));
+        new("Source", "Point generated light converges on"));
     public static readonly FlareSourceParameter Position = new("position", new StateParameter<FlareSource>.Record<FramePosition>(Lens<FlareSource, FramePosition>.New(static s => s.Position, static v => s => s with { Position = v })),
-        new("Position", "Frame point to converge on when the source is Frame position"));
+        new("Position", "Frame point to converge on when Source is Frame position"));
     public static readonly FlareSourceParameter Light = new("light", new StateParameter<FlareSource>.OptionalKeyed<LightTarget, Guid>(Lens<FlareSource, Option<LightTarget>>.New(static s => s.Light, static v => s => s with { Light = v })),
-        new("Light", "Document light to converge on when the source is Light"));
+        new("Light", "Document light to converge on when Source is Light"));
     public static readonly FlareSourceParameter Occlusion = new("occlusion", new StateParameter<FlareSource>.Toggle(Lens<FlareSource, bool>.New(static s => s.Occlusion, static v => s => s with { Occlusion = v })),
-        new("Occlusion", "Surfaces nearer the camera than the source hide its generated light"));
+        new("Occlusion", "Surfaces nearer camera than source hide its light"));
 
     public StateParameter<FlareSource> Kind { get; }
     public ParameterText Text { get; }
@@ -201,79 +201,79 @@ public sealed partial class LensFlareParameter : IStateParameter<LensFlare> {
     private static readonly Presentation<float> Magnification = new() { Soft = (-2f, 2f), Origin = (float)SignedMagnitude.Zero };
 
     public static readonly LensFlareParameter Source = new("source", new StateParameter<LensFlare>.Record<FlareSource>(Lens<LensFlare, FlareSource>.New(static s => s.Source, static v => s => s with { Source = v })),
-        new("Source", "Frame position or scene light the generated light follows"));
+        new("Source", "Frame position or scene light generated light follows"));
     public static readonly LensFlareParameter Hotspot = new("hotspot", StateParameter.OptionalBounded(Lens<LensFlare, Gated<Exposure>>.New(static s => s.Hotspot, static v => s => s with { Hotspot = v })),
-        new("Hotspot", "Stops of the glow at the source, off drawing none"));
+        new("Hotspot", "Glow brightness at source in stops"));
     public static readonly LensFlareParameter HotspotColors = new("hotspot-colors", new StateParameter<LensFlare>.Gradient(Lens<LensFlare, Ramp>.New(static s => s.HotspotColors, static v => s => s with { HotspotColors = v })),
-        new("Hotspot colors", "Light and coverage from the center to the hotspot edge"));
+        new("Hotspot colors", "Color and coverage from center to hotspot edge"));
     public static readonly LensFlareParameter HotspotSize = new("hotspot-size", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.HotspotSize, static v => s => s with { HotspotSize = v }), Spot),
-        new("Hotspot size", "Radius of the hotspot as a share of the frame's short side"));
+        new("Hotspot size", "Hotspot radius in frame short sides"));
     public static readonly LensFlareParameter HotspotSoftness = new("hotspot-softness", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.HotspotSoftness, static v => s => s with { HotspotSoftness = v }), Thin),
-        new("Hotspot softness", "Softness of the hotspot edge as a share of the frame's short side"));
+        new("Hotspot softness", "Hotspot edge softness in frame short sides"));
     public static readonly LensFlareParameter Starburst = new("starburst", StateParameter.OptionalBounded(Lens<LensFlare, Gated<Exposure>>.New(static s => s.Starburst, static v => s => s with { Starburst = v })),
-        new("Starburst", "Stops of the rays about the source, off drawing none"));
+        new("Starburst", "Ray brightness around source in stops"));
     public static readonly LensFlareParameter StarburstColors = new("starburst-colors", new StateParameter<LensFlare>.Gradient(Lens<LensFlare, Ramp>.New(static s => s.StarburstColors, static v => s => s with { StarburstColors = v })),
-        new("Starburst colors", "Light and coverage from the source along each ray"));
+        new("Starburst colors", "Color and coverage from source along each ray"));
     public static readonly LensFlareParameter StarburstLength = new("starburst-length", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.StarburstLength, static v => s => s with { StarburstLength = v }), Reach),
-        new("Starburst length", "Reach of the rays as a share of the frame's short side"));
+        new("Starburst length", "Ray reach in frame short sides"));
     public static readonly LensFlareParameter Basis = new("basis", new StateParameter<LensFlare>.Variant<NoiseBasis>(Lens<LensFlare, NoiseBasis>.New(static s => s.Basis, static v => s => s with { Basis = v })),
-        new("Starburst noise", "Pattern of the rays around the source"));
+        new("Starburst noise", "Ray pattern around source"));
     public static readonly LensFlareParameter StarburstDensity = new("starburst-density", StateParameter.Bounded(Lens<LensFlare, Magnitude>.New(static s => s.StarburstDensity, static v => s => s with { StarburstDensity = v }), new Presentation<float> { Scale = TrackScale.Cubic, Soft = (1f, 100f) }),
-        new("Starburst density", "Noise periods per turn about the source"));
+        new("Starburst density", "Noise periods per turn around source"));
     public static readonly LensFlareParameter StarburstSharpness = new("starburst-sharpness", StateParameter.Bounded(Lens<LensFlare, Magnitude>.New(static s => s.StarburstSharpness, static v => s => s with { StarburstSharpness = v }), new Presentation<float> { Soft = (1f, 8f) }),
         new("Starburst sharpness", "Power narrowing each ray around its brightest axis"));
     public static readonly LensFlareParameter Shimmer = new("shimmer", StateParameter.Bounded(Lens<LensFlare, Frequency>.New(static s => s.Shimmer, static v => s => s with { Shimmer = v }), Frequency.Presentation with { Soft = (0f, 10f) }),
         new("Shimmer", "Noise units per second the rays change through"));
     public static readonly LensFlareParameter Hold = new("hold", StateParameter.Bounded(Lens<LensFlare, Hold>.New(static s => s.Hold, static v => s => s with { Hold = v })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
     public static readonly LensFlareParameter Bar = new("bar", StateParameter.OptionalBounded(Lens<LensFlare, Gated<Exposure>>.New(static s => s.Bar, static v => s => s with { Bar = v })),
-        new("Anamorphic bar", "Stops of the bar through the source, off drawing none"));
+        new("Anamorphic bar", "Bar brightness through source in stops"));
     public static readonly LensFlareParameter BarColors = new("bar-colors", new StateParameter<LensFlare>.Gradient(Lens<LensFlare, Ramp>.New(static s => s.BarColors, static v => s => s with { BarColors = v })),
-        new("Bar colors", "Light and coverage from the source along the bar"));
+        new("Bar colors", "Color and coverage from source along bar"));
     public static readonly LensFlareParameter BarLength = new("bar-length", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.BarLength, static v => s => s with { BarLength = v }), Reach),
-        new("Bar length", "Half length of the bar as a share of the frame's short side"));
+        new("Bar length", "Bar half length in frame short sides"));
     public static readonly LensFlareParameter BarThickness = new("bar-thickness", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.BarThickness, static v => s => s with { BarThickness = v }), Thin),
-        new("Bar thickness", "Width of the bar as a share of the frame's short side"));
+        new("Bar thickness", "Bar width in frame short sides"));
     public static readonly LensFlareParameter BarAngle = new("bar-angle", StateParameter.Bounded(Lens<LensFlare, SignedAngle>.New(static s => s.BarAngle, static v => s => s with { BarAngle = v })),
-        new("Bar angle", "Turn of the bar from horizontal, counterclockwise"));
+        new("Bar angle", "Counterclockwise turn from horizontal"));
     public static readonly LensFlareParameter Ring = new("ring", StateParameter.OptionalBounded(Lens<LensFlare, Gated<Exposure>>.New(static s => s.Ring, static v => s => s with { Ring = v })),
-        new("Halo", "Stops of the ring, off drawing none"));
+        new("Halo", "Halo brightness in stops"));
     public static readonly LensFlareParameter RingColors = new("ring-colors", new StateParameter<LensFlare>.Gradient(Lens<LensFlare, Ramp>.New(static s => s.RingColors, static v => s => s with { RingColors = v })),
-        new("Halo colors", "Light and coverage across the halo band"));
+        new("Halo colors", "Color and coverage across halo band"));
     public static readonly LensFlareParameter RingRadius = new("ring-radius", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.RingRadius, static v => s => s with { RingRadius = v })),
-        new("Halo radius", "Radius of the ring as a share of the frame's short side"));
+        new("Halo radius", "Halo radius in frame short sides"));
     public static readonly LensFlareParameter RingWidth = new("ring-width", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.RingWidth, static v => s => s with { RingWidth = v }), Thin),
-        new("Halo width", "Width of the ring band as a share of the frame's short side"));
+        new("Halo width", "Halo band width in frame short sides"));
     public static readonly LensFlareParameter RingSoftness = new("ring-softness", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.RingSoftness, static v => s => s with { RingSoftness = v }), Thin),
-        new("Halo softness", "Softness of the ring edges as a share of the frame's short side"));
+        new("Halo softness", "Halo edge softness in frame short sides"));
     public static readonly LensFlareParameter RingMagnification = new("ring-magnification", StateParameter.Bounded(Lens<LensFlare, SignedMagnitude>.New(static s => s.RingMagnification, static v => s => s with { RingMagnification = v }), Magnification),
-        new("Halo position", "Halo center along the source axis, 0 at frame center and 1 at source"));
+        new("Halo position", "Halo center along source axis, 0 at frame center, 1 at source"));
     public static readonly LensFlareParameter Ghosts = new("ghosts", StateParameter.OptionalBounded(Lens<LensFlare, Gated<Exposure>>.New(static s => s.Ghosts, static v => s => s with { Ghosts = v })),
-        new("Ghosts", "Stops of the iris images along the source axis, off drawing none"));
+        new("Ghosts", "Iris image brightness along source axis in stops"));
     public static readonly LensFlareParameter GhostColors = new("ghost-colors", new StateParameter<LensFlare>.Gradient(Lens<LensFlare, Ramp>.New(static s => s.GhostColors, static v => s => s with { GhostColors = v })),
-        new("Ghost colors", "Light and coverage along the ghost chain"));
+        new("Ghost colors", "Color and coverage along ghost chain"));
     public static readonly LensFlareParameter GhostSize = new("ghost-size", StateParameter.Bounded(Lens<LensFlare, ShortSideLength>.New(static s => s.GhostSize, static v => s => s with { GhostSize = v }), Spot),
-        new("Ghost size", "Radius of the largest ghost as a share of the frame's short side"));
+        new("Ghost size", "Largest ghost radius in frame short sides"));
     public static readonly LensFlareParameter GhostCount = new("ghost-count", StateParameter.Bounded(Lens<LensFlare, PositiveCount>.New(static s => s.GhostCount, static v => s => s with { GhostCount = v }), new Presentation<int> { Step = 1, Soft = (1, 16) }),
-        new("Ghost count", "Iris images along the source axis"));
+        new("Ghost count", "Iris images along source axis"));
     public static readonly LensFlareParameter GhostFirst = new("ghost-first", StateParameter.Bounded(Lens<LensFlare, SignedMagnitude>.New(static s => s.GhostFirst, static v => s => s with { GhostFirst = v }), Magnification),
-        new("First ghost", "Start of the ghost chain, 0 at frame center and 1 at source"));
+        new("First ghost", "Ghost chain start, 0 at frame center, 1 at source"));
     public static readonly LensFlareParameter GhostLast = new("ghost-last", StateParameter.Bounded(Lens<LensFlare, SignedMagnitude>.New(static s => s.GhostLast, static v => s => s with { GhostLast = v }), Magnification),
-        new("Last ghost", "End of the ghost chain, 0 at frame center and 1 at source"));
+        new("Last ghost", "Ghost chain end, 0 at frame center, 1 at source"));
     public static readonly LensFlareParameter GhostVariation = new("ghost-variation", StateParameter.Bounded(Lens<LensFlare, ProperFraction>.New(static s => s.GhostVariation, static v => s => s with { GhostVariation = v }), ProperFraction.Presentation with { Soft = (0f, 0.9f) }),
         new("Ghost variation", "Variation in each ghost's position and radius"));
     public static readonly LensFlareParameter GhostSoftness = new("ghost-softness", StateParameter.Bounded(Lens<LensFlare, AxisFraction>.New(static s => s.GhostSoftness, static v => s => s with { GhostSoftness = v })),
         new("Ghost softness", "Share of each ghost's radius feathered at its edge"));
     public static readonly LensFlareParameter Iris = new("iris", new StateParameter<LensFlare>.Record<Iris>(Lens<LensFlare, Iris>.New(static s => s.Iris, static v => s => s with { Iris = v })),
-        new("Aperture", "Outline of the lens opening each out-of-focus disc and diffraction spike takes"));
+        new("Aperture", "Lens opening shaping bokeh and diffraction spikes"));
     public static readonly LensFlareParameter Fringe = new("fringe", StateParameter.Bounded(Lens<LensFlare, SignedFraction>.New(static s => s.Fringe, static v => s => s with { Fringe = v })),
-        new("Color shift", "Red and blue disc sizes apart from green"));
+        new("Color shift", "Red and blue bokeh sizes apart from green"));
     public static readonly LensFlareParameter Layer = new("layer", new StateParameter<LensFlare>.Record<GeneratedLayer>(Lens<LensFlare, GeneratedLayer>.New(static s => s.Layer, static v => s => s with { Layer = v })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly LensFlareParameter Seed = new("seed", StateParameter.Bounded(Lens<LensFlare, Seed>.New(static s => s.Seed, static v => s => s with { Seed = v })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly LensFlareParameter Timing = new("timing", new StateParameter<LensFlare>.Record<Timing>(Lens<LensFlare, Timing>.New(static s => s.Timing, static v => s => s with { Timing = v })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
 
     public StateParameter<LensFlare> Kind { get; }
     public ParameterText Text { get; }
@@ -340,19 +340,19 @@ public sealed partial class LightRaysParameter : IStateParameter<LightRays> {
     public static readonly LightRaysParameter Highlight = new("highlight", new StateParameter<LightRays>.Record<HighlightKey>(Lens<LightRays, HighlightKey>.New(static s => s.Highlight, static v => s => s with { Highlight = v })),
         new("Highlights", "Highlights that cast rays"));
     public static readonly LightRaysParameter Source = new("source", new StateParameter<LightRays>.Record<FlareSource>(Lens<LightRays, FlareSource>.New(static s => s.Source, static v => s => s with { Source = v })),
-        new("Source", "Frame position or scene light the generated light follows"));
+        new("Source", "Frame position or scene light generated light follows"));
     public static readonly LightRaysParameter Size = new("size", StateParameter.Bounded(Lens<LightRays, ShortSideLength>.New(static s => s.Size, static v => s => s with { Size = v }), ShortSideLength.Presentation with { Soft = (0f, LightRays.Diagonal) }),
-        new("Size", "Longest ray march as a share of the frame's short side"));
+        new("Size", "Longest ray march in frame short sides"));
     public static readonly LightRaysParameter Jitter = new("jitter", StateParameter.Bounded(Lens<LightRays, AxisFraction>.New(static s => s.Jitter, static v => s => s with { Jitter = v })),
-        new("Jitter", "Share of the march steps traded for hashed sample shifts"));
+        new("Jitter", "Share of march steps traded for random sample shifts"));
     public static readonly LightRaysParameter Tint = new("tint", new StateParameter<LightRays>.Color(Lens<LightRays, Swatch>.New(static s => s.Tint, static v => s => s with { Tint = v })),
-        new("Tint", "Scene-linear color of the rays"));
+        new("Tint", "Scene-linear ray color"));
     public static readonly LightRaysParameter Layer = new("layer", new StateParameter<LightRays>.Record<GeneratedLayer>(Lens<LightRays, GeneratedLayer>.New(static s => s.Layer, static v => s => s with { Layer = v })),
-        new("Layer", "Composition of the generated layer over the frame"));
+        new("Layer", "Blend and brightness of generated layer"));
     public static readonly LightRaysParameter Seed = new("seed", StateParameter.Bounded(Lens<LightRays, Seed>.New(static s => s.Seed, static v => s => s with { Seed = v })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly LightRaysParameter Timing = new("timing", new StateParameter<LightRays>.Record<Timing>(Lens<LightRays, Timing>.New(static s => s.Timing, static v => s => s with { Timing = v })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
 
     public StateParameter<LightRays> Kind { get; }
     public ParameterText Text { get; }

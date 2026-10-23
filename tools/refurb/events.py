@@ -1,8 +1,8 @@
-"""Log calls folding field values into their event text or binding them to a logger nothing reads."""
+"""Structlog log fields lost to event text, positional arguments, or a discarded logger."""
 
 from mypy.nodes import ArgKind, CallExpr, Expression, ExpressionStmt, MemberExpr, OpExpr, RefExpr
 from mypy.types import get_proper_type, Instance, Type
-from refurb.checks.common import get_mypy_type
+from refurb.checks.common import get_mypy_type, stringify
 from refurb.error import Error
 import structlog
 from structlog.stdlib import AsyncBoundLogger
@@ -12,9 +12,7 @@ from structlog.typing import BindableLogger, FilteringBoundLogger
 
 
 class ErrorLostLogFieldError(Error):
-    """A value formatted into a log event or bound to a discarded logger reaches no renderer as a field.
-
-    structlog renders the event string as the message and each keyword argument as a field, interpolating positional arguments into the event text first:
+    """Structlog value formatted into event text, passed as a positional argument, or bound to a discarded logger.
 
     Bad:
 
@@ -41,7 +39,7 @@ class ErrorLostLogFieldError(Error):
 
 
 def check(node: CallExpr | ExpressionStmt, errors: list[Error]) -> None:
-    """Reports each structlog call formatting values into its event, passing positional values, or discarding a bound logger."""
+    """Reports each structlog call that loses a log field."""
     loggers = tuple(f"{owner.__module__}.{owner.__qualname__}" for owner in (FilteringBoundLogger, BindableLogger, structlog.BoundLoggerBase, AsyncBoundLogger))
     factories = frozenset(f"{factory.__module__}.{factory.__qualname__}" for factory in (structlog.get_logger, structlog.stdlib.get_logger, structlog.wrap_logger))
     binders = frozenset({"bind", "new", "unbind", "try_unbind"})
@@ -80,11 +78,11 @@ def check(node: CallExpr | ExpressionStmt, errors: list[Error]) -> None:
                 if len(positional) > events[name]
                 else next((argument for argument, argument_name in zip(node.args, node.arg_names) if argument_name == "event"), None)
             ) is not None and formatted(event):
-                errors.append(ErrorLostLogFieldError.from_node(event, f"`{name}` formats values into its event, name the event and pass each value as a keyword field"))
+                errors.append(ErrorLostLogFieldError.from_node(event, f"`{stringify(callee)}` formats values into its event, pass each as a keyword argument"))
             if len(positional) > events[name] + 1:
-                errors.append(ErrorLostLogFieldError.from_node(callee, f"`{name}` takes positional values structlog interpolates into its event, pass each value as a keyword field"))
-        case ExpressionStmt(expr=CallExpr(callee=MemberExpr(name=name, expr=receiver))) if name in binders and logger(receiver):
-            errors.append(ErrorLostLogFieldError.from_node(node, f"`{name}` binds fields to a logger nothing reads, log through the returned logger"))
+                errors.append(ErrorLostLogFieldError.from_node(callee, f"`{stringify(callee)}` passes positional arguments into its event, pass each as a keyword argument"))
+        case ExpressionStmt(expr=CallExpr(callee=MemberExpr(name=name, expr=receiver) as callee)) if name in binders and logger(receiver):
+            errors.append(ErrorLostLogFieldError.from_node(node, f"`{stringify(callee)}` returns a new logger the statement discards, assign it and log through it"))
         case _:
             pass
 

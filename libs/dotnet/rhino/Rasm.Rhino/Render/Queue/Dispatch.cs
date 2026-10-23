@@ -47,15 +47,15 @@ public sealed record FlamencoSettingRows(
     public static FlamencoSettingRows Default { get; } = new(
         Manager: new(new ValueKey<Uri, string>("FlamencoManager", "Manager", "Flamenco Manager address", new Uri("http://localhost:8080"),
             new StateParameter<Uri>.Opaque<Uri>(Lens.identity<Uri>()), Address, static value => value.AbsoluteUri, Address), SettingType.String),
-        Scripts: new(new ValueKey<Option<string>, string>("FlamencoScripts", "Scripts folder", "Manager scripts folder the install action writes to; empty for none", None,
+        Scripts: new(new ValueKey<Option<string>, string>("FlamencoScripts", "Scripts folder", "Manager scripts folder for Rhino job compiler, empty for none", None,
             new StateParameter<Option<string>>.Opaque<Option<string>>(Lens.identity<Option<string>>()), static text => Conversions.Present(text), Conversions.Unset,
             static text => Conversions.Present(text)), SettingType.String),
-        WorkerPlatform: new(new ValueKey<OSPlatform, string>("FlamencoWorkerPlatform", "Worker platform", "Operating system of selected Rhino workers; use a matching worker tag for mixed platforms",
+        WorkerPlatform: new(new ValueKey<OSPlatform, string>("FlamencoWorkerPlatform", "Worker platform", "Rhino worker operating system, mixed farms need matching worker tag",
             Default: OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.OSX,
             new StateParameter<OSPlatform>.Opaque<OSPlatform>(Lens.identity<OSPlatform>()), Platform, static value => value.ToString(), Platform), SettingType.String),
         Priority: new(ValueKey.Numeric("FlamencoPriority", "Priority", "Priority of submitted Flamenco jobs", 50,
             new NumericDomain<int, int>(Fin.Succ, identity, (1, 100), new() { Form = NumberForm.Field })), SettingType.Integer),
-        WorkerTag: new(new ValueKey<Option<Guid>, string>("FlamencoWorkerTag", "Worker tag", "Tag selecting workers with the chosen platform; empty allows any eligible Rhino worker", None,
+        WorkerTag: new(new ValueKey<Option<Guid>, string>("FlamencoWorkerTag", "Worker tag", "Tag selecting workers of chosen platform, empty for any Rhino worker", None,
             new StateParameter<Option<Guid>>.Opaque<Option<Guid>>(Lens.identity<Option<Guid>>()), Tag, static value => Conversions.Unset(value.Map(StoredText.Format)), Tag), SettingType.String));
 
     public Seq<PlugInSetting> Rows => [Manager, Scripts, WorkerPlatform, Priority, WorkerTag];
@@ -73,7 +73,7 @@ public sealed record FlamencoSettingRows(
                 Text(WorkerTag, RowRules.Always),
                 SectionRows.Pushed(new CommandRow.Run(
                     new CommandFace(nameof(Dispatch.InstallFlamencoCompiler), "Install Flamenco job type",
-                        "Write the Rhino job compiler to the configured Manager scripts folder", None, None) { Wording = Wording.Library },
+                        "Write Rhino job compiler to Manager scripts folder", None, None) { Wording = Wording.Library },
                     Some(RowRule.When(folder.Source, static held => held.IsSome, folder.Field.Parameter)),
                     scope => IO.lift(() => ((IPlugInViews)scope.Sink).Settings.Current(Scripts).Bind(held => held.ToFin(new Refused(Scripts.Value.Name, Refused.Absent))))
                         .Bind(Dispatch.InstallFlamencoCompiler))),
@@ -96,7 +96,7 @@ public sealed record FlamencoSettingRows(
             : Error.New(ErrorCodes.ValidationFailed, $"{text} is no absolute http or https address");
 
     private static Fin<OSPlatform> Platform(string text) =>
-        Conversions.Present(text).Map(OSPlatform.Create).ToFin(Error.New(ErrorCodes.ValidationFailed, "worker platform is blank"));
+        Conversions.Present(text).Map(OSPlatform.Create).ToFin(Error.New(ErrorCodes.ValidationFailed, "Worker platform is empty"));
 
     private static Fin<Option<Guid>> Tag(string text) => Conversions.Present(text).Traverse(StoredText.Parse<Guid>).As();
 }
@@ -215,7 +215,7 @@ internal static class JobMapper {
     // --- [INBOUND]
     internal static IO<RenderBatch> FromJob(RhinoDoc doc, QueueJob job) =>
         Callbacks.Each(toSeq(job.Entries).Map((entry, index) => Entry(doc, entry).MapFail(error =>
-                Error.New(string.Create(CultureInfo.InvariantCulture, $"Render queue job entry {index} holds a rejected value"), error))))
+                Error.New(string.Create(CultureInfo.InvariantCulture, $"Render queue job entry {index} is invalid"), error))))
             .Bind(static entries => IO.lift(QueuePlan.Unique(entries)))
             .Bind(entries => Queues.Placed(doc, entries, overwrite: true));
 
@@ -339,7 +339,7 @@ public static class Dispatch {
                 /runscript="{script}"
                 """,
             }
-            : Error.New($"Rhino farm workers do not run on {platform}");
+            : Error.New($"Rhino farm workers run on macOS or Windows, not {platform}");
 
     public static IO<bool> FarmStartup(string farmScript) =>
         IO.lift(() => {
@@ -367,11 +367,11 @@ public static class Dispatch {
                 return response.StatusCode is HttpStatusCode.OK
                     ? Refused.UnlessFound(await response.Content.ReadFromJsonAsync(FlamencoContext.Default.FlamencoReceipt, environment.Token).ConfigureAwait(false), nameof(HttpContentJsonExtensions.ReadFromJsonAsync))
                         .Map(receipt => new Uri(farm.Manager, $"/jobs/{receipt.Id:D}"))
-                    : Error.New($"Flamenco refused the render job with {response.StatusCode}");
+                    : Error.New($"Flamenco refused render job with {response.StatusCode}");
             })
             from received in IO.lift(submitted)
             select received)
-            .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(Error.New($"{farm.Manager} received no render job", error)));
+            .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(Error.New($"Render job post to {farm.Manager} failed", error)));
 
     // --- [PACKAGE]
     private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, Destination package, LocalDateTime stamp) =>
@@ -423,7 +423,7 @@ public static class Dispatch {
 
     public static IO<ForkIO<Unit>> Job(QueueContext context) =>
         JobVariable(context) switch {
-            var variable => IO.lift(() => Conversions.Present(Environment.GetEnvironmentVariable(variable)).ToFin(Error.New($"{variable} names no render queue job")))
+            var variable => IO.lift(() => Conversions.Present(Environment.GetEnvironmentVariable(variable)).ToFin(Error.New($"Environment variable {variable} is empty or unset")))
                 .Bind(path => DisposalOps.Fork(Launched(context, nameof(Job), Run(context, path)), context.Retain)),
         };
 
@@ -477,5 +477,5 @@ public sealed class QueueFarmJobCommand(IPlugInSink sink, Guid id, string englis
               from session in IO.lift(() => PlugInSession.Of(site.Sink))
               from ran in Dispatch.FarmJob(context, doc, session.Close)
               select ran
-            : IO.fail<Unit>(Error.New("A dedicated Rhino farm process runs the scripted job command"));
+            : IO.fail<Unit>(Error.New("Farm job command runs only scripted in Rhino farm process"));
 }

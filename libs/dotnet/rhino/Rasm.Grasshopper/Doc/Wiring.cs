@@ -14,7 +14,7 @@ public static class Wiring {
         target.Inputs.Forwards.Contains(source.InstanceId) && source.Outputs.Forwards.Contains(target.InstanceId);
 
     private static Fin<Unit> Existing(IParameter source, IParameter target) =>
-        Connected(source, target) ? unit : Error.New($"wire from {source.InstanceId} to {target.InstanceId} is not connected");
+        Connected(source, target) ? unit : Error.New($"no wire from {source.InstanceId} to {target.InstanceId}");
 
     private static Fin<Unit> Valid(IParameter source, IParameter target) =>
         source != target
@@ -22,10 +22,10 @@ public static class Wiring {
         && target is { Kind: not Kind.Output, Attributes: not IParameterAttributes { HasInlet: false } }
         && target.Document == document
             ? unit
-            : Error.New($"wire from {source.InstanceId} to {target.InstanceId} is not a valid wire");
+            : Error.New($"parameter {source.InstanceId} cannot wire to {target.InstanceId}");
 
     private static Fin<Unit> Created(IParameter source, IParameter target) =>
-        Valid(source, target).Bind(_ => Connected(source, target) ? Error.New($"wire from {source.InstanceId} to {target.InstanceId} is already connected") : Fin.Succ(unit));
+        Valid(source, target).Bind(_ => Connected(source, target) ? Error.New($"wire from {source.InstanceId} to {target.InstanceId} exists") : Fin.Succ(unit));
 
     // --- [CONNECTIONS]
     public static IO<Unit> Connect(IParameter source, IParameter target, Option<(int AtSource, int AtTarget)> order, ActionList undo) =>

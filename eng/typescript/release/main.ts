@@ -11,7 +11,7 @@ import { stdout } from '#/eng/typescript/process';
 
 class UncommittedChanges extends Schema.TaggedError<UncommittedChanges, { readonly brand: unique symbol }>()('UncommittedChanges', { paths: Schema.NonEmptyArray(Schema.String) }) {
     override get message(): string {
-        return `Release packs the tagged commit while ${this.paths.join(', ')} hold uncommitted changes`;
+        return `Uncommitted changes in ${this.paths.join(', ')}, commit before release`;
     }
 }
 

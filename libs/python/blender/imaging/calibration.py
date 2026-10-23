@@ -1,4 +1,4 @@
-"""Published chart references, perspective sampling, and least-squares color calibration."""
+"""Chart references, perspective sampling, and least-squares color calibration."""
 
 from collections.abc import Callable
 from fractions import Fraction
@@ -26,7 +26,7 @@ from blender.imaging.parameters import Choice, Gated, Rgb
 
 
 class Chart(Choice):
-    """Published chart models with persistent menu identities."""
+    """Published color charts."""
 
     COLORCHECKER_CLASSIC = 1, "ColorChecker Classic"
     SPYDERCHECKR_24 = 2, "SpyderCheckr 24"
@@ -40,7 +40,7 @@ type Finding = Mirrored | Skewed | Wide | Clipped
 
 
 class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Native chart data with the patch selected for neutral normalization."""
+    """Chart data with neutral patch index."""
 
     checker: ColourChecker
     neutral: int
@@ -93,11 +93,11 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @property
     def shape(self) -> npt.NDArray[np.int64]:
-        """Patch columns and rows in the provider's grid."""
+        """Patch columns and rows of chart grid."""
         return np.array((self.checker.columns, self.checker.rows), dtype=np.int64)
 
     def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> ImagingResult[tuple[Rgb[float], ...]]:
-        """Returns adapted RGB values in a configured colorspace, or typed OCIO refusals."""
+        """Returns white-adapted patch RGB in `colorspace`, or color faults."""
         coordinates = np.array(tuple(self.checker.data.values()), dtype=np.float64)
         illuminant = np.asarray(self.checker.illuminant, dtype=np.float64)
         white = np.append(illuminant, 1.0 - illuminant.sum()) / illuminant[1]
@@ -117,32 +117,32 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Mirrored(msgspec.Struct, frozen=True, kw_only=True):
-    """Chart whose corner order reverses the printed grid."""
+    """Corner order reversing printed grid."""
 
     area: Fraction
 
 
 class Skewed(msgspec.Struct, frozen=True, kw_only=True):
-    """Corner angles outside the caller's sampling policy."""
+    """Corner angles outside sampling limits."""
 
     narrowest: float
     widest: float
 
 
 class Wide(msgspec.Struct, frozen=True, kw_only=True):
-    """Panorama view exceeding the caller's field-of-view policy."""
+    """Panorama view wider than field-of-view limit."""
 
     field_of_view: float
 
 
 class Clipped(msgspec.Struct, frozen=True, kw_only=True):
-    """Printed patch indices whose footprints extend beyond a clipped source axis."""
+    """Patch indices with footprints past clipped source edge."""
 
     patches: tuple[int, ...]
 
 
 class Limits(msgspec.Struct, frozen=True, kw_only=True):
-    """Corner angle and panorama span policies for sampling confirmation."""
+    """Corner angle and panorama field-of-view limits."""
 
     narrowest: float = math.radians(60.0)
     widest: float = math.radians(120.0)
@@ -150,7 +150,7 @@ class Limits(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
-    """Chart corners, patch coverage, and an optional panorama alignment view."""
+    """Chart corners, patch size, and panorama alignment view."""
 
     chart: Chart = Chart.COLORCHECKER_CLASSIC
     quad: Annotated[Quad, msgspec.Meta(title="Corners")] = Quad()
@@ -168,12 +168,12 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def extension(self) -> tuple[Extension, Extension]:
-        """Source extension rules for direct or panorama sampling."""
+        """Source edge rules for direct or panorama sampling."""
         return self.panorama.value.source.extension if self.panorama.enabled else (Extension.CLIP, Extension.CLIP)
 
     @property
     def aligned(self) -> Option[Homography]:
-        """Convex chart map in the alignment frame, absent for undefined corners."""
+        """Convex chart map in alignment frame, absent for undefined corners."""
         return (
             Some(self.panorama.value.to_view(self.quad.samples)).filter(lambda viewed: bool(np.all(viewed[:, 2] > 0.0))).bind(lambda viewed: Homography.of(Quad.of(viewed)))
             if self.panorama.enabled
@@ -181,11 +181,11 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def mapping(self, homography: Homography) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
-        """Returns the chart-to-source map for an aligned homography."""
+        """Returns chart-to-source map for aligned homography."""
         return (lambda samples: self.panorama.value.to_panorama(homography.to_image(samples))) if self.panorama.enabled else homography.to_image
 
     def findings(self, aspect: float, limits: Limits) -> Option[tuple[Finding, ...]]:
-        """Returns confirmation findings, or absence when the chart cannot align."""
+        """Returns placement findings, or absence when chart cannot align."""
         view = self.panorama.value.view
         clip = np.array([axis is Extension.CLIP for axis in self.extension])
 
@@ -215,7 +215,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
         return self.aligned.map(listed)
 
     def means(self, plane: npt.NDArray[np.float32]) -> ImagingResult[Option[tuple[Rgb[float], ...]]]:
-        """Returns alpha-weighted patch means from one warp, or alignment absence or buffer refusals."""
+        """Returns alpha-weighted patch means, or absence when chart cannot align."""
         shape, channels = ChartReference.of(self.chart).shape, plane.shape[2]
         repeat = np.array([axis is Extension.REPEAT for axis in self.extension])
 
@@ -243,7 +243,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
         return self.aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(Nothing))
 
     def framed(self, share: float) -> Option[Self]:
-        """Returns a panorama placement framed around its corners, or absence for an undefined view."""
+        """Returns placement with view framing its corners, or absence for undefined view."""
         return self.panorama.value.framing(self.quad, share).map(lambda view: msgspec.structs.replace(self, panorama=Gated(enabled=True, value=view)))
 
     def realigned(self, quad: Quad) -> Self:
@@ -255,7 +255,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class CalibrationFit[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Calibration pair and the distinct native source and fitted-matrix SVD answers."""
+    """Forward and inverse calibrations with sample and matrix singular values."""
 
     forward: T
     inverse: T
@@ -265,19 +265,19 @@ class CalibrationFit[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @property
     def condition_number(self) -> float:
-        """Fitted transform's amplification of relative sample error."""
+        """Relative error amplification of fitted matrix."""
         return float(self.matrix_singular_values[0] / self.matrix_singular_values[-1])
 
 
 class Calibration(msgspec.Struct, frozen=True, kw_only=True):
-    """Three output-channel rows of an RGB map and its factored exposure in stops."""
+    """Output-channel RGB rows with factored exposure in stops."""
 
     gained: tuple[Rgb[float], Rgb[float], Rgb[float]] = (Rgb(red=1.0, green=0.0, blue=0.0), Rgb(red=0.0, green=1.0, blue=0.0), Rgb(red=0.0, green=0.0, blue=1.0))
     exposure: float = 0.0
 
     @classmethod
     def fit(cls, samples: tuple[tuple[Rgb[float], Rgb[float]], ...]) -> ImagingResult[CalibrationFit[Self]]:
-        """Returns forward and inverse fits with native diagnostics, or rank and solver refusals."""
+        """Returns forward and inverse fits, or calibration and numeric faults."""
         source, target = np.unstack(np.array(samples, dtype=np.float64).reshape(-1, 2, 3), axis=1)
         try:
             solution, _, rank, source_values = np.linalg.lstsq(source, target)
@@ -300,7 +300,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     def normalized(
         self, source: Rgb[float], target: Rgb[float], config: PyOpenColorIO.Config, *, source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR, target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR
     ) -> ImagingResult[Option[Self]]:
-        """Factors each neutral's configured luminance ratio into exposure, or returns absence or OCIO refusals."""
+        """Returns calibration with neutral luminance ratio as exposure, or absence for nonpositive luminance."""
 
         def factored(built: tuple[PyOpenColorIO.Processor, PyOpenColorIO.Processor]) -> Option[Self]:
             source_luma, target_luma = (float(applied(op.getDefaultCPUProcessor(), np.array(sample, dtype=np.float32))[1]) for op, sample in zip(built, (source, target)))
@@ -310,14 +310,14 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def matrix(self) -> tuple[Rgb[float], Rgb[float], Rgb[float]]:
-        """RGB rows with the factored exposure removed."""
+        """RGB rows without factored exposure."""
         gain = math.exp2(-self.exposure)
         rows = tuple(Rgb(red=row.red * gain, green=row.green * gain, blue=row.blue * gain) for row in self.gained)
         return rows[0], rows[1], rows[2]
 
     @property
     def transform(self) -> PyOpenColorIO.MatrixTransform:
-        """Exact OCIO matrix transform of the complete map."""
+        """OCIO matrix transform with exposure."""
         return matrix(np.array(self.gained, dtype=np.float64))
 
 

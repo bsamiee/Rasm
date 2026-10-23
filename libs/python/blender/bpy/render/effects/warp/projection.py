@@ -1,4 +1,4 @@
-"""Centered mirror folds, polar maps, and covered panorama rays through native nodes."""
+"""Centered mirror folds, polar maps, and covered panorama rays."""
 
 from collections.abc import Mapping
 from math import pi
@@ -27,15 +27,15 @@ from blender.imaging.geometry.panoramas import CentralCylindrical, Equirectangul
 def mapped(
     key: Key, mode: Kaleidoscope | Tiling | Polar | PanoramaModes, frame: FrameSpace, parameters: Mapping[str, Operand], relative: Operand, lens: Operand
 ) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds one mode's source positions from its native field operands.
+    """Builds one mode's source positions from its field operands.
 
     Args:
-        key: Prefix of the mapping nodes.
-        mode: Projection case selecting the declared mathematical map.
+        key: Node key prefix.
+        mode: Projection case selecting declared map.
         frame: Output positions in the displayed camera frame.
-        parameters: Operands keyed by the case's native semantic field names.
+        parameters: Operands keyed by case field names.
         relative: Panorama-to-camera rotation without object scale.
-        lens: Actual camera projection matrix onto the processed image.
+        lens: Camera projection matrix onto processed image.
 
     Returns:
         Whole-image sampling positions with geometric coverage in Z.
@@ -286,13 +286,13 @@ def mapped(
 
 
 def projected(shell: Shell[Projection]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds every retained mode and samples the selected covered native map.
+    """Builds every projection mode and samples covered map of selected mode.
 
     Args:
-        shell: Accepted stack inputs, native case values, and menu metadata.
+        shell: Stack inputs, case values, and menu metadata.
 
     Returns:
-        Associated warped image or accumulated graph and native case faults.
+        Associated warped image or accumulated graph and case faults.
     """
     camera = node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).map(ended("camera", "Active Camera"))
     lens = camera.bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": camera}, {})).map(ended("lens", "Projection Matrix"))
@@ -373,7 +373,7 @@ def projected(shell: Shell[Projection]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def conditioned(effect: Projection) -> Condition:
-    """Requires a perspective camera for panorama mappings and accepts camera-free folds."""
+    """Requires perspective camera for panorama modes alone."""
     match effect.mode:
         case Kaleidoscope() | Tiling() | Polar():
             return AllOf(conditions=())
@@ -389,7 +389,7 @@ projection: CompositorEffect[Projection] = CompositorEffect(
     coverage=Coverage.RESULT,
     condition=Some(conditioned),
     requested=Some(precise),
-    registrables=(inspection(lambda: projection, "projection_uv", "Inspect Projection UV", "Shows the selected source positions and their coverage", lambda: End(node="uv", socket="Output")),),
+    registrables=(inspection(lambda: projection, "projection_uv", "View Projection UV", "Source positions and coverage of selected mode", lambda: End(node="uv", socket="Output")),),
 )
 
 

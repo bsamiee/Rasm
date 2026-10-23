@@ -69,7 +69,7 @@ enum AccountOperation: Equatable, Sendable {
         }
     }
 
-    var refusalDescription: String { "\(name), try again when it finishes" }
+    var refusalDescription: String { "\(name), retry after it finishes" }
 }
 
 enum RefreshTrigger: Equatable, Sendable {

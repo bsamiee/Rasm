@@ -252,5 +252,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $DO, rewriters: [result-point-free, result-case, result-typed-throws, result-identity, result-map-error-closure]}}
 fix: $FIXED
-message: '`do` returns, assigns, or passes `.failure` from `catch` to build a `Result` by hand'
-note: 'Write `Result { <try steps> }` (`await Result` for an awaiting step), `throws(<Failure>)` for a passing `catch`, else `.mapError` or `.flatMapError`'
+message: '`do` builds a `Result` by hand from a `.failure` its `catch` returns, assigns, or passes'
+note: 'Write `Result { <try steps> }` (`await Result` when a step awaits) with `throws(<Failure>)` for a passing `catch`, else `mapError` or `flatMapError`'

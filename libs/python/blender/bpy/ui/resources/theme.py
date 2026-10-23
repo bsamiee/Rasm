@@ -1,4 +1,4 @@
-"""Native region theme colors, widget states, and interface metrics."""
+"""Region and widget theme colors and interface metrics."""
 
 from collections.abc import Iterable
 from enum import auto, Flag
@@ -44,7 +44,7 @@ class Field(Flag):
 
 
 class Widget(msgspec.Struct, frozen=True, kw_only=True):
-    """Display colors and effective shade offsets of a widget state."""
+    """Display colors and shade offsets of widget state."""
 
     inner: Color
     outline: Color
@@ -55,7 +55,7 @@ class Widget(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Checker(msgspec.Struct, frozen=True, kw_only=True):
-    """Transparency checker colors and cell size in device pixels."""
+    """Transparency checker, cell size in device pixels."""
 
     primary: Color
     secondary: Color
@@ -75,7 +75,7 @@ class StyleSpacing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Metrics(msgspec.Struct, frozen=True, kw_only=True):
-    """Interface scale and pixel size with Blender's derived sizes, read from the running preferences."""
+    """Interface scale and pixel size with Blender's derived sizes."""
 
     scale: float
     pixel_size: int
@@ -86,14 +86,14 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls) -> Self:
-        """Reads interface scale and pixel size from running preferences."""
+        """Reads metrics from running preferences."""
         preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return cls(scale=preferences.system.ui_scale, pixel_size=int(preferences.system.pixel_size), preferences=preferences)
 
     # --- [SIZING]
 
     def scaled(self, value: float) -> np.float32:
-        """Multiplies a value by interface scale in native float32 precision."""
+        """Multiplies by interface scale in float32."""
         return np.float32(self.scale) * np.float32(value)
 
     @property
@@ -117,23 +117,23 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         return StyleSpacing(**{name: int(self.scaled(value)) for name, value in msgspec.structs.asdict(Metrics.unscaled).items()})
 
     def line(self, width: float) -> float:
-        """Line width in device pixels."""
+        """Returns device-pixel line width."""
         return max(1.0, float(np.float32(width) * self.pixel_size))
 
     # --- [STYLING]
 
     def text(self, style: bpy.types.ThemeFontStyle) -> float:
-        """Font size of a freshly read text style in device pixels."""
+        """Returns text style font size in device pixels."""
         return float(self.scaled(style.points))
 
     def checker(self) -> Checker:
-        """Reads transparency checker colors and device-pixel cell size."""
+        """Reads transparency checker."""
         ui = self.preferences.themes[0].user_interface
         return Checker(primary=color(ui.transparent_checker_primary), secondary=color(ui.transparent_checker_secondary), cell=ui.transparent_checker_size * self.pixel_size)
 
 
 class Theme(msgspec.Struct, frozen=True, kw_only=True):
-    """Native colors resolved for one region of one editor."""
+    """Theme colors of one editor region."""
 
     space: "rna_enums.SpaceTypeItems"
     region: "rna_enums.RegionTypeItems"
@@ -143,7 +143,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def editor(self) -> bpy.types.ThemeSpaceGeneric | bpy.types.ThemeSpaceGradient:
-        """Native theme space selected by the editor type, the 3D View's where the editor has no theme member."""
+        """Editor theme space, 3D View space when theme lacks one."""
         theme = self.preferences.themes[0]
         member = "preferences" if self.space == "PROJECT" else self.space.lower()
         match theme.path_resolve(f"{member}.space") if member in theme.bl_rna.properties else None:
@@ -154,7 +154,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def overlaps(self) -> bool:
-        """Whether the region draws over the window region."""
+        """Whether region draws over window region."""
         match self.space, self.region:
             case _, "HUD":
                 return True
@@ -171,7 +171,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def text(self) -> Color:
-        """Text color resolved by Blender's TH_TEXT rule."""
+        """Text color by Blender's TH_TEXT rule."""
         theme = self.preferences.themes[0]
         match self.space, self.region:
             case (_, "UI" | "TOOLS") | ("PROPERTIES" | "PREFERENCES" | "PROJECT", _):
@@ -183,13 +183,13 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def text_hi(self) -> Color:
-        """Highlighted text color resolved by Blender's TH_TEXT_HI rule."""
+        """Highlighted text color by Blender's TH_TEXT_HI rule."""
         regions = self.preferences.themes[0].regions
         return color(regions.channels.text_selected if self.region == "CHANNELS" else self.editor.text_hi)
 
     @property
     def back(self) -> Color:
-        """Unassociated display color of the region background."""
+        """Region background display color."""
         theme, space = self.preferences.themes[0], self.editor
         stored: mathutils.Color | bpy.types.bpy_prop_array
         match self.region:
@@ -217,7 +217,7 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) -> Color:
-    """Projects native RGB or RGBA channels into display RGBA."""
+    """Returns RGB or RGBA as display RGBA, alpha 1 when absent."""
     match values:
         case mathutils.Color():
             return (values.r, values.g, values.b, 1.0)
@@ -227,7 +227,7 @@ def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) 
 
 
 def widget(colors: bpy.types.ThemeWidgetColors, state: State = State.NONE, field: Field = Field.NONE) -> Widget:
-    """Derives native widget colors and shades for interface and property states."""
+    """Derives Blender's widget colors and shades for interface and property states."""
     ui = bpy.context.preferences.themes[0].user_interface  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     states = ui.wcol_state
     factor = 0.5 if State.INACTIVE in state else 1.0
@@ -237,7 +237,7 @@ def widget(colors: bpy.types.ThemeWidgetColors, state: State = State.NONE, field
     type Bytes = tuple[int, int, int, int]
 
     def byte(value: float | np.float32) -> int:
-        """Quantizes a unit float through Blender's float32 byte conversion."""
+        """Quantizes unit float by Blender's float32 byte rule."""
         channel = np.float32(value)
         return 0 if channel <= 0 else 255 if channel > np.float32(1) - np.float32(0.5) / 255 else int(channel * 255 + np.float32(0.5))
 
@@ -246,7 +246,7 @@ def widget(colors: bpy.types.ThemeWidgetColors, state: State = State.NONE, field
         return (54 * rgb[0] + 182 * rgb[1] + 19 * rgb[2]) // 255
 
     def hsl(rgba: Bytes, saturation: float, lightness: float) -> Bytes:
-        """Multiplies native HSL saturation and lightness while retaining alpha."""
+        """Scales HSL saturation and lightness, keeping alpha."""
         red, green, blue = (np.float32(channel) * reciprocal for channel in rgba[:3])
         high, low = max(red, green, blue), min(red, green, blue)
         light, delta = min(np.float32(1), (high + low) / 2), high - low
@@ -264,12 +264,12 @@ def widget(colors: bpy.types.ThemeWidgetColors, state: State = State.NONE, field
         return (red_byte, green_byte, blue_byte, rgba[3])
 
     def faded(values: mathutils.Color | bpy.types.bpy_prop_array) -> Bytes:
-        """Applies the inactive factor to native alpha bytes."""
+        """Converts to bytes, inactive factor scaling alpha."""
         red, green, blue, alpha = map(byte, color(values))
         return (red, green, blue, int(alpha * factor))
 
     def blend(a: Bytes, b: Iterable[int], f: float) -> Bytes:
-        """Blends RGB through Blender's float32 rule while retaining alpha."""
+        """Blends RGB through Blender's float32 rule, keeping alpha."""
         weight = np.float32(f)
         red, green, blue = (int((1 - weight) * x + weight * y) for x, y in zip(a[:3], b))
         return (red, green, blue, a[3])
@@ -282,7 +282,7 @@ def widget(colors: bpy.types.ThemeWidgetColors, state: State = State.NONE, field
         return (red, green, blue, item[3])
 
     def unit(rgba: Bytes) -> Color:
-        """Normalizes native bytes through Blender's float32 reciprocal."""
+        """Normalizes bytes by Blender's float32 reciprocal."""
         red, green, blue, alpha = (float(channel * reciprocal) for channel in rgba)
         return (red, green, blue, alpha)
 

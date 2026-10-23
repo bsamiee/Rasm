@@ -12,7 +12,7 @@ use crate::{bounds_of, cloned, expanded_externally, parameter_of, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(REDUNDANT_CLONE_IN_CLOSURE: "clones of a captured variable inside an `FnOnce` closure or async block, where nothing reads the variable after the closure");
+lint!(REDUNDANT_CLONE_IN_CLOSURE: "clones of a captured variable inside an `FnOnce` closure or async block with no later read");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -63,7 +63,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let once = matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(CoroutineDesugaring::Async, CoroutineSource::Block)))
             && (once || matches!(closure.kind, ClosureKind::Closure) && consumed_once(cx, expr))
         {
-            let body = &tcx.hir_body(closure.body).value;
+            let (body, capturing) = (&tcx.hir_body(closure.body).value, if once { "async block" } else { "closure" });
             let typeck = cx.typeck_results();
             let cloned = tcx.closure_captures(closure.def_id).iter().enumerate().filter_map(|(index, captured)| {
                 let variable = captured.get_root_variable();
@@ -90,8 +90,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 } else {
                     call.span
                 };
-                span_lint_hir_and_then(cx, REDUNDANT_CLONE_IN_CLOSURE, call.hir_id, call.span, format!("closure clones `{name}`, which nothing reads after the closure"), |diag| {
-                    suggest(cx, call.hir_id, diag, replaced, format!("move `{name}` into the closure"), removal, Applicability::MachineApplicable);
+                span_lint_hir_and_then(cx, REDUNDANT_CLONE_IN_CLOSURE, call.hir_id, call.span, format!("{capturing} clones `{name}` with no later read"), |diag| {
+                    suggest(cx, call.hir_id, diag, replaced, format!("move `{name}` into the {capturing}"), removal, Applicability::MachineApplicable);
                 });
             }
         }

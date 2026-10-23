@@ -1,4 +1,4 @@
-"""Native rendered discontinuities, painted regions, and continuous ink coverage."""
+"""Rendered discontinuities, painted regions, and continuous ink coverage."""
 
 from math import sqrt
 
@@ -24,7 +24,7 @@ from blender.imaging.parameters import Gated
 
 
 def read_ids(record: Edges) -> tuple[Entity, ...]:
-    """Returns the object and material identity terms enabled by the record."""
+    """Returns object and material ID terms the record enables."""
     return tuple(entity for entity, enabled in ((Entity.OBJECT, record.outer.value.objects), (Entity.MATERIAL, record.inner.value.materials)) if enabled)
 
 
@@ -33,11 +33,10 @@ def requested(record: Edges, layer: str) -> BlenderResult[PassRequest]:
 
     Args:
         record: Entry's rendered guide selection.
-        layer: Native view layer supplying the Render Layers node.
+        layer: View layer of Render Layers node.
 
     Returns:
-        Depth and normal request with selected identity passes, or accumulated
-        native descriptor faults.
+        Depth and normal request with selected ID passes, or accumulated descriptor faults.
     """
     entities = read_ids(record)
     flags = ("use_pass_normal", *(entity.flag if record.source is IdSource.CRYPTOMATTE else f"use_pass_{entity.name.lower()}_index" for entity in entities))
@@ -54,7 +53,7 @@ def requested(record: Edges, layer: str) -> BlenderResult[PassRequest]:
 
 
 def condition(record: Edges) -> Condition:
-    """Returns the camera requirement of world widths."""
+    """Returns camera requirement of world widths."""
     return camera_type("PERSP", "ORTHO") if any(isinstance(line.width, WorldWidth) for line in (record.outer.value, record.inner.value)) else AllOf(conditions=())
 
 
@@ -62,10 +61,10 @@ def outlined(shell: Shell[Edges]) -> BlenderResult[tuple[Fragment, End]]:
     """Builds painted regions, rendered guide cores, and nearest-width ink coverage.
 
     Args:
-        shell: Entry's image, native parameter endpoints, and retained graph fields.
+        shell: Entry image, parameter endpoints, and retained graph fields.
 
     Returns:
-        Inked associated color and its complete graph, or accumulated native graph faults.
+        Inked associated color and complete graph, or accumulated graph faults.
     """
     record, source, socket = shell.record, shell.source, shell.socket
     entities = read_ids(record)
@@ -306,7 +305,7 @@ edges: CompositorEffect[Edges] = CompositorEffect(
     coverage=Coverage.RESULT,
     requested=Some(requested),
     condition=Some(condition),
-    registrables=(inspection(lambda: edges, "lines", "Outline Mask", "Inspect the rendered line coverage", lambda: End(node="lines")),),
+    registrables=(inspection(lambda: edges, "lines", "View Lines", "Rendered line coverage", lambda: End(node="lines")),),
 )
 
 

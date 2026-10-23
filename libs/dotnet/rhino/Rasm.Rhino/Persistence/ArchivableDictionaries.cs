@@ -53,7 +53,7 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
                 None: static () => new StoredRecord<T>.Absent());
 
     public Error Refusal(ArchivableDictionary stored) =>
-        Error.New(string.Create(CultureInfo.InvariantCulture, $"record {Name} version {stored.Version} comes from a newer plug-in; version {Version} leaves it in place"));
+        Error.New(string.Create(CultureInfo.InvariantCulture, $"record {Name} version {stored.Version} exceeds readable {Version} and stays unchanged"));
 
     private static StoredRecord<T> Hold(T value) => new StoredRecord<T>.Held(value);
 }
@@ -122,7 +122,7 @@ public sealed class LanguageJsonConverterFactory : JsonConverterFactory {
     internal static IEnumerable<T> Ordered<T, TKey>(IEnumerable<T> items, Func<T, TKey> key) =>
         typeof(IComparable<TKey>).IsAssignableFrom(typeof(TKey)) ? items.OrderBy(key) : items;
 
-    internal static T Present<T>(T? value) where T : class => value ?? throw new JsonException($"null where a {typeof(T).Name} belongs");
+    internal static T Present<T>(T? value) where T : class => value ?? throw new JsonException($"null in place of {typeof(T).Name}");
 }
 
 public static class ArchivableDictionaries {
@@ -132,7 +132,7 @@ public static class ArchivableDictionaries {
 
     public static Fin<Option<T>> FindEnum<T>(ArchivableDictionary source, string key) where T : struct, Enum =>
         Find<string>(source, key).Bind(static text => text.Traverse(static held =>
-            Enum.TryParse(held, ignoreCase: true, out T value) ? Fin.Succ(value) : Errors.ParseError($"{held} reads as no {typeof(T).Name}")).As());
+            Enum.TryParse(held, ignoreCase: true, out T value) ? Fin.Succ(value) : Errors.ParseError($"{held} is no {typeof(T).Name}")).As());
 
     public static Fin<T> Required<T>(ArchivableDictionary source, string key) where T : notnull =>
         from found in Find<T>(source, key)
@@ -234,7 +234,7 @@ public static class ArchivableDictionaries {
 }
 
 public static class DictionaryCodec {
-    private const string Payload = "Json";
+    private const string JsonKey = "Json";
 
     public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Strict) {
         TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
@@ -247,10 +247,10 @@ public static class DictionaryCodec {
             static value =>
                 from bytes in Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(value, Options)).Run()
                 let target = new ArchivableDictionary()
-                from written in ArchivableDictionaries.Set<IEnumerable<byte>>(target, Payload, bytes)
+                from written in ArchivableDictionaries.Set<IEnumerable<byte>>(target, JsonKey, bytes)
                 select target,
             stored =>
-                from bytes in ArchivableDictionaries.Required<byte[]>(stored, Payload)
+                from bytes in ArchivableDictionaries.Required<byte[]>(stored, JsonKey)
                 from read in Try.lift(() => JsonSerializer.Deserialize<T>(bytes, Options)).Run()
                     .MapFail(error => error.HasException<JsonException>() ? Error.New(ErrorCodes.ParseError, $"stored {name} is unreadable", error) : error)
                 from value in Optional(read).ToFin(Errors.ParseError($"stored {name} is null"))

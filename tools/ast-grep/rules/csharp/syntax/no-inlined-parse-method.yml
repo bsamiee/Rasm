@@ -12,7 +12,7 @@ transform:
     WRAPPED: {replace: {source: $ARGUMENT, replace: '^((?s).*)$', by: '($1)'}}
 fix: $OWNER$WRAPPED
 labels:
-    PARSE: {style: primary, message: Parse the method states}
+    PARSE: {style: primary, message: Inlined parse}
     OWNER: {style: secondary, message: Method whose body is the parse}
 message: '`$PARSE` repeats the body of `$OWNER`'
-note: Call the method whose body is the parse
+note: 'Call `<owner>(<argument>)`'

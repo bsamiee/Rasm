@@ -26,7 +26,7 @@ public sealed partial class PresetName {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed && !trimmed.AsSpan().ContainsAny(Reserved)
             ? (trimmed, default(ValidationError?))
-            : (value, new ValidationError("preset name is blank or holds a character a file name refuses"));
+            : (value, new ValidationError("preset name is blank or holds invalid file name character"));
 }
 
 public sealed record Preset(PresetName Name, Fin<ValueSet> Values) {
@@ -163,7 +163,7 @@ public sealed class PresetBinding {
                 .ToSeq());
 
     public static ControlRow Browser(Func<RowScope, IO<PresetBinding>> bindings) =>
-        ListRows.Browser("Presets", "Presets of this section's values", new BrowserRow<Preset, PresetName>(
+        ListRows.Browser("Presets", "Stock looks and saved presets", new BrowserRow<Preset, PresetName>(
                 Key: static preset => preset.Name,
                 Label: static (scope, preset) => preset.Caption(scope.Sink),
                 Tile: static (scope, view, preset, box, retain) =>
@@ -195,19 +195,19 @@ public sealed class PresetBinding {
                 select previewed),
             Reloads = Seq(RenderHistory.Changed, EventKind.DocumentPropertiesChanged.Choose(static _ => Some(unit))),
             Commands = selection => [
-                Run("preset-save", "Save Preset...", "Save the section's values as a preset",
+                Run("preset-save", "Save Preset...", "Save section values as preset",
                     scope => from binding in bindings(scope) from current in binding.Current from saved in binding.Saved(current) select saved),
-                Run("preset-replace", "Replace Preset", "Write the section's values over the selected presets",
+                Run("preset-replace", "Replace Preset", "Write section values over selected presets",
                     scope => from binding in bindings(scope) from chosen in selection from replaced in Callbacks.Each(chosen.Map(binding.Replaced)) select unit),
-                Run("preset-import", "Import Presets...", "Copy preset files into this section's presets",
+                Run("preset-import", "Import Presets...", "Copy preset files into section presets",
                     scope => bindings(scope).Bind(static binding => binding.Imported)),
-                Run("preset-export", "Export Presets...", "Write each selected preset to a file",
+                Run("preset-export", "Export Presets...", "Write each selected preset to file",
                     _ => from chosen in selection from exported in chosen.TraverseM(Exported).As() select unit),
-                Run("preset-delete", "Delete Presets", "Delete the selected user presets",
+                Run("preset-delete", "Delete Presets", "Delete selected user presets",
                     _ => from chosen in selection from deleted in Callbacks.Each(chosen.Map(Delete)) select unit),
-                Run("preset-previous", "Previous Preset", "Apply the preset listed before the current one",
+                Run("preset-previous", "Previous Preset", "Apply preset listed before current",
                     scope => bindings(scope).Bind(static binding => binding.Stepped(forward: false)).Map(unit)),
-                Run("preset-next", "Next Preset", "Apply the preset listed after the current one",
+                Run("preset-next", "Next Preset", "Apply preset listed after current",
                     scope => bindings(scope).Bind(static binding => binding.Stepped(forward: true)).Map(unit)),
             ],
             Wording = Wording.Library,
@@ -244,7 +244,7 @@ public sealed class PresetBinding {
         select saved;
 
     private IO<Unit> Replaced(Preset preset) =>
-        from answer in HostDialogs.ShowMessage(scope.Document, RowText.Localize("Replace the preset of this name with the section's values?"), RowText.Localize("Replace Preset"),
+        from answer in HostDialogs.ShowMessage(scope.Document, RowText.Localize("Replace preset {0} with section values?", arguments: [(string)preset.Name]), RowText.Localize("Replace Preset"),
             ShowMessageButton.YesNo, ShowMessageIcon.Question, ShowMessageDefaultButton.Button2, ShowMessageOptions.None, ShowMessageMode.ApplicationModal)
         from confirmed in IO.lift(guard(answer is ShowMessageResult.Yes, Errors.Cancelled).ToFin())
         from replaced in Replace(preset)

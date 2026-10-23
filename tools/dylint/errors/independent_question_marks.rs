@@ -58,7 +58,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         .any(|expr| for_each_expr_without_closures(expr, |part| if joins(part, first_binding, second_binding) { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }).is_some()))
                 .then(|| (node, first.span.to(second.span), first_name, second_name))
             })
-            .for_each(|(node, span, first_name, second_name)| report(cx, node, span, first_name, second_name));
+            .for_each(|(node, span, first_name, second_name)| report(cx, node, span, first_name, second_name, combined(2)));
     }
 
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -77,10 +77,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             operands(combined).filter(|&operand| !any_expr(cx.tcx, operand, mutates)).filter_map(|operand| for_each_expr_without_closures(operand, question)).collect::<Vec<_>>()
         };
         if !expanded_externally(cx, expr.span)
-            && let &[first, second, ..] = &tried(expr)
+            && let results = tried(expr)
+            && let &[first, second, ..] = results.as_slice()
             && get_parent_expr(cx, expr).is_none_or(|parent| tried(parent).len() < 2)
         {
-            report(cx, expr.hir_id, first.span.source_callsite().to(second.span.source_callsite()), snippet(cx, first.span.source_callsite(), ".."), snippet(cx, second.span.source_callsite(), ".."));
+            let help = if let ExprKind::Array(_) = expr.kind { String::from("collect the results into `validated::Validated<Vec<_>, _>` and call `.ok()`") } else { combined(results.len()) };
+            report(
+                cx,
+                expr.hir_id,
+                first.span.source_callsite().to(second.span.source_callsite()),
+                snippet(cx, first.span.source_callsite(), ".."),
+                snippet(cx, second.span.source_callsite(), ".."),
+                help,
+            );
         }
     }
 }
@@ -98,8 +107,15 @@ fn operands<'tcx>(expr: &'tcx Expr<'tcx>) -> impl Iterator<Item = &'tcx Expr<'tc
     iter::chain(head, rest).chain(fields.iter().map(|field| field.expr))
 }
 
-fn report(cx: &LateContext<'_>, node: HirId, span: Span, first: impl Display, second: impl Display) {
+fn combined(results: usize) -> String {
+    match results {
+        2..=4 => format!("convert each result with `Validated::from`, combine them with `map{results}`, and call `.ok()`"),
+        _ => String::from("convert each result with `Validated::from`, combine them with nested `map2`..`map4` calls, and call `.ok()`"),
+    }
+}
+
+fn report(cx: &LateContext<'_>, node: HirId, span: Span, first: impl Display, second: impl Display, help: String) {
     span_lint_hir_and_then(cx, INDEPENDENT_QUESTION_MARKS, node, span, format!("`?` on `{first}` returns before independent `{second}` is computed"), |diag| {
-        diag.help("collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`");
+        diag.help(help);
     });
 }

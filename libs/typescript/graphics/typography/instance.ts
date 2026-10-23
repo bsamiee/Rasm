@@ -15,8 +15,8 @@ const InstanceRecords = Schema.Array(
     }),
 );
 const Instance = Schema.Struct({
-    variations: Settings(Variation, 'Variation setting in HarfBuzz syntax, tag=value, applied over the instance the selection names; tags the face lacks are ignored and values clamp to the axis'),
-    size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size; an opsz axis takes it over any opsz setting, clamped to its range' })),
+    variations: Settings(Variation, 'HarfBuzz tag=value over selected instance, clamped to axis range, absent axes ignored'),
+    size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })),
 });
 const Descriptor = Schema.TemplateLiteralParser([Schema.String.check(Schema.isStringFinite()).pipe(Schema.decodeTo(Schema.Finite, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform((value: number) => `${value}`.replace(LEADING_ZERO, '$<sign>.')) })), Tag]).pipe(
     Schema.decodeTo(Schema.Tuple([Schema.String, Schema.Finite]), { decode: SchemaGetter.transform(([value, tag]) => [tag, value] as const), encode: SchemaGetter.transform(([tag, value]) => [value, tag] as const) }),

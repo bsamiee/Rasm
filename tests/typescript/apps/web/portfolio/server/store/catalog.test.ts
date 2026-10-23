@@ -18,7 +18,7 @@ const hosted = Effect.gen(function* () {
 });
 
 beforeEach(reset);
-it.effect('rebuilds the hosted documents, assets, and owner tables and keeps their rows', () =>
+it.effect('rebuilds hosted documents, assets, and owner tables with rows intact', () =>
     Effect.gen(function* () {
         const sql = yield* SqlClient.SqlClient;
         assert.deepStrictEqual(yield* ownerUserId('studio@example.com'), Option.some('user'));

@@ -1,4 +1,4 @@
-"""Darkroom native extension registration."""
+"""Darkroom extension registration."""
 
 from pathlib import Path
 

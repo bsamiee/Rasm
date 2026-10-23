@@ -19,7 +19,7 @@ const program = Effect.fnUntraced(
             name,
             {
                 name,
-                description: 'Rasm is a polyglot monorepo with macOS-first development and portable code and tooling for Linux and Windows.',
+                description: 'macOS-first polyglot monorepo portable to Linux and Windows',
                 visibility: 'public',
                 topics: [],
                 hasIssues: true,
@@ -39,7 +39,7 @@ const program = Effect.fnUntraced(
             allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
             workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read', canApprovePullRequestReviews: false }).defaultWorkflowPermissions,
             labels: Record.map(
-                { bug: { color: 'd73a4a', description: "Something isn't working" }, enhancement: { color: 'a2eeef', description: 'New feature or request' } } satisfies Record.ReadonlyRecord<string, Omit<IssueLabelArgs, 'name' | 'repository'>>,
+                { bug: { color: 'd73a4a', description: 'Broken behavior' }, enhancement: { color: 'a2eeef', description: 'Feature request' } } satisfies Record.ReadonlyRecord<string, Omit<IssueLabelArgs, 'name' | 'repository'>>,
                 (args, label) => new IssueLabel(`${name}-${label}`, { ...args, name: label, repository }).name,
             ),
             releaseTags: new RepositoryRuleset(`${name}-release-tags`, {

@@ -1,4 +1,4 @@
-"""Exposure gain and a coverage-normalized bilateral local exposure graph."""
+"""Exposure gain and coverage-normalized bilateral local exposure graphs."""
 
 from collections.abc import Mapping
 from itertools import batched
@@ -28,7 +28,7 @@ from blender.imaging.faults import paired
 
 
 class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
-    """Exposure entry supplying the scene's absolute gain port."""
+    """Exposure entry supplying scene absolute gain."""
 
     gain: ClassVar[Socket] = Socket(
         key="exposure_gain",
@@ -42,16 +42,16 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
     )
 
     def keyed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, _record: Effect) -> BlenderResult[tuple[Animation, ...]]:
-        """Keys the opacity-weighted gain of later exposure entries."""
+        """Keys opacity-weighted gain of later exposure entries."""
         (stops,) = Exposure.__struct_fields__
         return keyed_product(identity, scene, entry, self.record, stops, self.gain.key, np.exp2)
 
     def stops(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[float]:
-        """Returns the earliest exposure, or zero when the scene has no gain entry."""
+        """Returns earliest exposure stops, zero without exposure entry."""
         return self.current(identity, scene).map(lambda held: held.map(lambda record: record.stops).default_value(0.0))
 
     def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[bool]:
-        """Writes absolute stops while retaining the entry's blend and masks, answering whether a native value changed."""
+        """Writes absolute stops, keeping blend and masks, answering whether any value changed."""
         entry: BlenderResult[bpy.types.SceneCompositorEffect] = Option.of_optional(next(iter(entries(identity, scene, self.record)), None)).to_result_with(
             lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=self.record.__name__),)
         )
@@ -64,13 +64,13 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
 
 
 def exposed(shell: Shell[Exposure]) -> BlenderResult[tuple[Fragment, End]]:
-    """Scales the entering RGB by two to the exposure stops, keeping alpha."""
+    """Scales stage input RGB by 2^stops, alpha unchanged."""
     (stops,) = Exposure.__struct_fields__
     return node("gain", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": shell.socket(stops)}, {}).map(ended("gain", "Image"))
 
 
 def localized(source: Operand, working: NodeGroup, frame: FrameSpace, highlights: Operand, shadows: Operand, clarity: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds local gain from straight luminance and common blurred coverage."""
+    """Builds local gain from straight luminance and shared blurred coverage."""
     (low, high), count, grey = LocalExposure.grid_range, LocalExposure.grid_slices, log2(GREY)
     pairs = tuple(enumerate(batched(range(count), 2)))
     alpha, base = End(node="channels", socket="Alpha"), End(node="base", socket="Result_Float")

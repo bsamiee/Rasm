@@ -4,7 +4,7 @@ import { render } from 'vitest-browser-react';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('focuses the element whose id needs escaping after the next frame', async () => {
+it('focuses element with ID that needs escaping after next frame', async () => {
     const id = 'entry:1 title';
     const screen = await render(<input aria-label="Title" id={id} />);
     focus(id);

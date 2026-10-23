@@ -1,4 +1,4 @@
-"""Scatter of scene light by lens bloom, diffraction, internal reflections, and film halation."""
+"""Lens bloom, diffraction, internal reflections, and film halation of scene light."""
 
 from collections.abc import Callable
 from fractions import Fraction
@@ -25,25 +25,25 @@ from blender.imaging.parameters import FrameLength, Gated, GraphForm, NonNegativ
 
 
 class Highlights(msgspec.Struct, frozen=True, kw_only=True):
-    """Continuous threshold key for internal reflections and film re-exposure."""
+    """Threshold key of internal reflections and film re-exposure."""
 
-    threshold: Annotated[NonNegative, msgspec.Meta(description="Scene-linear threshold entering the key")] = 1.0
-    smoothness: Annotated[Unit, msgspec.Meta(description="Knee easing light into the key")] = 0.1
+    threshold: Annotated[NonNegative, msgspec.Meta(description="Scene-linear key threshold")] = 1.0
+    smoothness: Annotated[Unit, msgspec.Meta(description="Key knee softness")] = 0.1
 
 
 class Pupil(msgspec.Struct, frozen=True, kw_only=True):
-    """Bladed iris whose spectral diffraction spreads every transmitted ray."""
+    """Bladed iris with spectral diffraction of every ray."""
 
     iris: Annotated[Aperture, msgspec.Meta(description="Blade outline and central obstruction")] = Aperture(blades=6, rotation=math.pi / 6.0, roundness=0.0)
-    squeeze: Annotated[float, msgspec.Meta(ge=1.0, le=2.0, description="Horizontal pupil compression producing anamorphic diffraction")] = 1.0
-    core: Annotated[FrameLength, msgspec.Meta(description="Airy radius at 550 nm as a share of the frame's greater side"), Presentation(soft=Some((0.0, 0.01)))] = 0.002
+    squeeze: Annotated[float, msgspec.Meta(ge=1.0, le=2.0, description="Anamorphic horizontal pupil compression")] = 1.0
+    core: Annotated[FrameLength, msgspec.Meta(description="Airy radius at 550 nm"), Presentation(soft=Some((0.0, 0.01)))] = 0.002
 
     @property
     def kernel(self) -> Option[Callable[[PyOpenColorIO.Config, tuple[int, int], tuple[int, int], float], ImagingResult[npt.NDArray[np.float32]]]]:
         """Spectral diffraction weights over every frame displacement, absent at zero core or a closed iris.
 
-        The computation takes the config holding the linear scene-RGB spectral basis, stored extent and camera frame extent as (height, width)
-        at one pixel scale, and displayed pixel width over height. It returns RGB weights of shape (2 * height - 1, 2 * width - 1, 3)
+        Callable takes config holding linear scene-RGB spectral basis, stored and camera frame extents as (height, width)
+        at one pixel scale, and displayed pixel width over height. Callable returns RGB weights of shape (2 * height - 1, 2 * width - 1, 3)
         with unit channel sums, or native color, numeric capacity, and allocation refusals.
         """
 
@@ -89,21 +89,20 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Specks(msgspec.Struct, frozen=True, kw_only=True):
-    """Seeded dirt coverage on a front lens element."""
+    """Seeded front-element dirt coverage."""
 
-    coverage: Annotated[float, msgspec.Meta(ge=0.01, le=1.0, description="Share of the lens covered by dirt")] = 0.2
-    scale: Annotated[float, msgspec.Meta(ge=0.001, le=0.5, description="Largest speck as a share of the frame's greater side"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.05
-    seed: Annotated[Seed, msgspec.Meta(description="Dirt pattern")] = 0
+    coverage: Annotated[float, msgspec.Meta(ge=0.01, le=1.0, description="Covered lens share")] = 0.2
+    scale: Annotated[float, msgspec.Meta(ge=0.001, le=0.5, description="Largest speck size"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.05
+    seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
 
     def field(self, size: tuple[int, int]) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Returns lens dirt at the consuming frame's extent.
+        """Returns lens dirt at frame extent.
 
         Args:
             size: Positive frame extent as (height, width).
 
         Returns:
-            Ok with float32 coverage, with zero denoting clean lens area.
-            Error retains the native allocation or dimension refusal.
+            `Ok` of float32 coverage zero on clean lens, or `Error` of native allocation or dimension refusal.
         """
 
         def computed() -> ImagingResult[npt.NDArray[np.float32]]:
@@ -118,20 +117,20 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Dirt(msgspec.Struct, frozen=True, kw_only=True):
-    """Front-element dirt scattering the bloom that reaches it."""
+    """Front-element dirt scattering bloom."""
 
-    strength: Annotated[float, msgspec.Meta(ge=0.0, le=5.0, description="Dirt light as a multiple of the bloom reaching it"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
+    strength: Annotated[float, msgspec.Meta(ge=0.0, le=5.0, description="Dirt light multiple of bloom"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
     specks: Annotated[Specks, msgspec.Meta(description="Lens dirt coverage"), GraphForm.IMAGE] = Specks()
 
 
 class Bloom(Effect, frozen=True, kw_only=True, tag=27):
-    """Whole-frame scatter toward a mip-chain mean, with dirt illuminated by that bloom."""
+    """Whole-frame scatter toward a mip-chain mean, lighting lens dirt."""
 
     stage = Stage.SCATTER
     pointwise = False
     scatter: Annotated[Unit, msgspec.Meta(description="Share of scene light spread into bloom"), Presentation(soft=Some((0.0, 0.25)))] = 0.7 * 0.15**1.5
-    size: Annotated[Unit, msgspec.Meta(description="Widest bloom level as a share of the frame's greater side"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.28125
-    dirt: Annotated[Gated[Dirt], msgspec.Meta(title="Lens Dirt", description="Front-element dirt illuminated by bloom")] = Gated(enabled=False, value=Dirt())
+    size: Annotated[Unit, msgspec.Meta(description="Widest bloom level"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.28125
+    dirt: Annotated[Gated[Dirt], msgspec.Meta(title="Lens Dirt", description="Bloom-lit front-element dirt")] = Gated(enabled=False, value=Dirt())
 
 
 class Glare(Effect, frozen=True, kw_only=True, tag=28):
@@ -142,17 +141,17 @@ class Glare(Effect, frozen=True, kw_only=True, tag=28):
     veil: Annotated[Gated[Annotated[Unit, msgspec.Meta(title="Size", description="Spread from a frame spanning 180 to 10 degrees")]], msgspec.Meta(description="Spencer photopic veiling glare")] = (
         Gated(enabled=True, value=0.5)
     )
-    aperture: Annotated[Gated[Annotated[Pupil, GraphForm.IMAGE]], msgspec.Meta(description="Spectral diffraction of the iris")] = Gated(enabled=False, value=Pupil())
+    aperture: Annotated[Gated[Annotated[Pupil, GraphForm.IMAGE]], msgspec.Meta(description="Iris spectral diffraction")] = Gated(enabled=False, value=Pupil())
 
 
 class Flares(Effect, frozen=True, kw_only=True, tag=29):
-    """Internal-reflection ghosts of highlights at signed scales through the frame center."""
+    """Internal-reflection highlight ghosts at signed scales through frame center."""
 
     stage = Stage.SCATTER
     pointwise = False
-    highlights: Annotated[Highlights, msgspec.Meta(description="Light forming internal reflections")] = Highlights()
-    strength: Annotated[NonNegative, msgspec.Meta(description="Ghost light as a multiple of highlights"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
-    iterations: Annotated[int, msgspec.Meta(ge=2, le=5, description="Two base ghosts and four per subsequent iteration")] = 3
+    highlights: Annotated[Highlights, msgspec.Meta(description="Light forming ghosts")] = Highlights()
+    strength: Annotated[NonNegative, msgspec.Meta(description="Ghost light multiple of highlights"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
+    iterations: Annotated[int, msgspec.Meta(ge=2, le=5, description="Two base ghosts, four more per iteration")] = 3
     color_modulation: Annotated[Unit, msgspec.Meta(description="Spectral modulation between ghost channels")] = 0.25
 
 
@@ -161,8 +160,8 @@ class Halation(Effect, frozen=True, kw_only=True, tag=30):
 
     stage = Stage.HALATION
     pointwise = False
-    highlights: Annotated[Highlights, msgspec.Meta(description="Light reaching the film base")] = Highlights(threshold=2.0, smoothness=1.0)
-    radius: Annotated[FrameLength, msgspec.Meta(description="Halo blur radius as a share of the frame's greater side"), Presentation(soft=Some((0.0, 0.03)))] = 64.0 * 0.2 / 1920.0
+    highlights: Annotated[Highlights, msgspec.Meta(description="Light reaching film base")] = Highlights(threshold=2.0, smoothness=1.0)
+    radius: Annotated[FrameLength, msgspec.Meta(description="Halo blur radius"), Presentation(soft=Some((0.0, 0.03)))] = 64.0 * 0.2 / 1920.0
     color: Annotated[Rgb, msgspec.Meta(description="Film re-exposure per channel")] = Rgb(red=1.0, green=0.1, blue=0.0)
 
 

@@ -1,4 +1,4 @@
-"""Source coordinates, coverage, and filtered sampling of image maps."""
+"""ST map baking and filtered warps."""
 
 from collections.abc import Callable
 import math
@@ -16,7 +16,7 @@ from blender.imaging.parameters import Choice, Positive
 
 
 class Extension(Choice):
-    """Sampling rule past a source edge."""
+    """Sampling rule past source edge."""
 
     CLIP = 1
     EXTEND = 2
@@ -28,7 +28,7 @@ class Extension(Choice):
 
 
 class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Source positions with coverage in both blue and alpha, rows top first."""
+    """Source positions with coverage in blue and alpha, rows top first."""
 
     plane: npt.NDArray[np.float32]
     extension: tuple[Extension, Extension]
@@ -43,7 +43,7 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         *,
         source_size: tuple[int, int],
     ) -> Self:
-        """Evaluates the mapping once and folds each axis at the source's texel centers."""
+        """Evaluates `mapping` once, folding each axis at source texel centers."""
 
         def folded(position: npt.NDArray[np.float64], size: int, mode: Extension) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
             center = 0.5 / size
@@ -65,7 +65,7 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return cls(plane=np.ascontiguousarray(np.stack((x[0], y[0], coverage, coverage), axis=-1), dtype=np.float32), extension=extension)
 
     def warp(self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: Positive = 2.0) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Warps with a native OIIO filter of positive full width, returning typed buffer refusals."""
+        """Returns `plane` warped through filter, weighted by coverage."""
 
         def padding(mode: Extension) -> Literal["constant", "edge", "wrap", "symmetric"]:
             match mode:

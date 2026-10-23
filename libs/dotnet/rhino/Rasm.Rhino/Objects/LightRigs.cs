@@ -149,7 +149,7 @@ public sealed record MatchedLook(
         double Luminance(System.Numerics.Vector3 color) =>
             Math.Max(LuminanceSamples.Luminance(color.X, color.Y, color.Z, reading.Gamut.Luminance), LuminanceSamples.Floor);
         return
-        from azimuth in Count > 0 ? Fin.Succ(reading.Direction.X * Math.PI / 2d) : Error.New(ErrorCodes.ValidationFailed, "matched look derives no light from a count of zero")
+        from azimuth in Count > 0 ? Fin.Succ(reading.Direction.X * Math.PI / 2d) : Error.New(ErrorCodes.ValidationFailed, "matched look needs lights")
         let elevation = reading.Direction.Y * Math.PI / 2d
         let size = reading.Hardness > 0f ? Math.Atan2(Softness * reading.Ratio, reading.Hardness) : (double)AngularDiameter.MaxValue
         let behind = reading.Backlit ? Math.PI : Math.IEEERemainder(azimuth + Math.PI, Math.Tau)

@@ -27,7 +27,7 @@ internal static class DngWriter {
 
     internal static Fin<Unit> Bounded(PixelExtent size) =>
         (DngSide.Validated(size.Width), DngSide.Validated(size.Height)).Apply(static (_, _) => unit).As()
-            .MapFail(error => Error.New($"frame {size} lies outside the DNG extent LibRaw reads", error));
+            .MapFail(error => Error.New($"Frame {size} lies outside DNG extent LibRaw reads", error));
 
     internal static IO<Unit> Write(StillFormat.Dng dng, FileMetadata metadata, FileStream stream) =>
         StillWriter.Scanlines(

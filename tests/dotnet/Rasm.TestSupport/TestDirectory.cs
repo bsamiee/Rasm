@@ -28,7 +28,7 @@ public sealed class TestDirectory : IDisposable {
             || string.Equals(remainder, "..", StringComparison.Ordinal)
             || remainder.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
         return escapes
-            ? throw new ArgumentOutOfRangeException(nameof(relativePath), relativePath, "test path must stay inside its test directory")
+            ? throw new ArgumentOutOfRangeException(nameof(relativePath), relativePath, "path escapes test directory")
             : resolved;
     }
 }

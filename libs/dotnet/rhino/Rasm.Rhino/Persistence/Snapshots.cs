@@ -15,7 +15,7 @@ namespace Rasm.Rhino.Persistence;
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class SnapshotName {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.AsSpan().ContainsAny('"', '\r', '\n') ? null : new ValidationError("snapshot name is empty or holds a quote or line break");
+        validationError = value.Length > 0 && !value.AsSpan().ContainsAny('"', '\r', '\n') ? null : new ValidationError("snapshot name is empty or holds quote or line break");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -88,7 +88,7 @@ public sealed record SnapshotState<TSubject, TState>(
             None: static () => IO.pure(Option<SnapshotFrames<TSubject>>.None));
 
     private IO<TState> Decoded(BinaryArchiveReader archive) =>
-        Stored(archive).Bind(found => IO.lift(found.ToFin(Error.New($"snapshot holds no {Codec.Name} record this plug-in reads"))));
+        Stored(archive).Bind(found => IO.lift(found.ToFin(Error.New($"snapshot holds no readable {Codec.Name} record"))));
 
     private IO<Option<TState>> Stored(BinaryArchiveReader archive) =>
         from positioned in IO.lift(() => Refused.Unless(archive.SeekFromStart(0UL), nameof(BinaryArchiveReader.SeekFromStart)))

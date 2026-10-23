@@ -1,4 +1,4 @@
-"""Layered documents written as a TIFF carrying Photoshop layer data."""
+"""Layered TIFF documents with Photoshop layer data."""
 
 import struct
 from typing import BinaryIO
@@ -25,7 +25,7 @@ type Layers[D: np.uint8 | np.uint16 | np.float32] = tuple[Raster[D] | Adjustment
 
 
 class Raster[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Pixel layer: unassociated color, alpha, an optional mask, and its blend."""
+    """Pixel layer in unassociated color with alpha."""
 
     name: str
     color: npt.NDArray[D]
@@ -37,7 +37,7 @@ class Raster[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, 
 
 
 class Adjustment[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Adjustment layer's rasterized stack result as unassociated color and alpha."""
+    """Adjustment layer as rasterized result in unassociated color."""
 
     name: str
     color: npt.NDArray[D]
@@ -46,7 +46,7 @@ class Adjustment[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=Tr
 
 
 class Group[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Layer group: its layers bottom first and its blend."""
+    """Layer group, layers bottom first."""
 
     name: str
     layers: Layers[D]
@@ -56,7 +56,7 @@ class Group[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, k
 
 
 class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Layers bottom first over the flattened composite, its colorspace, and its density in pixels per meter."""
+    """Layers bottom first and density in pixels per meter."""
 
     layers: Layers[D]
     composite: npt.NDArray[D]
@@ -64,14 +64,14 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
     density: float
 
     def written(self, path: str, config: PyOpenColorIO.Config) -> ImagingResult[str]:
-        """Writes the document as a layered TIFF tagged with its colorspace's ICC profile.
+        """Writes layered TIFF with colorspace ICC profile.
 
         Args:
             path: File to write.
             config: Config the colorspace resolves in.
 
         Returns:
-            The path; a `read` fault for profile IO, or a `write` fault holding the native file, Photoshop field, or TIFF representation error.
+            Path, `read` fault for profile IO, or `write` fault.
         """
         height, width = self.composite.shape[:2]
         canvas, void = psdtags.PsdRectangle(0, 0, height, width), psdtags.PsdRectangle(0, 0, 0, 0)

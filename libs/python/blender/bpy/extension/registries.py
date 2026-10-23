@@ -1,4 +1,4 @@
-"""Native translation tables, command-line commands, and Online Manual links."""
+"""Translations, CLI commands, and Online Manual links."""
 
 import base64
 from collections.abc import Callable, Generator
@@ -16,15 +16,15 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFau
 
 
 class Translations(msgspec.Struct, frozen=True, kw_only=True):
-    """English text translated under an extension's native registration key."""
+    """English text translations registered under extension package."""
 
     table: dict[str, dict[str, str]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds the table's registration acquisition.
+        """Builds table registration acquisition.
 
         Args:
-            identity: Extension whose package keys the translation table.
+            identity: Extension with package keying translation table.
 
         Returns:
             Ok of one registry acquisition.
@@ -33,13 +33,13 @@ class Translations(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def registered(self, identity: Identity) -> Generator[None]:
-        """Registers translated text under the native interface and operator contexts.
+        """Registers translations under default and operator contexts.
 
         Args:
-            identity: Extension whose package keys the translation table.
+            identity: Extension with package keying translation table.
 
         Yields:
-            None while the host holds the table.
+            None while Blender holds table.
         """
         contexts = bpy.app.translations.contexts
         bpy.app.translations.register(
@@ -60,38 +60,38 @@ class Translations(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
-    """Base64 JSON command with a typed decoder and trailing native arguments."""
+    """Command-line command with base64 JSON first argument."""
 
     key: Key
     decoder: msgspec.json.Decoder[A]
     run: Callable[[A, tuple[str, ...]], BlenderResult[object]]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Names the command and builds its registration acquisition.
+        """Builds named command acquisition.
 
         Args:
-            identity: Extension whose manifest ID prefixes the native command name.
+            identity: Extension with manifest ID prefixing command name.
 
         Returns:
-            Ok of one registry acquisition, or the refused generated name.
+            Ok of one registry acquisition, register fault for refused name.
         """
         return identity.name(Name.CLI, self.key).map(lambda command: ((Band.REGISTRIES, self.registered(identity, command)),))
 
     @contextmanager
     def registered(self, identity: Identity, command: str) -> Generator[BlenderResult[None] | None]:
-        """Registers a JSON command and releases its opaque native handle.
+        """Registers command, unregistering its handle at exit.
 
         Args:
-            identity: Extension whose reports hold decode and execution failures.
-            command: Name Blender exposes through its command-line command option.
+            identity: Extension with reports holding decode and run faults.
+            command: Name `blender --command` takes.
 
         Yields:
-            None while the host holds the command, or a register fault when Blender refuses its identifier.
+            None while Blender holds command, register fault for refused name.
         """
 
         @identity.reports.reported
         def executed(arguments: list[str]) -> BlenderResult[object]:
-            """Decodes the first argument and passes remaining arguments unchanged."""
+            """Decodes first argument, passing rest unchanged."""
             try:
                 document, *trailing = arguments
                 decoded = self.decoder.decode(base64.b64decode(document, validate=True))
@@ -112,16 +112,16 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ManualMap(msgspec.Struct, frozen=True, kw_only=True):
-    """Online Manual links derived from the extension's manifest and native operators."""
+    """Online Manual links from manifest website and extension operators."""
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Admits the manifest website and builds the manual hook acquisition.
+        """Builds manual hook acquisition over manifest website.
 
         Args:
-            identity: Extension whose website and generated names the hook consumes.
+            identity: Extension with website and generated names hook reads.
 
         Returns:
-            Ok of one registry acquisition, or an absent website fault.
+            Ok of one registry acquisition, or absent website fault.
         """
         return (
             Option
@@ -133,19 +133,19 @@ class ManualMap(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     @contextmanager
     def registered(identity: Identity, website: str) -> Generator[None]:
-        """Holds one manual hook over the extension's operators, groups, and attachments.
+        """Holds manual hook over extension operators, types, and properties.
 
         Args:
-            identity: Extension whose manifest ID prefixes every native name.
-            website: Manifest documentation prefix returned by the hook.
+            identity: Extension with manifest ID prefixing every generated name.
+            website: Documentation URL prefix hook returns.
 
         Yields:
-            None while the host holds the hook.
+            None while Blender holds hook.
         """
         category = identity.manifest.id.lower()
 
         def mapping() -> tuple[str, tuple[tuple[str, str], ...]]:
-            """Reads native operators when Blender requests a manual link."""
+            """Returns website with extension operator, type, and property patterns."""
             return website, (*((f"bpy.ops.{category}.{key}", f"#{key}") for key in dir(getattr(bpy.ops, category))), (f"bpy.types.{category}_*", ""), (f"bpy.types.*.{category}_*", ""))
 
         bpy.utils.register_manual_map(mapping)

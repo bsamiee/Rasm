@@ -48,5 +48,5 @@ rule:
         - matches: panic-hook
     not: {matches: rust-test-scope}
     inside: {kind: call_expression, field: function}
-message: '`$SITE` composes telemetry outside `rasm-telemetry`'
-note: 'Run the process entry under `rasm_telemetry::Options::run`, which installs the subscriber, `log` forwarding, exporters, propagator, and panic hook and flushes them when the work returns'
+message: '`$SITE` installs a subscriber, `LogTracer`, provider, propagator, or panic hook outside `rasm-telemetry`'
+note: 'Run the process entry through `rasm_telemetry::Options::run`'

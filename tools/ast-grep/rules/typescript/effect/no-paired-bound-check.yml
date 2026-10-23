@@ -59,4 +59,4 @@ rule:
                 - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigDecimal$'}}}
                 - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigDecimal$'}}}
 message: '`$LOWER` and `$UPPER` state one range of one schema as two checks'
-note: 'Call the `Schema.isBetween*` check of the same measure'
+note: 'Replace both with the `Schema.isBetween*` check of their measure, `Schema.isBetween` for numbers'

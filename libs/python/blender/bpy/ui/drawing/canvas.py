@@ -1,4 +1,4 @@
-"""Native drawing policy, region geometry, text, and cached GPU primitives."""
+"""Region draw state, text, and cached GPU primitives."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -19,7 +19,7 @@ from blender.bpy.ui.resources.theme import Color, Metrics, Theme
 
 
 class Align(Enum):
-    """Fraction of a label's width preceding its anchor."""
+    """Label width fraction before its anchor."""
 
     START = 0.0
     CENTER = 0.5
@@ -41,7 +41,7 @@ vec3 targeted(vec3 srgb) {
 
 
 class Rect(msgspec.Struct, frozen=True, kw_only=True):
-    """Axis-aligned rectangle measured from its lower left corner."""
+    """Axis-aligned rectangle from its lower-left corner."""
 
     x: float
     y: float
@@ -50,7 +50,7 @@ class Rect(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Shadow(msgspec.Struct, frozen=True, kw_only=True):
-    """Text shadow level, display color, and device-pixel offset."""
+    """Text shadow, offset in device pixels."""
 
     color: Color
     offset: tuple[float, float]
@@ -58,13 +58,13 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, style: bpy.types.ThemeFontStyle) -> Self:
-        """Reads a native font style's shadow."""
+        """Reads theme font style shadow."""
         gray = style.shadow_value
         return cls(level=style.shadow, color=(gray, gray, gray, style.shadow_alpha), offset=(style.shadow_offset_x, style.shadow_offset_y))
 
 
 class Canvas(msgspec.Struct, frozen=True, kw_only=True):
-    """Theme, metrics, visible region, pointer, and editor for one draw."""
+    """Draw state of one region."""
 
     theme: Theme
     metrics: Metrics
@@ -77,7 +77,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, area: bpy.types.Area, region: bpy.types.Region, pointer: Option[tuple[int, int]] = Nothing) -> Self:
-        """Reads the visible extent from Blender's stored region rectangles."""
+        """Reads region extent less overlapping siblings."""
         metrics = Metrics.read()
         left, bottom = region.x, region.y
         right, top = left + region.width - 1, bottom + region.height - 1
@@ -104,7 +104,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def drawn(self) -> Generator[Self]:
-        """Scopes both matrix stacks and restores the entering blend equation."""
+        """Scopes matrix stacks and alpha blending."""
         blend = gpu.state.blend_get()
         with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
             gpu.state.blend_set("ALPHA")
@@ -116,7 +116,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     @contextmanager
     def clipped(rect: Rect, *, view: Option[bpy.types.View2D] = Nothing) -> Generator[None]:
-        """Narrows the framebuffer scissor using pixel or native View2D coordinates."""
+        """Narrows scissor to a pixel or View2D rectangle."""
         corners = ((rect.x, rect.y), (rect.x + rect.width, rect.y + rect.height))
         match view:
             case Option(tag="some", some=region):
@@ -138,7 +138,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     # --- [PRIMITIVES]
 
     def lines(self, width: float) -> gpu.types.GPUShader:
-        """Binds native lines at the current viewport and device-pixel width."""
+        """Binds polyline shader at device-pixel width."""
         shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
         shader.bind()
         shader.uniform_float("viewportSize", gpu.state.viewport_get()[2:])
@@ -147,7 +147,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         return shader
 
     def points(self) -> gpu.types.GPUShader:
-        """Sets native raster and shader point diameters to the device pixel size."""
+        """Binds point shader at device pixel size."""
         shader = gpu.shader.from_builtin("POINT_FLAT_COLOR")
         size = float(self.metrics.pixel_size)
         gpu.state.point_size_set(size)
@@ -159,7 +159,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def label(
         text: str, at: tuple[float, float], color: Color, points: float, align: Align = Align.START, shadow: Option[Shadow] = Nothing, *, font: int = 0, translation_context: str | None = None
     ) -> None:
-        """Draws translated text through a caller-owned font, defaulting to the UI font."""
+        """Draws translated text, interface font by default."""
         blf.size(font, points)
         blf.color(font, *color)
         shown = bpy.app.translations.pgettext_iface(text, translation_context)
@@ -178,7 +178,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             blf.disable(font, blf.SHADOW)
 
     def frame(self, rect: Rect, fill: Color, edge: Color, radius: float) -> None:
-        """Draws an antialiased rounded frame with premultiplied composition."""
+        """Draws antialiased rounded frame."""
         shader, quad = rounded()
         shader.bind()
         box = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 16, (rect.x, rect.y, rect.width, rect.height, *fill, *edge, radius, self.metrics.line(1.0), 0.0, 0.0)))
@@ -192,7 +192,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def picture(texture: gpu.types.GPUTexture, rect: Rect, shader: gpu.types.GPUShader, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
-        """Draws a floating-point position/UV image shader under the caller's blend."""
+        """Draws texture under caller blend mode."""
         quad = textured()
         shader.bind()
         shader.uniform_sampler("image", texture)
@@ -207,7 +207,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Programs(msgspec.Struct, frozen=True):
-    """GPU programs compiled at first draw, released with the registration that draws them."""
+    """GPU programs compiled at first draw, released at unregister."""
 
     releases: ClassVar[list[Callable[[], None]]] = []
 
@@ -215,7 +215,7 @@ class Programs(msgspec.Struct, frozen=True):
         """Leaves each program to its first draw."""
 
     def __exit__(self, *_: object) -> None:
-        """Drops every compiled program while Blender's GPU module still holds a context."""
+        """Releases compiled programs inside GPU context."""
         for release in Programs.releases:
             release()
 
@@ -232,7 +232,7 @@ def compiled[T](build: Callable[[], T]) -> Callable[[], T]:
 
 @compiled
 def rounded() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
-    """Builds the rounded-frame shader and unit quad in the draw context."""
+    """Builds rounded-frame shader and unit quad."""
     vertex = "void main() { local = pos * box.rect.zw; gl_Position = ModelViewProjectionMatrix * vec4(box.rect.xy + local, 0.0, 1.0); }"
     fragment = (
         DECODED
@@ -267,7 +267,7 @@ void main() {
 
 @compiled
 def textured() -> gpu.types.GPUBatch:
-    """Returns one cached floating-point position/UV quad for image shaders."""
+    """Returns UV quad for image shaders."""
     return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})
 
 

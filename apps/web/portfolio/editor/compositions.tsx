@@ -58,14 +58,14 @@ const CompositionEditor = ({ assets, entry, item }: { assets: typeof AssetCollec
                 ) : (
                     <>
                         <button className="button button-outline" onClick={() => replace({ ...item, items: [second, first] })} type="button">
-                            Swap pair order
+                            Swap order
                         </button>
                         <button className="button button-outline" onClick={() => replace({ ...item, items: [first] }, { ...item, id: Effect.runSync(identifier), items: [second] })} type="button">
                             Unpair
                         </button>
                     </>
                 )}
-                <ConfirmDialog description="The source file stays in your library. Published work changes only when you publish." disabled={false} label="Remove composition" onConfirm={() => replace()} />
+                <ConfirmDialog description="Source files stay in library. Published work changes on next publish" disabled={false} label="Remove composition" onConfirm={() => replace()} />
             </div>
         </div>
     );
@@ -95,7 +95,7 @@ const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }
                     <ReorderableList
                         actions={(keys) => (
                             <ConfirmDialog
-                                description="Remove the selected compositions from this draft. Source files remain in the library. Published work changes only when you publish."
+                                description="Source files stay in library. Published work changes on next publish"
                                 disabled={false}
                                 label={`Remove ${quantity(keys.size, { one: 'selected composition', other: 'selected compositions' })}`}
                                 onConfirm={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) }))))}

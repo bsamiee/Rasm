@@ -168,4 +168,4 @@ rule:
         - matches: built-cause
           pattern: $TEXT
 message: '`$TEXT` renders a typed failure to text'
-note: 'Keep the error as the failure value up to the boundary, where a protocol field reads `<error>.message` and a cause renders through `Cause.pretty`'
+note: 'Keep the error as failure value up to its boundary, where a protocol field reads `<error>.message` and `Cause.pretty` renders a cause'

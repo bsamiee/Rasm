@@ -133,7 +133,7 @@ public static class EffectStates {
     internal static readonly Seq<string> AmountPath = [Amount.Name];
 
     public static ValueKey<AxisFraction, float> AmountKey(AxisFraction factory) =>
-        ValueKey.Numeric("mix", "Mix", "Blends the effect's result over its input, the input alone at 0%", factory,
+        ValueKey.Numeric("mix", "Mix", "Blends effect output over input, 0% leaves input unchanged", factory,
             NumericDomain.Bounded<AxisFraction, float>(AxisFraction.Presentation with { Origin = Some<float>(factory) }));
 
     internal static Fin<AxisFraction> AmountOf(string owner, string text) => new EntryKey(owner, AmountPath).Read(text, Amount.Read);

@@ -20,7 +20,7 @@ type Width = Annotated[int, msgspec.Meta(ge=1, le=9)]
 
 
 class Word(Choice):
-    """Text field of an output name."""
+    """Text field of output name."""
 
     PROJECT = 1
     SHOT = 2
@@ -34,7 +34,7 @@ class Word(Choice):
 
 
 class Count(Choice):
-    """Number field of an output name."""
+    """Number field of output name."""
 
     VERSION = 1
     FRAME = 2
@@ -42,7 +42,7 @@ class Count(Choice):
 
 
 class Output(Choice):
-    """Output class with its own file format."""
+    """Output class with own file format."""
 
     BEAUTY = 1
     DATA = 2
@@ -51,7 +51,7 @@ class Output(Choice):
 
     @property
     def token(self) -> str:
-        """Text an output field holds for this class, the one its pattern accepts."""
+        """Output field text."""
         return self.name.lower()
 
 
@@ -77,7 +77,7 @@ class Slot(Case, frozen=True, kw_only=True, tag=2):
 
 
 class Number(Case, frozen=True, kw_only=True, tag=3):
-    """Number field padded to its declared width."""
+    """Number field zero-padded to width."""
 
     title = "Number Field"
     key: Count
@@ -85,7 +85,7 @@ class Number(Case, frozen=True, kw_only=True, tag=3):
 
 
 class Fields(msgspec.Struct, frozen=True, kw_only=True):
-    """Values of an output name's fields."""
+    """Output name field values."""
 
     words: dict[Word, str] = msgspec.field(default_factory=dict)
     counts: dict[Count, Annotated[int, msgspec.Meta(ge=0)]] = msgspec.field(default_factory=dict)
@@ -98,7 +98,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, template: str) -> RenderingResult[Self]:
-        """Reads a template, refusing unknown fields, widths, or missing separators."""
+        """Parses template, refusing unknown fields, bad widths, and unseparated fields."""
         bounds = markers(Width, msgspec.Meta)[0]
         digits = f"[{bounds.ge}-{bounds.le}]"
         words, counts = (tuple(member.name.lower() for member in choice) for choice in (Word, Count))
@@ -113,11 +113,11 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def slots(self) -> frozenset[Field]:
-        """Text and count fields named by the grammar."""
+        """Text and number fields in template."""
         return frozenset(part for part in self.parts if not isinstance(part, Text))
 
     def patterns(self) -> dict[Field, re.Pattern[str]]:
-        """Returns each field's value pattern with the grammar's separators excluded."""
+        """Returns value pattern per field, excluding template separators."""
         excluded = re.escape("".join(dict.fromkeys((*[char for part in self.parts if isinstance(part, Text) for char in part.text if not char.isalnum()], "/", "\\"))))
 
         def pattern(part: Field) -> re.Pattern[str]:
@@ -134,7 +134,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         return {part: pattern(part) for part in self.parts if not isinstance(part, Text)}
 
     def compose(self, fields: Fields, written: Callable[[Field], Option[str]] = lambda _: Nothing) -> RenderingResult[str]:
-        """Composes a name, retaining every independent field refusal."""
+        """Composes name, accumulating field refusals."""
         patterns = self.patterns()
 
         def spelled(part: Parts) -> RenderingResult[str]:
@@ -151,7 +151,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(map(spelled, self.parts)).map("".join)
 
     def parse(self, text: str) -> RenderingResult[Fields]:
-        """Reads a relative extensionless name, requiring repeated fields to agree."""
+        """Parses relative extensionless name, requiring repeated fields to agree."""
         patterns = self.patterns()
         names = {part: f"{type(part).__name__}_{part.key.name}" for part in patterns}
         first = {part: index for index, part in reversed(tuple(enumerate(self.parts))) if not isinstance(part, Text)}
@@ -173,13 +173,13 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def path(self, root: Path, fields: Fields) -> RenderingResult[Path]:
-        """Composes a path, refusing a resolved destination outside its root."""
+        """Composes path, refusing one resolving outside root."""
         return self.compose(fields).bind(
             lambda text: Ok(root / text) if (path := (root / text).resolve()).is_relative_to(base := root.resolve()) else Error((RenderingRootFault(request=path, error=base),))
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:
-        """Returns the next version matching the supplied fields, ignoring version and frame."""
+        """Returns next version past matching files under root, ignoring version and frame."""
         held = {key: count for key, count in fields.counts.items() if key not in {Count.VERSION, Count.FRAME}}
         return 1 + max(
             (
@@ -197,7 +197,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def stepped(text: str, offset: int) -> Option[str]:
-    """Steps tokens matching the last version's number, retaining their individual widths."""
+    """Steps version tokens matching last version, keeping token widths."""
     token = re.compile(r"(?i)(?<![^\W\d_])(?:version|v)[._]?(\d+)")
     return (
         Option

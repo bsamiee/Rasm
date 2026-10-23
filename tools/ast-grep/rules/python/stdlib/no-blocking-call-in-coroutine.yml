@@ -108,5 +108,5 @@ transform:
     NESTED_FIX: rewrite($NESTED, rewriters=[nested-call])
     CALL_FIX: rewrite($CALL, rewriters=[blocking-call])
 fix: $AWAITED_FIX$NESTED_FIX$CALL_FIX
-message: 'Blocking `$CALLEE` stalls a coroutine'
+message: '`$CALLEE$ARGS` blocks the event loop inside a coroutine'
 note: 'Call `await anyio.<name>(<arguments>)`'

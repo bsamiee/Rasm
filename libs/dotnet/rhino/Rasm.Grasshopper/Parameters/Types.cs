@@ -99,22 +99,22 @@ internal static class NumberConversions<TValue, TKey>
     where TValue : notnull
     where TKey : struct, System.Numerics.INumber<TKey> {
     [Merit(Merit.Direct)]
-    [Explanation("Reads a checked numeric key within the value's range, rounding to the nearest integer, ties to even, for an integer key.")]
+    [Explanation("Reads number as key within value range, integer keys round half to even")]
     public static void Inbound(double source, out TValue target) =>
         target = ((NumericDataAssistant<TValue, TKey>)TypeAssistantServer.Find<TValue>())
             .Create(TKey.CreateChecked(TKey.CreateTruncating(0.5d) == TKey.Zero ? double.Round(source, MidpointRounding.ToEven) : source)).ThrowIfFail();
 
     [Merit(Merit.Direct)]
-    [Explanation("Reads a checked integer key within the value's range.")]
+    [Explanation("Reads integer as key within value range")]
     public static void Inbound(int source, out TValue target) =>
         target = ((NumericDataAssistant<TValue, TKey>)TypeAssistantServer.Find<TValue>()).Create(TKey.CreateChecked(source)).ThrowIfFail();
 
     [Merit(Merit.Direct)]
-    [Explanation("Writes the value's numeric key.")]
+    [Explanation("Writes value key as number")]
     public static void Outbound(TValue source, out double target) => target = Number(source);
 
     [Merit(Merit.Direct)]
-    [Explanation("Rounds the value's numeric key to a host integer.")]
+    [Explanation("Rounds value key to integer")]
     public static void Outbound(TValue source, out int target) => IntegerConversions.Convert(Number(source), out target);
 
     internal static double Number(TValue value) => double.CreateChecked(((NumericDataAssistant<TValue, TKey>)TypeAssistantServer.Find<TValue>()).Key(value));
@@ -124,11 +124,11 @@ internal static class KeyConversions<TValue, TRaw>
     where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
     where TRaw : notnull, ISpanParsable<TRaw> {
     [Merit(Merit.Direct)]
-    [Explanation("Reads the value from its key.")]
+    [Explanation("Reads value from key")]
     public static void Inbound(TRaw source, out TValue target) => target = ValidationResults.Validated<TValue, TRaw>(source).ThrowIfFail();
 
     [Merit(Merit.Direct)]
-    [Explanation("Writes the value's key.")]
+    [Explanation("Writes value key")]
     public static void Outbound(TValue source, out TRaw target) => target = source.ToValue();
 }
 
@@ -273,7 +273,7 @@ public static class DataTypes {
         (nameof(ConversionServer.TryAddConversion), () => ConversionServer.TryAddConversion(conversion.Method));
 
     private static IO<Unit> Registered<T>(TypeAssistant<T> assistant, Seq<(string Member, Func<bool> Accepted)> steps = default) {
-        static Fin<Unit> Step((string Member, Func<bool> Accepted) step) => step.Accepted() ? unit : new Refused(step.Member, $"refused the data type {typeof(T)}");
+        static Fin<Unit> Step((string Member, Func<bool> Accepted) step) => step.Accepted() ? unit : new Refused(step.Member, $"refused data type {typeof(T)}");
         return IO.lift(() => Callbacks.Each(steps.Add((nameof(TypeAssistantServer.Register), () => TypeAssistantServer.Register(assistant))), static (step, _) => Step(step)))
             .Bind(static _ => IO.lift(static () => Step((nameof(GrasshopperIO.IO.RegisterRestorableType), static () => GrasshopperIO.IO.RegisterRestorableType(typeof(DataParameter<T>))))));
     }

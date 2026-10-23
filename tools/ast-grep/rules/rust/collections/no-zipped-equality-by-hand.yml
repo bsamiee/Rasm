@@ -21,5 +21,5 @@ rule:
             any:
                 - matches: lengths
                 - {kind: binary_expression, has: {field: right, matches: lengths}}
-message: '`$A` and `$B` compare their lengths and then each pair by hand'
-note: 'Compare `<left> == <right>` for slices, or `<left>.map(..).eq(<right>.map(..))` through `Iterator::eq` for mapped values'
+message: 'Length test and zipped `all` compare `$A` and `$B` by hand'
+note: 'Compare `<left> == <right>` for slices, or `<left>.map(..).eq(<right>.map(..))` for mapped values'

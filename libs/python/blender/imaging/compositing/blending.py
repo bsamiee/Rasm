@@ -1,4 +1,4 @@
-"""Blend modes and weighted compositing shared by effects, layers, and documents."""
+"""Blend modes and blends shared by effects, layers, and documents."""
 
 from typing import Annotated, Generic, TypeVar
 
@@ -40,7 +40,7 @@ class BlendMode(Choice):
 
     @property
     def photoshop(self) -> psdtags.PsdBlendMode:
-        """Photoshop mode, using luminosity for the value formula."""
+        """Photoshop mode, luminosity for value formula."""
         return psdtags.PsdBlendMode.LUMINOSITY if self is BlendMode.VALUE else psdtags.PsdBlendMode[self.name]
 
 
@@ -48,18 +48,18 @@ class BlendMode(Choice):
 
 
 class Blend(msgspec.Struct, frozen=True, kw_only=True):
-    """Mode, opacity, and masks weighing a result over its associated base."""
+    """Mode, opacity, and masks mixing result over base."""
 
-    mode: Annotated[BlendMode, msgspec.Meta(title="Blend", description="Formula joining the result with its base")] = BlendMode.NORMAL
-    opacity: Annotated[Unit, msgspec.Meta(description="Share of the result mixed over its base"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
-    masks: Annotated[tuple[Mask, ...], msgspec.Meta(description="Keys limiting where the result mixes back")] = ()
+    mode: Annotated[BlendMode, msgspec.Meta(title="Blend", description="Formula mixing result with base")] = BlendMode.NORMAL
+    opacity: Annotated[Unit, msgspec.Meta(description="Share of result mixed over base"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
+    masks: Annotated[tuple[Mask, ...], msgspec.Meta(description="Keys limiting where result mixes")] = ()
 
 
 class Entry(msgspec.Struct, Generic[_E_co], frozen=True, kw_only=True):
-    """Effect and the blend weighing its result over its input."""
+    """Effect with blend over its input."""
 
     effect: _E_co
-    blend: Annotated[Blend, msgspec.Meta(description="Mode, opacity, and masks of the effect's result")] = Blend()
+    blend: Annotated[Blend, msgspec.Meta(description="Mix of effect result over input")] = Blend()
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

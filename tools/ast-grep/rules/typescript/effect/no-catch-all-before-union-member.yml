@@ -11,5 +11,5 @@ rule:
     matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(Any|Unknown|Void)$'}}}
     not: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}}
     inside: {kind: array, inside: {kind: arguments, inside: {matches: union}}}
-message: '`$MEMBER` accepts every value, members after it never match'
-note: 'Place the catch-all member last, a union takes the first member in order that accepts the value, and `Schema.Void` accepts every present value'
+message: '`$MEMBER` accepts every value and leaves later union members unreachable'
+note: 'Move `Schema.Any`, `Schema.Unknown`, or `Schema.Void` last in the union'

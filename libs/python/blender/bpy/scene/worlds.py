@@ -1,4 +1,4 @@
-"""World environments, native graphs, owned swaps, solar followers, and studio worlds."""
+"""World environments, graphs, swaps, sun-following nodes, and studio worlds."""
 
 from collections.abc import Callable
 from contextlib import ExitStack
@@ -55,13 +55,13 @@ class Still(Case, frozen=True, kw_only=True, tag=1):
 
 
 class Solar(Case, frozen=True, kw_only=True, tag=2):
-    """Sky driven by the scene's sun lamp."""
+    """Sky following scene sun light."""
 
-    title = "Sun Lamp"
+    title = "Sun Light"
 
 
 class Disc(msgspec.Struct, frozen=True, kw_only=True):
-    """Native scattering sun size and intensity."""
+    """Scattering sky sun disc."""
 
     sun_size: Annotated[
         float, msgspec.Meta(ge=sky_properties["sun_size"].hard_min, le=sky_properties["sun_size"].hard_max, title="Size"), sky_presentations["sun_size"], Presentation(quantity=Some(Quantity.ANGLE))
@@ -72,7 +72,7 @@ class Disc(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Scattering(Case, frozen=True, kw_only=True, tag=2):
-    """Native scattering sky and atmosphere."""
+    """Scattering sky."""
 
     title = "Sky"
     sky_type: Annotated[
@@ -97,14 +97,14 @@ class Scattering(Case, frozen=True, kw_only=True, tag=2):
 
 
 class Preetham(Case, frozen=True, kw_only=True, tag=3):
-    """Preetham's analytic sky."""
+    """Preetham analytic sky."""
 
     sun: SkySun = Still()
     turbidity: Annotated[float, msgspec.Meta(ge=sky_properties["turbidity"].hard_min, le=sky_properties["turbidity"].hard_max), sky_presentations["turbidity"]] = 2.2
 
 
 class HosekWilkie(Case, frozen=True, kw_only=True, tag=4):
-    """Hosek and Wilkie's analytic sky with ground light."""
+    """Hosek-Wilkie analytic sky."""
 
     title = "Hosek / Wilkie"
     sun: SkySun = Still()
@@ -113,21 +113,21 @@ class HosekWilkie(Case, frozen=True, kw_only=True, tag=4):
 
 
 class FixedTurn(Case, frozen=True, kw_only=True, tag=1):
-    """Fixed environment-image rotation."""
+    """Fixed image rotation."""
 
     title = "Fixed"
     rotation: Annotated[Finite, Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
 
 
 class SolarTurn(Case, frozen=True, kw_only=True, tag=2):
-    """Image sun aligned with the sun lamp."""
+    """Image turned to align its sun with scene sun."""
 
-    title = "Sun Lamp"
+    title = "Sun Light"
     heading: Annotated[Finite, msgspec.Meta(title="Sun Heading"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
 
 
 class Hdri(Case, frozen=True, kw_only=True, tag=1):
-    """Environment image with native projection and rotation."""
+    """Environment image with projection and rotation."""
 
     title = "HDRI"
     path: Annotated[str, msgspec.Meta(title="Image"), Definition(text="FILE_PATH")] = ""
@@ -136,14 +136,14 @@ class Hdri(Case, frozen=True, kw_only=True, tag=1):
 
 
 class FlatColor(Case, frozen=True, kw_only=True, tag=5):
-    """One scene-linear world color."""
+    """Scene-linear world color."""
 
     title = "Color"
     color: Rgb[Finite] = Rgb(red=0.0508761, green=0.0508761, blue=0.0508761)
 
 
 class FrameGradient(Case, frozen=True, kw_only=True, tag=6):
-    """Vertical camera-frame gradient."""
+    """Vertical camera frame gradient."""
 
     title = "Gradient"
     top: Rgb[Finite] = Rgb(red=0.2, green=0.2, blue=0.2)
@@ -151,14 +151,14 @@ class FrameGradient(Case, frozen=True, kw_only=True, tag=6):
 
 
 class Plate(Case, frozen=True, kw_only=True, tag=7):
-    """Image filling the camera frame."""
+    """Image filling camera frame."""
 
     title = "Image"
     path: Annotated[str, msgspec.Meta(title="Image"), Definition(text="FILE_PATH")] = ""
 
 
 class Backdrop[T](msgspec.Struct, frozen=True, kw_only=True):
-    """One ray slot's source, strength, and tint."""
+    """Ray slot source, strength, and tint."""
 
     mode: T
     strength: Annotated[NonNegative, Presentation(soft=Some((0.0, 10.0)))] = 1.0
@@ -166,7 +166,7 @@ class Backdrop[T](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Environment(msgspec.Struct, frozen=True, kw_only=True):
-    """World lighting and retained camera and glossy overrides."""
+    """World lighting with gated camera and glossy overrides."""
 
     lighting: Backdrop[WorldMode] = Backdrop(mode=FlatColor())
     camera: Annotated[Gated[Backdrop[Scenery]], msgspec.Meta(title="Background")] = Gated(enabled=False, value=Backdrop(mode=FlatColor()))
@@ -174,20 +174,20 @@ class Environment(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class EnvironmentNode(msgspec.Struct, frozen=True, kw_only=True):
-    """Environment node and the heading of the sun in its image."""
+    """Environment Texture node with image sun heading."""
 
     node: bpy.types.ShaderNodeTexEnvironment
     heading: float
 
 
 class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
-    """Environment attachment, owned worlds, commands, and section."""
+    """Environment attachment, owned worlds, operators, and section."""
 
     retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
 
     @staticmethod
     def refreshed(world: Handle[bpy.types.World], identity: Identity) -> BlenderResult[Option[str]]:
-        """Reconciles the latest stored record without adding an undo step."""
+        """Reconciles world tree to stored environment, naming no undo step."""
         return (
             paired(world.resolve().bind(tree_of), WorldEnvironment.attachment.bound(identity))
             .bind(lambda pair: pair[1].read(pair[0]).bind(world_graph).bind(lambda graph: reconciled(graph, pair[0], identity)))
@@ -196,7 +196,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def placed(call: Call[Empty], scene: bpy.types.Scene) -> BlenderResult[Done]:
-        """Shows the retained owned environment or a new default environment."""
+        """Shows owned environment world on scene, defaults when none is stored."""
         identity, row = call.identity, WorldEnvironment.ownership
         return (
             WorldEnvironment.attachment
@@ -212,29 +212,29 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
     place: ClassVar[Operator[Empty]] = Operator(
         key="environment_place",
         title="Show Environment",
-        description="Show an owned world holding an environment on the scene",
+        description="Show owned environment world on scene",
         form=Empty,
         run=lambda call: call.root(bpy.types.Scene).bind(lambda scene: WorldEnvironment.placed(call, scene)),
     )
     restore: ClassVar[Operator[Empty]] = Operator(
         key="environment_restore",
         title="Restore World",
-        description="Show the world the owned environment replaced",
+        description="Show world the owned environment replaced",
         form=Empty,
         run=lambda call: (
             call
             .root(bpy.types.Scene)
             .bind(lambda scene: reverted(WorldEnvironment.ownership, scene, call.identity))
-            .map(lambda change: change.map(lambda _: Done()).default_value(Unchanged(reason="The scene shows no owned environment")))
+            .map(lambda change: change.map(lambda _: Done()).default_value(Unchanged(reason="Scene shows no owned environment")))
         ),
     )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns the same declarations consumed by the section."""
+        """Returns attachment, ownership, and operators."""
         return Ok((self.attachment, self.ownership, self.place, self.restore))
 
     def section(self) -> Section:
-        """Draws the environment, native world controls, and retained commands."""
+        """Returns environment, world settings, and place and restore buttons."""
         return Single(
             key="environment",
             title="Environment",
@@ -249,7 +249,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _slots(environment: Environment) -> tuple[tuple[str, str, Backdrop[WorldMode] | Backdrop[Scenery]], ...]:
-    """Returns lighting, then enabled glossy and camera slots with their source keys."""
+    """Returns lighting, then enabled glossy and camera slots, with source keys."""
     slots: tuple[tuple[str, bool, Backdrop[WorldMode] | Backdrop[Scenery]], ...] = (
         ("lighting", True, environment.lighting),
         ("glossy", environment.glossy.enabled, environment.glossy.value),
@@ -259,7 +259,7 @@ def _slots(environment: Environment) -> tuple[tuple[str, str, Backdrop[WorldMode
 
 
 def world_graph(environment: Environment) -> BlenderResult[Graph]:
-    """Derives the enabled ray slots and returns every independent construction fault."""
+    """Builds world graph from enabled ray slots, accumulating node faults."""
 
     def sourced(key: str, mode: Scenery) -> BlenderResult[Operand]:
         match mode:
@@ -342,7 +342,7 @@ def world_graph(environment: Environment) -> BlenderResult[Graph]:
 
 
 def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph], scene: bpy.types.Scene, identity: Identity, scope: Option[ExitStack] = Nothing) -> BlenderResult[bpy.types.World]:
-    """Publishes a prepared environment graph, retaining its predecessor in the mark, a given scope restoring the predecessor and removing a built world when it unwinds."""
+    """Shows owned environment world on scene and marks replaced world, restored on scope unwind."""
     environment, graph = prepared
     predecessor = Option.of_optional(scene.world)
     for outer in scope.to_list():
@@ -365,7 +365,7 @@ def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph]
 
 
 def reverted(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: Identity) -> BlenderResult[Option[int]]:
-    """Restores the marked predecessor and removes unused worlds of the caller's row, answering their count or `Nothing` where the scene shows no world of the row."""
+    """Restores replaced world, returning count of removed unused owned worlds, `Nothing` without shown owned world."""
     return (
         Option
         .of_optional(scene.world)
@@ -376,7 +376,7 @@ def reverted(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: 
 
 
 def _shown(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: Identity) -> Option[bpy.types.World]:
-    """World of the row the scene shows, else the earliest of the row marked with the shown world as predecessor."""
+    """Returns shown owned world, else earliest owned world replacing shown world."""
     shown = Option.of_optional(scene.world)
     return shown.filter(lambda world: row.marked(identity, world).is_some()).or_else_with(lambda: row.found(identity, of=shown) if row.single else Nothing)
 
@@ -385,7 +385,7 @@ def _shown(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: Id
 
 
 def followers(tree: bpy.types.NodeTree, identity: Identity) -> BlenderResult[tuple[Follower, ...]]:
-    """Returns owned solar sky and image nodes without creating unstored records."""
+    """Returns owned sun-following sky and environment nodes, none without stored environment."""
 
     def followed(mode: Scenery, source: bpy.types.Node) -> tuple[Follower, ...]:
         match mode, source:
@@ -407,7 +407,7 @@ def followers(tree: bpy.types.NodeTree, identity: Identity) -> BlenderResult[tup
 
 
 def studio(name: str, preferences: bpy.types.Preferences) -> BlenderResult[str]:
-    """Returns a native WORLD studio light's path or a typed absent fault."""
+    """Returns path of WORLD studio light by name."""
     lights = preferences.studio_lights
     return Option.of_optional(lights.get(name)).filter(lambda light: light.type == "WORLD").map(lambda light: light.path).to_result_with(lambda: (BlenderAbsentFault(owner=repr(lights), key=name),))
 

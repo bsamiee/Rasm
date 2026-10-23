@@ -93,6 +93,6 @@ constraints:
     ALIAS: {not: {regex: '^default$'}}
     TARGET: {not: {regex: '^default$'}}
 message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Spell the target name at each use and delete the alias'
+note: 'Write `<target>` at each use and delete the alias'
 labels:
     TARGET: {style: primary, message: Aliased name}

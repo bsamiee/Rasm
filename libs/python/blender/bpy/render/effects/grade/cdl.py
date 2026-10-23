@@ -1,4 +1,4 @@
-"""Native slope, offset, power, and saturation with editable ASC file reads."""
+"""Slope, offset, power, and saturation with ASC file reads."""
 
 from typing import Annotated
 
@@ -14,7 +14,7 @@ from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.color.luts import Formatted, lut_files, writable
 from blender.bpy.render.effects.stack import CompositorEffect, EffectName, Named, Shell
 from blender.bpy.settings.properties import Choices
-from blender.imaging.color.config import admitted
+from blender.imaging.color.config import resolved
 from blender.imaging.color.luts import LutFormat, written
 from blender.imaging.color.processors import bracketed
 from blender.imaging.effects.grade.cdl import Cdl, Channel, read
@@ -25,7 +25,7 @@ from blender.imaging.parameters import Choice
 
 
 class Source(Choice):
-    """Input values of the exported correction."""
+    """Input space of exported correction."""
 
     CORRECTION = 1, "Correction"
     SCENE_LINEAR = 2, "Scene Linear"
@@ -46,13 +46,13 @@ corrections = Choices(
 
 
 class Imported(Named, frozen=True, kw_only=True):
-    """Editable ASC correction selected from the native file browser."""
+    """ASC correction chosen in file browser."""
 
     correction: Annotated[str, msgspec.Meta(title="Correction"), corrections] = "0"
 
 
 class Exported(Formatted, frozen=True, kw_only=True):
-    """Editable correction written through a native exact transform format."""
+    """Correction written in exact transform format."""
 
     formats = staticmethod(LutFormat.writable)
     name: EffectName
@@ -66,7 +66,7 @@ class Exported(Formatted, frozen=True, kw_only=True):
 
 
 def corrected(shell: Shell[Cdl]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns the ASC equation with native CDL luminance coefficients."""
+    """Returns ASC equation with OCIO CDL luma coefficients."""
     red, green, blue, saturation = Cdl.__struct_fields__
     channels = (("X", red), ("Y", green), ("Z", blue))
     members = Channel.__struct_fields__
@@ -91,19 +91,19 @@ def corrected(shell: Shell[Cdl]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def loaded(path: str) -> BlenderResult[tuple[tuple[Option[str], Cdl], ...]]:
-    """Returns editable corrections after refreshing native LUT caches.
+    """Returns corrections after refreshing LUT caches.
 
     Args:
         path: Absolute ASC CDL, CC, or CCC path.
 
     Returns:
-        Ordered optional identifiers and corrections, or file and native ASC faults.
+        Ordered optional identifiers and corrections, or file and ASC faults.
     """
     return lut_files.current(path, PyOpenColorIO.GetCurrentConfig()).bind(lambda current: read(current).map_error(BlenderImagingFault.lifted))
 
 
 def imported(call: Call[Imported]) -> BlenderResult[Outcome]:
-    """Writes the selected editable correction while retaining blend and masks."""
+    """Writes chosen correction, keeping entry blend and masks."""
     path, record = str(call.paths[0]), call.record
 
     def chosen(rows: tuple[tuple[Option[str], Cdl], ...]) -> BlenderResult[Cdl]:
@@ -115,12 +115,12 @@ def imported(call: Call[Imported]) -> BlenderResult[Outcome]:
     return (
         paired(loaded(path).bind(chosen), entry)
         .bind(lambda pair: cdl.read(call.identity, pair[1][1]).bind(lambda held: cdl.write(call.identity, *pair[1], msgspec.structs.replace(held, effect=pair[0]))))
-        .map(lambda changed: Done() if changed else Unchanged(reason=f"{record.name} already holds that correction"))
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{record.name} holds chosen correction"))
     )
 
 
 def exported(call: Call[Exported]) -> BlenderResult[Done]:
-    """Writes the correction alone or its full scene-linear bracket."""
+    """Writes correction alone or between scene-linear conversions."""
     record = call.record
 
     def source(correction: Cdl) -> ImagingResult[PyOpenColorIO.GroupTransform]:
@@ -135,7 +135,7 @@ def exported(call: Call[Exported]) -> BlenderResult[Done]:
 
                 return correction.transform(config).map(named)
             case Source.SCENE_LINEAR:
-                return admitted(PyOpenColorIO.GetCurrentConfig(), (Cdl.space,)).bind(
+                return resolved(PyOpenColorIO.GetCurrentConfig(), (Cdl.space,)).bind(
                     lambda config: bracketed(correction, config).map(lambda operation: PyOpenColorIO.GroupTransform(operation.to_list()))
                 )
 
@@ -150,7 +150,7 @@ def exported(call: Call[Exported]) -> BlenderResult[Done]:
 importer = Operator(
     key="import_cdl",
     title="Import ASC CDL",
-    description="Reads an editable correction into the entry",
+    description="Read ASC correction into entry",
     form=Imported,
     run=imported,
     invoke=Some(Open(extensions=lambda _record: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())))),
@@ -158,7 +158,7 @@ importer = Operator(
 exporter = Operator(
     key="export_cdl",
     title="Export ASC CDL",
-    description="Writes the entry's correction through a native format",
+    description="Write entry correction in chosen format",
     form=Exported,
     run=exported,
     invoke=Some(Save[Exported](extensions=Exported.extensions)),

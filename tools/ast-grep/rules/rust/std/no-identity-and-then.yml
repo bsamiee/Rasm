@@ -12,4 +12,4 @@ constraints:
     IDENTITY: {regex: '^((::)?(std|core)::)?(convert::)?identity$'}
 fix: $O.flatten()
 message: '`$O.and_then` returns the inner value unchanged'
-note: 'Call `<option>.flatten()`'
+note: 'Call `<value>.flatten()` on the nested `Option` or `Result`'

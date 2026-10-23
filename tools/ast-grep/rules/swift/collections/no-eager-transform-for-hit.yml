@@ -12,5 +12,5 @@ rule:
             all:
                 - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^(map|compactMap|flatMap)$', pattern: $MAP}}}
                 - not: {has: {stopBy: {not: {kind: 'call_expression, navigation_expression'}}, any: [{kind: navigation_suffix, regex: '^\.\s*lazy$'}, {kind: simple_identifier, regex: '^lazy$'}]}}
-message: '`$MAP` transforms every element where `$HIT` needs the first hit alone'
-note: 'Insert `.lazy` before the transform, or test elements with `first(where:)` or `contains(where:)`'
+message: '`$MAP` transforms every element before `$HIT` stops at its first hit'
+note: 'Call the transform on `<sequence>.lazy`'

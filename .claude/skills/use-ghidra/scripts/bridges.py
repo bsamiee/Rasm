@@ -1,4 +1,4 @@
-"""SessionStart and SessionEnd hook that stops each ghidra-cli bridge of an ended Claude Code session and runs `ghidra status` to clear pid, port, and lock files dead bridges left on each project no bridge holds."""
+"""SessionStart and SessionEnd hook stopping ghidra-cli bridges of ended sessions and clearing files dead bridges left on unheld projects."""
 
 from collections.abc import Mapping
 import os
@@ -17,15 +17,15 @@ type Session = SessionStart | SessionEnd
 
 
 class Event(msgspec.Struct, frozen=True, tag_field="hook_event_name", tag=True):
-    """Session event, tagged by its class name."""
+    """Session event tagged by class name."""
 
 
 class SessionStart(Event, frozen=True):
-    """Start of a Claude Code session."""
+    """Claude Code session start."""
 
 
 class SessionEnd(Event, frozen=True):
-    """End of the Claude Code session it names."""
+    """Claude Code session end."""
 
     session_id: str
 
@@ -37,14 +37,14 @@ class Settings(msgspec.Struct, frozen=True, rename={"projects": "GHIDRA_PROJECT_
 
 
 class Owner(msgspec.Struct, frozen=True, rename={"pid": "CLAUDE_PID", "session": "CLAUDE_CODE_SESSION_ID"}):
-    """Claude Code process and session a bridge inherits in its environment."""
+    """Claude Code process and session bridges inherit through environment."""
 
     pid: int
     session: str
 
 
 class Bridge(msgspec.Struct, frozen=True):
-    """Bridge JVM with project, owner, whether owner's process ended, and environment ghidra-cli started it under."""
+    """Bridge JVM with project, owner, owner liveness, and ghidra-cli launch environment."""
 
     project: Path
     owner: Owner
@@ -64,7 +64,7 @@ class Bridge(msgspec.Struct, frozen=True):
 
 
 def bridges() -> tuple[Bridge, ...]:
-    """Return each bridge JVM naming its owner, orphaned when no older process holds owner's pid, project from `AnalyzeHeadless` location and name arguments."""
+    """Return each bridge JVM naming its owner, orphaned when no older process holds owner PID, project from `AnalyzeHeadless` arguments."""
     headless = "ghidra.app.util.headless.AnalyzeHeadless"
     processes = tuple(psutil.process_iter(("cmdline", "environ", "create_time")))
     started = {process.pid: process.info["create_time"] for process in processes}
@@ -81,7 +81,7 @@ def bridges() -> tuple[Bridge, ...]:
 
 
 def commands(event: Session, found: tuple[Bridge, ...], projects: tuple[Path, ...], environ: Mapping[str, str]) -> tuple[tuple[tuple[str, ...], Mapping[str, str]], ...]:
-    """Return `ghidra stop` under each ended bridge's environment, then `ghidra status` under hook environment on each project no bridge holds."""
+    """Return `ghidra stop` per ended bridge under its environment, then `ghidra status` per unheld project under hook environment."""
     held = {bridge.project for bridge in found}
     return (
         *((("ghidra", "--quiet", "stop", "--project", str(bridge.project)), bridge.environ) for bridge in found if bridge.ended(event)),

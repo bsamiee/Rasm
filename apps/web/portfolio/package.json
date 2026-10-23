@@ -1,7 +1,7 @@
 {
     "name": "@rasm/portfolio",
     "private": true,
-    "description": "Architectural portfolio publishing projects and studies as one server-rendered page, with owner-only editor",
+    "description": "Architectural portfolio with projects and studies on one server-rendered page and owner-only editor",
     "type": "module",
     "imports": {
         "#/*": "./*.tsx",

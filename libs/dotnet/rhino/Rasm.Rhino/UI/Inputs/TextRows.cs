@@ -55,7 +55,7 @@ public static class TextRows {
                 codec.File.IsNone,
                 (record, text) => IO.lift(codec.Recall(Conversions.Present(text).IfNone(() => codec.Absent.IfNone(text)))).Bind(static step => step).Map(set => set(record)),
                 form, browse, scope, retain), rules),
-            var codecs => throw new UnreachableException($"{field.Parameter.Key} holds {codecs.Count} stored texts where an entry row holds one"),
+            var codecs => throw new UnreachableException($"{field.Parameter.Key} holds {codecs.Count} stored texts, entry row holds one"),
         };
 
     // --- [PATHS]

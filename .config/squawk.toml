@@ -1,17 +1,17 @@
 # --- [SQUAWK] ---------------------------------------------------------------------------
 
-pg_version     = "18.0"          # Reconcile adds VIRTUAL generated columns, a PostgreSQL 18 form
+pg_version     = "18.0"
 excluded_rules = [
-    "adding-field-with-default", # Reconcile adds VIRTUAL generated columns and constant catalog defaults, which PostgreSQL 18 adds without a table rewrite
-    "ban-drop-column",           # Reconcile drops a column the catalog declares retired, or a generated column it re-adds over a retyped source
-    "ban-drop-constraint",       # Reconcile drops a CHECK a declared retype replaces, or a foreign key it re-adds as declared
-    "ban-drop-default",          # Reconcile drops a default only when a declared retype removes it
-    "ban-drop-not-null",         # Reconcile drops NOT NULL only when a declared retype makes the field optional
-    "ban-drop-table",            # Reconcile drops a table only when the catalog declares it retired
-    "changing-column-type",      # Reconcile changes a type only under a declared retype, and refuses a cast that changes a stored non-text value
-    "prefer-robust-stmts",       # Plans derive from the observed catalog on every run, and a repeated VALIDATE CONSTRAINT after COMMIT changes nothing
-    "renaming-column",           # Reconcile renames a column only from a declared rename
-    "renaming-object",           # Reconcile renames an index, constraint, or policy only to follow a declared table or column rename
-    "renaming-table",            # Reconcile renames a table only from a declared renamedFrom
-    "require-statement-timeout", # SET LOCAL transaction_timeout bounds the reconcile transaction, and the CONCURRENTLY and VALIDATE steps after COMMIT block no writes
+    "adding-field-with-default",
+    "ban-drop-column",
+    "ban-drop-constraint",
+    "ban-drop-default",
+    "ban-drop-not-null",
+    "ban-drop-table",
+    "changing-column-type",
+    "prefer-robust-stmts",
+    "renaming-column",
+    "renaming-object",
+    "renaming-table",
+    "require-statement-timeout",
 ]

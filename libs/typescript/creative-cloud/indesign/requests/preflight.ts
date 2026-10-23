@@ -21,13 +21,13 @@ const Row: Schema.Codec<Row> = Schema.Struct({
     page: Schema.optionalKey(Schema.String.annotate({ description: 'Page name, PB on the pasteboard' })),
     details: Schema.Record(Schema.String, Schema.String),
     rows: Schema.Array(Schema.suspend((): Schema.Codec<Row> => Row)),
-}).annotate({ description: 'Preflight panel row: a category or rule with its issue count, or the object an issue names with its problem and fix, above the rows under it' });
+}).annotate({ description: 'Category or rule with issue count, or issue object with problem and fix' });
 const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]))]);
 class PreflightProcessView extends Schema.TaggedClass<PreflightProcessView, { readonly brand: unique symbol }>()('PreflightProcess', {
     ...Reference.fields,
     targetObject: Reference,
-    appliedProfile: Schema.OptionFromOptionalKey(Reference.annotate({ description: 'Absent for a profile the document embeds' })),
-    aggregatedResults: Schema.Result(Schema.Array(Row), Schema.Defect()).annotate({ description: "Rows the Preflight panel shows once the process finishes, empty when it found no issue, else InDesign's refusal while it checks" }),
+    appliedProfile: Schema.OptionFromOptionalKey(Reference.annotate({ description: 'Absent for document-embedded profiles' })),
+    aggregatedResults: Schema.Result(Schema.Array(Row), Schema.Defect()).annotate({ description: 'Rows of finished process, empty without issues, refusal while checking' }),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<PreflightProcess>('aggregatedResults')), Option.map(PreflightProcessView.of));
     static readonly of = (process: PreflightProcess) =>
@@ -44,12 +44,10 @@ class PreflightProcessView extends Schema.TaggedClass<PreflightProcessView, { re
 }
 class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol }>('Preflight')(
     {
-        document: Schema.OptionFromOptionalKey(Specifier.annotate({ description: 'Specifier of an open document; every open document with preflight on when absent' })),
-        profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name of the application or the document, in any case; the profile the Preflight panel applies when absent' })),
+        document: Schema.OptionFromOptionalKey(Specifier.annotate({ description: 'Open document, every document with live preflight when absent' })),
+        profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name in any case, panel profile when absent' })),
     },
-    {
-        description: "Preflight rows of each open document as the Preflight panel shows them: InDesign's live check once it finished, else a process run under the profile and waited for, which InDesign finishes in the background and which restarts the live check of every open document",
-    },
+    { description: 'Preflight rows per document, finished live results without profile. Other calls wait on a process restarting every live check' },
 ) {
     static readonly Result = Schema.Array(Schema.Struct({ targetObject: Reference, appliedProfile: Reference, aggregatedResults: Schema.Array(Row) }));
 

@@ -165,11 +165,11 @@ public sealed class MotionHandle {
                     _ = state.Course.Swap(course => course.Resumed(paused, elapsed, source));
                     return IO.pure(unit);
                 }).Map(unit),
-            stopped: static (_, _) => IO.fail<Unit>(Error.New("motion has ended"))));
+            stopped: static (_, _) => IO.fail<Unit>(Error.New("motion ended"))));
 
     public IO<Unit> Retarget(CameraPose goal) =>
         from held in pacing.Course.ValueIO
-        from live in held.Phase.Map(running: IO.pure(unit), paused: IO.pure(unit), stopped: IO.fail<Unit>(Error.New("motion has ended")))
+        from live in held.Phase.Map(running: IO.pure(unit), paused: IO.pure(unit), stopped: IO.fail<Unit>(Error.New("motion ended")))
         from elapsed in pacing.Elapsed
         from moved in pacing.Course.SwapIO(course => course.Retargeted(goal, elapsed))
         select unit;

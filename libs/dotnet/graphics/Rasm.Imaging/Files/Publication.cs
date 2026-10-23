@@ -10,14 +10,14 @@ namespace Rasm.Imaging.Files;
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OutputPath {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = Path.IsPathFullyQualified(value) && Path.GetFileName(value).Length > 0 ? null : new ValidationError($"output path '{value}' must be fully qualified and name a file");
+        validationError = Path.IsPathFullyQualified(value) && Path.GetFileName(value).Length > 0 ? null : new ValidationError($"Output path '{value}' must be fully qualified and name a file");
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FilePublication {
     public static Error Refusal(string path, Error error) => error switch {
         ManyErrors many => Error.Many(many.Errors.Map(leaf => Refusal(path, leaf))),
-        _ => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() ? Error.New($"{path} refused access", error) : error,
+        _ => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() ? Error.New($"Access to {path} refused", error) : error,
     };
 
     public static IO<Unit> Write(OutputPath path, bool overwrite, Func<FileStream, IO<Unit>> write) {

@@ -8,5 +8,5 @@ rule:
     not: {any: [{regex: '^// --- \[[A-Z][A-Z0-9_]*\]( -+)?$'}, {matches: rust-macro-argument}]}
 transform:
     TEXT: {replace: {source: $COMMENT, replace: '\s+$', by: ''}}
-message: '`$TEXT` comments code outside a section divider'
-note: 'Move the comment''s fact into a name or type and delete the comment, keeping `// --- [<SECTION>]` and `// --- [<FAMILY>]` dividers'
+message: '`$TEXT` is a comment other than a `// --- [<LABEL>]` divider'
+note: 'Move the fact into a name or type and delete the comment'

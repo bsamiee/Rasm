@@ -9,4 +9,4 @@ rule:
         kind: 'line_str_text, multi_line_str_text, raw_str_part, raw_str_end_part'
         regex: '(^|[\s"''#(=:]|file://)(~|/(Applications|Users/[^/\s"'']+|home/[^/\s"'']+|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders)(/|$)|\$\{?HOME\b'
 message: '`$PATH` names a location in one machine''s install, user, or volume folders'
-note: 'Read the location from its owner at run time (`URL.homeDirectory`, a bundle id lookup, an environment variable) or take it as a parameter'
+note: 'Derive the location at run time from its owner (`URL.homeDirectory`, `URL.temporaryDirectory`, a bundle identifier lookup) or take it as a parameter'

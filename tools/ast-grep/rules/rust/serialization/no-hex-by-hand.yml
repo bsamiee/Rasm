@@ -68,4 +68,4 @@ rule:
         - matches: digit-encode
         - matches: digit-decode
 message: '`$SITE` encodes or decodes hex text one byte at a time'
-note: 'Encode with `data_encoding::HEXLOWER` or `HEXUPPER` and decode with `data_encoding::HEXLOWER_PERMISSIVE`'
+note: 'Encode through `data_encoding::HEXLOWER` or `HEXUPPER` (`encode_write` into a formatter), decode through `HEXLOWER_PERMISSIVE.decode`'

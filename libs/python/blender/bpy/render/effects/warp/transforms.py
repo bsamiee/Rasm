@@ -1,4 +1,4 @@
-"""Native affine maps, camera re-aiming, and covered warp reconstruction."""
+"""Affine maps, camera re-aiming, and covered warp reconstruction."""
 
 from itertools import chain
 
@@ -19,7 +19,7 @@ from blender.bpy.render.effects.generators.noise import sample
 from blender.bpy.render.effects.stack import CompositorEffect, Context, Coverage, Derived, KeyPath, path, precise, reached, rows, Shell, Shutter, shutter, ShutterPosition
 from blender.bpy.render.effects.viewers import inspection
 from blender.bpy.scene.cameras import camera_type
-from blender.bpy.settings.shapes import bare
+from blender.bpy.settings.shapes import unwrapped
 from blender.imaging.compositing.layers import Affine
 from blender.imaging.effects.generators.noise import Octaves, Perlin
 from blender.imaging.effects.warp.transforms import Shake, Tilt, Transform
@@ -32,31 +32,31 @@ from blender.imaging.parameters import Gated, GraphForm, markers, Motion
 
 
 class ConvexQuad(msgspec.Struct, frozen=True, kw_only=True):
-    """Requested corner positions without a strictly convex image plane."""
+    """Corners forming no strictly convex quadrilateral."""
 
     quad: Quad
 
     @property
     def message(self) -> str:
-        """Requested geometry that requires a convex plane."""
-        return f"Corner Pin requires a strictly convex quadrilateral: {self.quad}"
+        """Requirement text with requested corners."""
+        return f"Corner Pin {self.quad} is not strictly convex"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: Transform, _context: Context) -> BlenderResult[None]:
-    """Accepts the requested corner geometry at rendered frames and shutter endpoints.
+def validated(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: Transform, _context: Context) -> BlenderResult[None]:
+    """Checks Corner Pin convexity at rendered frames and shutter endpoints.
 
     Args:
-        identity: Owner of existing native parameter channels.
-        scene: Render range and native shutter.
-        entry: Existing keyed inputs, or absence for a new entry.
-        record: Proposed transform values used by unkeyed inputs.
-        _context: Entering raster facts, unused by normalized corner geometry.
+        identity: Owner of existing parameter channels.
+        scene: Scene supplying render range and shutter.
+        entry: Entry holding keyed inputs, absent for new entry.
+        record: Proposed values for unkeyed inputs.
+        _context: Stage input facts, unused by normalized corners.
 
     Returns:
-        Acceptance, native channel faults, or the requested nonconvex quadrilateral.
+        None when every pinned quadrilateral is convex, channel faults, or unmet convexity faults.
     """
     frames = tuple(dict.fromkeys((scene.frame_current_final, *(float(frame) for frame in range(scene.frame_start, scene.frame_end + 1, scene.frame_step)))))
     pin, _, _, _, _, _, _, _, _, _, motion_blur = Transform.__struct_fields__
@@ -89,11 +89,11 @@ def admitted(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types
 
 
 def pose_inputs() -> tuple[tuple[KeyPath, msgspec.structs.FieldInfo, native.Type], ...]:
-    """Derives numeric temporal leaves from the complete Transform record."""
+    """Derives numeric temporal leaves of Transform record."""
 
     def temporal(field: msgspec.structs.FieldInfo, shape: native.Type) -> bool:
         _, _, _, _, _, _, _, _, _, filterwidth, _ = Transform.__struct_fields__
-        match bare(shape):
+        match unwrapped(shape):
             case native.FloatType() | native.IntType():
                 return not markers(field.type, GraphForm) and field.name != filterwidth
             case native.TupleType(item_types=items):
@@ -105,7 +105,7 @@ def pose_inputs() -> tuple[tuple[KeyPath, msgspec.structs.FieldInfo, native.Type
 
 
 def posed(_identity: Identity, scene: bpy.types.Scene, record: Transform) -> BlenderResult[msgspec.Struct]:
-    """Initializes both endpoint records from the effect and native scene shutter."""
+    """Builds both shutter endpoint poses from record and scene shutter."""
     return Ok(
         Poses(
             length=scene.render.motion_blur_shutter,
@@ -121,7 +121,7 @@ def keyed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
     opening = ShutterPosition[scene.render.motion_blur_position].value
 
     def channels(lengths: tuple[float, ...], at: KeyPath, _field: msgspec.structs.FieldInfo, shape: native.Type) -> BlenderResult[tuple[Animation, ...]]:
-        indices = tuple(range(len(kind.item_types))) if isinstance(kind := bare(shape), native.TupleType) else (None,)
+        indices = tuple(range(len(kind.item_types))) if isinstance(kind := unwrapped(shape), native.TupleType) else (None,)
 
         def component(side: int, index: int | None) -> BlenderResult[Animation]:
             def samples(source: str, target: str) -> BlenderResult[Animation]:
@@ -144,20 +144,20 @@ def keyed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
 def extended(
     key: Key, source: Operand, uv: Operand, selector: Operand, items: MenuItems, *, vertical: Option[tuple[Operand, MenuItems]] = Nothing, filtername: str = "triangle", filterwidth: float = 2.0
 ) -> BlenderResult[tuple[Fragment, End]]:
-    """Samples a covered map with independent borders and native triangle reconstruction.
+    """Samples covered map with per-axis borders and filtered reconstruction.
 
     Args:
-        key: Prefix of the sampling nodes.
+        key: Node key prefix.
         source: Associated image being reconstructed.
         uv: Source positions with geometric coverage in Z.
-        selector: Horizontal extension menu, shared vertically when absent there.
-        items: Native metadata-derived extension choices.
-        vertical: Independent vertical extension menu and its choices.
-        filtername: OIIO reconstruction request.
+        selector: Extension menu for X, and for Y when `vertical` is absent.
+        items: Extension menu items.
+        vertical: Extension menu for Y and its items.
+        filtername: OIIO reconstruction filter name.
         filterwidth: Full support width in source pixels.
 
     Returns:
-        The covered associated sample, or a typed refusal of unsupported reconstruction.
+        Covered associated sample, or choice fault for reconstruction other than triangle (2.0).
     """
     if (filtername, filterwidth) != ("triangle", 2.0):
         return Error((BlenderChoiceFault(path="reconstruction", identifier=f"{filtername} ({filterwidth})", accepted=("triangle (2.0)",)),))
@@ -217,10 +217,10 @@ def extended(
 
 
 def placement(key: Key, frame: FrameSpace, position: Operand, rotation: Operand, scale: Operand, skew: Operand, pivot: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds scale, X shear, Y shear, and rotation about a frame pivot, then translation.
+    """Builds scale, X and Y shear, and rotation about pivot, then translation.
 
     Args:
-        key: Prefix of the affine nodes.
+        key: Node key prefix.
         frame: Displayed frame coordinates.
         position: Translation as shares of each displayed side.
         rotation: Counterclockwise angle in radians.
@@ -229,7 +229,7 @@ def placement(key: Key, frame: FrameSpace, position: Operand, rotation: Operand,
         pivot: Fixed point as shares of each displayed side.
 
     Returns:
-        The native forward affine matrix, including singular and reflected placements.
+        Forward affine matrix, singular and reflected placements included.
     """
     anchor = vector(f"{key}_pivot", "MULTIPLY", pivot, frame.extent)
     shear = node(f"{key}_skew", bpy.types.ShaderNodeSeparateXYZ, {"Vector": skew}, {})
@@ -284,16 +284,16 @@ def placement(key: Key, frame: FrameSpace, position: Operand, rotation: Operand,
 
 
 def placed(key: Key, source: Operand, frame: FrameSpace, matrix: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Places the current displayed rectangle while retaining deferred native bounds.
+    """Places current displayed rectangle, keeping deferred bounds.
 
     Args:
-        key: Prefix of the placement nodes.
-        source: Associated content, including its existing native transformation.
+        key: Node key prefix.
+        source: Associated content with its transformation.
         frame: Current displayed extent and conversion to stored pixel distances.
-        matrix: Forward affine matrix from placement in the same frame.
+        matrix: Forward matrix from `placement` in same frame.
 
     Returns:
-        Native content transformed about its current center, or transparent singular content.
+        Content transformed about its center, transparent when singular.
     """
     basis = (
         node(f"{key}_pixel_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.scale}, {})
@@ -399,15 +399,15 @@ def placed(key: Key, source: Operand, frame: FrameSpace, matrix: Operand) -> Ble
 
 
 def tilted(key: Key, uv: Operand, lens: Operand, heading: Operand, elevation: Operand, *, forward: bool = False) -> BlenderResult[tuple[Fragment, End]]:
-    """Maps positions through the actual lens and the panorama owner's YXZ tilt.
+    """Maps positions through camera lens and YXZ tilt.
 
     Args:
-        key: Prefix of the camera nodes.
-        uv: Positions in the complete image's normalized frame.
-        lens: Native camera projection matrix of that image.
-        heading: Rightward view turn.
-        elevation: Upward view turn.
-        forward: Forward content placement instead of inverse sampling.
+        key: Node key prefix.
+        uv: Positions in normalized frame of whole image.
+        lens: Camera projection matrix of image.
+        heading: Rightward turn of view.
+        elevation: Upward tilt of view.
+        forward: Forward content placement in place of inverse sampling.
 
     Returns:
         Source positions and front-facing geometric coverage in Z.
@@ -437,7 +437,7 @@ def tilted(key: Key, uv: Operand, lens: Operand, heading: Operand, elevation: Op
 
 
 def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
-    """Composes sampled camera poses and reconstructs their native shutter approximation."""
+    """Composes sampled camera poses into shutter approximation."""
     basis = Perlin(dimensions=1, size=1.0, stretch=1.0, distortion=0.0)
     camera = node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).map(ended("camera", "Active Camera"))
     lens = camera.bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": camera}, {})).map(ended("lens", "Projection Matrix"))
@@ -788,7 +788,7 @@ def transformed(shell: Shell[Transform]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def aimed(record: Transform) -> Condition:
-    """Requires perspective optics when the effect turns the camera view."""
+    """Requires perspective camera when tilt turns view."""
     return camera_type("PERSP") if record.tilt.heading != 0.0 or record.tilt.elevation != 0.0 else AllOf(conditions=())
 
 
@@ -814,11 +814,11 @@ transform: CompositorEffect[Transform] = CompositorEffect(
     condition=Some(aimed),
     derived=Some(Derived(record=Poses, of=Some(posed), reads=shutter.reads)),
     animated=Some(keyed),
-    native_admitted=Some(admitted),
-    registrables=(inspection(lambda: transform, "transform_uv", "Transform UV", "Inspect source positions and mapping coverage", lambda: End(node="uv", socket="Output")),),
+    native_validated=Some(validated),
+    registrables=(inspection(lambda: transform, "transform_uv", "View Transform UV", "Source positions and coverage", lambda: End(node="uv", socket="Output")),),
 )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ConvexQuad", "Poses", "admitted", "aimed", "extended", "keyed", "placed", "placement", "pose_inputs", "posed", "tilted", "transform", "transformed"]
+__all__ = ["ConvexQuad", "Poses", "aimed", "extended", "keyed", "placed", "placement", "pose_inputs", "posed", "tilted", "transform", "transformed", "validated"]

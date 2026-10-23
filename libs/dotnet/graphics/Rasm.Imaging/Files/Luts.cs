@@ -69,7 +69,7 @@ public sealed record LutFile {
     private static Fin<LutTable> Lattice(Image<Rgb48> image) =>
         toSeq(LookupLayout.Items)
             .Choose(layout => from edge in layout.Edge(image.Width, image.Height) from extent in layout.Image(edge) select (Layout: layout, Edge: edge, Extent: extent))
-            .Head.ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"lookup image of {image.Width}x{image.Height} holds no lattice layout")))
+            .Head.ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"Lookup image of {image.Width}x{image.Height} holds no lattice layout")))
             .Bind(found => {
                 using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * found.Edge * found.Edge * found.Edge);
                 image.ProcessPixelRows(rows => {

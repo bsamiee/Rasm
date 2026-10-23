@@ -29,4 +29,4 @@ rule:
                 - has: {stopBy: end, matches: owner, has: {kind: class_heritage, has: {stopBy: end, kind: pair, has: {field: value, kind: identifier, pattern: $NAME}}}}
                 - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, matches: owner}}}}
 message: '`$NAME` declares a field schema that `$CLASS` alone reads'
-note: 'Declare the schema inline in the class fields and read it inside the class as `<Class>.fields.<field>`'
+note: 'Declare the schema inline in the class fields and read it as `<Class>.fields.<field>`'

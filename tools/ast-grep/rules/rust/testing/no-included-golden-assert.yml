@@ -62,4 +62,4 @@ rule:
                         - not: {follows: {regex: '^(\.|::)$'}}
                         - matches: golden-binding
 message: '`$ASSERT` compares output to a golden file the test reads'
-note: 'Write `insta::assert_snapshot!(<output>)` or `assert_binary_snapshot!("<name>.<ext>", <bytes>)` and review changes through `cargo insta review`'
+note: 'Assert with `insta::assert_snapshot!(<output>)`, or `insta::assert_binary_snapshot!(".<ext>", <bytes>)` for bytes'

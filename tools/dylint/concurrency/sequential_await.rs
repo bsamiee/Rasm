@@ -7,6 +7,7 @@ use clippy_utils::{
     paths::PathNS,
     peel_hir_expr_while,
     res::{MaybeDef as _, MaybeResPath as _},
+    source::snippet,
     sym,
     ty::implements_trait,
     visitors::for_each_expr_without_closures,
@@ -25,6 +26,7 @@ use crate::{expanded_externally, paths};
 
 #[derive(Clone, Copy)]
 enum Built {
+    Iterated,
     Before,
     Inside,
 }
@@ -68,7 +70,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 };
                 let operands = || iter::chain(receiver, arguments);
                 if bound(future) {
-                    typeck.expr_ty(future).opt_def_id().is_none_or(|held| !self.handles.contains(&held)).then_some(Built::Before)
+                    typeck.expr_ty(future).opt_def_id().is_none_or(|held| !self.handles.contains(&held)).then(|| future.res_local_id().map_or(Built::Before, |_| Built::Iterated))
                 } else if arguments.iter().any(wrapped) {
                     Some(Built::Before)
                 } else {
@@ -84,15 +86,21 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             };
             if let Some((awaited, built)) =
                 for_each_expr_without_closures(for_loop.body, |inner| desugar_await(inner).and_then(joined).map_or(ControlFlow::Continue(()), |built| ControlFlow::Break((inner, built))))
-                && (matches!(built, Built::Before) || !exits())
+                && (matches!(built, Built::Iterated | Built::Before) || !exits())
             {
+                let items = snippet(cx, for_loop.arg.span, "..");
                 let message = match built {
-                    Built::Before => "`for` loop awaits futures built before it in sequence",
+                    Built::Iterated | Built::Before => "`for` loop awaits futures built before it in sequence",
                     Built::Inside => "`for` loop builds and awaits one independent future per item in sequence",
+                };
+                let help = match built {
+                    Built::Iterated => format!("await `futures::future::join_all({items})`"),
+                    Built::Before => format!("await `futures::future::join_all({items}.into_iter().map(..))`"),
+                    Built::Inside => format!("await `futures::stream::iter({items}).map(..).buffered(n).collect::<Vec<_>>()`"),
                 };
                 span_lint_hir_and_then(cx, SEQUENTIAL_AWAIT, expr.hir_id, for_loop.span.with_hi(for_loop.arg.span.hi()), message, |diag| {
                     diag.span_note(awaited.span, "each future completes here before the next starts");
-                    diag.help("await `futures::future::join_all` over the futures, or `futures::stream::iter(..).buffered(n)` to bound concurrency, both keep input order");
+                    diag.help(help);
                 });
             }
         }

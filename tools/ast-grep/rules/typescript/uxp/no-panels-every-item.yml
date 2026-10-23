@@ -12,5 +12,5 @@ rule:
         all:
             - has: {field: property, regex: '^everyItem$'}
             - has: {field: object, kind: member_expression, has: {field: property, regex: '^panels$'}}
-message: '`$CALL` reads `undefined` over the panel that resolves to nothing'
-note: 'Read each panel as `panels.item(<index>)?.` for every index below `panels.length`, where that panel reads `undefined`'
+message: '`$CALL` reads `undefined` when one `panels` member resolves to nothing'
+note: 'Read `panels.item(<index>)` through `Option.fromUndefinedOr` for each index below `panels.length`'

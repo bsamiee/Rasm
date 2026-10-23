@@ -18,4 +18,4 @@ rule:
             - has: {field: name, regex: '^message$'}
             - inside: {kind: object_type, inside: {kind: type_arguments, inside: {kind: extends_clause, field: type_arguments, matches: effect-error-heritage}}}
 message: '`$TEXT` stores the error message as text'
-note: 'Store typed fields alone and derive the text from the fields in an `override get message()` getter'
+note: 'Declare typed fields alone and derive text from them in an `override get message()` getter'

@@ -169,7 +169,7 @@ public static class Getters {
             GetResult.Cancel or GetResult.Timeout => Errors.Cancelled,
             GetResult.Nothing => new Ended(member, Result.Nothing),
             GetResult.ExitRhino => new Ended(member, Result.ExitRhino),
-            _ => new Refused(member, $"answered {result}, which no route takes"),
+            _ => new Refused(member, $"answered unrouted {result}"),
         }))
         select answer;
 

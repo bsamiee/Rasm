@@ -76,4 +76,4 @@ rewriters:
       fix: $CONSTRAINED$FREE
 fix: $OPAQUE
 message: '`$PARAM` names a generic parameter one parameter type uses alone'
-note: 'Write `some <Constraint>` as that parameter type, `some Any` for an unconstrained parameter, and drop the generic parameter'
+note: 'Write `some <Constraint>` as that parameter type, `some Any` for an unconstrained parameter, and delete the generic parameter'

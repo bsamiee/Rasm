@@ -12,14 +12,14 @@ class PageView extends Schema.TaggedClass<PageView, { readonly brand: unique sym
     documentOffset: Schema.Int,
     side: Schema.String,
     extent: Extent,
-    parent: Reference.annotate({ description: 'Spread or parent spread holding the page' }),
+    parent: Reference.annotate({ description: 'Spread or parent spread' }),
     appliedMaster: Schema.OptionFromOptionalKey(Reference),
     appliedSection: Reference,
     margins: Schema.Struct({
         ...Struct.Record(['top', 'bottom', 'inside', 'outside'], Schema.Finite),
-        columns: Schema.Array(Schema.Tuple([Schema.Finite, Schema.Finite])).annotate({ description: 'Left and right edge of each column from the left margin' }),
+        columns: Schema.Array(Schema.Tuple([Schema.Finite, Schema.Finite])).annotate({ description: 'Column left and right edges from left margin' }),
     }),
-    items: Schema.Struct({ own: Schema.Int, inherited: Schema.Int }).annotate({ description: 'Page items held, and parent items shown' }),
+    items: Schema.Struct({ own: Schema.Int, inherited: Schema.Int }).annotate({ description: 'Own and parent page item counts' }),
 }) {
     static readonly viewed = ({ page }: Model['Service']) => flow(Option.liftPredicate(page), Option.map(PageView.of));
     static readonly of = (page: Page) =>

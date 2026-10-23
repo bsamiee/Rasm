@@ -11,7 +11,7 @@ namespace Rasm.Analyzers.CodeFixes;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 [Shared]
-public sealed class LanguageCodeFix() : RasmCodeFix((LanguageAnalyzer.Covered, "Delete the catch-all arm", static site => site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is not null, Delete)) {
+public sealed class LanguageCodeFix() : RasmCodeFix((LanguageAnalyzer.Covered, "Delete catch-all arm", static site => site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is not null, Delete)) {
     private static void Delete(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {
         if (site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { Parent: SwitchExpressionSyntax dispatch } arm)
             editor.ReplaceNode(dispatch, dispatch.WithArms(dispatch.Arms.Remove(arm)).WithAdditionalAnnotations(Formatter.Annotation));

@@ -19,14 +19,14 @@ from blender.imaging.files.images import published, streamed
 
 
 class Optics(msgspec.Struct, frozen=True, kw_only=True):
-    """Focal length in meters and f-number of the camera a frame came from."""
+    """Source camera focal length in meters and f-number."""
 
     focal_length: float
     f_number: float
 
 
 class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
-    """Camera identity, view exposure, and optics a Linear Raw DNG carries."""
+    """Camera and exposure tags of Linear Raw DNG."""
 
     make: str
     model: str
@@ -34,15 +34,15 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
     optics: Option[Optics] = Nothing
 
     def written(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> ImagingResult[str]:
-        """Writes a scene-linear frame as Linear Raw DNG.
+        """Writes scene-linear frame as Linear Raw DNG.
 
         Args:
             path: File to write.
-            frame: C-contiguous `(height, width, 3)` frame in the config's scene-linear space.
-            config: Config whose scene-linear space the frame holds.
+            frame: C-contiguous `(height, width, 3)` scene-linear frame.
+            config: Config defining scene-linear space.
 
         Returns:
-            The path; a `color` fault for a failed scene-referred XYZ path, a `numeric` fault for a singular color matrix, or a `write` fault holding the native file or TIFF representation error.
+            Path, or `color`, `numeric`, or `write` fault.
         """
 
         def signed(*values: float) -> tuple[tuple[int, int], ...]:

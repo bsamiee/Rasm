@@ -14,11 +14,11 @@ namespace Rasm.Analyzers.CodeFixes;
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 [Shared]
 public sealed class LanguageExtCodeFix() : RasmCodeFix(
-    (LanguageExtAnalyzer.Lift, "Remove explicit conversion", static _ => true, Unlift),
-    (LanguageExtAnalyzer.RoundTrip, "Apply Fin directly", static _ => true, Unwrap),
+    (LanguageExtAnalyzer.Lift, "Delete explicit lift", static _ => true, Unlift),
+    (LanguageExtAnalyzer.RoundTrip, "Delete Validation round trip", static _ => true, Unwrap),
     (LanguageExtAnalyzer.Spread, "Append with Add", static _ => true, Append),
     (LanguageExtAnalyzer.LiftedApply, "Apply Fin inside one IO.lift", Lowerable, Lower),
-    (LanguageExtAnalyzer.Narrowed, "Delete the narrowing call", static site => site.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax }, Unnarrow)) {
+    (LanguageExtAnalyzer.Narrowed, "Delete narrowing call", static site => site.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax }, Unnarrow)) {
     // --- [NARROWINGS]
     private static void Unnarrow(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) =>
         editor.ReplaceNode(site.FirstAncestorOrSelf<InvocationExpressionSyntax>()!, static (current, _) => current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access }

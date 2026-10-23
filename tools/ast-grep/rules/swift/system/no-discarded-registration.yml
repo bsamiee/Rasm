@@ -16,5 +16,5 @@ rule:
                 any:
                     - has: {nthChild: 2}
                     - inside: {kind: function_body, inside: {kind: function_declaration, not: {has: {regex: '^->$'}}}}
-message: '`$CALL` registers a handler and drops the token that removes it'
-note: 'Store the returned token in the owner and pass it to the matching removal (`NSEvent.removeMonitor(_:)`, `removeTimeObserver(_:)`) at teardown'
+message: '`$CALL` discards the token that removes its handler'
+note: 'Store the returned token in its owner and pass it to `NSEvent.removeMonitor(_:)` or `removeTimeObserver(_:)` at teardown'

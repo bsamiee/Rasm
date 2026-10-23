@@ -10,15 +10,21 @@ use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::{Expr, ExprKind, PatKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass, Lint};
-use rustc_middle::ty::TyCtxt;
+use rustc_middle::ty::{TyCtxt, print::with_forced_trimmed_paths};
 use rustc_span::Span;
 
-use crate::{expanded_externally, impl_owner, item_path, path, resolve};
+use crate::{expanded_externally, impl_owner, item_path, path, resolve, result_parts};
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const ON_NONE: (&str, &str) = ("`None`", "convert `None` into an error with `ok_or_else` and return it with `?`");
+const ON_ERR: (&str, &str) = ("`Err`", "return the error with `?`");
+const ON_OK: (&str, &str) = ("`Ok`", "match the `Result` and handle `Ok`");
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
-    methods: FxHashMap<DefId, &'static Lint>,
+    methods: FxHashMap<DefId, (&'static Lint, (&'static str, &'static str))>,
     map_err: Option<DefId>,
 }
 
@@ -39,12 +45,12 @@ impl Pass {
                 tcx,
                 PathNS::Value,
                 &[
-                    ("core::option::Option::unwrap", UNWRAP_USED_IN_MACRO),
-                    ("core::result::Result::unwrap", UNWRAP_USED_IN_MACRO),
-                    ("core::result::Result::unwrap_err", UNWRAP_USED_IN_MACRO),
-                    ("core::option::Option::expect", EXPECT_USED_IN_MACRO),
-                    ("core::result::Result::expect", EXPECT_USED_IN_MACRO),
-                    ("core::result::Result::expect_err", EXPECT_USED_IN_MACRO),
+                    ("core::option::Option::unwrap", (UNWRAP_USED_IN_MACRO, ON_NONE)),
+                    ("core::result::Result::unwrap", (UNWRAP_USED_IN_MACRO, ON_ERR)),
+                    ("core::result::Result::unwrap_err", (UNWRAP_USED_IN_MACRO, ON_OK)),
+                    ("core::option::Option::expect", (EXPECT_USED_IN_MACRO, ON_NONE)),
+                    ("core::result::Result::expect", (EXPECT_USED_IN_MACRO, ON_ERR)),
+                    ("core::result::Result::expect_err", (EXPECT_USED_IN_MACRO, ON_OK)),
                 ],
             ),
             map_err: path(tcx, PathNS::Value, "core::result::Result::map_err"),
@@ -57,42 +63,53 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let local = |span: Span| span.from_expansion() && !expanded_externally(cx, span);
         let called = fn_def_id(cx, expr);
         let found = match expr.kind {
-            ExprKind::MethodCall(segment, _, [argument], _)
+            ExprKind::MethodCall(segment, receiver, [argument], _)
                 if local(expr.span)
                     && called.is_some_and(|method| self.map_err == Some(method))
                     && let ExprKind::Closure(closure) = argument.kind
                     && let [parameter] = cx.tcx.hir_body(closure.body).params
-                    && matches!(parameter.pat.kind, PatKind::Wild) =>
-                Some((
+                    && matches!(parameter.pat.kind, PatKind::Wild)
+                    && let Some((_, error)) = result_parts(cx, cx.typeck_results().expr_ty(receiver)) =>
+                with_forced_trimmed_paths!(Some((
                     MAP_ERR_IGNORE_IN_MACRO,
                     segment.ident.span.to(expr.span.shrink_to_hi()),
-                    String::from("`map_err(|_| ..)` in a local macro expansion discards the error"),
-                    "bind the error and keep it as the source of the new error",
-                )),
+                    format!("`map_err(|_| ..)` in a local macro expansion discards `{error}`"),
+                    format!("hold `{error}` as `#[source]` of the error the closure builds"),
+                ))),
             ExprKind::MethodCall(segment, ..)
                 if local(expr.span)
                     && let Some(method) = called
-                    && let Some(&lint) = self.methods.get(&method) =>
-                Some((
-                    lint,
-                    segment.ident.span.to(expr.span.shrink_to_hi()),
-                    format!("`{}` in a local macro expansion can panic", item_path(cx, method)),
-                    "match the value and return the failure through the result type",
-                )),
+                    && let Some(&(lint, (failure, help))) = self.methods.get(&method) =>
+                Some((lint, segment.ident.span.to(expr.span.shrink_to_hi()), format!("`{}` in a local macro expansion panics on {failure}", item_path(cx, method)), String::from(help))),
             ExprKind::Call(..) if called.is_some_and(|function| cx.tcx.item_name(function) == sym::new_debug && impl_owner(cx.tcx, function).is_lang_item(cx, LangItem::FormatArgument)) =>
                 macro_backtrace(expr.span)
                     .find(|call| local(call.span))
                     .filter(|call| {
                         matches!(cx.tcx.get_diagnostic_name(call.def_id), Some(sym::print_macro | sym::println_macro | sym::eprint_macro | sym::eprintln_macro | sym::write_macro | sym::writeln_macro))
                     })
-                    .map(|call| (USE_DEBUG_IN_MACRO, call.span, format!("`{}!` in a local macro expansion formats through `Debug`", cx.tcx.item_name(call.def_id)), "format through `Display`")),
+                    .map(|call| {
+                        (
+                            USE_DEBUG_IN_MACRO,
+                            call.span,
+                            format!("`{}!` in a local macro expansion formats through `Debug`", cx.tcx.item_name(call.def_id)),
+                            String::from("format through `Display` with `{}`"),
+                        )
+                    }),
             _ => first_node_macro_backtrace(cx, expr).filter(|call| local(call.span)).find_map(|call| {
                 let name = cx.tcx.item_name(call.def_id);
+                let printed =
+                    |stream: &str| Some((PRINT_IN_MACRO, call.span, format!("`{name}!` in a local macro expansion writes to {stream}"), format!("emit a `tracing` event in place of `{name}!`")));
                 match cx.tcx.get_diagnostic_name(call.def_id)? {
-                    sym::print_macro | sym::println_macro | sym::eprint_macro | sym::eprintln_macro =>
-                        Some((PRINT_IN_MACRO, call.span, format!("`{name}!` in a local macro expansion writes to the console"), "record the value through `tracing` at the boundary")),
-                    diagnostic if is_panic(cx, call.def_id) || matches!(diagnostic, sym::todo_macro | sym::unimplemented_macro | sym::unreachable_macro) =>
-                        Some((PANIC_IN_MACRO, call.span, format!("`{name}!` in a local macro expansion panics"), "return the failure through the result type, or state the invariant in the types")),
+                    sym::print_macro | sym::println_macro => printed("stdout"),
+                    sym::eprint_macro | sym::eprintln_macro => printed("stderr"),
+                    sym::todo_macro | sym::unimplemented_macro =>
+                        Some((PANIC_IN_MACRO, call.span, format!("`{name}!` in a local macro expansion panics"), format!("replace `{name}!` with the implementation"))),
+                    diagnostic if is_panic(cx, call.def_id) || diagnostic == sym::unreachable_macro => Some((
+                        PANIC_IN_MACRO,
+                        call.span,
+                        format!("`{name}!` in a local macro expansion panics"),
+                        String::from("return a typed error for a failure the input causes, or state the invariant in the types"),
+                    )),
                     _ => None,
                 }
             }),

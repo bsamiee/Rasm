@@ -204,4 +204,4 @@ fix:
     template: '$THEN_PRIMARY$THEN_COMPOUND_WRAPPED$UNLESS_PRIMARY_WRAPPED$UNLESS_COMPOUND_WRAPPED$THEN_OPEN$X$THEN_CLOSE$IF_OPEN$COND$IF_THEN$VALUE$IF_ELSE$LAST$IF_CLOSE$R$MAP_OPEN$OKV$MAP_MID$A$MAP_CLOSE$MAP_ERR_OPEN$RET_OPEN$ERRV$MAP_ERR_MID$RET_MID$B$RET$MAP_ERR_CLOSE$RET_CLOSE$STATEMENT_END$TAIL_BREAK$GUARD_TAIL'
     expandEnd: {matches: tail}
 message: '`if` or `match` over `$SUBJECT` selects a result through an early `return` or a restated case'
-note: 'Select the result through one combinator or `if` expression over the condition or `Result`'
+note: 'Select the result through `bool::then_some` or `then`, one `if` expression, or `Result::map` and `map_err` with `?`'

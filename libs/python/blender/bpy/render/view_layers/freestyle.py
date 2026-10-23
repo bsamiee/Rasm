@@ -1,4 +1,4 @@
-"""Freestyle settings, line sets, and line styles of view layers as one value set."""
+"""Freestyle settings, line sets, and line styles as one value set."""
 
 import itertools
 import operator
@@ -25,21 +25,21 @@ from blender.imaging.faults import accumulated, paired
 
 
 class StyleModifier(msgspec.Struct, frozen=True, kw_only=True):
-    """Modifier of a line style stack: its name and kind."""
+    """Line style stack modifier."""
 
     name: Annotated[str, msgspec.Meta(min_length=1)]
     kind: str
 
 
 class LineStyle(msgspec.Struct, frozen=True, kw_only=True):
-    """Line style values and each stack's modifiers by stack identifier."""
+    """Line style values and modifiers per stack identifier."""
 
     values: Snapshot
     modifiers: dict[str, tuple[StyleModifier, ...]] = msgspec.field(default_factory=dict)
 
 
 class LineSet(msgspec.Struct, frozen=True, kw_only=True):
-    """Line set values and its style."""
+    """Line set values and line style."""
 
     name: Annotated[str, msgspec.Meta(min_length=1)]
     values: Snapshot
@@ -54,14 +54,14 @@ class Freestyle(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Stack(msgspec.Struct, frozen=True, kw_only=True):
-    """Modifier stack of a line style and the kinds its `new` admits."""
+    """Line style modifier stack and types its `new` accepts."""
 
     collection: Descriptor[bpy.types.CollectionProperty]
     kinds: tuple[str, ...]
 
 
 class LineMembers(msgspec.Struct, frozen=True, kw_only=True):
-    """Members captures and applies resolve once."""
+    """RNA members `captured` and `applied` read, resolved once."""
 
     settings: tuple[Descriptor, ...]
     lineset: tuple[Descriptor, ...]
@@ -71,11 +71,7 @@ class LineMembers(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls) -> BlenderResult["LineMembers"]:
-        """Resolves the selections, the stacks with their kinds, the line style pointer, and `ViewLayer.use`.
-
-        Returns:
-            `Ok` of the members; `Error` of `absent` or `choice` for each member the build lacks.
-        """
+        """Resolves members, faulting each one the build lacks."""
 
         def selection(kind: type[bpy.types.FreestyleSettings | bpy.types.FreestyleLineSet]) -> tuple[Descriptor, ...]:
             struct: bpy.types.Struct = kind.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -106,26 +102,19 @@ class LineMembers(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class FreestyleSection(Line, frozen=True):
-    """Row placing the line looks and the copy row."""
+    """Row of Freestyle presets and copy button."""
 
     preset: ClassVar[Preset[Freestyle]] = Preset(key="freestyle", form=Freestyle)
     ownership: ClassVar[Ownership[bpy.types.FreestyleLineStyle]] = Ownership(kind=bpy.types.FreestyleLineStyle, key="linestyle", saved=Saved.USED, single=False)
 
     def parts(self, identity: Identity) -> BlenderResult[tuple[LineMembers, Listing[Freestyle], Operator[Empty]]]:
-        """Builds the members, the line look listing, and the copy row.
-
-        Args:
-            identity: Extension placing the row.
-
-        Returns:
-            `Ok` of the three; `Error` of the members' faults.
-        """
+        """Builds members, preset listing, and copy operator."""
 
         def built(members: LineMembers) -> tuple[LineMembers, Listing[Freestyle], Operator[Empty]]:
             def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Outcome]:
                 def wrote(current: tuple[Freestyle, ...]) -> BlenderResult[Outcome]:
                     if not (differing := tuple(layer for layer, held in zip(layers, current) if held != value)):
-                        return Ok(Unchanged(reason="No used view layer differs from these lines"))
+                        return Ok(Unchanged(reason="Used view layers match Freestyle settings"))
                     return tallied(tuple(applied(value, layer, identity, members) for layer in differing))
 
                 return accumulated(captured(layer, members) for layer in layers).bind(wrote)
@@ -142,7 +131,7 @@ class FreestyleSection(Line, frozen=True):
             copy = Operator(
                 key="freestyle_copy",
                 title="Copy Lines to Used Layers",
-                description="Write the active layer's Freestyle settings and line sets onto every other used layer",
+                description="Copy active layer Freestyle settings and line sets to other used layers",
                 form=Empty,
                 run=lambda call: Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], BlenderFaults].bind(
                     paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)),
@@ -154,7 +143,7 @@ class FreestyleSection(Line, frozen=True):
         return LineMembers.of().map(built)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Realizes the line look listing and the copy row."""
+        """Draws preset listing and copy button."""
 
         def rows(_: LineMembers, listing: Listing[Freestyle], copy: Operator[Empty]) -> tuple[Row, ...]:
             return (listing, OperatorButton(target=copy))
@@ -162,14 +151,7 @@ class FreestyleSection(Line, frozen=True):
         return self.parts(identity).bind(lambda parts: placed(rows(*parts), identity)).map(joined)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the listing rows, the copy row, and the owned style merge.
-
-        Args:
-            identity: Extension placing the row.
-
-        Returns:
-            `Ok` of the nested listing, copy action, and ownership declarations; `Error` of every construction fault.
-        """
+        """Returns preset listing, copy operator, and line style ownership."""
 
         def acquired(_: LineMembers, listing: Listing[Freestyle], copy: Operator[Empty]) -> Acquisitions:
             return listing, copy, self.ownership
@@ -177,7 +159,7 @@ class FreestyleSection(Line, frozen=True):
         return self.parts(identity).map(lambda parts: acquired(*parts))
 
     def section(self) -> Single[Empty]:
-        """Section of the line looks and the copy row."""
+        """Returns Freestyle section."""
         return Single(key="freestyle", title="Freestyle", rows=(self,))
 
 
@@ -185,15 +167,7 @@ class FreestyleSection(Line, frozen=True):
 
 
 def captured(layer: bpy.types.ViewLayer, members: LineMembers) -> BlenderResult[Freestyle]:
-    """Captures a layer's Freestyle settings and line sets.
-
-    Args:
-        layer: View layer read.
-        members: Resolved selections and stacks.
-
-    Returns:
-        The value set in line set order.
-    """
+    """Captures layer Freestyle settings and line sets in layer order."""
     settings = layer.freestyle_settings
 
     def lineset(held: bpy.types.FreestyleLineSet) -> BlenderResult[LineSet]:
@@ -208,16 +182,7 @@ def captured(layer: bpy.types.ViewLayer, members: LineMembers) -> BlenderResult[
 
 
 def styled(row: LineStyle, style: bpy.types.FreestyleLineStyle, stacks: tuple[Stack, ...]) -> BlenderResult[Applied]:
-    """Brings a line style's modifiers to a row's, then applies its values.
-
-    Args:
-        row: Captured line style.
-        style: Owned line style written.
-        stacks: Modifier stacks of the line style with their kinds.
-
-    Returns:
-        `Ok` of the values' outcome; `Error` of `choice` for a kind a stack refuses, `edit`, and each refused write.
-    """
+    """Matches line style modifiers to captured ones, then applies captured values."""
 
     def stacked(stack: Stack) -> BlenderResult[None]:
         identifier = stack.collection.prop.identifier
@@ -246,17 +211,7 @@ def styled(row: LineStyle, style: bpy.types.FreestyleLineStyle, stacks: tuple[St
 
 
 def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity, members: LineMembers) -> BlenderResult[Applied]:
-    """Applies a value set onto a layer, reconciling its line sets by name in order.
-
-    Args:
-        freestyle: Value set applied.
-        layer: View layer written.
-        identity: Extension owning the line styles.
-        members: Resolved members and stacks.
-
-    Returns:
-        `Ok` of the settings' outcome with each line set's and style's summed; `Error` of every refusal, the settings bound ahead of the line sets.
-    """
+    """Writes Freestyle settings onto layer, then reconciles line sets by name in order."""
     linesets = layer.freestyle_settings.linesets
     wanted = tuple(row.name for row in freestyle.linesets)
     kept = wanted[: len(tuple(itertools.takewhile(bool, map(operator.eq, (held.name for held in linesets), wanted))))]

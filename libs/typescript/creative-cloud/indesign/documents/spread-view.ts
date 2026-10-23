@@ -12,7 +12,7 @@ class SpreadView extends Schema.TaggedClass<SpreadView, { readonly brand: unique
     ...Reference.fields,
     index: Schema.Int,
     showMasterItems: Schema.Boolean,
-    appliedMaster: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Parent applied to a spread, or the parent a parent is based on' }),
+    appliedMaster: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Applied parent, or base parent of a parent spread' }),
     kind: Schema.TaggedUnion({ Spread: { allowPageShuffle: Schema.Boolean }, MasterSpread: { namePrefix: Schema.String, baseName: Schema.String } }),
     pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(PageView.fields, ['side', 'extent'])))).annotate({ description: 'Pages in order' }),
     items: Schema.Int,

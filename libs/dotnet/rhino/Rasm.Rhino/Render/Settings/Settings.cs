@@ -94,7 +94,7 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
 public sealed partial class ImageOutputParameter : IStateParameter<ImageOutputState> {
     public static readonly ImageOutputParameter UseViewportSize = new("use-viewport-size", new StateParameter<ImageOutputState>.Toggle(
         Lens<ImageOutputState, bool>.New(static state => state.UseViewportSize, static on => state => state with { UseViewportSize = on })),
-        new("Viewport size", "Renders at the size of the view being rendered, off at the stored width and height"));
+        new("Viewport size", "Renders at rendered view size, off at stored width and height"));
     public static readonly ImageOutputParameter ImageWidth = new("image-width", StateParameter.Bounded(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageWidth, static width => state => state with { ImageWidth = width })),
         new("Width", "Rendered image width in pixels"));
     public static readonly ImageOutputParameter ImageHeight = new("image-height", StateParameter.Bounded(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageHeight, static height => state => state with { ImageHeight = height })),
@@ -105,7 +105,7 @@ public sealed partial class ImageOutputParameter : IStateParameter<ImageOutputSt
     public static readonly ImageOutputParameter ImageUnitSystem = new("image-unit-system", new StateParameter<ImageOutputState>.Enumerated<UnitSystem>(
         Lens<ImageOutputState, UnitSystem>.New(static state => state.ImageUnitSystem, static system => state => state with { ImageUnitSystem = system }),
         static system => Localization.UnitSystemName(system, capitalize: true, singular: false, abbreviate: false)),
-        new("Print units", "Unit the print size of the image shows in"));
+        new("Print units", "Unit for image print size"));
 
     public StateParameter<ImageOutputState> Kind { get; }
 
@@ -151,16 +151,16 @@ public sealed partial class RenderSourceParameter : IStateParameter<RenderSource
             RenderSettings.RenderingSources.NamedView => "Named view",
             RenderSettings.RenderingSources.SnapShot => "Snapshot",
         }),
-        new("Source", "View the rendering is taken from"));
+        new("Source", "View to render"));
     public static readonly RenderSourceParameter SpecificViewport = new("specific-viewport", new StateParameter<RenderSourceState>.OptionalRaw<string>(
         Lens<RenderSourceState, Option<string>>.New(static state => state.SpecificViewport, static name => state => state with { SpecificViewport = name })),
-        new("Name", "Viewport the rendering is taken from"));
+        new("Name", "Viewport to render"));
     public static readonly RenderSourceParameter NamedView = new("named-view", new StateParameter<RenderSourceState>.OptionalRaw<string>(
         Lens<RenderSourceState, Option<string>>.New(static state => state.NamedView, static name => state => state with { NamedView = name })),
-        new("Name", "Named view the rendering is taken from"));
+        new("Name", "Named view to render"));
     public static readonly RenderSourceParameter Snapshot = new("snapshot", new StateParameter<RenderSourceState>.OptionalRaw<string>(
         Lens<RenderSourceState, Option<string>>.New(static state => state.Snapshot, static name => state => state with { Snapshot = name })),
-        new("Name", "Snapshot the rendering is taken from"));
+        new("Name", "Snapshot to render"));
 
     public StateParameter<RenderSourceState> Kind { get; }
 
@@ -198,7 +198,7 @@ public sealed record FrameState(
 public sealed partial class FrameParameter : IStateParameter<FrameState> {
     public static readonly FrameParameter AmbientLight = new("ambient-light", new StateParameter<FrameState>.Color(
         Lens<FrameState, Swatch>.New(static state => state.AmbientLight, static color => state => state with { AmbientLight = color })),
-        new("Ambient light", "Color of the light reaching every surface from no source"));
+        new("Ambient light", "Color of light reaching every surface from no source"));
     public static readonly FrameParameter Antialias = new("antialias-level", new StateParameter<FrameState>.Enumerated<AntialiasLevel>(
         Lens<FrameState, AntialiasLevel>.New(static state => state.AntialiasLevel, static level => state => state with { AntialiasLevel = level }),
         static level => level switch {
@@ -207,34 +207,34 @@ public sealed partial class FrameParameter : IStateParameter<FrameState> {
             AntialiasLevel.Good => "Good quality",
             AntialiasLevel.High => "Final quality",
         }),
-        new("Quality", "Antialiasing quality the renderer samples at"));
+        new("Quality", "Renderer antialiasing quality"));
     public static readonly FrameParameter ShadowmapLevel = new("shadowmap-level", new StateParameter<FrameState>.Choice<ShadowmapQuality>(
         Lens<FrameState, ShadowmapQuality>.New(static state => state.ShadowmapLevel, static quality => state => state with { ShadowmapLevel = quality })),
         new("Shadow maps", "Shadow map quality the document stores"));
     public static readonly FrameParameter TransparentBackground = new("transparent-background", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.TransparentBackground, static on => state => state with { TransparentBackground = on })),
-        new("Transparent background", "Renders the background transparent under every background style"));
+        new("Transparent background", "Renders background transparent under every background style"));
     public static readonly FrameParameter RenderBackfaces = new("render-backfaces", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.RenderBackfaces, static on => state => state with { RenderBackfaces = on })),
-        new("Render backfaces", "Renders the back faces of surfaces and meshes"));
+        new("Render backfaces", "Renders back faces of surfaces and meshes"));
     public static readonly FrameParameter RenderPoints = new("render-points", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.RenderPoints, static on => state => state with { RenderPoints = on })),
-        new("Render points and point cloud", "Draws points and point clouds into the rendering"));
+        new("Render points and point cloud", "Draws points and point clouds into rendering"));
     public static readonly FrameParameter RenderCurves = new("render-curves", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.RenderCurves, static on => state => state with { RenderCurves = on })),
-        new("Render curves", "Draws curves into the rendering"));
+        new("Render curves", "Draws curves into rendering"));
     public static readonly FrameParameter RenderIsoparams = new("render-isoparams", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.RenderIsoparams, static on => state => state with { RenderIsoparams = on })),
-        new("Render surface edges and isocurves", "Draws surface edges and isocurves into the rendering"));
+        new("Render surface edges and isocurves", "Draws surface edges and isocurves into rendering"));
     public static readonly FrameParameter RenderMeshEdges = new("render-mesh-edges", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.RenderMeshEdges, static on => state => state with { RenderMeshEdges = on })),
-        new("Render mesh edges", "Draws mesh edges into the rendering"));
+        new("Render mesh edges", "Draws mesh edges into rendering"));
     public static readonly FrameParameter RenderAnnotations = new("render-annotations", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.RenderAnnotations, static on => state => state with { RenderAnnotations = on })),
-        new("Render dimensions and text", "Draws dimensions and text into the rendering"));
+        new("Render dimensions and text", "Draws dimensions and text into rendering"));
     public static readonly FrameParameter UseHiddenLights = new("use-hidden-lights", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.UseHiddenLights, static on => state => state with { UseHiddenLights = on })),
-        new("Use lights on layers that are off", "Renders lights on layers that are off"));
+        new("Use lights on layers that are off", "Includes lights on off layers in rendering"));
     public static readonly FrameParameter DepthCue = new("depth-cue", new StateParameter<FrameState>.Toggle(
         Lens<FrameState, bool>.New(static state => state.DepthCue, static on => state => state with { DepthCue = on })),
         new("Depth cue", "Depth cue flag the document stores"));
@@ -268,13 +268,13 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
 public sealed partial class LinearWorkflowParameter : IStateParameter<LinearWorkflowState> {
     public static readonly LinearWorkflowParameter PreProcessColors = new("use-linear-workflow", new StateParameter<LinearWorkflowState>.Toggle(
         Lens<LinearWorkflowState, bool>.New(static state => state.PreProcessColors, static on => state => state with { PreProcessColors = on })),
-        new("Use linear workflow", "Linearizes colors and textures by the gamma before rendering"));
+        new("Use linear workflow", "Linearizes colors and textures by gamma before rendering"));
     public static readonly LinearWorkflowParameter PostProcessGamma = new("gamma", StateParameter.Bounded(Lens<LinearWorkflowState, Gamma>.New(static state => state.PostProcessGamma, static gamma => state => state with { PostProcessGamma = gamma }),
             new Presentation<float> { Step = 0.01f, Decimals = 2 }),
-        new("Gamma", "Gamma the rendering is encoded with and colors are linearized by"));
+        new("Gamma", "Gamma that encodes rendering and linearizes colors"));
     public static readonly LinearWorkflowParameter PostProcessGammaOn = new("use-post-process-gamma", new StateParameter<LinearWorkflowState>.Toggle(
         Lens<LinearWorkflowState, bool>.New(static state => state.PostProcessGammaOn, static on => state => state with { PostProcessGammaOn = on })),
-        new("Gamma", "Encodes the rendering with the gamma"));
+        new("Gamma", "Encodes rendering with gamma"));
 
     public StateParameter<LinearWorkflowState> Kind { get; }
 
@@ -300,10 +300,10 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
 public sealed partial class DitheringParameter : IStateParameter<DitheringState> {
     public static readonly DitheringParameter Enabled = new("use-dithering", new StateParameter<DitheringState>.Toggle(
         Lens<DitheringState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),
-        new("Dithering", "Adds noise before the rendering is quantized to display codes"));
+        new("Dithering", "Adds noise before quantizing rendering to display codes"));
     public static readonly DitheringParameter Method = new("dithering", new StateParameter<DitheringState>.Choice<DitherMethod>(
         Lens<DitheringState, DitherMethod>.New(static state => state.Method, static method => state => state with { Method = method })),
-        new("Dithering", "Dither the renderer adds"));
+        new("Dithering", "Dither method"));
 
     public StateParameter<DitheringState> Kind { get; }
 
@@ -341,12 +341,12 @@ public sealed partial class RenderChannelsParameter : IStateParameter<RenderChan
             RenderChannels.Modes.Automatic => "Automatic",
             RenderChannels.Modes.Custom => "Custom",
         }),
-        new("Render channels", "Channels the renderer writes, Automatic adding each post effect's required channels"));
-    public static readonly RenderChannelsParameter Distance = new("distance", Member(RenderWindow.StandardChannels.DistanceFromCamera), new("Distance", "Distance from the camera per pixel"));
+        new("Render channels", "Channels renderer writes, Automatic adds channels post effects require"));
+    public static readonly RenderChannelsParameter Distance = new("distance", Member(RenderWindow.StandardChannels.DistanceFromCamera), new("Distance", "Camera distance per pixel"));
     public static readonly RenderChannelsParameter Normals = new("normals", Member(RenderWindow.StandardChannels.NormalXYZ), new("Normals", "Surface normal per pixel"));
     public static readonly RenderChannelsParameter Albedo = new("albedo", Member(RenderWindow.StandardChannels.AlbedoRGB), new("Albedo", "Surface base color per pixel"));
-    public static readonly RenderChannelsParameter MaterialIds = new("material-ids", Member(RenderWindow.StandardChannels.MaterialIds), new("Material IDs", "Material id per pixel"));
-    public static readonly RenderChannelsParameter ObjectIds = new("object-ids", Member(RenderWindow.StandardChannels.ObjectIds), new("Object IDs", "Object id per pixel"));
+    public static readonly RenderChannelsParameter MaterialIds = new("material-ids", Member(RenderWindow.StandardChannels.MaterialIds), new("Material IDs", "Material ID per pixel"));
+    public static readonly RenderChannelsParameter ObjectIds = new("object-ids", Member(RenderWindow.StandardChannels.ObjectIds), new("Object IDs", "Object ID per pixel"));
 
     public StateParameter<RenderChannelsState> Kind { get; }
 

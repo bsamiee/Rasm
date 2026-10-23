@@ -58,4 +58,4 @@ rule:
                     - has: {stopBy: end, matches: timed-wait}
                     - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, pattern: $F}}
 message: '`$SLEEP` re-tests a condition on a timer in place of awaiting its change'
-note: 'Await the change events of the state''s source (`Observations { <state> }`, `notifications(named:)`), and end a periodic loop on cancellation alone'
+note: 'Await change events of the state''s source (`Observations { <state> }`, `notifications(named:)`), and end a periodic loop on cancellation alone'

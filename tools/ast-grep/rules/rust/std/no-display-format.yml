@@ -53,4 +53,4 @@ transform:
     RENDERED: {replace: {source: $POSITIONAL, replace: '^(?:(?:::)?(?:std|alloc)::)?format!\s*\(\s*"\{([A-Za-z_]\w*)\}"\s*,?\s*\)$', by: '$1.to_string()'}}
 fix: $RENDERED
 message: '`$SITE` runs `format!` over one `Display` value or a literal with no placeholders'
-note: 'Call `<value>.to_string()` or write the literal'
+note: 'Call `<value>.to_string()`, `"<text>".to_owned()`, or `String::new()`, with `"<text>"` in place of `&format!("<text>")`'

@@ -74,7 +74,7 @@ final class Arguments {
                             .orElseGet(
                                     () ->
                                             new Report.Failure<>(
-                                                    "Setting `%s` takes an integer from %d"
+                                                    "Setting `%s` takes integer %d or more"
                                                             .formatted(argument, minimum)))
                     : new Report.Failure<>(
                             "Script `%s` takes no setting `%s`".formatted(script, label()));
@@ -104,7 +104,8 @@ final class Arguments {
                     return new Report.Success<>(
                             named(Pattern.compile(regex).asPredicate(), program));
                 } catch (PatternSyntaxException exception) {
-                    return new Report.Failure<>("fails to compile: " + exception.getDescription());
+                    return new Report.Failure<>(
+                            "did not parse (%s)".formatted(exception.getDescription()));
                 }
             }
         },

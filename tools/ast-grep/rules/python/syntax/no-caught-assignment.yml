@@ -68,5 +68,5 @@ rule:
     all:
         - has: {field: body, matches: write-block}
         - has: {matches: swallowing-handler}
-message: '`$WRITE` catches its own error to test whether its target accepts the value'
-note: 'Validate values at construction, capture native setter failures as typed errors at the host boundary, and keep every failure'
+message: '`try` around `$WRITE` discards the error a rejected value raises'
+note: 'Validate values at construction, or return the caught error as a typed failure holding it as cause'

@@ -111,5 +111,5 @@ rule:
                 - inside: {kind: property_declaration, field: value, has: {kind: type_annotation, has: {kind: user_type, regex: '^(Foundation\.)?Process$'}}}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` starts a child in the parent session with no teardown sequence'
-note: 'Run the child through `Subprocess.run` with `createSession` or `processGroupID` and a `teardownSequence` of process-group `.gracefulShutDown` steps'
+message: '`$HEAD` starts a child in the parent''s session with no teardown sequence'
+note: 'Run through `Subprocess.run` with `createSession` or `processGroupID` set and a `teardownSequence` of `toProcessGroup: true` steps'

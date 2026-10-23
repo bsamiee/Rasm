@@ -73,4 +73,4 @@ rule:
             - has: {field: function, pattern: $RACE, matches: rust-future-select}
             - has: {field: arguments, has: {matches: deadline-operand}}
 message: '`$RACE$BANG` races one future against `$SLEEP` by hand'
-note: 'Await `tokio::time::timeout(<duration>, <future>)` or `timeout_at(<deadline>, <future>)`, `Err(Elapsed)` at the deadline with the future dropped'
+note: 'Await `tokio::time::timeout(<duration>, <future>)`, or `timeout_at(<deadline>, <future>)` for a deadline, and match `Err(Elapsed)`'

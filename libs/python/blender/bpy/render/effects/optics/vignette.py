@@ -22,7 +22,7 @@ from blender.imaging.faults import accumulated, paired
 
 @functools.cache
 def chief_ray() -> BlenderResult[NodeGroup]:
-    """Returns the frame camera's chief-ray cosine, including sensor fit and shift."""
+    """Returns frame camera chief-ray cosine with sensor fit and shift."""
     pixel = framed("coordinates", End(node=INPUTS, socket="image"), 1.0).map(lambda frame: frame.fraction)
     inverse = lensed().bind(lambda lens: node("unprojection", bpy.types.FunctionNodeInvertMatrix, {"Matrix": ended("lens", "Projection Matrix")(lens)}, {})).map(ended("unprojection", "Matrix"))
     return (
@@ -57,7 +57,7 @@ def vignetted(shell: Shell[Vignette]) -> BlenderResult[tuple[Fragment, End]]:
         shell: Source image, frame measures, field sockets, and falloff menu.
 
     Returns:
-        The vignetted image and graph, or accumulated native construction faults.
+        Vignetted image and graph, or accumulated graph faults.
     """
     entering = {"image": shell.source, "aspect": shell.aspect, "scale": shell.scale}
     (falloff,) = Vignette.__struct_fields__
@@ -78,7 +78,7 @@ def vignetted(shell: Shell[Vignette]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def conditioned(effect: Vignette) -> Condition:
-    """Returns the camera requirement of the selected falloff."""
+    """Returns camera requirement of selected falloff."""
     match effect.falloff:
         case Natural():
             return cameras.camera_type("PERSP", "ORTHO")
@@ -92,7 +92,7 @@ vignette: CompositorEffect[Vignette] = CompositorEffect(
     record=Vignette,
     graph=vignetted,
     condition=Some(conditioned),
-    registrables=(inspection(lambda: vignette, "vignette_weight", "View Weight", "Shows the selected natural or shaped falloff", lambda: End(node="weight", socket="Output")),),
+    registrables=(inspection(lambda: vignette, "vignette_weight", "View Weight", "Selected natural or shaped falloff", lambda: End(node="weight", socket="Output")),),
 )
 
 

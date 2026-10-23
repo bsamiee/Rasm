@@ -38,4 +38,4 @@ rule:
             - has: {field: rhs, regex: '^(0x0*[fF]{2}|255)$'}
             - has: {field: lhs, matches: status}
 message: '`$SITE` keeps 8 bits of an `OSStatus` that `waitid` reports in 24'
-note: 'Mask the status with `& 0x00FF_FFFF`, the width of `TerminationStatus.exited`, before comparing it to a child exit'
+note: 'Compare `<status> & 0x00FF_FFFF` to the child''s `TerminationStatus.exited` code'

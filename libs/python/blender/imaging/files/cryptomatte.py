@@ -20,7 +20,7 @@ from blender.imaging.parameters import Rgb
 
 
 class Matte(msgspec.Struct, frozen=True, kw_only=True):
-    """One Cryptomatte layer: its name, each ID's encoded hash, and its rank layers in order."""
+    """Cryptomatte layer with hash per ID and rank layers in order."""
 
     name: str
     ids: dict[str, int]
@@ -35,7 +35,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             file: Indexed multilayer file.
 
         Returns:
-            The mattes in header order; the `read` case holding the path and msgspec's error for each manifest that fails its decode.
+            Mattes in header order, or `read` fault per undecodable manifest.
         """
         header = {key: value for part in file.parts for key, value in part.header.items()}
         layers, rgba = sorted(file.layers, key=lambda owner: owner.name), "rgba"
@@ -67,13 +67,13 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def coverage(self, names: frozenset[str]) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Sums the coverage of the named IDs.
+        """Sums coverage of named IDs.
 
         Args:
-            names: Manifest names whose coverage sums, a name outside the manifest adding nothing.
+            names: Manifest names to sum, unknown names adding nothing.
 
         Returns:
-            The `(height, width)` coverage; the `read` case holding the path and OpenImageIO's text.
+            `(height, width)` coverage, or `read` fault.
         """
         targets = np.fromiter((code for entity, code in self.ids.items() if entity in names), dtype=np.uint32)
         frame = np.zeros((self.file.parts[0].height, self.file.parts[0].width), dtype=np.float32)
@@ -83,10 +83,10 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         ).map(lambda terms: functools.reduce(operator.add, terms, frame))
 
     def areas(self) -> ImagingResult[dict[str, float]]:
-        """Measures each manifest name's coverage as a share of the frame.
+        """Measures frame share each manifest name covers.
 
         Returns:
-            Each name's share, 0 for a name no rank pixel holds; the `read` case holding the path and OpenImageIO's text.
+            Share per name, 0 for names no pixel holds, or `read` fault.
         """
 
         def counted(ranked: npt.NDArray[np.float32]) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.float64]]:
@@ -102,14 +102,14 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(self.file.plane(rank, rank.channels).map(counted) for rank in self.ranks).map(joined)
 
     def filled(self, names: frozenset[str], color: Rgb) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Fills the named IDs' coverage with one color as associated RGBA.
+        """Fills named ID coverage with color as associated RGBA.
 
         Args:
             names: Manifest names the fill covers.
             color: Fill color.
 
         Returns:
-            The `(height, width, 4)` plane, alpha equal to coverage; the `read` case holding the path and OpenImageIO's text.
+            `(height, width, 4)` plane with coverage alpha, or `read` fault.
         """
         tint = np.array((*msgspec.structs.astuple(color), 1.0), dtype=np.float32)
         return self.coverage(names).map(lambda covered: covered[..., None] * tint)

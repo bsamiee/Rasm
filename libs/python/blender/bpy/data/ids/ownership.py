@@ -23,7 +23,7 @@ from blender.imaging.hashing import ContentHash
 
 
 class Saved(Enum):
-    """Lifetime of owned data in a saved blend file."""
+    """Lifetime of owned data in saved blend file."""
 
     NEVER = auto()
     USED = auto()
@@ -34,7 +34,7 @@ class Saved(Enum):
 
 
 class Mark(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned purpose, optional source data-block, and optional content identity."""
+    """Ownership mark stored on holder."""
 
     key: Key
     of: Option[bpy.types.ID] = Nothing
@@ -42,7 +42,7 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Self]:
-        """Returns the admitted mark, or Nothing when a user removed or retyped its key."""
+        """Returns validated mark, Nothing when missing or invalid."""
         match holder.get(identity.manifest.id):
             case idprop.types.IDPropertyGroup() as group:
                 return (
@@ -60,13 +60,13 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
                 return Nothing
 
     def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> BlenderResult[None]:
-        """Writes the mark's present fields under its extension ID, preserving native property refusals."""
+        """Writes present fields under manifest ID."""
         fields = {name: value for name, held in msgspec.structs.asdict(self).items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
         return BlenderEditFault.attempted(identity.manifest.id, lambda: holder.__setitem__(identity.manifest.id, fields))
 
 
 class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
-    """Owned data kind, purpose, saved lifetime, and per-mark multiplicity."""
+    """Owned ID kind for one purpose."""
 
     kind: type[T]
     key: Key
@@ -76,19 +76,19 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     # --- [HOLDERS]
 
     def held(self, identity: Identity) -> tuple[tuple[T, Mark], ...]:
-        """Returns matching data-blocks and their admitted marks in native collection order."""
+        """Returns holders and marks in collection order."""
         return tuple((block, mark) for block in blocks(bpy.data, self.kind) for mark in self.marked(identity, block).to_list())
 
     def marked(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Mark]:
-        """Returns the holder's admitted mark when it carries this purpose."""
+        """Returns holder's mark, Nothing for another purpose."""
         return Mark.read(identity, holder).filter(lambda mark: mark.key == self.key)
 
     def found(self, identity: Identity, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing) -> Option[T]:
-        """Returns the earliest holder of this purpose for a source and content, absent when none holds it."""
+        """Returns earliest holder of source and content."""
         return Option.of_optional(_earliest(self.held(identity)).get(Mark(key=self.key, of=of, content=content)))
 
     def serving(self, identity: Identity, source: bpy.types.ID) -> tuple[T, ...]:
-        """Returns the holders whose mark names a source, in native collection order."""
+        """Returns holders marked for source."""
         return tuple(block for block, mark in self.held(identity) if mark.of == Some(source))
 
     def owned(
@@ -101,10 +101,10 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         filled: Callable[[T], BlenderResult[T]] = Ok,
         scope: Option[ExitStack] = Nothing,
     ) -> BlenderResult[T]:
-        """Sets the mark and lifetime of a new block, then fills it, the block removed as `kept` removes it."""
+        """Marks and fills new block under `kept` rollback."""
 
         def configured() -> T:
-            """Sets native saved state."""
+            """Flags block from saved lifetime."""
             block.is_runtime_data = self.saved is Saved.NEVER
             block.use_fake_user = self.saved is Saved.ALWAYS
             return block
@@ -148,7 +148,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         filled: Callable[[T], BlenderResult[T]] = Ok,
         scope: Option[ExitStack] = Nothing,
     ) -> BlenderResult[T | Option[T]]:
-        """Reuses equal content before building, fills the reused or built block, and retains optional absence, a built block removed as `owned` removes it."""
+        """Reuses equal-mark holder of single row or owns built block, then fills it."""
 
         def shaped(block: T) -> T | Option[T]:
             return Some(block) if optional else block
@@ -168,10 +168,10 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def rebuilt(self, identity: Identity, held: T, build: Callable[[], BlenderResult[T]]) -> BlenderResult[T]:
-        """Returns the replacement, or an absent mark, creation, edit, or collision fault."""
+        """Replaces marked block with built one under its name."""
 
         def swapped(block: T) -> BlenderResult[T]:
-            """Remaps native users before removing the predecessor and restoring its name."""
+            """Replaces held block, moving its users and name."""
             name = held.name
             held.user_remap(block)
             return released((held,)).bind(lambda _: named(block, name))
@@ -183,23 +183,23 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
                 return Error((BlenderAbsentFault(owner=repr(held), key=identity.manifest.id),))
 
     def removed(self, identity: Identity) -> BlenderResult[int]:
-        """Removes the unused holders of a USED row, answering their count or the refused removal, zero for other lifetimes."""
+        """Removes zero-user holders of `USED` row, returning their count."""
         return released(tuple(block for block, _ in self.held(identity) if block.users == 0)) if self.saved is Saved.USED else Ok(0)
 
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Returns the import merger acquisition for a saved single row, or no acquisition."""
+        """Returns import merge handler of saved single row."""
 
         def merged(context: bpy.types.BlendImportContext) -> BlenderResult[None]:
-            """Remaps imported local duplicates to the earliest local equal holder."""
+            """Remaps imported duplicates to earliest local holder."""
             imported = frozenset(item.id for item in context.import_items if isinstance(item.id, self.kind) and item.id.library is None)
             local = tuple((block, mark) for block, mark in self.held(identity) if block.library is None)
             keepers = _earliest(local)
-            twins = tuple((block, keeper) for block, mark in local if block in imported and block != (keeper := keepers[mark]))
-            for block, keeper in twins:
+            duplicates = tuple((block, keeper) for block, mark in local if block in imported and block != (keeper := keepers[mark]))
+            for block, keeper in duplicates:
                 block.user_remap(keeper)
-            return released(tuple(block for block, _ in twins)).map(lambda _: None)
+            return released(tuple(block for block, _ in duplicates)).map(lambda _: None)
 
         return (
             ImportHandler(
@@ -215,7 +215,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
 
 def committed[T](result: BlenderResult[T], rollback: ExitStack, scope: Option[ExitStack] = Nothing) -> BlenderResult[T]:
-    """Answers a result unchanged, keeping the acquisitions its rollback holds once it succeeds, for good or until a given outer scope unwinds."""
+    """Moves rollback callbacks into scope on success, dropping them without scope."""
     for _ in result.to_option().to_list():
         held = rollback.pop_all()
         for outer in scope.to_list():
@@ -224,7 +224,7 @@ def committed[T](result: BlenderResult[T], rollback: ExitStack, scope: Option[Ex
 
 
 def kept[B: bpy.types.ID, T](made: BlenderResult[B], fill: Callable[[B], BlenderResult[T]], scope: Option[ExitStack] = Nothing) -> BlenderResult[T]:
-    """Fills a new data-block, removing it when the fill refuses or, given a scope, when that scope unwinds."""
+    """Fills new data-block, removing it when fill fails or when given scope unwinds."""
 
     def filled(block: B) -> BlenderResult[T]:
         with ExitStack() as rollback:
@@ -235,12 +235,12 @@ def kept[B: bpy.types.ID, T](made: BlenderResult[B], fill: Callable[[B], Blender
 
 
 def released(blocks: tuple[bpy.types.ID, ...]) -> BlenderResult[int]:
-    """Removes data-blocks in one `batch_remove`, answering their count or the refused removal."""
+    """Removes blocks in one `batch_remove`, returning their count."""
     return BlenderEditFault.attempted(repr(blocks), lambda: bpy.data.batch_remove(ids=blocks) if blocks else None).map(lambda _: len(blocks))
 
 
 def _earliest[T: bpy.types.ID](pairs: Iterable[tuple[T, Mark]]) -> MappingProxyType[Mark, T]:
-    """Returns each equal mark's holder with the least session UID in one pass."""
+    """Returns holder with least session UID per mark."""
     held: dict[Mark, T] = {}
     for block, mark in pairs:
         held[mark] = min(held.get(mark, block), block, key=lambda value: value.session_uid)

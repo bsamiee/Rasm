@@ -89,7 +89,7 @@ public static class LayerPlans {
 
     private static Fin<Unit> Conflicts(Seq<Placement> rows) =>
         rows.Traverse(static row => row.Occupant.Filter(occupant => occupant != row.Id).Match<Fin<Unit>>(
-                Some: occupant => Error.New($"layer path {row.Path.Text} is held by layer {occupant}"),
+                Some: occupant => Error.New($"layer {occupant} holds layer path {row.Path.Text}"),
                 None: static () => unit))
             .As()
             .Map(static _ => unit);

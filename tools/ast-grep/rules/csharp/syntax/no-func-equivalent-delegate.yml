@@ -69,4 +69,4 @@ rule:
                                     has: {stopBy: end, kind: identifier, pattern: $NAME}
                                     follows: {stopBy: end, kind: *member, has: {stopBy: end, kind: identifier, pattern: $NAME}}
 message: Delegate `$NAME` restates a `Func` or `Action` signature
-note: 'Use the same-signature `Func` or `Action` unless names split same-typed parameters, a registry keys on it, or 3 members repeat its 4+ parameters'
+note: 'Replace the delegate with the `Func` or `Action` of the same signature at each use'

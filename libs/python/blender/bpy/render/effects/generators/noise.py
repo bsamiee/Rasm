@@ -1,4 +1,4 @@
-"""Native procedural fields, generated light, and Gaussian distributions."""
+"""Procedural fields, generated light, and Gaussian distributions."""
 
 from collections.abc import Mapping
 from itertools import starmap
@@ -47,7 +47,7 @@ from blender.imaging.parameters import Gated, Motion
 
 
 def periodic(key: Key, profile: Profile, cycles: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns the selected unit profile at a physical cycle coordinate."""
+    """Returns selected unit profile at physical cycle coordinate."""
     match profile:
         case Profile.SIN:
             return math(f"{key}_phase", "MULTIPLY", cycles, tau).bind(lambda phase: math(f"{key}_cosine", "COSINE", phase)).bind(lambda cosine: math(key, "MULTIPLY_ADD", cosine, -0.5, 0.5))
@@ -66,19 +66,19 @@ def periodic(key: Key, profile: Profile, cycles: Operand) -> BlenderResult[tuple
 
 
 def sample(key: Key, basis: Basis, point: Operand, time: Operand, seed: Operand, stream: Operand, inputs: Mapping[KeyPath, Operand]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns one native raw scalar texture with caller-owned input overrides.
+    """Returns raw scalar texture with input overrides.
 
     Args:
-        key: Prefix of the sample's nodes.
-        basis: Native settings and defaults of the selected texture.
-        point: Spatial sample coordinate; a one-dimensional sample reads X on W.
+        key: Node key prefix.
+        basis: Selected texture settings and defaults.
+        point: Spatial sample coordinate, X on W for one-dimensional samples.
         time: Evolution coordinate, on W in four dimensions and Z in three.
-        seed: Seed of the decorrelation origin.
-        stream: Caller-owned decorrelation stream, a literal or a linked index.
-        inputs: Native record-member paths whose values replace declared defaults.
+        seed: Decorrelation origin seed.
+        stream: Decorrelation stream as literal or linked index.
+        inputs: Record member paths with values replacing defaults.
 
     Returns:
-        The scalar texture and its complete fragment, or native graph faults.
+        Scalar texture with its fragment.
     """
     texture = f"{key}_texture"
     dimensions = basis.dimensions if isinstance(basis, Perlin | Voronoi | White | Gabor) else 3
@@ -233,16 +233,16 @@ def sampled[R: Effect](
     """Returns selected cut density and tone streams from one Basis menu.
 
     Args:
-        shell: Native effect inputs and retained texture settings.
-        path: Basis union's path in the record.
+        shell: Entry inputs and retained texture settings.
+        path: Basis union path in record.
         point: Displayed-frame sample position.
         time: Signed evolution coordinate.
         seed: Caller-owned field seed.
-        loss: Spatial loss subtracted before the selected cut.
+        loss: Spatial loss subtracted before selected cut.
         streams: Caller-owned decorrelation streams in output order.
 
     Returns:
-        Density and tone pairs per stream, sharing the whole graph, or native faults.
+        Density and tone pairs per stream sharing one graph, or graph faults.
     """
     key = item_key(*path)
 
@@ -321,16 +321,17 @@ def sampled[R: Effect](
 
 
 def gaussian(key: str, radius: Operand, angle: Operand) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Builds a cosine/sine Box-Muller pair from distinct scalar uniform draws.
+    """Builds cosine and sine Box-Muller pair from distinct scalar uniform draws.
+
+    Callers supply full compositor precision.
 
     Args:
-        key: Prefix of the distribution's native node keys.
+        key: Node key prefix.
         radius: Caller-owned White Noise Value draw for radial sampling.
         angle: Distinct caller-owned White Noise Value draw for angular sampling.
 
     Returns:
-        Both normal ends with the complete shared fragment, or native graph faults.
-        The caller supplies full compositor precision.
+        Both normal ends with shared fragment, or graph faults.
     """
     epsilon = float(np.finfo(np.float32).eps)
     return (
@@ -356,12 +357,12 @@ def emitted[R: Effect](shell: Shell[R], path: KeyPath, tones: tuple[Operand, *tu
     """Returns scene-linear emitted light at each tone with one spectrum selector.
 
     Args:
-        shell: Working config, native inputs, and retained spectrum cases.
-        path: Emission record's path from the effect root.
-        tones: Tone operands in their required output order.
+        shell: Working config, entry inputs, and retained spectrum cases.
+        path: Emission record path from effect root.
+        tones: Tone operands in output order.
 
     Returns:
-        Light pairs sharing the call's complete graph, or native graph faults.
+        Light pairs sharing one graph, or graph faults.
     """
     key = item_key(*path)
     spectrum_field, intensity = Emission.__struct_fields__
@@ -402,7 +403,7 @@ def emitted[R: Effect](shell: Shell[R], path: KeyPath, tones: tuple[Operand, *tu
 
 
 def noised(shell: Shell[NoiseField]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns generated emission and extinctive coverage over the field's coordinates."""
+    """Returns emission and extinction coverage over field coordinates."""
     inlet = shell.socket
     basis, emission_field, extinction_field, motion, drift, evolution, vortex_field, envelope_field, center, angle, seed = NoiseField.__struct_fields__
     _, value = Gated.__struct_fields__

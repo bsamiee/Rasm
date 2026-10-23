@@ -51,7 +51,7 @@ public static class PlugInRegistry {
         IO.lift(() => Exchange.ExistingPath(path))
             .Bind(static existing => IO.lift(Fin<Guid> () => PlugIn.LoadPlugIn(existing, out Guid loaded) switch {
                 LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
-                var result => new FileRefused(existing, $"loads as no plug-in: {result}"),
+                var result => new FileRefused(existing, $"load failed with {result}"),
             }));
 
     public static IO<Unit> LoadPlugIns(Seq<Guid> ids) =>
@@ -68,7 +68,7 @@ public static class PlugInRegistry {
         IO.lift(() =>
                 from info in Optional(PlugIn.GetPlugInInfo(id)).ToFin(new NotFound("installed plug-in", $"{id}"))
                 let changed = Exchange.LoadSilently(info) != loadSilently
-                from _ in guard(!changed || !info.IsLoaded, Error.New($"plug-in {id} is loaded, so its load protection stays unchanged"))
+                from _ in guard(!changed || !info.IsLoaded, Error.New($"load protection change needs unloaded plug-in {id}"))
                 select changed)
             .Bind(changed => when(changed, IO.lift(() => PlugIn.SetLoadProtection(id, loadSilently))).As());
 }

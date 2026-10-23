@@ -25,9 +25,9 @@ public sealed record PlugInSetting<TValue, TRaw>(ValueKey<TValue, TRaw> Value, S
     internal override IO<Unit> Register(PersistentSettings settings) =>
         from registered in IO.lift(() => Kind.Register(settings, Value.Name, Value.ToRaw(Value.Default), LegacyNames))
             | @catch(static error => error.HasException<NotSupportedException>(), error => IO.fail<TRaw>(SettingType.String.TryGet(settings, Value.Name).Match(
-                Some: text => Error.New(ErrorCodes.ParseError, $"{text} reads as no {typeof(TRaw).Name}", error),
+                Some: text => Error.New(ErrorCodes.ParseError, $"{text} is no {typeof(TRaw).Name}", error),
                 None: () => error)))
-        from admitted in IO.lift(() => Value.From(registered))
+        from value in IO.lift(() => Value.From(registered))
         from hidden in when(Hidden, IO.lift(() => settings.HideSettingFromUserInterface(Value.Name))).As()
         let refused = fun((TRaw raw) => Value.From(raw).IsFail)
         from validated in IO.lift(() => Kind.Validator.Iter(validator => validator(settings, Value.Name, refused)))

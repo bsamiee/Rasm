@@ -19,5 +19,5 @@ rule:
               all: [{has: {field: left, pattern: $LINK}}, {has: {field: right, kind: attribute, regex: '\.links$'}}]
 constraints:
     END: {regex: '^(from_socket|to_socket)$'}
-message: '`$LINK.$END == $SOCKET` walks every link of the tree to find the links of one socket'
+message: '`$LINK.$END == $SOCKET` scans every tree link for links of `$SOCKET`'
 note: 'Iterate `<socket>.links`'

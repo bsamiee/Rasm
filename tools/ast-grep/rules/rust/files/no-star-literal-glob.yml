@@ -23,4 +23,4 @@ rule:
     pattern: $CALL
     matches: star-cut
 message: '`$CALL` matches a glob pattern by cutting it at `*` by hand'
-note: 'Compile the pattern once with `globset::Glob::new(<pattern>)?.compile_matcher()`, or a `globset::GlobSetBuilder` for several patterns'
+note: 'Compile the pattern once with `globset::Glob::new(<pattern>)?.compile_matcher()`, or a `globset::GlobSetBuilder` for a pattern list'

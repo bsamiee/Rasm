@@ -51,11 +51,11 @@ public sealed record Stroke(ShortSideLength Width, Gated<Length> World, Swatch C
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StrokeParameter : IStateParameter<Stroke> {
     public static readonly StrokeParameter Width = new("width", StateParameter.Bounded(Lens<Stroke, ShortSideLength>.New(static stroke => stroke.Width, static width => stroke => stroke with { Width = width }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }),
-        new("Width", "Line width as a share of the frame's short side, the cap under a world width"));
+        new("Width", "Line width in frame short sides, capping world width"));
     public static readonly StrokeParameter World = new("world", new StateParameter<Stroke>.OptionalNumeric<Length, float>(
         Lens<Stroke, Gated<Length>>.New(static stroke => stroke.World, static world => stroke => stroke with { World = world }),
         NumericDomain.Meters((0f, float.MaxValue), new() { Soft = (0f, (float)Length.FromInches(1).Meters), Origin = (float)Stroke.Default.World.Value.Meters })),
-        new("World width", "Line width on the surface it marks, narrowing with distance"));
+        new("World width", "Surface line width, narrowing with distance"));
     public static readonly StrokeParameter Color = new("color", new StateParameter<Stroke>.Color(Lens<Stroke, Swatch>.New(static stroke => stroke.Color, static color => stroke => stroke with { Color = color })),
         new("Color", "Line color"));
 
@@ -314,7 +314,7 @@ public sealed record GeometryOutline(
         double frame = stroke.Width.Pixels(context.Extent);
         RampTable ramp = state.TaperRamp.Tabulate(context.Working);
         Fin<Func<float, double>> reach = stroke.World.Active.Match(
-            world => world == Length.Zero || frame is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : context.Camera.ToFin(Error.New("world-sized outline width requires the frame's camera")).Map(camera =>
+            world => world == Length.Zero || frame is 0d ? Fin.Succ<Func<float, double>>(static _ => 0d) : context.Camera.ToFin(Error.New("world width needs frame camera")).Map(camera =>
                 camera.Frustum.Switch(
                     (Frame: frame, Span: (double)world.Meters * context.Extent.Width / camera.Frustum.Window.Width),
                     perspective: static (scale, _) => (Func<float, double>)(depth => double.Min(scale.Span / depth, scale.Frame)),
@@ -335,31 +335,31 @@ public sealed partial class GeometryOutlineParameter : IStateParameter<GeometryO
     });
 
     public static readonly GeometryOutlineParameter Silhouette = new("silhouette-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Silhouette.Route, "Off"),
-        new("Silhouettes", "Line class drawing depth steps where one surface occludes another"));
+        new("Silhouettes", "Lines at depth steps where one surface occludes another"));
     public static readonly GeometryOutlineParameter Crease = new("crease-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Crease.Route, "Off"),
-        new("Creases", "Line class drawing where neighboring normals turn past the crease angle"));
+        new("Creases", "Lines where neighboring normals turn past the crease angle"));
     public static readonly GeometryOutlineParameter Object = new("object-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Object.Route, "Off"),
-        new("Object edges", "Line class drawing where object IDs change"));
+        new("Object edges", "Lines where object IDs change"));
     public static readonly GeometryOutlineParameter Material = new("material-lines", new StateParameter<GeometryOutline>.OptionalChoice<LineClass>(OutlineSource.Material.Route, "Off"),
-        new("Material edges", "Line class drawing where material IDs change"));
+        new("Material edges", "Lines where material IDs change"));
     public static readonly GeometryOutlineParameter Step = new("depth-step", StateParameter.Bounded(Lens<GeometryOutline, AxisFraction>.New(static outline => outline.Step, static step => outline => outline with { Step = step }), AxisFraction.Presentation with { Soft = (0f, 0.2f) }),
-        new("Depth threshold", "Relative depth curvature marking a silhouette; across flat regions, 1 minus near depth divided by far depth"));
+        new("Depth threshold", "Silhouette depth curvature, 1 minus near over far depth across flat regions"));
     public static readonly GeometryOutlineParameter CreaseAngle = new("crease-angle", StateParameter.Bounded(Lens<GeometryOutline, SignedAngle>.New(static outline => outline.CreaseAngle, static angle => outline => outline with { CreaseAngle = angle }), SignedAngle.Presentation with { Soft = (0f, SignedAngle.Up) }),
         new("Crease angle", "Turn between neighboring normals marking a crease"));
     public static readonly GeometryOutlineParameter Outer = new("outer", new StateParameter<GeometryOutline>.Record<Stroke>(LineClass.Outer.Stroke),
         new("Outer lines", "Width and color of outer lines"));
     public static readonly GeometryOutlineParameter Placement = new("placement", new StateParameter<GeometryOutline>.Choice<StrokePlacement>(Lens<GeometryOutline, StrokePlacement>.New(static outline => outline.Placement, static placement => outline => outline with { Placement = placement })),
-        new("Placement", "Side of its contour an outer line draws on"));
+        new("Placement", "Contour side outer lines draw on"));
     public static readonly GeometryOutlineParameter Inner = new("inner", new StateParameter<GeometryOutline>.Record<Stroke>(LineClass.Inner.Stroke),
         new("Inner lines", "Width and color of inner lines"));
     public static readonly GeometryOutlineParameter TaperNear = new("taper-near", new StateParameter<GeometryOutline>.OptionalNumeric<Length, float>(Lens<GeometryOutline, Gated<Length>>.New(static outline => outline.TaperNear, static depth => outline => outline with { TaperNear = depth }), Distance),
-        new("Taper near", "Near depth divided by each contour's depth to locate its width on the ramp, off keeping full width"));
+        new("Taper near", "Near depth divided by contour depth places width on ramp, off keeping full width"));
     public static readonly GeometryOutlineParameter TaperRamp = new("taper-ramp", new StateParameter<GeometryOutline>.Gradient(Lens<GeometryOutline, Ramp>.New(static outline => outline.TaperRamp, static ramp => outline => outline with { TaperRamp = ramp })),
-        new("Taper ramp", "Ramp value scaling line width from distant contours at the left to near contours at the right"));
+        new("Taper ramp", "Line width scale from distant contours at left to near contours at right"));
     public static readonly GeometryOutlineParameter Paper = new("paper", new StateParameter<GeometryOutline>.OptionalColor(Lens<GeometryOutline, Gated<Swatch>>.New(static outline => outline.Paper, static paper => outline => outline with { Paper = paper })),
-        new("Paper", "Color the lines draw on, off drawing over the image"));
+        new("Paper", "Color under lines, off drawing over image"));
     public static readonly GeometryOutlineParameter Mode = new("mode", new StateParameter<GeometryOutline>.Choice<BlendingMode>(Lens<GeometryOutline, BlendingMode>.New(static outline => outline.Mode, static mode => outline => outline with { Mode = mode })),
-        new("Blend mode", "How the drawn layer composites over the frame"));
+        new("Blend mode", "Drawn layer blend over frame"));
 
     public StateParameter<GeometryOutline> Kind { get; }
     public ParameterText Text { get; }
@@ -560,23 +560,23 @@ public sealed partial class EdgeDetectParameter : IStateParameter<EdgeDetect> {
     private static readonly Presentation<float> Span = ShortSideLength.Presentation with { Soft = (0f, 0.01f) };
 
     public static readonly EdgeDetectParameter Operator = new("operator", new StateParameter<EdgeDetect>.Choice<EdgeOperator>(Lens<EdgeDetect, EdgeOperator>.New(static detect => detect.Operator, static kernel => detect => detect with { Operator = kernel })),
-        new("Type", "Kernel measuring the change around each pixel"));
+        new("Type", "Kernel measuring local change"));
     public static readonly EdgeDetectParameter Source = new("source", new StateParameter<EdgeDetect>.Choice<EdgeSource>(Lens<EdgeDetect, EdgeSource>.New(static detect => detect.Source, static source => detect => detect with { Source = source })),
-        new("Channel", "Color or the one channel the kernel reads"));
+        new("Channel", "Color or one channel the kernel reads"));
     public static readonly EdgeDetectParameter Softening = new("softening", StateParameter.Bounded(Lens<EdgeDetect, ShortSideLength>.New(static detect => detect.Softening, static softening => detect => detect with { Softening = softening }), Span),
-        new("Softening", "Blur ahead of the kernel as a share of the frame's short side"));
+        new("Softening", "Blur before kernel in frame short sides"));
     public static readonly EdgeDetectParameter Rendering = new("rendering", new StateParameter<EdgeDetect>.Choice<EdgeRendering>(Lens<EdgeDetect, EdgeRendering>.New(static detect => detect.Rendering, static rendering => detect => detect with { Rendering = rendering })),
-        new("Output", "Kernel response itself, lines, or lines on a fill"));
+        new("Output", "Response, lines, or lines on fill"));
     public static readonly EdgeDetectParameter Threshold = new("threshold", StateParameter.Bounded(Lens<EdgeDetect, AxisFraction>.New(static detect => detect.Threshold, static threshold => detect => detect with { Threshold = threshold })),
-        new("Threshold", "Share of the kernel's step response a line pixel exceeds"));
+        new("Threshold", "Kernel step response share a line pixel exceeds"));
     public static readonly EdgeDetectParameter Width = new("width", StateParameter.Bounded(Lens<EdgeDetect, ShortSideLength>.New(static detect => detect.Width, static width => detect => detect with { Width = width }), Span),
-        new("Line width", "Stroke width as a share of the frame's short side"));
+        new("Line width", "Stroke width in frame short sides"));
     public static readonly EdgeDetectParameter Line = new("line-color", new StateParameter<EdgeDetect>.Color(Lens<EdgeDetect, Swatch>.New(static detect => detect.Line, static line => detect => detect with { Line = line })),
-        new("Line color", "Color the lines draw in"));
+        new("Line color", "Drawn line color"));
     public static readonly EdgeDetectParameter Fill = new("fill-color", new StateParameter<EdgeDetect>.Color(Lens<EdgeDetect, Swatch>.New(static detect => detect.Fill, static fill => detect => detect with { Fill = fill })),
-        new("Fill color", "Color under the lines when they draw on a fill"));
+        new("Fill color", "Color under lines on fill"));
     public static readonly EdgeDetectParameter Mode = new("mode", new StateParameter<EdgeDetect>.Choice<BlendingMode>(Lens<EdgeDetect, BlendingMode>.New(static detect => detect.Mode, static mode => detect => detect with { Mode = mode })),
-        new("Blend mode", "How the drawn layer composites over the frame"));
+        new("Blend mode", "Drawn layer blend over frame"));
 
     public StateParameter<EdgeDetect> Kind { get; }
     public ParameterText Text { get; }
@@ -633,7 +633,7 @@ public sealed partial class KuwaharaKind : ICaptioned {
         double radius = state.Kind.Radius(state.Size.Pixels(extent));
         double reach = double.Ceiling((1d + state.Eccentricity) * radius) + 1d;
         return
-            from bounded in guard(reach <= int.MaxValue, Error.New(string.Create(CultureInfo.InvariantCulture, $"Kuwahara reach {reach} pixels exceeds the pixel index range {int.MaxValue}")))
+            from bounded in guard(reach <= int.MaxValue, Error.New(string.Create(CultureInfo.InvariantCulture, $"Kuwahara reach {reach} pixels exceeds {int.MaxValue}")))
             from filtered in frame.Filter(source => {
                 const int count = 8;
                 const double corner = 0.182d;
@@ -741,15 +741,15 @@ public sealed record Painterly(KuwaharaKind Kind, ShortSideLength Size, ShortSid
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PainterlyParameter : IStateParameter<Painterly> {
     public static readonly PainterlyParameter Kuwahara = new("kind", new StateParameter<Painterly>.Choice<KuwaharaKind>(Lens<Painterly, KuwaharaKind>.New(static painterly => painterly.Kind, static kind => painterly => painterly with { Kind = kind })),
-        new("Type", "Square quadrants, or sectors following the image's strokes"));
+        new("Type", "Square quadrants or stroke-following sectors"));
     public static readonly PainterlyParameter Size = new("size", StateParameter.Bounded(Lens<Painterly, ShortSideLength>.New(static painterly => painterly.Size, static size => painterly => painterly with { Size = size }), ShortSideLength.Presentation with { Soft = (0f, 0.02f) }),
-        new("Size", "Filter radius as a share of the frame's short side"));
+        new("Size", "Filter radius in frame short sides"));
     public static readonly PainterlyParameter Uniformity = new("uniformity", StateParameter.Bounded(Lens<Painterly, ShortSideLength>.New(static painterly => painterly.Uniformity, static uniformity => painterly => painterly with { Uniformity = uniformity }), ShortSideLength.Presentation with { Soft = (0f, 0.01f) }),
-        new("Uniformity", "Smoothing radius of the stroke direction as a share of the frame's short side"));
+        new("Uniformity", "Stroke direction smoothing radius in frame short sides"));
     public static readonly PainterlyParameter Sharpness = new("sharpness", StateParameter.Bounded(Lens<Painterly, AxisFraction>.New(static painterly => painterly.Sharpness, static sharpness => painterly => painterly with { Sharpness = sharpness })),
         new("Sharpness", "Weight toward the least varied sector"));
     public static readonly PainterlyParameter Eccentricity = new("eccentricity", StateParameter.Bounded(Lens<Painterly, SectorEccentricity>.New(static painterly => painterly.Eccentricity, static eccentricity => painterly => painterly with { Eccentricity = eccentricity }), new Presentation<float>()),
-        new("Eccentricity", "Elongation of the sectors along strokes"));
+        new("Eccentricity", "Sector elongation along strokes"));
 
     public StateParameter<Painterly> Kind { get; }
     public ParameterText Text { get; }

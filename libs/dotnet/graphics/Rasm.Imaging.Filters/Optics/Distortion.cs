@@ -84,15 +84,15 @@ public sealed record LensDistortion(Distortion Distortion, AxisFraction Dispersi
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LensDistortionParameter : IStateParameter<LensDistortion> {
     public static readonly LensDistortionParameter Distortion = new("distortion", StateParameter.Bounded(Lens<LensDistortion, Distortion>.New(static lens => lens.Distortion, static distortion => lens => lens with { Distortion = distortion })),
-        new("Distortion", "Bends straight lines away from or toward the frame center"));
+        new("Distortion", "Bends straight lines away from or toward frame center"));
     public static readonly LensDistortionParameter Dispersion = new("dispersion", StateParameter.Bounded(Lens<LensDistortion, AxisFraction>.New(static lens => lens.Dispersion, static dispersion => lens => lens with { Dispersion = dispersion })),
-        new("Dispersion", "Spreads red and blue apart across each wavelength, growing toward the edges"));
+        new("Dispersion", "Spreads red and blue over continuous spectrum, more toward edges"));
     public static readonly LensDistortionParameter Framing = new("framing", new StateParameter<LensDistortion>.Choice<LensFraming>(Lens<LensDistortion, LensFraming>.New(static lens => lens.Framing, static framing => lens => lens with { Framing = framing })),
-        new("Fit", "Scales the warped frame so its edges or its corners stay filled"));
+        new("Fit", "Scales warped frame to fill edges or corners"));
     public static readonly LensDistortionParameter Direction = new("direction", new StateParameter<LensDistortion>.Choice<LensDirection>(Lens<LensDistortion, LensDirection>.New(static lens => lens.Direction, static direction => lens => lens with { Direction = direction })),
-        new("Direction", "Applies the lens warp or removes it"));
+        new("Direction", "Applies or removes lens warp"));
     public static readonly LensDistortionParameter Wrap = new("wrap", new StateParameter<LensDistortion>.Choice<WrapMode>(Lens<LensDistortion, WrapMode>.New(static lens => lens.Wrap, static wrap => lens => lens with { Wrap = wrap })),
-        new("Wrap", "Sampling beyond the frame boundary"));
+        new("Wrap", "Source sampling past frame edges"));
 
     public StateParameter<LensDistortion> Kind { get; }
     public ParameterText Text { get; }
@@ -112,9 +112,9 @@ public sealed record AxialAberration(ShortSideLength Radius, Iris Iris)
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AxialAberrationParameter : IStateParameter<AxialAberration> {
     public static readonly AxialAberrationParameter Radius = new("radius", StateParameter.Bounded(Lens<AxialAberration, ShortSideLength>.New(static aberration => aberration.Radius, static radius => aberration => aberration with { Radius = radius }), ShortSideLength.Presentation with { Soft = (ShortSideLength.MinValue, 80f / ReferenceFrame.Height) }),
-        new("Radius", "Blue defocus radius, red at half of it, the focus each wavelength misses against green"));
+        new("Radius", "Blue defocus radius against green, red at half"));
     public static readonly AxialAberrationParameter Iris = new("iris", new StateParameter<AxialAberration>.Record<Iris>(Lens<AxialAberration, Iris>.New(static aberration => aberration.Iris, static iris => aberration => aberration with { Iris = iris })),
-        new("Aperture", "Outline of the lens opening each out-of-focus disc and diffraction spike takes"));
+        new("Aperture", "Lens opening shaping bokeh and diffraction spikes"));
 
     public StateParameter<AxialAberration> Kind { get; }
     public ParameterText Text { get; }

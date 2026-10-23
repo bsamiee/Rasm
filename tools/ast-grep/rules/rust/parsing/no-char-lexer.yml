@@ -78,5 +78,5 @@ rule:
                         - has: {field: value, any: [{matches: index-read}, {kind: unary_expression, has: {matches: index-read}}]}
                         - has: {field: body, has: {matches: char-arm}}
             - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: index-step}}
-message: 'Loop pulls characters from `$IT$S` and branches on each literal by hand'
-note: 'Write the grammar as `winnow` parsers over a `&str` stream, or `chumsky` parsers where errors recover and accumulate'
+message: 'Loop lexes `$IT$S` by hand through a branch per character literal'
+note: 'Write the grammar as `winnow` parsers over `&str`, or as `chumsky` parsers to recover and report every error'

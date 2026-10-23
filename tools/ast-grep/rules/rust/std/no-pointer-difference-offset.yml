@@ -17,4 +17,4 @@ rule:
                 - pattern: ($PART.as_ptr() as usize).$SUB($WHOLE.as_ptr() as usize)
                 - pattern: $PART.as_ptr().addr().$SUB($WHOLE.as_ptr().addr())
 message: '`$PART` locates itself inside `$WHOLE` by subtracting pointer addresses'
-note: 'Call `<whole>.substr_range(<part>)` for `str` or `<whole>.subslice_range(<part>)` for `[T]` and read `start` of the returned range'
+note: 'Call `<whole>.substr_range(<part>)` for `str` or `<whole>.subslice_range(<part>)` for `[T]` and read `start` of the `Some` range'

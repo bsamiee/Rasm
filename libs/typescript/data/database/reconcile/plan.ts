@@ -13,7 +13,7 @@ const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: O
         Effect.filterOrFail(
             SqlClient.SqlClient,
             (client) => client.onDialectOrElse({ sqlite: () => true, pg: () => true, orElse: () => false }),
-            () => new Cause.IllegalArgumentError('reconcile runs on SQLite and PostgreSQL clients'),
+            () => new Cause.IllegalArgumentError('reconcile needs SQLite or PostgreSQL client'),
         ),
         Effect.serviceOption(D1Client.D1Client),
     ]);

@@ -70,5 +70,5 @@ rule:
                               all:
                                 - has: {stopBy: end, kind: identifier, matches: public-input, pattern: $VALUE}
                                 - not: {has: {stopBy: end, any: [{kind: 'invocation_expression, object_creation_expression, member_access_expression, element_access_expression, conditional_access_expression'}, {matches: local-value}]}}
-message: '`$VALUE` is caller input checked with a `Refused` guard'
-note: 'Validate caller input via `<type>.Validated` (`IMinMaxValue<TSelf>` bound, hook rejecting empty ids or sequences) and keep `Refused` for host values'
+message: '`Refused` guard checks caller input `$VALUE`'
+note: 'Validate caller input through `<type>.Validated` of a `[ValueObject<T>]` with the check in `ValidateFactoryArguments`'

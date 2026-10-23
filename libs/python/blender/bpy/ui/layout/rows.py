@@ -1,4 +1,4 @@
-"""Native property bindings and acquired or callable layout drawing."""
+"""Layout rows from typed declarations or callbacks."""
 
 from collections.abc import Callable, Iterable
 from enum import auto, Enum
@@ -44,10 +44,10 @@ type Template = Callable[[bpy.types.UILayout, Native, str, bpy.types.bpy_struct[
 
 @runtime_checkable
 class Row(Protocol):
-    """Layout declaration acquiring its drawing under an extension identity."""
+    """Layout declaration acquiring its draw."""
 
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
-        """Acquires the declaration's drawing or its complete typed refusals."""
+        """Acquires draw or every refusal."""
         ...
 
 
@@ -55,14 +55,14 @@ type RowContent = Row | RowDraw | tuple[Registrable, Callable[[Identity], Blende
 
 
 class Flow(Enum):
-    """Native arrangement of a caption's content."""
+    """Caption content arrangement."""
 
     STACK = auto()
     GRID = auto()
     ALIGNED = auto()
 
     def opened(self, layout: bpy.types.UILayout) -> bpy.types.UILayout:
-        """Returns the caption's native layout with its property split policy."""
+        """Returns caption layout, property split off in grid and aligned flows."""
         match self:
             case Flow.STACK:
                 return layout
@@ -78,7 +78,7 @@ class Flow(Enum):
 
 
 class ResolvedMember(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
-    """Native RNA definition and its optional explicit root source."""
+    """RNA definition with optional explicit root source."""
 
     descriptor: Descriptor[P_co]
     reach: "bpy.types.bpy_struct[object] | Option[Reach]" = Nothing
@@ -86,7 +86,7 @@ class ResolvedMember(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
 
 class Member(msgspec.Struct, frozen=True, kw_only=True):
-    """Property path rooted at its actual native owner type."""
+    """Property path rooted at its owner type."""
 
     root: "type[bpy.types.bpy_struct[object]]"
     path: str
@@ -99,7 +99,7 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
     def resolved[P: bpy.types.Property](self, kind: type[P], *, root: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[ResolvedMember[P]]: ...
 
     def resolved(self, kind: type[bpy.types.Property] = bpy.types.Property, *, root: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[ResolvedMember]:
-        """Resolves declared metadata or an admitted live root's concrete native metadata."""
+        """Resolves metadata on root type, or on live `root` when given."""
         return root.map(
             lambda actual: (
                 Descriptor.resolve(actual, self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=actual))
@@ -117,7 +117,7 @@ class Across(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PreviewGrid(msgspec.Struct, frozen=True, kw_only=True):
-    """Preview grid of a selector, zero taking Blender's own count."""
+    """Selector preview grid, zero taking Blender's count."""
 
     rows: Annotated[int, msgspec.Meta(ge=0)] = 0
     cols: Annotated[int, msgspec.Meta(ge=0)] = 0
@@ -143,14 +143,14 @@ class Items(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Work(msgspec.Struct, frozen=True, kw_only=True):
-    """Running work's text and the fraction of its items done."""
+    """Running work text and fraction of items done."""
 
     text: str
     done: Unit
 
 
 class Branch[L: "bpy.types.bpy_struct[object]", C: "bpy.types.bpy_struct[object]"](msgspec.Struct, frozen=True, kw_only=True):
-    """Tree row: its depth below the root, the struct labelling it, and its cell holder per column owner."""
+    """Tree row with depth, label struct, and cell holder per column owner."""
 
     depth: int
     label: L
@@ -158,7 +158,7 @@ class Branch[L: "bpy.types.bpy_struct[object]", C: "bpy.types.bpy_struct[object]
 
 
 class Toggle[R: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Operator button of a tree cell: the record it writes, its stock icon, and its pressed state."""
+    """Tree cell operator button."""
 
     record: R
     icon: "IconItems"
@@ -166,13 +166,13 @@ class Toggle[R: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Line(msgspec.Struct, frozen=True, kw_only=True):
-    """Row with an optional native availability condition."""
+    """Row with optional availability condition."""
 
     condition: Option[Condition] = Nothing
 
 
 class Property(Line, frozen=True, kw_only=True):
-    """Setting whose native RNA determines its widget."""
+    """Setting drawn with its RNA widget."""
 
     target: Binding
     text: Option[str] = Nothing
@@ -182,7 +182,7 @@ class Property(Line, frozen=True, kw_only=True):
     action: Option[RowContent] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the binding and optional action once for native redraws."""
+        """Binds setting and action once for every redraw."""
         kinds = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.StringProperty, bpy.types.EnumProperty, bpy.types.ID)
         forms = (shapes.Flag, shapes.Integer, shapes.Number, shapes.Text, shapes.Enumerated, shapes.Vector, shapes.Components, shapes.Flags, shapes.Pointer, shapes.Color, shapes.Gate)
 
@@ -243,7 +243,7 @@ class Property(Line, frozen=True, kw_only=True):
 
 
 class SearchField(Line, frozen=True, kw_only=True):
-    """Native string or pointer search over a declared RNA collection."""
+    """String or pointer search over declared RNA collection."""
 
     target: Member
     collection: Member
@@ -251,7 +251,7 @@ class SearchField(Line, frozen=True, kw_only=True):
     results_are_suggestions: bool = False
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the property and collection definitions together."""
+        """Binds property and collection together."""
 
         def draw(parts: tuple[Resolved, ...]) -> RowDraw:
             held, items = parts
@@ -269,7 +269,7 @@ class SearchField(Line, frozen=True, kw_only=True):
 
 
 class Selector(Line, frozen=True, kw_only=True):
-    """Data-block or item pointer drawn through Blender's ID or search template."""
+    """Data-block or item pointer in ID or search template."""
 
     target: Member | msgspec.structs.FieldInfo
     browse: DataBlocks | Items = DataBlocks()
@@ -277,7 +277,7 @@ class Selector(Line, frozen=True, kw_only=True):
     label: Option[str] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves the pointer, the browsed collection, and the openers into the template's draw."""
+        """Resolves pointer, collection, and openers into template draw."""
 
         def named(opener: Opener) -> BlenderResult[str]:
             match opener:
@@ -334,7 +334,7 @@ class Selector(Line, frozen=True, kw_only=True):
 
 
 class Matrix(Line, frozen=True, kw_only=True):
-    """Native setting cells across scoped owners, preserving supplied compound editors."""
+    """Setting cells across scoped owners, compound settings through caller editors."""
 
     scope: Scoped
     settings: tuple[str, ...]
@@ -342,7 +342,7 @@ class Matrix(Line, frozen=True, kw_only=True):
     action: Option[tuple[Registrable, Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves each setting into its value settings and the owners' name under the scope's owner type into the table's draw."""
+        """Resolves leaf settings and owner names into table draw."""
         owner_type = self.scope.owner_type
         compound = tuple(kind for kind, _ in self.compound)
         named = Option.of_optional(owner_type.bl_rna.name_property).to_result_with(lambda: refused(owner_type.__name__, "name_property", (bpy.types.StringProperty.__name__,)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -394,7 +394,7 @@ class Tree(Line, frozen=True, kw_only=True):
     paths: Callable[[bpy.types.Context], BlenderResult[tuple[PurePath, ...]]]
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Answers the tree's draw over the paths its source answers."""
+        """Returns tree draw over source paths."""
 
         def listed(layout: bpy.types.UILayout, paths: tuple[PurePath, ...]) -> None:
             files = {path.parts for path in paths}
@@ -408,7 +408,7 @@ class Tree(Line, frozen=True, kw_only=True):
 
 
 class TreeMatrix[R: msgspec.Struct, L: "bpy.types.bpy_struct[object]", C: "bpy.types.bpy_struct[object]"](Line, frozen=True, kw_only=True):
-    """Tree rows indented by depth with one cell of operator toggles per column owner."""
+    """Tree rows indented by depth with toggle cells per column owner."""
 
     tree: Callable[[bpy.types.Context], tuple[tuple[str, ...], tuple[Branch[L, C], ...]]]
     command: operators.Operator[R]
@@ -417,7 +417,7 @@ class TreeMatrix[R: msgspec.Struct, L: "bpy.types.bpy_struct[object]", C: "bpy.t
     marks: tuple[RowContent, ...] = ()
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves the operator row and realizes the label marks into the tree's draw."""
+        """Realizes label marks into tree draw."""
 
         def draw(marks: tuple[RowDraw, ...]) -> RowDraw:
             def cell(line: bpy.types.UILayout, owner: str, found: C, label: L) -> None:
@@ -465,7 +465,7 @@ class OperatorButton(Line, frozen=True, kw_only=True):
     context: "rna_enums.OperatorContextItems" = "INVOKE_REGION_WIN"
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves the target's operator id, writer, and call context into the button's draw."""
+        """Resolves operator idname, writer, and call context into button draw."""
         command = self.target.command if isinstance(self.target, operators.Own) else self.target
         match command:
             case operators.Operator():
@@ -490,7 +490,7 @@ class OperatorButton(Line, frozen=True, kw_only=True):
 
 
 class Popover(Line, frozen=True, kw_only=True):
-    """Native popover button for a stock panel or an extension panel key."""
+    """Popover button for stock panel or extension panel key."""
 
     panel: type[bpy.types.Panel] | Key
     text: Option[str] = Nothing
@@ -498,13 +498,13 @@ class Popover(Line, frozen=True, kw_only=True):
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the native panel identifier and reads the glyph each draw."""
+        """Resolves panel idname, reading glyph each draw."""
         named = identity.name(Name.PANEL, self.panel) if isinstance(self.panel, str) else Ok(self.panel.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return named.map(lambda name: lambda layout, _holder, _context: gridded(layout, self.label).popover(panel=name, text=self.text.to_optional(), icon_value=iconed(identity, self.icon)))
 
 
 class Pulldown(Line, frozen=True, kw_only=True):
-    """Native menu button for a stock menu or an extension menu key."""
+    """Menu button for stock menu or extension menu key."""
 
     menu: type[bpy.types.Menu] | Key
     text: Option[str] = Nothing
@@ -512,20 +512,20 @@ class Pulldown(Line, frozen=True, kw_only=True):
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the native menu identifier and reads the glyph each draw."""
+        """Resolves menu idname, reading glyph each draw."""
         named = identity.name(Name.MENU, self.menu) if isinstance(self.menu, str) else Ok(self.menu.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return named.map(lambda name: lambda layout, _holder, _context: gridded(layout, self.label).menu(name, text=self.text.to_optional(), icon_value=iconed(identity, self.icon)))
 
 
 class Caption(Line, frozen=True, kw_only=True):
-    """Native rows and callbacks grouped under a heading or a rule."""
+    """Rows grouped under heading or separator."""
 
     rows: tuple[RowContent, ...]
     heading: Option[str] = Nothing
     flow: Flow = Flow.STACK
 
     def framed(self, draws: tuple[RowDraw, ...]) -> RowDraw:
-        """Returns the composed content within the caption's native arrangement."""
+        """Returns joined draws in caption arrangement."""
         draw = joined(draws)
 
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -536,18 +536,18 @@ class Caption(Line, frozen=True, kw_only=True):
         return shown
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires content on the enclosing native property grid."""
+        """Places rows on enclosing property grid."""
         return placed(self.rows, identity).map(self.framed)
 
 
 class Label(Line, frozen=True, kw_only=True):
-    """Fixed text or a live reading in native Markdown, header, or glyph form."""
+    """Fixed or live text as Markdown, header, or glyph label."""
 
     text: str | Callable[[bpy.types.Context], Option[str]]
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns drawing with current text and resource IDs at every redraw."""
+        """Returns draw reading text and icon each redraw."""
 
         def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for text in (Some(self.text) if isinstance(self.text, str) else self.text(context)).to_list():
@@ -563,7 +563,7 @@ class Label(Line, frozen=True, kw_only=True):
 
 
 class Text(Line, frozen=True, kw_only=True):
-    """Native string drawn in a multiline text box."""
+    """String drawn in multiline text box."""
 
     target: Binding
     initial_visible_lines: Annotated[int, msgspec.Meta(ge=1)] = 3
@@ -571,7 +571,7 @@ class Text(Line, frozen=True, kw_only=True):
     label: Option[str] = Nothing
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Acquires the string binding and its native owner rule."""
+        """Binds string property."""
 
         def draw(held: Resolved) -> RowDraw:
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -584,14 +584,14 @@ class Text(Line, frozen=True, kw_only=True):
 
 
 class Progress(Line, frozen=True, kw_only=True):
-    """Native progress bars or rings over current task fractions."""
+    """Progress bars or rings over running work fractions."""
 
     runs: Callable[[bpy.types.Context], Iterable[Work]]
     type: Literal["BAR", "RING"] = "BAR"
     label: Option[str] = Nothing
 
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns native drawing of every current task in source order."""
+        """Returns draw of every running work."""
 
         def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for run in self.runs(context):
@@ -606,27 +606,27 @@ class Progress(Line, frozen=True, kw_only=True):
 
 
 def refused(path: str, found: str, accepted: tuple[str, ...]) -> BlenderFaults:
-    """Returns the typed refusal for a control's unsupported binding."""
+    """Returns choice fault for an unsupported binding."""
     return (BlenderChoiceFault(path=path, identifier=found, accepted=accepted),)
 
 
 def bound(bindings: tuple[tuple[Binding, Callable[[Resolved], BlenderResult[Resolved]]], ...], place: BlenderResult[Callable[[tuple[Resolved, ...]], RowDraw]]) -> BlenderResult[RowDraw]:
-    """Acquires static bindings and resolves reached sources at the native draw boundary, drawing nothing while a reached source is absent."""
+    """Resolves static bindings once and reached sources each draw, drawing nothing while one is absent."""
 
-    def resolved(binding: Binding, admit: Callable[[Resolved], BlenderResult[Resolved]]) -> BlenderResult[Resolved]:
+    def resolved(binding: Binding, accept: Callable[[Resolved], BlenderResult[Resolved]]) -> BlenderResult[Resolved]:
         match binding:
             case Member():
-                return binding.resolved().bind(admit)
+                return binding.resolved().bind(accept)
             case Across(scope=scope, path=path):
-                return Descriptor.resolve(scope.owner_type, path, bpy.types.Property).map(lambda descriptor: ResolvedMember(descriptor=descriptor, scope=Some(scope))).bind(admit)
+                return Descriptor.resolve(scope.owner_type, path, bpy.types.Property).map(lambda descriptor: ResolvedMember(descriptor=descriptor, scope=Some(scope))).bind(accept)
             case ResolvedMember() | msgspec.structs.FieldInfo():
-                return admit(binding)
+                return accept(binding)
 
     def reached(binding: Resolved | tuple[Member, Callable[[Resolved], BlenderResult[Resolved]]], context: bpy.types.Context) -> BlenderResult[Option[Resolved]]:
         match binding:
             case tuple():
-                member, admit = binding
-                return member.reach.bind(lambda source: source(context)).map(lambda root: member.resolved(root=Some(root)).bind(admit).map(Some)).default_value(Ok(Nothing))
+                member, accept = binding
+                return member.reach.bind(lambda source: source(context)).map(lambda root: member.resolved(root=Some(root)).bind(accept).map(Some)).default_value(Ok(Nothing))
             case ResolvedMember() | msgspec.structs.FieldInfo():
                 return Ok(Some(binding))
 
@@ -645,11 +645,11 @@ def bound(bindings: tuple[tuple[Binding, Callable[[Resolved], BlenderResult[Reso
 
     if not any(isinstance(binding, Member) and binding.reach.is_some() for binding, _ in bindings):
         return paired(accumulated(starmap(resolved, bindings)), place).map(lambda parts: parts[1](parts[0]))
-    return paired(accumulated(Ok((binding, admit)) if isinstance(binding, Member) and binding.reach.is_some() else resolved(binding, admit) for binding, admit in bindings), place).map(draw)
+    return paired(accumulated(Ok((binding, accept)) if isinstance(binding, Member) and binding.reach.is_some() else resolved(binding, accept) for binding, accept in bindings), place).map(draw)
 
 
 def fits(held: Resolved, kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]", forms: tuple[type[object], ...] = ()) -> BlenderResult[Resolved]:
-    """Selects the native property or admitted field categories a control draws, an enum form admitting the members of its enum class."""
+    """Accepts property kinds or field shapes a control draws, enum classes included."""
     if isinstance(held, ResolvedMember):
         descriptor = held.descriptor
         prop = descriptor.prop
@@ -665,7 +665,7 @@ def fits(held: Resolved, kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]"
 
 
 def colored(held: Resolved) -> BlenderResult[Resolved]:
-    """Selects native RNA color arrays or the domain RGB record."""
+    """Accepts RNA color arrays or domain RGB record."""
     if isinstance(held, ResolvedMember):
         match held.descriptor.prop:
             case bpy.types.FloatProperty(is_array=True, subtype="COLOR" | "COLOR_GAMMA"):
@@ -676,7 +676,7 @@ def colored(held: Resolved) -> BlenderResult[Resolved]:
 
 
 def located(held: Resolved, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[tuple[Native, str]]:
-    """Locates the holder-compatible, explicit, or contextual property owner."""
+    """Locates property owner through root, holder, or context."""
     match held:
         case ResolvedMember(descriptor=descriptor, reach=reach):
             root = (
@@ -692,7 +692,7 @@ def located(held: Resolved, holder: "bpy.types.bpy_struct[object]", context: bpy
 
 
 def marked(setting: Descriptor, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> BlenderResult[Option[str]]:
-    """Compares captured native values and returns an indeterminate label or typed refusals."""
+    """Returns mixed-value label when owner values differ."""
     return accumulated(Snapshot.capture(owner, Some((setting,))) for owner in owners).map(
         lambda values: Some(f"{setting.prop.name} —") if any(left != right for left, right in pairwise(values)) else Nothing
     )
@@ -702,19 +702,19 @@ def marked(setting: Descriptor, owners: "tuple[bpy.types.bpy_struct[object], ...
 
 
 def iconed(identity: Identity, icon: Option[Glyph]) -> int:
-    """Reads the current native glyph ID, or Blender's NONE icon."""
+    """Reads glyph icon ID, 0 for `NONE`."""
     return icon.map(lambda glyph: Icons.value(identity, glyph)).default_value(0)
 
 
 def operated(properties: bpy.types.OperatorProperties | None, idname: str) -> BlenderResult[bpy.types.OperatorProperties]:
-    """Converts the native absent operator-item answer at the layout boundary."""
+    """Maps missing operator properties to absent fault."""
     return Option.of_optional(properties).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.ops", key=idname),))
 
 
 def pressed[T: msgspec.Struct, S](
     layout: bpy.types.UILayout, identity: Identity, command: operators.Operator[T, S], record: T, *, text: str, icon: "IconItems", depress: bool = False
 ) -> BlenderResult[None]:
-    """Draws an operator button whose properties hold a record."""
+    """Draws operator button over record."""
     return (
         operators
         .Own(command=command, values=record)
@@ -724,7 +724,7 @@ def pressed[T: msgspec.Struct, S](
 
 
 def split(layout: bpy.types.UILayout) -> tuple[bpy.types.UILayout, bpy.types.UILayout]:
-    """Places label and value cells beside Blender's reserved decorator cell."""
+    """Places label and value cells beside reserved decorator cell."""
     line = layout.row(align=True)
     halves = line.split(factor=layout.property_split_factor, align=True)
     names, values = halves.column(align=True), halves.row(align=True)
@@ -736,7 +736,7 @@ def split(layout: bpy.types.UILayout) -> tuple[bpy.types.UILayout, bpy.types.UIL
 
 
 def gridded(layout: bpy.types.UILayout, label: Option[str]) -> bpy.types.UILayout:
-    """Places an explicit label on the native property grid when requested."""
+    """Places label on property grid when one is given."""
     match label:
         case Option(tag="some", some=text):
             names, values = split(layout)
@@ -748,7 +748,7 @@ def gridded(layout: bpy.types.UILayout, label: Option[str]) -> bpy.types.UILayou
 
 
 def alerted[T](layout: bpy.types.UILayout, result: BlenderResult[T]) -> None:
-    """Renders complete callback failures as native alert labels."""
+    """Draws failures as alert labels."""
     for faults in result.swap().to_option().to_list():
         column = layout.column(align=True)
         column.alert = True
@@ -757,7 +757,7 @@ def alerted[T](layout: bpy.types.UILayout, result: BlenderResult[T]) -> None:
 
 
 def invoking(draw: RowDraw, mode: "rna_enums.OperatorContextItems" = "INVOKE_REGION_WIN") -> RowDraw:
-    """Scopes native invocation context around drawing, restoring it on every exit."""
+    """Scopes operator context around drawing."""
 
     def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
         prior = layout.operator_context
@@ -774,7 +774,7 @@ def invoking(draw: RowDraw, mode: "rna_enums.OperatorContextItems" = "INVOKE_REG
 
 
 def acquired(rows: tuple[RowContent, ...]) -> Acquisitions:
-    """Retains open resource declarations and the capabilities nested in composed rows."""
+    """Collects registrable declarations nested in composed rows."""
     declarations: list[Registrable | tuple[Band, Acquisition]] = []
     for row in rows:
         match row:
@@ -805,7 +805,7 @@ def acquired(rows: tuple[RowContent, ...]) -> Acquisitions:
 
 
 def realized(row: RowContent, identity: Identity) -> BlenderResult[RowDraw]:
-    """Acquires a typed row or directly composes a native holder-aware callback."""
+    """Acquires typed row draw, passing callbacks through."""
     match row:
         case tuple():
             return row[1](identity)
@@ -816,7 +816,7 @@ def realized(row: RowContent, identity: Identity) -> BlenderResult[RowDraw]:
 
 
 def guarded(draw: RowDraw, condition: Option[Condition]) -> RowDraw:
-    """Returns a native inactive column only where the row declares a condition."""
+    """Wraps draw in column inactive while row condition fails."""
 
     def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
         for required in condition.to_list():
@@ -828,7 +828,7 @@ def guarded(draw: RowDraw, condition: Option[Condition]) -> RowDraw:
 
 
 def placed(rows: tuple[RowContent, ...], identity: Identity, *, inherited: bool = False) -> BlenderResult[tuple[RowDraw, ...]]:
-    """Acquires independent rows and native callbacks, accumulating every refusal."""
+    """Realizes rows, padding actionless properties beside action rows."""
 
     def acted(row: RowContent) -> bool:
         match row:
@@ -862,7 +862,7 @@ def placed(rows: tuple[RowContent, ...], identity: Identity, *, inherited: bool 
 
 
 def joined(draws: tuple[RowDraw, ...]) -> RowDraw:
-    """Draws acquired content in declaration order over one native holder."""
+    """Joins draws in declaration order over one holder."""
 
     def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
         for draw in draws:
@@ -872,7 +872,7 @@ def joined(draws: tuple[RowDraw, ...]) -> RowDraw:
 
 
 def painted(draws: tuple[RowDraw, ...]) -> SurfaceDraw:
-    """Uses the surface context as the holder of acquired row drawings."""
+    """Uses context as holder of joined row draws."""
     draw = joined(draws)
     return lambda layout, context: draw(layout, context, context)
 

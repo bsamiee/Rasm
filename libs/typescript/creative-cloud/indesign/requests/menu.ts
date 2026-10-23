@@ -5,7 +5,7 @@ import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')({ area: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Menu area, in any case' })) }, { description: 'Menu actions by id, name, and area, every area or one' }) {
+class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')({ area: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Area in any case' })) }, { description: 'Menu actions of one area or every area' }) {
     static readonly Action = Schema.Struct({ id: Schema.Int, name: Schema.String, area: Schema.String });
     static readonly Result = Schema.Array(Menu.Action);
 

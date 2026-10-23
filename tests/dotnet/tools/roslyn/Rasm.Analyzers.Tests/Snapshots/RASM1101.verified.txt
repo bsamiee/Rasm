@@ -1,2 +1,2 @@
-#0 Catch-all arm in `switch` over `Shape` hides cases without an arm
-#1 Catch-all arm in `switch` over `Shape` hides cases without an arm
+#0 Catch-all arm over `Shape` hides unhandled cases. Call generated `Switch` or `Map` with one argument per case
+#1 Catch-all arm over `Shape` hides unhandled cases. Call generated `Switch` or `Map` with one argument per case

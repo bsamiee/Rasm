@@ -1,4 +1,4 @@
-"""Native operator calls and registered or drawn popups."""
+"""Operator calls and registered or drawn popups."""
 
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
@@ -26,14 +26,14 @@ type Operation = Callable[..., set[rna_enums.OperatorReturnItems]]  # type: igno
 
 
 class MenuPopup(msgspec.Struct, frozen=True, kw_only=True):
-    """Registered menu opened as a popup or pie."""
+    """Registered menu opened as popup or pie."""
 
     menu: type[bpy.types.Menu] | Key
     pie: bool = False
 
 
 class PanelPopup(msgspec.Struct, frozen=True, kw_only=True):
-    """Registered panel opened as a popover."""
+    """Registered panel opened as popover."""
 
     panel: type[bpy.types.Panel] | Key
     keep_open: bool = True
@@ -41,13 +41,13 @@ class PanelPopup(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ShelfPopup(msgspec.Struct, frozen=True, kw_only=True):
-    """Registered asset shelf opened as a popover."""
+    """Registered asset shelf opened as popover."""
 
     shelf: type[bpy.types.AssetShelf] | Key
 
 
 class DrawnMenu(msgspec.Struct, frozen=True, kw_only=True):
-    """Popup or pie populated by a layout callback."""
+    """Popup or pie a callback draws."""
 
     draw: Callable[[bpy.types.UILayout, bpy.types.Context], None]
     title: str = ""
@@ -56,7 +56,7 @@ class DrawnMenu(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class DrawnPopover(msgspec.Struct, frozen=True, kw_only=True):
-    """Popover populated by a layout callback."""
+    """Popover a callback draws."""
 
     draw: Callable[[bpy.types.UILayout, bpy.types.Context], None]
     units: int = 0
@@ -75,7 +75,7 @@ def called(
     undo: bool = False,
     override: Option["bpy.types.ContextTempOverride"] = Nothing,
 ) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
-    """Returns the native outcome or absence/refusal, omitting Nothing-valued properties."""
+    """Calls operator, leaving Nothing-valued properties unset."""
     given = {key: value for key, held in properties.items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
     idname = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     request = f"bpy.ops.{idname}({', '.join(f'{key}={value!r}' for key, value in given.items())})"
@@ -90,7 +90,7 @@ def called(
 
 
 def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Operation, dict[str, str | bool]]]:
-    """Returns a registered popup's native operator and properties, or its name refusal."""
+    """Returns registered popup operator and properties."""
     target: type[bpy.types.Menu | bpy.types.Panel | bpy.types.AssetShelf] | Key
     match popup:
         case MenuPopup(menu=menu, pie=pie):
@@ -104,7 +104,7 @@ def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Oper
 
 
 def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, identity: Identity) -> BlenderResult[None]:
-    """Returns success after opening a popup on its invoking window, or the native refusal or absent window manager."""
+    """Opens popup on invoking window."""
 
     def painted(draw: Callable[[bpy.types.UILayout, bpy.types.Context], None], holder: bpy.types.UIPopupMenu | bpy.types.UIPieMenu | bpy.types.UIPopover, held: bpy.types.Context) -> None:
         for layout in Option.of_optional(holder.layout).to_list():

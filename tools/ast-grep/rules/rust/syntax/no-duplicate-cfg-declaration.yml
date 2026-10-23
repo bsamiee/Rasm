@@ -61,5 +61,5 @@ rule:
 labels:
     NAME: {style: primary, message: 'Declared under one `cfg`'}
     AGAIN: {style: secondary, message: 'Same declaration under another `cfg`'}
-message: '`$NAME` is declared under `$CFG` and again under another `cfg`'
+message: '`$CFG` and another `cfg` each declare `$NAME`'
 note: 'Declare the item once and select the differing value, statements, or members with `cfg_select!`'

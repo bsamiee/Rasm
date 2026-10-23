@@ -36,7 +36,7 @@ public static class Commits {
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
         WithinRedraw(doc, redraw, DisposalOps.Transacted(
             IO.lift(() => Command.InCommand() && doc.UndoRecordingEnabled && !doc.UndoRecordingIsActive
-                ? Error.New("a running command holds no undo record") : Fin.Succ(Conversions.Present(doc.BeginUndoRecord(name)))),
+                ? Error.New("running command has no open undo record") : Fin.Succ(Conversions.Present(doc.BeginUndoRecord(name)))),
             _ => body,
             begun => Ended(doc, begun).Bind(kept => when(kept.IsSome,
                 Callbacks.Each(Seq(Step(doc, doc.Undo, nameof(RhinoDoc.Undo)), IO.lift(doc.ClearRedoRecords))).Map(unit)).As()),

@@ -10,7 +10,7 @@ use clippy_utils::{
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::{Block, Expr, ExprKind, LetStmt, Pat, PatKind, Stmt, StmtKind, UnOp, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, Ty, TyCtxt, print::with_forced_trimmed_paths};
 use rustc_span::Span;
 
 use super::{PlaceUses, cloned_into_binding, stored_place};
@@ -34,24 +34,25 @@ enum Holder {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Usage {
+struct Usage<'tcx> {
     holder: Holder,
+    swapped: Ty<'tcx>,
     written: Option<Span>,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-pub(crate) struct Pass {
+pub(crate) struct Pass<'tcx> {
     methods: FxHashMap<DefId, Method>,
     holders: FxHashMap<DefId, Holder>,
     sender_new: Option<DefId>,
-    places: PlaceUses<Usage>,
+    places: PlaceUses<Usage<'tcx>>,
 }
 
-lint!(Pass; MANUAL_ARC_SWAP: "locks over an `Arc`, and `watch::Sender`s with no receiver, that every write replaces whole");
+lint!(Pass<'_>; MANUAL_ARC_SWAP: "`Arc` locks and receiverless `watch::Sender`s that every write replaces whole");
 
-impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+impl<'tcx> Pass<'tcx> {
+    pub(crate) fn new(tcx: TyCtxt<'tcx>) -> Self {
         let held = resolve(
             tcx,
             PathNS::Value,
@@ -77,7 +78,7 @@ impl Pass {
     }
 }
 
-impl<'tcx> LateLintPass<'tcx> for Pass {
+impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         fn overwrites(cx: &LateContext<'_>, modify: &Expr<'_>) -> bool {
             let ExprKind::Closure(closure) = modify.kind else { return false };
@@ -100,11 +101,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .into_iter()
                 .filter_map(|(field, init)| Some((field.did.as_local()?, init)))
                 .filter(|&(field, init)| {
-                    whole_value_holder(cx, &self.holders, cx.tcx.type_of(field).instantiate_identity().skip_normalization()) == Some(Holder::Watch) && !fresh(cx, self.sender_new, init)
+                    matches!(whole_value_holder(cx, &self.holders, cx.tcx.type_of(field).instantiate_identity().skip_normalization()), Some((Holder::Watch, _))) && !fresh(cx, self.sender_new, init)
                 })
                 .for_each(|(field, _)| self.places.escape(Place::Field(field)));
         }
-        if let Some((place, holder)) = stored_place(cx, expr).and_then(|(place, ty)| Some((place, whole_value_holder(cx, &self.holders, ty)?))) {
+        if let Some((place, (holder, swapped))) = stored_place(cx, expr).and_then(|(place, ty)| Some((place, whole_value_holder(cx, &self.holders, ty)?))) {
             let method = method_call_on(cx, expr).and_then(|(call, method)| Some((*self.methods.get(&method)?, call)));
             let written = match method {
                 Some((Method::Read, _)) => Some(None),
@@ -122,7 +123,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             };
             match written {
                 Some(written) =>
-                    if let Some(usage) = self.places.record(place, || Usage { holder, written: None }) {
+                    if let Some(usage) = self.places.record(place, || Usage { holder, swapped, written: None }) {
                         usage.written = usage.written.or(written);
                     },
                 None => self.places.escape(place),
@@ -136,7 +137,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             _ => init,
         };
         if let PatKind::Binding(_, binding, _, None) = local.pat.kind
-            && whole_value_holder(cx, &self.holders, pointee(cx, cx.typeck_results().node_type(binding))) == Some(Holder::Watch)
+            && matches!(whole_value_holder(cx, &self.holders, pointee(cx, cx.typeck_results().node_type(binding))), Some((Holder::Watch, _)))
             && !local.init.is_some_and(|init| fresh(cx, self.sender_new, shared(init)))
         {
             self.places.escape(Place::Local(binding));
@@ -146,14 +147,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_pat(&mut self, cx: &LateContext<'tcx>, pat: &'tcx Pat<'tcx>) { self.places.escape_bound(cx, pat, |held| whole_value_holder(cx, &self.holders, held).is_some()); }
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
-        for (place, holder, written) in self.places.unescaped(cx).filter_map(|(place, usage)| Some((place, usage.holder, usage.written?))) {
-            let name = place.name(cx);
-            let (message, help) = match holder {
-                Holder::Lock =>
-                    (format!("every write to `{name}` replaces its whole `Arc`"), "declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`"),
+        for (place, usage, written) in self.places.unescaped(cx).filter_map(|(place, usage)| Some((place, usage, usage.written?))) {
+            let (name, swapped) = (place.name(cx), with_forced_trimmed_paths!(usage.swapped.to_string()));
+            let (message, help) = match usage.holder {
+                Holder::Lock => (format!("every write replaces `{name}` whole"), format!("declare `{name}` as `arc_swap::ArcSwap<{swapped}>`, read with `load_full()`, and write with `store(..)`")),
                 Holder::Watch => (
-                    format!("every write to `{name}` replaces its whole value, and no receiver subscribes to it"),
-                    "declare `arc_swap::ArcSwap`, read with `load()`, and write with `store(Arc::new(..))`",
+                    format!("every write replaces `{name}` whole with no receiver subscribed"),
+                    format!("declare `{name}` as `arc_swap::ArcSwap<{swapped}>`, read with `load()`, and write with `store(Arc::new(..))`"),
                 ),
             };
             span_lint_hir_and_then(cx, MANUAL_ARC_SWAP, place.hir_id(cx), place.span(cx), message, |diag| {
@@ -170,7 +170,11 @@ fn fresh(cx: &LateContext<'_>, sender_new: Option<DefId>, init: &Expr<'_>) -> bo
     fn_def_id(cx, init).is_some_and(|built| sender_new == Some(built) || built.opt_parent(cx).is_diag_item(cx, sym::Default))
 }
 
-fn whole_value_holder<'tcx>(cx: &LateContext<'tcx>, holders: &FxHashMap<DefId, Holder>, held: Ty<'tcx>) -> Option<Holder> {
+fn whole_value_holder<'tcx>(cx: &LateContext<'tcx>, holders: &FxHashMap<DefId, Holder>, held: Ty<'tcx>) -> Option<(Holder, Ty<'tcx>)> {
     let ty::Adt(holder, args) = held.kind() else { return None };
-    holders.get(&holder.did()).copied().filter(|&holder| holder == Holder::Watch || args.type_at(0).is_diag_item(cx, sym::Arc))
+    match (holders.get(&holder.did())?, args.type_at(0).kind()) {
+        (Holder::Watch, _) => Some((Holder::Watch, args.type_at(0))),
+        (Holder::Lock, ty::Adt(shared, shared_args)) if shared.is_diag_item(cx, sym::Arc) => Some((Holder::Lock, shared_args.type_at(0))),
+        (Holder::Lock, _) => None,
+    }
 }

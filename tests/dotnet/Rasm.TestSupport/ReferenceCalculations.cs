@@ -68,7 +68,7 @@ public static class ReferenceCalculations {
     public static int OrientationSign(double[][] simplex) {
         int dim = simplex.Length - 1;
         bool valid = simplex.Length is 3 or 4 && simplex.All(point => point.Length >= dim && point.Take(dim).All(double.IsFinite));
-        Shape(valid, "OrientationSign expects 3 finite 2D points or 4 finite 3D points", nameof(simplex));
+        Shape(valid, "OrientationSign needs 3 finite 2D points or 4 finite 3D points", nameof(simplex));
         (BigInteger Mantissa, int Exponent)[][] parts = [.. simplex.Select(point => ((BigInteger Mantissa, int Exponent)[])[.. point.Take(dim).Select(Decompose)])];
         int floor = parts.SelectMany(static point => point).Min(static part => part.Exponent);
         BigInteger[][] scaled = [.. parts.Select(point => (BigInteger[])[.. point.Select(part => part.Mantissa << (part.Exponent - floor))])];

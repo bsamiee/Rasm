@@ -1,4 +1,4 @@
-"""Projected source light, native shafts, and procedural lens-flare sections."""
+"""Projected source light, shafts, and procedural lens-flare sections."""
 
 from enum import IntEnum
 from math import tau
@@ -40,14 +40,13 @@ class _Noise(IntEnum):
 
 
 def located[R: SourceEffect](shell: Shell[R]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End], Option[tuple[Fragment, End]]]]:
-    """Projects the selected source and returns its front and occlusion fields.
+    """Projects selected source with front and occlusion fields.
 
     Args:
-        shell: Source menus, external object input, and native depth endpoint.
+        shell: Source menus, object input, and depth endpoint.
 
     Returns:
-        Frame-relative position and front gate, each with its graph, and per-pixel occlusion read from the depth pass a bound
-        occluding source requests, `Nothing` for a source that occludes nothing; or accumulated native construction faults.
+        Frame-relative position, front gate, and depth-pass occlusion, `Nothing` for a non-occluding source.
     """
     match shell.record:
         case LightRays():
@@ -107,13 +106,13 @@ def located[R: SourceEffect](shell: Shell[R]) -> BlenderResult[tuple[tuple[Fragm
 
 
 def beamed(shell: Shell[LightRays]) -> BlenderResult[tuple[Fragment, End]]:
-    """Adds native highlight shafts through the selected source's depth gaps.
+    """Adds highlight shafts through source depth gaps.
 
     Args:
         shell: Entering light, frame measures, source, highlight, and ray controls.
 
     Returns:
-        Associated light with generated shafts, or native construction faults.
+        Associated light with shafts.
     """
     _, highlights_field, length, jitter, color = LightRays.__struct_fields__
     threshold, smoothness = Highlights.__struct_fields__
@@ -166,13 +165,13 @@ def beamed(shell: Shell[LightRays]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def flared(shell: Shell[LensFlare]) -> BlenderResult[tuple[Fragment, End]]:
-    """Adds five source-centered flare sections with finite-disc visibility.
+    """Adds source-centered flare sections under finite-disc visibility.
 
     Args:
         shell: Entering light, frame, projected source, and section controls.
 
     Returns:
-        Entering light plus the visible section sum, or native graph faults.
+        Entering light with visible section sum.
     """
     inlet = shell.socket
     _, radius_field, hotspot_field, starburst, anamorphic, halo_field, ghosts_field, seed = LensFlare.__struct_fields__
@@ -406,7 +405,7 @@ def flared(shell: Shell[LensFlare]) -> BlenderResult[tuple[Fragment, End]]:
     return paired(framed("flare_frame", shell.source, shell.aspect, shell.scale), located(shell)).bind(lambda parts: built(*parts))
 
 
-def _source_admitted[R: SourceEffect](identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: R, _context: Context) -> BlenderResult[None]:
+def _source_validated[R: SourceEffect](identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: R, _context: Context) -> BlenderResult[None]:
     match record.source:
         case FramePosition():
             return Ok(None)
@@ -432,10 +431,10 @@ def _requested[R: SourceEffect](record: R, layer: str, *, precise: bool) -> Blen
 
 _source_inputs = (Socket(key=item_key(BoundObject), name="Object", kind=bpy.types.NodeSocketObject),)
 light_rays = CompositorEffect(
-    record=LightRays, graph=beamed, inputs=_source_inputs, requested=Some(lambda record, layer: _requested(record, layer, precise=False)), native_admitted=Some(_source_admitted)
+    record=LightRays, graph=beamed, inputs=_source_inputs, requested=Some(lambda record, layer: _requested(record, layer, precise=False)), native_validated=Some(_source_validated)
 )
 lens_flare = CompositorEffect(
-    record=LensFlare, graph=flared, inputs=_source_inputs, requested=Some(lambda record, layer: _requested(record, layer, precise=True)), native_admitted=Some(_source_admitted)
+    record=LensFlare, graph=flared, inputs=_source_inputs, requested=Some(lambda record, layer: _requested(record, layer, precise=True)), native_validated=Some(_source_validated)
 )
 
 

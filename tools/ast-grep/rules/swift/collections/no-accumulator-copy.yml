@@ -63,5 +63,5 @@ rule:
                 - has: {field: operator, regex: '^=$'}
                 - has: {field: target, has: {pattern: $ACC}}
                 - inside: {stopBy: {matches: swift-function-scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
-message: 'Each pass copies `$ACC` whole to add elements, quadratic in the input'
-note: 'Append through `reduce(into:)` or to a loop''s own buffer with `append` or `+=`, or derive every element in one `map`, `flatMap`, or `compactMap`'
+message: 'Each pass copies `$ACC` whole to add elements, quadratic in input length'
+note: 'Append in `reduce(into:)` or to a loop buffer (reversed once for a prepend), or derive the elements in one `map`, `flatMap`, or `compactMap`'

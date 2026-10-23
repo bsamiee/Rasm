@@ -1,4 +1,4 @@
-"""Frame view cases over the image editor: compare wipe, drawn charts and clip ends, coverage masks, frame regions, and frame picks."""
+"""Image editor frame compare, charts, clip masks, regions, and picks."""
 
 from collections.abc import Callable, Iterable
 from enum import auto, Enum, IntEnum
@@ -63,7 +63,7 @@ type RegionPart = int | tuple[int, int] | Motion
 
 
 class Motion(Enum):
-    """Whole-region gestures alongside individual corners and edges."""
+    """Whole-region gestures beside corner and edge handles."""
 
     TRANSLATE = auto()
     ROTATE = auto()
@@ -71,7 +71,7 @@ class Motion(Enum):
 
 
 class Mode(Choice):
-    """Compare layout: a wipe across either axis or both frames side by side."""
+    """Compare layout, a wipe on either axis or side by side."""
 
     VERTICAL = 1, "Vertical Wipe"
     HORIZONTAL = 2, "Horizontal Wipe"
@@ -79,7 +79,7 @@ class Mode(Choice):
 
 
 class Shown(IntEnum):
-    """Image editor channel views the before frame follows, each value the channel shader's selector."""
+    """Channel views the before frame follows, each value a shader selector."""
 
     COLOR = 0
     COLOR_ALPHA = 1
@@ -98,29 +98,29 @@ HANDLE: Final = 80 * 0.35 / 2
 
 
 class Compare(msgspec.Struct, frozen=True, kw_only=True):
-    """Compare layout, split, and side of the before frame."""
+    """Compare layout, split, and before frame side."""
 
     mode: Annotated[Mode, msgspec.Meta(title="Compare Mode", description="Wipe orientation, or both frames side by side")] = Mode.VERTICAL
-    split: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Split", description="Wipe position across the frame")] = 0.5
-    swapped: Annotated[bool, msgspec.Meta(title="Swap", description="Put the before frame right of or below the split")] = False
+    split: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Split", description="Wipe position")] = 0.5
+    swapped: Annotated[bool, msgspec.Meta(title="Swap", description="Before frame right of or below split")] = False
 
 
 class Charted(msgspec.Struct, frozen=True, kw_only=True):
-    """Switches of the charts drawn over a screen's Render Result."""
+    """Render Result chart switches."""
 
-    outline: Annotated[bool, msgspec.Meta(title="Outline", description="Draw the scene-linear luminance outline of the last render")] = True
-    gamuts: Annotated[bool, msgspec.Meta(title="Chromaticity", description="Draw the chromaticity diagram of the last render with its working and display gamuts")] = False
+    outline: Annotated[bool, msgspec.Meta(title="Outline", description="Last render's scene-linear luminance outline")] = True
+    gamuts: Annotated[bool, msgspec.Meta(title="Chromaticity", description="Last render's chromaticity with working and display gamuts")] = False
 
 
 class ClipEnds(msgspec.Struct, frozen=True, kw_only=True):
-    """Clip ends tinted over a screen's Render Result."""
+    """Render Result clip-end tints."""
 
-    low: Annotated[bool, msgspec.Meta(title="Low Clip", description="Tint the pixels the written file holds at its lowest code")] = False
-    high: Annotated[bool, msgspec.Meta(title="High Clip", description="Tint the pixels the written file holds at its highest code")] = False
+    low: Annotated[bool, msgspec.Meta(title="Low Clip", description="Tint pixels at written file's lowest code")] = False
+    high: Annotated[bool, msgspec.Meta(title="High Clip", description="Tint pixels at written file's highest code")] = False
 
 
 class Before(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Before frame: a top-first associated RGBA plane and its caption."""
+    """Before frame's top-first associated RGBA plane and caption."""
 
     plane: npt.NDArray[np.float32]
     name: str = "Before"
@@ -134,7 +134,7 @@ class Plate(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Sides(msgspec.Struct, frozen=True, kw_only=True):
-    """Layout of one compare draw: the plate, its clip, the rule, and the captions."""
+    """Compare draw layout with plate, clip, rule, and captions."""
 
     after: ClassVar[str] = "After"
     plate: Rect
@@ -144,7 +144,7 @@ class Sides(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, compare: Compare, frame: Rect, bounds: Rect, size: tuple[float, float], name: str, gap: float, inset: float, text: float) -> Self:
-        """Lays out the plate, clip, rule, and captions of a compare over a frame inside the visible bounds."""
+        """Lays out compare over a frame inside visible bounds."""
         (width, height), right, top = size, bounds.x + bounds.width, bounds.y + bounds.height
         plate = Rect(x=frame.x + (frame.width - width) / 2, y=frame.y + (frame.height - height) / 2, width=width, height=height)
         low, high, left = max(frame.y, bounds.y), min(frame.y + frame.height, top), max(frame.x, bounds.x)
@@ -168,7 +168,7 @@ class Sides(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Wipe(msgspec.Struct, frozen=True, kw_only=True):
-    """Formed frame drawn in native channels, with an optional comparison layout."""
+    """Formed frame in editor channels with optional compare."""
 
     light: ClassVar[Color] = (1.0, 1.0, 1.0, 1.0)
     dark: ClassVar[Color] = (0.0, 0.0, 0.0, 0.5)
@@ -177,13 +177,13 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
     compare: Option[Callable[[bpy.types.Context], BlenderResult[Option[Compare]]]] = Nothing
 
     def read(self, metrics: Metrics) -> BlenderResult[Option[Plate]]:
-        """Reads the before frame and uploads its plane."""
+        """Uploads before frame plane."""
         return self.source(metrics).bind(
             lambda found: found.map(lambda before: uploaded(unassociated(before.plane)).map(lambda texture: Some(Plate(texture=texture, name=before.name)))).default_value(Ok(Nothing))
         )
 
     def drawn(self, canvas: Canvas, state: Plate) -> None:
-        """Draws the plate in the editor's channel view, the rule, and the captions over the editor's frame."""
+        """Draws plate in editor channel view with rule and captions."""
         context = bpy.context
         gap, checker = canvas.metrics.line(1.0), canvas.metrics.checker()
         text = canvas.metrics.text(context.preferences.ui_styles[0].widget)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -223,7 +223,7 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     @compiled
     def channeled() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
-        """Builds the before frame's channel shader and its unit quad."""
+        """Builds channel shader and unit quad."""
         vertex = "void main() { uv = pos; gl_Position = ModelViewProjectionMatrix * vec4(plate.rect.xy + pos * plate.rect.zw, 0.0, 1.0); }"
         fragment = (
             DECODED
@@ -257,19 +257,19 @@ void main() {
 
 
 class Tint(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Coverage plane of a frame and the display color it tints."""
+    """Frame coverage plane with its tint color."""
 
     plane: npt.NDArray[np.float32]
     color: Color
 
 
 class Masks(msgspec.Struct, frozen=True, kw_only=True):
-    """Coverage masks part: tints baked into textures once per refresh, drawn over the frame's rectangle."""
+    """Coverage mask part baking tints per refresh and drawing them over frame."""
 
     source: Callable[[Metrics], BlenderResult[Option[tuple[Tint, ...]]]]
 
     def read(self, metrics: Metrics) -> BlenderResult[Option[tuple[gpu.types.GPUTexture, ...]]]:
-        """Reads the tints and uploads each one's color with alpha times coverage."""
+        """Reads tints and uploads each color with alpha times coverage."""
         return self.source(metrics).bind(
             lambda found: found.map(
                 lambda tints: accumulated(
@@ -280,7 +280,7 @@ class Masks(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def drawn(canvas: Canvas, state: tuple[gpu.types.GPUTexture, ...], /) -> None:
-        """Draws every mask over the frame of the canvas's image editor."""
+        """Draws masks over editor frame."""
         for space, texture, region in ((space, texture, region) for space in canvas.space.bind(edited).to_list() for texture in state for region in canvas.region.to_list()):
             frame = framed(region)
             texture.filter_mode(space.zoom[0] < 1.0)  # type: ignore[index]
@@ -288,24 +288,24 @@ class Masks(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Access(msgspec.Struct, frozen=True, kw_only=True):
-    """Admitted region snapshot and a writer retaining its actual native owner."""
+    """Validated region snapshot with owner-bound writer."""
 
     quad: Quad
     write: Callable[[Quad], BlenderResult[None]]
 
 
 class Edges(msgspec.Struct, frozen=True, kw_only=True):
-    """Edge part of a free region: the closed corner strip read once per refresh."""
+    """Free region edge part reading closed corner strip per refresh."""
 
     access: Callable[[bpy.types.Context], BlenderResult[Option[Access]]]
     role: Callable[[bpy.types.ThemeUserInterface], mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]]
 
     def read(self, _metrics: Metrics, /) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
-        """Reads the region's quad on the shown image and closes its corner strip in frame fractions."""
+        """Reads region quad as closed corner strip in frame fractions."""
         return self.access(bpy.context).map(lambda found: found.map(lambda held: held.quad.samples[(0, 1, 2, 3, 0), :2].astype(np.float32)))
 
     def drawn(self, canvas: Canvas, state: npt.NDArray[np.float32], /) -> None:
-        """Draws the strip scaled through the frame using its corner handle's native theme projection."""
+        """Draws strip through frame in corner handle theme color."""
         lines = canvas.lines(1.0)
         lines.uniform_float("color", color(self.role(bpy.context.preferences.themes[0].user_interface)))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         for frame in canvas.region.map(framed).to_list():
@@ -313,7 +313,7 @@ class Edges(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Aligned(msgspec.Struct, frozen=True, kw_only=True):
-    """Axis-aligned region with optional aspect lock and admitted pointer bounds."""
+    """Axis-aligned region with optional aspect lock and pointer bounds."""
 
     locked: bool = False
     bounds: Option[Region] = Nothing
@@ -324,11 +324,11 @@ class Free(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Picked(msgspec.Struct, frozen=True, kw_only=True):
-    """Pick point in region pixels and the sampled square's half side."""
+    """Pick point and sampled square half side."""
 
     x: Annotated[int, msgspec.Meta(title="X", description="Pick column in region pixels"), Definition(options=frozenset({"HIDDEN", "SKIP_SAVE"}))] = 0
     y: Annotated[int, msgspec.Meta(title="Y", description="Pick row in region pixels"), Definition(options=frozenset({"HIDDEN", "SKIP_SAVE"}))] = 0
-    radius: Annotated[int, msgspec.Meta(ge=0, le=3, title="Sample Radius", description="Frame pixels sampled on each side of the picked pixel")] = 0
+    radius: Annotated[int, msgspec.Meta(ge=0, le=3, title="Sample Radius", description="Pixels sampled each side of pick")] = 0
 
 
 class EntryPick(Picked, frozen=True, kw_only=True):
@@ -338,13 +338,13 @@ class EntryPick(Picked, frozen=True, kw_only=True):
 
 
 class Bound(Line, frozen=True, kw_only=True):
-    """Rows an identity builds at realization, drawn while the shown condition holds."""
+    """Identity-built rows drawn while shown condition holds."""
 
     rows: Callable[[Identity], BlenderResult[tuple[Row, ...]]]
     shown: Option[Setting] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Builds the rows over the identity and realizes them on one grid."""
+        """Places identity rows on one grid."""
 
         def draw(draws: tuple[RowDraw, ...]) -> RowDraw:
             inner = joined(draws)
@@ -359,7 +359,7 @@ class Bound(Line, frozen=True, kw_only=True):
 
 
 class CompareView(msgspec.Struct, frozen=True, kw_only=True):
-    """Row placing a before frame over the editor's frame, split by a handle or set beside it."""
+    """Row placing a before frame over editor frame, split by a handle or beside it."""
 
     key: Key
     glyph: Glyph
@@ -369,12 +369,12 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def state(self) -> Attachment[Gated[Compare]]:
-        """Screen's compare record, which the preferences page acquires."""
+        """Screen compare record for preferences page."""
         return Attachment(key=self.key, form=Gated[Compare], owner=bpy.types.Screen)
 
     @property
     def header(self) -> tuple[Row]:
-        """Gate toggle on the glyph, mode segments, and swap, drawn while the editor shows a kind the row names."""
+        """Gate, mode, and swap toggles, drawn while editor shows an image of `kinds`."""
 
         def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
             enabled = next(field for field in msgspec.structs.fields(Gated[Compare]) if field.name == "enabled")
@@ -397,7 +397,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
         return (Bound(rows=rows, shown=Some(image_type(self.kinds))),)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the split handle and overlay declarations over the bound record and the identity's refreshes."""
+        """Returns split handle and overlay declarations."""
         shown = image_type(self.kinds)
 
         def ruled(region: bpy.types.Region, compare: Compare) -> Option[tuple[int, int]]:
@@ -445,7 +445,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
             command = Operator(
                 key=f"{self.key}_split",
                 title="Compare Split",
-                description="Drag the compare split; Shift changes precision and Escape restores the split",
+                description="Drags compare split, Shift for tenth speed, Escape restores",
                 form=Empty,
                 run=lambda _call: Ok(Done()),
                 invoke=Some(Modal(gesture=Gesture.DRAG, begin=begin, preview=preview, restore=lambda _context, state: write(state[0], state[1].split))),
@@ -463,19 +463,19 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class FrameMask(msgspec.Struct, frozen=True, kw_only=True):
-    """Row drawing coverage masks over the editor's frame."""
+    """Row drawing coverage masks."""
 
     read: Callable[[Metrics], BlenderResult[Option[tuple[Tint, ...]]]]
     kinds: tuple[str, ...] = ("RENDER_RESULT",)
     refreshes: tuple[Refresh, ...] = ()
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the mask overlay declaration."""
+        """Returns mask overlay declaration."""
         return Ok((overlaid(Masks(source=self.read), image_type(self.kinds), self.refreshes),))
 
 
 class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
-    """Native corner, edge, and affine handles with fallible gestures and rollback."""
+    """Corner, edge, and affine handles with rollback."""
 
     key: Key
     title: str
@@ -485,11 +485,11 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     refreshes: tuple[Refresh, ...] = ()
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers retained gesture operators, native handles, and the region outline."""
+        """Returns gesture operators, native handles, and region outline."""
         return Ok(self.rows(image_type(self.kinds)))
 
     def rows(self, shown: Setting) -> tuple[Registrable, ...]:
-        """Returns each operator before its native handle and the region outline."""
+        """Returns each operator before its handle, then outline."""
         corners = tuple(range(len(Quad.__struct_fields__)))
         parts: tuple[RegionPart, ...] = (
             *corners,
@@ -570,7 +570,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
             command = Operator(
                 key=f"{self.key}_{order}",
                 title=self.title,
-                description="Drag the region handle; Shift changes precision and Escape restores the region",
+                description="Drags region handle, Shift for tenth speed, Escape restores",
                 form=Empty,
                 run=lambda _call: Ok(Done()),
                 invoke=Some(Modal(gesture=Gesture.DRAG, begin=begin, preview=preview, restore=lambda _context, state: state[0].write(state[0].quad))),
@@ -589,12 +589,12 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class MeterRegion(msgspec.Struct, frozen=True, kw_only=True):
-    """Native bounded handles for the gated meter region of a scene's metering record."""
+    """Bounded handles for scene's gated meter region."""
 
     attachment: Attachment[Metering]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the aligned native region over the bound metering record."""
+        """Returns aligned meter region."""
 
         def rows(attached: Attached[Metering]) -> tuple[FrameRegion]:
             def access(context: bpy.types.Context) -> BlenderResult[Option[Access]]:
@@ -631,7 +631,7 @@ class MeterRegion(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Last render's scene-linear chart frame, its display-encoded plane, and the integer depth its output writes."""
+    """Last render's scene-linear chart frame, display plane, and written integer depth."""
 
     linear: ChartFrame
     formed: npt.NDArray[np.float32]
@@ -639,7 +639,7 @@ class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
-    """Row drawing the last render's scene-linear outline, chromaticity, band key, and clip ends over the Render Result."""
+    """Row drawing last render charts and clip ends over Render Result."""
 
     key: ClassVar[Key] = "charts"
     under: ClassVar[Color] = (0.0, 0.0, 1.0, 1.0)
@@ -652,7 +652,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def clips(self) -> tuple[Row]:
-        """Low and high clip toggles, icon only, drawn while the editor shows the Render Result."""
+        """Icon clip toggles drawn while editor shows Render Result."""
 
         def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
             return self.ends.bound(identity).map(
@@ -672,7 +672,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
         return (Bound(rows=rows, shown=Some(RESULT)),)
 
     def section(self) -> Single:
-        """Charts section over the chart switches, inactive while the editor shows another image."""
+        """Chart switches section, inactive for another image."""
 
         def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
             return self.switches.bound(identity).map(
@@ -682,7 +682,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
         return Single(key=self.key, title="Charts", rows=(Bound(rows=rows),), condition=Some(RESULT))
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the render read, chart overlays, and clip-end mask declarations."""
+        """Returns render read, chart, and clip mask declarations."""
         signal = Signal()
         last: Option[Frames] = Nothing
 
@@ -747,7 +747,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def framed(region: bpy.types.Region) -> Rect:
-    """Answers the shown frame's rectangle in region pixels."""
+    """Returns frame rectangle in region pixels."""
     view = region.view2d
     low: tuple[float, float] = view.region_to_view(0.0, 0.0)  # type: ignore[assignment]
     high: tuple[float, float] = view.region_to_view(1.0, 1.0)  # type: ignore[assignment]
@@ -757,7 +757,7 @@ def framed(region: bpy.types.Region) -> Rect:
 
 
 def edited(space: bpy.types.Space) -> Option[bpy.types.SpaceImageEditor]:
-    """Answers a space as the image editor it is, `Nothing` for another editor."""
+    """Returns space as image editor, `Nothing` for another editor."""
     match space:
         case bpy.types.SpaceImageEditor():
             return Some(space)
@@ -766,23 +766,23 @@ def edited(space: bpy.types.Space) -> Option[bpy.types.SpaceImageEditor]:
 
 
 def editor(context: bpy.types.Context) -> BlenderResult[bpy.types.SpaceImageEditor]:
-    """Answers the image editor the context's area shows, `absent` for another editor."""
+    """Returns context image editor."""
     return Option.of_optional(context.space_data).bind(edited).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key=bpy.types.SpaceImageEditor.__name__),))
 
 
 def overlaid[S](part: Part[S], shown: Setting, refreshes: tuple[Refresh, ...]) -> Overlay[S]:
-    """Places a part over the image editor's window region while its setting holds."""
+    """Places part over image editor while setting holds."""
     area = AreaQuery(space="IMAGE_EDITOR", ui_type=Some("IMAGE_EDITOR"), shows=Some(shown))
     return Overlay(drawing=Drawing(area=area, part=part, refreshes=refreshes), space=bpy.types.SpaceImageEditor, scissor_enabled=False)
 
 
 def metered(attached: Attached[Metering], scene: bpy.types.Scene, region: Region) -> BlenderResult[None]:
-    """Writes a region into the scene's meter with its gate on."""
+    """Writes region into scene meter with its gate on."""
     return attached.read(scene).bind(lambda held: attached.write(scene, msgspec.structs.replace(held, meter=msgspec.structs.replace(held.meter, region=Gated(enabled=True, value=region)))))
 
 
 def picking[P: Picked](key: Key, title: str, description: str, cursor: "rna_enums.WindowCursorItems", form: type[P], taken: Callable[[Call[P], Region], BlenderResult[Outcome]]) -> Operator[P]:
-    """Answers the operator row converting a pending pick into a frame region its edit reads."""
+    """Returns operator converting a pick into a frame region for its edit."""
     window = Setting(descriptor=Descriptor(root=bpy.types.Context, owner="region", prop=bpy.types.Region.bl_rna.properties["type"]), accepted=("WINDOW",))
 
     def ran(call: Call[P]) -> BlenderResult[Outcome]:
@@ -825,7 +825,7 @@ def picking[P: Picked](key: Key, title: str, description: str, cursor: "rna_enum
 
 
 def revealed(context: bpy.types.Context) -> BlenderResult[Option[Located]]:
-    """Answers the largest editor showing the Render Result, opening the render view where none does."""
+    """Returns largest editor showing Render Result, opening render view when none does."""
     return rooted(bpy.types.WindowManager, context).bind(
         lambda manager: (
             AreaQuery(space="IMAGE_EDITOR", ui_type=Some("IMAGE_EDITOR"), shows=Some(RESULT))
@@ -837,7 +837,7 @@ def revealed(context: bpy.types.Context) -> BlenderResult[Option[Located]]:
 
 
 def showing(image: bpy.types.Image) -> BlenderResult[EditorState]:
-    """Answers the image editor state showing an image."""
+    """Returns editor state showing image."""
     return EditorState.of(bpy.types.SpaceImageEditor, {"image": IdName.of(image)})
 
 
@@ -847,24 +847,24 @@ RESULT: Final = image_type(("RENDER_RESULT",))
 meter_pick = picking(
     "pick_meter",
     "Pick Meter Region",
-    "Meter the next frame over the picked square",
+    "Meters next frame over picked square",
     "CROSSHAIR",
     Picked,
     lambda call, region: (
         paired(AutoExposure.attachment.bound(call.identity), call.root(bpy.types.Scene))
         .bind(lambda pair: metered(pair[0], pair[1], region))
-        .map(lambda _: Done(notes=(("INFO", "Metering the picked region"),)))
+        .map(lambda _: Done(notes=(("INFO", "Metering picked region"),)))
     ),
 )
 meter_region = MeterRegion(attachment=AutoExposure.attachment)
 
 
 def read_pick(viewer: EffectViewer) -> Operator[EntryPick]:
-    """Answers the pick handing the picked square of the frame entering an entry to the read its row holds."""
+    """Returns pick handing entry input square to entry's read."""
     return picking(
         "pick_read",
         "Pick Read Region",
-        "Hand the picked square of the frame entering the entry to the entry's own read",
+        "Hands picked entry input square to entry's read",
         "EYEDROPPER",
         EntryPick,
         lambda call, region: viewer.reading.run(Call(identity=call.identity, context=call.context, record=EntryRegion(name=call.record.name, region=region))),

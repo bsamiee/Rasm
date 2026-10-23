@@ -1,2 +1,2 @@
-#0 `As` narrows `Fin<int>` to itself
-#1 `As` narrows `Option<int>` to itself
+#0 `As()` narrows `Fin<int>` to itself. Delete the call
+#1 `As()` narrows `Option<int>` to itself. Delete the call

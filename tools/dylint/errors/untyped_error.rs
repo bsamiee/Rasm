@@ -26,7 +26,6 @@ use crate::{awaited_output, constructed, expanded_externally, exported, is_error
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const HELP: &str = "give the variant typed fields, with the wrapped error's own type as `#[source]`";
 const WRITTEN: &str = "text written here";
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -39,7 +38,7 @@ pub(crate) struct Pass {
 lint! {
     default Pass;
     UNTYPED_ERROR:
-        "`Result` error types callers cannot match, error variants holding erased, possibly empty, one-value, or written-text sources, and dependency errors built from text",
+        "unmatchable `Result` error types, error variants holding erased, possibly empty, one-value, or text sources, and dependency errors built from text",
 }
 
 struct Signature<'pass, 'tcx> {
@@ -75,17 +74,10 @@ impl<'tcx> Visitor<'tcx> for Signature<'_, 'tcx> {
                         report(self.cx, hir_ty.hir_id, hir_ty.span, error, untyped);
                     },
                 None =>
-                    if output && matches!(untyped_kind(self.cx, held), Some(UntypedKind::Many)) {
-                        span_lint_hir_and_then(
-                            self.cx,
-                            UNTYPED_ERROR,
-                            hir_ty.hir_id,
-                            hir_ty.span,
-                            with_forced_trimmed_paths!(format!("function returns `{held}`, where an empty collection means success")),
-                            |diag| {
-                                diag.help("return `Result<(), NEVec<E>>` built by collecting into `validated::Validated`");
-                            },
-                        );
+                    if output && let Some(UntypedKind::Many(item)) = untyped_kind(self.cx, held) {
+                        span_lint_hir_and_then(self.cx, UNTYPED_ERROR, hir_ty.hir_id, hir_ty.span, with_forced_trimmed_paths!(format!("function signals success with an empty `{held}`")), |diag| {
+                            diag.help(with_forced_trimmed_paths!(format!("collect the results into `validated::Validated` and return `Result<(), NEVec<{item}>>` from `.ok()`")));
+                        });
                     },
             }
         }
@@ -109,13 +101,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let (reason, help) = variant.fields.iter().find_map(|field| {
                     let held = cx.tcx.type_of(field.did).instantiate_identity().skip_normalization();
                     match untyped_kind(cx, held) {
-                        Some(untyped @ (UntypedKind::Erased | UntypedKind::Report)) => Some((untyped.into(), HELP)),
-                        Some(untyped @ UntypedKind::Many) => Some((untyped.into(), "hold the errors in a `nonempty_collections::NEVec`")),
+                        Some(untyped @ (UntypedKind::Erased | UntypedKind::Report)) => Some((untyped.into(), String::from("hold the wrapped error's concrete type as `#[source]`"))),
+                        Some(untyped @ UntypedKind::Many(element)) => Some((untyped.into(), with_forced_trimmed_paths!(format!("hold the errors as `nonempty_collections::NEVec<{element}>`")))),
                         Some(UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Messages | UntypedKind::NoError(_)) | None =>
-                            singular(cx, held).then_some((
-                                "a one-value source error that adds nothing to the variant",
-                                "delete the field, state the source's cause in the variant's message, and convert with a `map_err` closure matching the source's one value",
-                            )),
+                            singular(cx, held).then(|| ("a source error with one value", format!("delete the field and build `{}` in a `map_err` closure", variant.name))),
                     }
                 })?;
                 Some((variant, variant.def_id.as_local()?, reason, help))
@@ -268,7 +257,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 format!("error `{}` holds {}", cx.tcx.item_name(variant), <&str>::from(UntypedKind::Text)),
                 |diag| {
                     diag.span_note(site, WRITTEN);
-                    diag.help(HELP);
+                    diag.help("move the text into `#[error(..)]` with each interpolated value as a typed field");
                 },
             );
         }
@@ -277,14 +266,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, error: Ty<'tcx>, untyped: UntypedKind) {
+fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, error: Ty<'tcx>, untyped: UntypedKind<'tcx>) {
     const TYPED: &str = "return a `thiserror` enum with a variant per failure and its typed source";
     let trimmed = || with_forced_trimmed_paths!(error.to_string());
     let (shown, declared, help) = match untyped {
-        UntypedKind::Report => (error.to_string(), None, TYPED),
-        UntypedKind::Many => (trimmed(), None, "return `Result<T, NEVec<E>>` built by collecting into `validated::Validated`"),
-        UntypedKind::NoError(declared) if declared.is_local() => (trimmed(), Some(declared), "derive `thiserror::Error` on the type in place of its hand-written `Display`"),
-        UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Erased | UntypedKind::Messages | UntypedKind::NoError(_) => (trimmed(), None, TYPED),
+        UntypedKind::Report => (error.to_string(), None, String::from(TYPED)),
+        UntypedKind::Many(item) => (trimmed(), None, with_forced_trimmed_paths!(format!("collect the results into `validated::Validated` and return `Result<_, NEVec<{item}>>` from `.ok()`"))),
+        UntypedKind::NoError(declared) if declared.is_local() => (trimmed(), Some(declared), format!("derive `thiserror::Error` on `{}` in place of its hand-written `Display`", trimmed())),
+        UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Erased | UntypedKind::Messages | UntypedKind::NoError(_) =>
+            (trimmed(), None, String::from(TYPED)),
     };
     span_lint_hir_and_then(cx, UNTYPED_ERROR, node, span, format!("`Result` error `{shown}` is {}", <&str>::from(untyped)), |diag| {
         if let Some(declared) = declared {

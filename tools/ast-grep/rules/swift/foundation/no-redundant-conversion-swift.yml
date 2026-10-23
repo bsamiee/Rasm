@@ -14,5 +14,5 @@ rule:
     has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^from$'}}, {has: {field: value, matches: encoding}}]}}}
 constraints:
     TYPE: {regex: '\.self$|^[a-z_]\w*$'}
-message: '`$ENCODED` decodes into `$TYPE` through an encode and a second decode'
-note: 'Decode the target type in the read that produced the value, inside a `JSONDocument` when a write must keep unknown fields'
+message: '`$ENCODED` re-encodes a value in memory to decode `$TYPE` from it'
+note: 'Decode the target type in the read that produced the value, as `JSONDocument<Known>` when a write must keep unknown fields'

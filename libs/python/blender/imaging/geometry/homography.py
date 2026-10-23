@@ -1,4 +1,4 @@
-"""Closed-form projective maps between convex image quads and a unit plane."""
+"""Closed-form projective maps between convex image quads and unit plane."""
 
 from fractions import Fraction
 import math
@@ -15,7 +15,7 @@ from blender.imaging.parameters import Position
 
 
 class Quad(msgspec.Struct, frozen=True, kw_only=True):
-    """Four image corners in top-left, top-right, bottom-right, bottom-left order."""
+    """Image quad corners."""
 
     top_left: Position = (0.0, 1.0)
     top_right: Position = (1.0, 1.0)
@@ -24,7 +24,7 @@ class Quad(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, samples: npt.NDArray[np.float64]) -> Self:
-        """Reads the first two components of four corner samples."""
+        """Reads corners from first two sample components."""
         return cls(**{name: (float(samples[index, 0]), float(samples[index, 1])) for index, name in enumerate(cls.__struct_fields__)})
 
     @property
@@ -34,13 +34,13 @@ class Quad(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Homography(msgspec.Struct, frozen=True, kw_only=True):
-    """Projective map between a strictly convex quad and the unit plane."""
+    """Projective map between strictly convex quad and unit plane."""
 
     quad: Quad
 
     @classmethod
     def of(cls, quad: Quad) -> Option[Self]:
-        """Returns the map or absence for a nonconvex quad."""
+        """Returns map of convex quad."""
         corners = tuple(tuple(Fraction(value) for value in corner) for corner in msgspec.structs.astuple(quad))
         edges = tuple((following[0] - corner[0], following[1] - corner[1]) for corner, following in zip(corners, corners[1:] + corners[:1]))
         turns = tuple(edge[0] * following[1] - edge[1] * following[0] for edge, following in zip(edges, edges[1:] + edges[:1]))
@@ -59,11 +59,11 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True):
         return (((x1 - x0) * i + g * x1, (x3 - x0) * i + h * x3, x0 * i), ((y1 - y0) * i + g * y1, (y3 - y0) * i + h * y3, y0 * i), (g, h, i))
 
     def to_image(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Maps plane samples to the image, with zero coverage beyond the vanishing line."""
+        """Maps plane samples to image, zero coverage beyond vanishing line."""
         return projected(self.matrix, samples)
 
     def to_plane(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Maps image samples to the plane, with zero coverage beyond the vanishing line."""
+        """Maps image samples to plane, zero coverage beyond vanishing line."""
         matrix = self.matrix
         cofactors = tuple(
             tuple(
@@ -82,7 +82,7 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def projected(matrix: tuple[tuple[Fraction, ...], ...], samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    """Rounds exact projective coordinates once, with coverage only for representable near-side positions."""
+    """Projects samples in exact arithmetic rounded once, covering representable near-side positions alone."""
 
     def point(x: float, y: float, coverage: float) -> tuple[float, float, float]:
         if not (math.isfinite(x) and math.isfinite(y)):

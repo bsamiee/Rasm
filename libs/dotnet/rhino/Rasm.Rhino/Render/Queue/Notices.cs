@@ -32,7 +32,7 @@ public sealed partial class NoticeTopic {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value.Length is >= 1 and <= 64 && value.All(static c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')
             ? null
-            : new ValidationError($"topic {value} is no 1 to 64 ASCII letters, digits, hyphens, or underscores");
+            : new ValidationError($"Topic {value} needs 1 to 64 ASCII letters, digits, hyphens, or underscores");
 }
 
 public sealed record NoticeSettings(NoticeServer Server, Option<NoticeTopic> Topic) {
@@ -71,7 +71,7 @@ public abstract partial record QueueEvent {
 
     public sealed record Submitted(Uri Job) : QueueEvent(NoticePriority.Default, None, "Render queue submitted", fresh: true) {
         public override string Description(DateTimeZone zone) =>
-            RowText.Localize("Job submitted to {0}", arguments: [Job]);
+            RowText.Localize("Flamenco job {0}", arguments: [Job]);
     }
 
     public sealed record Estimate(QueueEstimate Reading) : QueueEvent(NoticePriority.Default, "hourglass", "Render queue estimate", fresh: false) {
@@ -85,7 +85,7 @@ public abstract partial record QueueEvent {
 
     public sealed record Stopped(long Frames) : QueueEvent(NoticePriority.High, "warning", "Render queue stopped", fresh: false) {
         public override string Description(DateTimeZone zone) =>
-            RowText.Localize("Stopped after {0} frames", arguments: [Frames]);
+            RowText.Localize("{0} frames rendered", arguments: [Frames]);
     }
 
     public sealed record Failed(Error Error) : QueueEvent(NoticePriority.Max, "x", "Render queue failed", fresh: false) {
@@ -94,11 +94,11 @@ public abstract partial record QueueEvent {
 
     public sealed record RetriesExhausted(RetryCount Retries) : QueueEvent(NoticePriority.Max, "x", "Render queue retries exhausted", fresh: false) {
         public override string Description(DateTimeZone zone) =>
-            RowText.Localize("The queue ended after {0} relaunches", arguments: [Retries]);
+            RowText.Localize("Queue crashed after {0} restarts", arguments: [Retries]);
     }
 
     public sealed record Test() : QueueEvent(NoticePriority.Default, None, "Render queue test", fresh: true) {
-        public override string Description(DateTimeZone zone) => RowText.Localize("A test notice from the render queue");
+        public override string Description(DateTimeZone zone) => RowText.Localize("Test notice");
     }
 }
 
@@ -151,9 +151,9 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
             NtfyMessage message = new(topic, notice.Title, notice.Description, queued.Priority.Key, [.. queued.Tag.ToSeq()]);
             using JsonContent content = JsonContent.Create(message, NtfyContext.Default.NtfyMessage);
             using HttpResponseMessage response = await client.PostAsync(server.Address, content, environment.Token).ConfigureAwait(false);
-            return response.StatusCode is HttpStatusCode.OK ? Fin.Succ(unit) : Error.New($"{response.StatusCode} answered the notice post");
+            return response.StatusCode is HttpStatusCode.OK ? Fin.Succ(unit) : Error.New($"{server} answered notice with {response.StatusCode}");
         }).Bind(IO.lift)
-        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(Error.New($"{server} received no notice post", error)))
+        .Catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(Error.New($"Notice post to {server} failed", error)))
         .Catch(static error => error.Is(Errors.Cancelled), static error => cancelToken.Bind(token => IO.fail<Unit>(token.IsCancellationRequested ? error : Errors.TimedOut)));
 
     // --- [RELEASE]

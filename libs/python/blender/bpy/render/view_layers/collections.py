@@ -1,4 +1,4 @@
-"""Collection states, clipboard operations, and restriction controls per view layer."""
+"""Collection restrictions per view layer with clipboard commands."""
 
 from collections.abc import Callable
 from typing import Annotated
@@ -28,7 +28,7 @@ from blender.imaging.parameters import Choice
 
 
 class Flag(Choice):
-    """Layer collection restrictions with identifiers derived from their member names."""
+    """Layer collection restrictions, member names deriving RNA identifiers."""
 
     EXCLUDE = 1, "Exclude"
     HOLDOUT = 2, "Holdout"
@@ -37,7 +37,7 @@ class Flag(Choice):
 
 
 class Extent(Choice):
-    """Collections reached by a restriction edit."""
+    """Collections a restriction edit reaches."""
 
     ONE = 1, "Collection"
     CHILDREN = 2, "With Children"
@@ -48,11 +48,11 @@ class Extent(Choice):
 
 
 class CollectionState(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired restriction on a collection within one named view layer."""
+    """Restriction value of a collection in one view layer."""
 
     layer: Annotated[str, msgspec.Meta(min_length=1, title="View Layer", description="View layer the edit writes")]
     collection: Annotated[IdName, msgspec.Meta(title="Collection", description="Collection the edit writes")]
-    flag: Annotated[Flag, msgspec.Meta(title="Flag", description="Collection restriction the edit writes")]
+    flag: Annotated[Flag, msgspec.Meta(title="Flag", description="Restriction the edit writes")]
     value: Annotated[bool, msgspec.Meta(title="Value", description="Restriction value written")]
     extent: Annotated[Extent, msgspec.Meta(title="Extent", description="Collections the edit reaches")] = Extent.ONE
 
@@ -64,7 +64,7 @@ class CollectionStates(Line, frozen=True, kw_only=True):
 
     @staticmethod
     def commands(states: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> tuple[Operator[CollectionState], Operator[Empty], Operator[Empty], Operator[Empty]]:
-        """Returns the restriction command followed by its clipboard commands."""
+        """Returns restriction command, then clipboard commands."""
 
         def seeded(record: CollectionState, event: bpy.types.Event) -> CollectionState:
             return msgspec.structs.replace(record, extent=Extent.ISOLATE if event.ctrl else Extent.CHILDREN if event.shift else Extent.ONE)
@@ -73,7 +73,7 @@ class CollectionStates(Line, frozen=True, kw_only=True):
             return lambda call: (
                 paired(call.root(bpy.types.WindowManager), owners(call.context))
                 .bind(lambda pair: pasted(*pair))
-                .bind(lambda outcomes: answered(Applied.join(outcomes), "Collection states already match the clipboard"))
+                .bind(lambda outcomes: answered(Applied.join(outcomes), "Collection states match clipboard"))
             )
 
         def copy(call: Call[Empty]) -> BlenderResult[Done]:
@@ -89,28 +89,28 @@ class CollectionStates(Line, frozen=True, kw_only=True):
             Operator(
                 key="collection_state",
                 title="Set Collection State",
-                description="Write a collection restriction, Ctrl isolating and Shift reaching children",
+                description="Set collection restriction, Ctrl to isolate, Shift to include children",
                 form=CollectionState,
                 internal=True,
                 seed=Some(seeded),
                 run=lambda call: (
                     Result[bpy.types.Scene, BlenderFaults]
                     .bind(call.root(bpy.types.Scene), lambda scene: applied(call.record, scene, states))
-                    .map(lambda count: Done(notes=(("INFO", f"Wrote {count} collection flags"),)) if count else Unchanged(reason="Collection flags already hold that state"))
+                    .map(lambda count: Done(notes=(("INFO", f"Wrote {count} collection flags"),)) if count else Unchanged(reason="Collection flags hold requested value"))
                 ),
             ),
-            Operator(key="collection_copy", title="Copy Collection States", description="Copy the active view layer's collection states", form=Empty, undo=False, run=copy),
+            Operator(key="collection_copy", title="Copy Collection States", description="Copy active layer collection states", form=Empty, undo=False, run=copy),
             Operator(
                 key="collection_paste",
                 title="Paste Collection States",
-                description="Paste copied collection states into the active view layer",
+                description="Paste collection states into active view layer",
                 form=Empty,
                 run=pasting(lambda context: rooted(bpy.types.ViewLayer, context).map(lambda layer: (layer.layer_collection,))),
             ),
             Operator(
                 key="collection_paste_all",
                 title="Paste States to Every Layer",
-                description="Paste copied collection states into every view layer of the scene",
+                description="Paste collection states into every view layer",
                 form=Empty,
                 run=pasting(lambda context: rooted(bpy.types.Scene, context).map(lambda scene: tuple(layer.layer_collection for layer in scene.view_layers))),
             ),
@@ -119,7 +119,7 @@ class CollectionStates(Line, frozen=True, kw_only=True):
     # --- [LAYOUT]
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns the realized collection grid and its clipboard controls."""
+        """Returns collection grid with clipboard buttons."""
 
         def built(states: dict[Flag, Descriptor[bpy.types.BoolProperty]], visible: Descriptor[bpy.types.BoolProperty]) -> BlenderResult[RowDraw]:
             state, *clipboard = self.commands(states)
@@ -146,13 +146,13 @@ class CollectionStates(Line, frozen=True, kw_only=True):
         return paired(flags(), Descriptor.resolve(bpy.types.LayerCollection, "is_visible", bpy.types.BoolProperty)).bind(lambda pair: built(*pair))
 
     def section(self) -> Single[Empty]:
-        """Returns the collection grid's section."""
+        """Returns collection grid section."""
         return Single(key="collection_states", title="Collections", rows=(self,))
 
     # --- [REGISTRATION]
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns command declarations and the Outliner restriction-column handler."""
+        """Returns commands and load handler showing Outliner restriction columns."""
         query = AreaQuery(space="OUTLINER")
         columns = EditorState.of(bpy.types.SpaceOutliner, {"show_restrict_column_holdout": True, "show_restrict_column_indirect_only": True})
         return paired(flags(), columns).map(
@@ -174,17 +174,17 @@ class CollectionStates(Line, frozen=True, kw_only=True):
 
 
 def flags() -> BlenderResult[dict[Flag, Descriptor[bpy.types.BoolProperty]]]:
-    """Returns resolved restriction descriptors or every missing or mistyped native member."""
+    """Returns restriction descriptors, faulting each missing or mistyped member."""
     return accumulated(Descriptor.resolve(bpy.types.LayerCollection, flag.name.lower(), bpy.types.BoolProperty).map(lambda member: (flag, member)) for flag in Flag).map(dict)
 
 
 def found(layer: bpy.types.ViewLayer, collection: IdName) -> Option[LayerPath]:
-    """Returns the collection's first native tree occurrence and root-first ancestors."""
+    """Returns collection's first layer collection with ancestors from root."""
     return Block.of_seq((node, ancestors) for node, ancestors in walked(layer.layer_collection) if IdName.of(node.collection) == collection).try_head()
 
 
 def applied(state: CollectionState, scene: bpy.types.Scene, flags: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> BlenderResult[int]:
-    """Returns the changed-node count, or missing native targets and refused assignments."""
+    """Writes restriction, returning changed layer collection count."""
     member = flags[state.flag]
 
     def written(layer: bpy.types.ViewLayer, target: bpy.types.LayerCollection, ancestors: tuple[bpy.types.LayerCollection, ...]) -> BlenderResult[int]:
@@ -209,13 +209,13 @@ def applied(state: CollectionState, scene: bpy.types.Scene, flags: dict[Flag, De
 
 
 def isolates(layer: bpy.types.ViewLayer, collection: bpy.types.Collection, flag: Flag, flags: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> bool:
-    """Returns whether only the named top-level collection has this restriction cleared."""
+    """Checks whether collection alone of top-level collections has flag cleared."""
     member = flags[flag]
     return all(member.read(child) == (child.collection != collection) for child in layer.layer_collection.children)
 
 
 def grid(layers: tuple[bpy.types.ViewLayer, ...]) -> tuple[Branch[bpy.types.Collection, bpy.types.LayerCollection], ...]:
-    """Returns collection branches across the native view-layer order of one scene."""
+    """Returns collection branches with one cell per view layer in scene order."""
     return tuple(
         Branch(depth=len(ancestors) - 1, label=node.collection, cells=tuple(found(layer, IdName.of(node.collection)).starmap(lambda held, _ancestors: held) for layer in layers))
         for node, ancestors in walked(layers[0].layer_collection)

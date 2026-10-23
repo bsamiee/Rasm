@@ -37,7 +37,7 @@ rule:
                 matches: level
                 stopBy: {matches: boundary}
                 not: {inside: {matches: level, stopBy: {matches: java-declaration-scope}}}
-message: Nesting reaches a fourth level
+transform:
+    HEAD: {replace: {source: $SCOPE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` opens a fourth nesting level'
 note: 'Rebuild nested decisions, loops, or lambdas as a `switch` or a stream pipeline over their inputs'
-labels:
-    SCOPE: {style: primary, message: Fourth nesting level}

@@ -1,4 +1,4 @@
-"""Closed field shapes parsed once from record declarations for native properties, node sockets, and layout rows."""
+"""Field shapes parsed once from record declarations."""
 
 from enum import Enum
 import functools
@@ -29,7 +29,7 @@ ENABLED, VALUE = Gated.__struct_fields__
 
 
 class Declared(msgspec.Struct, frozen=True, kw_only=True):
-    """Field shape with the title and description its innermost `msgspec.Meta` declares."""
+    """Field shape with title and description from innermost `msgspec.Meta`."""
 
     shape: Shape
     title: Option[str] = Nothing
@@ -43,7 +43,7 @@ class Number(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Vector(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Fixed tuple of two to four equal float components."""
+    """Tuple of 2 to 4 floats."""
 
     kind: native.TupleType
 
@@ -55,7 +55,7 @@ class Color(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Integer(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Integer scalar with its declared bounds."""
+    """Integer scalar."""
 
     kind: native.IntType
 
@@ -65,41 +65,41 @@ class Flag(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Text(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Text scalar, or a color space name a graph reads from the current configuration."""
+    """Text scalar, or OCIO color space name."""
 
     space: bool = False
 
 
 class OptionalText(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Text or absence, held natively as an empty string."""
+    """Text or absence, stored as empty string."""
 
 
 class Enumerated(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Member of an enum."""
+    """Enum member."""
 
     enum: type[Enum]
 
 
 class Literals(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """One of literal integers."""
+    """Literal integer choice."""
 
     values: tuple[int, ...]
 
 
 class Components(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Fixed tuple of components other than a float vector."""
+    """Fixed tuple other than float vector."""
 
     items: tuple[Declared, ...]
 
 
 class Nested(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Nested record other than a color or a gate."""
+    """Nested record other than color or gate."""
 
     record: type[msgspec.Struct]
 
 
 class Gate(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Gated record whose enabled flag switches its value row, the record carrying the markers its gated field declares onto that row."""
+    """Gated record with enabled flag switching value row, markers passed to it."""
 
     record: Record
     value: Option[tuple[msgspec.structs.FieldInfo, Declared]]
@@ -112,7 +112,7 @@ class Records(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Entries(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Mapping from enum members to values, each member held as one gate."""
+    """Enum member to value mapping, one gate per member."""
 
     enum: type[Enum]
     gate: Gate
@@ -125,7 +125,7 @@ class Flags(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Pointer(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Native data-block or absence."""
+    """Data-block or absence."""
 
     block: type[bpy.types.ID]
 
@@ -140,14 +140,14 @@ class Tagged(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def bare(kind: native.Type) -> native.Type:
-    """Returns a declaration without its metadata layers."""
-    return bare(kind.type) if isinstance(kind, native.Metadata) else kind
+def unwrapped(kind: native.Type) -> native.Type:
+    """Returns type info without metadata layers."""
+    return unwrapped(kind.type) if isinstance(kind, native.Metadata) else kind
 
 
 def vector(kind: native.Type) -> bool:
-    """Whether a fixed tuple has Blender's shared float-vector shape."""
-    match bare(kind):
+    """Returns whether tuple has Blender float vector shape."""
+    match unwrapped(kind):
         case native.TupleType(item_types=(native.FloatType() as component, *tail)):
             return len(tail) in {1, 2, 3} and all(item == component for item in tail)
         case _:
@@ -155,30 +155,30 @@ def vector(kind: native.Type) -> bool:
 
 
 def refused[T](annotation: object, kind: object) -> BlenderResult[T]:
-    """Returns the fault naming an annotation whose declaration has no supported shape."""
-    return Error((BlenderReadFault(request=repr(annotation), error=TypeError(f"No supported field shape for {annotation!r}: {kind!r}")),))
+    """Returns read fault for annotation with no supported shape."""
+    return Error((BlenderReadFault(request=repr(annotation), error=TypeError(f"{annotation!r} has no supported field shape ({kind!r})")),))
 
 
-def carried(annotation: object) -> tuple[object, ...]:
-    """Markers an annotation declares beyond its `msgspec.Meta` constraints and graph forms, the ones its gated value or tuple items carry."""
+def inherited(annotation: object) -> tuple[object, ...]:
+    """Returns markers gated values and tuple items inherit, `msgspec.Meta` and graph forms excluded."""
     return tuple(marker for marker in markers(annotation, object) if not isinstance(marker, msgspec.Meta | GraphForm))
 
 
 def items(annotation: object) -> tuple[object, ...]:
-    """Item annotations of a fixed tuple annotation, each carrying the markers the tuple declares."""
-    extra = carried(annotation)
+    """Returns tuple item annotations with tuple markers."""
+    extra = inherited(annotation)
     return tuple(
         typing.Annotated[item, *extra] if extra else item for item in typing.get_args(inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").type)
     )
 
 
 def gate(record: Record) -> BlenderResult[Gate]:
-    """Parses a gated record into its gate and value row, absent where the graph owns the value."""
+    """Parses gated record, no value row when graph owns value."""
     return field_shapes(record).map(lambda rows: Gate(record=record, value=Option.of_optional(next((row for row in rows if row[0].name == VALUE), None))))
 
 
 def field_shape(annotation: object) -> BlenderResult[Declared]:
-    """Parses one field annotation into its field shape or the refusal naming the annotation."""
+    """Parses field annotation into field shape."""
 
     def tagged(kind: native.UnionType) -> Option[Tagged]:
         def members(union: native.UnionType) -> tuple[native.Type, ...]:
@@ -218,7 +218,7 @@ def field_shape(annotation: object) -> BlenderResult[Declared]:
             case native.TupleType():
                 return leaf(Vector(kind=kind)) if vector(kind) else accumulated(map(field_shape, items(annotation))).map(lambda parts: Declared(shape=Components(items=parts)))
             case native.StructType(cls=record) if (typing.get_origin(record) or record) is Gated:
-                inner, extra = typing.get_args(record)[0], carried(annotation)
+                inner, extra = typing.get_args(record)[0], inherited(annotation)
                 return gate(GenericAlias(Gated, typing.Annotated[inner, *extra]) if extra else record).bind(leaf)
             case native.StructType(cls=record):
                 return leaf(Color(kind=kind) if (typing.get_origin(record) or record) is Rgb else Nested(record=record))
@@ -255,7 +255,7 @@ def field_shape(annotation: object) -> BlenderResult[Declared]:
 
 @functools.cache
 def field_shapes(record: Record) -> BlenderResult[Fields]:
-    """Parses a record's fields once, omitting graph-owned images, settings, ramps, and knots."""
+    """Parses record fields once, leaving out graph-owned images, settings, ramps, and knots."""
     fields = msgspec.structs.fields(record)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     parsed = accumulated(field_shape(field.type).map(lambda shape: (field, shape)) for field in fields if not {GraphForm.IMAGE, GraphForm.SETTING} & set(markers(field.type, GraphForm)))
     return parsed.map(
@@ -289,11 +289,11 @@ __all__ = [
     "Tagged",
     "Text",
     "Vector",
-    "bare",
-    "carried",
     "field_shape",
     "field_shapes",
+    "inherited",
     "items",
     "refused",
+    "unwrapped",
     "vector",
 ]

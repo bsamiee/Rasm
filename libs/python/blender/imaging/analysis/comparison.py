@@ -31,12 +31,12 @@ class Verdict(Choice):
 
 
 class Axis(Choice):
-    """Persistent measured axis and its threshold ordering."""
+    """Measured axis with threshold direction."""
 
     holds: Callable[[float, float], bool]
 
     def __init__(self, value: int, holds: Callable[[float, float], bool], label: str | None = None) -> None:
-        """Sets the comparison direction the axis grades and its label."""
+        """Sets threshold comparison and label."""
         super().__init__(value, label)
         self.holds = holds
 
@@ -53,14 +53,14 @@ class Axis(Choice):
 
 
 class Bar(msgspec.Struct, frozen=True, kw_only=True):
-    """Advisory and refusal thresholds for one measured axis."""
+    """Advisory and refusal thresholds of an axis."""
 
     axis: Axis
     advisory: Annotated[float, msgspec.Meta(ge=0.0)]
     refuse: Annotated[float, msgspec.Meta(ge=0.0)]
 
     def graded(self, measures: Mapping[Axis, float]) -> Verdict:
-        """Grades a measured axis or returns unmeasured for its absence."""
+        """Grades axis measure, unmeasured when absent."""
         return (
             Option
             .of_optional(measures.get(self.axis))
@@ -70,7 +70,7 @@ class Bar(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Comparison(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Measured axes, absolute and perceptual differences, and optional SSIM map."""
+    """Axis measures, difference planes, and SSIM map."""
 
     bars: ClassVar[tuple[Bar, ...]] = (Bar(axis=Axis.PSNR, advisory=35.0, refuse=30.0), Bar(axis=Axis.NRMSE, advisory=0.05, refuse=0.10), Bar(axis=Axis.SSIM, advisory=0.98, refuse=0.95))
     structural_window: ClassVar[int] = 7
@@ -80,12 +80,12 @@ class Comparison(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     structural: Option[npt.NDArray[np.float64]]
 
     def verdict(self, bars: Iterable[Bar]) -> Verdict:
-        """Returns the worst grade under the caller's current bars."""
+        """Returns worst grade across thresholds."""
         return max((bar.graded(self.measures) for bar in bars), default=Verdict.PASS)
 
 
 def comparison_of(reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: Annotated[float, msgspec.Meta(gt=0.0)]) -> ImagingResult[Comparison]:
-    """Compares equal planes with an explicit possible input range for structural similarity."""
+    """Compares equal-shape planes, `data_range` as SSIM input range."""
     if reference.shape != test.shape:
         return Error((ImagingMismatchFault(reference=reference.shape, test=test.shape),))
     first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])

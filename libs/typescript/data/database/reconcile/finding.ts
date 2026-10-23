@@ -5,12 +5,12 @@ import type { Catalog } from '#/definition';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const reasons = {
-    unbounded: 'Numbers without isFinite, which each engine stores differently',
-    reserved: 'rowid alias names (rowid, oid, _rowid_), which node SQLite refuses',
-    projected: 'projections in a key or reference, which PostgreSQL refuses on virtual columns',
-    tenant: 'a tenant scope, which needs PostgreSQL row security',
-    search: 'a search key other than one Schema.Int field, which FTS5 rowids need',
-    generated: 'undeclared generated columns a rebuild would lose',
+    unbounded: 'Schema.Number without isFinite stores differently per engine',
+    reserved: 'node SQLite refuses rowid alias name',
+    projected: 'PostgreSQL refuses virtual column in key or reference',
+    tenant: 'tenant scope needs PostgreSQL row security',
+    search: 'FTS5 search needs one Schema.Int key column as rowid',
+    generated: 'rebuild drops undeclared generated column',
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -28,12 +28,12 @@ class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand
         return this.findings
             .map(
                 Finding.match({
-                    Unsupported: ({ table: owner, reason, columns }) => `${owner} (${columns.join(', ')}): ${reasons[reason]}`,
-                    Required: ({ table: owner, columns }) => `${owner} (${columns.join(', ')}): required with no default for existing rows`,
-                    RetainedReference: ({ table: owner, columns, target }) => `${owner} (${columns.join(', ')}): references ${target}, which this plan replaces`,
+                    Unsupported: ({ table: owner, reason, columns }) => `${owner} (${columns.join(', ')}) ${reasons[reason]}`,
+                    Required: ({ table: owner, columns }) => `${owner} (${columns.join(', ')}) required, add default for existing rows`,
+                    RetainedReference: ({ table: owner, columns, target }) => `${owner} (${columns.join(', ')}) references dropped table ${target}`,
                 }),
             )
-            .join('; ');
+            .join('\n');
     }
 }
 

@@ -46,5 +46,5 @@ rewriters:
 fix:
     template: '$DECLARATION = $EXPRESSION'
     expandEnd: {kind: 'if_statement, switch_statement'}
-message: '`let $NAME` declares no value, and each arm of the next branch assigns it'
-note: 'Bind the branch as an expression, `let <name>: <Type> = switch <subject> { }` or `= if <condition> { } else { }`, with `throw` in a throwing arm'
+message: '`let $NAME` takes its value from an assignment in each arm of the next branch'
+note: 'Declare `let <name>: <Type> = if <condition> { <a> } else { <b> }` or `= switch <subject> { }`, keeping `throw` arms'

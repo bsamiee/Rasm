@@ -279,7 +279,7 @@ public static partial class AttributeEdits {
 
     // --- [FRAME]
     public static IO<Unit> ObjectFrame(ObjectAttributes staged, Plane frame) =>
-        from valid in IO.lift(Fin<Plane> () => frame.IsValid ? frame : Error.New(ErrorCodes.ValidationFailed, $"{nameof(ObjectAttributes.SetObjectFrame)} takes no invalid plane"))
+        from valid in IO.lift(Fin<Plane> () => frame.IsValid ? frame : Error.New(ErrorCodes.ValidationFailed, $"{nameof(ObjectAttributes.SetObjectFrame)} plane is invalid"))
         from written in IO.lift(() => staged.SetObjectFrame(valid))
         select written;
 

@@ -100,11 +100,11 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
             Match.orElse(() => show('files')),
         );
     const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved, saved: AsyncResult.value(operation) }).pipe(
-        Match.when({ reloading: true }, () => 'Loading the latest draft…'),
+        Match.when({ reloading: true }, () => 'Loading latest draft…'),
         Match.when({ saving: true }, () => 'Saving…'),
         Match.when({ changed: true }, () => 'Unsaved draft'),
-        Match.when({ saved: { _tag: 'Some', value: { publish: true } } }, () => 'Published. Your site shows the saved draft.'),
-        Match.when({ saved: { _tag: 'Some' } }, () => 'Draft saved. Published work is unchanged.'),
+        Match.when({ saved: { _tag: 'Some', value: { publish: true } } }, () => 'Draft saved and published'),
+        Match.when({ saved: { _tag: 'Some' } }, () => 'Draft saved. Published work unchanged'),
         Match.orElse(() => 'Private draft'),
     );
     return (
@@ -125,10 +125,8 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                 {AsyncResult.builder(operation)
                     .onError(({ error, portfolio: submitted }) => (
                         <div className="w-full">
-                            <RequestAlert conflict="An asset in this draft is no longer available. Remove its placement or upload it again before saving." error={error} onField={(path) => locate(path, submitted)} />
-                            {error._tag === 'PreconditionFailed' && (
-                                <ConfirmDialog description="Discard your unsaved edits and load the latest saved draft. Uploaded files remain in the library. Your current draft stays here if loading fails." disabled={busy || pending.length > 0} label="Reload latest draft" onConfirm={() => reload(undefined)} />
-                            )}
+                            <RequestAlert conflict="Draft uses file missing from library. Remove its placement or upload it again" error={error} onField={(path) => locate(path, submitted)} />
+                            {error._tag === 'PreconditionFailed' && <ConfirmDialog description="Discards unsaved edits. Uploaded files stay in library. Edits stay if reload fails" disabled={busy || pending.length > 0} label="Reload latest draft" onConfirm={() => reload(undefined)} />}
                         </div>
                     ))
                     .orNull()}
@@ -136,11 +134,11 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .onError((error) => <RequestAlert error={error} />)
                     .orNull()}
                 {AsyncResult.builder(deletion)
-                    .onError((error) => <RequestAlert conflict="This file is still used by saved or published work. Remove its placements, save, and publish before deleting." error={error} />)
+                    .onError((error) => <RequestAlert conflict="Saved or published work uses file. Remove its placements and publish before deleting" error={error} />)
                     .orNull()}
                 {pending.length > 0 && (
                     <p className="text-caption text-muted w-full" id={`${ids}uploads`}>
-                        {quantity(pending.length, { one: 'file needs', other: 'files need' })} attention. Finish, retry, or remove queued files before publishing or reloading.{' '}
+                        {quantity(pending.length, { one: 'file', other: 'files' })} not uploaded. Upload or remove before publishing or reloading{' '}
                         <button className="quiet-link" onClick={() => show('files')} type="button">
                             View uploads
                         </button>
@@ -193,7 +191,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                             {entryTitle(entry)}
                                         </h3>
                                         <button className="button button-ghost" onClick={() => setWorkspace('projects')} type="button">
-                                            Change project
+                                            Back to entries
                                         </button>
                                     </div>
                                     <EntryFields entry={entry} titleId={`${ids}title`} />
@@ -232,7 +230,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                         }}
                                         selected={selected}
                                     />
-                                    {state.portfolio.entries.length === 0 && <p className="hint py-8">Create a project or an independent study, then add its files.</p>}
+                                    {state.portfolio.entries.length === 0 && <p className="hint py-8">Create a project or study to add files</p>}
                                 </>
                             )),
                         )}
@@ -292,9 +290,9 @@ const Editor = ({ onPublish, ...props }: { published: typeof Portfolio.Type; onP
         return () => listeners.abort();
     }, [unsaved]);
     return AsyncResult.builder(state)
-        .onInitial(() => <EditorDialog busy={false} description="Opening your private draft…" />)
+        .onInitial(() => <EditorDialog busy={false} description="Loading draft…" />)
         .onError((error) => (
-            <EditorDialog busy={false} description="Your draft could not be loaded.">
+            <EditorDialog busy={false} description="Draft failed to load">
                 <div className="flex flex-col gap-5 px-9 py-6">
                     <RequestAlert error={error} />
                     <button className="button self-start" onClick={reload} type="button">

@@ -49,4 +49,4 @@ rule:
                         - not: {inside: {stopBy: end, kind: 'method_declaration, property_declaration', has: {field: name, pattern: $NAME}}}
         - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
 message: '`$NAME` builds `$TYPE` from members of its owner alone'
-note: Declare each member of the copy type on the owner holding its inputs, and delete the copy type when no other producer builds it
+note: 'Declare each member of the copy type on its owner, and delete the copy type where no other producer builds it'

@@ -1,4 +1,4 @@
-"""Native record attachments with value locks, startup seeds, and explicit storage removal."""
+"""Record attachments with value locks, startup seeds, and storage removal."""
 
 from collections import deque
 from collections.abc import Callable, Generator, Mapping
@@ -28,7 +28,7 @@ type Host = bpy.types.ID | bpy.types.Node | bpy.types.ViewLayer
 
 
 class Slot(StrEnum):
-    """Persisted ID-property keys outside the record's RNA field identifiers."""
+    """ID property keys outside record field identifiers."""
 
     HISTORY = ".history"
     LOCKS = ".locks"
@@ -42,9 +42,9 @@ class Slot(StrEnum):
 
 
 class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
-    """Typed MessagePack records and real ID references stored under one native key.
+    """MessagePack record with ID references under one ID property key.
 
-    Extension code zero is reserved for native ID references; caller codecs use other codes.
+    Extension code 0 holds ID references, caller codecs take other codes.
     """
 
     reference_code: ClassVar[int] = 0
@@ -53,7 +53,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
     encoder: msgspec.msgpack.Encoder = msgspec.field(default_factory=msgspec.msgpack.Encoder)
 
     def read(self, host: "bpy.types.bpy_struct[object]") -> BlenderResult[Option[T]]:
-        """Returns a decoded stored value, explicit absence, or native storage and codec faults."""
+        """Returns decoded value, `Nothing` when absent."""
         try:
             held = host.get(self.name)
         except (TypeError, ReferenceError) as error:
@@ -62,7 +62,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
             return Ok(Nothing)
 
         def decoded(kind: type[object], value: object) -> object:
-            """Retains values the declared kind already admits, resolved ID references among them, and delegates other custom types to the caller codec."""
+            """Keeps values of declared kind and passes other custom types to caller codec."""
             if isinstance(value, kind):
                 return value
             if self.decoder.dec_hook is None:
@@ -93,11 +93,11 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
 
     def write(self, host: "bpy.types.bpy_struct[object]", record: T) -> BlenderResult[None]:
-        """Encodes once and replaces one native group holding other content, returning codec or native edit faults."""
+        """Encodes record, replacing stored group when content differs."""
         references: dict[str, bpy.types.ID] = {}
 
         def encoded(value: object) -> object:
-            """Stores actual IDs beside their encoded indices and delegates custom values."""
+            """Stores IDs by index and passes other custom values to caller codec."""
             if isinstance(value, bpy.types.ID):
                 key = str(len(references))
                 references[key] = value
@@ -117,7 +117,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
         return Ok(None)
 
     def removed(self, host: "bpy.types.bpy_struct[object]") -> BlenderResult[bool]:
-        """Removes the stored record and its ID references, answering whether the host held one, preserving native refusals."""
+        """Removes stored record, returning whether host held one."""
         try:
             del host[self.name]
         except KeyError:
@@ -128,7 +128,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """One registered native pointer and the record binding over its actual target class."""
+    """Registered pointer property and record binding over its target class."""
 
     name: str
     owner: type[Host]
@@ -137,45 +137,45 @@ class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     # --- [VALUES]
 
     def struct(self, host: Host) -> bpy.types.PropertyGroup:
-        """Returns the attached native root group of a host."""
+        """Returns attached root group of host."""
         return getattr(host, self.name)  # type: ignore[no-any-return]
 
     def read(self, host: Host) -> BlenderResult[T]:
-        """Reads the attached record, returning its host conversion faults on refusal."""
+        """Reads attached record."""
         return self.group.read(self.struct(host))
 
     def write(self, host: Host, record: T) -> BlenderResult[None]:
-        """Writes independent record leaves, returning every native write refusal."""
+        """Writes record leaves, accumulating every refused write."""
         return self.group.write(self.struct(host), record)
 
     # --- [LOCKS]
 
     def locks(self, host: Host) -> frozenset[str]:
-        """Returns the stored locks belonging to fields of the current record."""
+        """Returns stored locks on current record fields."""
         return Option.of_optional(self.struct(host).get(Slot.LOCKS)).map(lambda held: frozenset(held.keys())).default_with(frozenset) & frozenset(self.group.record.__struct_fields__)
 
     def toggled(self, host: Host, key: str) -> None:
-        """Flips the lock of one field in native group storage."""
+        """Toggles lock of one field in group storage."""
         self.struct(host)[Slot.LOCKS] = dict.fromkeys(self.locks(host) ^ {key}, True)
 
     @staticmethod
     def kept(locks: frozenset[str], held: T, record: T) -> T:
-        """Returns the desired record with each locked field taken from its held value."""
+        """Returns desired record with locked fields taken from held record."""
         return msgspec.structs.replace(record, **{key: getattr(held, key) for key in locks})
 
     def applied(self, host: Host, record: T) -> BlenderResult[bool]:
-        """Applies a lock-kept preset where it differs from the held record, answering whether it wrote, or the read and native write refusals."""
+        """Writes record with locked fields kept when it differs from held record, returning whether it wrote."""
         locks = self.locks(host)
         return self.read(host).bind(lambda held: Ok(False) if (kept := self.kept(locks, held, record)) == held else self.write(host, kept).map(lambda _: True))
 
     # --- [HOSTS]
 
     def host(self, group: bpy.types.PropertyGroup) -> Host:
-        """Returns the actual host of an attached root group."""
+        """Returns host of attached root group."""
         return next(parent for parent in reversed(group.rna_ancestors()) if isinstance(parent, self.owner))
 
     def hosts(self) -> tuple[Host, ...]:
-        """Returns current file hosts, including embedded IDs, tree nodes, and view layers."""
+        """Returns file hosts of owner class, embedded IDs, nodes, and view layers included."""
         pending = deque(block for prop in bpy.types.BlendData.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) for block in getattr(bpy.data, prop.identifier))
         blocks: dict[int, bpy.types.ID] = {}
         while pending:
@@ -199,15 +199,15 @@ class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     # --- [PERSISTENCE]
 
     def stored(self, host: Host) -> bool:
-        """Returns whether the native system-properties store contains this attachment."""
+        """Returns whether host system properties hold attachment."""
         return host.is_property_set(self.name, ghost=False)
 
     def seeded(self, record: T) -> BlenderResult[None]:
-        """Seeds unstored hosts, returning every native write refusal."""
+        """Writes seed record to hosts without stored attachment."""
         return accumulated(self.write(host, record) for host in self.hosts() if not self.stored(host)).map(lambda _: None)
 
     def purged(self) -> int:
-        """Removes persisted values explicitly and returns the number of hosts cleared."""
+        """Unsets stored attachment on every host, returning host count."""
         hosts = tuple(host for host in self.hosts() if self.stored(host))
         for host in hosts:
             host.property_unset(self.name)
@@ -215,7 +215,7 @@ class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Native pointer declaration, its fresh class acquisition, and optional startup seed."""
+    """Pointer property declaration with per-registration classes and startup seed."""
 
     key: Key
     form: type[T]
@@ -227,7 +227,7 @@ class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     # --- [BINDING]
 
     def bound(self, identity: Identity) -> BlenderResult[Attached[T]]:
-        """Binds to the registered native pointer target, returning absent or name faults."""
+        """Binds to registered pointer target."""
         return identity.name(Name.ATTACHMENT, self.key).bind(
             lambda name: (
                 Option
@@ -242,7 +242,7 @@ class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Holds the change callback while yielding fresh native declarations or name faults."""
+        """Yields built declarations while holding change callback."""
         with ExitStack() as stack:
             changed = self.changed.map(lambda build: stack.enter_context(build(identity)))
             yield (
@@ -268,7 +268,7 @@ class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 @contextmanager
 def pointed(owner: "type[bpy.types.bpy_struct[object]]", name: str, definition: bpy.props._PropertyDeferred) -> Generator[BlenderResult[None]]:
-    """Acquires one unoccupied native property or returns its collision or declaration refusal."""
+    """Registers property under a free name for scope duration."""
     request = f"{owner.__name__}.{name}"
     if name in owner.bl_rna.properties or name in owner.bl_rna.functions or hasattr(owner, name):  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         yield Result[None, BlenderFaults](error=(BlenderCollisionFault(request=request, error=owner.__name__),))
@@ -285,14 +285,14 @@ def pointed(owner: "type[bpy.types.bpy_struct[object]]", name: str, definition: 
 
 
 def reconciling[T: bpy.types.ID](kind: type[T], write: Callable[[Handle[T], Identity], BlenderResult[Option[str]]]) -> Callable[[Identity], AbstractContextManager[Changed]]:
-    """Builds the attachment update body deferring one reconcile of the holder its data-block names.
+    """Builds update callback deferring one reconcile per changed holder.
 
     Args:
-        kind: Holder class the write resolves: a material, world, light, scene, object, or node group.
-        write: Module-level write that resolves the handle, reads the owner's record, derives its graph, and reconciles inside the deferred call.
+        kind: Holder class write resolves.
+        write: Deferred write reconciling holder.
 
     Returns:
-        The callback resource builder Attachment enters before compiling its native group.
+        Callback scope `Attachment` enters before building its group.
     """
 
     @contextmanager
@@ -310,7 +310,7 @@ def reconciling[T: bpy.types.ID](kind: type[T], write: Callable[[Handle[T], Iden
 
 
 def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: Callable[[bpy.types.AddonPreferences], BlenderResult[T]]) -> BlenderResult[T]:
-    """Marks attempted preference writes dirty and returns their actual native outcome."""
+    """Writes add-on preferences and marks them dirty."""
 
     def marked(holder: bpy.types.AddonPreferences) -> BlenderResult[T]:
         answer = write(holder)
@@ -327,7 +327,7 @@ def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: 
 
 
 def endpoints(name: str) -> Stored[Endpoints]:
-    """Stores an operation's persisted before and after trees under one native key."""
+    """Returns store of operation before and after trees under one key."""
     return Stored(name=name, decoder=msgspec.msgpack.Decoder(Endpoints))
 
 

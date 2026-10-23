@@ -13,4 +13,4 @@ constraints:
     STEP: {regex: '^(\w+ \+ 1|\w+\.(strict|checked|saturating|wrapping)_add\(1\)\??|1 \+ \w+)$'}
     PAIR: {kind: tuple_expression}
 message: '`$X` pairs each element with every element before or after it through an indexed `flat_map`'
-note: 'Call `Itertools::array_combinations::<2>()` (`use itertools::Itertools as _;`) to yield each pair once in index order as `[earlier, later]`'
+note: 'Call `<slice>.iter().array_combinations::<2>()` (`use itertools::Itertools as _;`) for each `[earlier, later]` pair'

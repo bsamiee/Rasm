@@ -18,4 +18,4 @@ rule:
                     - has: {stopBy: end, kind: call_expression, regex: '^Task\.sleep'}
                     - has: {stopBy: end, pattern: '$EXECUTION.send(signal: .terminate)'}
 message: '`$SITE` signals a Subprocess child by hand'
-note: 'Send a named `Signal` through `send(signal:toProcessGroup:)`, and stop a child by `teardownSequence` or `teardown(using:)` steps'
+note: 'Call `<execution>.send(signal:toProcessGroup:)`, and `teardown(using:)` or a `teardownSequence` for a terminate-then-kill stop'

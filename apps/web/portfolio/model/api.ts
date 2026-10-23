@@ -24,7 +24,7 @@ const Api = HttpApi.make('portfolio')
         HttpApiGroup.make('content').add(
             HttpApiEndpoint.get('draft', '/portfolio', { success: HttpApiSchema.WithHeaders(PortfolioData, { 'draft-etag': Revision }) }),
             HttpApiEndpoint.put('save', '/portfolio', { payload: StoredPortfolio, ...write }),
-            HttpApiEndpoint.post('publish', '/publish', { payload: StoredPortfolio.check(Schema.makeFilter((document) => document.entries.flatMap(({ title }, index) => (title.trim() === '' ? [{ path: ['entries', index, 'title'], issue: 'Give this entry a title before publishing' }] : [])))), ...write }),
+            HttpApiEndpoint.post('publish', '/publish', { payload: StoredPortfolio.check(Schema.makeFilter((document) => document.entries.flatMap(({ title }, index) => (title.trim() === '' ? [{ path: ['entries', index, 'title'], issue: 'Title required to publish' }] : [])))), ...write }),
         ),
         HttpApiGroup.make('media').add(
             HttpApiEndpoint.get('pending', '/media/pending', { success: Schema.Array(PendingUpload) }),

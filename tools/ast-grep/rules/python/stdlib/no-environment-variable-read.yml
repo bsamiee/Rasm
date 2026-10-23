@@ -94,5 +94,5 @@ rule:
             - has: {field: operators, regex: '^(not\s+)?in$'}
             - matches: environment-file
             - has: {nthChild: 2, matches: relayed}
-message: '`$READ` reads an environment variable in place of a typed settings field passed from the boundary'
-note: 'Validate passed settings once into a frozen model, `msgspec.convert` in libraries and extensions, else pydantic `model_validate` or `BaseSettings`'
+message: '`$READ` reads process environment in place of a settings field passed from the boundary'
+note: 'Pass frozen settings decoded at the boundary, `msgspec.convert` in libraries and extensions, else pydantic `model_validate` or `BaseSettings`'

@@ -49,5 +49,5 @@ rule:
                     - has: {field: type, any: [{pattern: $NAME}, {kind: generic_type, has: {field: type, pattern: $NAME}}]}
                     - has: {field: body, has: {stopBy: end, kind: 'compound_assignment_expr, assignment_expression', has: {field: left, matches: self-field}}}
                     - has: {field: body, has: {stopBy: end, matches: positioned-read}}
-message: '`$NAME` walks `$INPUT` by hand through index `$POS`'
-note: 'Parse through a `winnow` stream (`&str`, `LocatingSlice` for spans, `Partial` for incremental input), and binary layouts through `binrw`'
+message: '`$NAME` walks `$INPUT` by hand through index field `$POS`'
+note: 'Parse the input through `winnow` parsers over `&str` (`LocatingSlice` for spans, `Partial` for streamed input), or `binrw` for binary layouts'

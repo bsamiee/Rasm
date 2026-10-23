@@ -22,15 +22,15 @@ public abstract partial record PreflightFinding {
     }
 
     public sealed record SourceViewMissing(int Index, RenderSettings.RenderingSources Source) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} renders {Source}, which names no view the document holds"));
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} source {Source} names no view in document"));
     }
 
     public sealed record OverscanSourceRefused(int Index, RenderSettings.RenderingSources Source) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} widens {Source}, and overscan widens the active viewport alone"));
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} overscan needs active viewport, source is {Source}"));
     }
 
     public sealed record EntryRefused(int Index, Error Cause) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} holds a value its render refuses"), Cause);
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Entry {Index} cannot render"), Cause);
     }
 
     public sealed record DestinationUnresolved(Error Cause) : PreflightFinding {
@@ -42,15 +42,15 @@ public abstract partial record PreflightFinding {
     }
 
     public sealed record SpaceLow(string Folder, long Free) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"{Folder} holds {Free} bytes free"));
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"{Folder} has only {Free} bytes free"));
     }
 
     public sealed record CopyTooLarge(string Folder, long Copy, long Free) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Copy of {Copy} bytes exceeds the {Free} bytes free at {Folder}"));
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Copy of {Copy} bytes exceeds {Free} bytes free at {Folder}"));
     }
 
     public sealed record LinkBroken(string Definition, string File, Error Cause) : PreflightFinding {
-        public override Error Error => Error.New($"{Definition} links {File}, which does not read", Cause);
+        public override Error Error => Error.New($"{Definition} links unreadable {File}", Cause);
     }
 
     public sealed record RendererMissing(Guid Renderer) : PreflightFinding {
@@ -58,27 +58,27 @@ public abstract partial record PreflightFinding {
     }
 
     public sealed record CommandPending(string Prompt) : PreflightFinding {
-        public override Error Error => Error.New($"A command waits at {Prompt}");
+        public override Error Error => Error.New($"Command waits at prompt {Prompt}");
     }
 
     public sealed record RenderingsUnsaved : PreflightFinding {
-        public override Error Error => Error.New("Rhino saves no finished rendering, so no queue frame lands");
+        public override Error Error => Error.New("Enable automatic saving of finished renderings");
     }
 
     public sealed record QueueActive(int ProcessId) : PreflightFinding {
-        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Render queue process {ProcessId} is rendering"));
+        public override Error Error => Error.New(string.Create(CultureInfo.InvariantCulture, $"Render queue runs in Process ID {ProcessId}"));
     }
 
     public sealed record UntitledEdits(uint Document) : PreflightFinding {
-        public override Error Error => Error.New($"Document {Document} holds edits and no file");
+        public override Error Error => Error.New($"Untitled document {Document} has unsaved edits");
     }
 
     public sealed record LinkUpdatePrompts : PreflightFinding {
-        public override Error Error => Error.New("Linked block updates prompt, which stops an unattended render");
+        public override Error Error => Error.New("Prompting linked block updates stop unattended renders");
     }
 
     public sealed record LinkStale(string Definition, string File) : PreflightFinding {
-        public override Error Error => Error.New($"{Definition} holds an outdated load of {File}");
+        public override Error Error => Error.New($"{Definition} is out of date with {File}");
     }
 
     public sealed record LinkCycle(Seq<string> Files) : PreflightFinding {
@@ -90,15 +90,15 @@ public abstract partial record PreflightFinding {
     }
 
     public sealed record TextureMissing(string Path) : PreflightFinding {
-        public override Error Error => Error.New($"{Path} is not found");
+        public override Error Error => Error.New($"Texture {Path} is missing");
     }
 
     public sealed record RenderOnCpu : PreflightFinding {
-        public override Error Error => Error.New("Rhino Render runs on the CPU in safe mode");
+        public override Error Error => Error.New("Rhino Render runs on CPU in safe mode");
     }
 
     public sealed record FileOutsideCopy(string Path) : PreflightFinding {
-        public override Error Error => Error.New($"{Path} stays outside the copy");
+        public override Error Error => Error.New($"Copy omits {Path}");
     }
 }
 

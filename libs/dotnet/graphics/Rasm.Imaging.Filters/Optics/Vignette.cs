@@ -42,7 +42,7 @@ public abstract partial record Vignette : IStateRecord<Vignette, VignetteParamet
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VignetteParameter : IStateParameter<Vignette> {
     public static readonly VignetteParameter Falloff = new("falloff", new StateParameter<Vignette>.Variant<Vignette>(Lens.identity<Vignette>()),
-        new("Falloff", "Camera illumination or a feathered outline"));
+        new("Falloff", "Camera illumination or feathered outline"));
 
     public StateParameter<Vignette> Kind { get; }
     public ParameterText Text { get; }
@@ -55,7 +55,7 @@ public sealed partial class VignetteOutlineParameter : IStateParameter<Vignette.
     public static readonly VignetteOutlineParameter Shape = new("shape", new StateParameter<Vignette.Outline>.Record<ShapePrimitive>(Lens<Vignette.Outline, ShapePrimitive>.New(static outline => outline.Shape, static shape => outline => outline with { Shape = shape })),
         new("Boundary", "Figure bounding the illuminated region"));
     public static readonly VignetteOutlineParameter Feather = new("feather", StateParameter.Bounded(Lens<Vignette.Outline, ShortSideLength>.New(static outline => outline.Feather, static feather => outline => outline with { Feather = feather })),
-        new("Feather", "Edge softness as a share of the frame's short side"));
+        new("Feather", "Edge softness in frame short sides"));
     public static readonly VignetteOutlineParameter Pull = new("pull", new StateParameter<Vignette.Outline>.Color(Lens<Vignette.Outline, Swatch>.New(static outline => outline.Pull, static pull => outline => outline with { Pull = pull })),
         new("Pull", "Scene-linear color beyond the outline"));
 

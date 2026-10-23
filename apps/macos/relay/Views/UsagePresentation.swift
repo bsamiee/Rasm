@@ -85,7 +85,7 @@ extension AuthenticationPhase {
         switch self {
             case .pending: "Waiting for browser sign-in"
             case .completing: "Completing sign-in"
-            case .refused(.differentAccount(let email)): "Signed in to a different account than \(email)"
+            case .refused(.differentAccount(let email)): "Signed-in account is not \(email)"
             case .refused(.alreadyConnected(let email)): "\(email) is already connected"
             case .refused(.failure(let error)): error.description(at: now)
             case .cancelling: "Canceling sign-in"

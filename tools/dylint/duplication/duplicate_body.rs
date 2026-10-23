@@ -5,6 +5,7 @@ use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     peel_blocks, peel_hir_expr_refs, peel_hir_expr_while,
     res::MaybeQPath as _,
+    source::snippet,
     visitors::{for_each_expr, is_const_evaluatable},
 };
 use itertools::Itertools as _;
@@ -16,8 +17,11 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Clause, FnSig, GenericArg, Interner as _, Ty, TyCtxt, Unnormalized, print::with_forced_trimmed_paths};
-use rustc_span::kw;
+use rustc_middle::ty::{
+    self, Clause, FnSig, GenericArg, Interner as _, TraitRef, Ty, TyCtxt, Unnormalized,
+    print::{PrintTraitRefExt as _, with_forced_trimmed_paths},
+};
+use rustc_span::{Symbol, kw};
 
 use super::{equal_bodies, substitute_types};
 use crate::{any_expr, awaited_output, constructed, derived_impl, expanded_externally, impl_owner, is_error, item_path, literal_or_const, parameter, upcast};
@@ -29,14 +33,17 @@ const REPEATS: &str = "repeated here";
 // --- [MODELS] --------------------------------------------------------------------------
 
 enum Difference<'tcx> {
-    Value(Option<DefId>),
-    ConstantPerType(Ty<'tcx>),
-    Type { from: Ty<'tcx>, traits: Vec<DefId>, direct: Option<DefId> },
+    Value(Option<DefId>, Vec<HirId>),
+    ConstantPerType(DefId, Vec<HirId>),
+    Type { from: Ty<'tcx>, traits: Vec<TraitRef<'tcx>>, direct: Option<DefId> },
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(DUPLICATE_BODY: "functions and methods that repeat another's body", PARAMETERIZABLE_BODY: "functions that repeat another's body with other values or one other type");
+lint!(
+    DUPLICATE_BODY: "functions and methods that repeat the body and signature of another function",
+    PARAMETERIZABLE_BODY: "functions that repeat another function's body with other literals or constants, or with one other type"
+);
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
@@ -54,20 +61,34 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         fn parameterized<'tcx>(cx: &LateContext<'tcx>, root: LocalDefId, members: &[LocalDefId], form: &Difference<'tcx>) {
             let tcx = cx.tcx;
             let root_path = item_path(cx, root.to_def_id());
-            let Some(listed) = listify(members, |&member| format!("`{}`", item_path(cx, member.to_def_id()))) else { return };
+            let functions = [&[root], members].concat();
+            let (Some(listed), Some(every)) =
+                (listify(members, |&member| format!("`{}`", item_path(cx, member.to_def_id()))), listify(&functions, |&function| format!("`{}`", item_path(cx, function.to_def_id()))))
+            else {
+                return;
+            };
             let repeat = if let [_] = members { "repeats" } else { "repeat" };
-            let message = with_forced_trimmed_paths!(match form {
-                Difference::Type { from, traits: _, direct: _ } => format!("{listed} {repeat} the body of `{root_path}` with another type in place of `{from}`"),
-                Difference::Value(_) | Difference::ConstantPerType(_) => format!("{listed} {repeat} the body of `{root_path}` with other values"),
+            let values = |differing: &[HirId]| {
+                let written = differing.iter().map(|&value| snippet(cx, tcx.hir_span(value), "..")).unique().collect::<Vec<_>>();
+                let other = if let [_] = written.as_slice() { "another value" } else { "other values" };
+                listify(&written, |value| format!("`{value}`")).map(|shown| format!("{other} in place of {shown}"))
+            };
+            let varied = with_forced_trimmed_paths!(match form {
+                Difference::Type { from, traits: _, direct: _ } => Some(format!("another type in place of `{from}`")),
+                Difference::Value(_, differing) | Difference::ConstantPerType(_, differing) => values(differing),
             });
             let help = with_forced_trimmed_paths!(match form {
-                Difference::Value(Some(callee)) => format!("call `{}` with the differing value at each call site of `{root_path}` and {listed}", item_path(cx, *callee)),
-                Difference::Value(None) => format!("take the differing value as a parameter of one function in place of `{root_path}` and {listed}"),
-                Difference::ConstantPerType(root_owner) => format!("merge `{root_owner}` and the other implementing types into one type holding the value, with one `const` per merged type"),
-                Difference::Type { from: _, traits: _, direct: Some(method) } => format!("call `{}` directly in place of `{root_path}` and {listed}", item_path(cx, *method)),
+                Difference::Value(Some(callee), _) => Some(format!("call `{}` directly at each call site of {every}", item_path(cx, *callee))),
+                Difference::Value(None, differing) =>
+                    Some(format!("replace {every} with one function that takes {}", if let [_] = differing.as_slice() { "the value as a parameter" } else { "the values as parameters" })),
+                Difference::ConstantPerType(implemented, _) => listify(&functions.iter().filter_map(|&function| owner(cx, function)).collect::<Vec<_>>(), |held| format!("`{held}`"))
+                    .map(|owners| format!("replace {owners} with one struct holding the value, one `const` per replaced type, and one `{}` impl", tcx.item_name(*implemented))),
+                Difference::Type { from: _, traits: _, direct: Some(method) } => Some(format!("call `{}` directly in place of {every}", item_path(cx, *method))),
                 Difference::Type { from: _, traits, direct: None } =>
-                    format!("make one function generic over `S: {}` in place of `{root_path}` and {listed}", traits.iter().map(|&implemented| tcx.def_path_str(implemented)).join(" + ")),
+                    Some(format!("replace {every} with one function generic over `S: {}`", traits.iter().map(|implemented| implemented.print_only_trait_path().to_string()).join(" + "))),
             });
+            let (Some(varied), Some(help)) = (varied, help) else { return };
+            let message = format!("{listed} {repeat} the body of `{root_path}` with {varied}");
             span_lint_hir_and_then(cx, PARAMETERIZABLE_BODY, tcx.local_def_id_to_hir_id(root), tcx.def_span(root), message, |diag| {
                 diag.span_note(members.iter().map(|&member| tcx.def_span(member)).collect::<Vec<_>>(), REPEATS);
                 diag.help(help);
@@ -117,8 +138,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     );
                     ControlFlow::Continue(())
                 });
+                let bound = |node: HirId, implemented: DefId| {
+                    let args = typeck.node_args(node).truncate_to(tcx, tcx.generics_of(implemented));
+                    substitute_types(tcx, TraitRef::new_from_args(tcx, implemented, args), |written| (written == held).then(|| Ty::new_param(tcx, 0, Symbol::intern("S"))))
+                };
                 (!called.iter().any(|&(_, item)| impl_owner(tcx, item).is_some_and(|owner| owner.ty_adt_def() == held.ty_adt_def())))
-                    .then(|| called.iter().filter(|&&(node, _)| receives(node)).filter_map(|&(_, item)| tcx.trait_of_assoc(item)).unique().collect::<Vec<_>>())
+                    .then(|| called.iter().filter(|&&(node, _)| receives(node)).filter_map(|&(node, item)| Some(bound(node, tcx.trait_of_assoc(item)?))).unique().collect::<Vec<_>>())
             };
             let traits = generic_calls(earlier, from)?;
             let owned = tcx.hir_body_owned_by(earlier);
@@ -130,7 +155,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 ExprKind::MethodCall(_, receiver, arguments, _) if passed(receiver) && arguments.iter().all(passed) => typeck.type_dependent_def_id(body.hir_id),
                 _ => None,
             }
-            .filter(|&called| tcx.trait_of_assoc(called).is_some_and(|implemented| traits.contains(&implemented)));
+            .filter(|&called| tcx.trait_of_assoc(called).is_some_and(|implemented| traits.iter().any(|bound| bound.def_id == implemented)));
             (owner(cx, earlier) == owner(cx, later) && !traits.is_empty() && generic_calls(later, to).is_some()).then_some(Difference::Type { from, traits, direct })
         }
 
@@ -148,16 +173,18 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .filter(|&callee| matches!(tcx.def_kind(callee), DefKind::Fn | DefKind::AssocFn));
             let compared = |differing: HirId| matches!(tcx.parent_hir_node(differing), Node::Expr(parent) if matches!(parent.kind, ExprKind::Binary(operator, ..) if operator.node.is_comparison()));
             let tabled = |differing: HirId| matches!(tcx.parent_hir_node(differing), Node::Arm(arm) if arm.body.hir_id == differing);
-            if is_const_evaluatable(tcx, typeck, value(tcx, earlier)) || differences.iter().all(|&(differing, _)| tabled(differing)) {
+            let differing = differences.iter().map(|&(differing, _)| differing).collect::<Vec<_>>();
+            if is_const_evaluatable(tcx, typeck, value(tcx, earlier)) || differing.iter().all(|&differing| tabled(differing)) {
                 None
             } else if owner(cx, earlier) == owner(cx, later) && [earlier, later].into_iter().any(|function| tcx.trait_item_of(function).is_none()) {
-                (substantive(tcx, earlier) && (called.is_some() || !differences.iter().all(|&(differing, _)| compared(differing)))).then_some(Difference::Value(called))
-            } else if let (Some(earlier_owner), Some(_)) = (fieldless(earlier), fieldless(later))
+                (substantive(tcx, earlier) && (called.is_some() || !differing.iter().all(|&differing| compared(differing)))).then_some(Difference::Value(called, differing))
+            } else if fieldless(earlier).is_some()
+                && fieldless(later).is_some()
                 && let Some(declaration) = tcx.trait_item_of(earlier)
                 && tcx.trait_item_of(later) == Some(declaration)
                 && [earlier, later].into_iter().all(|function| bound_to_trait(cx, function, tcx.parent(declaration)))
             {
-                Some(Difference::ConstantPerType(earlier_owner))
+                Some(Difference::ConstantPerType(tcx.parent(declaration), differing))
             } else {
                 None
             }
@@ -209,29 +236,22 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let generic = adt(*first).filter(|common| !common.is_fundamental() && rest.iter().all(|&function| adt(function) == Some(*common)));
             let help = match (every, defaultable, implemented.is_local(), generic) {
                 (Some(_), ..) | (None, None, true, _) => None,
-                (None, Some(_), ..) => Some(format!("move `{method}` into a default method of `{name}` and delete each repeated `{method}`")),
-                (None, None, false, Some(common)) => Some(format!("replace the repeating impls with one `{name}` impl generic over `{}`", tcx.def_path_str(common.did()))),
-                (None, None, false, None) => Some(format!("generate the repeating `{name}` impls from one local `macro_rules!` that takes the implementing type")),
+                (None, Some(_), ..) => Some(format!("move the body into `{name}::{method}` as its default and delete each repeated `{method}`")),
+                (None, None, false, Some(common)) => Some(format!("replace the impls with one `{name}` impl generic over `{}` type arguments", tcx.def_path_str(common.did()))),
+                (None, None, false, None) => Some(format!("generate the `{name}` impls from one `macro_rules!` over the implementing type")),
             };
             match (every, help) {
                 (Some(local), _) =>
-                    span_lint_hir_and_then(cx, DUPLICATE_BODY, tcx.local_def_id_to_hir_id(local), tcx.def_span(declaration), format!("every `{name}` impl repeats one body for `{method}`"), |diag| {
+                    span_lint_hir_and_then(cx, DUPLICATE_BODY, tcx.local_def_id_to_hir_id(local), tcx.def_span(declaration), format!("every `{name}` impl has the same `{method}` body"), |diag| {
                         diag.span_note(group.iter().map(|&function| tcx.def_span(function)).collect::<Vec<_>>(), REPEATS);
-                        diag.help(format!("move `{method}` into a default method of `{name}` and delete it from each impl"));
+                        diag.help(format!("move the body into `{name}::{method}` as its default and delete `{method}` from each impl"));
                     }),
                 (None, Some(help))
                     if let Some(owners) = listify(&group.iter().filter_map(|&function| owner(cx, function)).collect::<Vec<_>>(), |held| with_forced_trimmed_paths!(format!("`{held}`"))) =>
-                    span_lint_hir_and_then(
-                        cx,
-                        DUPLICATE_BODY,
-                        tcx.local_def_id_to_hir_id(*first),
-                        tcx.def_span(*first),
-                        format!("`{name}` impls for {owners} repeat one body for `{method}`"),
-                        |diag| {
-                            diag.span_note(rest.iter().map(|&function| tcx.def_span(function)).collect::<Vec<_>>(), REPEATS);
-                            diag.help(help);
-                        },
-                    ),
+                    span_lint_hir_and_then(cx, DUPLICATE_BODY, tcx.local_def_id_to_hir_id(*first), tcx.def_span(*first), format!("`{name}` impls for {owners} have the same `{method}` body"), |diag| {
+                        diag.span_note(rest.iter().map(|&function| tcx.def_span(function)).collect::<Vec<_>>(), REPEATS);
+                        diag.help(help);
+                    }),
                 (None, _) => {}
             }
         }

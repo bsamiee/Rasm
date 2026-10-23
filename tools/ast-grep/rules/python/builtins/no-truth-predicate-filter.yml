@@ -56,5 +56,5 @@ rule:
         - matches: truth-predicate
     not: {has: {kind: comment, stopBy: end}}
 fix: None
-message: 'Truth predicate repeats the test `$FILTER` applies to a `None` predicate'
+message: 'Truth predicate passed to `$FILTER` repeats the test a `None` predicate applies'
 note: 'Pass `None` as the predicate'

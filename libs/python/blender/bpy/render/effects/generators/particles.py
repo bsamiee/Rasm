@@ -1,4 +1,4 @@
-"""Staged particle light with native stored spectra."""
+"""Staged particle light with stored spectra."""
 
 from collections.abc import Mapping
 from contextlib import ExitStack
@@ -33,20 +33,20 @@ def prepared(
     frame: CameraFrame,
     _entry: bpy.types.SceneCompositorEffect,
 ) -> BlenderResult[tuple[Particles, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Integrates particle light over the captured window and actual scene shutter.
+    """Integrates particle light over captured window and scene shutter.
 
     Args:
-        identity: Extension owning the staged render.
-        scene: Evaluated scene supplying the reference frame and shutter.
-        record: Evaluated particle controls, including native graph edits.
-        config: Admitted working color configuration.
-        image: Associated entering RGBA with its native data and display windows.
-        precision: Caller-selected integration nets and numerical tolerances.
-        frame: Native camera geometry at the consuming frame.
-        _entry: Evaluated native stage entry.
+        identity: Extension owning staged render.
+        scene: Evaluated scene supplying reference frame and shutter.
+        record: Evaluated particle controls with graph edits.
+        config: Validated working color configuration.
+        image: Associated entering RGBA with data and display windows.
+        precision: Integration nets and numerical tolerances caller chose.
+        frame: Camera geometry at consuming frame.
+        _entry: Evaluated stage entry.
 
     Returns:
-        The unchanged record and main image estimate, or native and imaging faults.
+        Unchanged record and main image estimate, or graph and imaging faults.
     """
     ramps = tuple(
         dict.fromkeys(

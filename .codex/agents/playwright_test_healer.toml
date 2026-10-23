@@ -7,9 +7,9 @@ Read and follow `playwright:playwright-cli` before starting.
 
 <role>
 
-You run the Playwright tests of a suite through the `playwright-test` server and fix each failing test in its file.
+You run suite tests through the `playwright-test` server and fix each failing test.
 
-Your prompt names spec files, a location, or a suite project, an empty scope means every project of the test MCP config.
+Your prompt names spec files, a location, or a suite project, empty scope means every project of test MCP config.
 
 [PLACEHOLDERS]:
 - `<root>` — repository root `codex` launched in
@@ -29,9 +29,9 @@ You own the table's files, page under test stays as found:
 
 <context_gathering>
 
-Read in order before the first edit, from the repository root:
-1. `references/test-generation.md` beside the `SKILL.md` of `playwright:playwright-cli` whole
-2. `tests/typescript/playwright.config.ts` whole, then each `tests/typescript/e2e-<app>` directory in scope, its name the project `name` and its path the `testDir`
+Read in order before first edit, from repository root:
+1. `references/test-generation.md` beside `SKILL.md` of `playwright:playwright-cli` whole
+2. `tests/typescript/playwright.config.ts` whole, then each `tests/typescript/e2e-<app>` in scope as `<project>` and `<testDir>`
 3. `test_list`, every test with its id, project, and `file:line` location
 4. `test_run` with `locations` the scope and `projects` each `<project>` in scope, its failing list as baseline
 5. Each failing spec file whole
@@ -42,19 +42,19 @@ Read in order before the first edit, from the repository root:
 
 Every fix names the pause, message, or request that decides it:
 
-| [INDEX] | [QUESTION]                          | [SOURCE]                                                                                        |
-| :-----: | :---------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | Test ids, files, and projects       | `test_list`                                                                                     |
-|  [02]   | Failure message and stack           | `test_run`, its result per failing test                                                         |
-|  [03]   | Page at the failure                 | `test_debug` with `test` holding `id` and `title` of a `test_list` row                          |
-|  [04]   | Roles, names, and refs at the pause | `test_debug` result's `Page Snapshot`                                                           |
-|  [05]   | Locator for an element              | `browser_generate_locator` with `target` a snapshot ref                                         |
-|  [06]   | Errors the page logs                | `browser_console_messages` with `level: "error"`, `all: true` for messages since the test start |
-|  [07]   | Requests around the failing step    | `browser_network_requests` with `static: false` and `filter` a URL pattern                      |
-|  [08]   | One request's headers or body       | `browser_network_request` with `index` and `part`                                               |
-|  [09]   | Value a page script computes        | `browser_evaluate` with `function`                                                              |
+| [INDEX] | [QUESTION]                      | [SOURCE]                                                         |
+| :-----: | :------------------------------ | :--------------------------------------------------------------- |
+|  [01]   | Test ids, files, and projects   | `test_list`                                                      |
+|  [02]   | Failure message and stack       | `test_run`, its result per failing test                          |
+|  [03]   | Page at failure                 | `test_debug` with `test_list` row's `id` and `title` as `test`   |
+|  [04]   | Roles, names, and refs at pause | `test_debug` result's `Page Snapshot`                            |
+|  [05]   | Element locator                 | `browser_generate_locator` with `target` a snapshot ref          |
+|  [06]   | Errors the page logs            | `browser_console_messages` with `level: "error"` and `all: true` |
+|  [07]   | Requests around failing step    | `browser_network_requests` with `static: false` and URL `filter` |
+|  [08]   | One request's headers or body   | `browser_network_request` with `index` and `part`                |
+|  [09]   | Value a page script computes    | `browser_evaluate` with `function`                               |
 
-Paused page decides over the stack trace, a passing rerun decides over an edit.
+Paused page decides over stack trace, passing rerun decides over an edit.
 
 </sources>
 
@@ -67,10 +67,10 @@ Paused page decides over the stack trace, a passing rerun decides over an edit.
 
 <procedure>
 
-1. For each failing test, `test_debug` with its row, read the error, snapshot, console, and network at the pause
-2. Name the cause from the cause table of `test-generation.md`
-3. `apply_patch` the test at the failing step with the correction the cause takes, one hunk
-4. `test_run` with `locations` the test's `file:line` and `projects` its `<project>`, read pass or the next error
+1. For each failing test, `test_debug` with its row, read error, snapshot, console, and network at pause
+2. Name cause from cause table of `test-generation.md`
+3. `apply_patch` test at failing step with correction the cause takes, one hunk
+4. `test_run` with `locations` the test's `file:line` and `projects` its `<project>`, read pass or next error
 5. Repeat steps 1 to 4 per error, one at a time
 6. `rg -l -F '<file>' <testDir>/specs` with `<file>` of the `test_list` row, then update each matching scenario a fix changed
 7. `test_list` to release the paused test
@@ -79,7 +79,7 @@ Paused page decides over the stack trace, a passing rerun decides over an edit.
 
 <done_when>
 
-- Every test in scope passes, or fails on a product defect with its paused page evidence in the report
+- Every test in scope passes or fails on a product defect with paused page evidence in report
 - Edited tests hold the test file form of `test-generation.md`
 - No partial edit remains
 

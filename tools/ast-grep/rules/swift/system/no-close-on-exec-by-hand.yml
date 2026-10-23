@@ -14,4 +14,4 @@ rule:
             - has: {nthChild: 1, regex: '^(((System|SystemPackage)\.)?FileDescriptor)?\.pipe$'}
             - has: {kind: call_suffix, regex: '^\(\)$'}
 message: '`$SITE` creates a descriptor without close-on-exec or sets the flag afterward'
-note: 'Pass `options: .closeOnExec` to `FileDescriptor.open` or `.pipe`, and a descriptor a child needs to `posix_spawn_file_actions_addinherit_np`'
+note: 'Pass `options: .closeOnExec` to `FileDescriptor.open` or `.pipe`, and a descriptor a child inherits to `posix_spawn_file_actions_addinherit_np`'

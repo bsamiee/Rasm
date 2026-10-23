@@ -137,4 +137,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` discards the error for `nil` or a default'
-note: 'Hold the call in `Result { try <call> }` and recover with `flatMapError`, transform with `map` or `mapError`, or match its `.failure` case'
+note: 'Hold the call in `Result { try <call> }` and recover through `flatMapError` or a `.failure` match'

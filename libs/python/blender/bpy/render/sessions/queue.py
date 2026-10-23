@@ -1,4 +1,4 @@
-"""Native render queue dispatch, background commands, and persistent run progress."""
+"""Render queue dispatch and run progress."""
 
 import base64
 from collections.abc import Callable, Generator, Iterable, Mapping
@@ -78,7 +78,7 @@ from blender.rendering.outputs.naming import Output
 
 
 class Reach(Choice):
-    """Native scenes, layers, or selected cameras included in a dispatch."""
+    """Dispatch render scope."""
 
     SETS = 1, "Render Sets"
     SCENE = 2, "Scene"
@@ -87,14 +87,14 @@ class Reach(Choice):
 
 
 class PlanFile(StrEnum):
-    """Files produced by a dispatch, named from the same plan stem."""
+    """Dispatch file suffixes sharing plan stem."""
 
     PLAN = ".plan.json"
     LOG = ".plan.log"
     SENT = ".sent.json"
 
     def beside(self, plan: Path) -> Path:
-        """Returns this dispatch file beside its plan."""
+        """Returns file path beside plan."""
         return plan.with_name(f"{plan.name.removesuffix(PlanFile.PLAN)}{self}")
 
 
@@ -102,27 +102,27 @@ class PlanFile(StrEnum):
 
 
 class Dispatch(msgspec.Struct, frozen=True, kw_only=True):
-    """Scope selected by the native dispatch dialog."""
+    """Dispatch dialog options."""
 
-    reach: Annotated[Reach, msgspec.Meta(title="Render", description="Scenes, layers, or selected cameras the queue renders")] = Reach.SETS
+    reach: Annotated[Reach, msgspec.Meta(title="Render", description="Scope queue renders")] = Reach.SETS
 
 
 class Plan(msgspec.Struct, frozen=True, kw_only=True):
-    """Ordered native job scopes and the dispatch boundary's clock reading."""
+    """Ordered job scopes and dispatch time."""
 
     moment: datetime.datetime
     scopes: Annotated[tuple[JobScope, ...], msgspec.Meta(min_length=1)]
 
 
 class Preparing(msgspec.Struct, frozen=True, kw_only=True):
-    """Stored plan and target consumed by the background prepare command."""
+    """Plan path and target `prepare` command reads."""
 
     plan: str
     target: Target
 
 
 class Sent(msgspec.Struct, frozen=True, kw_only=True):
-    """Self-contained queue and every successful submitted path or farm identifier."""
+    """Sent queue with target and each issued path or farm job ID."""
 
     queue: RenderQueue
     target: Target
@@ -130,29 +130,29 @@ class Sent(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Queued(msgspec.Struct, frozen=True, kw_only=True):
-    """Plan path retained in the native file-level text record."""
+    """Plan path stored in file text record."""
 
     plan: str | None = None
 
 
 class Denoising(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene preference for a temporal reconstruction job following its render."""
+    """Scene setting for temporal denoise job after render."""
 
     temporal: Gated[TemporalDenoise] = Gated(enabled=False, value=TemporalDenoise())
 
 
 class Queueing(msgspec.Struct, frozen=True, kw_only=True):
-    """Shared target, notification, power, heartbeat, and Manager-script preferences."""
+    """Queue preferences."""
 
-    target: Annotated[Target, msgspec.Meta(title="Target", description="Where the queue renders")] = LocalMachine()
+    target: Annotated[Target, msgspec.Meta(title="Target", description="Where queue renders")] = LocalMachine()
     listener: Listener = Listener()
     power: PowerHold = PowerHold()
     heartbeat: Heartbeat = Heartbeat()
-    scripts: Annotated[Gated[str], msgspec.Meta(title="Flamenco Scripts", description="The Manager's job-type scripts folder")] = Gated(enabled=False, value="")
+    scripts: Annotated[Gated[str], msgspec.Meta(title="Flamenco Scripts", description="Manager job type scripts folder")] = Gated(enabled=False, value="")
 
 
 class Observed(msgspec.Struct, frozen=True, kw_only=True):
-    """Submission and local progress last read by the native status timer."""
+    """Sent record and local progress status timer last read."""
 
     sent: Option[Sent]
     progress: Option[tuple[Progress, datetime.datetime]]
@@ -162,10 +162,10 @@ class Observed(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class QueueState:
-    """Native-session observations and prior viewport states held by one queue row."""
+    """Session state of one queue row."""
 
     def __init__(self) -> None:
-        """Starts without a Manager answer, observed dispatch, or paused viewport."""
+        """Starts empty."""
         self.manager: Option[Manager] = Nothing
         self.observed: Option[Observed] = Nothing
         self.paused: tuple[tuple[Located, EditorState], ...] = ()
@@ -180,7 +180,7 @@ class QueueState:
 
 
 class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
-    """Native stores and session resources consumed by queue operations."""
+    """Stores and session state queue operations read."""
 
     identity: Identity
     host: Host
@@ -200,14 +200,14 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def connected() -> BlenderResult[None]:
-        """Admits network work while `bpy.app.online_access` holds, the value preferences and `--offline-mode` decide together."""
+        """Requires `bpy.app.online_access`, set by preferences and `--offline-mode`."""
         preference = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner="system", prop=bpy.types.PreferencesSystem.bl_rna.properties["use_online_access"]))
         return Ok(None) if bpy.app.online_access else Error((BlenderUnmetFault(requirement=preference),))
 
     # --- [PLANNING]
 
     def planned(self, context: bpy.types.Context, dispatch: Dispatch, moment: datetime.datetime) -> BlenderResult[Plan]:
-        """Plans the selected native scopes, followed by their enabled temporal jobs."""
+        """Plans reach scopes, each followed by enabled temporal denoise job."""
 
         def bound(scene: bpy.types.Scene) -> Bound:
             return Bound(
@@ -247,7 +247,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
     # --- [DISPATCH]
 
     def dispatched(self, call: Call[Dispatch]) -> BlenderResult[Done]:
-        """Checks the plan, steps versions, saves the file, stores the plan, starts `prepare`, and pauses viewport renders."""
+        """Checks and stores plan, saves file, then starts `prepare` and pauses viewport renders."""
         context, identity = call.context, call.identity
         moment = datetime.datetime.now(datetime.UTC)
         day = moment.astimezone().date()
@@ -283,7 +283,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda _: self.queued.write(manager, Queued(plan=str(path))))
                 .bind(lambda _: saved(Path(bpy.data.filepath), SaveMode.ACTIVE))
                 .bind(lambda source: identity.name(Name.CLI, QueueRun.prepare).bind(lambda command: started(source, command)))
-                .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, logged at {log}"),), skipped=paused(manager).swap().to_option()))
+                .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {log}"),), skipped=paused(manager).swap().to_option()))
             )
 
         manager = rooted(bpy.types.WindowManager, context)
@@ -294,7 +294,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def prepared(self, arguments: Preparing, trailing: tuple[str, ...]) -> BlenderResult[Sent]:
-        """Writes each job file of a stored plan, sends the queue to its target, and stores the `Sent` record."""
+        """Writes job files of stored plan, sends queue to target, and stores `Sent` record."""
         if trailing:
             return Error((BlenderChoiceFault(path=QueueRun.prepare, identifier=repr(trailing), accepted=()),))
         path = Path(arguments.plan)
@@ -338,7 +338,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
     # --- [BACKGROUND_RENDER]
 
     def frames[T](self, scene: bpy.types.Scene, frames: tuple[int, ...], consumed: Callable[[int, float], BlenderResult[T]], base: Option[Path] = Nothing) -> BlenderResult[tuple[T, ...]]:
-        """Acquires deferred native inputs before rendering and consuming each requested frame."""
+        """Renders and consumes each frame, output rerooted under `base` when set."""
 
         def rendered(frame: int) -> BlenderResult[T]:
             started = time.monotonic()
@@ -385,7 +385,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def commanded(self, arguments: Run | RenderFrames, trailing: tuple[str, ...]) -> BlenderResult[object]:
-        """Executes local progress or a farm worker's exact native frame request."""
+        """Runs local queue progress or farm worker frame request."""
         match arguments:
             case Run():
                 return Error((BlenderChoiceFault(path=QueueRun.render, identifier=repr(trailing), accepted=()),)) if trailing else self.rendered(arguments)
@@ -398,7 +398,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 return Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda held: self.frames(held, frames, lambda _frame, _seconds: Ok(None), Some(Path(output_root)))).map(lambda _: None)
 
     def supervised(self, run: Run, trailing: tuple[str, ...]) -> BlenderResult[Progress]:
-        """Supervises local processes under the native power hold and awaits final notices."""
+        """Supervises local render processes under power hold, posting notices."""
         if trailing:
             return Error((BlenderChoiceFault(path=QueueRun.supervise, identifier=repr(trailing), accepted=()),))
 
@@ -432,7 +432,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         return paired(load(Path(run.queue), RenderQueue).map_error(BlenderRenderingFault.lifted), self.settings(self.identity)).bind(lambda pair: ran(*pair))
 
     def rendered(self, run: Run) -> BlenderResult[tuple[StageMark, ...]]:
-        """Renders the first remaining scheduled job run and persists each native frame mark."""
+        """Renders pending frames of first remaining job, storing each frame mark."""
 
         def ran(queue: RenderQueue, queueing: Queueing) -> BlenderResult[tuple[StageMark, ...]]:
             records = self.host.path(queue, RunFile.PROGRESS)
@@ -481,7 +481,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
     # --- [SESSION_PROGRESS]
 
     def observed(self, context: bpy.types.Context) -> BlenderResult[Option[Observed]]:
-        """Reads the dispatch file and local progress, admitting a not-yet-written submission."""
+        """Reads sent record and local progress, `Nothing` sent before `prepare` writes it."""
 
         def read(plan: Path) -> RenderingResult[Observed]:
             def pending(faults: RenderingFaults) -> RenderingResult[Option[Sent]]:
@@ -512,7 +512,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def kept(self) -> BlenderResult[tuple[RenderQueue, LocalMachine, Progress, datetime.datetime]]:
-        """Returns the observed local run or the absence of resumable local progress."""
+        """Returns observed local run, absent fault without local progress."""
         match self.state.observed.bind(lambda held: held.sent.bind(lambda sent: held.progress.map(lambda pair: (sent, *pair)))).to_optional():
             case (Sent(queue=queue, target=LocalMachine() as target), progress, beat):
                 return Ok((queue, target, progress, beat))
@@ -520,12 +520,12 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 return Error((BlenderAbsentFault(owner=repr(self.queued), key=RunFile.PROGRESS),))
 
     def restored(self) -> BlenderResult[Option[str]]:
-        """Restores surviving viewports through the acquisition's admitted deferred callback."""
+        """Restores paused viewports still open, run as deferred callback."""
         paused, self.state.paused = self.state.paused, ()
         return accumulated(prior.applied(now.area) for at, prior in paused for now in Located.found(at.window, at.area.as_pointer()).to_list()).map(lambda _: Nothing)
 
     def ticked(self, restore: Callable[[], None]) -> BlenderResult[Option[float]]:
-        """Keeps final progress after cleanup and schedules viewport restoration at an ending."""
+        """Refreshes observation each second, restoring viewports once run ends."""
 
         def acted(fresh: Option[Observed]) -> BlenderResult[None]:
             prior = self.state.observed
@@ -547,7 +547,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         return Ok(Some(1.0))
 
     def runs(self, _context: bpy.types.Context) -> Iterable[rows.Work]:
-        """Draws cached progress without network requests or progress-record reads."""
+        """Returns progress rows from cached observation alone."""
         now = datetime.datetime.now(datetime.UTC)
 
         def local(sent: Sent, progress: Progress, beat: datetime.datetime, heartbeat: Heartbeat) -> rows.Work:
@@ -572,7 +572,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
     # --- [RUN_CONTROL]
 
     def resumed(self, call: Call[Empty]) -> BlenderResult[Done]:
-        """Resends only a stopped, failed, or cancelled local queue."""
+        """Resends local queue only when stopped, failed, or canceled."""
 
         def resent(queue: RenderQueue, target: LocalMachine, progress: Progress, beat: datetime.datetime, queueing: Queueing) -> BlenderResult[Done]:
             phase = progress.phase(beat, datetime.datetime.now(datetime.UTC), queueing.heartbeat)
@@ -593,7 +593,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
         return paired(self.kept(), self.settings(call.identity)).bind(lambda pair: resent(*pair[0], pair[1]))
 
     def stopped(self, call: Call[Empty]) -> BlenderResult[Done]:
-        """Stops the process group, persists cancellation, and awaits its independent notice."""
+        """Stops process group, stores cancellation, and posts cancel notice."""
 
         def halted(queue: RenderQueue, progress: Progress, queueing: Queueing) -> BlenderResult[Done]:
             records = self.host.path(queue, RunFile.PROGRESS)
@@ -609,7 +609,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
-    """Row of the render queue: its commands, operator rows, status timer, section, and progress row."""
+    """Render queue commands, operators, status timer, section, and progress row."""
 
     dispatch: ClassVar[Key] = "dispatch"
     resume: ClassVar[Key] = "resume"
@@ -641,11 +641,11 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def bindings(self) -> Option[Mapping[MemberDescriptorType, Choices]]:
-        """Supplies cached Manager tags for the unchanged native target preference."""
+        """Cached Manager tags as `Flamenco.tag` choices."""
         return Some({vars(Flamenco)["tag"]: self.state.tags})
 
     def bound(self, identity: Identity) -> BlenderResult[Dispatcher]:
-        """Dispatcher over the identity's stores, the row's sets and stack, and the row's session state."""
+        """Binds dispatcher to identity stores, row sets, stack, and session state."""
 
         def built(
             parts: tuple[tuple[tuple[Host, Members], tuple[AllOf, Framed]], tuple[tuple[PassRouting, Pathed], tuple[Attached[Queued], tuple[Attached[Denoising], Attached[Rendered]]]]],
@@ -682,7 +682,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def commands(dispatcher: Dispatcher) -> tuple[CliCommand[Preparing], CliCommand[Run], CliCommand[Run | RenderFrames]]:
-        """`prepare`, `supervise`, and `render` command rows."""
+        """Returns `prepare`, `supervise`, and `render` command rows."""
         return (
             CliCommand(key=QueueRun.prepare, decoder=msgspec.json.Decoder(Preparing), run=dispatcher.prepared),
             CliCommand(key=QueueRun.supervise, decoder=msgspec.json.Decoder(Run), run=dispatcher.supervised),
@@ -691,7 +691,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def operators(dispatcher: Dispatcher) -> tuple[Operator[Dispatch] | Operator[Empty], ...]:
-        """Dispatch, resume, stop, log, shutdown cancel, pack, Flamenco, and notice test rows."""
+        """Returns queue operators."""
         identity = dispatcher.identity
 
         def drawn(layout: bpy.types.UILayout, context: bpy.types.Context, properties: bpy.types.OperatorProperties) -> None:
@@ -730,7 +730,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
         def shutdown_cancelled(call: Call[Empty]) -> BlenderResult[Done]:
             def cancelling(progress: Progress, power: PowerHold) -> BlenderResult[Done]:
                 return (
-                    cancelled(progress).map_error(BlenderRenderingFault.lifted).map(lambda _: Done(notes=(("INFO", "Shutdown cancelled"),)))
+                    cancelled(progress).map_error(BlenderRenderingFault.lifted).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),)))
                     if power.shutdown
                     else Error((BlenderAbsentFault(owner=repr(power), key="shutdown"),))
                 )
@@ -794,7 +794,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
         dispatching = Operator[Dispatch](
             key=QueueRun.dispatch,
             title="Render Queue",
-            description="Plan the reach's jobs, save their job files in the background, and send the queue to its target",
+            description="Plan jobs, write job files in background process, and send queue to target",
             icon=Some("RENDER_ANIMATION"),
             condition=Some(dispatcher.condition),
             form=Dispatch,
@@ -808,51 +808,27 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
             Operator(
                 key=QueueRun.resume,
                 title="Resume Queue",
-                description="Render a stopped, failed, or cancelled queue's remaining frames",
+                description="Render remaining frames of stopped, failed, or canceled queue",
                 icon=Some("PLAY"),
                 undo=False,
                 form=Empty,
                 run=dispatcher.resumed,
             ),
-            Operator(key=QueueRun.stop, title="Stop Queue", description="End the running queue and its renders", icon=Some("CANCEL"), undo=False, form=Empty, run=dispatcher.stopped),
-            Operator(key=QueueRun.log, title="Open Queue Log", description="Open the log of the file's last dispatch", icon=Some("TEXT"), undo=False, form=Empty, run=logged),
+            Operator(key=QueueRun.stop, title="Stop Queue", description="Stop queue and its renders", icon=Some("CANCEL"), undo=False, form=Empty, run=dispatcher.stopped),
+            Operator(key=QueueRun.log, title="Open Queue Log", description="Open last dispatch log", icon=Some("TEXT"), undo=False, form=Empty, run=logged),
+            Operator(key=QueueRun.shutdown_cancel, title="Cancel Shutdown", description="Cancel scheduled shutdown", icon=Some("QUIT"), undo=False, form=Empty, run=shutdown_cancelled),
+            Operator(key=QueueRun.pack, title="Pack Project", description="Write packed file copy under render output folder", icon=Some("PACKAGE"), undo=False, form=Empty, run=packing),
+            Operator(key=QueueRun.flamenco_read, title="Read Manager", description="Read Manager storage, worker tags, and job types", icon=Some("FILE_REFRESH"), undo=False, form=Empty, run=read),
             Operator(
-                key=QueueRun.shutdown_cancel, title="Cancel Shutdown", description="Cancel the shutdown a finished queue scheduled", icon=Some("QUIT"), undo=False, form=Empty, run=shutdown_cancelled
+                key=QueueRun.flamenco_install, title="Install Job Type", description="Copy job type script into Manager scripts folder", icon=Some("IMPORT"), undo=False, form=Empty, run=installed
             ),
-            Operator(
-                key=QueueRun.pack,
-                title="Pack Project",
-                description="Write the file with every external file it uses under the render folder",
-                icon=Some("PACKAGE"),
-                undo=False,
-                form=Empty,
-                run=packing,
-            ),
-            Operator(
-                key=QueueRun.flamenco_read,
-                title="Read Manager",
-                description="Read the Flamenco Manager's storage, worker tags, and job types",
-                icon=Some("FILE_REFRESH"),
-                undo=False,
-                form=Empty,
-                run=read,
-            ),
-            Operator(
-                key=QueueRun.flamenco_install,
-                title="Install Job Type",
-                description="Copy the render job type into the Flamenco Manager's scripts folder",
-                icon=Some("IMPORT"),
-                undo=False,
-                form=Empty,
-                run=installed,
-            ),
-            Operator(key=QueueRun.notice_test, title="Test Notice", description="Post a notice to the listener's topic", icon=Some("INFO"), undo=False, form=Empty, run=tested),
+            Operator(key=QueueRun.notice_test, title="Test Notice", description="Post test notice to listener topic", icon=Some("INFO"), undo=False, form=Empty, run=tested),
         )
 
     # --- [SECTION]
 
     def realized(self, identity: Identity) -> BlenderResult[Drawn]:
-        """Builds the queue controls, cached progress, and native report banner."""
+        """Builds queue section."""
         return self.bound(identity).bind(
             lambda dispatcher: Single(
                 key=self.key,
@@ -867,14 +843,14 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def drawn(self, identity: Identity) -> BlenderResult[rows.RowDraw]:
-        """Realizes this queue section as a native layout panel."""
+        """Returns queue section as inline panel draw."""
         return self.realized(identity).map(lambda drawn: drawn.inline)
 
     # --- [REGISTRATION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Holds restoration admission while retaining the native queue declarations."""
+        """Holds deferred viewport restore while registered."""
         with ExitStack() as scope:
 
             def joined(dispatcher: Dispatcher) -> BlenderResult[Acquisitions]:
@@ -889,12 +865,12 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def ranged(scene: bpy.types.Scene) -> Frames:
-    """Returns the native scene's inclusive frame range and frame step."""
+    """Returns inclusive frame range and step of scene."""
     return Frames(start=scene.frame_start, end=scene.frame_end, step=scene.frame_step)
 
 
 def scoped(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, plan_file: Path, part: int) -> BlenderResult[Job]:
-    """Writes one scope's packed job file from the saved source and answers its job."""
+    """Writes scope's packed job file from saved source."""
     moment = plan.moment.astimezone()
     render = msgspec.structs.replace(scope, temporal=None)
     followed = any(msgspec.structs.replace(other, temporal=None) == render for other in plan.scopes if other.temporal is not None)
@@ -1030,12 +1006,12 @@ def scoped(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, pl
 
 
 def posted(listener: Listener, notice: Notice) -> BlenderResult[None]:
-    """Awaits a gated listener post after native online-access admission."""
+    """Posts notice, requiring online access for an enabled topic."""
     return (Dispatcher.connected() if listener.topic.enabled else Ok(None)).bind(lambda _: published(listener, notice).map_error(BlenderRenderingFault.lifted))
 
 
 def peaked(path: Path) -> BlenderResult[Option[int]]:
-    """Reads the native EXR memory stamp and closes the image input."""
+    """Reads EXR `Memory` stamp in bytes."""
     return opened(str(path), lambda image: Ok(Option.of_optional(image.spec().getattribute("Memory")).map(lambda text: int(text.removesuffix("M")) * 2**20))).map_error(BlenderImagingFault.lifted)
 
 

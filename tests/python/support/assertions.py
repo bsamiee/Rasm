@@ -1,4 +1,4 @@
-"""Reusable assertions for tolerance, algebraic properties, tables, results, and codec round trips."""
+"""Assertions for tolerance, algebraic laws, case tables, results, and codec round trips."""
 
 import cmath
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -23,14 +23,14 @@ type Relation[T, R] = tuple[str, Callable[[T], T], Callable[[R, R], None]]
 
 
 class _Comparable(Protocol):
-    """Structural bound for projection keys with total less-than ordering."""
+    """Projection key bound with total ``<`` ordering."""
 
     def __lt__(self, other: Self, /) -> bool: ...
 
 
 @runtime_checkable
 class _Quantity(Protocol):
-    """Structural shape of a quantity exposing units and magnitude."""
+    """Quantity with units and magnitude."""
 
     @property
     def units(self) -> object: ...
@@ -43,7 +43,7 @@ class _Quantity(Protocol):
 
 
 def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
-    """Name the first tolerance divergence at its structural path, or ``None`` when the values are close."""
+    """Return first tolerance divergence at its structural path, or ``None``."""
     match (a, b):
         case (bool() | str() | bytes(), _) | (_, bool() | str() | bytes()):
             return None if isinstance(a, bool) == isinstance(b, bool) and a == b else f"{path}: {a!r} != {b!r}"
@@ -55,19 +55,19 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
             return None if far.size == 0 else f"{path}{far[0].tolist()}: {left[tuple(far[0])]!r} !~ {right[tuple(far[0])]!r}"
         case ((int() | float() | complex() | Decimal() | Fraction()) as left, (int() | float() | complex() | Decimal() | Fraction()) as right):
             fa, fb = complex(left), complex(right)
-            return None if cmath.isclose(fa, fb, rel_tol=rel_tol, abs_tol=abs_tol) or (cmath.isnan(fa) and cmath.isnan(fb)) else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
+            return None if cmath.isclose(fa, fb, rel_tol=rel_tol, abs_tol=abs_tol) or (cmath.isnan(fa) and cmath.isnan(fb)) else f"{path}: {a!r} !~ {b!r} at rel_tol={rel_tol}, abs_tol={abs_tol}"
         case (_Quantity() as left, _Quantity() as right) if left.units != right.units:
             return f"{path}: units {left.units!r} != {right.units!r}"
         case (_Quantity() as left, _Quantity() as right):
             children: Iterable[tuple[str, object, object]] = ((".magnitude", left.magnitude, right.magnitude),)
         case (Result(tag=tag), Result(tag=other)) | (Option(tag=tag), Option(tag=other)) if tag != other:
-            return f"{path}: result tags differ: {a!r} != {b!r}"
+            return f"{path}: tags differ, {a!r} != {b!r}"
         case (Result(tag=tag), Result()) | (Option(tag=tag), Option()):
             children = ((f".{tag}", getattr(a, tag), getattr(b, tag)),)
         case (msgspec.Struct(), msgspec.Struct()) if type(a) is type(b):
             children = ((f".{field}", getattr(a, field), getattr(b, field)) for field in a.__struct_fields__)
         case (Mapping(), Mapping()) if set(a) != set(b):
-            return f"{path}: key sets differ: {sorted(map(repr, set(a) ^ set(b)))}"
+            return f"{path}: unshared keys {sorted(map(repr, set(a) ^ set(b)))}"
         case (Mapping(), Mapping()):
             children = ((f"[{key!r}]", value, b[key]) for key, value in a.items())
         case (Block() as left, Block() as right) | (Sequence() as left, Sequence() as right) if len(left) != len(right):
@@ -80,12 +80,12 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
 
 
 def close(*, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> Callable[[object, object], bool]:
-    """Return a recursive approximate-equality function over nested values."""
+    """Return recursive approximate-equality function over nested values."""
     return lambda a, b: _diverge(a, b, rel_tol, abs_tol, "$") is None
 
 
 def assert_close(actual: object, expected: object, *, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> None:
-    """Assert recursive tolerance equality and name the first diverging structural path."""
+    """Assert recursive tolerance equality, naming first diverging structural path."""
     divergence = _diverge(actual, expected, rel_tol, abs_tol, "$")
     assert divergence is None, f"tolerance violation at {divergence}"
 
@@ -103,7 +103,7 @@ def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, 
 
 
 def identity[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = operator.eq) -> None:
-    """Assert ``eq(x, f(x))`` for a fixed point under ``f``."""
+    """Assert ``eq(x, f(x))`` for fixed point of ``f``."""
     _assert_equal(x, f(x), eq)
 
 
@@ -151,7 +151,7 @@ def identity_element[T](x: T, op: Callable[[T, T], T], unit: T, *, eq: _Equality
 
 
 def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K]) -> None:
-    """Assert ``projection(lo)`` does not exceed ``projection(hi)`` under the key's ordering."""
+    """Assert ``not projection(hi) < projection(lo)``."""
     p_lo = projection(lo)
     p_hi = projection(hi)
     assert not p_hi < p_lo, f"monotone violated: projection({lo!r})={p_lo!r} > projection({hi!r})={p_hi!r}"
@@ -163,12 +163,12 @@ def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *
 
 
 def differential[T, R](value: T, implementation: Callable[[T], R], reference: Callable[[T], R], *, eq: _Equality[R] = operator.eq) -> None:
-    """Compare an implementation with an independent reference over an input."""
+    """Assert ``eq(implementation(value), reference(value))``."""
     _assert_equal(implementation(value), reference(value), eq)
 
 
 def metamorphic[T, R](value: T, function: Callable[[T], R], relations: Iterable[Relation[T, R]], subtests: pytest.Subtests) -> None:
-    """Assert each ``(name, transform, relate)`` relation between ``function(value)`` and ``function(transform(value))`` as an independent subtest."""
+    """Assert ``relate(function(value), function(transform(value)))`` per relation in its own subtest."""
     baseline = function(value)
     for name, transform, relate in relations:
         with subtests.test(msg=name):
@@ -176,19 +176,19 @@ def metamorphic[T, R](value: T, function: Callable[[T], R], relations: Iterable[
 
 
 def rejects_counterexample[T, **P](counterexample: T, property_assertion: Callable[Concatenate[T, P], None], *args: P.args, **kwargs: P.kwargs) -> None:
-    """Raise ``AssertionError`` when the property assertion accepts the counterexample."""
+    """Raise ``AssertionError`` when ``property_assertion`` accepts ``counterexample``."""
     try:
         property_assertion(counterexample, *args, **kwargs)
     except AssertionError:
         return
-    raise AssertionError(f"property accepts its counterexample: {counterexample!r}")
+    raise AssertionError(f"property accepts counterexample {counterexample!r}")
 
 
 # --- [TABLES]
 
 
 def assert_table[I, O](cases: Iterable[Case[I, O]], function: Callable[[I], O], subtests: pytest.Subtests) -> None:
-    """Assert ``function(value) == expected`` for each ``(label, value, expected)`` row as an independent subtest."""
+    """Assert ``function(value) == expected`` per row in its own subtest."""
     for label, value, expected in cases:
         with subtests.test(msg=label):
             actual = function(value)
@@ -199,7 +199,7 @@ def assert_table[I, O](cases: Iterable[Case[I, O]], function: Callable[[I], O], 
 
 
 def assert_ok[T, E](result: Result[T, E]) -> T:
-    """Return the ``Ok`` value, raising ``AssertionError`` on ``Error``."""
+    """Return ``Ok`` value, raising ``AssertionError`` on ``Error``."""
     match result:
         case Result(tag="ok", ok=v):
             return v
@@ -208,7 +208,7 @@ def assert_ok[T, E](result: Result[T, E]) -> T:
 
 
 def assert_error[T, E](result: Result[T, E]) -> E:
-    """Return the ``Error`` value, raising ``AssertionError`` on ``Ok``."""
+    """Return ``Error`` value, raising ``AssertionError`` on ``Ok``."""
     match result:
         case Result(tag="error", error=e):
             return e
@@ -217,7 +217,7 @@ def assert_error[T, E](result: Result[T, E]) -> E:
 
 
 def assert_some[T](option: Option[T]) -> T:
-    """Return the ``Some`` value, raising ``AssertionError`` on ``Nothing``."""
+    """Return ``Some`` value, raising ``AssertionError`` on ``Nothing``."""
     match option:
         case Option(tag="some", some=v):
             return v
@@ -226,7 +226,7 @@ def assert_some[T](option: Option[T]) -> T:
 
 
 def assert_none(option: Option[object]) -> None:
-    """Raise ``AssertionError`` when the option is ``Some``."""
+    """Raise ``AssertionError`` on ``Some``."""
     match option:
         case Option(tag="none"):
             return
@@ -238,13 +238,13 @@ def assert_none(option: Option[object]) -> None:
 
 
 def assert_roundtrip[T](value: T, typ: type[T], *, codec: type[msgspec.json.Encoder | msgspec.msgpack.Encoder] = msgspec.json.Encoder) -> T:
-    """Return the decoded value after asserting decode equality and a byte-identical re-encode under the codec's deterministic order."""
+    """Return decoded value after asserting equality and byte-identical deterministic re-encode."""
     encoder = codec(order="deterministic")
     raw = encoder.encode(value)
     decoded: T = msgspec.msgpack.decode(raw, type=typ) if isinstance(encoder, msgspec.msgpack.Encoder) else msgspec.json.decode(raw, type=typ)
-    assert decoded == value, f"decode mismatch for {typ.__name__}: {decoded!r} != {value!r}"
+    assert decoded == value, f"{typ.__name__} decode: {decoded!r} != {value!r}"
     reencoded = encoder.encode(decoded)
-    assert reencoded == raw, f"re-encode not byte-identical for {typ.__name__}: {reencoded!r} != {raw!r}"
+    assert reencoded == raw, f"{typ.__name__} re-encode: {reencoded!r} != {raw!r}"
     return decoded
 
 

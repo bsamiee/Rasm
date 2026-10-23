@@ -89,7 +89,7 @@ public static class Contents {
                 byName: static (state, byName) => Rows(state.Doc, state.Kinds)
                     .Map(rows => rows.Filter(content => string.Equals(content.Name, byName.Name, StringComparison.Ordinal)))
                     .Bind(named => named.Count > 1
-                        ? IO.fail<Option<RenderContent>>(Error.New(string.Create(CultureInfo.InvariantCulture, $"{named.Count} render contents share the name {byName.Name}")))
+                        ? IO.fail<Option<RenderContent>>(Error.New(string.Create(CultureInfo.InvariantCulture, $"{named.Count} render contents share name {byName.Name}")))
                         : IO.pure(named.Head)))
             .Bind(found => IO.lift(found.ToFin(new NotFound(nameof(RenderContent), $"{row}"))))
         from child in IO.lift(() => slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content => Optional(content.FindChild(slot)).ToFin(new NotFound("child content", $"slot {slot} of {content.Id}")))))
@@ -148,7 +148,7 @@ public static class Contents {
         DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove))), held => retain(new Disposal<RenderContent>(held, static detached => detached.Dispose())));
 
     public static IO<Unit> Replace(RenderContent target, RenderContent replacement) =>
-        IO.lift(() => (target.DocumentOwner is not null ? Fin.Succ(unit) : Error.New($"Content {target.Id} belongs to no document"))
+        IO.lift(() => (target.DocumentOwner is not null ? Fin.Succ(unit) : Error.New($"render content {target.Id} belongs to no document"))
             .Bind(_ => Refused.Unless(target.Replace(replacement), nameof(RenderContent.Replace))));
 
     public static IO<Seq<Guid>> Purge(RhinoDoc doc, RenderContentKind kinds) =>

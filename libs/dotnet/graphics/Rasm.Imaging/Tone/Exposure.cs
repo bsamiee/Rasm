@@ -48,11 +48,11 @@ public sealed partial class ExposureParameter : IStateParameter<ExposureState> {
     public static readonly ExposureParameter MeteringHigh = new("metering-high", StateParameter.Bounded(lens(Metering, Lens<Metering, AxisFraction>.New(static metering => metering.High, static high => metering => metering with { High = high }))),
         new("Meter high", "Highest luminance rank the meter averages"));
     public static readonly ExposureParameter MeteringCenter = new("metering-center", StateParameter.Bounded(lens(Metering, Lens<Metering, AxisFraction>.New(static metering => metering.Center, static center => metering => metering with { Center = center }))),
-        new("Center weight", "Share by which samples outside the central half count less"));
+        new("Center weight", "Weight cut outside central half"));
     public static readonly ExposureParameter MeteringStart = new("metering-start", new StateParameter<ExposureState>.Record<FramePosition>(lens(Metering, Lens<Metering, FramePosition>.New(static metering => metering.Start, static start => metering => metering with { Start = start }))),
-        new("Region start", "Upper left corner of the metered region"));
+        new("Region start", "Metered region upper left"));
     public static readonly ExposureParameter MeteringEnd = new("metering-end", new StateParameter<ExposureState>.Record<FramePosition>(lens(Metering, Lens<Metering, FramePosition>.New(static metering => metering.End, static end => metering => metering with { End = end }))),
-        new("Region end", "Lower right corner of the metered region"));
+        new("Region end", "Metered region lower right"));
 
     public StateParameter<ExposureState> Kind { get; }
     public ParameterText Text { get; }

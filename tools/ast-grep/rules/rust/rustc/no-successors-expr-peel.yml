@@ -11,5 +11,5 @@ rule:
         - pattern: std::iter::successors(Some($E), $STEP).last()
 constraints:
     STEP: {kind: closure_expression, regex: '\bExprKind::'}
-message: '`successors(..).last()` peels `$E` one step at a time to reach its innermost expression'
-note: 'Call `clippy_utils::peel_hir_expr_while(<expr>, |step| ..)` to reach the innermost expression with no `Option` to unwrap'
+message: '`successors(..).last()` peels `$E` to its innermost expression by hand'
+note: 'Call `clippy_utils::peel_hir_expr_while(<expr>, <step>)` and delete the `Option` unwrap after `last()`'

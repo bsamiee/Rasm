@@ -45,5 +45,5 @@ rule:
             - has: {field: right, matches: searched}
             - has: {field: body, has: {matches: exit}}
             - not: {has: {field: alternative, kind: else_clause}}
-message: 'Code takes one path from `$SEARCH` in filesystem order'
-note: 'Take the path its owner places, or select the one result with a `match` on `case [<path>]`'
+message: 'Path taken from `$SEARCH` depends on filesystem order'
+note: 'Build the known path directly, or `match` listed results against `case [<path>]`'

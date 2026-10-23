@@ -26,5 +26,5 @@ rule:
                 has:
                     matches: stored
                     not: {has: {kind: type_annotation, has: {field: name, any: [{pattern: $ELEMENT}, {matches: element-array}]}}}
-message: 'Error struct stores `$ELEMENT` values alone, specializing an aggregate error by hand'
-note: 'Declare one generic `struct <Aggregate><Element: Sendable>: Error` holding a first element and an array of the rest'
+message: 'Non-generic error struct aggregates `$ELEMENT` values by hand'
+note: 'Aggregate elements through one generic `struct <Aggregate><Element: Sendable>: Error` holding a first element and an array of the rest'

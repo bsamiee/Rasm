@@ -11,10 +11,10 @@ class StoryView extends Schema.TaggedClass<StoryView, { readonly brand: unique s
     length: Schema.Int,
     overflows: Schema.Boolean,
     overset: Schema.Int.annotate({ description: 'Characters no container shows' }),
-    textContainers: Schema.Array(Reference.mapFields(Struct.assign({ page: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Page name, absent on the pasteboard' })), columns: Schema.OptionFromOptionalKey(Schema.Int), overflows: Schema.Boolean, characters: Schema.Int }))).annotate({
+    textContainers: Schema.Array(Reference.mapFields(Struct.assign({ page: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Page name, absent on pasteboard' })), columns: Schema.OptionFromOptionalKey(Schema.Int), overflows: Schema.Boolean, characters: Schema.Int }))).annotate({
         description: 'Text frames and paths in thread order',
     }),
-    styles: Schema.Array(Schema.String).annotate({ description: 'Paragraph style names the story applies' }),
+    styles: Schema.Array(Schema.String).annotate({ description: 'Applied paragraph style names' }),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<Story>('textContainers')), Option.map(StoryView.of));
     static readonly of = (story: Story) =>

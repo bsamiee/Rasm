@@ -1,6 +1,7 @@
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use rustc_hir::Expr;
 use rustc_lint::{LateContext, LateLintPass};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
 
 use super::{VariantCollection, variant_collection};
 use crate::generated;
@@ -18,10 +19,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (lint, message, help) = match collection {
                 VariantCollection::Array =>
                     (MANUAL_VARIANT_ARRAY, format!("array lists every variant of `{name}` in declaration order"), format!("derive `strum::VariantArray` on `{name}` and read `{name}::VARIANTS`")),
-                VariantCollection::Map(map) => (
+                VariantCollection::Map(map, value) => (
                     MANUAL_ENUM_MAP,
-                    format!("`{}` built with one entry per variant of `{name}`", cx.tcx.item_name(map)),
-                    format!("build the map with `enum_map::enum_map!` over `#[derive(enum_map::Enum)]` on `{name}`"),
+                    format!("`{}` holds one entry per variant of `{name}`", cx.tcx.item_name(map)),
+                    with_forced_trimmed_paths!(format!("derive `enum_map::Enum` on `{name}` and build `enum_map::EnumMap<{name}, {value}>` with `enum_map::enum_map!`")),
                 ),
             };
             span_lint_hir_and_then(cx, lint, expr.hir_id, expr.span, message, |diag| {

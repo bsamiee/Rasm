@@ -20,7 +20,7 @@ from refurb.visitor import RefurbVisitor
 
 
 def _refurbished(settings: Settings) -> Sequence[Error | str]:
-    """Check each source module from its text, keeping its typed tree, while its imports load from cache, then visit it."""
+    """Type-check each source module from its text with cached imports and run checks over its typed tree."""
     sources, options = process_options([*settings.files, *settings.mypy_args])
     options.preserve_asts = True
     options.python_version = settings.get_python_version()
@@ -44,7 +44,7 @@ def _refurbished(settings: Settings) -> Sequence[Error | str]:
 
 
 def main() -> int:
-    """Print refurb findings over the configured mypy sources, handing usage, version, explanation, and generation to refurb, and return the exit status."""
+    """Print findings over configured mypy sources and return the exit status, passing every other run to refurb."""
     arguments = sys.argv[1:]
     try:
         settings = load_settings(arguments)

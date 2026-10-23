@@ -159,5 +159,5 @@ rule:
             - not: {inside: {kind: decorated_definition, has: {matches: override}}}
 constraints:
     D: {matches: signature-default}
-message: 'Parameter `$P` accepts `None` and the body resolves `None` to `$D`'
-note: 'Declare `<name>: <type> = <default>` in the signature'
+message: '`$P` accepts `None` that the body replaces with `$D`'
+note: 'Declare `<name>: <type> = <default>` and delete the body''s `None` resolution'

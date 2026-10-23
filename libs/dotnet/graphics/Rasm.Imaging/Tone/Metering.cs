@@ -61,7 +61,7 @@ public sealed class LuminanceSamples {
         }
         System.Array.Resize(ref samples, count);
         samples.AsSpan().Sort();
-        return count is 0 ? Error.New($"region {window} holds no covered pixel of finite value") : samples;
+        return count is 0 ? Error.New($"region {window} holds no covered finite pixel") : samples;
     }
 }
 
@@ -83,11 +83,11 @@ public sealed record Metering(AxisFraction Low, AxisFraction High, AxisFraction 
     }
 
     internal Fin<float> Metered((double Key, float Weight)[] samples, (long Left, long Top, long Right, long Bottom) window) =>
-        samples.Length is 0 ? Error.New($"metered region {window} holds no covered pixel of finite value")
+        samples.Length is 0 ? Error.New($"metered region {window} holds no covered finite pixel")
         : new ArraySegment<(double Key, float Weight)>(samples)[LuminanceSamples.Slice(samples.Length, Low, High)]
             .Aggregate((Sum: 0d, Weight: 0d), static (total, sample) =>
                 (total.Sum + (sample.Weight * double.Log2(double.Max(sample.Key, LuminanceSamples.Floor))), total.Weight + sample.Weight)) switch {
                     (var sum, > 0d and var weight) => (float)(double.Log2(Exposure.MiddleGray) - (sum / weight)),
-                    _ => Error.New($"metered center of {window} holds no kept sample at full center weight"),
+                    _ => Error.New($"central half of {window} holds no sample in meter range at full center weight"),
                 };
 }

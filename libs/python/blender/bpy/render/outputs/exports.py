@@ -36,22 +36,22 @@ from blender.imaging.parameters import Choice, Gated
 
 
 class Viewing(Protocol):
-    """Formation entry's view and the native scene view used without an entry."""
+    """Formation entry view, scene view without an entry."""
 
     def current(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[Option[DisplayView]]:
-        """Returns the owned formation entry's view, absence, or its read faults."""
+        """Returns owned formation entry view, Nothing without an entry."""
         ...
 
     def seeded(self, scene: bpy.types.Scene) -> BlenderResult[DisplayView]:
-        """Returns the native scene's display and view."""
+        """Returns native scene display and view."""
         ...
 
 
 class Documents(Protocol):
-    """Layered document source reading a saved render under the caller's identity."""
+    """Layered document source over a saved render."""
 
     def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
-        """Builds the source's layered document or returns its read and formation faults."""
+        """Builds layered document."""
         ...
 
 
@@ -71,14 +71,12 @@ class Still(msgspec.Struct, frozen=True, kw_only=True):
     source: Annotated[Source, msgspec.Meta(description="Image the still writes")] = Source.RESULT
     format: Annotated[str, msgspec.Meta(description="File format the still writes"), writers] = "png"
     depth: Annotated[Depth, msgspec.Meta(description="Storage of each channel")] = Depth.UINT8
-    display: Annotated[str, msgspec.Meta(description="Display encoding written at the selected channel depth"), displays] = msgspec.field(
-        default_factory=lambda: PyOpenColorIO.GetCurrentConfig().getDefaultDisplay()
-    )
-    save_as_render: Annotated[bool, msgspec.Meta(description="Apply the view, exposure, and gamma to an unformed scene-linear source")] = True
-    compression: Annotated[Gated[Compressions], msgspec.Meta(description="Compression the format's writer applies, the writer's own default while disabled")] = Gated(enabled=False, value=Deflate())
+    display: Annotated[str, msgspec.Meta(description="Display encoding at selected depth"), displays] = msgspec.field(default_factory=lambda: PyOpenColorIO.GetCurrentConfig().getDefaultDisplay())
+    save_as_render: Annotated[bool, msgspec.Meta(description="Apply view, exposure, and gamma to unformed source")] = True
+    compression: Annotated[Gated[Compressions], msgspec.Meta(description="Writer compression, writer default when off")] = Gated(enabled=False, value=Deflate())
 
     def seeded(self, _event: bpy.types.Event) -> Self:
-        """Retains writer-supported depth and compression when the browser opens."""
+        """Keeps writer-supported depth and compression on browser open."""
         return (
             writer(self.format)
             .map(
@@ -92,7 +90,7 @@ class Still(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def extensions(self) -> tuple[str, *tuple[str, ...]]:
-        """Returns the chosen writer's suffixes or the unknown writer name as its suffix."""
+        """Returns chosen writer's suffixes, or unknown writer name as suffix."""
 
         def suffixes(row: Format) -> tuple[str, *tuple[str, ...]]:
             first, *rest = row.extensions
@@ -108,7 +106,7 @@ class Sheet(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Layering(msgspec.Struct, frozen=True, kw_only=True):
-    """One document source and the native action presenting its export."""
+    """Document source with its export action."""
 
     key: Key
     title: str
@@ -116,7 +114,7 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True):
     source: Documents
 
     def exported(self, call: Call[Sheet]) -> BlenderResult[Done]:
-        """Writes a layered TIFF after the saved frame and color configuration resolve."""
+        """Writes layered TIFF from saved frame."""
         scene, target = call.context.scene, str(call.paths[0])
         if scene is None:
             return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
@@ -128,7 +126,7 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Export(msgspec.Struct, frozen=True, kw_only=True):
-    """Render and Viewer export actions with the stack's view and exposure providers."""
+    """Render and Viewer export actions."""
 
     dng: ClassVar[Key] = "export_dng"
     image: ClassVar[Key] = "export_still"
@@ -137,7 +135,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
     layering: tuple[Layering, ...] = ()
 
     def raw(self, call: Call[Empty]) -> BlenderResult[Done]:
-        """Writes scene-linear Combined RGB with total exposure and the scene camera's optics."""
+        """Writes scene-linear Combined RGB with total exposure and camera optics."""
         scene, target = call.context.scene, str(call.paths[0])
         layer = call.context.view_layer
         match scene, layer:
@@ -167,7 +165,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Declares nested export actions using the native save browser without data undo."""
+        """Declares export actions on save browser without undo."""
         idle = Job(kind="RENDER")
         result = Some(AllOf(conditions=(image_type(("RENDER_RESULT",)), idle)))
 
@@ -255,7 +253,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
         still = Operator(
             key=self.image,
             title="Export Still",
-            description="Writes the displayed render or Viewer with its color encoding",
+            description="Writes render or Viewer image with chosen encoding",
             form=Still,
             run=exported,
             condition=Some(idle),
@@ -268,7 +266,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
             Operator(
                 key=self.dng,
                 title="Export Linear Raw DNG",
-                description="Writes the scene-linear render as a Linear Raw DNG",
+                description="Writes scene-linear render as DNG",
                 form=Empty,
                 run=self.raw,
                 condition=result,
@@ -297,12 +295,12 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def image_type(kinds: tuple[str, ...]) -> Setting:
-    """Returns the shared native image-editor condition over the displayed image's type."""
+    """Returns image-editor condition over displayed image type."""
     return Setting(descriptor=Descriptor(root=bpy.types.SpaceImageEditor, owner="image", prop=bpy.types.Image.bl_rna.properties["type"]), accepted=kinds)
 
 
 def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> BlenderResult[npt.NDArray[np.float32]]:
-    """Reads the first requested layer and accumulates every missing requested channel."""
+    """Reads first requested layer, a fault per missing channel."""
 
     def picked(file: Multilayer) -> BlenderResult[npt.NDArray[np.float32]]:
         def channel(found: tuple[Channel, ...], layer: str, name: str) -> BlenderResult[Channel]:
@@ -322,7 +320,7 @@ def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Blend
 
 
 def displayed(viewing: Viewing, identity: Identity, scene: bpy.types.Scene, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
-    """Forms display values through the owned entry or native scene exposure and gamma."""
+    """Forms display values through owned entry or scene exposure and gamma."""
 
     def named(view: DisplayView, pixels: npt.NDArray[np.float32]) -> BlenderResult[ImageFile[np.float32]]:
         return (

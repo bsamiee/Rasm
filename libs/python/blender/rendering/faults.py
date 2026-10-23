@@ -1,4 +1,4 @@
-"""Rendering failures and the result shared by rendering operations."""
+"""Rendering faults and result type."""
 
 import datetime
 from enum import auto, Enum
@@ -32,7 +32,7 @@ type RenderingResult[T] = Result[T, RenderingFaults]
 
 
 class Cause(Enum):
-    """Failure of an HTTP exchange that answered no status."""
+    """HTTP exchange failure with no response status."""
 
     INVALID_URL = auto()
     UNREACHABLE = auto()
@@ -42,7 +42,7 @@ class Cause(Enum):
 
 
 class Call(Enum):
-    """Operating-system call made outside a launched process."""
+    """System call outside launched process."""
 
     KILL_GROUP = auto()
     EXECUTION_STATE = auto()
@@ -60,53 +60,53 @@ class RenderingRootFault(Refusal[Path, Path], frozen=True):
 
 
 class RenderingReadFault(Refusal[str | Path, msgspec.DecodeError | OSError], frozen=True):
-    """Stored record or file its reader refused."""
+    """Unreadable or undecodable record or file."""
 
 
 class RenderingWriteFault(Refusal[Path, OSError], frozen=True):
-    """Record write or file copy its writer refused."""
+    """Failed write, copy, touch, or removal."""
 
 
 class RenderingSendFault(Refusal[str | Path, Cause | int | OverflowError], frozen=True):
-    """HTTP request refused by transport or response status."""
+    """HTTP transport or status failure."""
 
 
 class RenderingDependencyFault(Refusal[type[msgspec.Struct], tuple[int, ...]], frozen=True):
-    """Dispatch target cannot enforce prerequisites of the requested queue parts."""
+    """Target unable to enforce part prerequisites."""
 
 
 class RenderingRunFault(Refusal[tuple[str, ...], OSError | int], frozen=True):
-    """Process launch or exit refused."""
+    """Process launch failure or nonzero exit."""
 
 
 class RenderingWaitFault(Refusal[float, int], frozen=True):
-    """Timed wait interval reaches the native infinite-wait word."""
+    """Wait interval reaching Windows INFINITE."""
 
 
 class RenderingSystemFault(Refusal[tuple[Call, int], OSError], frozen=True):
-    """Operating-system call refused."""
+    """Operating system call failure."""
 
 
 class RenderingTimeFault(Refusal[datetime.date | tuple[datetime.datetime, datetime.timedelta, int], OverflowError], frozen=True):
-    """Calendar result outside native datetime arithmetic."""
+    """Date outside datetime range."""
 
 
 class RenderingSizeFault(Refusal[tuple[int, int], Option[tuple[int, int]]], frozen=True):
-    """Pixel dimensions outside the receiving host bounds, or empty when no bounds are named."""
+    """Empty pixel dimensions or dimensions past renderer bounds."""
 
 
 class RenderingArithmeticFault(Refusal[msgspec.Struct | tuple[float | msgspec.Struct, ...], Numeric], frozen=True):
-    """Operands whose arithmetic, allocation, or native representation refused them."""
+    """Operands failing arithmetic, allocation, or native representation."""
 
 
 class RenderingImagingFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Complete fault tuple from an imaging operation."""
+    """Imaging faults as one rendering fault."""
 
     faults: ImagingFaults
 
     @classmethod
     def lifted(cls, faults: ImagingFaults) -> RenderingFaults:
-        """Carries the imaging faults as one rendering fault."""
+        """Wraps imaging faults as one rendering fault."""
         return (cls(faults=faults),)
 
 

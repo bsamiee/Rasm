@@ -246,7 +246,7 @@ public static class Appearance {
     public static IO<Color> Paint(PaintColor slot) => IO.lift(() => AppearanceSettings.GetPaintColor(slot, compute: false));
 
     public static IO<Unit> SetPaint(PaintColor slot, Option<Color> color) =>
-        from writable in Accessors.Scoped(nameof(Accessors.GetPaintColorHook), IO.lift(() => Accessors.GetPaintColorHook(owner: null, slot) is null ? Fin.Succ(unit) : Error.New($"a theme hook draws paint slot {slot}")))
+        from writable in Accessors.Scoped(nameof(Accessors.GetPaintColorHook), IO.lift(() => Accessors.GetPaintColorHook(owner: null, slot) is null ? Fin.Succ(unit) : Error.New($"theme hook draws paint slot {slot}")))
         from written in IO.lift(() => AppearanceSettings.SetPaintColor(slot, color.IfNone(() => AppearanceSettings.DefaultPaintColor(slot, HostUtils.RunningInDarkMode))))
         from saved in Applied.IdleSave.Drain.Traverse(static drain => drain).As()
         select unit;
@@ -296,15 +296,15 @@ public static class Appearance {
         select valid;
 
     public static IO<Unit> SetPromptLocation(Option<Enum> location) =>
-        from admitted in IO.lift(() => location.Traverse(static K<Fin, Enum> (held) => Defined(PromptLocationType, held)).As())
+        from validated in IO.lift(() => location.Traverse(static K<Fin, Enum> (held) => Defined(PromptLocationType, held)).As())
         from options in SettingRoots.TryGetChild(SettingsNode.Options)
         let keys = Seq(LocationKey, PresentationKey)
         let existing = from node in options.ToSeq() from key in keys select (Node: node, Key: key)
         from writable in IO.lift(() => Callbacks.Each(existing, static (entry, _) => PlugInSettings.Writable(entry.Node, entry.Key)))
-        let removals = admitted.IsSome ? Seq(LocationKey) : keys
+        let removals = validated.IsSome ? Seq(LocationKey) : keys
         let deleted = from node in options.ToSeq() from key in removals select (Node: node, Key: key)
         from cleared in IO.lift(() => deleted.Iter(static entry => entry.Node.DeleteItem(entry.Key)))
-        from shown in admitted.Match(
+        from shown in validated.Match(
             Some: static held => NamedCallbacks.Execute(SetPresentationStyle, NamedCallbacks.Handled, args => args.Set(ModeEntry, Convert.ToInt32(held, CultureInfo.InvariantCulture))),
             None: static () => Accessors.Scoped(nameof(Accessors.PromptLocationChanged), IO.lift(static () => Accessors.PromptLocationChanged(owner: null)?.Invoke(sender: null, EventArgs.Empty))))
         select shown;
@@ -316,10 +316,10 @@ public static class Appearance {
             from style in IO.lift(() => raw.Flatten().Traverse(static K<Fin, Enum> (held) => Defined(PromptStyleType, held)).As())
             select style,
             static style =>
-                from admitted in IO.lift(() => style.Traverse(static K<Fin, Enum> (held) => Defined(PromptStyleType, held)).As())
+                from validated in IO.lift(() => style.Traverse(static K<Fin, Enum> (held) => Defined(PromptStyleType, held)).As())
                 from node in SettingRoots.AddChild(SettingsNode.Options)
                 from writable in IO.lift(() => PlugInSettings.Writable(node, StyleName))
-                from written in IO.lift(() => SettingType.Enumeration(PromptStyleType).Write(node, StyleName, admitted))
+                from written in IO.lift(() => SettingType.Enumeration(PromptStyleType).Write(node, StyleName, validated))
                 from raised in Accessors.Scoped(nameof(Accessors.PromptStyleChanged), IO.lift(static () => Accessors.PromptStyleChanged(owner: null)?.Invoke(sender: null, EventArgs.Empty)))
                 select raised,
             Applied.Live,
@@ -376,7 +376,7 @@ public static class Appearance {
                 from range in limits
                 from valid in IO.lift(size >= range.Minimum && size <= range.Maximum
                     ? Fin.Succ(unit)
-                    : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} takes {size} outside [{range.Minimum}, {range.Maximum}]")))
+                    : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{size} is outside {member} range [{range.Minimum}, {range.Maximum}]")))
                 from written in set(size)
                 select written,
             EqualityComparer<int>.Default.Equals,
@@ -423,7 +423,7 @@ public static class Appearance {
         select ((stack - chrome - addend) / pitch * pitch) + addend;
 
     public static IO<Unit> IconCategory(int stripHeight, int glyph, int row) =>
-        from even in IO.lift((row - glyph) % 2 is 0 ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"row {row} and glyph {glyph} leave no whole padding")))
+        from even in IO.lift((row - glyph) % 2 is 0 ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"row {row} minus glyph {glyph} is odd")))
         from inset in Accessors.Scoped(nameof(Accessors.ItemPadding), IO.lift(static () => Accessors.ItemPadding(owner: null).Height))
         let tab = stripHeight - (2 * inset)
         from committed in ValueStore.Commit(Seq(

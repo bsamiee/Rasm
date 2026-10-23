@@ -47,5 +47,5 @@ transform:
     MEMBER:
         replace: {source: $READ, replace: '^GetByteCount$', by: Length}
 fix: $TEXTu8.$MEMBER
-message: '`$CALL` encodes the constant string `$TEXT` at run time'
-note: 'Write the bytes as a `"<text>"u8` literal, `.ToArray()` where an array is required and `.Length` for the count'
+message: '`$CALL` encodes constant `$TEXT` at run time'
+note: 'Write `"<text>"u8.ToArray()`, or `"<text>"u8.Length` for a byte count'

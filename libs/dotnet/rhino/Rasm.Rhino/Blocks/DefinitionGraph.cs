@@ -18,7 +18,7 @@ public sealed record DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdg
         Nesting.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>() switch {
             var components => toSeq(components.Vertices).Filter(static component => component.EdgeCount > 0)
                 .Map(static component => toSeq(component.Vertices).Strict()).Strict() is { IsEmpty: false } cycles
-                    ? Error.New($"definitions {cycles} contain cycles")
+                    ? Error.New($"definitions {cycles} form nesting cycles")
                     : toSeq(components.SourceFirstBidirectionalTopologicalSort()).Bind(static component => toSeq(component.Vertices)).Strict(),
         };
 

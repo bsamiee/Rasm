@@ -6,5 +6,5 @@ metadata: {python-below: '3.15'}
 rule:
     pattern: $G
     matches: {python-evaluated-subscript: {value: {matches: {python-builtin-name: {name: {regex: '^slice$'}}}}}}
-message: '`$G` defines no `__class_getitem__` at this file''s Python target, evaluated subscripts raise `TypeError`'
+message: '`$G` has no `__class_getitem__` below Python 3.15 and raises `TypeError` when subscripted'
 note: 'Use `slice` unsubscripted or a quoted annotation'

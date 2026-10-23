@@ -1,4 +1,4 @@
-"""Generated preview tiles and data-block pixels over the native checker."""
+"""Generated preview tiles over theme transparency checker."""
 
 from collections.abc import Callable, Hashable
 from typing import ClassVar, Self
@@ -19,7 +19,7 @@ from blender.bpy.ui.resources.theme import Checker, Metrics
 
 
 class Drawn(msgspec.Struct, frozen=True, kw_only=True):
-    """Request identity and display facts of one completed preview."""
+    """Finished preview request."""
 
     key: Hashable
     side: int
@@ -27,13 +27,13 @@ class Drawn(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls, key: Hashable, scale: float) -> Self:
-        """Returns the request identity and native display facts for a tile scale."""
+        """Returns request at current interface metrics."""
         metrics = Metrics.read()
         return cls(key=key, side=int(scale * metrics.unit), checker=metrics.checker())
 
 
 class TileSet(msgspec.Struct, frozen=True, kw_only=True):
-    """Native preview items and the facts of completed requests, including absence."""
+    """Preview collection and finished request per slot, pixelless requests included."""
 
     collection: bpy.utils.previews.ImagePreviewCollection
     drawn: dict[str, Drawn]
@@ -43,7 +43,7 @@ class TileSet(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Previews(msgspec.Struct, frozen=True, kw_only=True):
-    """One extension's generated preview collection, acquired once by its scope."""
+    """Generated preview collection of one extension."""
 
     identity: Identity
     held: ClassVar[dict[str, TileSet]] = {}
@@ -51,40 +51,40 @@ class Previews(msgspec.Struct, frozen=True, kw_only=True):
     # --- [LIFECYCLE]
 
     def __enter__(self) -> None:
-        """Creates the extension's native collection."""
+        """Creates extension preview collection."""
         Previews.held[self.identity.package] = TileSet(collection=bpy.utils.previews.new(), drawn={})
 
     def __exit__(self, *_: object) -> None:
-        """Removes the extension's held collection and releases its native items."""
+        """Removes extension preview collection."""
         bpy.utils.previews.remove(Previews.held.pop(self.identity.package).collection)
 
     # --- [READING]
 
     def icon_id(self, slot: str) -> Option[int]:
-        """Returns a slot's native icon ID, absent before pixels or after completed absence."""
+        """Returns slot icon ID, Nothing while slot holds no pixels."""
         return Option.of_optional(Previews.held[self.identity.package].collection.get(slot)).map(lambda preview: preview.icon_id)
 
     def current(self, slot: str, key: Hashable, scale: float) -> bool:
-        """Returns whether a request completed at the current display facts, with or without pixels."""
+        """Returns whether request finished at current tile side and checker."""
         return Previews.held[self.identity.package].drawn.get(slot) == Drawn.read(key, scale)
 
     # --- [WRITING]
 
     def tile(self, slot: str, key: Hashable, rendered: Callable[[int], BlenderResult[Option[Option[npt.NDArray[np.float32]]]]], scale: float) -> BlenderResult[Option[int]]:
-        """Publishes admitted pixels or completed absence, leaving withdrawn requests untouched."""
+        """Writes rendered pixels or records pixelless finish, waiting while render returns Nothing."""
         tiles, shown = Previews.held[self.identity.package], Drawn.read(key, scale)
 
         def drawn(plane: Option[npt.NDArray[np.float32]]) -> BlenderResult[Option[int]]:
-            """Completes the native item change before publishing its request and display facts."""
+            """Writes or drops preview, then records request."""
             icon = plane.map(lambda pixels: written(Option.of_optional(tiles.collection.get(slot)).default_with(lambda: tiles.collection.new(slot)), pixels, shown.checker).icon_id)
             redraw = redrawn().map(lambda _: None) if plane.is_some() else self.dropped(slot)
             tiles.drawn[slot] = shown
             return redraw.map(lambda _: icon)
 
-        return Ok(self.icon_id(slot)) if tiles.drawn.get(slot) == shown else rendered(shown.side).bind(lambda admitted: admitted.map(drawn).default_value(Ok(Nothing)))
+        return Ok(self.icon_id(slot)) if tiles.drawn.get(slot) == shown else rendered(shown.side).bind(lambda outcome: outcome.map(drawn).default_value(Ok(Nothing)))
 
     def dropped(self, slot: str) -> BlenderResult[None]:
-        """Releases a slot and its completion, redrawing when a native item was removed."""
+        """Clears slot, redrawing when a preview was removed."""
         tiles = Previews.held[self.identity.package]
         tiles.drawn.pop(slot, None)
         if slot in tiles.collection:
@@ -97,7 +97,7 @@ class Previews(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def written(preview: bpy.types.ImagePreview, plane: npt.NDArray[np.float32], checker: Checker) -> bpy.types.ImagePreview:
-    """Writes top-first premultiplied display RGBA over the checker into native buffers."""
+    """Composites top-first premultiplied RGBA over checker into preview buffers."""
     height, width, _ = plane.shape
     rows, columns = np.indices((height, width), sparse=True)
     ground = np.where(((rows // checker.cell + columns // checker.cell) % 2 == 0)[..., None], np.asarray(checker.primary[:3], dtype=np.float32), np.asarray(checker.secondary[:3], dtype=np.float32))

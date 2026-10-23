@@ -86,7 +86,7 @@ public static class Adaptation {
 
     public static Fin<(ColorTemperature Temperature, Tint Tint)> Correlate(Gamut gamut, Vector3 color) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, color.X, color.Y, color.Z) switch {
-            { Xyz.Y: <= 0d and var luminance } => Error.New(string.Create(CultureInfo.InvariantCulture, $"picked white of luminance {luminance} has no luminance to correlate")),
+            { Xyz.Y: <= 0d and var luminance } => Error.New(string.Create(CultureInfo.InvariantCulture, $"picked white luminance {luminance} must be positive")),
             { Temperature: { IsValid: true } correlated } =>
                 (ColorTemperature.Validated(correlated.Cct), Tint.Validated(correlated.Duv)).Apply(static (temperature, tint) => (temperature, tint)).As(),
             var unresolved => Error.New(string.Create(CultureInfo.InvariantCulture, $"picked white at ({unresolved.Chromaticity.X}, {unresolved.Chromaticity.Y}) has no temperature and tint")),

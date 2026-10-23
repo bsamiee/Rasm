@@ -34,4 +34,4 @@ rule:
         - kind: scoped_identifier
           regex: '(^|::)Prefix::Verbatim(Disk|UNC)?$'
 message: '`$LIT` tests or strips the Windows verbatim path prefix by hand'
-note: 'Pass the path through `dunce::simplified(<path>)`, and a canonical path through `dunce::simplified(&fs_err::canonicalize(<path>)?)`'
+note: 'Pass the path through `dunce::simplified(<path>)`, a canonical path through `dunce::simplified(&fs_err::canonicalize(<path>)?)`'

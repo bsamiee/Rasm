@@ -18,7 +18,7 @@ namespace Rasm.Imaging.Files;
 public sealed partial class ImagePath {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = Path.IsPathFullyQualified(value) && ImageFile.Reads.ContainsKey(Path.GetExtension(value)) ? null
-            : new ValidationError($"image path '{value}' must be fully qualified with one of {string.Join(", ", ImageFile.Reads.Keys)}");
+            : new ValidationError($"Image path '{value}' must be fully qualified with one of {string.Join(", ", ImageFile.Reads.Keys)}");
 }
 
 public sealed record ImageFile {
@@ -65,7 +65,7 @@ public sealed record ImageFile {
                     .Apply(static (gamut, row) => new ColorEncoding(gamut, row.Transfer, row.White))
                     .As()
                     .Filter(_ => chunk.MatrixCoefficients is CicpMatrixCoefficients.Identity && chunk.FullRange)
-                    .ToFin(Error.New($"PNG cICP {chunk.ColorPrimaries}/{chunk.TransferCharacteristics}/{chunk.MatrixCoefficients} full range {chunk.FullRange} names no held gamut and transfer")),
+                    .ToFin(Error.New($"PNG cICP {chunk.ColorPrimaries}/{chunk.TransferCharacteristics}/{chunk.MatrixCoefficients} full range {chunk.FullRange} names no supported gamut and transfer")),
             None: static () => new ColorEncoding(Gamut.StandardRgb, TransferCurve.Srgb, Nits.ReferenceWhite));
 
     private static DecoderOptions Decoding(ColorProfileHandling handling) =>

@@ -1,4 +1,4 @@
-"""Machine held awake while a queue renders and the optional shutdown after it, per platform."""
+"""Sleep hold while queue renders and shutdown after it."""
 
 from collections.abc import Callable
 import ctypes
@@ -26,13 +26,13 @@ if sys.platform == "win32":
 
 
 class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
-    """Keep-awake and shutdown policy of a queue run."""
+    """Sleep and shutdown settings."""
 
-    awake: Annotated[bool, msgspec.Meta(title="Keep Awake", description="Hold the machine out of sleep while the queue renders")] = True
-    shutdown: Annotated[bool, msgspec.Meta(title="Shut Down", description="Shut the machine down one minute after the queue finishes")] = False
+    awake: Annotated[bool, msgspec.Meta(title="Keep Awake", description="Prevents sleep while queue renders")] = True
+    shutdown: Annotated[bool, msgspec.Meta(title="Shut Down", description="Shuts down one minute after queue finishes")] = False
 
     def held[T](self, operation: Callable[[], RenderingResult[T]]) -> RenderingResult[T]:
-        """Runs an operation with sleep inhibited and reports acquisition and release failures."""
+        """Runs operation with sleep inhibited."""
         if not self.awake:
             return operation()
         if sys.platform == "win32":
@@ -59,7 +59,7 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
         argv = (
             ("caffeinate", "-i", "-w", pid)
             if sys.platform == "darwin"
-            else ("systemd-inhibit", "--what=idle:sleep", "--mode=block", f"--who={Path(sys.executable).name}", "--why=Rendering a queue", "tail", f"--pid={pid}", "-f", "/dev/null")
+            else ("systemd-inhibit", "--what=idle:sleep", "--mode=block", f"--who={Path(sys.executable).name}", "--why=Render queue", "tail", f"--pid={pid}", "-f", "/dev/null")
         )
 
         def released(holder: subprocess.Popen[bytes]) -> RenderingResult[None]:
@@ -74,7 +74,7 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def shut() -> RenderingResult[None]:
-    """Schedules the machine's shutdown one minute out."""
+    """Schedules machine shutdown in one minute."""
     return ran(
         ("shutdown", "/s", "/t", "60")
         if sys.platform == "win32"
@@ -85,7 +85,7 @@ def shut() -> RenderingResult[None]:
 
 
 def cancelled(progress: Progress) -> RenderingResult[None]:
-    """Cancels a scheduled shutdown."""
+    """Cancels scheduled shutdown."""
     return ran(("shutdown", "/a")) if sys.platform == "win32" else stop(progress) if sys.platform == "darwin" else ran(("shutdown", "-c"))
 
 

@@ -97,7 +97,7 @@ public sealed record FilmGrain(
             double footprint = key.Span.Pixels(key.Extent);
             (double width, double height) = (double.Ceiling(footprint), double.Ceiling(key.Scan.Frame.Size.Height * footprint / key.Scan.Frame.Size.Width));
             return width * height > System.Array.MaxLength
-                ? Error.New(string.Create(CultureInfo.InvariantCulture, $"film grain scan tile {width}x{height} exceeds {System.Array.MaxLength} texels"))
+                ? Error.New(string.Create(CultureInfo.InvariantCulture, $"Film grain scan tile {width}x{height} exceeds {System.Array.MaxLength} texels"))
                 : Try.lift(() => {
                     System.Drawing.Size dimensions = new((int)width, (int)height);
                     int pixels = dimensions.Width * dimensions.Height;
@@ -131,33 +131,33 @@ public sealed record FilmGrain(
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilmGrainParameter : IStateParameter<FilmGrain> {
     public static readonly FilmGrainParameter Intensity = new("intensity", StateParameter.Bounded(Lens<FilmGrain, NoiseDeviation>.New(static grain => grain.Intensity, static intensity => grain => grain with { Intensity = intensity })),
-        new("Intensity", "Spread of the grain factor multiplied into scene light, 0 adding no grain"));
+        new("Intensity", "Spread of light-multiplying grain factor, 0 off"));
     public static readonly FilmGrainParameter Size = new("size", StateParameter.Bounded(Lens<FilmGrain, ShortSideExtent>.New(static grain => grain.Size, static size => grain => grain with { Size = size }), ShortSideExtent.Presentation with { Soft = (1e-4f, 0.0125f) }),
-        new("Size", "Grain size as a share of the frame's short side"));
+        new("Size", "Grain size in frame short sides"));
     public static readonly FilmGrainParameter Chroma = new("chroma", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Chroma, static chroma => grain => grain with { Chroma = chroma })),
-        new("Chroma", "Share of each channel's own grain against grain every channel shares"));
+        new("Chroma", "Per-channel grain share against shared grain"));
     public static readonly FilmGrainParameter Seed = new("seed", StateParameter.Bounded(Lens<FilmGrain, Seed>.New(static grain => grain.Seed, static seed => grain => grain with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly FilmGrainParameter Timing = new("timing", new StateParameter<FilmGrain>.Record<Timing>(Lens<FilmGrain, Timing>.New(static grain => grain.Timing, static timing => grain => grain with { Timing = timing })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
     public static readonly FilmGrainParameter Hold = new("hold", StateParameter.Bounded(Lens<FilmGrain, Hold>.New(static grain => grain.Hold, static hold => grain => grain with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
     public static readonly FilmGrainParameter Shadows = new("shadows", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Shadows, static weight => grain => grain with { Shadows = weight })),
-        new("Shadows", "Grain weight below the shadow edge"));
+        new("Shadows", "Grain weight below shadow edge"));
     public static readonly FilmGrainParameter Midtones = new("midtones", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Midtones, static weight => grain => grain with { Midtones = weight })),
-        new("Midtones", "Grain weight between the shadow edge and the highlight start"));
+        new("Midtones", "Grain weight between shadow edge and highlight start"));
     public static readonly FilmGrainParameter Highlights = new("highlights", StateParameter.Bounded(Lens<FilmGrain, AxisFraction>.New(static grain => grain.Highlights, static weight => grain => grain with { Highlights = weight })),
-        new("Highlights", "Grain weight from the highlight end up"));
+        new("Highlights", "Grain weight from highlight end up"));
     public static readonly FilmGrainParameter ShadowEdge = new("shadow-edge", StateParameter.Bounded(Lens<FilmGrain, Magnitude>.New(static grain => grain.ShadowEdge, static edge => grain => grain with { ShadowEdge = edge }), new Presentation<float>()),
-        new("Shadow edge", "Exposed luminance where the shadow weight reaches 0"));
+        new("Shadow edge", "Exposed luminance where shadow weight reaches 0"));
     public static readonly FilmGrainParameter MidtoneSpan = new("midtone-span", StateParameter.Bounded(Lens<FilmGrain, Magnitude>.New(static grain => grain.MidtoneSpan, static span => grain => grain with { MidtoneSpan = span }), new Presentation<float>()),
-        new("Midtone span", "Luminance span from the shadow edge to the highlight band"));
+        new("Midtone span", "Luminance span from shadow edge to highlight band"));
     public static readonly FilmGrainParameter HighlightSpan = new("highlight-span", StateParameter.Bounded(Lens<FilmGrain, Magnitude>.New(static grain => grain.HighlightSpan, static span => grain => grain with { HighlightSpan = span }), new Presentation<float>()),
-        new("Highlight span", "Luminance span over which the highlight weight reaches full"));
+        new("Highlight span", "Luminance span where highlight weight ramps to full"));
     public static readonly FilmGrainParameter Scan = new("scan", new StateParameter<FilmGrain>.Loaded<ImageFile, ImagePath, string>(Lens<FilmGrain, Option<ImageFile>>.New(static grain => grain.Scan, static scan => grain => grain with { Scan = scan }), ImageFile.Load, static scan => scan.Path),
         new("Scan", "Grain image scored by channel ranks"));
     public static readonly FilmGrainParameter ScanSpan = new("scan-span", StateParameter.Bounded(Lens<FilmGrain, ShortSideExtent>.New(static grain => grain.ScanSpan, static span => grain => grain with { ScanSpan = span })),
-        new("Scan span", "Scan width as a share of the frame's short side"));
+        new("Scan span", "Scan width in frame short sides"));
 
     public StateParameter<FilmGrain> Kind { get; }
     public ParameterText Text { get; }
@@ -195,17 +195,17 @@ public sealed record SensorNoise(NoiseDeviation Shot, NoiseDeviation Read, AxisF
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SensorNoiseParameter : IStateParameter<SensorNoise> {
     public static readonly SensorNoiseParameter Shot = new("shot", StateParameter.Bounded(Lens<SensorNoise, NoiseDeviation>.New(static noise => noise.Shot, static shot => noise => noise with { Shot = shot })),
-        new("Shot", "Noise deviation at middle gray, rising with the square root of exposed light"));
+        new("Shot", "Noise deviation at middle gray, rising with square root of light"));
     public static readonly SensorNoiseParameter Read = new("read", StateParameter.Bounded(Lens<SensorNoise, NoiseDeviation>.New(static noise => noise.Read, static read => noise => noise with { Read = read })),
-        new("Read", "Noise deviation independent of the signal"));
+        new("Read", "Noise deviation independent of signal"));
     public static readonly SensorNoiseParameter Chroma = new("chroma", StateParameter.Bounded(Lens<SensorNoise, AxisFraction>.New(static noise => noise.Chroma, static chroma => noise => noise with { Chroma = chroma })),
-        new("Chroma", "Share of each channel's own noise against noise every channel shares"));
+        new("Chroma", "Per-channel noise share against shared noise"));
     public static readonly SensorNoiseParameter Seed = new("seed", StateParameter.Bounded(Lens<SensorNoise, Seed>.New(static noise => noise.Seed, static seed => noise => noise with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly SensorNoiseParameter Timing = new("timing", new StateParameter<SensorNoise>.Record<Timing>(Lens<SensorNoise, Timing>.New(static noise => noise.Timing, static timing => noise => noise with { Timing = timing })),
-        new("Timing", "Stored time and rate of recorded frame time"));
+        new("Timing", "Start time and pace over recorded frames"));
     public static readonly SensorNoiseParameter Hold = new("hold", StateParameter.Bounded(Lens<SensorNoise, Hold>.New(static noise => noise.Hold, static hold => noise => noise with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
 
     public StateParameter<SensorNoise> Kind { get; }
     public ParameterText Text { get; }

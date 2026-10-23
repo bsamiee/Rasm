@@ -15,16 +15,16 @@ from blender.imaging.faults import ImagingResult
 
 
 class WhiteBalance(Effect, frozen=True, kw_only=True, tag=8):
-    """Adapts the source white to the target white through the Bradford cone response."""
+    """Adapts source white to target white through Bradford cone response."""
 
     stage = Stage.WHITE_BALANCE
     pointwise = True
-    source: Annotated[White, msgspec.Meta(description="White in the frame that becomes the target white")] = White()
-    target: Annotated[White, msgspec.Meta(description="White the source white becomes")] = White()
+    source: Annotated[White, msgspec.Meta(description="Frame white")] = White()
+    target: Annotated[White, msgspec.Meta(description="Output white")] = White()
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the XYZ adaptation between the scene-linear conversion and its inverse."""
+        """Returns XYZ adaptation between scene-linear conversion and its inverse."""
         reading = xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)
         return Ok(
             Some(PyOpenColorIO.GroupTransform([reading, matrix(adaptation(self.source.xyz, self.target.xyz)), PyOpenColorIO.GroupTransform([reading], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)]))

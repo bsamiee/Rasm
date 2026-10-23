@@ -1,4 +1,4 @@
-"""Native prefix capture, same-runtime CPU effects, and pass-preserving render replay."""
+"""Render jobs running CPU effect stages over captured compositor prefixes."""
 
 from collections import deque
 from collections.abc import Generator, Mapping
@@ -51,10 +51,10 @@ type Staged = tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree, Snapsho
 
 
 class Execution:
-    """One native job's leased engine, captured passes, images, and transient entry groups."""
+    """Render job owning capture files, replay tiles, and temporary data."""
 
     def __init__(self, identity: Identity, stack: EffectStack, scene: bpy.types.Scene, precision: Precision) -> None:
-        """Retains request inputs before acquiring the job's native resources."""
+        """Stores inputs and current OCIO config."""
         self.identity, self.stack, self.scene, self.precision = identity, stack, scene, precision
         self.config = PyOpenColorIO.GetCurrentConfig()
         self.scope = ExitStack()
@@ -67,7 +67,7 @@ class Execution:
 
     @contextmanager
     def isolated(self, sources: tuple[bpy.types.Scene, ...]) -> Generator[BlenderResult[None]]:
-        """Copies capture graphs so authored file outputs and Viewers remain untouched."""
+        """Swaps render-enabled groups for copies with output nodes muted until scope exit."""
         with ExitStack() as scope:
 
             @cache
@@ -100,7 +100,7 @@ class Execution:
 
     @staticmethod
     def bounds(source: bpy.types.Scene) -> tuple[int, int, int, int, int, int]:
-        """Reads whole-frame and native float32 border coordinates before EXR loses placement."""
+        """Returns scaled frame size and border pixel edges in Blender's float32 arithmetic."""
         render = source.render
         width, height = (side * render.resolution_percentage // 100 for side in (render.resolution_x, render.resolution_y))
         edges = (
@@ -116,7 +116,7 @@ class Execution:
         return width, height, *edges
 
     def raster(self, frame: int) -> tuple[str, Path, OpenImageIO.ImageSpec]:
-        """Declares an exact raster and separately retained camera DATA and FULL windows."""
+        """Returns capture name, EXR path, and spec with border data window."""
         width, height, left, bottom, right, top = self.bounds(self.scene)
         crop = self.scene.render.use_border and self.scene.render.use_crop_to_border
         name = f"{self.scene.session_uid}_{frame}_entering"
@@ -126,7 +126,7 @@ class Execution:
         return name, Path(bpy.app.tempdir, f"{name}.exr"), spec
 
     def captured(self, source: bpy.types.Scene, frame: int) -> BlenderResult[None]:
-        """Reads this source scene's actual multilayer result with native pass and view identities."""
+        """Saves source render result as multilayer EXR indexed for replay."""
 
         def retained(path: str) -> BlenderResult[None]:
             self.files.add(Path(path))
@@ -135,7 +135,7 @@ class Execution:
         return saved(source).bind(retained)
 
     def indexed(self, file: Multilayer, source: bpy.types.Scene, frame: int) -> BlenderResult[None]:
-        """Adapts native channel identities, stamps, and border-relative tiles to replay."""
+        """Stores file layers as replay tiles cropped to border."""
         groups: dict[tuple[str, str], list[tuple[Pass, npt.NDArray[np.float32]]]] = {}
         names = tuple(sorted((layer.name for layer in source.view_layers), key=len, reverse=True))
         width, height, left, bottom, right, top = self.bounds(source)
@@ -161,7 +161,7 @@ class Execution:
         return accumulated(plane(layer) for layer in file.layers).map(retained)
 
     def output(self, name: str, spec: OpenImageIO.ImageSpec, *, demand: bool) -> BlenderResult[Fragment]:
-        """Realizes the prefix on its known canvas while retaining suffix scene render demands."""
+        """Builds capture graph writing stack input at spec size, adding source Render Layers on `demand`."""
         raw = tuple((source, layer.name) for source in self.sources for layer in source.view_layers if layer.use) if demand else ()
         return Fragment.joined(
             node("capture_domain", bpy.types.CompositorNodeBlankImage, {"Size": (spec.width, spec.height)}, {}),
@@ -177,7 +177,7 @@ class Execution:
         )
 
     def formatted(self, tree: bpy.types.NodeTree) -> BlenderResult[None]:
-        """Sets full-float data capture with interleaved views and no display conversion."""
+        """Sets capture output to 32-bit interleaved multiview scene linear EXR."""
         capture = next(live for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeOutputFile) and Mark.read(self.identity, live).filter(lambda mark: mark.key == "capture_file").is_some())
         return (
             OutputFormat
@@ -206,7 +206,7 @@ class Execution:
     # --- [PREPARATION]
 
     def image(self, key: Key, buffer: OpenImageIO.ImageBuf) -> BlenderResult[tuple[Fragment, End]]:
-        """Publishes associated numerical components without another color transform."""
+        """Returns Image node and socket over buffer pixels as premultiplied data."""
 
         def imaged(values: npt.NDArray[np.float32]) -> BlenderResult[tuple[Fragment, End]]:
             def populated(live: bpy.types.Image) -> BlenderResult[tuple[Fragment, End]]:
@@ -229,7 +229,7 @@ class Execution:
     def stage(
         self, entry: bpy.types.SceneCompositorEffect, row: Placeable[Effect | DisplayView], path: Path, spec: OpenImageIO.ImageSpec
     ) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
-        """Prepares each native view from evaluated entry controls and real entering pixels."""
+        """Prepares entry per view from evaluated controls and captured pixels."""
         with bpy.context.temp_override(scene=self.scene):
             graph = bpy.context.evaluated_depsgraph_get()
             evaluated = self.scene.evaluated_get(graph)
@@ -258,7 +258,7 @@ class Execution:
     def published(
         self, entry: bpy.types.SceneCompositorEffect, row: Placeable[Effect | DisplayView], reading: bpy.types.SceneCompositorEffect, views: tuple[tuple[str, Prepared], ...]
     ) -> BlenderResult[tuple[bpy.types.NodeTree, Snapshot, Entry[Effect]]]:
-        """Builds the job-owned group with blend, effective controls, hidden inputs, and native view routing."""
+        """Builds and assigns job-owned entry group over prepared controls and images."""
         effective = views[0][1][0]
 
         def selected(key: Key) -> BlenderResult[tuple[Key, tuple[Fragment, End]]]:
@@ -303,7 +303,7 @@ class Execution:
     # --- [LIFETIME]
 
     def native(self, properties: Mapping[str, object]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
-        """Records the explicit job's output encoding at production, before restoring authored controls."""
+        """Runs `render.render`, recording `Production` of Render Result and Viewer images."""
         enabled = tuple(held for held in self.stack.held(self.identity, self.scene) if held.entry.enable_for_render) if self.scene.render.use_compositing else ()
 
         def routed(link: bpy.types.NodeLink, entering: BlenderResult[Option[str]], space: BlenderResult[Option[str]]) -> BlenderResult[Option[str]]:
@@ -373,14 +373,14 @@ class Execution:
         return paired(space, viewer).bind(rendered)
 
     def restored(self, original: tuple[tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree | None, Snapshot], ...]) -> None:
-        """Restores authored pointers before their original native input values."""
+        """Restores authored entry groups and inputs, holding faults in reports."""
         for entry, group, inputs in original:
             entry.node_group = group
             for faults in interface(entry).bind(lambda found: inputs.apply(found).outcome).swap().to_option().to_list():
                 self.identity.reports.hold(faults)
 
     def selected(self, scene: bpy.types.Scene, _graph: bpy.types.Depsgraph | None = None) -> None:
-        """Assigns a frame's prepared groups before native animation dependency evaluation."""
+        """Assigns current frame's prepared groups from `frame_change_pre`."""
         if scene.session_uid == self.scene.session_uid:
             for entry, group, inputs, effective in self.prepared[self.scene.frame_current]:
                 entry.node_group = group
@@ -393,7 +393,7 @@ class Execution:
                     self.identity.reports.hold(faults)
 
     def removed(self) -> None:
-        """Releases capture files and retains filesystem refusals in native reports."""
+        """Deletes capture files, holding OS errors in reports."""
         for path in self.files:
             for faults in catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=path, error=error),)).swap().to_option().to_list():
                 self.identity.reports.hold(faults)
@@ -406,7 +406,7 @@ class Execution:
         original: tuple[tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree | None, Snapshot], ...],
         engines: tuple[tuple[bpy.types.Scene, str], ...],
     ) -> BlenderResult[None]:
-        """Captures geometry once, then advances CPU preparation through native replay prefixes."""
+        """Captures frame render once, then prepares each CPU stage from replayed prefix."""
         self.restored(original)
         for source, original_engine in engines:
             source.render.engine = original_engine  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -451,7 +451,7 @@ class Execution:
         ).map(lambda completed: self.prepared.update({frame: completed}))
 
     def rendered(self, properties: Mapping[str, object]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
-        """Holds all resources through the final native still, animation, or movie output."""
+        """Prepares every frame, then renders through replay engine."""
         scene = self.scene
         pending = deque((scene,))
         found: dict[int, bpy.types.Scene] = {}
@@ -515,12 +515,12 @@ class Execution:
 
 
 def interface(entry: bpy.types.SceneCompositorEffect) -> "BlenderResult[bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]]":
-    """Resolves the group-generated `properties.inputs` struct, absent while the entry holds no group."""
+    """Resolves `properties.inputs`, absent without a group."""
     return struct_at(entry, "properties.inputs").to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="properties.inputs"),))
 
 
 def rendered(identity: Identity, stack: EffectStack, scene: bpy.types.Scene, precision: Precision, properties: Mapping[str, object]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
-    """Runs numerical stages where present, otherwise invokes the native renderer directly."""
+    """Renders through any stack CPU stages under compositing, else runs `render.render`."""
     execution = Execution(identity, stack, scene, precision)
     return execution.rendered(properties) if scene.render.use_compositing and stack.stages(identity, scene) else execution.native(properties)
 

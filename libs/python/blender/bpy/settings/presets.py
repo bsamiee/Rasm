@@ -1,4 +1,4 @@
-"""Typed stock recipes and user preset files, with native snapshot clipboard transfer."""
+"""Typed stock presets, user preset files, and snapshot clipboard transfer."""
 
 from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
@@ -20,14 +20,14 @@ from blender.rendering.edits import merge, transfer
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]", max_length=64, description="Name of the preset and its file")]
+type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]", max_length=64, description="Preset and file name")]
 type Stock[T] = Mapping[str, T | Path]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Typed compiled recipes shadowed by user-owned JSON files of one record type."""
+    """Record type presets, user JSON files overriding stock by stem."""
 
     key: Key
     form: TypeForm[T]
@@ -38,27 +38,27 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     # --- [LISTING]
 
     def folder(self, identity: Identity) -> Path:
-        """Returns the store's writable user folder."""
+        """Returns user preset folder."""
         return self.directory.default_with(lambda: identity.folder / "presets" / self.key)
 
     def listed(self, identity: Identity) -> Stock[T]:
-        """Returns stem-keyed compiled recipes and user paths in case-folded order."""
+        """Returns presets and user paths by case-folded stem."""
         rows: dict[str, T | Path] = {**self.stock, **{path.stem: path for path in self.folder(identity).glob("*.json")}}
         return {stem: rows[stem] for stem in sorted(rows, key=lambda stem: (stem.casefold(), stem))}
 
     def entries(self, identity: Identity, *_: object) -> Iterator[tuple[str, str, str]]:
-        """Returns native enum rows with stable stems and source tooltips."""
+        """Returns enum rows with path or docstring tooltips."""
         return ((stem, bpy.path.display_name(stem), str(value) if isinstance(value, Path) else value.__doc__ or "") for stem, value in self.listed(identity).items())
 
     def found(self, identity: Identity, stem: str) -> BlenderResult[T | Path]:
-        """Returns a compiled recipe or user path, or an absent fault for its stem."""
+        """Returns stock preset or user path of stem."""
         found: Option[T | Path] = Option.of_optional(self.listed(identity).get(stem))
         return found.to_result_with(lambda: (BlenderAbsentFault(owner=str(self.folder(identity)), key=stem),))
 
     # --- [FILES]
 
     def read(self, source: Path) -> BlenderResult[T]:
-        """Decodes a user file, returning read faults or its domain admission faults."""
+        """Decodes and validates user file."""
         try:
             value = msgspec.json.decode(source.read_bytes(), type=self.form)
         except (OSError, msgspec.DecodeError) as error:
@@ -67,7 +67,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def written(target: Path, value: msgspec.Struct) -> BlenderResult[Path]:
-        """Writes typed JSON at the requested path, returning that path or a write fault."""
+        """Writes JSON at target."""
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(msgspec.json.encode(value, order="deterministic"))
@@ -76,7 +76,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return Ok(target)
 
     def saved(self, identity: Identity, name: PresetName, value: T) -> BlenderResult[Path]:
-        """Creates one user preset, returning its path, a collision, or a write fault."""
+        """Creates user preset file, `collision` fault when it exists."""
         target = self.folder(identity) / f"{AddPresetBase.as_filename(name)}.json"
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -90,7 +90,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def renamed(source: Path, name: PresetName) -> BlenderResult[Path]:
-        """Moves a user preset to an unoccupied name, returning its path or native file faults."""
+        """Moves user preset to a free name."""
         target = source.with_stem(AddPresetBase.as_filename(name))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         try:
             move_atomic(str(source), str(target))
@@ -101,11 +101,11 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return Ok(target)
 
     def imported(self, identity: Identity, source: Path) -> BlenderResult[Path]:
-        """Imports a decoded file, returning the user path or read, admission, or write faults."""
+        """Copies validated file into user folder."""
         return self.read(source).bind(lambda value: self.written((self.folder(identity) / source.name).with_suffix(".json"), value))
 
     def exported(self, source: Path, target: Path) -> BlenderResult[Path]:
-        """Exports a user file, returning the target or read, admission, or write faults."""
+        """Writes validated user file to target."""
         return self.read(source).bind(lambda value: self.written(target, value))
 
 
@@ -113,17 +113,17 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 def removed(source: Path) -> BlenderResult[None]:
-    """Removes a file, returning None or its native write fault."""
+    """Deletes file."""
     return catch(source.unlink, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=source, error=error),))
 
 
 def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
-    """Copies a typed native snapshot to the system clipboard."""
+    """Copies snapshot to system clipboard as JSON."""
     manager.clipboard = msgspec.json.encode(snapshot, order="deterministic").decode()
 
 
 def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> BlenderResult[tuple[Applied, ...]]:
-    """Transfers clipboard values onto each owner's members, returning native outcomes or faults."""
+    """Applies clipboard snapshot to each owner."""
     try:
         clip = msgspec.json.decode(manager.clipboard, type=Snapshot)
     except msgspec.DecodeError as error:

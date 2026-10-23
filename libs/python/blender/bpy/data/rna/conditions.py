@@ -1,4 +1,4 @@
-"""Declared requirements over native context, collections, jobs, and output state."""
+"""Requirements over context, collections, jobs, and output state."""
 
 from collections.abc import Callable, Mapping
 import os
@@ -28,7 +28,7 @@ type Condition = Setting | Present | Not | Count | Job | Extension | Folder | Hd
 
 
 class Setting(msgspec.Struct, frozen=True, kw_only=True):
-    """Native property holding one of its accepted values."""
+    """Property holding one of accepted values."""
 
     descriptor: Descriptor
     accepted: tuple[Value, ...] = (True,)
@@ -36,17 +36,17 @@ class Setting(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def message(self) -> str:
         """Property name and required values."""
-        return f"Requires {self.descriptor.prop.name}: {', '.join(map(self.descriptor.shown, self.accepted))}"
+        return f"Requires {self.descriptor.prop.name} {' or '.join(map(self.descriptor.shown, self.accepted))}"
 
 
 class Present(msgspec.Struct, frozen=True, kw_only=True):
-    """Native pointer holding a target."""
+    """Pointer holding target."""
 
     descriptor: Descriptor[bpy.types.PointerProperty]
 
     @property
     def message(self) -> str:
-        """Required pointer's native name."""
+        """Required pointer name."""
         return f"Requires {self.descriptor.prop.name}"
 
 
@@ -57,18 +57,18 @@ class Not(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def message(self) -> str:
-        """Native property, pointer, or requirement being excluded."""
+        """Negated requirement."""
         match self.condition:
             case Setting(descriptor=descriptor, accepted=accepted):
-                return f"Requires {descriptor.prop.name} other than {', '.join(map(descriptor.shown, accepted))}"
+                return f"Requires {descriptor.prop.name} other than {' or '.join(map(descriptor.shown, accepted))}"
             case Present(descriptor=descriptor):
                 return f"Requires no {descriptor.prop.name}"
             case _:
-                return f"Requires the opposite of: {self.condition.message}"
+                return f"Requires opposite of {self.condition.message}"
 
 
 class Count(msgspec.Struct, frozen=True, kw_only=True):
-    """Collection containing a bounded number of admitted items."""
+    """Collection with bounded count of `where` matches."""
 
     collection: Descriptor[bpy.types.CollectionProperty]
     least: int = 1
@@ -77,13 +77,13 @@ class Count(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def message(self) -> str:
-        """Required count and the condition selecting its items."""
+        """Required count and condition selecting items."""
         items = self.where.map(lambda where: f"{self.collection.prop.name} ({where.message})").default_value(self.collection.prop.name)
         return self.most.map(lambda most: f"Requires {self.least} to {most} {items}").default_value(f"Requires at least {self.least} {items}")
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True):
-    """Native job required to be running or finished."""
+    """Job kind in required running state."""
 
     kind: "WmJobTypeItems"
     running: bool = False
@@ -91,7 +91,7 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def message(self) -> str:
         """Required job state."""
-        return f"Requires a {self.kind} job running" if self.running else f"Requires no {self.kind} job running"
+        return f"Requires {'' if self.running else 'no '}running {self.kind} job"
 
 
 class Extension(msgspec.Struct, frozen=True, kw_only=True):
@@ -102,7 +102,7 @@ class Extension(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def message(self) -> str:
         """Required module name."""
-        return f"Requires the {self.module} extension"
+        return f"Requires enabled {self.module} extension"
 
 
 class Folder(msgspec.Struct, frozen=True, kw_only=True):
@@ -113,40 +113,40 @@ class Folder(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def message(self) -> str:
-        """Required free space and native path setting."""
-        return f"Requires a writable folder with {self.least // 2**20} MiB free for {self.path.prop.name}"
+        """Required free space and path setting."""
+        return f"Requires writable {self.path.prop.name} folder with {self.least // 2**20} MiB free"
 
 
 class HdrWindow(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """HDR window showing a frame formed in an absolute PQ display space."""
+    """HDR window showing frame formed for absolute PQ display."""
 
     formed: Callable[[bpy.types.Context], Option[DisplayView]]
 
     @property
     def message(self) -> str:
-        """Display formation and window requirement."""
-        return "Requires a frame formed on a PQ display in a window with HDR color"
+        """HDR window requirement."""
+        return "Requires frame formed for PQ display in window with HDR color"
 
 
 class AnyOf(msgspec.Struct, frozen=True, kw_only=True):
-    """Requirements of which at least one must hold."""
+    """Disjunction of requirements."""
 
     conditions: tuple[Condition, ...]
 
     @property
     def message(self) -> str:
-        """Alternatives joined in their declaration order."""
+        """Alternatives in declaration order."""
         return " or ".join(condition.message for condition in self.conditions)
 
 
 class AllOf(msgspec.Struct, frozen=True, kw_only=True):
-    """Requirements of which every member must hold."""
+    """Conjunction of requirements."""
 
     conditions: tuple[Condition, ...]
 
     @property
     def message(self) -> str:
-        """Requirements joined in their declaration order."""
+        """Requirements in declaration order."""
         return " and ".join(condition.message for condition in self.conditions)
 
 
@@ -154,12 +154,12 @@ class AllOf(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def existing(path: Path) -> Path:
-    """Returns the deepest existing folder containing an absolute file or folder path."""
+    """Returns deepest existing folder on absolute path."""
     return next(folder for folder in (path, *path.parents) if folder.is_dir())
 
 
 def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> bool:
-    """Returns whether a requirement holds, rooting nested collection conditions at an item."""
+    """Whether requirement holds, nested collection conditions reading each item."""
     match condition:
         case Setting(descriptor=descriptor, accepted=accepted):
             return descriptor.owner_of(context, item).map(descriptor.read).filter(lambda held: any(descriptor.equal(held, value) for value in accepted)).is_some()
@@ -199,7 +199,7 @@ def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
 
 
 def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[None]:
-    """Returns success or every unmet member of a conjunction in declaration order."""
+    """Returns unmet fault per failing requirement, each `AllOf` member checked."""
     match condition:
         case AllOf(conditions=members):
             return accumulated(check(member, context, item) for member in members).map(lambda _: None)
@@ -208,7 +208,7 @@ def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
 
 
 def polled(condition: Option[Condition]) -> Mapping[str, object]:
-    """Returns the native class poll member testing a present condition."""
+    """Returns `poll` class member testing condition, empty when absent."""
     return condition.map(lambda held: {"poll": classmethod(lambda _cls, context: holds(held, context))}).default_value({})
 
 

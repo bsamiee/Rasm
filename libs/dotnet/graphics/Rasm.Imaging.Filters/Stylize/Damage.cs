@@ -17,11 +17,11 @@ public sealed record DamageMark(AxisFraction Likelihood, Hold Hold, AxisFraction
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DamageMarkParameter : IStateParameter<DamageMark> {
     public static readonly DamageMarkParameter Likelihood = new("likelihood", StateParameter.Bounded(Lens<DamageMark, AxisFraction>.New(static mark => mark.Likelihood, static likelihood => mark => mark with { Likelihood = likelihood })),
-        new("Likelihood", "Share of held periods showing these marks"));
+        new("Likelihood", "Held periods showing marks"));
     public static readonly DamageMarkParameter Hold = new("hold", StateParameter.Bounded(Lens<DamageMark, Hold>.New(static mark => mark.Hold, static hold => mark => mark with { Hold = hold })),
-        new("Hold", "Seconds each drawn pattern holds before the next"));
+        new("Hold", "Seconds between pattern redraws"));
     public static readonly DamageMarkParameter White = new("white", StateParameter.Bounded(Lens<DamageMark, AxisFraction>.New(static mark => mark.White, static white => mark => mark with { White = white })),
-        new("White", "Share of marks printing white, the remainder printing black"));
+        new("White", "Share of marks printing white, rest black"));
 
     public StateParameter<DamageMark> Kind { get; }
     public ParameterText Text { get; }
@@ -37,9 +37,9 @@ public sealed record FilmSpots(DamageMark Mark, PointCells Cells) : IStateRecord
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilmSpotsParameter : IStateParameter<FilmSpots> {
     public static readonly FilmSpotsParameter Mark = new("mark", new StateParameter<FilmSpots>.Record<DamageMark>(Lens<FilmSpots, DamageMark>.New(static spots => spots.Mark, static mark => spots => spots with { Mark = mark })),
-        new("Timing and polarity", "When these marks show and whether they print white or black"));
+        new("Timing and polarity", "Mark timing and print tone"));
     public static readonly FilmSpotsParameter Cells = new("cells", new StateParameter<FilmSpots>.Record<PointCells>(Lens<FilmSpots, PointCells>.New(static spots => spots.Cells, static cells => spots => spots with { Cells = cells })),
-        new("Cells", "Spacing, density, size, variation, spread, and softness of these marks"));
+        new("Cells", "Mark spacing, density, size, variation, spread, and softness"));
 
     public StateParameter<FilmSpots> Kind { get; }
     public ParameterText Text { get; }
@@ -144,40 +144,40 @@ public sealed partial class FilmDamageParameter : IStateParameter<FilmDamage> {
     private static readonly Presentation<float> Sway = ShortSideLength.Presentation with { Soft = (0f, 0.01f) };
 
     public static readonly FilmDamageParameter Specks = new("specks", new StateParameter<FilmDamage>.Record<FilmSpots>(Lens<FilmDamage, FilmSpots>.New(static damage => damage.Specks, static specks => damage => damage with { Specks = specks })),
-        new("Specks", "Independent timing, polarity, and point field of these marks"));
+        new("Specks", "Own timing, polarity, and point field"));
     public static readonly FilmDamageParameter Dirt = new("dirt", new StateParameter<FilmDamage>.Record<FilmSpots>(Lens<FilmDamage, FilmSpots>.New(static damage => damage.Dirt, static dirt => damage => damage with { Dirt = dirt })),
-        new("Dirt", "Independent timing, polarity, and point field of these marks"));
+        new("Dirt", "Own timing, polarity, and point field"));
     public static readonly FilmDamageParameter Blotches = new("blotches", new StateParameter<FilmDamage>.Record<FilmSpots>(Lens<FilmDamage, FilmSpots>.New(static damage => damage.Blotches, static blotches => damage => damage with { Blotches = blotches })),
-        new("Blotches", "Independent timing, polarity, and point field of these marks"));
+        new("Blotches", "Own timing, polarity, and point field"));
     public static readonly FilmDamageParameter Scratches = new("scratches", new StateParameter<FilmDamage>.Record<DamageMark>(Lens<FilmDamage, DamageMark>.New(static damage => damage.Scratches, static scratches => damage => damage with { Scratches = scratches })),
-        new("Scratches", "When these marks show and whether they print white or black"));
+        new("Scratches", "Mark timing and print tone"));
     public static readonly FilmDamageParameter ScratchCount = new("scratches-count", StateParameter.Bounded(Lens<FilmDamage, PrimaryScale>.New(static damage => damage.ScratchCount, static count => damage => damage with { ScratchCount = count }), new Presentation<float> { Soft = (1f, 20f) }),
         new("Scratch count", "Scratch lines across the frame width"));
     public static readonly FilmDamageParameter ScratchWidth = new("scratches-width", StateParameter.Bounded(Lens<FilmDamage, ShortSideLength>.New(static damage => damage.ScratchWidth, static width => damage => damage with { ScratchWidth = width }), Width),
-        new("Scratch width", "Scratch stroke width as a share of the frame's short side"));
+        new("Scratch width", "Scratch stroke width in frame short sides"));
     public static readonly FilmDamageParameter ScratchRate = new("scratches-rate", StateParameter.Bounded(Lens<FilmDamage, Frequency>.New(static damage => damage.ScratchRate, static rate => damage => damage with { ScratchRate = rate }), Rate),
         new("Scratch rate", "Scratch field evolution per second"));
     public static readonly FilmDamageParameter Hairs = new("hairs", new StateParameter<FilmDamage>.Record<DamageMark>(Lens<FilmDamage, DamageMark>.New(static damage => damage.Hairs, static hairs => damage => damage with { Hairs = hairs })),
-        new("Hairs", "When these marks show and whether they print white or black"));
+        new("Hairs", "Mark timing and print tone"));
     public static readonly FilmDamageParameter HairCount = new("hairs-count", StateParameter.Bounded(Lens<FilmDamage, Magnitude>.New(static damage => damage.HairCount, static count => damage => damage with { HairCount = count }), new Presentation<float> { Soft = (0f, 10f) }),
-        new("Hair count", "Mean hair strands per frame, including fractional counts"));
+        new("Hair count", "Mean hair strands per frame, fractions allowed"));
     public static readonly FilmDamageParameter HairWidth = new("hairs-width", StateParameter.Bounded(Lens<FilmDamage, ShortSideLength>.New(static damage => damage.HairWidth, static width => damage => damage with { HairWidth = width }), Width),
-        new("Hair width", "Hair stroke width as a share of the frame's short side"));
+        new("Hair width", "Hair stroke width in frame short sides"));
     public static readonly FilmDamageParameter HairLength = new("hairs-length", StateParameter.Bounded(Lens<FilmDamage, ShortSideExtent>.New(static damage => damage.HairLength, static length => damage => damage with { HairLength = length }),
         ShortSideExtent.Presentation with { Soft = (0.01f * ReferenceFrame.GreaterSide, 0.3f * ReferenceFrame.GreaterSide), Scale = TrackScale.Linear }),
-        new("Hair length", "Hair cell size as a share of the frame's short side"));
+        new("Hair length", "Hair cell size in frame short sides"));
     public static readonly FilmDamageParameter HairCurl = new("hairs-curl", StateParameter.Bounded(Lens<FilmDamage, NoiseDistortion>.New(static damage => damage.HairCurl, static curl => damage => damage with { HairCurl = curl }), new Presentation<float> { Soft = (0f, 4f) }),
-        new("Hair curl", "Bend of the hair field in hair cell sizes"));
+        new("Hair curl", "Hair bend in hair cell sizes"));
     public static readonly FilmDamageParameter HairRate = new("hairs-rate", StateParameter.Bounded(Lens<FilmDamage, Frequency>.New(static damage => damage.HairRate, static rate => damage => damage with { HairRate = rate }), Rate),
         new("Hair rate", "Hair field evolution per second"));
     public static readonly FilmDamageParameter WeaveX = new("weave-x", StateParameter.Bounded(Lens<FilmDamage, ShortSideLength>.New(static damage => damage.WeaveX, static weave => damage => damage with { WeaveX = weave }), Sway),
-        new("Weave X", "Horizontal gate weave as a share of the frame's short side"));
+        new("Weave X", "Horizontal gate weave in frame short sides"));
     public static readonly FilmDamageParameter WeaveY = new("weave-y", StateParameter.Bounded(Lens<FilmDamage, ShortSideLength>.New(static damage => damage.WeaveY, static weave => damage => damage with { WeaveY = weave }), Sway),
-        new("Weave Y", "Vertical gate weave as a share of the frame's short side"));
+        new("Weave Y", "Vertical gate weave in frame short sides"));
     public static readonly FilmDamageParameter WeaveRate = new("weave-rate", StateParameter.Bounded(Lens<FilmDamage, Frequency>.New(static damage => damage.WeaveRate, static rate => damage => damage with { WeaveRate = rate }), Frequency.Presentation with { Soft = (0.1f, 20f) }),
         new("Weave rate", "Gate weave noise cells per second"));
     public static readonly FilmDamageParameter Seed = new("seed", StateParameter.Bounded(Lens<FilmDamage, Seed>.New(static damage => damage.Seed, static seed => damage => damage with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly FilmDamageParameter Timing = new("timing", new StateParameter<FilmDamage>.Record<Timing>(Lens<FilmDamage, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
 
@@ -202,11 +202,11 @@ public sealed record FilmFlicker(Exposure Depth, Frequency Rate, Seed Seed, Timi
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilmFlickerParameter : IStateParameter<FilmFlicker> {
     public static readonly FilmFlickerParameter Depth = new("depth", StateParameter.Bounded(Lens<FilmFlicker, Exposure>.New(static flicker => flicker.Depth, static depth => flicker => flicker with { Depth = depth }), Exposure.Presentation with { Soft = (0f, 1f) }),
-        new("Depth", "Peak exposure swing of the flicker, in stops"));
+        new("Depth", "Peak flicker exposure swing in stops"));
     public static readonly FilmFlickerParameter Rate = new("rate", StateParameter.Bounded(Lens<FilmFlicker, Frequency>.New(static flicker => flicker.Rate, static rate => flicker => flicker with { Rate = rate }), Frequency.Presentation with { Soft = (1f, 60f) }),
         new("Rate", "Flicker noise cells per second"));
     public static readonly FilmFlickerParameter Seed = new("seed", StateParameter.Bounded(Lens<FilmFlicker, Seed>.New(static flicker => flicker.Seed, static seed => flicker => flicker with { Seed = seed })),
-        new("Seed", "Number selecting the field's pattern"));
+        new("Seed", "Number selecting pattern"));
     public static readonly FilmFlickerParameter Timing = new("timing", new StateParameter<FilmFlicker>.Record<Timing>(Lens<FilmFlicker, Timing>.New(static state => state.Timing, static timing => state => state with { Timing = timing })),
         new("Timing", "Stored time and rate of recorded frame time"));
 

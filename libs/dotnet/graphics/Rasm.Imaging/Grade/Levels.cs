@@ -35,7 +35,7 @@ public sealed partial class LevelsParameter : IStateParameter<Levels> {
     public static Lens<Levels, Exposure> WhitePoint { get; } = Lens<Levels, Exposure>.New(static levels => levels.White, static white => levels => levels with { White = white });
 
     public static readonly LevelsParameter Black = new("black-level", StateParameter.Bounded(BlackPoint.Lens, BlackPoint.Presentation),
-        new("Black", "Scene value mapped to zero, values below it passing unclamped"));
+        new("Black", "Scene value mapped to zero, lower values pass unclamped"));
     public static readonly LevelsParameter White = new("white-level", StateParameter.Bounded(WhitePoint),
         new("White", "Span above black mapped to one, in stops"));
 

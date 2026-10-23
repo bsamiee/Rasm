@@ -121,5 +121,5 @@ rule:
         - inside: {kind: argument, has: {field: name, kind: identifier, pattern: $ARM}}
         - matches: setter-arm
         - inside: {kind: argument, inside: {matches: union-switch}}
-message: '`$ARM` arm only writes host members from its case''s own fields'
-note: 'Use one case `Set(Action<THost> Write)` with arm `IO.lift(() => set.Write(target))` and write each caller''s setters in its `Write`'
+message: '`$ARM` arm writes host members from its case''s fields alone'
+note: 'Replace setter cases with one `Set(Action<<host>> Write)` case, arm `IO.lift(() => set.Write(<target>))`, and move caller setters into `Write`'

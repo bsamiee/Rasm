@@ -42,4 +42,4 @@ rule:
                 - not: {matches: rust-trait-or-extern-function}
                 - has: {field: body, has: {stopBy: end, matches: write, pattern: $WRITE}}
 message: '`$WRITE` writes the result of `$NAME` into its parameter `$P`'
-note: 'Return the value, or a `Result` holding it, and let the caller bind it'
+note: 'Return the value, in a `Result` when the function can fail, and bind it at each call site'

@@ -208,4 +208,4 @@ fix: |-
         $STATEMENTS$REST
     }
 message: '`for` over `$COLL` selects elements by a test at the top of its body'
-note: 'Select in the `for` header by `case <pattern>`, `.compactMap { }`, `where <a> && <b>` for a `guard`, or `where !(<test>)` for a leading `continue`'
+note: 'Select in the `for` header by `case <pattern>`, `.compactMap { }`, `where <a> && <b>` for a `guard`, `where !(<test>)` for an `if` with `continue`'

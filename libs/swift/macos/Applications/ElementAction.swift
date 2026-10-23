@@ -15,7 +15,7 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
     public var description: String {
         switch self {
             case .perform(let element, let action): "\(action) on \(element.base64EncodedString())"
-            case .set(let element, let value): "setting \(kAXValueAttribute) of \(element.base64EncodedString()) to \"\(value)\""
+            case .set(let element, let value): "set \(kAXValueAttribute) \"\(value)\" on \(element.base64EncodedString())"
         }
     }
 }

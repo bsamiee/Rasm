@@ -41,4 +41,4 @@ transform:
     STABLE: {replace: {source: $INLINE, replace: '^@_alwaysEmitIntoClient$', by: '@export(implementation)'}}
 fix: $STABLE
 message: '`$ATTR` spells an attribute through its underscored form'
-note: 'Write `@export(implementation)`, `@inline(always)` (`@inlinable` when `public`), or nothing on a recursive or non-final class member'
+note: 'Write `@export(implementation)` or `@inline(always)`, and delete `@inline` on a recursive or non-final class member'

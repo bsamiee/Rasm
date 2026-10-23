@@ -36,6 +36,6 @@ constraints:
     M: {matches: {effect-module: {name: {regex: '\bEffect$'}}}}
 fix: $GENERATOR
 message: '`$M.suspend` wraps `$M.gen`, an effect that defers its body'
-note: 'Keep the `<module>.gen` effect alone, a generator effect runs its body anew at each run'
+note: 'Remove the `Effect.suspend` wrapper around `Effect.gen`'
 labels:
     GENERATOR: {style: primary}

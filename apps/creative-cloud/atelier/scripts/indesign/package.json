@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier-indesign-script",
     "private": true,
-    "description": "UXP script Atelier runs in InDesign through do script, serving the InDesign contract one request per run",
+    "description": "UXP script serving one InDesign contract request per do script run",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",

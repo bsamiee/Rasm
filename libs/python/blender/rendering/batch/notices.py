@@ -1,4 +1,4 @@
-"""Queue events posted to an ntfy listener."""
+"""Queue notices posted to ntfy."""
 
 from fractions import Fraction
 from http import HTTPMethod
@@ -21,10 +21,10 @@ type Notice = Started | Estimated | Completed | Cancelled | Failed | Exhausted |
 
 
 class Listener(msgspec.Struct, frozen=True, kw_only=True):
-    """ntfy server and topic the queue notices post to."""
+    """ntfy server and topic."""
 
-    server: Annotated[Endpoint, msgspec.Meta(description="ntfy server the notices post to")] = Endpoint(url="https://ntfy.sh")
-    topic: Annotated[Gated[str], msgspec.Meta(description="ntfy topic the phone or desktop subscribes to, no notice posting while off")] = Gated(enabled=False, value="")
+    server: Annotated[Endpoint, msgspec.Meta(description="ntfy server")] = Endpoint(url="https://ntfy.sh")
+    topic: Annotated[Gated[str], msgspec.Meta(description="Topic devices subscribe to, no notices when off")] = Gated(enabled=False, value="")
 
 
 class Started(msgspec.Struct, frozen=True, kw_only=True):
@@ -48,31 +48,31 @@ class Completed(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Cancelled(msgspec.Struct, frozen=True, kw_only=True):
-    """Run stopped by the person."""
+    """Run stopped by user."""
 
     frames: int
 
 
 class Failed(msgspec.Struct, frozen=True, kw_only=True):
-    """Run ended by a fault."""
+    """Run ended by fault."""
 
     job: str
     reason: str
 
 
 class Exhausted(msgspec.Struct, frozen=True, kw_only=True):
-    """Run ended after its configured crash restarts."""
+    """Run ended at crash restart limit."""
 
     job: str
     attempts: int
 
 
 class Test(msgspec.Struct, frozen=True, kw_only=True):
-    """Explicit test of the configured queue listener."""
+    """Test post to listener."""
 
 
 class Publication(msgspec.Struct, frozen=True, kw_only=True):
-    """Notice in ntfy's JSON publish form."""
+    """Notice in ntfy JSON publish form."""
 
     topic: str
     title: str
@@ -85,7 +85,7 @@ class Publication(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def published(listener: Listener, notice: Notice) -> RenderingResult[None]:
-    """Posts a notice to the listener's topic."""
+    """Posts notice when topic is enabled."""
 
     def spent(seconds: float | Fraction) -> str:
         return f"{seconds:,.0f} s"
@@ -93,18 +93,18 @@ def published(listener: Listener, notice: Notice) -> RenderingResult[None]:
     tags: tuple[str, ...]
     match notice:
         case Test():
-            title, message, priority, tags = "Render Queue Test", "Render queue notifications are configured", 3, ()
+            title, message, priority, tags = "Render Queue Test", "Render queue notifications configured", 3, ()
         case Started(jobs=jobs, frames=frames):
             title, message, priority, tags = "Render Started", f"{frames} frames in {jobs} jobs", 3, ("racehorse",)
         case Estimated(estimate=estimate):
-            finish = estimate.finish.map(lambda moment: f", finishing at {moment:%H:%M}").default_value("")
+            finish = estimate.finish.map(lambda moment: f", done at {moment:%H:%M}").default_value("")
             title, message, priority, tags = "Render Estimated", f"{spent(estimate.seconds)} left{finish}", 3, ("hourglass",)
         case Completed(frames=frames, seconds=seconds):
             title, message, priority, tags = "Render Finished", f"{frames} frames in {spent(seconds)}", 3, ("white_check_mark",)
         case Cancelled(frames=frames):
-            title, message, priority, tags = "Render Cancelled", f"Stopped after {frames} frames", 4, ("warning",)
+            title, message, priority, tags = "Render Canceled", f"Stopped after {frames} frames", 4, ("warning",)
         case Failed(job=job, reason=reason):
-            title, message, priority, tags = "Render Failed", f"{job}: {reason}", 5, ("x",)
+            title, message, priority, tags = "Render Failed", f"{job} · {reason}", 5, ("x",)
         case Exhausted(job=job, attempts=attempts):
             title, message, priority, tags = "Render Failed", f"{job} crashed {attempts} times", 5, ("x",)
     publication = Publication(topic=listener.topic.value, title=title, message=message, priority=priority, tags=tags)

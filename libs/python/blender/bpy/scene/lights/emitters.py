@@ -1,4 +1,4 @@
-"""Emitters by one walk, the active emitter, the selection write over emitters, and owned mesh lights."""
+"""Emitter discovery, active emitter, emitter selection, and owned mesh lights."""
 
 from collections import deque
 from collections.abc import Callable
@@ -36,34 +36,34 @@ from blender.rendering.history import Retention
 class MeshLight(msgspec.Struct, frozen=True, kw_only=True):
     """Emissive square a person edits as one light."""
 
-    size: Annotated[NonNegative, msgspec.Meta(description="Edge length of the emitting square"), Presentation(soft=Some((0.0254, 3.048)), quantity=Some(Quantity.LENGTH))] = 0.9144
-    strength: Annotated[NonNegative, msgspec.Meta(description="Emission strength of the front face"), Presentation(soft=Some((0.0, 100.0)), decimals=Some(2))] = 1.0
-    color: Annotated[Rgb[Finite], msgspec.Meta(description="Filter on the emission")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    size: Annotated[NonNegative, msgspec.Meta(description="Square edge length"), Presentation(soft=Some((0.0254, 3.048)), quantity=Some(Quantity.LENGTH))] = 0.9144
+    strength: Annotated[NonNegative, msgspec.Meta(description="Emission strength"), Presentation(soft=Some((0.0, 100.0)), decimals=Some(2))] = 1.0
+    color: Annotated[Rgb[Finite], msgspec.Meta(description="Emission filter")] = Rgb(red=1.0, green=1.0, blue=1.0)
     temperature: Annotated[
         Gated[Annotated[float, msgspec.Meta(ge=800.0, le=20000.0)]],
         msgspec.Meta(description="Blackbody color the color filters"),
         Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE)),
     ] = Gated(enabled=True, value=5500.0)
-    single_sided: Annotated[bool, msgspec.Meta(description="Emit from the front face alone")] = True
+    single_sided: Annotated[bool, msgspec.Meta(description="Front face alone emits")] = True
     constant: Annotated[bool, msgspec.Meta(title="Constant Falloff", description="Strength equal at every distance")] = False
-    camera: Annotated[bool, msgspec.Meta(description="Show the emitting face to the camera")] = False
+    camera: Annotated[bool, msgspec.Meta(description="Visible to camera")] = False
 
 
 class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
-    """Row attaching `MeshLight` to objects with its add operator, reconcile, and section."""
+    """Mesh light attachment, add operator, and section."""
 
     retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
 
     @staticmethod
     def reshaped(light: Handle[bpy.types.Object], identity: Identity) -> BlenderResult[Option[str]]:
-        """Reconciles a mesh light to the record it stores, the write a record edit defers.
+        """Reconciles mesh light to stored record in deferred write.
 
         Args:
-            light: Handle of the mesh light object.
-            identity: Identity binding the attachment and marking owned data.
+            light: Handle of mesh light object.
+            identity: Identity binding attachment and marking owned data.
 
         Returns:
-            `Ok` of `Nothing`, a reconcile pushing no undo step; `absent` for an object the file no longer holds, `register`, `read`, and the faults of `lit`.
+            `Nothing` naming no undo step, or `absent`, `register`, `read`, and `lit` faults.
         """
         return paired(light.resolve(), MeshLights.attachment.bound(identity)).bind(lambda pair: pair[1].read(pair[0]).bind(lambda record: lit(record, pair[0], identity))).map(lambda _: Nothing)
 
@@ -74,7 +74,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
     add: ClassVar[Operator[MeshLight]] = Operator(
         key="mesh_light_add",
         title="Mesh Light",
-        description="Add an emissive square at the 3D cursor",
+        description="Add emissive square at 3D cursor",
         form=MeshLight,
         run=lambda call: (
             paired(call.root(bpy.types.Scene), call.root(bpy.types.Collection))
@@ -84,11 +84,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
     )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the attachment, the ownership merges, the add operator, and its Add Light menu entry.
-
-        Returns:
-            `Ok` of every band and acquisition pair, or every construction fault.
-        """
+        """Returns attachment, ownerships, add operator, its Add Light menu entry, and section."""
         return Ok((
             MeshLights.attachment,
             MeshLights.light,
@@ -98,7 +94,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
         ))
 
     def section(self) -> Section:
-        """Section drawing the active object's mesh light record."""
+        """Returns mesh light section of active object."""
         return Single(
             key="mesh_light", title="Mesh Light", store=Some(Hosted(host=Member(root=bpy.types.LayerObjects, path="active"), store=Store(attachment=MeshLights.attachment, retention=self.retention)))
         )
@@ -108,14 +104,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, ...]:
-    """Answers the emitting strength sockets a material's active output reaches.
-
-    Args:
-        material: Material whose tree is walked.
-
-    Returns:
-        Each linked or positive strength socket of an Emission or Principled node, in walk order.
-    """
+    """Returns linked or positive Emission and Principled BSDF strength sockets reaching active Cycles output."""
     type State = tuple[bpy.types.Node, bpy.types.NodeSocket, tuple[bpy.types.ShaderNodeGroup, ...]]
     emitted: dict[type[bpy.types.Node], str] = {bpy.types.ShaderNodeEmission: "Strength", bpy.types.ShaderNodeBsdfPrincipled: "Emission Strength"}
     pending: deque[State] = deque(
@@ -159,56 +148,34 @@ def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, 
 
 
 def emitting(item: bpy.types.Object) -> bool:
-    """Whether an object is a light or holds an emitting slot material."""
+    """Returns whether object is a light or has an emitting material."""
     return isinstance(item.data, bpy.types.Light) or any(strengths(slot.material) for slot in item.material_slots if slot.material is not None)
 
 
 def emitters(owner: bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object) -> tuple[bpy.types.Object, ...]:
-    """Answers the emitters of a scene, a view layer, or one object.
-
-    Args:
-        owner: Scene, view layer, or object a scope reaches.
-
-    Returns:
-        The emitting objects in the owner's object order.
-    """
+    """Returns emitting objects of scene, view layer, or one object in owner order."""
     return tuple(item for item in (owner.objects if isinstance(owner, bpy.types.Scene | bpy.types.ViewLayer) else (owner,)) if emitting(item))
 
 
 def focused(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Object]:
-    """Answers the active object of a view layer, the emitter a row edits.
-
-    Args:
-        view_layer: View layer whose active object is read.
-
-    Returns:
-        `Ok` of the active object; `absent` holding the layer's objects where none is active.
-    """
+    """Returns active object of view layer, `absent` when none is active."""
     objects = view_layer.objects
     return Option.of_optional(objects.active).to_result_with(lambda: (BlenderAbsentFault(owner=repr(objects), key="active"),))
 
 
 def picked(chosen: frozenset[bpy.types.Object], view_layer: bpy.types.ViewLayer) -> BlenderResult[None]:
-    """Selects the chosen objects of a view layer and deselects every other.
-
-    Args:
-        chosen: Objects left selected.
-        view_layer: View layer whose base flags change.
-
-    Returns:
-        `Ok` once written; the `edit` faults `scene.objects` `reconciled` answers.
-    """
+    """Selects chosen objects of view layer alone."""
     return accumulated(reconciled(ObjectState(selected=Some(item in chosen)), item, (view_layer,)) for item in view_layer.objects).map(lambda _: None)
 
 
 def emission_graph(record: MeshLight) -> BlenderResult[Graph]:
-    """Answers the shader tree a mesh light record derives.
+    """Returns shader graph of mesh light record.
 
     Args:
         record: Mesh light values.
 
     Returns:
-        `Ok` of the graph; `absent` or `choice` for a node member the node classes lack.
+        Graph, or `absent` and `choice` faults for missing node members.
     """
     rgba, tinted, constant, sided = (*msgspec.structs.astuple(record.color), 1.0), record.temperature.enabled, record.constant, record.single_sided
     surface = (
@@ -258,15 +225,15 @@ def emission_graph(record: MeshLight) -> BlenderResult[Graph]:
 
 
 def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> BlenderResult[None]:
-    """Rewrites a mesh light's quad, material graph, slot, and ray visibility from its record.
+    """Writes mesh light quad, material graph, slot, and ray visibility from record.
 
     Args:
         record: Mesh light values.
         item: Owned mesh light object.
-        identity: Identity marking the material and its nodes.
+        identity: Identity marking material and nodes.
 
     Returns:
-        `Ok` once written; the faults of the graph, its reconcile, the sampling write, and the object reconcile.
+        `Ok` once written, or graph, sampling, and object faults.
     """
     half = record.size / 2.0
     visibility = Snapshot.of(bpy.types.Object, {"visible_camera": record.camera, "visible_shadow": False, "show_wire": True, "show_all_edges": True})
@@ -297,16 +264,16 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
 
 
 def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collection, identity: Identity) -> BlenderResult[bpy.types.Object]:
-    """Builds an owned mesh light at the 3D cursor and stores and draws its record.
+    """Creates owned mesh light at 3D cursor, storing and applying record.
 
     Args:
         record: Mesh light values.
-        scene: Scene whose cursor places the light.
-        collection: Collection receiving the light.
-        identity: Identity marking the object, material, and nodes.
+        scene: Scene with cursor placing light.
+        collection: Collection receiving light.
+        identity: Identity marking object, material, and nodes.
 
     Returns:
-        `Ok` of the mesh light; `register`, `edit`, and the faults of `lit`.
+        Mesh light, or `register`, `edit`, and `lit` faults.
     """
 
     def configured(item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:

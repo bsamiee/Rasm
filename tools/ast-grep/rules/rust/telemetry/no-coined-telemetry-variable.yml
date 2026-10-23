@@ -35,5 +35,5 @@ rule:
                     kind: field_declaration
                     has: {field: name, pattern: $NAME, regex: '(^|_)(otlp|otel|opentelemetry|telemetry)(_|$)', not: {regex: '^otel_'}}
     not: {matches: rust-test-scope}
-message: '`$NAME` names a telemetry variable outside the `OTEL_` names OpenTelemetry specifies'
-note: 'Read the setting from the `OTEL_*` variable the OpenTelemetry environment specification names (`OTEL_TRACES_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`), or flatten `rasm_telemetry::Options`, which reads it'
+message: '`$NAME` names a telemetry environment variable outside the OpenTelemetry `OTEL_*` set'
+note: 'Flatten `rasm_telemetry::Options` through `#[command(flatten)]`, or read the specified `OTEL_*` variable (`OTEL_EXPORTER_OTLP_ENDPOINT`)'

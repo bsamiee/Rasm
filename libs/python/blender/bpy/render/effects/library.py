@@ -1,4 +1,4 @@
-"""Catalogued native compositor assets and publication into user libraries."""
+"""Effect assets in extension asset folder and user asset libraries."""
 
 from collections import deque
 from collections.abc import Callable
@@ -32,7 +32,7 @@ from blender.imaging.compositing.blending import Entry
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.hashing import content_hash, ContentHash
 
-# --- [ROSTERS] --------------------------------------------------------------------------
+# --- [CHOICES] --------------------------------------------------------------------------
 
 libraries = Choices(
     lambda _identity, _owner, context: (
@@ -48,14 +48,14 @@ libraries = Choices(
 
 
 class Saving(msgspec.Struct, frozen=True, kw_only=True):
-    """User asset library and catalog receiving the active effect group."""
+    """User asset library and catalog for active effect group."""
 
     library: Annotated[str, msgspec.Meta(title="Library"), libraries] = ""
     catalog: Annotated[CatalogPath, msgspec.Meta(title="Catalog")] = "Effects"
 
 
 class Published(msgspec.Struct, frozen=True, kw_only=True):
-    """Manifest, offered seed, and native generated identities of one asset file."""
+    """Facts hashed into published asset file name."""
 
     manifest: Manifest
     row: Key
@@ -69,7 +69,7 @@ class Published(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
-    """Offered effect assets with an application-supplied thumbnail raster policy."""
+    """Asset publisher for standalone stack rows with optional thumbnails."""
 
     stack: EffectStack
     library: AssetLibrary
@@ -77,12 +77,12 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
     saved: ClassVar[Key] = "saved_effect"
 
     def files(self, identity: Identity) -> BlenderResult[tuple[Path, ...]]:
-        """Lists every published effect file in the extension's asset folder."""
+        """Lists published effect files in extension asset folder."""
         folder = self.library.located(identity)
         return catch(lambda: tuple(folder.glob("effects_*.blend")), exception=OSError)().map_error(lambda error: (BlenderReadFault(request=folder, error=error),))
 
     def retired(self, identity: Identity) -> BlenderResult[None]:
-        """Removes published files of rows the stack no longer offers."""
+        """Removes published files with no standalone row."""
         kinds = tuple(f"effects_{row.kind}." for row in self.stack.standalone)
         return self.files(identity).bind(
             lambda files: accumulated(
@@ -91,7 +91,7 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def published(self, identity: Identity, scene: bpy.types.Scene, row: Placeable, *, context: Context = Nothing) -> BlenderResult[Option[Path]]:
-        """Publishes one row's changed native group under its complete generated-content identity."""
+        """Publishes row group under content and build hash, removing older row files, Nothing when file exists."""
         folder = self.library.located(identity)
         checker = Metrics.read().checker()
 
@@ -138,7 +138,7 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
         return paired(row.seeded(scene), paired(self.stack.config(), self.files(identity))).bind(lambda held: built(Entry(effect=held[0]), *held[1]))
 
     def saving(self, call: Call[Saving]) -> BlenderResult[Done]:
-        """Writes the active effect into the chosen user's native asset library."""
+        """Saves active effect group into chosen user asset library."""
         record = call.record
         group = call.root(bpy.types.Scene).bind(
             lambda scene: Option.of_optional(next((entry.node_group for entry in scene.compositor_effects if entry.is_active), None)).to_result_with(
@@ -156,13 +156,13 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 written(group, "allow_usage_in_scene_compositor_effect", True)
                 .bind(lambda _: published(call.identity, folder, bpy.path.clean_name(group.name), ((group, AssetMark(key=self.saved, catalog=record.catalog)),), kept=True))
-                .map(lambda path: Done(notes=(("INFO", f"Saved {group.name} into {path}"),)))
+                .map(lambda path: Done(notes=(("INFO", f"Saved {group.name} to {path}"),)))
             )
 
         return Result[tuple[bpy.types.NodeTree, Path], BlenderFaults].bind(paired(group, folder), saved)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Holds the library, save action, and file-load publication one row per timer tick, idle in background runs that draw no asset."""
+        """Returns library, save operator, load handler, and timer publishing one queued row per tick."""
         rows = {row.kind: row for row in self.stack.standalone}
         pending: deque[Key] = deque()
 
@@ -179,15 +179,7 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
         return Ok((
             self.library,
-            Operator(
-                key="effect_save_asset",
-                title="Save Effect Asset",
-                description="Saves the active compositor effect into a user asset library",
-                form=Saving,
-                run=self.saving,
-                invoke=Some(Properties()),
-                undo=False,
-            ),
+            Operator(key="effect_save_asset", title="Save Effect Asset", description="Save active effect to user asset library", form=Saving, run=self.saving, invoke=Some(Properties()), undo=False),
             PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             Timer(body=ticked),
         ))

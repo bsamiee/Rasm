@@ -16,7 +16,7 @@ fn duplicate_body(found: &str) {
         = help: delete `Route::url_path` and call `Route::path` at each call site
         = note: `#[warn(duplicate_body)]` on by default
 
-    warning: every `Shape` impl repeats one body for `doubled`
+    warning: every `Shape` impl has the same `doubled` body
        --> tools/dylint/examples/duplicate_body.rs:13:5
         |
      13 |     fn doubled(&self) -> f64;
@@ -30,9 +30,9 @@ fn duplicate_body(found: &str) {
     ...
     130 |     fn doubled(&self) -> f64 { self.area() * 2.0 }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: move `doubled` into a default method of `Shape` and delete it from each impl
+        = help: move the body into `Shape::doubled` as its default and delete `doubled` from each impl
 
-    warning: `Display` impls for `Square` and `Circle` repeat one body for `fmt`
+    warning: `Display` impls for `Square` and `Circle` have the same `fmt` body
        --> tools/dylint/examples/duplicate_body.rs:134:5
         |
     134 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
@@ -43,9 +43,9 @@ fn duplicate_body(found: &str) {
         |
     138 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: generate the repeating `Display` impls from one local `macro_rules!` that takes the implementing type
+        = help: generate the `Display` impls from one `macro_rules!` over the implementing type
 
-    warning: `Display` impls for `Labeled<u8>` and `Labeled<u16>` repeat one body for `fmt`
+    warning: `Display` impls for `Labeled<u8>` and `Labeled<u16>` have the same `fmt` body
        --> tools/dylint/examples/duplicate_body.rs:168:5
         |
     168 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
@@ -56,9 +56,9 @@ fn duplicate_body(found: &str) {
         |
     172 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: replace the repeating impls with one `Display` impl generic over `Labeled`
+        = help: replace the impls with one `Display` impl generic over `Labeled` type arguments
 
-    warning: `Extend` impls for `Square` and `Circle` repeat one body for `extend`
+    warning: `Extend` impls for `Square` and `Circle` have the same `extend` body
        --> tools/dylint/examples/duplicate_body.rs:142:5
         |
     142 | /     fn extend<I>(&mut self, items: I)
@@ -71,7 +71,7 @@ fn duplicate_body(found: &str) {
     149 | /     fn extend<I>(&mut self, items: I)
     150 | |     where I: IntoIterator<Item = C> {
         | |___________________________________^
-        = help: generate the repeating `Extend` impls from one local `macro_rules!` that takes the implementing type
+        = help: generate the `Extend` impls from one `macro_rules!` over the implementing type
 
     warning: `Catalog::labels` repeats the body and signature of `Catalog::names`
        --> tools/dylint/examples/duplicate_body.rs:178:5
@@ -112,7 +112,7 @@ fn duplicate_body(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: delete `sum` and call `total` at each call site
 
-    warning: `Iterator` impls for `Countdown` and `Repeated` repeat one body for `next`
+    warning: `Iterator` impls for `Countdown` and `Repeated` have the same `next` body
       --> tools/dylint/examples/manual_gen_block.rs:21:5
        |
     21 |     fn next(&mut self) -> Option<u8> {
@@ -123,10 +123,10 @@ fn duplicate_body(found: &str) {
        |
     39 |     fn next(&mut self) -> Option<u8> {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: generate the repeating `Iterator` impls from one local `macro_rules!` that takes the implementing type
+       = help: generate the `Iterator` impls from one `macro_rules!` over the implementing type
        = note: `#[warn(duplicate_body)]` on by default
 
-    warning: `TryFrom` impls for `Port`, `Decoded` and `Guarded` repeat one body for `try_from`
+    warning: `TryFrom` impls for `Port`, `Decoded` and `Guarded` have the same `try_from` body
        --> tools/dylint/examples/unchecked_construction.rs:17:9
         |
      17 | ...   fn try_from(value: u16) -> Result<Self, Self::Error> { if value < 1024 { Err(RangeError(u32::from(value))) } else { Ok(Self(v...
@@ -140,14 +140,14 @@ fn duplicate_body(found: &str) {
     ...
     111 | ...   fn try_from(value: u16) -> Result<Self, Self::Error> { if value < 1024 { Err(RangeError(u32::from(value))) } else { Ok(Self(v...
         |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: generate the repeating `TryFrom` impls from one local `macro_rules!` that takes the implementing type
+        = help: generate the `TryFrom` impls from one `macro_rules!` over the implementing type
         = note: `#[warn(duplicate_body)]` on by default
     "#);
 }
 
 fn duplicate_trait_constant(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: every `Arity` impl sets `ARITY` to the same value
+    warning: every `Arity` impl sets `ARITY` to `2`
       --> tools/dylint/examples/duplicate_trait_constant.rs:6:5
        |
      6 |     const ARITY: usize;
@@ -161,10 +161,10 @@ fn duplicate_trait_constant(found: &str) {
     ...
     43 |     const ARITY: usize = 2;
        |     ^^^^^^^^^^^^^^^^^^
-       = help: set the default of `Arity::ARITY` to the value and delete `ARITY` from each impl
+       = help: set the default of `Arity::ARITY` to `2` and delete `ARITY` from each impl
        = note: `#[warn(duplicate_trait_constant)]` on by default
 
-    warning: every `Depth` impl sets `DEPTH` to the same value
+    warning: every `Depth` impl sets `DEPTH` to `4`
       --> tools/dylint/examples/duplicate_trait_constant.rs:14:5
        |
     14 |     const DEPTH: u8 = 1;
@@ -178,7 +178,7 @@ fn duplicate_trait_constant(found: &str) {
     ...
     59 |     const DEPTH: u8 = 4;
        |     ^^^^^^^^^^^^^^^
-       = help: set the default of `Depth::DEPTH` to the value and delete `DEPTH` from each impl
+       = help: set the default of `Depth::DEPTH` to `4` and delete `DEPTH` from each impl
     ");
 }
 
@@ -198,7 +198,7 @@ fn duplicate_type(found: &str) {
        = help: use `Origin` in place of `Endpoint`
        = note: `#[warn(duplicate_type)]` on by default
 
-    warning: `Groups` repeats `Users` with other field types
+    warning: `Groups` repeats `Users` with `Group` in place of `User`
       --> tools/dylint/examples/duplicate_type.rs:45:1
        |
     45 | struct Groups {
@@ -209,7 +209,7 @@ fn duplicate_type(found: &str) {
        |
     39 | struct Users {
        | ^^^^^^^^^^^^
-       = help: make `Users` generic over the field types that differ and use it in place of `Groups`
+       = help: use `Users` generic over the differing field types in place of `Groups`
 
     warning: `Members` duplicates `Paged<User>`
       --> tools/dylint/examples/duplicate_type.rs:57:1
@@ -230,7 +230,7 @@ fn duplicate_type(found: &str) {
     63 | enum Event {
        | ^^^^^^^^^^
        |
-       = help: hold the shared fields once in a struct beside a fieldless kind enum
+       = help: declare `Event` as a struct of the shared fields and a fieldless enum of its variants
 
     warning: variant `Fetch` repeats the fields of `Origin`
       --> tools/dylint/examples/duplicate_type.rs:70:5
@@ -238,9 +238,9 @@ fn duplicate_type(found: &str) {
     70 |     Fetch { host: String, port: u16 },
        |     ^^^^^
        |
-       = help: hold `Origin` in `Fetch` in place of its fields
+       = help: declare `Fetch(Origin)`
 
-    warning: `Location` repeats a subset of the fields of `Link`
+    warning: `Location` repeats `Link` fields `host` and `path`
        --> tools/dylint/examples/duplicate_type.rs:82:1
         |
      82 | struct Location {
@@ -251,7 +251,7 @@ fn duplicate_type(found: &str) {
         |
     411 | fn located(link: &Link) -> Location { Location { host: link.host.clone(), path: link.path.clone() } }
         |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: hold `Location` in `Link` in place of its fields
+        = help: hold `Location` in `Link` in place of `host` and `path`
 
     warning: `AddressDto` repeats `Address` member by member
        --> tools/dylint/examples/duplicate_type.rs:106:1
@@ -259,12 +259,12 @@ fn duplicate_type(found: &str) {
     106 | struct AddressDto {
         | ^^^^^^^^^^^^^^^^^
         |
-    note: converted from `Address` member by member here
+    note: converted from `Address` here
        --> tools/dylint/examples/duplicate_type.rs:493:15
         |
     493 |     let dto = AddressDto { port: u16::from(address.port), limit: u32::from(address.limit) };
         |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: make `Address` generic over the member types that differ and use it in place of `AddressDto`
+        = help: use `Address` generic over the differing member types in place of `AddressDto`
 
     warning: `AccountRow` repeats `Account` member by member
        --> tools/dylint/examples/duplicate_type.rs:118:1
@@ -272,7 +272,7 @@ fn duplicate_type(found: &str) {
     118 | struct AccountRow {
         | ^^^^^^^^^^^^^^^^^
         |
-    note: converted from `Account` member by member here
+    note: converted from `Account` here
        --> tools/dylint/examples/duplicate_type.rs:374:15
         |
     374 |     let row = AccountRow { user: account.login.clone(), address: account.email.clone() };
@@ -285,7 +285,7 @@ fn duplicate_type(found: &str) {
     127 | struct Reading(f64);
         | ^^^^^^^^^^^^^^
         |
-    note: converted from `Celsius` member by member here
+    note: converted from `Celsius` here
        --> tools/dylint/examples/duplicate_type.rs:378:50
         |
     378 | const fn reading(celsius: &Celsius) -> Reading { Reading(celsius.0) }
@@ -322,7 +322,7 @@ fn duplicate_type(found: &str) {
     196 | enum Signal {
         | ^^^^^^^^^^^
         |
-    note: converted from `Phase` member by member here
+    note: converted from `Phase` here
        --> tools/dylint/examples/duplicate_type.rs:383:5
         |
     383 | /     match phase {
@@ -398,7 +398,7 @@ fn duplicate_type(found: &str) {
         |
         = help: use `std::result::Result<T, E>` in place of `Outcome`
 
-    warning: error variants `Read`, `Write` of `ManifestError` repeat the same fields
+    warning: error variants `Read` and `Write` of `ManifestError` repeat the same fields
        --> tools/dylint/examples/duplicate_type.rs:318:1
         |
     318 | enum ManifestError {
@@ -412,9 +412,9 @@ fn duplicate_type(found: &str) {
     321 |     #[error("cannot write the manifest")]
     322 |     Write(#[source] io::Error),
         |     ^^^^^
-        = help: declare one variant holding the shared fields and a fieldless kind enum with `derive_more::Display` messages
+        = help: replace `Read` and `Write` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
-    warning: error variants `Runtime`, `Serve` of `ServeError` repeat the same fields
+    warning: error variants `Runtime` and `Serve` of `ServeError` repeat the same fields
        --> tools/dylint/examples/duplicate_type.rs:328:1
         |
     328 | enum ServeError<X> {
@@ -428,9 +428,9 @@ fn duplicate_type(found: &str) {
     331 |     #[error("cannot serve the endpoint")]
     332 |     Serve(#[source] io::Error),
         |     ^^^^^
-        = help: declare one variant holding the shared fields and a fieldless kind enum with `derive_more::Display` messages
+        = help: replace `Runtime` and `Serve` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
-    warning: error variants `Invalid`, `Truncated` of `SchemaError` repeat the same fields
+    warning: error variants `Invalid` and `Truncated` of `SchemaError` repeat the same fields
        --> tools/dylint/examples/duplicate_type.rs:338:1
         |
     338 | enum SchemaError {
@@ -444,7 +444,7 @@ fn duplicate_type(found: &str) {
     341 |     #[error("{path} ends at line {line}")]
     342 |     Truncated { path: String, line: u32 },
         |     ^^^^^^^^^
-        = help: declare one variant holding the shared fields and a fieldless kind enum with `derive_more::Display` messages
+        = help: replace `Invalid` and `Truncated` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
     warning: `Shim` duplicates `AddressDto`
        --> tools/dylint/examples/duplicate_type.rs:403:5
@@ -473,7 +473,7 @@ fn duplicate_type(found: &str) {
        = help: use `Config` in place of `Limits`
        = note: `#[warn(duplicate_type)]` on by default
 
-    warning: error variants `Retry`, `Text` of `PortError` repeat the same fields
+    warning: error variants `Retry` and `Text` of `PortError` repeat the same fields
       --> tools/dylint/examples/redundant_error_conversion.rs:24:1
        |
     24 | enum PortError {
@@ -487,10 +487,10 @@ fn duplicate_type(found: &str) {
     ...
     30 |     Retry(#[source] Utf8Error),
        |     ^^^^^
-       = help: declare one variant holding the shared fields and a fieldless kind enum with `derive_more::Display` messages
+       = help: replace `Retry` and `Text` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
        = note: `#[warn(duplicate_type)]` on by default
 
-    warning: error variants `Flush`, `Forwarded`, `Wrapped` of `Failure` repeat the same fields
+    warning: error variants `Flush`, `Forwarded` and `Wrapped` of `Failure` repeat the same fields
       --> tools/dylint/examples/source_in_error_message.rs:7:1
        |
      7 | enum Failure {
@@ -507,14 +507,14 @@ fn duplicate_type(found: &str) {
     ...
     28 |     Flush(#[source] io::Error),
        |     ^^^^^
-       = help: declare one variant holding the shared fields and a fieldless kind enum with `derive_more::Display` messages
+       = help: replace `Flush`, `Forwarded` and `Wrapped` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
        = note: `#[warn(duplicate_type)]` on by default
     "#);
 }
 
 fn parameterizable_body(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `<Banner as Render>::render` and `<Footer as Render>::render` repeat the body of `<Page as Render>::render` with other values
+    warning: `<Banner as Render>::render` and `<Footer as Render>::render` repeat the body of `<Page as Render>::render` with another value in place of `"page"`
       --> tools/dylint/examples/parameterizable_body.rs:76:5
        |
     76 |     fn render(&self) -> String { String::from("page") }
@@ -528,10 +528,10 @@ fn parameterizable_body(found: &str) {
     ...
     84 |     fn render(&self) -> String { String::from("footer") }
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: merge `Page` and the other implementing types into one type holding the value, with one `const` per merged type
+       = help: replace `Page`, `Banner` and `Footer` with one struct holding the value, one `const` per replaced type, and one `Render` impl
        = note: `#[warn(parameterizable_body)]` on by default
 
-    warning: `retry_writes` repeats the body of `retry_reads` with other values
+    warning: `retry_writes` repeats the body of `retry_reads` with another value in place of `3`
        --> tools/dylint/examples/parameterizable_body.rs:119:1
         |
     119 | const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) }
@@ -542,7 +542,7 @@ fn parameterizable_body(found: &str) {
         |
     121 | const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.saturating_mul(2)) }
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: call `Policy::new` with the differing value at each call site of `retry_reads` and `retry_writes`
+        = help: call `Policy::new` directly at each call site of `retry_reads` and `retry_writes`
 
     warning: `total_circles` repeats the body of `total_squares` with another type in place of `Square`
        --> tools/dylint/examples/parameterizable_body.rs:123:1
@@ -555,7 +555,7 @@ fn parameterizable_body(found: &str) {
         |
     125 | fn total_circles(shapes: &[Circle]) -> f64 { shapes.iter().map(Shape::area).sum() }
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: make one function generic over `S: Shape` in place of `total_squares` and `total_circles`
+        = help: replace `total_squares` and `total_circles` with one function generic over `S: Shape`
 
     warning: `ticked` repeats the body of `started` with another type in place of `Uptime`
        --> tools/dylint/examples/parameterizable_body.rs:165:1
@@ -568,7 +568,7 @@ fn parameterizable_body(found: &str) {
         |
     167 | fn ticked(value: u64) -> Clock { Clock::from(value.strict_add(1)) }
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: make one function generic over `S: From` in place of `started` and `ticked`
+        = help: replace `started` and `ticked` with one function generic over `S: From<u64>`
     "#);
 }
 

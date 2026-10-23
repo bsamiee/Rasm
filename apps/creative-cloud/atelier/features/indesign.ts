@@ -11,13 +11,13 @@ const indesign = Effect.fnUntraced(function* ({ indesign: route }: Effect.Succes
     yield* registerRpcGroup(
         Contract,
         {
-            inspect: Registration.Tool({ annotations: READ_ONLY.pipe(Context.add(Instructions, ['inspect: The indesign://kinds resource lists class and enumeration declarations.'])) }),
+            inspect: Registration.Tool({ annotations: READ_ONLY.pipe(Context.add(Instructions, ['inspect: indesign://kinds lists classes and enumerations'])) }),
             change: Registration.Tool({ annotations: Context.empty() }),
             create: Registration.Tool({ annotations: Context.empty() }),
             remove: Registration.Tool({ annotations: Context.empty() }),
             find_change: Registration.Tool({ annotations: Context.empty() }),
-            invoke: Registration.Tool({ annotations: Context.make(Instructions, ['invoke: The indesign://menu resource lists menu actions by id, name, and area.']) }),
-            render: Registration.Tool({ annotations: READ_ONLY.pipe(Context.add(Instructions, ['render: Application panels, dialogs, the pasteboard, and parent spreads show through screenshot.'])), success: Render.Result.pipe(Schema.fieldsAssign({ image: Image('image/png') })) }),
+            invoke: Registration.Tool({ annotations: Context.make(Instructions, ['invoke: indesign://menu lists actions by id, name, and area']) }),
+            render: Registration.Tool({ annotations: READ_ONLY.pipe(Context.add(Instructions, ['render: Use screenshot for panels, dialogs, pasteboard, and parent spreads'])), success: Render.Result.pipe(Schema.fieldsAssign({ image: Image('image/png') })) }),
             menu: Registration.Resource({ uri: 'indesign://menu', complete: { area: (rows) => Array.dedupe(Array.map(rows, Struct.get('area'))) } }),
             preflight: Registration.Resource({
                 uri: 'indesign://preflight',
@@ -32,7 +32,7 @@ const indesign = Effect.fnUntraced(function* ({ indesign: route }: Effect.Succes
                     const call = yield* indesignScript.client(pid);
                     return yield* call(rpc._tag, payload);
                 }, Effect.scoped),
-            annotations: Context.make(Instructions, ['InDesign tools run as UXP scripts through its do script command.']),
+            annotations: Context.make(Instructions, ['InDesign tools run as UXP scripts through do script']),
         },
     );
 });

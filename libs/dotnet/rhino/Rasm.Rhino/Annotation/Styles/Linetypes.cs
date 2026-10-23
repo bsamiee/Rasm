@@ -23,7 +23,7 @@ public sealed partial class LinetypePattern {
             [] => false,
             [var only] => only > Length.Zero,
             _ => segments.Zip(segments.Tail).ForAll(static pair => (pair.First >= Length.Zero) != (pair.Second >= Length.Zero)),
-        } ? null : new ValidationError("pattern holds a non-finite segment, a lone segment that is no dash, or two neighbors of one sign");
+        } ? null : new ValidationError("pattern holds non-finite segment, lone non-dash segment, or same-sign adjacent segments");
 }
 
 [ComplexValueObject]
@@ -37,7 +37,7 @@ public sealed partial class LinetypeTaper<TWidth> where TWidth : struct, ICompar
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref TWidth start, ref Option<(double Position, TWidth Width)> waist, ref TWidth end) =>
         validationError = start.CompareTo(default) >= 0 && end.CompareTo(default) >= 0
-            && waist.ForAll(static point => point.Position is >= 0.0 and <= 1.0 && point.Width.CompareTo(default) >= 0) ? null : new ValidationError("taper holds a negative width or a waist position outside [0, 1]");
+            && waist.ForAll(static point => point.Position is >= 0.0 and <= 1.0 && point.Width.CompareTo(default) >= 0) ? null : new ValidationError("taper holds negative width or waist position outside [0, 1]");
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

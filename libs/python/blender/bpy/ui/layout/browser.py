@@ -1,4 +1,4 @@
-"""Preset browsing over native modal events, GPU drawing, and the shared preview queue."""
+"""Modal preset browser over GPU drawing and shared preview queue."""
 
 from collections.abc import Callable, Hashable, Iterable, Mapping
 from contextlib import ExitStack
@@ -48,14 +48,14 @@ if TYPE_CHECKING:
 
 
 class BrowserMode(Choice):
-    """Persistent thumbnail and compact row presentations."""
+    """Thumbnail grid or compact rows."""
 
     GRID = 0
     LIST = 1
 
 
 class BrowserControl(Enum):
-    """Browser's text entry and thumbnail-size controls."""
+    """Search field and thumbnail-size control."""
 
     SEARCH = auto()
     SIZE = auto()
@@ -75,14 +75,14 @@ THUMBNAIL_SIDE = (32.0, 256.0)
 
 
 class BrowserLayout(msgspec.Struct, frozen=True, kw_only=True):
-    """Screen's browser layout, with disabled size fitting the available browser width."""
+    """Layout per screen, thumbnails fitting browser width while size is off."""
 
     mode: BrowserMode = BrowserMode.GRID
     size: Annotated[Gated[Annotated[float, msgspec.Meta(ge=THUMBNAIL_SIDE[0], le=THUMBNAIL_SIDE[1])]], Presentation(decimals=Some(0))] = Gated(enabled=False, value=128.0)
 
 
 class Demand[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Retained identity of one visible tile or one completed hover dwell."""
+    """Render request for visible tile or hover dwell."""
 
     stem: str
     value: BlenderResult[T]
@@ -91,7 +91,7 @@ class Demand[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=Fa
 
 
 class Catalog[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Listing rows by stem in listing order, the row the current values match, and the observation revision read."""
+    """Listing rows by stem with current row and observation revision."""
 
     rows: Mapping[str, BlenderResult[T]]
     current: Option[str]
@@ -99,14 +99,14 @@ class Catalog[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=F
 
 
 class Act(msgspec.Struct, frozen=True, kw_only=True):
-    """Listing action an event requests and the complete record its operator runs over."""
+    """Listing action an event requests, with its operator record."""
 
     verb: Verb
     record: msgspec.Struct
 
 
 class Browsing(msgspec.Struct, frozen=True, kw_only=True):
-    """Value each browser event returns: layout, pointer, search, scroll, resize drag, and selection."""
+    """Browser view each event returns."""
 
     layout: BrowserLayout
     pointer: Option[tuple[int, int]] = Nothing
@@ -120,11 +120,11 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
     selected: frozenset[str] = frozenset()
 
     def shown(self, rows: Iterable[str]) -> tuple[str, ...]:
-        """Catalog order restricted by the display-name search."""
+        """Returns stems matching display-name search."""
         return tuple(stem for stem in rows if self.search.casefold() in bpy.path.display_name(stem).casefold())
 
-    def settled[T: msgspec.Struct](self, catalog: Catalog[T]) -> Self:
-        """Restricts lead, anchor, and selection to shown rows, the lead falling back to the current row."""
+    def narrowed[T: msgspec.Struct](self, catalog: Catalog[T]) -> Self:
+        """Restricts lead, anchor, and selection to shown rows, lead defaulting to current row."""
         shown = self.shown(catalog.rows)
 
         def visible(stem: str) -> bool:
@@ -134,7 +134,7 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
         return replace(self, lead=lead, anchor=self.anchor.filter(visible).or_else(lead), selected=self.selected.intersection(shown))
 
     def cells[T: msgspec.Struct](self, canvas: Canvas, catalog: Catalog[T], verbs: Iterable[Verb]) -> Cells:
-        """Derives paint and hit rectangles once from the same native region metrics."""
+        """Derives paint and hit rectangles from region metrics."""
         bounds, unit, gap = canvas.extent, canvas.metrics.unit, canvas.metrics.spacing.template
         width = bounds.width - 2 * gap
         top = bounds.y + bounds.height - gap
@@ -161,7 +161,7 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
         return (*toolbar, *actions, *tiles)
 
     def act[T: msgspec.Struct](self, verb: Verb, stem: Option[str], catalog: Catalog[T]) -> Reply:
-        """Builds the verb's record from the selection, the current row, or the stem, staying modal where the verb lacks its subject."""
+        """Builds verb record from selection, current row, or stem, staying modal without a subject."""
         match verb, stem.to_optional():
             case Verb.EXPORT | Verb.DELETE, _:
                 chosen = tuple(Named(stem=name) for name in catalog.rows if name in self.selected)
@@ -178,7 +178,7 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
                 return Act(verb=verb, record=operators.Empty())
 
     def stepped[T: msgspec.Struct](self, event: bpy.types.Event, point: tuple[int, int], target: Option[Target], cells: Cells, catalog: Catalog[T]) -> tuple[Self, Reply]:
-        """Answers the value after one event over the cells it hit and the reply the session carries out."""
+        """Returns view after one event with reply for session to run."""
         shown, chord = self.shown(catalog.rows), event.ctrl or event.oskey
         tiles = tuple(rect for held, rect in cells if isinstance(held, str))
         match self.resizing.to_optional(), event.type, event.value, target.to_optional():
@@ -248,29 +248,29 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Spot(msgspec.Struct, frozen=True, kw_only=True):
-    """Browser region and the region it opened from, valid during one native call."""
+    """Browser and origin regions, valid for one host call."""
 
     view: RegionView
     origin: Option[bpy.types.Region]
 
     def placed(self, canvas: Canvas, main: AreaQuery) -> Canvas:
-        """Narrows the canvas to its origin sidebar's width and side when the browser opened over the main editor."""
+        """Narrows canvas to origin sidebar over main editor."""
         return next(
             (
                 replace(canvas, extent=replace(canvas.extent, width=width, x=canvas.extent.x if origin.alignment == "LEFT" else canvas.extent.x + canvas.extent.width - width))
-                for origin in (self.origin.to_list() if main.admits(self.view.located.area) else ())
+                for origin in (self.origin.to_list() if main.matches(self.view.located.area) else ())
                 for width in (min(origin.width, canvas.extent.width),)
             ),
             canvas,
         )
 
     def canvas(self, main: AreaQuery) -> Canvas:
-        """Browser canvas over the region's visible extent."""
+        """Returns canvas over visible region extent."""
         return self.placed(Canvas.of(self.view.located.area, self.view.region), main)
 
 
 class Place(msgspec.Struct, frozen=True, kw_only=True):
-    """Session pointers of a region, its area and window, and the region the browser opened from."""
+    """Session window, area, region, and origin pointers."""
 
     window: int
     area: int
@@ -279,15 +279,15 @@ class Place(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, view: RegionView, origin: Option[bpy.types.Region] = Nothing) -> Self:
-        """Holds the pointers of a live region view and origin."""
+        """Holds live region and origin pointers."""
         return cls(window=view.located.window.as_pointer(), area=view.located.area.as_pointer(), region=view.region.as_pointer(), origin=origin.map(lambda region: region.as_pointer()))
 
     def within(self, context: bpy.types.Context) -> bool:
-        """Whether the context names this exact window, area, and region."""
+        """Checks whether context names held window, area, and region."""
         return tuple(None if held is None else held.as_pointer() for held in (context.window, context.area, context.region)) == (self.window, self.area, self.region)
 
     def resolved(self, context: bpy.types.Context) -> BlenderResult[Spot]:
-        """Answers the live region and origin, absent once any of them closed."""
+        """Returns live region and origin, absent fault once one closed."""
 
         def region(area: bpy.types.Area, pointer: int) -> Option[bpy.types.Region]:
             return Option.of_optional(next((region for region in area.regions if region.as_pointer() == pointer), None))
@@ -304,7 +304,7 @@ class Place(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Browsed[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Value a session publishes to its drawings, queue feed, and dwell: view, catalog, hover, main editor, demands, and rendered tiles."""
+    """Session state read by drawings, queue feed, and dwell."""
 
     view: Browsing
     catalog: Catalog[T]
@@ -314,11 +314,11 @@ class Browsed[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=F
     outcomes: Mapping[Demand[T], BlenderResult[gpu.types.GPUTexture | Before]] = msgspec.field(default_factory=dict)
 
     def reloaded(self, catalog: Catalog[T]) -> Self:
-        """Replaces the catalog, dropping every demand over its earlier rows."""
+        """Replaces catalog, dropping every demand."""
         return replace(self, catalog=catalog, demands={}, outcomes={})
 
     def demanded(self, sides: Mapping[str, int]) -> Self:
-        """Holds one demand per painted tile at its side beside the dwelled demand, keeping outcomes of held demands."""
+        """Holds demand per painted tile beside dwell demand, keeping held outcomes."""
         demands = {(stem, Rank.SHOWN): Demand(stem=stem, value=self.catalog.rows[stem], side=side, rank=Rank.SHOWN) for stem, side in sides.items()} | {
             place: demand for place, demand in self.demands.items() if place[1] is Rank.ACTIVE or sides.get(place[0]) == demand.side
         }
@@ -326,12 +326,12 @@ class Browsed[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, eq=F
         return replace(self, demands=demands, outcomes={demand: outcome for demand, outcome in self.outcomes.items() if demand in kept})
 
     def hovered(self, stem: Option[str], *, shifted: bool) -> Self:
-        """Marks the hovered preset and Shift state, dropping the dwelled demand."""
+        """Marks hovered preset and Shift state, dropping dwell demand."""
         return replace(self, hover=(stem, shifted), demands={place: demand for place, demand in self.demands.items() if place[1] is not Rank.ACTIVE})
 
 
 class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
-    """One existing preset listing with caller-owned recipes and the screen's layout."""
+    """Browser over one preset listing with per-screen layout."""
 
     layouts: ClassVar[Attachment[BrowserLayout]] = Attachment(key="browser_layout", form=BrowserLayout, owner=bpy.types.Screen)
     listing: Listing[T]
@@ -342,20 +342,20 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
     @property
     def key(self) -> str:
-        """Native operator key derived from the listing it opens."""
+        """Operator key from listing."""
         return f"browse_{self.listing.preset.key}"
 
     @property
     def requirement(self) -> AllOf:
-        """Row and listing conditions the browser opens and stays open under."""
+        """Row and listing conditions holding browser open."""
         return AllOf(conditions=(*self.condition.to_list(), *self.listing.condition.to_list()))
 
     def observation(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[Observation[T]]:
-        """Joins the caller's observation with the rendered proxy every tile renders from."""
+        """Joins caller observation with tile render proxy."""
         return self.observed(context).map(lambda held: ((held[0], Tiles.held[identity.package].proxy.map(lambda proxy: proxy.key)), held[1]))
 
     def catalogued(self, identity: Identity, observation: Observation[T]) -> BlenderResult[Catalog[T]]:
-        """Reads the listing and marks the row the observation matches."""
+        """Reads listing and marks row observation matches."""
         revision, matches = observation
         rows = {stem: self.listing.preset.read(value) if isinstance(value, Path) else Ok(value) for stem, value in self.listing.preset.listed(identity).items()}
         valid = tuple((stem, held) for stem, value in rows.items() for held in value.to_option().to_list())
@@ -364,16 +364,16 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         )
 
     def command(self, identity: Identity) -> operators.Operator[operators.Empty, "Session[T]"]:
-        """Builds the native modal operator over this catalog and resource scope."""
+        """Builds modal browser operator over listing."""
 
         def begin(context: bpy.types.Context, travel: Travel) -> BlenderResult[Session[T]]:
             origin = Option.of_optional(context.region)
             located = Located.current(context).bind(RegionView.of)
 
-            def admitted(view: RegionView) -> BlenderResult[RegionView]:
+            def validated(view: RegionView) -> BlenderResult[RegionView]:
                 area = view.located.area
                 sidebar = any(region.type == "UI" for region in origin.to_list())
-                return Error((BlenderAbsentFault(owner=repr(area), key="sidebar origin or a distinct browser editor"),)) if self.main.admits(area) and not sidebar else Ok(view)
+                return Error((BlenderAbsentFault(owner=repr(area), key="sidebar origin or separate browser editor"),)) if self.main.matches(area) and not sidebar else Ok(view)
 
             def opened(view: RegionView, attached: Attached[BrowserLayout], layout: BrowserLayout, catalog: Catalog[T]) -> BlenderResult[Session[T]]:
                 browsing = Browsing(layout=layout, pointer=origin.map(lambda region: (travel.x + region.x, travel.y + region.y)), shift=travel.precise)
@@ -382,7 +382,7 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                 )
                 return session.acquired(Spot(view=view, origin=origin)).map(lambda _: session)
 
-            return paired(located.bind(admitted), Browser.layouts.bound(identity)).bind(
+            return paired(located.bind(validated), Browser.layouts.bound(identity)).bind(
                 lambda pair: paired(pair[1].read(pair[0].located.window.screen), self.observation(identity, context).bind(lambda seen: self.catalogued(identity, seen))).bind(
                     lambda read: opened(*pair, *read)
                 )
@@ -391,7 +391,7 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         return operators.Operator(
             key=self.key,
             title="Browse Presets",
-            description="Browse, preview, and apply this section's presets",
+            description="Browse and apply section presets",
             icon=Some("PRESET"),
             condition=Some(self.requirement),
             form=operators.Empty,
@@ -410,11 +410,11 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Retains the renderer and listing before registering the native browser."""
+        """Acquires tile renderer and listing before browser operator."""
         return Ok((self.tiles, self.listing, self.command(identity)))
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Places the acquired browser operator through the existing native row policy."""
+        """Draws browser operator button."""
         return realized(OperatorButton(target=operators.Acquired(key=self.key), context="INVOKE_DEFAULT"), identity)
 
 
@@ -422,7 +422,7 @@ class Browser[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
 
 class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
-    """One browser's acquisition scope, owning the browsed value it publishes, Nothing once released."""
+    """Browser scope owning published state, Nothing once released."""
 
     browser: Browser[T]
     identity: Identity
@@ -437,11 +437,11 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
     # --- [LIFECYCLE]
 
     def published(self, following: Callable[[Browsed[T]], Browsed[T]]) -> None:
-        """Replaces the live browsed value with its successor, publishing nothing once released."""
+        """Replaces live state, publishing nothing once released."""
         self.held = self.held.map(following)
 
     def acquired(self, spot: Spot) -> BlenderResult[None]:
-        """Acquires both drawings, the queue feed, and the dwell into the session's scope, then binds the pointer."""
+        """Acquires drawings, queue feed, and dwell, then binds pointer."""
         area = spot.view.located.area
         with ExitStack() as scope:
             scope.enter_context(self.dwell)
@@ -480,7 +480,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
             return result
 
     def released(self) -> BlenderResult[None]:
-        """Drops the browsed value, refreshes both drawings so they clear, then closes the session's scope."""
+        """Drops state, clears drawings, then closes session scope."""
         self.held = Nothing
         fired = self.signal.fired()
         self.scope.close()
@@ -489,11 +489,11 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
     # --- [DRAWING]
 
     def read(self, metrics: Metrics) -> BlenderResult[Option[bpy.types.Preferences]]:
-        """Reads the preferences the browser takes its theme and text style from."""
+        """Reads preferences with theme and text style."""
         return Ok(Some(metrics.preferences))
 
     def before(self, _metrics: Metrics) -> BlenderResult[Option[Before]]:
-        """Reads the dwelled preset's rendered frame for the main editor's wipe."""
+        """Reads dwelled preset frame for main editor wipe."""
         outcomes = (state.outcomes.get(demand) for state in self.held.to_list() for demand in state.demands.values() if demand.rank is Rank.ACTIVE)
         match next(outcomes, None):
             case Result(tag="ok", ok=Before() as before):
@@ -502,7 +502,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                 return Ok(Nothing)
 
     def drawn(self, canvas: Canvas, preferences: bpy.types.Preferences) -> None:
-        """Paints the native-themed browser in its exact region, each preset label prefixed by its read or render failure."""
+        """Paints browser, prefixing failed preset labels with failure kind."""
 
         def captioned(state: Browsed[T], target: Target, numbered: Mapping[str, int]) -> tuple[str, Option[gpu.types.GPUTexture]]:
             match target:
@@ -510,7 +510,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                     demand = Option.of_optional(state.demands.get((stem, Rank.SHOWN)))
                     outcome = demand.bind(lambda held: Option.of_optional(state.outcomes.get(held)))
                     faults = outcome.bind(lambda result: result.swap().to_option()).or_else(demand.bind(lambda held: held.value.swap().to_option()))
-                    prefix = faults.map(lambda errors: "Missing: " if any(isinstance(error, BlenderAbsentFault) for error in errors) else "Failed: ").default_value("")
+                    prefix = faults.map(lambda errors: "Missing · " if any(isinstance(error, BlenderAbsentFault) for error in errors) else "Failed · ").default_value("")
                     number = f"{numbered[stem]}. " if stem in numbered else ""
                     return (
                         prefix + number + ("✓ " if state.catalog.current == Some(stem) else "") + bpy.path.display_name(stem),
@@ -525,7 +525,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                 case BrowserControl.SIZE:
                     return f"Size {state.view.layout.size.value:g}", Nothing
                 case BrowserControl.SEARCH:
-                    return "Search: " + state.view.search, Nothing
+                    return "Search · " + state.view.search, Nothing
 
         ui, points, inset = preferences.themes[0].user_interface, canvas.metrics.text(preferences.ui_styles[0].widget), canvas.metrics.spacing.template
         shader = gpu.shader.from_builtin("IMAGE_COLOR")
@@ -536,7 +536,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
             with placed.clipped(placed.extent):
                 placed.frame(placed.extent, placed.theme.back, placed.theme.back, 0.0)
                 if not view.shown(catalog.rows):
-                    empty = "No matching presets" if catalog.rows else "Add or import a preset"
+                    empty = "No matching presets" if catalog.rows else "Add or import presets"
                     placed.label(empty, (placed.extent.x + inset, placed.extent.y + placed.extent.height / 2), placed.theme.text, points)
                 for target, rect in view.cells(placed, catalog, self.actions):
                     listed = isinstance(target, str) and view.layout.mode is BrowserMode.LIST
@@ -561,9 +561,9 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
     # --- [PREVIEWS]
 
     def jobs(self, _identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
-        """Answers the shown and dwelled demand, releasing the session once its region, main editor, or conditions are gone."""
+        """Returns demand jobs, releasing session once region, main editor, or conditions are gone."""
         live = self.held.bind(lambda state: self.place.resolved(context).to_option().map(lambda spot: (state, spot))).filter(
-            lambda pair: all(place.resolved(context).to_option().filter(lambda spot: self.browser.main.admits(spot.view.located.area)).is_some() for place in pair[0].main.to_list())
+            lambda pair: all(place.resolved(context).to_option().filter(lambda spot: self.browser.main.matches(spot.view.located.area)).is_some() for place in pair[0].main.to_list())
         )
         match live.to_optional():
             case None:
@@ -591,12 +591,12 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                     )
 
     def reloaded(self, spot: Spot, catalog: Catalog[T], *, shifted: bool) -> BlenderResult[None]:
-        """Publishes the new catalog and rebinds the pointer to the repainted cells."""
+        """Publishes catalog and rebinds pointer to repainted cells."""
         self.published(lambda state: state.reloaded(catalog))
         return self.hovered(Nothing, shifted=shifted).bind(lambda _: self.rehovered(spot)).bind(lambda _: self.signal.fired())
 
     def requests(self, spot: Spot) -> tuple[Job, ...]:
-        """Publishes the painted tiles' demands, answering a job per demand not yet rendered."""
+        """Publishes tile demands, returning job per unrendered or failed one."""
         canvas = spot.canvas(self.browser.main)
         self.published(
             lambda state: state.demanded({stem: max(1, round(min(rect.width, rect.height))) for stem, rect in state.view.cells(canvas, state.catalog, self.actions) if isinstance(stem, str)})
@@ -609,7 +609,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
         )
 
     def rendered(self, demand: Demand[T]) -> BlenderResult[None]:
-        """Renders one demand in the browser's region and publishes its outcome while the session still holds that demand."""
+        """Renders demand, publishing outcome while session holds it."""
 
         def published(spot: Spot) -> BlenderResult[None]:
             with spot.view.override:
@@ -627,7 +627,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
         return self.place.resolved(bpy.context).bind(published)
 
     def dwelled(self, stem: str) -> BlenderResult[Option[float]]:
-        """Demands the dwelled preset at the main editor image's size, then stops its timer."""
+        """Demands dwelled preset at main editor image size once."""
 
         def demanded(view: RegionView) -> BlenderResult[None]:
             with view.override:
@@ -647,7 +647,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
         return self.place.resolved(bpy.context).bind(lambda spot: self.browser.main.first((spot.view.located.window,))).bind(RegionView.of).bind(demanded).map(lambda _: Nothing)
 
     def hovered(self, target: Option[Target], *, shifted: bool) -> BlenderResult[None]:
-        """Restarts the dwell and drops the dwelled demand when the hovered preset or Shift changes."""
+        """Restarts dwell when hovered preset or Shift changes."""
         stem = target.bind(lambda held: Some(held) if isinstance(held, str) else Nothing)
         if self.held.filter(lambda state: state.hover != (stem, shifted)).is_none():
             return Ok(None)
@@ -666,7 +666,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
         return paired(armed, self.signal.fired()).map(lambda _: None)
 
     def rehovered(self, spot: Spot) -> BlenderResult[None]:
-        """Rebinds the stationary pointer to the cells now painted."""
+        """Rebinds stationary pointer to painted cells."""
         region = spot.view.region
         canvas = spot.canvas(self.browser.main)
         return self.held.map(
@@ -678,7 +678,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
     # --- [EVENTS]
 
     def acted(self, act: Act, *, shifted: bool) -> BlenderResult["rna_enums.OperatorReturnItems"]:
-        """Invokes the listing's registered operator over the act's record, its CANCELLED closing the browser without a fault."""
+        """Invokes listing operator, `CANCELLED` closing browser with no fault."""
         command = self.actions[act.verb]
 
         def invoked(binding: tuple[str, operators.Writer]) -> BlenderResult["rna_enums.OperatorReturnItems"]:
@@ -694,7 +694,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
         return self.hovered(Nothing, shifted=shifted).bind(lambda _: command.invocation(self.identity)).bind(invoked)
 
     def handled(self, context: bpy.types.Context, event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
-        """Steps the browsed view over one event, publishes it, then carries out its dwell, layout write, redraw, or listing action."""
+        """Steps and publishes view, then runs dwell, layout write, redraw, or listing action."""
         live = self.held.bind(lambda state: self.place.resolved(context).to_option().map(lambda spot: (state, spot))).filter(
             lambda _: event.type != "WINDOW_DEACTIVATE" and holds(self.browser.requirement, context)
         )
@@ -702,7 +702,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
             case None:
                 return Ok("CANCELLED")
             case (Browsed() as state, Spot() as spot):
-                view = state.view.settled(state.catalog)
+                view = state.view.narrowed(state.catalog)
                 point = (event.mouse_x - spot.view.region.x, event.mouse_y - spot.view.region.y)
                 cells = view.cells(spot.canvas(self.browser.main), state.catalog, self.actions)
                 target = hit(cells, point)
@@ -729,7 +729,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
 
 
 def hit(cells: Cells, point: tuple[int, int]) -> Option[Target]:
-    """Answers the cell target under a region point."""
+    """Returns cell target under region point."""
     x, y = point
     return Option.of_optional(next((target for target, rect in cells if rect.x <= x < rect.x + rect.width and rect.y <= y < rect.y + rect.height), None))
 

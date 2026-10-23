@@ -12,10 +12,8 @@ const ORIGIN = 'file://';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Peer = Schema.Struct({
-    application: Schema.URLFromString.pipe(Schema.decodeTo(Schema.URL, { decode: SchemaGetter.transform((url) => (url.pathname.endsWith('/') ? url : new URL(`${url.href}/`))), encode: SchemaGetter.passthrough() })).annotate({
-        description: 'Bundle url of the application the plug-in serves, in the directory form Launch Services gives a bundle',
-    }),
-    extension: Schema.String.annotate({ description: 'Plugin name its manifest declares' }),
+    application: Schema.URLFromString.pipe(Schema.decodeTo(Schema.URL, { decode: SchemaGetter.transform((url) => (url.pathname.endsWith('/') ? url : new URL(`${url.href}/`))), encode: SchemaGetter.passthrough() })).annotate({ description: 'Served application bundle URL with trailing slash' }),
+    extension: Schema.String.annotate({ description: 'Plugin manifest name' }),
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -33,7 +31,7 @@ const linked = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(
                     const [{ name, requiredPermissions }, url] = yield* Effect.all([Plugin, application]);
                     const {
                         domains: [origin],
-                    } = yield* Effect.fromOption(requiredPermissions.network, () => new Cause.NoSuchElementError(`${name} declares no network domain`));
+                    } = yield* Effect.fromOption(requiredPermissions.network, () => new Cause.NoSuchElementError(`${name} manifest lacks requiredPermissions.network domains`));
                     const identity = yield* Schema.encodeEffect(Peer)({ application: url, extension: name });
                     const { reader, writer } = yield* Socket.makeWebSocket(`${origin}${path}?${UrlParams.toString(UrlParams.fromInput(identity))}`);
                     return {

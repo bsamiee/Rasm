@@ -20,5 +20,5 @@ rule:
         - inside: {field: body, matches: thunk}
         - inside: {kind: return_statement, inside: {kind: block, inside: {matches: thunk}}}
 fix: $VALUE
-message: '`$VALUE.ThrowIfFail()` throws the failure `IO.lift` carries from a returned `Fin`'
-note: 'Return the `Fin` from the `IO.lift(Func<Fin<A>>)` thunk'
+message: '`$VALUE.ThrowIfFail()` throws a failure the `IO.lift` thunk can return as `Fin`'
+note: 'Return the `Fin` from the thunk'

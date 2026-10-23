@@ -1,4 +1,4 @@
-"""Native blend formulas and premultiplied coverage for effects and layers."""
+"""Mix node blend modes and premultiplied coverage."""
 
 import functools
 from typing import overload
@@ -18,7 +18,7 @@ from blender.imaging.faults import accumulated, paired
 
 
 def blend_type(mode: BlendMode) -> str:
-    """Returns the native Mix identifier, deriving every regular spelling."""
+    """Returns Mix node blend type, mode name where spellings match."""
     match mode:
         case BlendMode.NORMAL:
             return "MIX"
@@ -34,7 +34,7 @@ def blend_type(mode: BlendMode) -> str:
 
 @functools.cache
 def mixback() -> BlenderResult[NodeGroup]:
-    """Returns the shared HDR blend group or its native construction faults."""
+    """Returns shared HDR blend group."""
     base, result = End(node=INPUTS, socket="base"), End(node=INPUTS, socket="result")
     mode, opacity, _ = structs.fields(Blend)
     items = MenuItems.of(BlendMode, described(mode.type))
@@ -93,13 +93,13 @@ def product(key: Key, factors: tuple[Operand, *tuple[Operand, ...]]) -> BlenderR
 
 
 def product(key: Key, factors: tuple[Operand, *tuple[Operand, ...]]) -> BlenderResult[Operand]:
-    """Returns the product while carrying every operand's upstream graph."""
+    """Returns operand product with upstream graphs."""
     first, *rest = factors
     return functools.reduce(lambda done, item: done.bind(lambda held: math(f"{key}_{item[0]}", "MULTIPLY", held, item[1])), enumerate(rest, 1), Ok(first))
 
 
 def mixed_back(key: Key, base: Operand, result: Operand, mode: Operand, coverage: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns one shared mix-back instance or its native construction faults."""
+    """Returns shared mix-back group node."""
     return mixback().bind(lambda group: nested(f"{key}_mixback", group, {"base": base, "result": result, "blend": mode, "coverage": coverage}, "image"))
 
 

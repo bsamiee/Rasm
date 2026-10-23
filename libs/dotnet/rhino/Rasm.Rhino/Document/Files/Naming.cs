@@ -27,7 +27,7 @@ public sealed partial class FileExtension {
     internal const char Mark = '.';
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new ValidationError($"extension {value} is no mark followed by reserved-free text without a second mark");
+        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new ValidationError($"extension {value} is no dot then dot-free name characters");
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -35,7 +35,7 @@ public readonly partial struct OutputVersion {
     public static OutputVersion MinValue { get; } = new(1);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = value >= MinValue._value ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"output version {value} lies below {MinValue._value}"));
+        validationError = value >= MinValue._value ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"output version {value} is below {MinValue._value}"));
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]

@@ -25,4 +25,4 @@ transform:
     SEQUENCE: {replace: {source: $STRING, replace: '^\\[uUx].*$', by: '\e'}}
 fix: $SEQUENCE
 message: '`$CODE` spells the escape character by its code point'
-note: 'Write the escape character as `\e`, `''\e''` for a `char` and `"\e"` for a `string`'
+note: 'Write `\e`, `''\e''` for a `char` and `"\e"` for a `string`'

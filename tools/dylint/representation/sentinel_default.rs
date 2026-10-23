@@ -23,7 +23,7 @@ pub(crate) struct Pass {
     fallbacks: FxHashSet<DefId>,
 }
 
-lint!(Pass; SENTINEL_DEFAULT: "`Option::unwrap_or_default`, and `unwrap_or` or `map_or` with a default-equivalent fallback, whose default a later test compares, empties, or matches as the absence of a value");
+lint!(Pass; SENTINEL_DEFAULT: "`Option::unwrap_or_default`, `unwrap_or`, and `map_or` calls with a default fallback that a later `==`, `!=`, `is_empty`, or `match` tests as absence");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {

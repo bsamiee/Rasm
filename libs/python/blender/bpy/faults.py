@@ -1,4 +1,4 @@
-"""Blender failures and the result shared by Blender operations."""
+"""Blender faults and result type of Blender operations."""
 
 from collections.abc import Callable
 from importlib.resources.abc import Traversable
@@ -20,11 +20,11 @@ if TYPE_CHECKING:
 
 
 class Requirement(Protocol):
-    """What a context lacks for an operation or interface."""
+    """Context requirement of operation or interface."""
 
     @property
     def message(self) -> str:
-        """Poll message naming the unmet requirement."""
+        """Poll message of unmet requirement."""
         ...
 
 
@@ -54,11 +54,11 @@ class BlenderRegisterFault(Refusal[tuple[str, ...], ValueError | RuntimeError | 
 
 
 class BlenderEditFault(Refusal[str, EditRefusal], frozen=True):
-    """Host property or function that refused an edit."""
+    """Host property or function refusing edit."""
 
     @classmethod
     def attempted[T](cls, request: str, call: Callable[[], T]) -> "BlenderResult[T]":
-        """Answers a host call, or the edit fault naming its request when the host refuses it."""
+        """Returns host call result, edit fault naming request on refusal."""
         try:
             return Ok(call())
         except typing.get_args(EditRefusal.__value__) as error:
@@ -74,7 +74,7 @@ class BlenderChoiceFault(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class BlenderAbsentFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Key absent from an owner."""
+    """Key absent from owner."""
 
     owner: str
     key: str | int
@@ -85,7 +85,7 @@ class BlenderCollisionFault(Refusal[str, str | Path], frozen=True):
 
 
 class BlenderUnmetFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Context lacking a requirement."""
+    """Context lacking requirement."""
 
     requirement: Requirement
 
@@ -103,28 +103,28 @@ class BlenderWriteFault(Refusal[str | Path, OSError], frozen=True):
 
 
 class BlenderZoneFault(Refusal[str, ValueError | zoneinfo.ZoneInfoNotFoundError], frozen=True, kw_only=True):
-    """Native zone constructor that refused an identifier."""
+    """Time zone `zoneinfo.ZoneInfo` refused."""
 
 
 class BlenderImagingFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Complete fault tuple from an imaging operation."""
+    """Imaging faults as one Blender fault."""
 
     faults: ImagingFaults
 
     @classmethod
     def lifted(cls, faults: ImagingFaults) -> BlenderFaults:
-        """Carries the imaging faults as one Blender fault."""
+        """Wraps faults in one Blender fault."""
         return (cls(faults=faults),)
 
 
 class BlenderRenderingFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Complete fault tuple from a rendering operation."""
+    """Rendering faults as one Blender fault."""
 
     faults: RenderingFaults
 
     @classmethod
     def lifted(cls, faults: RenderingFaults) -> BlenderFaults:
-        """Carries the rendering faults as one Blender fault."""
+        """Wraps faults in one Blender fault."""
         return (cls(faults=faults),)
 
 

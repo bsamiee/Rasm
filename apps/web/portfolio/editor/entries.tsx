@@ -24,14 +24,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { entries: readonl
     };
     return (
         <ReorderableList
-            actions={(keys) => (
-                <ConfirmDialog
-                    description="Remove the selected entries from your draft. Source files remain in the library. Publish to apply this change to the public site."
-                    disabled={locked(keys)}
-                    label={`Remove ${quantity(keys.size, { one: 'selected entry', other: 'selected entries' })}`}
-                    onConfirm={() => remove(keys)}
-                />
-            )}
+            actions={(keys) => <ConfirmDialog description="Source files stay in library. Published work changes on next publish" disabled={locked(keys)} label={`Remove ${quantity(keys.size, { one: 'selected entry', other: 'selected entries' })}`} onConfirm={() => remove(keys)} />}
             aria-label="Projects and studies"
             className="editor-sequence"
             items={entries}
@@ -45,7 +38,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { entries: readonl
                         {entryTitle(item)}
                         <span className="meta-line no-underline">{quantity(item.compositions.length, { one: 'composition', other: 'compositions' })}</span>
                     </Button>
-                    <ConfirmDialog description="Remove this entry from your draft. Source files remain in the library. Publish to apply this change to the public site." disabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
+                    <ConfirmDialog description="Source files stay in library. Published work changes on next publish" disabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
                 </div>
             )}
         </ReorderableList>
@@ -60,7 +53,7 @@ const EntryFields = ({ entry, titleId }: { entry: typeof Entry.Type; titleId: st
             <summary className="min-h-11 cursor-pointer content-center text-sm">Entry details</summary>
             <div className="flex flex-col gap-5 py-3">
                 <div className="field-pair">
-                    <Field id={titleId} label="Title" onChange={(title) => update({ title })} placeholder="Project or study title" value={entry.title} />
+                    <Field id={titleId} label="Title" onChange={(title) => update({ title })} value={entry.title} />
                     <SelectField label="Entry type" onChange={({ id }) => update({ kind: id })} options={Entry.fields.kind.literals.map((id) => ({ id, label: String.capitalize(id) }))} value={entry.kind} />
                 </div>
                 <div className="flex flex-col gap-4.5">
@@ -78,7 +71,7 @@ const EntryFields = ({ entry, titleId }: { entry: typeof Entry.Type; titleId: st
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
                         <span className="eyebrow min-w-0 wrap-anywhere">Cover · {entry.cover.asset.name}</span>
                         <button className="button button-ghost" onClick={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.omit(['cover']))))} type="button">
-                            Clear thumbnail
+                            Clear cover
                         </button>
                     </div>
                 )}

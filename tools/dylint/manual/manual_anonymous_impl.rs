@@ -93,18 +93,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && owned.iter().any(|&(_, implementation)| !derived_impl(tcx, implementation.to_def_id()))
                 && let Ok(Some(&anonymous)) = owned.iter().map(|(implemented, _)| self.replaced.get(implemented)).all_equal_value()
             {
-                let name = tcx.item_name(structure);
-                let (lint, purpose, help) = match anonymous {
-                    Anonymous::Formatter => (MANUAL_FMT_FROM_FN, "only formats a value at its one construction site", "format at that site with `fmt::from_fn(move |formatter| ..)`"),
-                    Anonymous::Generator =>
-                        (MANUAL_GEN_BLOCK, "only holds iterator state for its one construction site", "write the iteration at that site as a `gen move { .. }` block under `#![feature(gen_blocks)]`"),
+                let (name, traits) = (tcx.item_name(structure), owned.iter().map(|&(implemented, _)| format!("`{}`", tcx.item_name(implemented))).unique().join(", "));
+                let (lint, help) = match anonymous {
+                    Anonymous::Formatter => (MANUAL_FMT_FROM_FN, format!("replace `{name}` with `fmt::from_fn(move |formatter| ..)` at its construction site")),
+                    Anonymous::Generator => (MANUAL_GEN_BLOCK, format!("replace `{name}` with a `gen move {{ .. }}` block at its construction site under `#![feature(gen_blocks)]`")),
                 };
                 span_lint_hir_and_then(
                     cx,
                     lint,
                     tcx.local_def_id_to_hir_id(structure),
                     tcx.def_ident_span(structure).unwrap_or_else(|| tcx.def_span(structure)),
-                    format!("`{name}` {purpose}"),
+                    format!("`{name}` is built at one site and implements only {traits}"),
                     |diag| {
                         diag.span_note(tcx.hir_span(site), "built here");
                         diag.help(help);

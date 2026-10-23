@@ -2,7 +2,7 @@
 
 fn expect_used_in_macro(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `std::result::Result::expect` in a local macro expansion can panic
+    warning: `std::result::Result::expect` in a local macro expansion panics on `Err`
       --> tools/dylint/examples/restriction_in_macro.rs:13:16
        |
     11 | macro_rules! required {
@@ -13,14 +13,14 @@ fn expect_used_in_macro(found: &str) {
     45 | fn expected(value: Result<u32, ParseIntError>) -> u32 { required!(value) }
        |                                                         ---------------- in this macro invocation
        |
-       = help: match the value and return the failure through the result type
+       = help: return the error with `?`
        = note: `#[warn(expect_used_in_macro)]` on by default
     "#);
 }
 
 fn map_err_ignore_in_macro(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `map_err(|_| ..)` in a local macro expansion discards the error
+    warning: `map_err(|_| ..)` in a local macro expansion discards `ParseIntError`
        --> tools/dylint/examples/restriction_in_macro.rs:89:16
         |
      87 | macro_rules! ignored {
@@ -31,7 +31,7 @@ fn map_err_ignore_in_macro(found: &str) {
     111 | fn ignoring(value: Result<u32, ParseIntError>) -> Result<u32, Refused> { ignored!(value) }
         |                                                                          --------------- in this macro invocation
         |
-        = help: bind the error and keep it as the source of the new error
+        = help: hold `ParseIntError` as `#[source]` of the error the closure builds
         = note: `#[warn(map_err_ignore_in_macro)]` on by default
     ");
 }
@@ -49,7 +49,7 @@ fn panic_in_macro(found: &str) {
     47 | fn checked(value: u32) { ensured!(value > 1) }
        |                          ------------------- in this macro invocation
        |
-       = help: return the failure through the result type, or state the invariant in the types
+       = help: return a typed error for a failure the input causes, or state the invariant in the types
        = note: `#[warn(panic_in_macro)]` on by default
 
     warning: `todo!` in a local macro expansion panics
@@ -63,13 +63,13 @@ fn panic_in_macro(found: &str) {
     49 | fn unfinished() -> u32 { pending!() }
        |                          ---------- in this macro invocation
        |
-       = help: return the failure through the result type, or state the invariant in the types
+       = help: replace `todo!` with the implementation
     "#);
 }
 
 fn print_in_macro(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `println!` in a local macro expansion writes to the console
+    warning: `println!` in a local macro expansion writes to stdout
       --> tools/dylint/examples/restriction_in_macro.rs:33:9
        |
     31 | macro_rules! said {
@@ -80,7 +80,7 @@ fn print_in_macro(found: &str) {
     51 | fn printed(value: u32) { said!("{value}") }
        |                          ---------------- in this macro invocation
        |
-       = help: record the value through `tracing` at the boundary
+       = help: emit a `tracing` event in place of `println!`
        = note: `#[warn(print_in_macro)]` on by default
     "#);
 }
@@ -103,7 +103,7 @@ fn redundant_closure_call_in_macro(found: &str) {
     ...
     34 |     black_box([applied!(|value: u32| value + 1, 1), applied!(increment, 2), applied!(handler.apply, 3), bound!(|value| value + 1, 4)...
        |                ----------------------------------- in this macro invocation
-       = help: match the closure as `|$<param>:pat_param| $<body>:expr` in the macro matcher and transcribe the body with each parameter bound to its argument
+       = help: match the closure as `|$parameter:ident $(: $type:ty)?| $body:expr` and expand to `{ let $parameter $(: $type)? = <argument>; $body }`
        = note: `#[warn(redundant_closure_call_in_macro)]` on by default
 
     warning: `doubled!` calls the closure it declares in its expansion
@@ -117,7 +117,7 @@ fn redundant_closure_call_in_macro(found: &str) {
     34 | ...lack_box([applied!(|value: u32| value + 1, 1), applied!(increment, 2), applied!(handler.apply, 3), bound!(|value| value + 1, 4), doubled!(5), (...
        |                                                                                                                                     ----------- in this macro invocation
        |
-       = help: bind each argument with `let <parameter> = <argument>;` and transcribe the body
+       = help: replace the call with `{ let <parameter> = <argument>; <body> }`
     ");
 }
 
@@ -137,7 +137,7 @@ fn renamed_function_params_in_macro(found: &str) {
     34 | |         clamp(limit) => u32::min;
     35 | |     }
        | |_____^
-       = help: name the parameter `factor` in the macro or its invocation, as the trait declares it
+       = help: rename `by` to `factor`
        = note: `#[warn(renamed_function_params_in_macro)]` on by default
 
     warning: `offset!` names the `Scale::shift` parameter `offset` as `delta`
@@ -156,13 +156,13 @@ fn renamed_function_params_in_macro(found: &str) {
        |
     37 |     offset!();
        |     ^^^^^^^^^
-       = help: name the parameter `offset` in the macro or its invocation, as the trait declares it
+       = help: rename `delta` to `offset`
     ");
 }
 
 fn unwrap_used_in_macro(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `std::option::Option::unwrap` in a local macro expansion can panic
+    warning: `std::option::Option::unwrap` in a local macro expansion panics on `None`
       --> tools/dylint/examples/restriction_in_macro.rs:7:16
        |
      5 | macro_rules! taken {
@@ -173,7 +173,7 @@ fn unwrap_used_in_macro(found: &str) {
     43 | fn unwrapped(value: Option<u32>) -> u32 { taken!(value) }
        |                                           ------------- in this macro invocation
        |
-       = help: match the value and return the failure through the result type
+       = help: convert `None` into an error with `ok_or_else` and return it with `?`
        = note: `#[warn(unwrap_used_in_macro)]` on by default
     ");
 }
@@ -191,7 +191,7 @@ fn use_debug_in_macro(found: &str) {
     109 | fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
         |                                                                 -------------------- in this macro invocation
         |
-        = help: format through `Display`
+        = help: format through `Display` with `{}`
         = note: `#[warn(use_debug_in_macro)]` on by default
     "#);
 }

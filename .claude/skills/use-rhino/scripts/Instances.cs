@@ -47,14 +47,14 @@ internal sealed record Document(Entry Entry, [property: Shown("slot={0}", Omitte
 internal sealed record Reply(
     [property: Shown("Rhino {0}")] int Major,
     [property: Shown("pre-release", Omitted = true)] bool PreRelease,
-    [property: Shown("pid {0}")] int Pid,
+    [property: Shown("Process ID {0}")] int Pid,
     Listing Command);
 
 internal sealed record Listing(
     [property: Shown("Grasshopper 2 editor open", Omitted = true)] bool Gh2Editor,
-    [property: Shown("documents: {0}")] IReadOnlyList<Document> Documents,
-    [property: Shown("Grasshopper 2 definitions: {0}")] IReadOnlyList<Entry> Gh2,
-    [property: Shown("Grasshopper 1 definitions: {0}", Omitted = true)] IReadOnlyList<Entry> Gh1) {
+    [property: Shown("Documents ({0})")] IReadOnlyList<Document> Documents,
+    [property: Shown("Grasshopper 2 definitions ({0})")] IReadOnlyList<Entry> Gh2,
+    [property: Shown("Grasshopper 1 definitions ({0})", Omitted = true)] IReadOnlyList<Entry> Gh1) {
     public static Listing Query(IReadOnlyDictionary<int, string> slots) => (Loaded("Grasshopper2") ? ReadGh2() : (false, [])) switch {
         var (open, gh2) => new(
             open,
@@ -105,13 +105,13 @@ internal static class Program {
     private static async Task<int> RunAsync() {
         Console.WriteLine(await Router()
             .Bind(static router => IO.lift(static () => new HttpClient()).Bracket(Use: http => List(http, router), Fin: static http => IO.lift(http.Dispose)))
-            .Catch(Unanswered, static error => IO.pure($"Rhino: unknown, {error.Message}"))
+            .Catch(Unanswered, static error => IO.pure($"Rhino state unknown. {error.Message}"))
             .RunAsync(CancellationToken.None).ConfigureAwait(false));
         return 0;
     }
 
     private static int Usage(string[] args) {
-        Console.Error.WriteLine($"No command named '{string.Join(' ', args)}'");
+        Console.Error.WriteLine($"No command named '{string.Join(' ', args)}', run without arguments");
         return 2;
     }
 
@@ -126,14 +126,14 @@ internal static class Program {
         from reply in Call(http, router, "list_slots", ReadOnlyDictionary<string, object?>.Empty).Map(static result => result.Content.OfType<TextContentBlock>().Single().Text)
         from slots in Wire.Read<Routed>(reply).Payload is { } payload ? IO.pure(payload) : IO.fail<Slot[]>(new Refused(Wire.Read<Faulted>(reply).Error.Message))
         from applications in toSeq(slots.GroupBy(static slot => slot.Pid)).Traverse(application => Ask(http, application)).As()
-        select applications.IsEmpty ? "Rhino: not running" : string.Join('\n', applications.Bind(identity));
+        select applications.IsEmpty ? "Rhino not running" : string.Join('\n', applications.Bind(identity));
 
     private static IO<Seq<string>> Ask(HttpClient http, IGrouping<int, Slot> application) =>
         Call(http, application.First().Endpoint, "run_csharp", new Dictionary<string, object?>(StringComparer.Ordinal) { ["script"] = Loader(application) })
             .Bind(static result => result.IsError is true
                 ? IO.fail<Seq<string>>(new Refused(Wire.Read<Fault>(result.Content.OfType<TextContentBlock>().First().Text).Message))
                 : IO.pure(Lines(Wire.Read<Reply>(Wire.Read<Output>(result.Content.OfType<TextContentBlock>().Last().Text).Stdout))))
-            .Catch(Unanswered, error => IO.pure(Seq(string.Create(CultureInfo.InvariantCulture, $"pid {application.Key}, unanswered: {error.Message}"))));
+            .Catch(Unanswered, error => IO.pure(Seq(string.Create(CultureInfo.InvariantCulture, $"Process ID {application.Key} listing failed. {error.Message}"))));
 
     private static IO<CallToolResult> Call(HttpClient http, Uri endpoint, string tool, IReadOnlyDictionary<string, object?> arguments) =>
         IO.liftAsync(env => McpClient.CreateAsync(new HttpClientTransport(new() { Endpoint = endpoint }, http), cancellationToken: env.Token)).Bracket(

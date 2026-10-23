@@ -2,68 +2,68 @@
 
 fn needless_import_rename(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `Cell` renames `UnsafeCell`, which collides with no other item in scope
+    warning: `UnsafeCell` renamed to `Cell` with no other `UnsafeCell` in scope
      --> tools/dylint/examples/needless_import_rename.rs:2:5
       |
     2 |     cell::UnsafeCell as Cell,
       |     ^^^^^^^^^^^^^^^^^^^^^^^^
       |
-      = help: import `UnsafeCell` under its own name
+      = help: remove `as Cell` and name `UnsafeCell` at each use
       = note: `#[warn(needless_import_rename)]` on by default
 
-    warning: `Flipped` renames `Reverse`, which collides with no other item in scope
+    warning: `Reverse` renamed to `Flipped` with no other `Reverse` in scope
      --> tools/dylint/examples/needless_import_rename.rs:3:11
       |
     3 |     cmp::{Reverse as Flipped, *},
       |           ^^^^^^^^^^^^^^^^^^
       |
-      = help: import `Reverse` under its own name
+      = help: remove `as Flipped` and name `Reverse` at each use
 
-    warning: `format` renames `fmt`, which collides with no other item in scope
+    warning: `fmt` renamed to `format` with no other `fmt` in scope
      --> tools/dylint/examples/needless_import_rename.rs:4:11
       |
     4 |     fmt::{self as format, Error, Write as _},
       |           ^^^^^^^^^^^^^^
       |
-      = help: import `fmt` under its own name
+      = help: remove `as format` and name `fmt` at each use
 
-    warning: `taken` renames `take`, which collides with no other item in scope
+    warning: `take` renamed to `taken` with no other `take` in scope
      --> tools/dylint/examples/needless_import_rename.rs:6:5
       |
     6 |     mem::take as taken,
       |     ^^^^^^^^^^^^^^^^^^
       |
-      = help: import `take` under its own name
+      = help: remove `as taken` and name `take` at each use
 
-    warning: `Map` renames `BTreeMap`, which collides with no other item in scope
+    warning: `BTreeMap` renamed to `Map` with no other `BTreeMap` in scope
       --> tools/dylint/examples/needless_import_rename.rs:14:5
        |
     14 |     collections::BTreeMap as Map,
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: import `BTreeMap` under its own name
+       = help: remove `as Map` and name `BTreeMap` at each use
 
-    warning: `Shared` renames `Arc`, which collides with no other item in scope
+    warning: `Arc` renamed to `Shared` with no other `Arc` in scope
       --> tools/dylint/examples/needless_import_rename.rs:18:5
        |
     18 |     sync::Arc as Shared,
        |     ^^^^^^^^^^^^^^^^^^^
        |
-       = help: import `Arc` under its own name
+       = help: remove `as Shared` and name `Arc` at each use
 
-    warning: `Span` renames `Duration`, which collides with no other item in scope
+    warning: `Duration` renamed to `Span` with no other `Duration` in scope
       --> tools/dylint/examples/needless_import_rename.rs:54:9
        |
     54 |     use core::time::Duration as Span;
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: import `Duration` under its own name
+       = help: remove `as Span` and name `Duration` at each use
     ");
 }
 
 fn single_reader(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `NONE` has one reader
+    warning: `NONE` has one reader, `named_bound`
       --> tools/dylint/examples/absurd_nonzero_comparison.rs:41:1
        |
     41 | const NONE: u32 = 0;
@@ -77,7 +77,7 @@ fn single_reader(found: &str) {
        = help: move `NONE` into `named_bound` as a nested item
        = note: `#[warn(single_reader)]` on by default
 
-    warning: `infallible` has one reader
+    warning: `infallible` has one reader, `certain`
        --> tools/dylint/examples/discarded_error.rs:15:1
         |
      15 | fn infallible(value: u32) -> Result<u32, Infallible> { Ok(value) }
@@ -91,7 +91,7 @@ fn single_reader(found: &str) {
         = help: move `infallible` into `certain` as a nested item
         = note: `#[warn(single_reader)]` on by default
 
-    warning: `reopen` has one reader
+    warning: `reopen` has one reader, `main`
        --> tools/dylint/examples/foreign_error_return.rs:72:5
         |
      72 |     fn reopen(self) -> io::Result<u16> { self.open() }
@@ -105,7 +105,7 @@ fn single_reader(found: &str) {
         = help: move `reopen` into `main` as a nested item
         = note: `#[warn(single_reader)]` on by default
 
-    warning: `hidden` has one reader
+    warning: `hidden` has one reader, `main`
        --> tools/dylint/examples/foreign_error_return.rs:103:1
         |
     103 | fn hidden(text: &str) -> Result<u16, ParseIntError> { text.trim().parse() }
@@ -118,7 +118,7 @@ fn single_reader(found: &str) {
         |                 ^^^^^^
         = help: move `hidden` into `main` as a nested item
 
-    warning: `new` has one reader
+    warning: `new` has one reader, `default`
       --> tools/dylint/examples/manual_default_field_values.rs:91:5
        |
     91 |     fn new(attempts: u8) -> Self { Self { attempts } }
@@ -132,7 +132,7 @@ fn single_reader(found: &str) {
        = help: move `new` into `default` as a nested item
        = note: `#[warn(single_reader)]` on by default
 
-    warning: `passed` has one reader
+    warning: `passed` has one reader, `named`
       --> tools/dylint/examples/partition_by_result.rs:20:1
        |
     20 | const fn passed(result: &Parsed) -> bool { result.is_ok() }
@@ -146,7 +146,7 @@ fn single_reader(found: &str) {
        = help: move `passed` into `named` as a nested item
        = note: `#[warn(single_reader)]` on by default
 
-    warning: `small` has one reader
+    warning: `small` has one reader, `ranked`
       --> tools/dylint/examples/partition_by_result.rs:24:1
        |
     24 | fn small(result: &Parsed) -> bool { result.is_small() }
@@ -159,7 +159,7 @@ fn single_reader(found: &str) {
        |                                                                                               ^^^^^
        = help: move `small` into `ranked` as a nested item
 
-    warning: `large` has one reader
+    warning: `large` has one reader, `sized`
       --> tools/dylint/examples/partition_by_result.rs:22:1
        |
     22 | const fn large(value: &u8) -> bool { *value > 9 }
@@ -172,7 +172,7 @@ fn single_reader(found: &str) {
        |                                                                                ^^^^^
        = help: move `large` into `sized` as a nested item
 
-    warning: `run` has one reader
+    warning: `run` has one reader, `ran`
        --> tools/dylint/examples/single_impl_trait.rs:168:1
         |
     168 | / fn run<H>(handler: &H) -> u32
@@ -187,7 +187,7 @@ fn single_reader(found: &str) {
         = help: move `run` into `ran` as a nested item
         = note: `#[warn(single_reader)]` on by default
 
-    warning: `bound` has one reader
+    warning: `bound` has one reader, `clamped`
       --> tools/dylint/examples/single_reader.rs:53:5
        |
     53 |     fn bound(&self) -> usize { self.width.strict_mul(SHARED) }
@@ -201,7 +201,7 @@ fn single_reader(found: &str) {
        = help: move `bound` into `clamped` as a nested item
        = note: `#[warn(single_reader)]` on by default
 
-    warning: `MULTIPLE` has one reader
+    warning: `MULTIPLE` has one reader, `tripled`
       --> tools/dylint/examples/single_reader.rs:48:5
        |
     48 |     const MULTIPLE: usize = 3;
@@ -214,7 +214,7 @@ fn single_reader(found: &str) {
        |                                                        ^^^^^^^^^^^^^^
        = help: move `MULTIPLE` into `tripled` as a nested item
 
-    warning: `digits` has one reader
+    warning: `digits` has one reader, `parsed`
        --> tools/dylint/examples/single_reader.rs:104:1
         |
     104 | fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() }
@@ -227,7 +227,7 @@ fn single_reader(found: &str) {
         |                                  ^^^^^^
         = help: move `digits` into `parsed` as a nested item
 
-    warning: `LIMIT` has one reader
+    warning: `LIMIT` has one reader, `parsed`
        --> tools/dylint/examples/single_reader.rs:8:1
         |
       8 | const LIMIT: usize = 8;
@@ -240,7 +240,7 @@ fn single_reader(found: &str) {
         |                                                   ^^^^^
         = help: move `LIMIT` into `parsed` as a nested item
 
-    warning: `countdown` has one reader
+    warning: `countdown` has one reader, `started`
        --> tools/dylint/examples/single_reader.rs:108:1
         |
     108 | fn countdown(steps: usize) -> usize { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } }
@@ -253,7 +253,7 @@ fn single_reader(found: &str) {
         |                                     ^^^^^^^^^
         = help: move `countdown` into `started` as a nested item
 
-    warning: `BANNER` has one reader
+    warning: `BANNER` has one reader, `titled`
        --> tools/dylint/examples/single_reader.rs:12:1
         |
      12 | static BANNER: &str = "ports";
@@ -266,7 +266,7 @@ fn single_reader(found: &str) {
         |                                   ^^^^^^
         = help: move `BANNER` into `titled` as a nested item
 
-    warning: `expanded` has one reader
+    warning: `expanded` has one reader, `measuring`
        --> tools/dylint/examples/single_reader.rs:122:1
         |
     122 | fn expanded(text: &str) -> usize { text.chars().count() }
@@ -284,7 +284,7 @@ fn single_reader(found: &str) {
         |                                     --------------- in this macro invocation
         = help: move `expanded` into `measuring` as a nested item
 
-    warning: `scaled` has one reader
+    warning: `scaled` has one reader, `widened`
        --> tools/dylint/examples/single_reader.rs:132:1
         |
     132 | fn scaled(width: usize) -> usize { width.strict_add(1) }
@@ -297,7 +297,7 @@ fn single_reader(found: &str) {
         |                  ^^^^^^
         = help: move `scaled` into `widened` as a nested item
 
-    warning: `exported` has one reader
+    warning: `exported` has one reader, `relayed`
        --> tools/dylint/examples/single_reader.rs:142:1
         |
     142 | pub fn exported(text: &str) -> usize { text.len().strict_add(SHARED) }
@@ -310,7 +310,7 @@ fn single_reader(found: &str) {
         |                                   ^^^^^^^^
         = help: move `exported` into `relayed` as a nested item
 
-    warning: `DEPTH` has one reader
+    warning: `DEPTH` has one reader, `padded`
        --> tools/dylint/examples/single_reader.rs:14:1
         |
      14 | const DEPTH: usize = 2;
@@ -323,7 +323,7 @@ fn single_reader(found: &str) {
         |                               ^^^^^
         = help: move `DEPTH` into `padded` as a nested item
 
-    warning: `seed` has one reader
+    warning: `seed` has one reader, `SEED`
        --> tools/dylint/examples/single_reader.rs:168:1
         |
     168 | const fn seed() -> u8 { 3 }
@@ -336,7 +336,7 @@ fn single_reader(found: &str) {
         |                  ^^^^
         = help: move `seed` into `SEED` as a nested item
 
-    warning: `PORTS` has one reader
+    warning: `PORTS` has one reader, `port`
        --> tools/dylint/examples/single_reader.rs:20:1
         |
      20 | static PORTS: LazyLock<Vec<u16>> = LazyLock::new(|| (1..=4).map(|step: u16| step.strict_mul(80)).collect());
@@ -349,7 +349,7 @@ fn single_reader(found: &str) {
         |                                        ^^^^^
         = help: move `PORTS` into `port` as a nested item
 
-    warning: `graded` has one reader
+    warning: `graded` has one reader, `grade`
        --> tools/dylint/examples/single_reader.rs:188:1
         |
     188 | fn graded(score: u8) -> u8 { if score > 4 { if score > 7 { 2 } else { 1 } } else { 0 } }
@@ -362,7 +362,7 @@ fn single_reader(found: &str) {
         |                             ^^^^^^
         = help: move `graded` into `grade` as a nested item
 
-    warning: `floored` has one reader
+    warning: `floored` has one reader, `unwrapped`
        --> tools/dylint/examples/single_reader.rs:194:1
         |
     194 | fn floored(width: usize) -> usize { if width.is_power_of_two() { width } else { width.next_power_of_two() } }
@@ -375,7 +375,7 @@ fn single_reader(found: &str) {
         |                                           ^^^^^^^
         = help: move `floored` into `unwrapped` as a nested item
 
-    warning: `halved` has one reader
+    warning: `halved` has one reader, `narrowed`
        --> tools/dylint/examples/single_reader.rs:162:1
         |
     162 | fn halved(width: usize) -> usize { width.strict_div(2) }

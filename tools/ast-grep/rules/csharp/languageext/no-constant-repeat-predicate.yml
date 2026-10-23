@@ -65,5 +65,5 @@ transform:
     OPEN: {replace: {source: $FIXED, replace: '(?s)^.+$', by: '('}}
     CLOSE: {replace: {source: $FIXED, replace: '(?s)^.+$', by: ')'}}
 fix: $BASE$OPEN$REST$CLOSE
-message: '`$NAME` takes a predicate that returns a constant'
-note: Call `Repeat`, `Retry`, `repeat(<effect>)`, or `retry(<effect>)` over the same effect and schedule, `<effect>.As()` for a `K<IO, A>`
+message: '`$NAME` takes a predicate that never stops the loop'
+note: 'Call the method without its `While` or `Until` suffix and predicate argument'

@@ -2,19 +2,21 @@ use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     fn_def_id, is_default_equivalent, peel_blocks,
     res::{MaybeDef as _, MaybeQPath as _},
+    source::snippet,
     sym,
     ty::implements_trait,
     visitors::is_const_evaluatable,
 };
+use itertools::Itertools as _;
 use rustc_ast::LitKind;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::{
-    Body, Expr, ExprKind, FnDecl, StructTailExpr,
+    Body, Expr, ExprField, ExprKind, FnDecl, StructTailExpr,
     def_id::{DefId, LocalDefId},
     intravisit::FnKind,
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::TypeckResults;
+use rustc_middle::ty::{TypeckResults, print::with_forced_trimmed_paths};
 use rustc_span::{Span, Spanned};
 
 use crate::{expanded_externally, impl_owner};
@@ -57,24 +59,33 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && counts.types == 0
             && counts.consts == 0
             && fields.iter().all(|field| is_const_evaluatable(cx.tcx, typeck, field.expr))
-            && let defaulted = match delegate {
-                Some(_) => fields.iter().all(|field| default_value(cx, typeck, field.expr)),
-                None => fields.iter().all(|field| is_default_equivalent(cx, field.expr)),
-            }
+            && let defaults = (|field: &ExprField<'_>| if delegate.is_some() { default_value(cx, typeck, field.expr) } else { is_default_equivalent(cx, field.expr) })
+            && let defaulted = fields.iter().all(defaults)
             && (delegate.is_some() || !defaulted)
         {
             let name = cx.tcx.item_name(owner.did());
+            let declared = fields
+                .iter()
+                .filter(|&field| !defaults(field))
+                .filter_map(|field| {
+                    let declared = owner.non_enum_variant().fields.get(typeck.opt_field_index(field.hir_id)?)?;
+                    let held = with_forced_trimmed_paths!(cx.tcx.type_of(declared.did).instantiate_identity().skip_normalization().to_string());
+                    Some(format!("`{}: {held} = {}`", field.ident, snippet(cx, field.expr.span, "..")))
+                })
+                .join(", ");
             let (source, help) = if defaulted {
-                ("its type's default", "derive `Default` and delete the hand-written impl")
+                ("its type's default", String::from("derive `Default` and delete the impl"))
             } else {
-                ("a constant", "declare each value on its field as `field: T = value` and derive `Default` under `#![feature(default_field_values)]`")
+                ("a constant", format!("declare {declared} under `#![feature(default_field_values)]`, derive `Default`, and delete the impl"))
             };
             let message = match delegate {
-                Some(callee) => format!("`Default` for `{name}` calls `{}`, which builds each field from {source}", cx.tcx.item_name(callee)),
+                Some(callee) => format!("`Default` for `{name}` builds each field from {source} through `{}`", cx.tcx.item_name(callee)),
                 None => format!("`Default` for `{name}` builds each field from {source}"),
             };
             span_lint_hir_and_then(cx, MANUAL_DEFAULT_FIELD_VALUES, value.hir_id, value.span, message, |diag| {
-                diag.span_note(built.span, "fields built here");
+                if delegate.is_some() {
+                    diag.span_note(built.span, "fields built here");
+                }
                 diag.help(help);
             });
         }

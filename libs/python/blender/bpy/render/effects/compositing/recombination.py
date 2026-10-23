@@ -1,4 +1,4 @@
-"""Scene-linear beauty rebuilt from native light passes and light groups."""
+"""Scene-linear beauty from light passes and light groups."""
 
 from collections.abc import Callable
 from enum import Enum
@@ -28,18 +28,18 @@ from blender.imaging.parameters import Case, Gated
 
 
 class Single(Enum):
-    """Native socket and pass flag for light outside a lobe family."""
+    """Render Layers socket and pass flag of light outside lobe families."""
 
     EMISSION = "Emission", "use_pass_emit"
     ENVIRONMENT = "Environment", "use_pass_environment"
     OCCLUSION = "Ambient Occlusion", "use_pass_ambient_occlusion"
 
     def __init__(self, socket: str, flag: str) -> None:
-        """Retains the two independent native spellings."""
+        """Stores socket name and pass flag."""
         self.socket, self.flag = socket, flag
 
 
-# --- [ROSTERS] --------------------------------------------------------------------------
+# --- [CHOICES] --------------------------------------------------------------------------
 
 
 views = Choices(
@@ -52,7 +52,7 @@ views = Choices(
 
 
 class Denoising(msgspec.Struct, frozen=True, kw_only=True):
-    """Filter group, entry panel, and the inlined target switch of one layer."""
+    """Filter group, entry panel key, and inlined target switch."""
 
     group: NodeGroup
     entry: Key
@@ -60,14 +60,14 @@ class Denoising(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class RecombinationFlags(msgspec.Struct, frozen=True, kw_only=True):
-    """Resolved native family and single-pass descriptors."""
+    """Family and single pass flag descriptors."""
 
     families: PassFlags
     singles: dict[Single, Descriptor[bpy.types.BoolProperty]]
 
     @classmethod
     def of(cls) -> BlenderResult[Self]:
-        """Accumulates independent native descriptor refusals."""
+        """Resolves pass flag descriptors, accumulating refusals."""
         return paired(PassFlags.of(), accumulated(Descriptor.resolve(bpy.types.ViewLayer, single.flag, bpy.types.BoolProperty).map(lambda flag: (single, flag)) for single in Single)).map(
             lambda pair: cls(families=pair[0], singles=dict(pair[1]))
         )
@@ -80,11 +80,11 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
     sources: ClassVar[Terms[Family | Single]] = Terms(
         diffuse=Family.DIFFUSE, glossy=Family.GLOSSY, transmission=Family.TRANSMISSION, volume=Family.VOLUME, emission=Single.EMISSION, environment=Single.ENVIRONMENT
     )
-    layer: Annotated[str, msgspec.Meta(title="View Layer", description="View layer whose light the source reads"), views]
+    layer: Annotated[str, msgspec.Meta(title="View Layer", description="Source view layer"), views]
     recombination: Annotated[Recombination, msgspec.Meta(title="Sum", description="Light passes or light groups summed into beauty")] = Lobes()
 
     def requested(self, flags: RecombinationFlags) -> PassRequest:
-        """Requests every animatable lobe or the native light-group engine."""
+        """Requests lobe and single passes, or Cycles for light groups."""
         match self.recombination:
             case Lobes():
                 families = frozenset(flag for family in flags.families.families.values() for flag in family.direct | family.indirect | family.color)
@@ -93,7 +93,7 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
                 return PassRequest(layer=self.layer, condition=LightGroupEdits.cycles)
 
     def synced(self, names: tuple[str, ...]) -> Self:
-        """Retains gains by native group name while taking the provider's order."""
+        """Orders gains by given names, new groups at default gain."""
         match self.recombination:
             case LightGroups(groups=groups):
                 held = {group.name: group for group in groups}
@@ -111,7 +111,7 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
         denoising: Option[Denoising],
         filed: Callable[[Filing, Key], BlenderResult[Fragment]],
     ) -> BlenderResult[tuple[Fragment, End]]:
-        """Builds the complete sum, guided term filters, coverage, and term filing."""
+        """Builds beauty sum, guided term filters, coverage, and filing."""
         render = f"{key}_render"
         filters = Filters.of()
         _, recombination = Recombined.__struct_fields__

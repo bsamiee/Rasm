@@ -126,5 +126,5 @@ rule:
                 - matches: flag-guard
                 - inside: {stopBy: end, matches: release-member}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Dispose$'}}}}
-message: Release runs once through the `$FLAG` flag by hand
-note: 'Hold `new Disposal<T>(<held>, <release>)`'
+message: 'Release runs once through flag `$FLAG` by hand'
+note: 'Hold `<held>` in `new Disposal<T>(<held>, <release>)` in place of the flag'

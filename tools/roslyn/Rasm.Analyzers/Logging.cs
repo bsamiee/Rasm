@@ -15,15 +15,15 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
         "RASM1201",
         Domain,
         "Log message defined by hand",
-        "`LoggerMessage.{0}` defines a log message by hand",
-        "Declare a `partial void` method under `[LoggerMessage]`, the generator emits the cached `LoggerMessage.Define` delegate or a state type for its placeholders.");
+        "`LoggerMessage.{0}` defines a log message by hand. Declare a `partial void` method under `[LoggerMessage]`",
+        "`LoggerMessage.Define` call outside generated code.");
 
     public static readonly DiagnosticDescriptor Called = Rule(
         "RASM1202",
         Domain,
         "Logger called by hand",
-        "`ILogger.{0}` called with hand-written state",
-        "Declare a `partial void` method under `[LoggerMessage]`, and hold a `LoggerMessage.DefineScope` delegate in a static field for a scope, both pass a generated state type. A type implementing `ILogger` forwards to its inner logger directly.");
+        "`ILogger.{0}` called with hand-written state. Replace with {1}",
+        "`ILogger.Log` or `ILogger.BeginScope` call outside generated code and types implementing `ILogger`.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Defined, Called];
 
@@ -55,7 +55,11 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
             analysis => {
                 IInvocationOperation invocation = (IInvocationOperation)analysis.Operation;
                 if (Logs(invocation.TargetMethod) && !Forwards(analysis.ContainingSymbol))
-                    analysis.ReportDiagnostic(Diagnostic.Create(Called, Named(invocation), invocation.TargetMethod.Name));
+                    analysis.ReportDiagnostic(Diagnostic.Create(
+                        Called,
+                        Named(invocation),
+                        invocation.TargetMethod.Name,
+                        invocation.TargetMethod.ReturnsVoid ? "a `partial void` method under `[LoggerMessage]`" : "a `LoggerMessage.DefineScope` delegate held in a static field"));
             },
             OperationKind.Invocation);
     }

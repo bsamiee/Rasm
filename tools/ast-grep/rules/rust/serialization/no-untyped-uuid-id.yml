@@ -48,4 +48,4 @@ rule:
           regex: '\{\w*:08x\}-\{\w*:04x\}-\{\w*:04x\}-'
           inside: {kind: token_tree, inside: {kind: macro_invocation}}
 message: '`$SITE` holds or spells an identifier as an untyped UUID'
-note: 'Type each entity identifier `newtype_uuid::TypedUuid<<Kind>>`, print through `uuid::Uuid`, and keep strings for tokens a peer echoes back'
+note: 'Type the identifier `newtype_uuid::TypedUuid<<Kind>>` and format UUID text through its `Display` impl'

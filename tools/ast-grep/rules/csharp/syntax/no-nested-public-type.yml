@@ -52,4 +52,4 @@ rule:
                                     - has: {field: name, pattern: $BASE}
                                     - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
 message: '`$ACCESS` type `$NAME` nests inside `$OWNER`'
-note: 'Declare the type at file level, nesting only `[Union]` cases, `[Union<...>]` members, and abstract-owner cases with private constructors'
+note: 'Declare the type at file level'

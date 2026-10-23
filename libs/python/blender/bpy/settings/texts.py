@@ -1,4 +1,4 @@
-"""Typed file records persisted as native text blocks and held by the window manager."""
+"""Typed file records saved as text blocks and held by window manager."""
 
 import bpy
 from expression import Nothing, Ok, Option
@@ -18,7 +18,7 @@ from blender.imaging.faults import paired
 
 
 class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """File-level record held in a fake-user text and the live window manager."""
+    """File record in fake-user text block and window manager."""
 
     key: Key
     form: type[T]
@@ -27,11 +27,11 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def attachment(self) -> Attachment[T]:
-        """Native session attachment of this file record."""
+        """Window manager attachment."""
         return Attachment(key=self.key, form=self.form, owner=bpy.types.WindowManager)
 
     def loaded(self, session: tuple[Attached[T], bpy.types.WindowManager]) -> BlenderResult[None]:
-        """Loads the file record, returning decode or native session-write refusals."""
+        """Loads file record from text block, defaults when absent."""
         attached, manager = session
 
         def decoded(text: bpy.types.Text) -> BlenderResult[T]:
@@ -42,19 +42,19 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Builds the attachment, current-file load, and file callbacks, or name and absent-session faults."""
+        """Returns attachment, load and save handlers, and startup load timer."""
         attachment = self.attachment
 
         def session() -> BlenderResult[tuple[Attached[T], bpy.types.WindowManager]]:
-            """Binds the attachment to the live window manager holding the session record."""
+            """Binds attachment to live window manager."""
             return paired(attachment.bound(identity), rooted(bpy.types.WindowManager, bpy.context))
 
         def loaded() -> BlenderResult[Option[float]]:
-            """Recovers an unset session when Blender exposes the current file."""
+            """Loads record once when window manager holds none."""
             return session().bind(lambda pair: Ok(None) if pair[0].stored(pair[1]) else self.loaded(pair)).map(lambda _: Nothing)
 
         def saved(pair: tuple[Attached[T], bpy.types.WindowManager]) -> BlenderResult[None]:
-            """Persists actual session values in a fake-user text or returns native read faults."""
+            """Saves window manager record into fake-user text block."""
             attached, manager = pair
 
             def stored(record: T) -> None:

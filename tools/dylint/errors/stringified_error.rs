@@ -57,20 +57,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if let Some((span, operand)) = rendered.filter(|&(_, operand)| !is_text(cx, operand))
             && let Some(sink) = sink(cx, expr)
         {
-            let error = is_error(cx, operand);
+            let (error, shown) = (is_error(cx, operand), pointee(cx, operand));
             let help = match (error, sink) {
-                (true, Sink::Compared) => "match the error's variant, `kind()`, or `downcast_ref` in place of its text",
-                (true, Sink::Returned | Sink::Stored) => "hold the error as `#[source]` of a `thiserror` variant and render it where a log or view prints it",
-                (false, Sink::Compared) => "compare or match the value itself in place of its text",
+                (true, Sink::Compared) => String::from("match the error's variant, `kind()`, or `downcast_ref` in place of its text"),
+                (true, Sink::Returned | Sink::Stored) => format!("hold `{shown}` as `#[source]` of a `thiserror` variant"),
+                (false, Sink::Compared) => format!("compare or match `{shown}` in place of its text"),
                 (false, Sink::Returned | Sink::Stored) => return,
             };
             let effect = match sink {
-                Sink::Compared => "is compared",
-                Sink::Returned => "is returned where callers cannot match its cause",
-                Sink::Stored => "is stored where callers cannot match its cause",
+                Sink::Compared => "compared",
+                Sink::Returned => "returned",
+                Sink::Stored => "stored",
             };
-            let shown = pointee(cx, operand);
-            let message = if error { format!("text of error `{shown}` {effect}") } else { format!("text of `{shown}` {effect}") };
+            let message = if error { format!("text of error `{shown}` is {effect}") } else { format!("text of `{shown}` is {effect}") };
             span_lint_and_help(cx, STRINGIFIED_ERROR, span, message, None, help);
         }
     }

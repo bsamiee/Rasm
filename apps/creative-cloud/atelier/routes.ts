@@ -24,19 +24,18 @@ const candidates = (hosts: Predicate.Predicate<Installation>) => (given: Option.
             (installed, docked) => installed.filter((row) => hosts(row) && (Option.isSome(given) || docked.some(runs(row)))),
         ),
     );
-const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) =>
-    Effect.flatMap(candidates(hosts)(given), (rows) => Unmatched.single(Option.match(given, { onSome: () => 'installed Adobe application', onNone: () => 'running Adobe application in the Dock' }), given)(rows, (row) => [row.name]));
+const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) => Effect.flatMap(candidates(hosts)(given), (rows) => Unmatched.single(Option.match(given, { onSome: () => 'installed Adobe application', onNone: () => 'running Adobe application in Dock' }), given)(rows, (row) => [row.name]));
 const routes = Effect.fnUntraced(function* (names: readonly string[], { refused }: Effect.Success<typeof status>) {
     const [installed, hosts] = yield* Effect.all([Automation.use(Struct.get('installed')), InDesignScript.use(Struct.get('hosts'))]);
     const listed = (holds: Predicate.Predicate<Installation>) => Schema.Literals(Array.intersection(names, installed.filter(holds).map(Struct.get('name')))).annotate({ description: 'Installed Adobe application' });
     const route = (holds: Predicate.Predicate<Installation>) => ({
         fields: {
-            application: Schema.OptionFromOptionalKey(listed(holds).annotate({ description: 'Installed Adobe application, absent for the one running in the Dock' })),
-            pid: Schema.OptionFromOptionalKey(Pid.annotate({ description: 'Running instance, required when its bundle runs several' })),
+            application: Schema.OptionFromOptionalKey(listed(holds).annotate({ description: 'Application running in Dock when absent' })),
+            pid: Schema.OptionFromOptionalKey(Pid.annotate({ description: 'Required when bundle runs more than one instance' })),
         },
         resolve: ({ application: given, pid }: { readonly application: Option.Option<string>; readonly pid: Option.Option<number> }) => instance(lookup(holds)(given), pid),
         depends: ({ pid }: { readonly pid: number }) => Effect.succeed([refused(pid)]),
-        annotations: Context.make(Tool.OpenWorld, false).pipe(Context.add(Instructions, ['A call that changes state returns once its application shows a dialog requiring an answer. No tool changes the frontmost application.'])),
+        annotations: Context.make(Tool.OpenWorld, false).pipe(Context.add(Instructions, ['State-changing calls return early when a dialog requires an answer. No tool changes frontmost application'])),
         completion: { application: () => Effect.map(candidates(holds)(Option.none()), Array.map(Struct.get('name'))) },
     });
     return { application: route(Function.constTrue), indesign: route(hosts), listed };

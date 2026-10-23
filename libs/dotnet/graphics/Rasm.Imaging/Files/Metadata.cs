@@ -27,7 +27,7 @@ public readonly partial struct PixelDensity : IMinMaxValue<PixelDensity> {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SoftwareName {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') ? null : new ValidationError($"software name '{value}' must be non-empty printable ASCII");
+        validationError = value.Length > 0 && !value.AsSpan().ContainsAnyExceptInRange(' ', '~') ? null : new ValidationError($"Software name '{value}' must be non-empty printable ASCII");
 }
 
 [ValueObject<string>]
@@ -43,7 +43,7 @@ public sealed partial class FieldName {
             && !FileMetadata.HeaderNames.Contains(value)
             ? null
             : new ValidationError(string.Create(CultureInfo.InvariantCulture,
-                $"field name '{value}' must be 1 to {KeywordLength} Latin-1 characters without edge or double spaces and no reserved header name"));
+                $"Field name '{value}' must be 1 to {KeywordLength} trimmed, single-spaced Latin-1 characters and no reserved header name"));
 }
 
 [ValueObject<string>]
@@ -51,7 +51,7 @@ public sealed partial class FieldName {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FieldText {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = value.Contains('\0', StringComparison.Ordinal) ? new ValidationError("field text must hold no NUL character") : null;
+        validationError = value.Contains('\0', StringComparison.Ordinal) ? new ValidationError("Field text must hold no NUL character") : null;
 }
 
 public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created, PixelDensity Density, Map<FieldName, FieldText> Fields) {

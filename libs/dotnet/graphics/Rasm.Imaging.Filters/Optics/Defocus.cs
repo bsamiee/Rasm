@@ -149,25 +149,25 @@ public sealed unsafe record Defocus(FocusField Field, DefocusRadius Radius, Posi
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DefocusParameter : IStateParameter<Defocus> {
     public static readonly DefocusParameter Field = new("field", new StateParameter<Defocus>.Choice<FocusField>(Lens<Defocus, FocusField>.New(static defocus => defocus.Field, static field => defocus => defocus with { Field = field })),
-        new("Focus", "Field the blur radius follows across the frame"));
+        new("Focus", "Field setting blur radius across frame"));
     public static readonly DefocusParameter Radius = new("radius", StateParameter.Bounded(Lens<Defocus, DefocusRadius>.New(static defocus => defocus.Radius, static radius => defocus => defocus with { Radius = radius })),
-        new("Max blur", "Largest blur radius as a share of the frame's short side"));
+        new("Max blur", "Largest blur radius in frame short sides"));
     public static readonly DefocusParameter Aperture = new("f-stop", StateParameter.Bounded(Lens<Defocus, PositiveMagnitude>.New(static defocus => defocus.Aperture, static aperture => defocus => defocus with { Aperture = aperture }), new Presentation<float> { Soft = (0.1f, 128f), Decimals = 1 }),
-        new("F-stop", "F-stop ratio of the lens the depth of field draws, lower numbers giving more defocus"));
+        new("F-stop", "Lens aperture ratio, lower values defocus more"));
     public static readonly DefocusParameter Center = new("center", new StateParameter<Defocus>.Record<FramePosition>(Lens<Defocus, FramePosition>.New(static defocus => defocus.Center, static center => defocus => defocus with { Center = center })),
         new("Center", "Sharp region's center"));
     public static readonly DefocusParameter Angle = new("angle", StateParameter.Bounded(Lens<Defocus, Elevation>.New(static defocus => defocus.Angle, static angle => defocus => defocus with { Angle = angle })),
-        new("Orientation", "Turn of the sharp band or ellipse, counterclockwise"));
+        new("Orientation", "Counterclockwise turn of sharp band or ellipse"));
     public static readonly DefocusParameter Extent = new("extent", StateParameter.Bounded(Lens<Defocus, ShortSideLength>.New(static defocus => defocus.Extent, static extent => defocus => defocus with { Extent = extent })),
-        new("Sharp width", "Half-width of the sharp region across its band"));
+        new("Sharp width", "Sharp band half-width"));
     public static readonly DefocusParameter Aspect = new("aspect", StateParameter.Bounded(Lens<Defocus, AxisFraction>.New(static defocus => defocus.Aspect, static aspect => defocus => defocus with { Aspect = aspect })),
-        new("Aspect", "Sharp ellipse from a band at 0% to a circle at 100%"));
+        new("Aspect", "Sharp ellipse from band at 0% to circle at 100%"));
     public static readonly DefocusParameter Feather = new("feather", StateParameter.Bounded(Lens<Defocus, ShortSideExtent>.New(static defocus => defocus.Feather, static feather => defocus => defocus with { Feather = feather }), ShortSideExtent.Presentation with { Soft = (0.001f, 1f), Scale = TrackScale.Linear }),
-        new("Feather", "Distance past the sharp region where the blur reaches its maximum"));
+        new("Feather", "Distance past the sharp region to full blur"));
     public static readonly DefocusParameter Iris = new("iris", new StateParameter<Defocus>.Record<Iris>(Lens<Defocus, Iris>.New(static defocus => defocus.Iris, static iris => defocus => defocus with { Iris = iris })),
-        new("Aperture", "Outline of the lens opening each out-of-focus disc and diffraction spike takes"));
+        new("Aperture", "Lens opening shaping bokeh and diffraction spikes"));
     public static readonly DefocusParameter Fringe = new("fringe", StateParameter.Bounded(Lens<Defocus, SignedFraction>.New(static defocus => defocus.Fringe, static fringe => defocus => defocus with { Fringe = fringe })),
-        new("Color shift", "Red and blue disc sizes apart from green"));
+        new("Color shift", "Red and blue bokeh sizes apart from green"));
 
     public StateParameter<Defocus> Kind { get; }
     public ParameterText Text { get; }

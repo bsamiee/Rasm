@@ -49,5 +49,5 @@ rule:
           inside: {matches: run-body, stopBy: end}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` discards or collects output by hand in place of an output option of the run'
-note: 'Pass `output: .discarded` for unread output or `.string(limit:)`, `.data(limit:)`, or `.bytes(limit:)` for collected output, with no loop'
+message: '`$HEAD` discards or collects child output by hand'
+note: 'Pass `output:` or `error:` as `.discarded` for unread output, else `.string(limit:)`, `.data(limit:)`, or `.bytes(limit:)`, and delete the loop'

@@ -1,4 +1,4 @@
-"""Ordered RNA editor changes and the state they replace."""
+"""Ordered editor space writes and values they replace."""
 
 from collections import deque
 from collections.abc import Mapping
@@ -16,20 +16,24 @@ from blender.imaging.faults import accumulated
 
 
 class EditorState(msgspec.Struct, frozen=True, kw_only=True):
-    """RNA values in dependency order, rooted at a space or its held struct."""
+    """RNA values in dependency order under a space or its struct."""
 
     holder: str = ""
     values: "tuple[tuple[Descriptor[bpy.types.Property], Value | bytes | bpy.types.bpy_struct[object]], ...]" = ()
 
     @classmethod
     def of(cls, root: "type[bpy.types.bpy_struct[object]]", values: "Mapping[str, Value | bytes | bpy.types.bpy_struct[object]]", holder: str = "") -> BlenderResult[Self]:
-        """Returns resolved values in declaration order, or all refused RNA paths."""
+        """Resolves values in declaration order."""
         return accumulated(Descriptor.resolve(root, path, bpy.types.Property).map(lambda setting: (setting, value)) for path, value in values.items()).map(
             lambda pairs: cls(holder=holder, values=pairs)
         )
 
     def applied(self, area: bpy.types.Area) -> BlenderResult[Option[Self]]:
-        """Returns prior state, waits for absent holders, or rolls back a refused write."""
+        """Writes values in order, rolling back on refusal or absent holder.
+
+        Returns:
+            Replaced values, Nothing while holder is absent.
+        """
         completed: deque[tuple[Native, Descriptor[bpy.types.Property], Value | bpy.types.bpy_struct[object]]] = deque()
         try:
             for setting, value in self.values:

@@ -1,4 +1,4 @@
-"""Current-render proxies, effect tiles, and demand-driven native preview jobs."""
+"""Render proxies, effect tiles, and preview jobs of drawn tile slots."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -40,7 +40,7 @@ from blender.rendering.outputs.framing import Framing
 
 
 class Proxied(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Linear render pixels, actual camera framing at that scale, and their content key."""
+    """Linear render pixels, camera framing at pixel scale, and content key."""
 
     plane: npt.NDArray[np.float32]
     framing: Framing
@@ -48,14 +48,14 @@ class Proxied(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Wanted(msgspec.Struct, frozen=True, kw_only=True):
-    """Effect and UI scale requested by one drawn tile slot."""
+    """Tile slot's requested effect and UI scale."""
 
     record: Effect
     scale: float
 
 
 class Demand(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """One retained tile request and its optional observable native content."""
+    """Held tile request with optional content hash."""
 
     wanted: Wanted
     content: Option[ContentHash]
@@ -64,7 +64,7 @@ class Demand(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class TileState(msgspec.Struct, kw_only=True):
-    """One extension's current render proxy and latest requested tile slots."""
+    """Render proxy, requested slots, and held demands."""
 
     proxy: Option[Proxied] = Nothing
     wanted: dict[str, Wanted] = msgspec.field(default_factory=dict)
@@ -75,7 +75,7 @@ class TileState(msgspec.Struct, kw_only=True):
 
 
 class Tiles(msgspec.Struct, frozen=True, kw_only=True):
-    """Renders offered effects through native preview scenes over the current render."""
+    """Renders offered effects in preview scenes over render proxy."""
 
     stack: EffectStack
     isolated: bool = False
@@ -84,18 +84,18 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
     # --- [RENDERING]
 
     def mirrors(self, identity: Identity, scene: bpy.types.Scene) -> tuple[Mirrored, ...]:
-        """Returns preview-enabled entries, retaining only formation while isolated."""
+        """Returns preview-enabled entries, formation alone while isolated."""
         held = PreviewScene(stack=self.stack).held(identity, scene, Enabled.PREVIEW)
         return tuple(mirror for mirror in held if mirror.row.filter(lambda row: row.record is DisplayView).is_some()) if self.isolated else held
 
     def chain(self, identity: Identity, scene: bpy.types.Scene, record: Effect, head: Option[npt.NDArray[np.float32]]) -> BlenderResult[Chain]:
-        """Replaces the candidate's first matching type or single stage in the native chain."""
+        """Builds chain with candidate replacing first same-type or single-stage entry."""
         kind, mirrors = type(record), self.mirrors(identity, scene)
         replaced = next((mirror for mirror in mirrors if mirror.row.filter(lambda row: row.record is kind or (kind.stage.single and row.record.stage is kind.stage)).is_some()), None)
         return self.stack.offering(kind).map(lambda row: Chain.of(scene, head, tuple(mirror for mirror in mirrors if mirror is not replaced), (Offered(row=row, record=Entry(effect=record)),)))
 
     def parts(self, identity: Identity, scene: bpy.types.Scene, *, mirrored: Option[tuple[Mirrored, ...]] = Nothing) -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
-        """Reads mirrored records and complete observable native group content."""
+        """Reads entry records and group fingerprints, `Nothing` for a group without one."""
 
         def captured(mirror: Mirrored) -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
             values = mirror.row.map(lambda row: row.read(identity, mirror.entry).map(lambda record: (record,))).default_with(
@@ -118,7 +118,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
     def rendered(
         self, identity: Identity, record: Effect | Callable[[Option[npt.NDArray[np.float32]]], BlenderResult[Chain]], side: int, *, scene: bpy.types.Scene
     ) -> BlenderResult[npt.NDArray[np.float32]]:
-        """Fits the source proxy and renders an effect or caller-supplied native chain."""
+        """Renders an effect or caller chain over render proxy fitted to side."""
         source, lighting = scene, Lighting()
 
         def staged(head: Option[npt.NDArray[np.float32]]) -> BlenderResult[npt.NDArray[np.float32]]:
@@ -150,13 +150,13 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def icon(cls, identity: Identity, slot: str, record: Effect, scale: float) -> Option[int]:
-        """Records draw demand and returns the slot's successfully published native icon."""
+        """Records slot demand and returns published slot icon."""
         if (wanted := cls.held[identity.package].wanted).get(slot) != (request := Wanted(record=record, scale=scale)):
             wanted[slot] = request
         return Previews(identity=identity).icon_id(slot)
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
-        """Returns all stale requests against one read of configuration and source entries."""
+        """Returns a job per stale slot from one config and entry read."""
         state, previews = Tiles.held[identity.package], Previews(identity=identity)
         wanted = state.wanted
 
@@ -194,7 +194,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
     # --- [LIFECYCLE]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns scoped demand, shared previews, the queue feed, and render-result consumer."""
+        """Returns tile state scope, previews, queue feed, and render result reader."""
 
         def consumed(scene: bpy.types.Scene, path: str) -> BlenderResult[Option[str]]:
             bound = root_in(bpy.types.WindowManager, bpy.context).bind(
@@ -244,7 +244,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def fitted(plane: npt.NDArray[np.float32], side: int) -> BlenderResult[npt.NDArray[np.float32]]:
-    """Reduces linear pixels to the longest side, preserving native resize failures."""
+    """Shrinks linear pixels so longest side fits `side`."""
 
     def resized(size: tuple[int, int]) -> BlenderResult[npt.NDArray[np.float32]]:
         buffer = OpenImageIO.ImageBufAlgo.resize(OpenImageIO.ImageBuf(plane), roi=OpenImageIO.ROI(0, size[0], 0, size[1], 0, 1, 0, plane.shape[2]))
@@ -254,7 +254,7 @@ def fitted(plane: npt.NDArray[np.float32], side: int) -> BlenderResult[npt.NDArr
 
 
 def scaled(framing: Framing, stored: tuple[int, int], target: tuple[int, int]) -> Framing:
-    """Applies the proxy's longest-side ratio to the actual camera extent."""
+    """Scales camera framing by target-to-stored longest side ratio."""
     numerator, denominator = max(target), max(stored)
     width, height = framing.size
     return msgspec.structs.replace(

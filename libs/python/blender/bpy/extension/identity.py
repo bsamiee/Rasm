@@ -1,4 +1,4 @@
-"""Extension identity, manifest facts, writable folder, and generated host names."""
+"""Extension identity and generated host names."""
 
 from enum import Enum
 import importlib.resources
@@ -22,7 +22,7 @@ type Key = Annotated[str, msgspec.Meta(pattern=r"\A[a-z][a-z0-9]*(?:_[a-z0-9]+)*
 
 
 class Name(Enum):
-    """Generated host name shape and native constraints."""
+    """Host name template and constraints."""
 
     PANEL = ("{ID}_PT_{key}", msgspec.Meta(max_length=63))
     MENU = ("{ID}_MT_{key}", msgspec.Meta(max_length=63))
@@ -38,12 +38,12 @@ class Name(Enum):
     CLI = ("{id}_{key}", msgspec.Meta())
 
     def __init__(self, template: str, constraint: msgspec.Meta, pattern: str | None = None) -> None:
-        """Holds the name shape and native constraints.
+        """Holds name template and constraints.
 
         Args:
-            template: Format over the manifest ID and row key in either case, or a digest of both.
-            constraint: Native UTF-8 byte extent applied at the naming boundary.
-            pattern: Native name syntax where the host restricts its characters.
+            template: Format over manifest ID and row key in either case, or digest of both.
+            constraint: Host UTF-8 byte length limit.
+            pattern: Character syntax host enforces.
         """
         self.template = template
         self.constraint = constraint
@@ -54,7 +54,7 @@ class Name(Enum):
 
 
 class Manifest(msgspec.Struct, frozen=True, kw_only=True):
-    """Manifest facts consumed by an extension."""
+    """`blender_manifest.toml` fields read."""
 
     id: Annotated[str, msgspec.Meta(min_length=1)]
     name: str
@@ -63,7 +63,7 @@ class Manifest(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Identity(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension package, manifest, writable folder, bound logger, and callback reports."""
+    """Enabled extension context."""
 
     package: str
     manifest: Manifest
@@ -74,14 +74,14 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
     # --- [NAMING]
 
     def name(self, form: Name, key: Key) -> BlenderResult[str]:
-        """Builds and validates a row's host name.
+        """Builds validated row host name.
 
         Args:
-            form: Name shape consumed by the row's native host registration.
-            key: Row's lowercase snake identifier.
+            form: Host registration template.
+            key: Row key in lowercase snake case.
 
         Returns:
-            Ok(name), or a register fault holding the refused generated name and native validation error.
+            Ok(name), register fault for refused name.
         """
         name = form.template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{form.name}/{key}").hex)
         return (
@@ -97,13 +97,13 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def read(cls, package: str) -> BlenderResult[Self]:
-        """Reads the manifest and native user-folder path of an enabled extension.
+        """Reads enabled extension's manifest and user folder.
 
         Args:
-            package: Extension's fully qualified package name.
+            package: Fully qualified extension package name.
 
         Returns:
-            Ok(identity), or a read fault holding the manifest path and its file or decode error.
+            Ok(identity), read fault for unreadable manifest.
         """
         path = importlib.resources.files(package) / "blender_manifest.toml"
         try:

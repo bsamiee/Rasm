@@ -71,5 +71,5 @@ transform:
     RECEIVER: {replace: {source: $EFFECT, replace: '(?s)^(.+)$', by: '${1}.'}}
     KEPT_RECEIVER: {replace: {source: $KEPT_IO, replace: '(?s)^(.+)$', by: '${1}.'}}
 fix: $RECEIVER$SAFE$KEPT_RECEIVER$KEPT($$$ENV)
-message: '`$IO.$RUN` restates `RunSafe` by hand'
-note: 'Call `RunSafe()` or `RunSafeAsync()` on the effect with an unchanged environment'
+message: '`$IO.$RUN` spells `RunSafe` through `Try` and `Run`'
+note: 'Call `RunSafe` or `RunSafeAsync` on the effect with the same environment argument'

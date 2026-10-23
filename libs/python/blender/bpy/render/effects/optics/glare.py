@@ -1,4 +1,4 @@
-"""Native whole-frame scatter, spectral diffraction, ghosts, and film halation."""
+"""Whole-frame scatter, spectral diffraction, ghosts, and film halation."""
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -24,16 +24,16 @@ from blender.imaging.parameters import Gated
 
 
 def keyed(key: Key, source: Operand, threshold: Operand, smoothness: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Extracts unclamped scene-linear highlights at native full quality.
+    """Extracts unclamped scene-linear highlights at full quality.
 
     Args:
-        key: Identity of the extraction node.
+        key: Extraction node key.
         source: Associated scene-linear light.
         threshold: Highlight threshold in scene-linear light.
-        smoothness: Continuous width of the native highlight knee.
+        smoothness: Continuous width of highlight knee.
 
     Returns:
-        Highlight field or native construction faults.
+        Highlight field or graph faults.
     """
     return node(key, bpy.types.CompositorNodeGlare, {"Image": source, "Quality": "High", "Highlights Threshold": threshold, "Highlights Smoothness": smoothness, "Clamp Highlights": False}, {}).map(
         ended(key, "Highlights")
@@ -41,13 +41,13 @@ def keyed(key: Key, source: Operand, threshold: Operand, smoothness: Operand) ->
 
 
 def bloomed(shell: Shell[Bloom]) -> BlenderResult[tuple[Fragment, End]]:
-    """Scatters toward the native mip mean and illuminates camera-space lens dirt.
+    """Scatters toward mip mean and lights camera-space lens dirt.
 
     Args:
         shell: Source, frame geometry, dirt graph field, and consuming context.
 
     Returns:
-        Bloomed light and graph, or native construction and acquisition faults.
+        Bloomed light and graph, or graph and acquisition faults.
     """
     specks = shell.record.dirt.value.specks
     content = content_hash(Specks, shell.record.dirt, arrays=tuple(np.asarray(frame.size[::-1], dtype=np.int64) for _, frame in shell.context.to_list()), providers=(np,))
@@ -90,13 +90,13 @@ def bloomed(shell: Shell[Bloom]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def glared(shell: Shell[Glare]) -> BlenderResult[tuple[Fragment, End]]:
-    """Applies photopic veil followed by optional signed spectral diffraction.
+    """Applies photopic veil, then optional signed spectral diffraction.
 
     Args:
         shell: Source light, graph-owned pupil, gates, and consuming image context.
 
     Returns:
-        Spread light and graph, or native construction and acquisition faults.
+        Spread light and graph, or graph and acquisition faults.
     """
     veil_field, aperture = Glare.__struct_fields__
     _, value = Gated.__struct_fields__
@@ -154,13 +154,13 @@ def glared(shell: Shell[Glare]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def flared(shell: Shell[Flares]) -> BlenderResult[tuple[Fragment, End]]:
-    """Adds native recursive highlight ghosts to associated scene light.
+    """Adds recursive highlight ghosts to associated scene light.
 
     Args:
-        shell: Source image and native highlight, gain, and ghost fields.
+        shell: Source image and highlight, gain, and ghost fields.
 
     Returns:
-        The combined image and graph, or native construction faults.
+        Combined image and graph, or graph faults.
     """
     highlights, strength, iterations, color_modulation = Flares.__struct_fields__
     threshold, smoothness = Highlights.__struct_fields__
@@ -187,13 +187,13 @@ def flared(shell: Shell[Flares]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def halated(shell: Shell[Halation]) -> BlenderResult[tuple[Fragment, End]]:
-    """Adds a common Gaussian highlight halo with per-channel film response.
+    """Adds Gaussian highlight halo with per-channel film response.
 
     Args:
-        shell: Source image, displayed frame measures, and native halation fields.
+        shell: Source image, displayed frame measures, and halation fields.
 
     Returns:
-        The re-exposed image and graph, or accumulated native construction faults.
+        Re-exposed image and graph, or accumulated graph faults.
     """
     highlights_field, radius, color = Halation.__struct_fields__
     threshold, smoothness = Highlights.__struct_fields__
@@ -218,15 +218,13 @@ flares: CompositorEffect[Flares] = CompositorEffect(
     record=Flares,
     graph=flared,
     registrables=(
-        inspection(row=lambda: flares, key="flares_key", title="View Flares Key", description="Shows highlights forming internal reflections", target=lambda: End(node="ghosts", socket="Highlights")),
+        inspection(row=lambda: flares, key="flares_key", title="View Flares Key", description="Highlights forming internal reflections", target=lambda: End(node="ghosts", socket="Highlights")),
     ),
 )
 halation: CompositorEffect[Halation] = CompositorEffect(
     record=Halation,
     graph=halated,
-    registrables=(
-        inspection(row=lambda: halation, key="halation_key", title="View Halation Key", description="Shows highlights reaching the film base", target=lambda: End(node="key", socket="Highlights")),
-    ),
+    registrables=(inspection(row=lambda: halation, key="halation_key", title="View Halation Key", description="Highlights reaching film base", target=lambda: End(node="key", socket="Highlights")),),
 )
 
 

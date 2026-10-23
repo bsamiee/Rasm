@@ -44,11 +44,11 @@ public sealed record LicenseDefinition(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class LicenseMapper {
-    [MapperIgnoreSource(nameof(LicenseStatus.ProductIcon), Justification = "The plug-in's icon reads through Icons.PlugInImage")]
-    [MapperIgnoreSource(nameof(LicenseStatus.CloudZooLeaseIsValid), Justification = "CloudZooLeaseExpiration is set exactly while the Cloud Zoo manager holds the lease")]
+    [MapperIgnoreSource(nameof(LicenseStatus.ProductIcon), Justification = "Icons.PlugInImage reads plug-in icon")]
+    [MapperIgnoreSource(nameof(LicenseStatus.CloudZooLeaseIsValid), Justification = "CloudZooLeaseExpiration presence marks valid lease")]
     internal static partial LicenseState ToState(LicenseStatus status);
 
-    [MapperIgnoreSource(nameof(LicenseLease.LeaseId), Justification = "Resolved to the leaseId parameter")]
+    [MapperIgnoreSource(nameof(LicenseLease.LeaseId), Justification = "leaseId parameter supplies value")]
     internal static partial LeaseState ToLease(LicenseLease lease, string leaseId, Instant issuedAt, Instant expiration);
 
     [UserMapping]

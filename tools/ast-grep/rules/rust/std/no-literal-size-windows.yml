@@ -24,4 +24,4 @@ rule:
         - not: {pattern: '$R.collect::<Vec<$_>>().windows($N)'}
 fix: '$S.array_windows::<$N>()'
 message: '`$S.windows($N)` slides a literal-size window as a runtime slice'
-note: 'Call `<slice>.array_windows::<N>()` and destructure each `&[T; N]` window (`|[left, right]|`)'
+note: 'Call `<slice>.array_windows::<<n>>()` and destructure each `&[T; <n>]` window (`|[left, right]|`)'

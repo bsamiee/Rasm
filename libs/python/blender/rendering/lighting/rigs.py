@@ -1,4 +1,4 @@
-"""Light rigs placed about a target from the irradiance each light delivers there."""
+"""Light rigs placed about target by delivered irradiance."""
 
 from collections.abc import Mapping
 import functools
@@ -29,7 +29,7 @@ type Diameter = Annotated[float, msgspec.Meta(ge=0.0, le=math.pi), Presentation(
 
 
 class Role(Choice):
-    """Part a light plays in its rig."""
+    """Light role in rig."""
 
     KEY = 1
     FILL = 2
@@ -46,31 +46,31 @@ class Point(Case, frozen=True, tag=1):
 
 
 class Spot(Case, frozen=True, kw_only=True, tag=2):
-    """Sphere light whose beam the cone limits."""
+    """Sphere light with beam limited to cone."""
 
-    cone: Annotated[float, msgspec.Meta(ge=math.radians(1.0), le=math.pi, description="Angular diameter of the beam"), Presentation(quantity=Some(Quantity.ANGLE))] = math.pi / 4.0
-    blend: Annotated[Unit, msgspec.Meta(description="Share of the beam the edge softens")] = 0.15
+    cone: Annotated[float, msgspec.Meta(ge=math.radians(1.0), le=math.pi, description="Beam angular diameter"), Presentation(quantity=Some(Quantity.ANGLE))] = math.pi / 4.0
+    blend: Annotated[Unit, msgspec.Meta(description="Share of beam softened at edge")] = 0.15
 
 
 class Disk(Case, frozen=True, tag=3):
-    """Disk-shaped area light facing the target."""
+    """Disk area light facing target."""
 
     title = "Area"
 
 
 class Sun(Case, frozen=True, tag=4):
-    """Distant light reaching every point at one irradiance."""
+    """Distant light at uniform irradiance."""
 
 
 class Light(msgspec.Struct, frozen=True, kw_only=True):
-    """Rig light's direction, angular extent, color, and irradiance offset."""
+    """Rig light with irradiance offset from key."""
 
     role: Role = Role.KEY
     emitter: Emitter = Disk()
     azimuth: Turn = 0.0
     elevation: Elevation = 0.0
-    stops: Annotated[Finite, msgspec.Meta(description="Irradiance at the target in stops from the rig's key irradiance")] = 0.0
-    size: Annotated[Diameter, msgspec.Meta(description="Angular diameter at the target center")] = 2.0 * math.asin(0.2)
+    stops: Annotated[Finite, msgspec.Meta(description="Target irradiance in stops from key")] = 0.0
+    size: Annotated[Diameter, msgspec.Meta(description="Angular diameter at target center")] = 2.0 * math.asin(0.2)
     color: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
     temperature: Annotated[Gated[Annotated[float, msgspec.Meta(ge=1800.0, le=20000.0)]], Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = Gated(
         enabled=False, value=6500.0
@@ -78,18 +78,18 @@ class Light(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def direction(self) -> tuple[float, float, float]:
-        """Unit vector from the target toward the light over right, up, and back."""
+        """Unit vector toward light over right, up, and back."""
         horizontal = math.cos(self.elevation)
         return horizontal * math.sin(self.azimuth), math.sin(self.elevation), horizontal * math.cos(self.azimuth)
 
     @property
     def extent(self) -> float:
-        """Sine of the half angle the light subtends at the target center."""
+        """Sine of half angle light subtends at target center."""
         return math.sin(self.size / 2.0)
 
 
 class Ambient(msgspec.Struct, frozen=True, kw_only=True):
-    """World light's color and irradiance offset."""
+    """World light color and irradiance offset."""
 
     color: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
     stops: Finite = 0.0
@@ -103,7 +103,7 @@ class Arranged(Case, frozen=True, kw_only=True, tag=5):
 
 
 class Matched(Case, frozen=True, kw_only=True, tag=6):
-    """Lights derived from a reference reading at placement."""
+    """Lights derived from reference reading."""
 
     count: Annotated[int, msgspec.Meta(ge=1, le=8, title="Lights")] = 3
     key: Annotated[Emitter, msgspec.Meta(title="Key Emitter")] = Disk()
@@ -115,7 +115,7 @@ class Matched(Case, frozen=True, kw_only=True, tag=6):
     tint: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
 
     def arranged(self, reading: LightingReading) -> RenderingResult[Arranged]:
-        """Derives ordered key, fill, rim, accents, and world from the reading."""
+        """Derives key, fill, rim, accent, and world lights up to count."""
 
         def peak(color: Rgb) -> float:
             return max(color.red, color.green, color.blue, Samples.floor)
@@ -166,7 +166,7 @@ class Matched(Case, frozen=True, kw_only=True, tag=6):
 
 
 class Placement(msgspec.Struct, frozen=True, kw_only=True):
-    """Light at its target distance and delivered irradiance."""
+    """Light at target distance with delivered irradiance."""
 
     light: Light
     reach: Positive
@@ -174,18 +174,18 @@ class Placement(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def location(self) -> tuple[float, float, float]:
-        """Light position in meters over the target's right, up, and back axes."""
+        """Position in meters over target right, up, and back."""
         right, up, back = self.light.direction
         return self.reach * right, self.reach * up, self.reach * back
 
     @property
     def radius(self) -> float:
-        """Radius in meters of the light's sphere at the target center."""
+        """Light sphere radius in meters."""
         return self.reach * self.light.extent
 
     @property
     def power(self) -> RenderingResult[float]:
-        """Radiant watts, or a sun's watts per square meter."""
+        """Radiant watts, or watts per square meter for sun."""
         match self.light.emitter:
             case Point() | Spot():
                 coefficient = 4.0 * math.pi
@@ -197,14 +197,14 @@ class Placement(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Background(msgspec.Struct, frozen=True, kw_only=True):
-    """Uniform world radiance a rig sets."""
+    """Uniform world radiance."""
 
     color: Rgb[Finite]
     strength: NonNegative
 
 
 class Placements(msgspec.Struct, frozen=True, kw_only=True):
-    """Lights placed about a target sphere with their world."""
+    """Lights placed about target sphere with world."""
 
     radius: Positive
     distance: Distance
@@ -213,16 +213,16 @@ class Placements(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Rig(msgspec.Struct, frozen=True, kw_only=True):
-    """Lights placed about a target at a declared key irradiance."""
+    """Lights about target at key irradiance."""
 
     irradiance: Annotated[NonNegative, msgspec.Meta(title="Key Irradiance"), Presentation(decimals=Some(3), quantity=Some(Quantity.IRRADIANCE))] = math.pi
     distance: Annotated[Distance, Presentation(soft=Some((1.0, 10.0)), decimals=Some(2))] = 2.5
-    color_strength: Annotated[NonNegative, msgspec.Meta(description="White interpolation through one, then fixed Rec.709 chroma boost"), Presentation(soft=Some((0.0, 1.5)))] = 0.85
-    color_saturation: Annotated[NonNegative, msgspec.Meta(description="Independent fixed Rec.709 saturation after color strength"), Presentation(soft=Some((0.0, 2.0)))] = 1.0
+    color_strength: Annotated[NonNegative, msgspec.Meta(description="Blend from white up to one, Rec.709 chroma boost above one"), Presentation(soft=Some((0.0, 1.5)))] = 0.85
+    color_saturation: Annotated[NonNegative, msgspec.Meta(description="Rec.709 saturation after color strength"), Presentation(soft=Some((0.0, 2.0)))] = 1.0
     layout: Layout = Matched()
 
     def arranged(self, reading: Option[LightingReading]) -> RenderingResult[Option[Arranged]]:
-        """Returns the stated layout or the matched layout when a reading exists."""
+        """Returns stated layout, or matched layout when reading exists."""
         match self.layout:
             case Arranged() as arranged:
                 return Ok(Some(arranged))
@@ -230,7 +230,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
                 return reading.map(lambda found: matched.arranged(found).map(Some)).default_value(Ok(Nothing))
 
     def placements(self, config: PyOpenColorIO.Config, radius: Positive, reading: Option[LightingReading]) -> RenderingResult[Option[Placements]]:
-        """Prepares final light and world colors, then places the admitted target rig."""
+        """Places rig with graded colors, Nothing for matched layout without reading."""
         blend = min(self.color_strength, 1.0)
         luma = MATRIX_sRGB_TO_XYZ[1].tolist()
         transform = PyOpenColorIO.GroupTransform([
@@ -277,7 +277,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def product(factors: tuple[float | npt.NDArray[np.float64], ...], stops: float = 0.0) -> npt.NDArray[np.float64]:
-    """Forms broadcast radiometric products before applying their common exponent."""
+    """Returns broadcast product times 2**stops over split mantissas and exponents."""
     fraction, whole = math.modf(stops)
     parts = tuple(np.frexp(factor) for factor in np.broadcast_arrays(*factors))
     mantissas = np.prod(np.stack(tuple(mantissa for mantissa, _ in parts)), axis=0) * math.exp2(fraction)
@@ -287,7 +287,7 @@ def product(factors: tuple[float | npt.NDArray[np.float64], ...], stops: float =
 
 @functools.cache
 def rig_catalog() -> Mapping[str, Rig]:
-    """Constructs the arranged and matched source recipes."""
+    """Returns named rig recipes."""
     off = Gated(enabled=False, value=0.0)
 
     def on(ratio: float) -> Gated[float]:
@@ -348,7 +348,7 @@ def rig_catalog() -> Mapping[str, Rig]:
 
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> RenderingResult[float]:
-    """Multiplies physical factors and a stop offset before rounding to native float, or the arithmetic refusal of the operands."""
+    """Returns product as float, overflow as arithmetic fault."""
     return guarded(RenderingArithmeticFault, (*factors, stops), lambda: Ok(float(product(factors, stops))))
 
 

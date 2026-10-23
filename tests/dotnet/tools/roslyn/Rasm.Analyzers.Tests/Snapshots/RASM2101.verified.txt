@@ -1,1 +1,1 @@
-#0 `TryGetBool` reads `PersistentSettings` outside `SettingType`
+#0 `TryGetBool` reads `PersistentSettings` outside `SettingType`. Call `SettingType.Bool.Read(settings, "held")`

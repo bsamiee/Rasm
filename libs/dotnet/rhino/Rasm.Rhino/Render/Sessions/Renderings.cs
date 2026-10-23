@@ -382,7 +382,7 @@ public sealed class RenderHistory {
     public static ControlRow Browser { get; } =
         ListRows.Browser(
             "Render History",
-            "Completed renders of this plug-in, newest first",
+            "Completed renders, newest first",
             new BrowserRow<Rendering, string>(
                 Key: static rendering => rendering.FileName,
                 Label: Label,
@@ -409,7 +409,7 @@ public sealed class RenderHistory {
                     select chosen,
                 Mode: BrowserMode.List,
                 Extent: new ReadoutSource<Eto.Drawing.Size>.Model(Framing.Extent),
-                Empty: "Completed renders appear here, newest first") {
+                Empty: "Completed renders appear here") {
                 Numbered = true,
                 Search = Some(new ListSearch<Rendering>("Search history", Label, None)),
                 Rename = Some<Func<Rendering, string, Fin<Rendering>>>(static (rendering, text) =>
@@ -417,11 +417,11 @@ public sealed class RenderHistory {
                 Reloads = Seq(Changed),
                 Commands = static selection => [
                     Command("history-compare", "Compare",
-                        "Compare the selected rendering against the current frame through its own grading", Headed(selection, Compared)),
+                        "Compare selected rendering under recorded grading to current frame", Headed(selection, Compared)),
                     Command("history-compare-before", "Compare Before",
-                        "Compare the selected rendering's frame before its chain against the current frame", Headed(selection, Before)),
+                        "Compare selected rendering without post effects to current frame", Headed(selection, Before)),
                     Command("history-export", "Export",
-                        "Write the selected history frame through the output targets and its recorded grading",
+                        "Write selected rendering under recorded grading to output targets",
                         Headed(selection, static (scope, rendering) =>
                             from document in scope.DocumentIO
                             from frame in rendering.Frame
@@ -431,13 +431,13 @@ public sealed class RenderHistory {
                                 Right<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>((frame, request)))
                             select unit)),
                     .. toSeq(RenderingPart.Items).Map(part => Restoring(selection, part)),
-                    Command("history-delete", "Delete", "Delete the selected renderings and their recorded state",
+                    Command("history-delete", "Delete", "Delete selected renderings and recorded state",
                         scope =>
                             from history in Current.Of(scope.Sink)
                             from chosen in selection
                             from deleted in Callbacks.Each(chosen.Map(history.Delete))
                             select unit),
-                    Command("history-clear-comparison", "Clear Comparison", "Drop the rendering the frame view compares against",
+                    Command("history-clear-comparison", "Clear Comparison", "Remove compared rendering from frame view",
                         static scope => RenderingComparison.Current.Of(scope.Sink).Bind(static comparison => comparison.Clear)),
                 ],
                 Wording = Wording.Library,
@@ -471,7 +471,7 @@ public sealed class RenderHistory {
                 new CommandFace(
                     part.Map(settings: "history-restore-settings", grading: "history-restore-grading"),
                     RowText.Localize("Restore {0}", arguments: [caption]).Local,
-                    RowText.Localize("Write the selected rendering's {0} into the document as one commit", arguments: [caption]).Local,
+                    RowText.Localize("Write selected rendering's {0} into document as one commit", arguments: [caption]).Local,
                     None, None) { Wording = Wording.Localized },
                 None,
                 Headed(selection, (scope, rendering) =>

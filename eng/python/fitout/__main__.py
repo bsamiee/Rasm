@@ -1,4 +1,4 @@
-"""Build and install Blender extensions through the native CLI, and sync the distributions they bundle as wheels into a folder Blender imports from."""
+"""Packs and installs Blender extensions, syncs their wheels into Blender import folder."""
 
 import subprocess
 import sys
@@ -15,12 +15,12 @@ from eng.python.fitout.install import install, RemoteFailure
 
 
 def _reported[E](result: Result[int, E]) -> int:
-    """Return the native status, or render the failure and return the failed child's status or 1."""
+    """Returns exit status, writing any failure to stderr."""
     match result:
         case Result(tag="ok", ok=status):
             return status
         case Result(error=ExceptionGroup() as errors):
-            structlog.get_logger(__name__).error("Extension operation failed", exc_info=errors)
+            structlog.get_logger(__name__).error("Extension command failed", exc_info=errors)
             return 1
         case Result(error=CallToolResult() as error):
             sys.stderr.write(f"{error.model_dump_json(by_alias=True)}\n")

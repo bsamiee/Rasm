@@ -18,4 +18,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` feeds waiters of an `@Observable` model through stream continuations by hand'
-note: 'Iterate `Observations { <model>.<property> }` at each waiter for each transactional change, with the waited state a tracked stored property'
+note: 'Iterate `Observations { <model>.<property> }` at each waiter, with the waited state a tracked stored property'

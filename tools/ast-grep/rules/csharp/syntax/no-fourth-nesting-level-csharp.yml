@@ -75,4 +75,4 @@ labels:
     SCOPE: {style: primary, message: Fourth nesting level}
     OUTER: {style: secondary, message: First nesting level}
 message: Nesting reaches a fourth level
-note: 'Rebuild the nested decisions, loops, or lambdas as one switch expression, query expression, or pipeline over their inputs'
+note: 'Rebuild nested decisions, loops, or lambdas as one switch expression, query expression, or pipeline over their inputs'

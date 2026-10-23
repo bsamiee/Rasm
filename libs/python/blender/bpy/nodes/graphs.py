@@ -1,4 +1,4 @@
-"""Desired native node graphs: keyed nodes and links, graph content, owned groups, and their node constructors."""
+"""Desired node graphs, graph content, owned groups, and node constructors."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
 import functools
@@ -40,21 +40,21 @@ OUTPUTS: Final[Key] = "outputs"
 
 
 class End(msgspec.Struct, frozen=True, kw_only=True):
-    """Socket end of a link: a node key and a socket address, `Value` unless stated."""
+    """Link end at node key and socket address."""
 
     node: Key
     socket: str = "Value"
 
 
 class Link(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """One declared connection occurrence from a source end to a target end."""
+    """Declared link occurrence."""
 
     source: End
     target: End
 
 
 class CurvePoints(msgspec.Struct, frozen=True, kw_only=True):
-    """Curve map points with optional viewport bounds and independent evaluation clipping."""
+    """Curve map points with view bounds and evaluation clipping."""
 
     maps: tuple[Points] | tuple[Points, Points, Points, Points]
     clip: Option[tuple[float, float, float, float]] = Nothing
@@ -63,7 +63,7 @@ class CurvePoints(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Generated(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Packed generated image a node shows, built once per content."""
+    """Packed generated image node shows, built once per content hash."""
 
     ownership: Ownership[bpy.types.Image]
     content: ContentHash
@@ -73,7 +73,7 @@ class Generated(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Loaded(msgspec.Struct, frozen=True, kw_only=True):
-    """Image file or sequence a node shows."""
+    """Image file or sequence node shows."""
 
     path: str
     tag: Tag = Tag()
@@ -87,7 +87,7 @@ class Nested(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class FileItem(msgspec.Struct, frozen=True, kw_only=True):
-    """File Output item with its socket type and format members."""
+    """File Output item with format members."""
 
     name: str
     kind: DataType
@@ -95,13 +95,13 @@ class FileItem(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class FileItems(msgspec.Struct, frozen=True, kw_only=True):
-    """Ordered items of a File Output node."""
+    """Ordered File Output node items."""
 
     items: tuple[FileItem, ...]
 
 
 class Node(msgspec.Struct, frozen=True, kw_only=True):
-    """Desired node: its class, members, socket values by address, and graph content."""
+    """Desired node with socket values by address."""
 
     kind: type[bpy.types.Node]
     members: dict[Descriptor, Value] = msgspec.field(default_factory=dict)
@@ -111,7 +111,7 @@ class Node(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class FrameNode(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame node holding its members and the nodes it frames."""
+    """Frame node members and framed nodes."""
 
     members: dict[Descriptor, Value] = msgspec.field(default_factory=dict)
     nodes: dict[Key, "Node | FrameNode"] = msgspec.field(default_factory=dict)
@@ -125,13 +125,13 @@ class Fragment(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def merged(fragments: Iterable["Fragment"]) -> BlenderResult["Fragment"]:
-        """Joins fragments in order, each key holding its node once and each link occurrence kept once.
+        """Joins fragments, keeping one node per key and each link occurrence once.
 
         Args:
-            fragments: Fragments joined, earlier keys first.
+            fragments: Fragments to join, earlier keys first.
 
         Returns:
-            `Ok` of the joined fragment; `Error` of `edit` for each key two fragments hold with different nodes.
+            `Ok` of joined fragment. `Error` of `edit` per key holding different nodes.
         """
         held = tuple(fragments)
         claims: dict[Key, list[Node | FrameNode]] = {}
@@ -148,10 +148,10 @@ class Fragment(msgspec.Struct, frozen=True, kw_only=True):
         """Joins independent constructions into one fragment.
 
         Args:
-            *parts: Built fragments, or built pairs whose end the join drops.
+            *parts: Fragments, or pairs joined without their end.
 
         Returns:
-            `Ok` of every part's fragment joined; `Error` of every part's faults and every key collision `merged` answers, accumulated.
+            `Ok` of joined fragment. `Error` of every part fault and `merged` key collision.
         """
         return accumulated(part.map(lambda built: built if isinstance(built, Fragment) else built[0]) for part in parts).bind(Fragment.merged)
 
@@ -165,7 +165,7 @@ class Clock(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def value(self) -> BlenderResult[tuple[Fragment, End]]:
-        """Clock in clock frames, the scene frame held `hold` frames at a time and scaled by `speed`."""
+        """Clock frames as scene frame held `hold` frames at a time, scaled by `speed`."""
         return (
             node(f"{self.key}_frame", bpy.types.CompositorNodeSceneTime, {}, {})
             .bind(lambda frame: math(f"{self.key}_steps", "DIVIDE", ended(f"{self.key}_frame", "Frame")(frame), self.hold))
@@ -176,7 +176,7 @@ class Clock(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def pattern(self) -> BlenderResult[tuple[Fragment, End]]:
-        """Whole clock frames, the pattern index a pattern redrawn per clock frame reads."""
+        """Whole clock frames, index of patterns redrawn per clock frame."""
         return self.value.bind(lambda clock: math(f"{self.key}_pattern", "FLOOR", clock))
 
 
@@ -190,7 +190,7 @@ class Graph(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def placed(self) -> dict[Key, tuple[Node, Option[Key]]]:
-        """Each key's node and parent frame key, preorder, a frame read as a `NodeFrame` node of its members."""
+        """Node and parent frame key per key in preorder, frames as `NodeFrame` nodes."""
 
         def walked(items: dict[Key, Node | FrameNode], parent: Option[Key]) -> Iterator[tuple[Key, tuple[Node, Option[Key]]]]:
             for key, item in items.items():
@@ -205,17 +205,17 @@ class Graph(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def nested(self) -> tuple["NodeGroup", ...]:
-        """Groups the graph nests at any depth, one per key."""
+        """Groups nested at any depth, one per key."""
         inner = (content.group for node, _ in self.placed.values() for content in node.content.to_list() if isinstance(content, Nested))
         return tuple({group.key: group for child in inner for group in (child, *child.graph.nested)}.values())
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the ownership rows of every nested group in nesting order."""
+        """Returns nested group ownership rows in nesting order."""
         return Ok(tuple(group.ownership for group in self.nested))
 
 
 class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned node group around a graph, with its interface and saved state."""
+    """Owned node group of a graph, interface, and saved state."""
 
     key: Key
     name: str
@@ -226,23 +226,22 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def ownership(self) -> Ownership[bpy.types.NodeTree]:
-        """Ownership row of the group's tree kind, key, and saved state."""
+        """Group tree ownership row."""
         return Ownership(kind=self.graph.kind, key=self.key, saved=self.saved, single=self.single)
 
     @classmethod
     def built(cls, key: Key, name: str, interface: Interface, outputs: Mapping[Key, Operand], kind: type[GraphTree] = bpy.types.CompositorNodeTree) -> BlenderResult["NodeGroup"]:
-        """Builds a group around its output operands, adding its output node, an input node for an interface declaring inputs, and a Menu Switch per menu input no operand reads.
+        """Builds group around output operands, adding Group Input node for interface inputs or panels.
 
         Args:
-            key: Ownership key of the group.
-            name: Name the group takes at creation.
-            interface: Interface the group declares.
-            outputs: Operand per output item key, each fragment joining the graph.
-            kind: Tree class of the group.
+            key: Group ownership key.
+            name: Group name at creation.
+            interface: Interface group declares.
+            outputs: Operand per output item key, each fragment joining graph.
+            kind: Group tree class.
 
         Returns:
-            `Ok` of the group, each unread menu input linked into a Menu Switch keyed `inputs_<item key>` holding its items, since
-            a group menu input holds items only while linked to one; `Error` of the faults `node` answers.
+            `Ok` of group, each unread menu input linked into Menu Switch `inputs_<item key>` holding its items. `Error` of `node` faults.
         """
         entered: dict[Key, Node | FrameNode] = {INPUTS: Node(kind=bpy.types.NodeGroupInput)} if interface.inputs or interface.panels else {}
 
@@ -265,7 +264,7 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the group's ownership row, then its graph's nested rows."""
+        """Returns group ownership row, then graph's nested rows."""
         return Ok((self.ownership, self.graph))
 
 
@@ -273,22 +272,22 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def ended(key: Key, socket: str) -> Callable[[Fragment], tuple[Fragment, End]]:
-    """Pairs a fragment with one output of its node, the operand a later constructor nests."""
+    """Pairs fragment with node output as operand."""
     return lambda built: (built, End(node=key, socket=socket))
 
 
 def node(key: Key, kind: type[bpy.types.Node], inputs: Mapping[str, Operand], members: Mapping[str, Value], content: Option[Content] = Nothing) -> BlenderResult[Fragment]:
-    """Builds one keyed node over its operands, a value written into its input and an end linked into it.
+    """Builds keyed node, writing literal operands into inputs and linking ends.
 
     Args:
-        key: Key of the node.
+        key: Node key.
         kind: Node class.
-        inputs: Operand per input address. Literals have the native socket default's shape; a menu input takes its item name.
-        members: Value per RNA member identifier of the class.
-        content: Graph content the node holds in its storage.
+        inputs: Operand per input address, literals in socket default shape, menu inputs as item name.
+        members: Value per RNA member identifier of class.
+        content: Graph content node storage holds.
 
     Returns:
-        `Ok` of the node joined with each operand's fragment and link; `Error` of `absent` for a member the class lacks.
+        `Ok` of node joined with operand fragments and links. `Error` of `absent` for member class lacks.
     """
 
     def placed(address: str, operand: Operand) -> tuple[Fragment, dict[str, Value]]:
@@ -313,32 +312,32 @@ def node(key: Key, kind: type[bpy.types.Node], inputs: Mapping[str, Operand], me
 
 
 def menu(key: Key, kind: str, selector: Operand, items: MenuItems, cases: Mapping[str, Operand]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a Menu Switch over its items, each case operand at its item name.
+    """Builds Menu Switch, each case operand at its item name.
 
     Args:
-        key: Key of the node.
-        kind: `GeometryNodeMenuSwitch.data_type` identifier of the cases.
-        selector: Operand of `Menu`, the group menu socket a menu row links.
-        items: Items the switch holds.
+        key: Node key.
+        kind: `GeometryNodeMenuSwitch.data_type` identifier of cases.
+        selector: `Menu` operand, group menu socket a menu row links.
+        items: Switch items.
         cases: Operand per item name.
 
     Returns:
-        `Ok` of the fragment and its `Output` end; `Error` of the faults `node` answers.
+        `Ok` of fragment and `Output` end. `Error` of `node` faults.
     """
     return node(key, bpy.types.GeometryNodeMenuSwitch, {"Menu": selector, **cases}, {"data_type": kind}, Some(items)).map(ended(key, "Output"))
 
 
 def selected(key: Key, selector: Operand, items: MenuItems, outputs: Mapping[Key, tuple[str, Mapping[str, Operand]]]) -> BlenderResult[dict[Key, tuple[Fragment, End]]]:
-    """Selects named outputs through one Menu Switch and its case boolean outputs.
+    """Selects named outputs through one Menu Switch and Switch nodes.
 
     Args:
-        key: Key of the sole Menu Switch; secondary switches append the output key and the case's menu item index.
-        selector: Operand of the menu input.
-        items: Ordered native menu items.
-        outputs: Native socket kind and nonempty case operands per output key, in construction order.
+        key: Menu Switch key, Switch node keys appending output key and item index.
+        selector: Menu input operand.
+        items: Ordered menu items.
+        outputs: Socket kind and nonempty case operands per output key, in construction order.
 
     Returns:
-        Selected outputs sharing their complete fragment, or every independent construction fault.
+        `Ok` of output pairs sharing one merged fragment. `Error` of every construction fault.
     """
     position = {item.name: index for index, item in enumerate(items.items)}
 
@@ -360,50 +359,48 @@ def selected(key: Key, selector: Operand, items: MenuItems, outputs: Mapping[Key
 
 
 def nested(key: Key, group: NodeGroup, inputs: Mapping[Key, Operand], output: Key) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a group node over a nested group, its inputs and output addressed by item key.
+    """Builds group node, inputs and output addressed by item key.
 
     Args:
-        key: Key of the group node.
-        group: Owned group the node points at.
-        inputs: Operand per input item key of the group's interface.
-        output: Output item key the answer ends at.
+        key: Group node key.
+        group: Owned group node points at.
+        inputs: Operand per input item key of group interface.
+        output: Output item key of result end.
 
     Returns:
-        `Ok` of the fragment and its output end; `Error` of the faults `node` answers.
+        `Ok` of fragment and output end. `Error` of `node` faults.
     """
     return node(key, group_node(group.graph.kind), inputs, {}, Some(Nested(group=group))).map(ended(key, output))
 
 
 def switched(key: Key, kind: str, gate: Operand, off: Operand, on: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a lazy whole-image switch from one single-value condition.
+    """Builds lazy whole-image Switch node over single-value condition.
 
     Args:
-        key: Key of the node.
+        key: Node key.
         kind: `GeometryNodeSwitch.input_type` identifier of both branches.
-        gate: Single-value operand of `Switch`, shared by every pixel.
-        off: Operand the false gate answers.
-        on: Operand the true gate answers.
+        gate: Single-value `Switch` operand every pixel shares.
+        off: Operand for false gate.
+        on: Operand for true gate.
 
     Returns:
-        `Ok` of the fragment and its `Output` end; `Error` of the faults `node` answers.
+        `Ok` of fragment and `Output` end. `Error` of `node` faults.
     """
     return node(key, bpy.types.GeometryNodeSwitch, {"Switch": gate, "False": off, "True": on}, {"input_type": kind}).map(ended(key, "Output"))
 
 
 def masked(key: Key, kind: DataType, gate: Operand, off: Operand, on: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Selects each pixel through a native binary mask without unused nonfinite contamination.
+    """Selects each pixel by binary mask over both evaluated branches, dropping unselected nonfinite values.
 
     Args:
-        key: Key of the result node, with intermediate keys derived from it.
-        kind: Native value shape of both branches.
-        gate: Native boolean or comparison operand, zero for off and one for on.
-        off: Operand selected at zero.
-        on: Operand selected at one.
+        key: Result node key, intermediate keys derived from it.
+        kind: Value shape of both branches.
+        gate: Boolean or comparison operand, 0 for off and 1 for on.
+        off: Operand selected at 0.
+        on: Operand selected at 1.
 
     Returns:
-        Built pair ending at `Value`, `Vector`, or `Image` for float, vector, or RGBA.
-        Both branches evaluate; native safe division excludes an unselected NaN or infinity.
-        Arithmetic selection preserves values without promising signed-zero identity.
+        `Ok` of pair ending at `Value`, `Vector`, or `Image` for float, vector, or RGBA, with no signed-zero guarantee. `Error` of `node` faults.
     """
     operation = vector if kind == "VECTOR" else math
 
@@ -427,30 +424,30 @@ def masked(key: Key, kind: DataType, gate: Operand, off: Operand, on: Operand) -
 
 
 def math(key: Key, operation: str, *operands: Operand, clamp: bool = False) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a shader math node of one operation.
+    """Builds Math node of one operation.
 
     Args:
-        key: Key of the node.
+        key: Node key.
         operation: `ShaderNodeMath.operation` identifier.
         *operands: Operands of `Value`, `Value_001`, and `Value_002` in order.
-        clamp: Whether the node clamps its answer to [0, 1].
+        clamp: Whether node clamps result to [0, 1].
 
     Returns:
-        `Ok` of the fragment and its `Value` end; `Error` of the faults `node` answers.
+        `Ok` of fragment and `Value` end. `Error` of `node` faults.
     """
     return node(key, bpy.types.ShaderNodeMath, dict(zip(("Value", "Value_001", "Value_002"), operands)), {"operation": operation, "use_clamp": clamp}).map(ended(key, "Value"))
 
 
 def vector(key: Key, operation: str, *operands: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a vector math node of one operation.
+    """Builds Vector Math node of one operation.
 
     Args:
-        key: Key of the node.
+        key: Node key.
         operation: `ShaderNodeVectorMath.operation` identifier.
-        *operands: Operands of the enabled inputs in order. Vector literals have three components; `Scale` takes a scalar. Linked ends use Blender's socket conversion.
+        *operands: Enabled input operands in order, vector literals of 3 components, scalar `Scale`, linked ends through socket conversion.
 
     Returns:
-        `Ok` of the fragment and its `Value` end for a scalar result, else its `Vector` end; `Error` of the faults `node` answers.
+        `Ok` of fragment with `Value` end for scalar result, else `Vector` end. `Error` of `node` faults.
     """
     inputs = {"SCALE": ("Vector", "Scale"), "REFRACT": ("Vector", "Vector_001", "Scale")}.get(operation, ("Vector", "Vector_001", "Vector_002"))
     result = "Value" if operation in {"DOT_PRODUCT", "DISTANCE", "LENGTH"} else "Vector"
@@ -458,35 +455,35 @@ def vector(key: Key, operation: str, *operands: Operand) -> BlenderResult[tuple[
 
 
 def mixed(key: Key, kind: DataType, factor: Operand, a: Operand, b: Operand, blend: str = "MIX") -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a mix node of one data type.
+    """Builds Mix node of one data type.
 
     Args:
-        key: Key of the node.
-        kind: `ShaderNodeMix.data_type` identifier, naming the node's socket identifiers.
-        factor: Operand of `Factor_Float`.
-        a: Operand the factor 0 answers.
-        b: Operand the factor 1 answers.
-        blend: `ShaderNodeMix.blend_type` identifier a color mix reads.
+        key: Node key.
+        kind: `ShaderNodeMix.data_type` identifier selecting socket identifiers.
+        factor: `Factor_Float` operand.
+        a: Operand at factor 0.
+        b: Operand at factor 1.
+        blend: `ShaderNodeMix.blend_type` identifier of RGBA mixes.
 
     Returns:
-        `Ok` of the fragment and its result end; `Error` of the faults `node` answers.
+        `Ok` of fragment and result end. `Error` of `node` faults.
     """
     first, second, result = {"FLOAT": ("A_Float", "B_Float", "Result_Float"), "VECTOR": ("A_Vector", "B_Vector", "Result_Vector"), "RGBA": ("A_Color", "B_Color", "Result_Color")}[kind]
     return node(key, bpy.types.ShaderNodeMix, {"Factor_Float": factor, first: a, second: b}, {"data_type": kind, "blend_type": blend}).map(ended(key, result))
 
 
 def compared(key: Key, operation: str, a: Operand, b: Operand, *, epsilon: Option[Operand] = Nothing) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds a float compare node.
+    """Builds float Compare node.
 
     Args:
-        key: Key of the node.
+        key: Node key.
         operation: `FunctionNodeCompare.operation` identifier.
-        a: Operand of `A`.
-        b: Operand of `B`.
-        epsilon: Optional native `Epsilon` input for equality operations; absence keeps its native default.
+        a: `A` operand.
+        b: `B` operand.
+        epsilon: `Epsilon` operand of equality operations, socket default when absent.
 
     Returns:
-        `Ok` of the fragment and its boolean `Result` end; `Error` of the faults `node` answers.
+        `Ok` of fragment and boolean `Result` end. `Error` of `node` faults.
     """
     return node(key, bpy.types.FunctionNodeCompare, {"A": a, "B": b, **epsilon.map(lambda value: {"Epsilon": value}).default_value({})}, {"data_type": "FLOAT", "operation": operation}).map(
         ended(key, "Result")
@@ -498,15 +495,15 @@ def summed(prefix: Key, terms: tuple[tuple[Fragment, End], *tuple[tuple[Fragment
 @overload
 def summed(prefix: Key, terms: tuple[Operand, ...], *, kind: DataType = "RGBA") -> BlenderResult[Operand]: ...
 def summed(prefix: Key, terms: tuple[Operand, ...], *, kind: DataType = "RGBA") -> BlenderResult[Operand]:
-    """Adds operands in order through their native ADD operation.
+    """Adds operands in order through `ADD` operations.
 
     Args:
-        prefix: Key prefix of the nodes, each keyed `<prefix>_add_<n>` from 1.
-        terms: Operands summed in order, the tuple `accumulated` answers among them.
-        kind: Native float math, vector math, or RGBA mix operation.
+        prefix: Prefix of node keys `<prefix>_add_<n>` from 1.
+        terms: Operands to sum in order.
+        kind: Math, Vector Math, or RGBA Mix addition.
 
     Returns:
-        `Ok` of the last node's pair, the one term alone, or zero for no term (black at alpha 1 for RGBA); `Error` of the faults the nodes answer.
+        `Ok` of last node pair, lone term, or zero for no term (black at alpha 1 for RGBA). `Error` of `node` faults.
     """
 
     def added(done: BlenderResult[Operand], step: tuple[int, Operand]) -> BlenderResult[Operand]:
@@ -523,17 +520,17 @@ def summed(prefix: Key, terms: tuple[Operand, ...], *, kind: DataType = "RGBA") 
 
 
 def origin(key: Key, seed: Operand, noise: Operand, pattern: Operand = 0, instance: Operand = 0) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds the decorrelation origin of one noise.
+    """Builds decorrelation origin of one noise.
 
     Args:
-        key: Key of the origin's scale node, inner nodes keyed from it.
-        seed: Operand of the record's `Seed`.
-        noise: Member of the effect's closed noise set, or the operand of a stream index.
-        pattern: `Clock.pattern` for an origin redrawn per pattern, else 0.
-        instance: Index of a repeated draw, else 0.
+        key: Origin scale node key, prefix of inner keys.
+        seed: Record `Seed` operand.
+        noise: Member of effect noise set, or stream index operand.
+        pattern: `Clock.pattern` for origins redrawn per pattern, else 0.
+        instance: Repeated draw index, else 0.
 
     Returns:
-        `Ok` of the fragment and its 3D origin end; `Error` of the faults `node` answers.
+        `Ok` of fragment and 3D origin end. `Error` of `node` faults.
     """
     return (
         node(f"{key}_cell", bpy.types.ShaderNodeCombineXYZ, {"X": seed, "Y": noise, "Z": pattern}, {})

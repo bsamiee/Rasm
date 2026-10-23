@@ -95,5 +95,5 @@ rule:
             - has: {stopBy: end, matches: thrown}
             - matches: {csharp-type-test: {subject: {matches: thrown}, type: {pattern: $TYPE}}}
             - matches: type-only
-message: Exception inside `$ERROR` is tested against `$TYPE` by hand
-note: 'Call `HasException<<type>>()` on `<error>`'
+message: '`$ERROR` unwraps its exception to test it against `$TYPE`'
+note: 'Call `<error>.HasException<<type>>()`'

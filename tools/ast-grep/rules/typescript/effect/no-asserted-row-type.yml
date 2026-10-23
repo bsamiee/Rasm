@@ -14,4 +14,4 @@ rule:
             - has: {field: function, kind: member_expression, all: [{has: {field: object, regex: '^sql$'}}, {has: {field: property, regex: '^unsafe$'}}]}
             - has: {field: type_arguments, kind: type_arguments, pattern: $TYPE}
 message: '`$TYPE` asserts a row shape the client never checks'
-note: 'Decode rows through `SqlSchema.findAll`, `findOne`, or `findOneOption` with a `Result` schema, its `execute` returns the untyped statement'
+note: 'Decode rows through `SqlSchema.findAll`, `findOne`, `findOneOption`, or `findNonEmpty` with a `Result` schema and an untyped `execute` statement'

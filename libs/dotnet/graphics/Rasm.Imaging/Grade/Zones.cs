@@ -281,67 +281,67 @@ public sealed partial class ToneZonesParameter : IStateParameter<ToneZones> {
         Lens<ToneZones, Zone<ZoneAdjustment>>.New(static zones => zones.Whites, static zone => zones => zones with { Whites = zone }));
 
     public static readonly ToneZonesParameter BlacksMaster = new("blacks-master", Blacks.Master,
-        new("Blacks", "Adjustment of the blacks in every channel, one leaving them unchanged"));
+        new("Blacks", "Adjustment in every channel, unchanged at one"));
     public static readonly ToneZonesParameter BlacksRed = new("blacks-red", Blacks.Red,
-        new("Blacks red", "Adjustment of the blacks in red"));
+        new("Blacks red", "Adjustment in red"));
     public static readonly ToneZonesParameter BlacksGreen = new("blacks-green", Blacks.Green,
-        new("Blacks green", "Adjustment of the blacks in green"));
+        new("Blacks green", "Adjustment in green"));
     public static readonly ToneZonesParameter BlacksBlue = new("blacks-blue", Blacks.Blue,
-        new("Blacks blue", "Adjustment of the blacks in blue"));
+        new("Blacks blue", "Adjustment in blue"));
     public static readonly ToneZonesParameter BlacksStart = new("blacks-start", Blacks.Start,
-        new("Blacks start", "Stops from middle gray where the blacks begin, reaching downward"));
+        new("Blacks start", "Blacks top in stops from middle gray"));
     public static readonly ToneZonesParameter BlacksWidth = new("blacks-width", Blacks.Width,
-        new("Blacks width", "Stops the blacks span"));
+        new("Blacks width", "Span in stops"));
     public static readonly ToneZonesParameter ShadowsMaster = new("shadows-master", Shadows.Master,
-        new("Shadows", "Adjustment of the shadows in every channel, one leaving them unchanged"));
+        new("Shadows", "Adjustment in every channel, unchanged at one"));
     public static readonly ToneZonesParameter ShadowsRed = new("shadows-red", Shadows.Red,
-        new("Shadows red", "Adjustment of the shadows in red"));
+        new("Shadows red", "Adjustment in red"));
     public static readonly ToneZonesParameter ShadowsGreen = new("shadows-green", Shadows.Green,
-        new("Shadows green", "Adjustment of the shadows in green"));
+        new("Shadows green", "Adjustment in green"));
     public static readonly ToneZonesParameter ShadowsBlue = new("shadows-blue", Shadows.Blue,
-        new("Shadows blue", "Adjustment of the shadows in blue"));
+        new("Shadows blue", "Adjustment in blue"));
     public static readonly ToneZonesParameter ShadowsStart = new("shadows-start", Shadows.Start,
-        new("Shadows start", "Stops from middle gray where the shadows begin, reaching downward"));
+        new("Shadows start", "Shadows top in stops from middle gray"));
     public static readonly ToneZonesParameter ShadowsWidth = new("shadows-width", Shadows.Width,
-        new("Shadows width", "Stops the shadows span"));
+        new("Shadows width", "Span in stops"));
     public static readonly ToneZonesParameter MidtonesMaster = new("midtones-master", Midtones.Master,
-        new("Midtones", "Adjustment of the midtones in every channel, one leaving them unchanged"));
+        new("Midtones", "Adjustment in every channel, unchanged at one"));
     public static readonly ToneZonesParameter MidtonesRed = new("midtones-red", Midtones.Red,
-        new("Midtones red", "Adjustment of the midtones in red"));
+        new("Midtones red", "Adjustment in red"));
     public static readonly ToneZonesParameter MidtonesGreen = new("midtones-green", Midtones.Green,
-        new("Midtones green", "Adjustment of the midtones in green"));
+        new("Midtones green", "Adjustment in green"));
     public static readonly ToneZonesParameter MidtonesBlue = new("midtones-blue", Midtones.Blue,
-        new("Midtones blue", "Adjustment of the midtones in blue"));
+        new("Midtones blue", "Adjustment in blue"));
     public static readonly ToneZonesParameter MidtonesStart = new("midtones-start", Midtones.Start,
-        new("Midtones center", "Stops from middle gray the midtones center on"));
+        new("Midtones center", "Midtones center in stops from middle gray"));
     public static readonly ToneZonesParameter MidtonesWidth = new("midtones-width", Midtones.Width,
-        new("Midtones width", "Stops the midtones span"));
+        new("Midtones width", "Span in stops"));
     public static readonly ToneZonesParameter HighlightsMaster = new("highlights-master", Highlights.Master,
-        new("Highlights", "Adjustment of the highlights in every channel, one leaving them unchanged"));
+        new("Highlights", "Adjustment in every channel, unchanged at one"));
     public static readonly ToneZonesParameter HighlightsRed = new("highlights-red", Highlights.Red,
-        new("Highlights red", "Adjustment of the highlights in red"));
+        new("Highlights red", "Adjustment in red"));
     public static readonly ToneZonesParameter HighlightsGreen = new("highlights-green", Highlights.Green,
-        new("Highlights green", "Adjustment of the highlights in green"));
+        new("Highlights green", "Adjustment in green"));
     public static readonly ToneZonesParameter HighlightsBlue = new("highlights-blue", Highlights.Blue,
-        new("Highlights blue", "Adjustment of the highlights in blue"));
+        new("Highlights blue", "Adjustment in blue"));
     public static readonly ToneZonesParameter HighlightsStart = new("highlights-start", Highlights.Start,
-        new("Highlights start", "Stops from middle gray where the highlights begin, reaching upward"));
+        new("Highlights start", "Highlights bottom in stops from middle gray"));
     public static readonly ToneZonesParameter HighlightsWidth = new("highlights-width", Highlights.Width,
-        new("Highlights width", "Stops the highlights span"));
+        new("Highlights width", "Span in stops"));
     public static readonly ToneZonesParameter WhitesMaster = new("whites-master", Whites.Master,
-        new("Whites", "Adjustment of the whites in every channel, one leaving them unchanged"));
+        new("Whites", "Adjustment in every channel, unchanged at one"));
     public static readonly ToneZonesParameter WhitesRed = new("whites-red", Whites.Red,
-        new("Whites red", "Adjustment of the whites in red"));
+        new("Whites red", "Adjustment in red"));
     public static readonly ToneZonesParameter WhitesGreen = new("whites-green", Whites.Green,
-        new("Whites green", "Adjustment of the whites in green"));
+        new("Whites green", "Adjustment in green"));
     public static readonly ToneZonesParameter WhitesBlue = new("whites-blue", Whites.Blue,
-        new("Whites blue", "Adjustment of the whites in blue"));
+        new("Whites blue", "Adjustment in blue"));
     public static readonly ToneZonesParameter WhitesStart = new("whites-start", Whites.Start,
-        new("Whites start", "Stops from middle gray where the whites begin, reaching upward"));
+        new("Whites start", "Whites bottom in stops from middle gray"));
     public static readonly ToneZonesParameter WhitesWidth = new("whites-width", Whites.Width,
-        new("Whites width", "Stops the whites span"));
+        new("Whites width", "Span in stops"));
     public static readonly ToneZonesParameter SContrast = new("s-contrast", StateParameter.Bounded(Lens<ToneZones, ZoneContrast>.New(static zones => zones.SContrast, static contrast => zones => zones with { SContrast = contrast })),
-        new("Contrast", "Slope of the S-curve through the tones, one leaving the image unchanged"));
+        new("Contrast", "S-curve slope through tones, image unchanged at one"));
 
     public StateParameter<ToneZones> Kind { get; }
     public ParameterText Text { get; }

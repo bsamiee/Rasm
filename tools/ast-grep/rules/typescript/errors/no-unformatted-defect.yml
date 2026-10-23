@@ -76,5 +76,5 @@ rule:
                     - {kind: lexical_declaration, has: {matches: union-declaration}}
                     - {kind: export_statement, has: {kind: lexical_declaration, has: {matches: union-declaration}}}
 message: '`$TEXT` renders a `Schema.Defect()` cause outside `Formatter.format`'
-note: 'Render the cause as `Formatter.format(<cause>)`, which prints any value, circular ones included'
+note: 'Render the cause as `Formatter.format(<cause>)`'
 labels: {TEXT: {style: primary}}

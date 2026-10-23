@@ -98,10 +98,10 @@ public static partial class Animations {
     private static partial AnimationSettings ToSettings(AnimationProperties properties, FrameCount frames, Option<AnimationOutput> output);
 
     [MapProperty(nameof(AnimationSequence.Frames), nameof(AnimationProperties.FrameCount))]
-    [MapperIgnoreSource(nameof(AnimationSequence.Kind), Justification = "Written through its Switch")]
-    [MapperIgnoreSource(nameof(AnimationSequence.DisplayMode), Justification = "A present id replaces the stored one")]
-    [MapperIgnoreSource(nameof(AnimationSequence.Output), Justification = "A present output replaces the stored folder, extension, and name")]
-    [MapperIgnoreSource(nameof(AnimationSequence.Quality), Justification = "A present quality replaces the stored capture method and render flags")]
+    [MapperIgnoreSource(nameof(AnimationSequence.Kind), Justification = "Written per case through Switch")]
+    [MapperIgnoreSource(nameof(AnimationSequence.DisplayMode), Justification = "Present ID replaces stored ID")]
+    [MapperIgnoreSource(nameof(AnimationSequence.Output), Justification = "Present output replaces stored folder, extension, and name")]
+    [MapperIgnoreSource(nameof(AnimationSequence.Quality), Justification = "Present quality replaces stored capture method and render flags")]
     private static partial void Update(AnimationSequence sequence, AnimationProperties properties);
 
     [MapProperty(nameof(AnimationOutput.Folder), nameof(AnimationProperties.FolderName))]

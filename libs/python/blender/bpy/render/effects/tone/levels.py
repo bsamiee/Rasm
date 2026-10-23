@@ -1,4 +1,4 @@
-"""Affine black and white point adjustment in the compositor."""
+"""Affine black and white point adjustment."""
 
 import bpy
 from expression import Nothing, Option, option, Some
@@ -22,7 +22,7 @@ from blender.imaging.files.images import ImageFile
 
 
 def leveled(shell: Shell[Levels]) -> BlenderResult[tuple[Fragment, End]]:
-    """Subtracts the covered black point and applies the white span in stops."""
+    """Subtracts coverage-weighted black point and applies white span in stops."""
     source = shell.source
     black, white = (shell.socket(field) for field in Levels.__struct_fields__)
     return (
@@ -38,7 +38,7 @@ def leveled(shell: Shell[Levels]) -> BlenderResult[tuple[Fragment, End]]:
 
 
 def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-    """Writes covered frame extrema as levels, retaining the entry's blend, and names an undo step where the levels changed."""
+    """Writes covered frame extrema as levels, keeping blend, naming undo step on change."""
     found = config_of().bind(
         lambda config: samples_of(config, file.pixels).map(Samples.extent).map(option.bind(lambda extent: Levels.of(extent.low, extent.white))).map_error(BlenderImagingFault.lifted)
     )
@@ -55,7 +55,7 @@ reading = ViewerRead(consume=measured)
 auto_levels = Operator(
     key="auto_levels",
     title="Auto Levels",
-    description=f"Measures {Levels.title} from the entering frame",
+    description=f"Measure {Levels.title} from stage input",
     form=Named,
     undo=False,
     condition=Some(Job(kind="RENDER")),
@@ -64,7 +64,7 @@ auto_levels = Operator(
         .root(bpy.types.Scene)
         .bind(lambda scene: levels.named(call.identity, scene, call.record.name))
         .bind(lambda entry: reading.entering(call.identity, entry))
-        .map(lambda _: Done(notes=(("INFO", "Measuring the frame entering levels"),)))
+        .map(lambda _: Done(notes=(("INFO", "Measuring levels from stage input"),)))
     ),
 )
 levels: CompositorEffect[Levels] = CompositorEffect(record=Levels, graph=leveled, registrables=(auto_levels, reading))

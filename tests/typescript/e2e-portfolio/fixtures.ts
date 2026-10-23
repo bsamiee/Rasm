@@ -23,7 +23,7 @@ const expect = base.extend({
         const { violations } = await new AxeBuilder({ page }).include(include).analyze();
         const report = JSON.stringify(violations, null, 2);
         await test.info().attach('axe', { body: report, contentType: 'application/json' });
-        return { name: 'toPassAxe', pass: violations.length === 0, message: () => `Axe found ${violations.length} violations in ${include}:\n${report}` };
+        return { name: 'toPassAxe', pass: violations.length === 0, message: () => `${violations.length} Axe violations in ${include}\n${report}` };
     },
 });
 

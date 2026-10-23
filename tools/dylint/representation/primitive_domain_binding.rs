@@ -9,21 +9,129 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{Ty, TyCtxt};
+use rustc_middle::ty::{self, FloatTy, Ty, TyCtxt, print::with_forced_trimmed_paths};
 use rustc_span::{Ident, Symbol};
 
 use crate::{accessed_field, bounds_of, expanded_externally, exported, generated, is_text, parameter_of, paths, signature};
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, PartialEq, Eq, derive_more::Display, strum::IntoStaticStr)]
+enum Clock {
+    #[display("Timestamp")]
+    #[strum(serialize = "jiff::Timestamp")]
+    Instant,
+    #[strum(serialize = "core::time::Duration")]
+    Duration,
+}
+
+impl Clock {
+    fn whole(self, tcx: TyCtxt<'_>) -> Ty<'_> {
+        match self {
+            Self::Instant => tcx.types.i64,
+            Self::Duration => tcx.types.u64,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, strum::EnumString)]
+enum Unit {
+    #[strum(serialize = "secs", serialize = "seconds")]
+    Second,
+    #[strum(serialize = "ms", serialize = "millis", serialize = "milliseconds")]
+    Millisecond,
+    #[strum(serialize = "us", serialize = "micros")]
+    Microsecond,
+    #[strum(serialize = "ns", serialize = "nanos")]
+    Nanosecond,
+    #[strum(serialize = "mins", serialize = "minutes")]
+    Minute,
+    #[strum(serialize = "hours")]
+    Hour,
+}
+
+impl Unit {
+    const fn encoded(self) -> Option<&'static str> {
+        match self {
+            Self::Second => Some("Seconds"),
+            Self::Millisecond => Some("MilliSeconds"),
+            Self::Microsecond => Some("MicroSeconds"),
+            Self::Nanosecond => Some("NanoSeconds"),
+            Self::Minute | Self::Hour => None,
+        }
+    }
+
+    const fn constructor(self, clock: Clock) -> Option<&'static str> {
+        match (clock, self) {
+            (Clock::Instant, Self::Second) => Some("Timestamp::from_second"),
+            (Clock::Instant, Self::Millisecond) => Some("Timestamp::from_millisecond"),
+            (Clock::Instant, Self::Microsecond) => Some("Timestamp::from_microsecond"),
+            (Clock::Instant, Self::Nanosecond) => Some("Timestamp::from_nanosecond"),
+            (Clock::Instant, Self::Minute | Self::Hour) => None,
+            (Clock::Duration, Self::Second) => Some("Duration::from_secs"),
+            (Clock::Duration, Self::Millisecond) => Some("Duration::from_millis"),
+            (Clock::Duration, Self::Microsecond) => Some("Duration::from_micros"),
+            (Clock::Duration, Self::Nanosecond) => Some("Duration::from_nanos"),
+            (Clock::Duration, Self::Minute) => Some("Duration::from_mins"),
+            (Clock::Duration, Self::Hour) => Some("Duration::from_hours"),
+        }
+    }
+}
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const BYTE_SIZES: &[(&str, &str)] = &[("bytes", "b"), ("kb", "kb"), ("kib", "kib"), ("mb", "mb"), ("mib", "mib"), ("gb", "gb"), ("gib", "gib")];
+
+const QUANTITIES: &[(&str, bool, &str, &str, &str)] = &[
+    ("mm", true, "Length", "length", "millimeter"),
+    ("km", true, "Length", "length", "kilometer"),
+    ("ft", true, "Length", "length", "foot"),
+    ("kg", true, "Mass", "mass", "kilogram"),
+    ("lbs", true, "Mass", "mass", "pound"),
+    ("deg", true, "Angle", "angle", "degree"),
+    ("rad", true, "Angle", "angle", "radian"),
+    ("kpa", true, "Pressure", "pressure", "kilopascal"),
+    ("mpa", true, "Pressure", "pressure", "megapascal"),
+    ("psi", true, "Pressure", "pressure", "pound_force_per_square_inch"),
+    ("kw", true, "Power", "power", "kilowatt"),
+    ("kwh", true, "Energy", "energy", "kilowatt_hour"),
+    ("hz", true, "Frequency", "frequency", "hertz"),
+    ("khz", true, "Frequency", "frequency", "kilohertz"),
+    ("mhz", true, "Frequency", "frequency", "megahertz"),
+    ("pct", true, "Ratio", "ratio", "percent"),
+    ("percent", false, "Ratio", "ratio", "percent"),
+    ("millimeters", false, "Length", "length", "millimeter"),
+    ("millimetres", false, "Length", "length", "millimeter"),
+    ("centimeters", false, "Length", "length", "centimeter"),
+    ("centimetres", false, "Length", "length", "centimeter"),
+    ("meters", false, "Length", "length", "meter"),
+    ("metres", false, "Length", "length", "meter"),
+    ("kilometers", false, "Length", "length", "kilometer"),
+    ("kilometres", false, "Length", "length", "kilometer"),
+    ("feet", false, "Length", "length", "foot"),
+    ("inches", false, "Length", "length", "inch"),
+    ("kilograms", false, "Mass", "mass", "kilogram"),
+    ("degrees", false, "Angle", "angle", "degree"),
+    ("radians", false, "Angle", "angle", "radian"),
+    ("pascals", false, "Pressure", "pressure", "pascal"),
+    ("watts", false, "Power", "power", "watt"),
+    ("kilowatts", false, "Power", "power", "kilowatt"),
+    ("joules", false, "Energy", "energy", "joule"),
+    ("celsius", false, "ThermodynamicTemperature", "thermodynamic_temperature", "degree_celsius"),
+    ("kelvin", false, "ThermodynamicTemperature", "thermodynamic_temperature", "kelvin"),
+    ("fahrenheit", false, "ThermodynamicTemperature", "thermodynamic_temperature", "degree_fahrenheit"),
+    ("hertz", false, "Frequency", "frequency", "hertz"),
+];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Domain {
-    Instant,
-    Duration,
-    ByteSize,
-    Path,
-    Calendar,
-    Quantity,
+    Time { clock: Clock, unit: Option<Unit>, float: Option<FloatTy> },
+    ByteSize { constructor: &'static str },
+    Path { borrowed: bool },
+    Calendar { civil: &'static str },
+    Quantity { quantity: &'static str, module: &'static str, unit: &'static str },
 }
 
 impl Domain {
@@ -32,22 +140,23 @@ impl Domain {
         let name = name.as_str().to_lowercase();
         let mut segments = name.rsplit('_');
         let last = segments.next()?;
-        let number = held.is_numeric();
+        let float = if let ty::Float(float) = held.kind() { Some(*float) } else { None };
+        let time = |clock, unit| held.is_numeric().then_some(Self::Time { clock, unit, float });
+        let unit = last.parse::<Unit>().ok();
         match (segments.next(), last) {
-            (_, "timestamp") | (Some("since"), EPOCH) | (Some("created" | "updated" | "modified" | "expires" | "issued" | "started" | "finished" | "deleted"), "at") => number.then_some(Self::Instant),
-            (previous, "secs" | "seconds" | "ms" | "millis" | "milliseconds" | "us" | "micros" | "ns" | "nanos" | "mins" | "minutes" | "hours") =>
-                number.then_some(if previous == Some(EPOCH) { Self::Instant } else { Self::Duration }),
-            (_, "timeout" | "interval" | "delay" | "ttl" | "duration" | "elapsed") => number.then_some(Self::Duration),
-            (_, "bytes" | "kb" | "kib" | "mb" | "mib" | "gb" | "gib") => held.is_integral().then_some(Self::ByteSize),
-            (_, "path" | "dir" | "directory" | "file" | "folder") => is_text(cx, held).then_some(Self::Path),
-            (_, "date" | "time" | "datetime") => is_text(cx, held).then_some(Self::Calendar),
-            (Some(_), "mm" | "km" | "ft" | "kg" | "lbs" | "deg" | "rad" | "kpa" | "mpa" | "psi" | "kw" | "kwh" | "hz" | "khz" | "mhz" | "pct")
-            | (
-                _,
-                "percent" | "millimeters" | "millimetres" | "centimeters" | "centimetres" | "meters" | "metres" | "kilometers" | "kilometres" | "feet" | "inches" | "kilograms" | "degrees" | "radians"
-                | "pascals" | "watts" | "kilowatts" | "joules" | "celsius" | "kelvin" | "fahrenheit" | "hertz",
-            ) => (held == cx.tcx.types.f64).then_some(Self::Quantity),
-            _ => None,
+            (_, "timestamp") | (Some("since"), EPOCH) | (Some("created" | "updated" | "modified" | "expires" | "issued" | "started" | "finished" | "deleted"), "at") => time(Clock::Instant, None),
+            (previous, _) if unit.is_some() => time(if previous == Some(EPOCH) { Clock::Instant } else { Clock::Duration }, unit),
+            (_, "timeout" | "interval" | "delay" | "ttl" | "duration" | "elapsed") => time(Clock::Duration, None),
+            _ if let Some(&(_, constructor)) = BYTE_SIZES.iter().find(|&&(suffix, _)| suffix == last) => held.is_integral().then_some(Self::ByteSize { constructor }),
+            (_, "path" | "dir" | "directory" | "file" | "folder") => is_text(cx, held).then_some(Self::Path { borrowed: held.is_ref() }),
+            (_, "date") => is_text(cx, held).then_some(Self::Calendar { civil: "Date" }),
+            (_, "time") => is_text(cx, held).then_some(Self::Calendar { civil: "Time" }),
+            (_, "datetime") => is_text(cx, held).then_some(Self::Calendar { civil: "DateTime" }),
+            (previous, _) => QUANTITIES
+                .iter()
+                .find(|&&(suffix, prefixed, ..)| suffix == last && (previous.is_some() || !prefixed))
+                .filter(|_| held == cx.tcx.types.f64)
+                .map(|&(_, _, quantity, module, measure)| Self::Quantity { quantity, module, unit: measure }),
         }
     }
 }
@@ -106,7 +215,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             _ => None,
         };
         if let Some(read) = read
-            && Domain::of(cx, cx.tcx.hir_name(read), typeck.expr_ty(expr)) == Some(Domain::Path)
+            && matches!(Domain::of(cx, cx.tcx.hir_name(read), typeck.expr_ty(expr)), Some(Domain::Path { .. }))
             && let argument = argument()
             && get_parent_expr(cx, argument).is_some_and(|consumer| pathlike(typeck.expr_ty(consumer)) || parameter_of(cx, consumer, argument).is_some_and(bounded))
         {
@@ -131,7 +240,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         .adt_def(item)
                         .all_fields()
                         .filter_map(|field| declaration(cx, tcx.local_def_id_to_hir_id(field.did.as_local()?), field.ident(tcx), type_of(field.did)))
-                        .filter(|&(.., domain, _)| domain != Domain::Quantity || !serialized(item))
+                        .filter(|&(.., domain, _)| !matches!(domain, Domain::Quantity { .. }) || !serialized(item))
                         .collect(),
                     DefKind::Fn | DefKind::AssocFn
                         if let declared = signature(tcx, item.to_def_id())
@@ -152,30 +261,54 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             Node::Pat(_) => matches!(tcx.parent_hir_node(node), Node::Param(_)) && exported(cx, tcx.hir_enclosing_body_owner(node)),
             _ => exported(cx, node.owner.def_id),
         };
-        for (node, ident, domain, held) in iter::chain(mem::take(&mut self.declared), items).filter(|&(node, _, domain, _)| domain != Domain::Path || self.reached.contains(&node) || open(node)) {
+        for (node, ident, domain, held) in
+            iter::chain(mem::take(&mut self.declared), items).filter(|&(node, _, domain, _)| !matches!(domain, Domain::Path { .. }) || self.reached.contains(&node) || open(node))
+        {
             let wire = matches!(tcx.hir_node(node), Node::Field(field) if serialized(match tcx.local_parent(field.def_id) {
                 variant if tcx.def_kind(variant) == DefKind::Variant => tcx.local_parent(variant),
                 adt => adt,
             }));
             let constant = matches!(tcx.hir_node(node), Node::Item(_) | Node::ImplItem(_) | Node::TraitItem(_))
                 && matches!(tcx.def_kind(node.owner.def_id), DefKind::Const | DefKind::AssocConst | DefKind::Static { .. });
-            let (stated, declared, encoded) = match domain {
-                Domain::Instant => ("an instant", "`jiff::Timestamp`", Some("TimestampSeconds<i64>")),
-                Domain::Duration => ("a duration", "`core::time::Duration`", Some("DurationSeconds<u64>")),
-                Domain::ByteSize => ("a byte size", "`bytesize::ByteSize`", None),
-                Domain::Path => ("a path", "`PathBuf` or `&Path`", None),
-                Domain::Calendar => ("a calendar value", "`jiff::civil::Date`, `Time`, or `DateTime`", None),
-                Domain::Quantity =>
-                    ("a physical quantity", "`uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)", None),
+            let built = |declared: &str, constructor: Option<String>| {
+                constructor.map_or_else(|| format!("declare `{ident}` as `{declared}`"), |constructor| format!("declare `{ident}` as `{declared}` and build it with `{constructor}`"))
             };
-            let help = match (encoded.filter(|_| wire), domain, constant) {
-                (Some(encoded), ..) => format!("declare a {declared} with `#[serde_as(as = \"{encoded}\")]`"),
-                (None, Domain::Path, true) => String::from("declare a `&Path` through `Path::new` under `#![feature(const_convert)]`"),
-                (None, Domain::Duration, _) => format!("declare a {declared} and convert where a protocol or API takes the number"),
-                (None, Domain::Instant | Domain::ByteSize | Domain::Calendar | Domain::Quantity, _) | (None, Domain::Path, false) => format!("declare a {declared}"),
+            let (help, note) = match domain {
+                Domain::Time { clock, unit, float } if wire && let Some(encoded) = unit.unwrap_or(Unit::Second).encoded() => {
+                    let encoding = if float.is_some() { String::from("WithFrac<f64>") } else { format!("<{}>", clock.whole(tcx)) };
+                    (
+                        format!("declare `{ident}` as `{}` with `#[serde_as(as = \"{clock}{encoded}{encoding}\")]`", <&str>::from(clock)),
+                        unit.is_none().then(|| format!("`{clock}MilliSeconds`, `{clock}MicroSeconds`, and `{clock}NanoSeconds` encode other wire units")),
+                    )
+                }
+                Domain::Time { clock, unit, float } => {
+                    let constructor = match (clock, unit, float) {
+                        (Clock::Duration, Some(Unit::Second), Some(float)) => Some(format!("Duration::from_secs_{}", float.name_str())),
+                        (_, Some(unit), None) => unit.constructor(clock).map(String::from),
+                        (_, None, _) | (Clock::Instant | Clock::Duration, Some(_), Some(_)) => None,
+                    };
+                    (built(clock.into(), constructor), None)
+                }
+                Domain::ByteSize { constructor } =>
+                    (built("bytesize::ByteSize", Some(format!("ByteSize::{constructor}"))), wire.then(|| String::from("`ByteSize` serializes as text in human-readable formats"))),
+                Domain::Path { .. } if constant => (format!("declare `{ident}` as `&std::path::Path` through `Path::new` under `#![feature(const_convert)]`"), None),
+                Domain::Path { borrowed } => (built(if borrowed { "&std::path::Path" } else { "std::path::PathBuf" }, None), None),
+                Domain::Calendar { civil } => (built(&format!("jiff::civil::{civil}"), None), None),
+                Domain::Quantity { quantity, module, unit } => (built(&format!("uom::si::f64::{quantity}"), Some(format!("{quantity}::new::<uom::si::{module}::{unit}>"))), None),
+            };
+            let stated = match domain {
+                Domain::Time { clock: Clock::Instant, .. } => "an instant",
+                Domain::Time { clock: Clock::Duration, .. } => "a duration",
+                Domain::ByteSize { .. } => "a byte size",
+                Domain::Path { .. } => "a path",
+                Domain::Calendar { .. } => "a calendar value",
+                Domain::Quantity { .. } => "a physical quantity",
             };
             span_lint_hir_and_then(cx, PRIMITIVE_DOMAIN_BINDING, node, ident.span, format!("`{ident}` holds {stated} as `{held}`"), |diag| {
                 diag.help(help);
+                if let Some(note) = note {
+                    diag.note(note);
+                }
             });
         }
     }
@@ -184,5 +317,5 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn declaration<'tcx>(cx: &LateContext<'tcx>, node: HirId, ident: Ident, held: Ty<'tcx>) -> Option<(HirId, Ident, Domain, String)> {
-    Some((node, ident, Domain::of(cx, ident.name, held)?, held.to_string()))
+    Some((node, ident, Domain::of(cx, ident.name, held)?, with_forced_trimmed_paths!(held.to_string())))
 }

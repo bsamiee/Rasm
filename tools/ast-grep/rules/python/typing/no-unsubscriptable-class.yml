@@ -69,5 +69,5 @@ rule:
                         python-member-use:
                             module: {regex: '^xml(\..+)?$'}
                             name: {regex: '^(AttributesImpl|Element|ElementTree|ReadOnlySequentialNamedNodeMap|XMLParser|XMLPullParser)$'}
-message: '`$G` defines no `__class_getitem__`, evaluated subscripts raise `TypeError`'
-note: 'Use the class unsubscripted where type parameters have defaults, its `collections.abc` protocol (`Iterator`, `Callable`), or a quoted annotation'
+message: '`$G` has no `__class_getitem__` and raises `TypeError` when subscripted'
+note: 'Write `<class>` where type parameters have defaults, else its `collections.abc` protocol (`Iterator`, `Callable`) or a quoted annotation'

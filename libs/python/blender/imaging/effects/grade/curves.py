@@ -1,4 +1,4 @@
-"""Native RGB and HSY grading curves, raw-knot admission, and display samples."""
+"""Native RGB and HSY grading curves, raw-knot validation, and display samples."""
 
 import itertools
 from typing import Annotated, ClassVar, override
@@ -28,7 +28,7 @@ type HueCurve[X: float, Y: float] = Annotated[tuple[Knot[X, Y], ...], msgspec.Me
 
 
 class Curves(Effect, frozen=True, kw_only=True, tag=16):
-    """Maps RGB channels and their combined output on OCIO's scene-linear stop axis."""
+    """Maps RGB channels and combined output on OCIO scene-linear stop axis."""
 
     stage = Stage.CURVES
     pointwise = True
@@ -36,14 +36,14 @@ class Curves(Effect, frozen=True, kw_only=True, tag=16):
     red: Annotated[ChannelCurve, msgspec.Meta(description="Red output against red input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.red.getControlPoints())
     green: Annotated[ChannelCurve, msgspec.Meta(description="Green output against green input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.green.getControlPoints())
     blue: Annotated[ChannelCurve, msgspec.Meta(description="Blue output against blue input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.blue.getControlPoints())
-    master: Annotated[ChannelCurve, msgspec.Meta(description="Every channel against its channel curve's output")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.master.getControlPoints())
+    master: Annotated[ChannelCurve, msgspec.Meta(description="All channels after channel curves")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.master.getControlPoints())
 
     def curves(self) -> tuple[PyOpenColorIO.GradingBSplineCurve, ...]:
         """Builds native channel splines in declaration order."""
         return tuple(PyOpenColorIO.GradingBSplineCurve(list(itertools.chain.from_iterable(map(msgspec.structs.astuple, knots)))) for knots in msgspec.structs.astuple(self))
 
     def values(self) -> PyOpenColorIO.GradingRGBCurve:
-        """Builds the native grade over RGB and master splines."""
+        """Builds native grade over RGB and master splines."""
         return PyOpenColorIO.GradingRGBCurve(*self.curves())
 
     @override
@@ -80,14 +80,14 @@ class HueCurves(Effect, frozen=True, kw_only=True, tag=17):
     )
 
     def curves(self) -> tuple[PyOpenColorIO.GradingBSplineCurve, ...]:
-        """Builds each declared curve with its corresponding native hue kind."""
+        """Builds each curve with its native hue kind."""
         return tuple(
             PyOpenColorIO.GradingBSplineCurve(list(itertools.chain.from_iterable(map(msgspec.structs.astuple, knots))), PyOpenColorIO.HueCurveType.__members__[field.name.upper()])  # type: ignore[call-overload, attr-defined]  # ty: ignore[no-matching-overload, unresolved-attribute]
             for field, knots in zip(msgspec.structs.fields(type(self)), msgspec.structs.astuple(self))
         )
 
     def values(self) -> PyOpenColorIO.GradingHueCurve:  # type: ignore[name-defined]  # ty: ignore[unresolved-attribute]
-        """Builds the native grade with hue folding at its native identity."""
+        """Builds native grade with hue folding at native identity."""
         return PyOpenColorIO.GradingHueCurve(*self.curves(), self.neutral.hue_fx)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     @override
@@ -98,8 +98,8 @@ class HueCurves(Effect, frozen=True, kw_only=True, tag=17):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def admitted[R: (Curves, HueCurves)](record: R) -> ImagingResult[R]:
-    """Admits raw knots against native spline ordering and coincident native inputs."""
+def validated[R: (Curves, HueCurves)](record: R) -> ImagingResult[R]:
+    """Validates raw knots against native ordering and coincident inputs."""
     curves = record.curves()
     native: ImagingResult[object] = colored(
         record,
@@ -112,7 +112,7 @@ def admitted[R: (Curves, HueCurves)](record: R) -> ImagingResult[R]:
 
 
 def sampled(curve: PyOpenColorIO.GradingBSplineCurve, count: int, axis: tuple[float, float]) -> npt.NDArray[np.float32]:
-    """Samples a native spline as float32 input/output rows over the supplied axis."""
+    """Samples native spline as float32 input and output rows over axis."""
     transform: PyOpenColorIO.Transform
     match curve.getSplineType():  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         case PyOpenColorIO.BSplineType.B_SPLINE:  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -131,4 +131,4 @@ def sampled(curve: PyOpenColorIO.GradingBSplineCurve, count: int, axis: tuple[fl
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Axis", "ChannelCurve", "Curves", "Gain", "HsySaturation", "Hue", "HueCurve", "HueCurves", "MappedHue", "admitted", "sampled"]
+__all__ = ["Axis", "ChannelCurve", "Curves", "Gain", "HsySaturation", "Hue", "HueCurve", "HueCurves", "MappedHue", "sampled", "validated"]

@@ -8,14 +8,14 @@ import { Reference } from '#/dom/reference';
 
 class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique symbol }>()('Swatch', {
     ...Reference.fields,
-    group: Schema.OptionFromOptionalKey(Schema.String).annotate({ description: 'Color group holding the swatch' }),
+    group: Schema.OptionFromOptionalKey(Schema.String).annotate({ description: 'Color group name' }),
     value: Schema.TaggedUnion({
         Swatch: {},
         Color: { model: Schema.String, space: Schema.String, colorValue: Schema.Array(Schema.Finite) },
         Tint: { baseColor: Reference, tintValue: Schema.Finite },
         Gradient: { type: Schema.String, gradientStops: Schema.Array(Schema.Struct({ stopColor: Reference, location: Schema.Finite, midpoint: Schema.Finite })) },
         MixedInk: { baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
-    }).annotate({ description: 'What the swatch holds by kind; None and mixed ink groups hold no value' }),
+    }).annotate({ description: 'Empty Swatch for None and mixed ink groups' }),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup>('parentColorGroup')), Option.map(SwatchView.of));
     static readonly of = Effect.fn('SwatchView.of')(function* (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) {

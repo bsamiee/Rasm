@@ -61,7 +61,7 @@ const install = Effect.fn('install')(function* (built: string, installer: string
         const staged = path.join(yield* fs.makeTempDirectoryScoped(), `${manifest.id}_${host.app}`);
         yield* stage(staged);
         yield* stdout('ditto', ['-c', '-k', '--norsrc', staged, `${staged}.ccx`]);
-        yield* stdout(agent, ['--install', `${staged}.ccx`]).pipe(Effect.filterOrFail(String.includes('Installation Successful'), (answer) => new Cause.UnknownError(undefined, `Adobe plug-in installer refused the ${host.app} archive: ${answer.trim()}`)));
+        yield* stdout(agent, ['--install', `${staged}.ccx`]).pipe(Effect.filterOrFail(String.includes('Installation Successful'), (answer) => new Cause.UnknownError(undefined, `Adobe plugin installer refused ${host.app} archive. ${answer.trim()}`)));
     }, Effect.scoped);
     yield* owned.includes(host.app) ? submit() : register();
 });

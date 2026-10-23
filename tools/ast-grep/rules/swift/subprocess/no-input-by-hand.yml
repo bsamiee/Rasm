@@ -41,4 +41,4 @@ rule:
                     - has: {nthChild: 2, has: {stopBy: {not: {matches: statement-wrapper}}, matches: writer-write, pattern: $WRITE}}
                     - has: {nthChild: 3, has: {stopBy: {not: {matches: statement-wrapper}}, matches: writer-finish}}
 message: '`$WRITE` writes one fixed value to standard input and closes it'
-note: 'Pass the value as `input: .string(_:)`, `.array(_:)`, or `.data(_:)` on the run'
+note: 'Pass the value to `run` as `input: .string(<text>)`, `.array(<bytes>)`, or `.data(<data>)`'

@@ -55,8 +55,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     arguments.iter().filter(|(written, _)| written.is_none()).nth(index).and_then(|&(_, field)| field).and_then(named),
             })?;
             let help = match &pieces {
-                [Piece::NextArgument(_)] => format!("state the failure in the message in place of field `{shown}`, reporters print the source through `source()`"),
-                _ => format!("delete field `{shown}` from the message, reporters print it through `source()`"),
+                [Piece::NextArgument(_)] => format!("state the failure in the message in place of field `{shown}`"),
+                _ => format!("delete field `{shown}` from the message"),
             };
             Some((node, attribute.span(), format!("`{}` message prints its source field `{shown}`", variant.name), help))
         }

@@ -217,4 +217,4 @@ transform:
         rewrite: {source: $CALL, rewriters: [optional-run, optional-answer]}
 fix: $ANSWERED
 message: '`$OPTION` answers an optional callback through `$ANSWER` by hand'
-note: 'Pass `<option>.Map(<run> => <effect>)` and `<none arm>` to the `Option` overload of `Callbacks.Answer` or `Callbacks.Succeeded`'
+note: 'Pass `<option>.Map(<run> => <effect>)` and the `None` arm to the `Option` overload of `Callbacks.Answer` or `Callbacks.Succeeded`'

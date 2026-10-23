@@ -27,5 +27,5 @@ rule:
     pattern: $TEXT
     regex: '\{[A-Za-z_]\w*\}'
     inside: {kind: argument, inside: {matches: message-arguments}}
-message: '`$TEXT` holds a `{Name}` placeholder no code fills, the error prints it verbatim'
-note: 'Interpolate the message at construction, through `string.Create(CultureInfo.InvariantCulture, $"...")` where a number formats'
+message: 'Error message `$TEXT` holds a `{Name}` placeholder nothing fills'
+note: 'Write an interpolated string `$"..."`, inside `string.Create(CultureInfo.InvariantCulture, $"...")` where a number formats'

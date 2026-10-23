@@ -1,7 +1,7 @@
 {
     "name": "@rasm/indesign",
     "private": true,
-    "description": "InDesign's object model as verbs and views: inspect, change, create, remove, script, find and change, render, fonts, preflight, menus, and the contract an InDesign extension serves",
+    "description": "InDesign object model RPC contract a UXP script serves",
     "sideEffects": false,
     "type": "module",
     "imports": {

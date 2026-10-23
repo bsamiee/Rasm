@@ -137,4 +137,4 @@ transform:
     UNION: {replace: {source: $P, replace: '(?s)^.+$', by: 'union-find path compression'}}
     TRAVERSAL: {replace: {source: $V, replace: '(?s)^.+$', by: 'a visited-set graph traversal'}}
 message: '`$SITE` runs $SHORTEST$ORDER$UNION$TRAVERSAL by hand'
-note: 'Hold the graph as a `petgraph::Graph` and call `algo::dijkstra`, `algo::toposort`, `unionfind::UnionFind`, or `visit::Dfs` for the algorithm'
+note: 'Call `petgraph::algo::dijkstra` or `toposort` over a `Graph`, walk it through `visit::Bfs` or `Dfs`, or merge sets through `unionfind::UnionFind`'

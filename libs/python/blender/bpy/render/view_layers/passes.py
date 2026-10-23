@@ -1,4 +1,4 @@
-"""Pass, AOV, light group, and Cryptomatte enables of view layers, the File Output files they route into, derived layers, and ID colors."""
+"""View layer pass routing into File Output nodes with derived layers and ID colors."""
 
 from collections import deque
 from collections.abc import Callable
@@ -60,7 +60,7 @@ type ItemKind = Literal["FLOAT", "RGBA"]
 
 
 class Family(Choice):
-    """Light pass family, each member name deriving the `Terms` field naming its summed term."""
+    """Light pass family, member name matching `Terms` field of its summed term."""
 
     prefix: str
     direct: tuple[str, ...]
@@ -68,19 +68,12 @@ class Family(Choice):
     color: tuple[str, ...]
 
     def __init__(self, value: int, label: str, prefix: str, direct: tuple[str, ...], indirect: tuple[str, ...], color: tuple[str, ...]) -> None:
-        """Sets the member label, socket prefix, and flag identifiers."""
+        """Sets member label, socket prefix, and flag identifiers."""
         super().__init__(value, label)
         self.prefix, self.direct, self.indirect, self.color = prefix, direct, indirect, color
 
     def socket(self, slot: Key) -> str:
-        """Answers the Render Layers socket name of one of the family's passes.
-
-        Args:
-            slot: Pass slot key, `direct`, `indirect`, or `color`.
-
-        Returns:
-            The family prefix joined to the slot's title.
-        """
+        """Returns Render Layers socket name of a family pass slot."""
         return f"{self.prefix} {slot.title()}"
 
     DIFFUSE = 1, "Diffuse Total", "Diffuse", ("use_pass_diffuse_direct",), ("use_pass_diffuse_indirect",), ("use_pass_diffuse_color",)
@@ -90,13 +83,13 @@ class Family(Choice):
 
 
 class Derived(Choice):
-    """Layer built from the render passes beside the family totals, each member holding its item kind and output class."""
+    """Layer built from render passes with item kind and output class."""
 
     kind: ItemKind
     output: Output
 
     def __init__(self, value: int, label: str, kind: ItemKind, output: Output) -> None:
-        """Sets the member label, item kind, and output class."""
+        """Sets member label, item kind, and output class."""
         super().__init__(value, label)
         self.kind, self.output = kind, output
 
@@ -107,7 +100,7 @@ class Derived(Choice):
 
 
 class Entity(Choice):
-    """Cryptomatte kind with its native persistent number and derived Blender pass name."""
+    """Cryptomatte kind with stored number and pass name."""
 
     OBJECT = 1, "Object"
     MATERIAL = 2, "Material"
@@ -115,25 +108,21 @@ class Entity(Choice):
 
     @property
     def pass_name(self) -> str:
-        """Blender pass name for this Cryptomatte kind."""
+        """Blender pass name of kind."""
         return f"Crypto{self.name.title()}"
 
     @property
     def flag(self) -> str:
-        """Pass flag identifier opening the kind's ranks."""
+        """Pass flag identifier enabling kind ranks."""
         return f"use_pass_cryptomatte_{self.name.lower()}"
 
     @classmethod
     def named(cls, name: str) -> Option[Self]:
-        """Answers the kind whose pass name Blender writes as `name`, `Nothing` for another name."""
+        """Returns kind with pass name `name`, `Nothing` for another."""
         return Option.of_optional(next((member for member in cls if member.pass_name == name), None))
 
     def member(self) -> BlenderResult[Descriptor[bpy.types.FloatProperty]]:
-        """Resolves the color member the kind's blocks hold.
-
-        Returns:
-            `Ok` of `Object.color` for objects and assets and `Material.diffuse_color` for materials; `Error` of `absent` or `choice` for a member the build lacks.
-        """
+        """Resolves color member of kind blocks, `Object.color` or `Material.diffuse_color`."""
         match self:
             case Entity.OBJECT | Entity.ASSET:
                 return Descriptor.resolve(bpy.types.Object, "color", bpy.types.FloatProperty)
@@ -142,7 +131,7 @@ class Entity(Choice):
 
 
 class FileSplit(Choice):
-    """How a layer's passes split into files."""
+    """Split of layer passes into files."""
 
     ONE = 1, "One File"
     CLASSES = 2, "File per Class"
@@ -170,20 +159,16 @@ class FamilyFlags(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
-    """Pass flags of the running build with each family's and entity's flags and the Depth flag, resolved once."""
+    """Pass flags of running build, resolved once."""
 
-    roster: "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[bpy.types.BoolProperty]], ...]"
+    every: "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[bpy.types.BoolProperty]], ...]"
     families: dict[Family, FamilyFlags]
     entities: dict[Entity, Descriptor[bpy.types.BoolProperty]]
     depth: Descriptor[bpy.types.BoolProperty]
 
     @classmethod
     def of(cls) -> BlenderResult["PassFlags"]:
-        """Resolves the roster, the family flags, the entity flags, and the Depth flag.
-
-        Returns:
-            `Ok` of the flags; `Error` of `absent` or `choice` for each identifier the build lacks.
-        """
+        """Resolves every pass flag, faulting each identifier the build lacks."""
 
         def resolved(paths: tuple[str, ...]) -> BlenderResult[frozenset[Descriptor[bpy.types.BoolProperty]]]:
             return accumulated(Descriptor.resolve(bpy.types.ViewLayer, path, bpy.types.BoolProperty) for path in paths).map(frozenset)
@@ -200,20 +185,13 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
 
         def built(keyed: tuple[tuple[tuple[Family, FamilyFlags], ...], tuple[tuple[Entity, Descriptor[bpy.types.BoolProperty]], ...]], depth: Descriptor[bpy.types.BoolProperty]) -> PassFlags:
             families, entities = keyed
-            return cls(roster=pass_flags(), families=dict(families), entities=dict(entities), depth=depth)
+            return cls(every=pass_flags(), families=dict(families), entities=dict(entities), depth=depth)
 
         depth = Descriptor.resolve(bpy.types.ViewLayer, "use_pass_z", bpy.types.BoolProperty)
         return paired(paired(accumulated(map(family_flags, Family)), accumulated(map(entity_flag, Entity))), depth).map(lambda held: built(*held))
 
     def opened(self, routing: "Routing") -> frozenset[Descriptor[bpy.types.BoolProperty]]:
-        """Answers the flags a routing reads.
-
-        Args:
-            routing: Layer routing.
-
-        Returns:
-            Every flag of each total, the direct or indirect flags with color of every family per light sum, and each entity's flag.
-        """
+        """Returns flags a routing reads."""
 
         def derived(item: Derived) -> frozenset[Descriptor[bpy.types.BoolProperty]]:
             match item:
@@ -232,7 +210,7 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PassRequest(msgspec.Struct, frozen=True, kw_only=True):
-    """Passes, condition, and precision a graph needs of one view layer before it reconciles."""
+    """Passes, condition, and precision a graph needs of one view layer."""
 
     layer: str
     flags: frozenset[Descriptor[bpy.types.BoolProperty]] = frozenset()
@@ -241,45 +219,37 @@ class PassRequest(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def depth(cls, layer: str, *, precise: bool) -> BlenderResult[Self]:
-        """Answers the request of a layer's Depth pass.
-
-        Args:
-            layer: View layer whose Render Layers node reads Depth.
-            precise: Whether the graph also needs compositor precision `FULL`.
-
-        Returns:
-            `Ok` of the request; `Error` of `absent` or `choice` for each pass flag the build lacks.
-        """
+        """Returns Depth pass request of a layer."""
         return Descriptor.resolve(bpy.types.ViewLayer, "use_pass_z", bpy.types.BoolProperty).map(lambda flag: cls(layer=layer, flags=frozenset({flag}), precise=precise))
 
 
 class PassFile(msgspec.Struct, frozen=True, kw_only=True):
     """File choice of one source."""
 
-    name: Annotated[str, msgspec.Meta(min_length=1, title="Pass", description="Pass or derived layer as the layer's routing names it")]
-    output: Annotated[Gated[Output], msgspec.Meta(title="File", description="Whether the pass writes, and the output class whose file holds it")] = Gated(enabled=True, value=Output.BEAUTY)
+    name: Annotated[str, msgspec.Meta(min_length=1, title="Pass", description="Pass or derived layer name")]
+    output: Annotated[Gated[Output], msgspec.Meta(title="File", description="Output class file holding pass, skipped when off")] = Gated(enabled=True, value=Output.BEAUTY)
 
 
 class Routing(msgspec.Struct, frozen=True, kw_only=True):
-    """Routing choices of one view layer's passes into files."""
+    """Routing of view layer passes into files."""
 
-    split: Annotated[FileSplit, msgspec.Meta(title="Files", description="Passes in one file, a file per output class, or a file per pass")] = FileSplit.ONE
-    convention: Annotated[Conventions, msgspec.Meta(title="Reader", description="Layer names and axes the reading application expects")] = Blender()
+    split: Annotated[FileSplit, msgspec.Meta(title="Files", description="One file, a file per output class, or a file per pass")] = FileSplit.ONE
+    convention: Annotated[Conventions, msgspec.Meta(title="Reader", description="Layer names and axes reading application expects")] = Blender()
     totals: Annotated[frozenset[Family], msgspec.Meta(title="Totals", description="Light families summed into one layer each")] = frozenset()
-    derived: Annotated[frozenset[Derived], msgspec.Meta(title="Derived", description="Light sums and depth layers built from the render passes")] = frozenset()
+    derived: Annotated[frozenset[Derived], msgspec.Meta(title="Derived", description="Light sums and depth layers built from passes")] = frozenset()
     ids: Annotated[frozenset[Entity], msgspec.Meta(title="ID Colors", description="Cryptomatte kinds drawn as one color per name")] = frozenset()
     files: Annotated[tuple[PassFile, ...], msgspec.Meta(title="Passes", description="File choice per pass")] = ()
 
 
 class PassPreset(msgspec.Struct, frozen=True, kw_only=True):
-    """Native pass flags and the complete typed routing saved together."""
+    """Pass flags and routing saved together."""
 
     flags: Snapshot
     routing: Routing
 
 
 class PassName(msgspec.Struct, frozen=True, kw_only=True):
-    """Source a file row adds, searched among the layer's unfiled sources."""
+    """Source name a file row adds from sources no row holds."""
 
     name: Annotated[str, msgspec.Meta(title="Pass", description="Pass the file row names"), offered] = ""
 
@@ -295,7 +265,7 @@ class Source(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Filing(msgspec.Struct, frozen=True, kw_only=True):
-    """Sources of one File Output node with its class and kind."""
+    """Sources, class, and kind of one File Output node."""
 
     output: Output
     kind: Kind
@@ -303,14 +273,14 @@ class Filing(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class LayerPlan(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame key and the filing of each File Output key of one used view layer."""
+    """Frame key and filing per File Output key of one used view layer."""
 
     frame: Key
     filings: dict[Key, Filing]
 
 
 class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
-    """`PassSet` bound to an identity: attachments, flags, the lobe group, and descriptors resolved once."""
+    """`PassSet` bound to an identity, members resolved once."""
 
     identity: Identity
     routing: Attached[Routing]
@@ -328,18 +298,11 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
     dimensions: Descriptor[bpy.types.IntProperty]
 
     def used(self, scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
-        """Layers of a scene holding `use`."""
+        """Returns scene layers with `use` on."""
         return tuple(layer for layer in scene.view_layers if bool(self.use.read(layer)))
 
     def grouped(self, frames: tuple[tuple[FrameNode, tuple[Link, ...], LayerPlan], ...]) -> BlenderResult[NodeGroup]:
-        """Builds the routing group around its pass-through and joins the layer frames into its graph.
-
-        Args:
-            frames: Each used layer's frame, links, and plan.
-
-        Returns:
-            `Ok` of the group; `Error` of the faults `NodeGroup.built` answers.
-        """
+        """Builds routing group around image pass-through with each layer frame."""
         interface = Interface(outputs=(Socket(key="result", name="Image", kind=bpy.types.NodeSocketColor),), inputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),))
         return NodeGroup.built(PassSet.ownership.key, "Passes", interface, {"result": End(node=INPUTS, socket="image")}).map(
             lambda group: msgspec.structs.replace(
@@ -354,22 +317,11 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def held(self, scene: bpy.types.Scene) -> Option[bpy.types.NodeTree]:
-        """Answers the routing tree the identity holds for a scene."""
+        """Returns routing tree identity holds for scene."""
         return PassSet.ownership.found(self.identity, of=Some(scene))
 
     def framed(self, scene: bpy.types.Scene, held: dict[Key, bpy.types.Node], path: OutputPath, index: int, layer: bpy.types.ViewLayer) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
-        """Plans one used layer: its frame, Render Layers node, sources, and File Output nodes.
-
-        Args:
-            scene: Scene routed.
-            held: Owned nodes of the held tree by key.
-            path: Scene's output path.
-            index: Layer's position among the used layers.
-            layer: Used view layer.
-
-        Returns:
-            `Ok` of the frame, its links, and the layer's plan; `Error` of the layer's `read`, source, and path faults.
-        """
+        """Plans frame, Render Layers node, sources, and File Output nodes of one used layer."""
         prefix = f"layer_{index}"
 
         def filed_all(routing: Routing, shown: tuple[float, ...], render: Fragment, built: Fragment, found: tuple[Source, ...]) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
@@ -396,16 +348,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def planned(self, scene: bpy.types.Scene, tree: Option[bpy.types.NodeTree], path: OutputPath) -> BlenderResult[tuple[NodeGroup, dict[str, LayerPlan]]]:
-        """Plans the routing group of a scene against its held tree.
-
-        Args:
-            scene: Scene routed.
-            tree: Held routing tree whose Render Layers nodes offer the sockets, `Nothing` before the group exists.
-            path: Scene's output path.
-
-        Returns:
-            `Ok` of the group and each used layer's plan by layer name; `Error` of every layer's faults, accumulated.
-        """
+        """Plans scene routing group, reading offered sockets from held tree."""
         held = tree.map(lambda found: owned(found, self.identity)).default_value({})
         used = self.used(scene)
         return accumulated(self.framed(scene, held, path, index, layer) for index, layer in enumerate(used)).bind(
@@ -413,18 +356,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def reconciled(self, scene: bpy.types.Scene, context: bpy.types.Context, path: OutputPath) -> BlenderResult[Changes]:
-        """Reconciles retained passes, AOVs, light groups, and routing for current scene settings.
-
-        Render scopes call after engine and layer overrides, then after restoring those settings. Background script writes do not notify routing subscriptions.
-
-        Args:
-            scene: Scene routed.
-            context: Context the requests' conditions read.
-            path: Scene's output path.
-
-        Returns:
-            `Ok` of the rows the second reconcile wrote, `Changes()` for a current tree; `Error` of the faults each step answers.
-        """
+        """Reconciles passes, AOVs, light groups, and routing to scene settings, called after overrides apply or revert."""
         held = self.held(scene)
         before = held.map(lambda found: items(found, self.identity)).default_value({})
 
@@ -446,15 +378,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def refreshed(self, context: bpy.types.Context, day: datetime.date) -> BlenderResult[None]:
-        """Reconciles every editable scene outside the identity's owned runtime scenes whose layers store a routing.
-
-        Args:
-            context: Context the paths and conditions read.
-            day: Date the output paths compose.
-
-        Returns:
-            `Ok` once every scene reconciled; `Error` of every scene's faults, accumulated.
-        """
+        """Reconciles every editable scene with stored layer routing, owned runtime scenes skipped."""
         if (data := context.blend_data) is None:
             return Error((BlenderAbsentFault(owner=repr(context), key="blend_data"),))
         scenes = (
@@ -469,14 +393,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(map(refresh, scenes)).map(lambda _: None)
 
     def stale(self, context: bpy.types.Context) -> BlenderResult[Option[str]]:
-        """Names what an update of the context scene's routing group writes.
-
-        Args:
-            context: Context whose scene, preferences, and day the plan reads.
-
-        Returns:
-            `Ok` of the pending text, `Nothing` for a current tree; `Error` of the path, plan, and read faults.
-        """
+        """Returns pending routing group writes for context scene, `Nothing` for a current tree."""
         if (scene := context.scene) is None:
             return Ok(Nothing)
 
@@ -484,17 +401,11 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             return changes(group, tree, self.identity).map(lambda rows: sum(map(len, msgspec.structs.astuple(rows)))).map(lambda count: Some(f"{count} changes pending") if count else Nothing)
 
         return self.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()).bind(
-            lambda path: (
-                self.held(scene).map(lambda tree: self.planned(scene, Some(tree), path).bind(lambda planned: pending(tree, *planned))).default_value(Ok(Some("Update builds the routing group")))
-            )
+            lambda path: self.held(scene).map(lambda tree: self.planned(scene, Some(tree), path).bind(lambda planned: pending(tree, *planned))).default_value(Ok(Some("Update builds routing group")))
         )
 
     def watched(self) -> BlenderResult[tuple[Subscription, ...]]:
-        """Builds the subscription rows refreshing the routing.
-
-        Returns:
-            `Ok` of one row per watched setting; `Error` of `absent` or `choice` for each member the build lacks.
-        """
+        """Builds subscriptions refreshing routing, one per watched setting."""
         watched = (
             (bpy.types.ViewLayer, "use"),
             (bpy.types.ViewLayer, "name"),
@@ -520,19 +431,19 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         return accumulated(itertools.starmap(resolved, watched)).map(
             lambda resolved: tuple(
                 Subscription(owner=owner, setting=prop, body=lambda: self.refreshed(bpy.context, datetime.datetime.now(datetime.UTC).astimezone().date()))
-                for owner, prop in (*((owner, flag.prop) for owner, flag in self.flags.roster), *resolved, *groups)
+                for owner, prop in (*((owner, flag.prop) for owner, flag in self.flags.every), *resolved, *groups)
             )
         )
 
     def operators(self) -> tuple[Operator[Empty], Operator[Empty], Operator[Empty], Operator[PassName]]:
-        """Answers the update, spread, shuffle, and file rows."""
+        """Returns routing operators."""
 
         def recoloring(chosen: Callable[[tuple[Rgb, ...]], tuple[Rgb, ...]]) -> Callable[[Call[Empty]], BlenderResult[Outcome]]:
             def painted(layer: bpy.types.ViewLayer, routing: Routing) -> BlenderResult[Outcome]:
                 if not routing.ids:
                     return Ok(Unchanged(reason=f"{layer.name} draws no ID colors"))
                 return accumulated(recolored(layer, entity, self.id_colors[entity], chosen) for entity in sorted(routing.ids)).map(
-                    lambda counts: Done() if sum(counts) else Unchanged(reason=f"{layer.name} ID colors already hold those colors")
+                    lambda counts: Done() if sum(counts) else Unchanged(reason=f"{layer.name} ID colors hold chosen colors")
                 )
 
             return lambda call: Result[bpy.types.ViewLayer, BlenderFaults].bind(call.root(bpy.types.ViewLayer), lambda layer: self.routing.read(layer).bind(lambda routing: painted(layer, routing)))
@@ -556,27 +467,27 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return (
-            Operator(key="passes_update", title="Update File Outputs", description="Reconcile the scene's pass routing and File Output nodes", form=Empty, run=updated),
+            Operator(key="passes_update", title="Update File Outputs", description="Reconcile scene pass routing and File Output nodes", form=Empty, run=updated),
             Operator(
                 key="ids_spread",
                 title="Spread ID Colors",
-                description="Write evenly spaced hues onto the names the layer's ID colors draw",
+                description="Set evenly spaced hues on layer ID names",
                 form=Empty,
                 run=recoloring(lambda held: colors(Spectrum(saturation=1.0, value=1.0), len(held))),
             ),
             Operator(
                 key="ids_shuffle",
                 title="Shuffle ID Colors",
-                description="Permute the colors of the names the layer's ID colors draw",
+                description="Shuffle colors among layer ID names",
                 form=Empty,
                 run=recoloring(lambda held: tuple(held[index] for index in rng(content_hash(Routing, *held)).permutation(len(held)))),
             ),
-            Operator(key="pass_file_add", title="Add Pass File", description="Add a file choice for one of the layer's passes", form=PassName, invoke=Some(InvokePopup.SEARCH), run=added),
+            Operator(key="pass_file_add", title="Add Pass File", description="Add file choice for a layer pass", form=PassName, invoke=Some(InvokePopup.SEARCH), run=added),
         )
 
     def listing(self) -> Listing[PassPreset]:
-        """Pass set presets over the context layer's flags and routing, applied onto every used layer."""
-        selection = Some(tuple(flag for _, flag in self.flags.roster))
+        """Returns pass presets over layer flags and routing, applied to every used layer."""
+        selection = Some(tuple(flag for _, flag in self.flags.every))
         families = frozenset().union(*(flags.direct | flags.indirect | flags.color for flags in self.flags.families.values()))
         eevee = frozenset().union(
             *(self.flags.families[family].direct | self.flags.families[family].color for family in (Family.DIFFUSE, Family.GLOSSY)),
@@ -594,11 +505,11 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         )
 
         def stock(enabled: frozenset[str], routing: Routing) -> PassPreset:
-            owners = tuple(dict.fromkeys(flag.owner for _, flag in self.flags.roster))
+            owners = tuple(dict.fromkeys(flag.owner for _, flag in self.flags.every))
             return PassPreset(
                 flags=Snapshot(
                     struct=bpy.types.ViewLayer.__name__,
-                    tree=Tree(roots=owners, owners={owner: Owner(values={flag.prop.identifier: flag.path in enabled for _, flag in self.flags.roster if flag.owner == owner}) for owner in owners}),
+                    tree=Tree(roots=owners, owners={owner: Owner(values={flag.prop.identifier: flag.path in enabled for _, flag in self.flags.every if flag.owner == owner}) for owner in owners}),
                 ),
                 routing=routing,
             )
@@ -621,7 +532,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
                 def chosen(current: tuple[PassPreset, ...]) -> BlenderResult[Outcome]:
                     if not (differing := tuple(layer for layer, preset in zip(layers, current) if not same(preset, value))):
-                        return Ok(Unchanged(reason=f"No used view layer of {scene.name} differs from the preset"))
+                        return Ok(Unchanged(reason=f"Used view layers of {scene.name} match preset"))
                     return tallied(tuple(paired(value.flags.apply(layer).outcome, self.routing.write(layer, value.routing)) for layer in differing))
 
                 return accumulated(map(held, layers)).bind(chosen)
@@ -632,21 +543,14 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class PassSet(Line, frozen=True):
-    """Row placing the pass routing: its attachment, preset, groups, handlers, subscriptions, operators, and section."""
+    """Row of pass routing."""
 
     attachment: ClassVar[Attachment[Routing]] = Attachment(key="passes", form=Routing, owner=bpy.types.ViewLayer)
     presets: ClassVar[Preset[PassPreset]] = Preset(key="passes", form=PassPreset)
     ownership: ClassVar[Ownership[bpy.types.CompositorNodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="passes", saved=Saved.USED)
 
     def bound(self, identity: Identity) -> BlenderResult[PassRouting]:
-        """Binds the attachments and resolves the flags, the lobe group, the ID color members, and the descriptors.
-
-        Args:
-            identity: Extension placing the row.
-
-        Returns:
-            `Ok` of the bound routing; `Error` of every `register`, `absent`, or `choice` fault.
-        """
+        """Binds attachments and resolves flags, lobe group, and descriptors."""
         attached = paired(paired(self.attachment.bound(identity), ScenePaths().bound(identity)), LayerOverride.layer.bound(identity))
         switches = accumulated((
             Descriptor.resolve(bpy.types.ViewLayer, "use", bpy.types.BoolProperty),
@@ -689,17 +593,7 @@ class PassSet(Line, frozen=True):
         return paired(paired(attached, paired(paired(PassFlags.of(), lobe()), members)), paired(switches, paired(frames, others))).map(lambda parts: built(*parts))
 
     def written(self, scene: bpy.types.Scene, frame: int, identity: Identity, *, path: Option[OutputPath] = Nothing) -> BlenderResult[tuple[Written, ...]]:
-        """Answers each file the scene's File Output nodes wrote for a frame, the `Files` port.
-
-        Args:
-            scene: Rendered scene.
-            frame: Frame written.
-            identity: Extension whose marks find the nodes.
-            path: Already acquired render-scope path, or absence to acquire the current scene path.
-
-        Returns:
-            `Ok` of the written files; `Error` of the bind, plan, and path faults.
-        """
+        """Returns files scene File Output nodes wrote for a frame at `path` or scene path, the `Files` port."""
 
         def filing_files(
             routing: PassRouting, path: OutputPath, layer: bpy.types.ViewLayer, live: bpy.types.CompositorNodeOutputFile, filing: Filing, convention: Conventions
@@ -762,21 +656,11 @@ class PassSet(Line, frozen=True):
 
     @property
     def page_rows(self) -> tuple[Attachment[Routing]]:
-        """Routing attachment, whose stored records the preferences page holds."""
+        """Routing attachment preferences page stores."""
         return (self.attachment,)
 
     def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
-        """Builds the ID document of a written frame, the `Documents` port.
-
-        Args:
-            identity: Extension whose routing the document binds.
-            scene: Rendered scene.
-            frame: Indexed frame holding the Cryptomatte ranks.
-            depth: Document depth.
-
-        Returns:
-            `Ok` of the document, one group per matte; `Error` of the bind's faults, `imaging` for a decode or read, and `absent` for a matte whose layer or kind the scene lacks.
-        """
+        """Builds ID document of a written frame with one group per matte, the `Documents` port."""
         size = (frame.parts[0].height, frame.parts[0].width)
 
         def built(
@@ -823,7 +707,7 @@ class PassSet(Line, frozen=True):
         return paired(self.bound(identity), Matte.found(frame).map_error(BlenderImagingFault.lifted)).bind(lambda pair: built(pair[0].id_colors, pair[1], depth.coded))
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Realizes the film, stale, update, ID, file, and preset rows."""
+        """Draws film transparency, pending changes, operator, and preset rows."""
         tested = paired(
             paired(Descriptor.resolve(bpy.types.Scene, "render.film_transparent", bpy.types.BoolProperty), Descriptor.resolve(bpy.types.Scene, "render.engine", bpy.types.EnumProperty)),
             paired(
@@ -854,14 +738,7 @@ class PassSet(Line, frozen=True):
         return paired(self.bound(identity), tested).bind(lambda pair: placed(rows(*pair), identity)).map(joined)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Answers the routing group's ownership, the lobe group, the operators, the preset rows, the handlers, and the subscriptions, the page acquiring the attachment.
-
-        Args:
-            identity: Extension placing the row.
-
-        Returns:
-            `Ok` of every band and acquisition pair; `Error` of every construction fault.
-        """
+        """Returns routing acquisitions, attachment left to preferences page."""
 
         def acquired(routing: PassRouting, rows: tuple[Subscription, ...]) -> Acquisitions:
             handlers = (bpy.app.handlers.load_post, bpy.app.handlers.save_post)
@@ -877,14 +754,7 @@ class PassSet(Line, frozen=True):
         return self.bound(identity).bind(lambda routing: routing.watched().map(lambda rows: acquired(routing, rows)))
 
     def section(self, retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing) -> Single[Routing]:
-        """Section keyed `passes`, titled File Output, over the context layer's routing store and the row's own rows.
-
-        Args:
-            retention: Reader of the store's history retention, absent for the record default.
-
-        Returns:
-            The section.
-        """
+        """Returns File Output section over context layer routing store."""
         return Single(
             key="passes", title="File Output", rows=(self,), store=Some(Hosted(host=Member(root=bpy.types.Context, path="view_layer"), store=Store(attachment=self.attachment, retention=retention)))
         )
@@ -895,11 +765,7 @@ class PassSet(Line, frozen=True):
 
 
 def pass_flags() -> "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[bpy.types.BoolProperty]], ...]":
-    """Answers every writable pass flag of `ViewLayer` and of each struct its pointers reach, paired with the class owning it.
-
-    Returns:
-        The flags in RNA order, the `ViewLayer` flags first.
-    """
+    """Returns writable pass flags of `ViewLayer` and its pointer structs in RNA order with owning class."""
     root = bpy.types.ViewLayer.bl_rna
     structs = (
         ("", bpy.types.ViewLayer, root.properties),
@@ -914,17 +780,7 @@ def pass_flags() -> "tuple[tuple[type[bpy.types.bpy_struct[object]], Descriptor[
 
 
 def required(scene: bpy.types.Scene, context: bpy.types.Context, requests: tuple[PassRequest, ...], precision: Descriptor[bpy.types.EnumProperty]) -> BlenderResult[None]:
-    """Enables the passes and precision each request needs.
-
-    Args:
-        scene: Scene whose layers the requests name.
-        context: Context the conditions read.
-        requests: Requests of every graph about to reconcile.
-        precision: Descriptor of `RenderSettings.compositor_precision` rooted at `Scene`.
-
-    Returns:
-        `Ok` once every flag reads on; `Error` of `unmet` for a failing condition, `absent` for a missing layer or owner, and each refused write.
-    """
+    """Enables passes and precision each request needs, faulting unmet conditions."""
 
     def held(descriptor: Descriptor, root: bpy.types.ViewLayer | bpy.types.Scene, value: Value) -> BlenderResult[None]:
         return (
@@ -956,11 +812,7 @@ def required(scene: bpy.types.Scene, context: bpy.types.Context, requests: tuple
 
 
 def lobe() -> BlenderResult[NodeGroup]:
-    """Builds the shared lobe total group, `(direct + indirect) * color`.
-
-    Returns:
-        `Ok` of the group; `Error` of the faults its node builds and socket default answer.
-    """
+    """Builds shared lobe total group, `(direct + indirect) * color`."""
     outputs = (
         mixed("sum", "RGBA", 1.0, End(node=INPUTS, socket="direct"), End(node=INPUTS, socket="indirect"), "ADD")
         .bind(lambda total: mixed("product", "RGBA", 1.0, total, End(node=INPUTS, socket="color"), "MULTIPLY"))
@@ -979,36 +831,14 @@ def lobe() -> BlenderResult[NodeGroup]:
 
 
 def term(key: Key, family: Family, slots: tuple[Key, *tuple[Key, ...]], render: Key, offered: dict[str, str], group: NodeGroup) -> Option[BlenderResult[tuple[Fragment, End]]]:
-    """Builds one family's lobe term over the slots a Render Layers node offers.
-
-    Args:
-        key: Key of the group node.
-        family: Light family.
-        slots: Lobe input keys the term links, the first required.
-        render: Key of the Render Layers node.
-        offered: Socket identifier of each offered output by name.
-        group: Lobe total group.
-
-    Returns:
-        The group node's build ending at `total`, `Nothing` where the first slot's socket is unoffered.
-    """
+    """Builds lobe term of one family over offered slots, `Nothing` without first slot socket."""
     first, *_ = slots
     linked = {slot: End(node=render, socket=offered[name]) for slot in slots if (name := family.socket(slot)) in offered}
     return Some(nested(key, group, linked, "total")) if first in linked else Nothing
 
 
 def turned(prefix: str, end: End, axes: tuple[Axis, Axis, Axis], camera: Option[bpy.types.Object]) -> BlenderResult[tuple[Fragment, End]]:
-    """Writes a vector in a reader's axes, a camera turning it into camera space first.
-
-    Args:
-        prefix: Key prefix of the nodes.
-        end: Vector source.
-        axes: Signed axis each output axis reads.
-        camera: Camera whose inverse world rotation turns the vector, `Nothing` for world space.
-
-    Returns:
-        `Ok` of the turned vector; `Error` of the faults the nodes answer.
-    """
+    """Converts vector to reader axes, in camera space when given a camera."""
     split, join = f"{prefix}_split", f"{prefix}_join"
     rotated = camera.map(
         lambda held: (
@@ -1042,16 +872,7 @@ def turned(prefix: str, end: End, axes: tuple[Axis, Axis, Axis], camera: Option[
 
 
 def reordered(prefix: str, end: End, order: tuple[int, int, int, int]) -> BlenderResult[tuple[Fragment, End]]:
-    """Writes the motion vector's channels in a reader's order.
-
-    Args:
-        prefix: Key prefix of the nodes.
-        end: Motion vector source.
-        order: Input channel each output channel reads.
-
-    Returns:
-        `Ok` of the reordered vector; `Error` of the faults the nodes answer.
-    """
+    """Reorders motion vector channels to reader order."""
     split, join, channels = f"{prefix}_split", f"{prefix}_join", ("Red", "Green", "Blue", "Alpha")
     return (
         node(split, bpy.types.CompositorNodeSeparateColor, {"Image": end}, {})
@@ -1063,20 +884,7 @@ def reordered(prefix: str, end: End, order: tuple[int, int, int, int]) -> Blende
 def sources(
     scene: bpy.types.Scene, layer: bpy.types.ViewLayer, prefix: str, live: bpy.types.Node, routing: Routing, role: Role, bound: PassRouting
 ) -> BlenderResult[tuple[Fragment, tuple[Source, ...]]]:
-    """Answers the sockets a layer's files write: its passes, turned vectors, derived layers, and ID images, with the file overrides applied.
-
-    Args:
-        scene: Scene routed.
-        layer: Used view layer.
-        prefix: Key prefix of the layer's nodes.
-        live: The layer's Render Layers node in the held tree.
-        routing: The layer's routing.
-        role: The layer's role.
-        bound: Bound routing holding the lobe group and the routing attachment.
-
-    Returns:
-        `Ok` of the built nodes and the sources in socket order, derived layers and ID images after; `Error` of `absent` for an unoffered total or depth, a missing camera, `collision`, `choice` for a gate on the preview class, and node faults.
-    """
+    """Returns sources layer files write in socket order, derived layers and ID images after."""
     render, convention = f"{prefix}_render", routing.convention
     kinds: dict[str, DataType] = {"VALUE": "FLOAT", "VECTOR": "VECTOR", "RGBA": "RGBA"}
     offered = {socket.name: socket for socket in live.outputs if socket.enabled and socket.name != "Alpha" and socket.type in kinds}
@@ -1184,15 +992,7 @@ def sources(
 
 
 def filings(found: tuple[Source, ...], split: FileSplit) -> tuple[Filing, ...]:
-    """Splits a layer's sources into File Output nodes.
-
-    Args:
-        found: Sources of one layer.
-        split: Split the layer's routing holds.
-
-    Returns:
-        One multilayer filing for `ONE`, one per node class holding sources for `CLASSES` and `PASSES` in output order.
-    """
+    """Splits layer sources into File Output nodes, one per output class unless `ONE`."""
     match split:
         case FileSplit.ONE:
             return (Filing(output=Output.BEAUTY, kind=Kind.LAYERED, sources=found),) if found else ()
@@ -1207,20 +1007,7 @@ def filings(found: tuple[Source, ...], split: FileSplit) -> tuple[Filing, ...]:
 
 
 def filed(pathed: Pathed, path: OutputPath, layer: str, filing: Filing, key: Key, convention: Conventions, dimensions: Descriptor[bpy.types.IntProperty]) -> BlenderResult[Fragment]:
-    """Builds one File Output node of a filing with its items and links.
-
-    Args:
-        pathed: Bound scene paths holding the node's path descriptors.
-        path: Scene's output path.
-        layer: View layer name.
-        filing: Sources, class, and kind of the node.
-        key: Key of the node.
-        convention: Reader whose layer names the items take.
-        dimensions: Descriptor of `NodeCompositorFileOutputItem.vector_socket_dimensions`.
-
-    Returns:
-        `Ok` of the node and its links; `Error` of `rendering` for a refused composition.
-    """
+    """Builds File Output node of a filing with its items and links."""
 
     def sized(size: int) -> dict[Descriptor, Value]:
         return {dimensions: size}
@@ -1242,24 +1029,12 @@ def filed(pathed: Pathed, path: OutputPath, layer: str, filing: Filing, key: Key
 
 
 def items(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, frozenset[str]]:
-    """Item names of each owned File Output node by key."""
+    """Returns item names of each owned File Output node by key."""
     return {key: frozenset(item.name for item in held.file_output_items) for key, held in owned(tree, identity).items() if isinstance(held, bpy.types.CompositorNodeOutputFile)}
 
 
 def formatted(tree: bpy.types.NodeTree, group: NodeGroup, plans: dict[str, LayerPlan], rows: Changes, before: dict[Key, frozenset[str]], identity: Identity) -> BlenderResult[None]:
-    """Applies each class format to a File Output node the reconcile added and the typed item format to each item a single-layer node gained.
-
-    Args:
-        tree: Reconciled routing tree.
-        group: Planned routing group whose `FileItems` state each item's kind.
-        plans: Each used layer's plan by layer name.
-        rows: Rows the reconcile wrote.
-        before: Item names of each File Output node before the reconcile.
-        identity: Extension whose marks find the nodes.
-
-    Returns:
-        `Ok` once applied; `Error` of each refused write.
-    """
+    """Formats File Output nodes reconcile added and items single-layer nodes gained."""
     held, placed = owned(tree, identity), group.graph.placed
     filings = {key: filing for plan in plans.values() for key, filing in plan.filings.items()}
     added = frozenset(row.key for row in rows.structure if isinstance(row, Added))
@@ -1281,16 +1056,7 @@ def formatted(tree: bpy.types.NodeTree, group: NodeGroup, plans: dict[str, Layer
 
 
 def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
-    """Adds the AOVs and light groups each used layer lacks.
-
-    Args:
-        scene: Scene whose layers sync.
-        identity: Extension whose marks find the owned data material.
-
-    Returns:
-        `Ok` once synced, light group holders taking the names the host stores; `Error` of `collision` for an AOV reading `is_valid` False
-        or stored under another name, the AOV removed, and each refused write.
-    """
+    """Adds AOVs and light groups each used layer lacks, removing an AOV Blender renames or invalidates."""
 
     def scanned(trees: tuple[bpy.types.NodeTree, ...]) -> BlenderResult[dict[str, str]]:
         pending = deque(trees)
@@ -1354,16 +1120,7 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
 
 
 def named(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy.types.FloatProperty]) -> tuple[tuple[str, bpy.types.ID, Rgb], ...]:
-    """Answers each name, block, and scene-linear color an entity's Cryptomatte names on a layer.
-
-    Args:
-        layer: View layer read.
-        entity: Cryptomatte kind.
-        member: Color member of the kind's blocks, `PassRouting.id_colors` of the kind.
-
-    Returns:
-        The rows in name order.
-    """
+    """Returns name, block, and scene-linear color per Cryptomatte name of a layer in name order."""
     shown = tuple(item for item in layer.objects if not item.hide_render and item.data is not None)
 
     def root(item: bpy.types.Object) -> bpy.types.Object:
@@ -1381,18 +1138,7 @@ def named(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy.typ
 
 
 def colored(prefix: str, scene: bpy.types.Scene, layer: bpy.types.ViewLayer, entity: Entity, rows: tuple[tuple[str, bpy.types.ID, Rgb], ...]) -> BlenderResult[Option[tuple[Fragment, End]]]:
-    """Builds the ID image of an entity: each name's color under its matte, the mattes summed into alpha.
-
-    Args:
-        prefix: Key prefix of the layer's nodes.
-        scene: Scene the mattes read.
-        layer: View layer the mattes read.
-        entity: Cryptomatte kind.
-        rows: Names, blocks, and colors.
-
-    Returns:
-        `Ok` of the image, `Nothing` for a kind with no name; `Error` of `collision` for a name `matte_id` splits, and node faults.
-    """
+    """Builds entity ID image of name colors under mattes summed into alpha, `Nothing` without names."""
     key = f"{prefix}_{entity.name.lower()}"
 
     def matte(index: int, name: str, color: Rgb) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
@@ -1423,17 +1169,7 @@ def colored(prefix: str, scene: bpy.types.Scene, layer: bpy.types.ViewLayer, ent
 
 
 def recolored(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy.types.FloatProperty], chosen: Callable[[tuple[Rgb, ...]], tuple[Rgb, ...]]) -> BlenderResult[int]:
-    """Writes chosen colors onto an entity's names, each block keeping its alpha.
-
-    Args:
-        layer: View layer read.
-        entity: Cryptomatte kind.
-        member: Color member of the kind's blocks.
-        chosen: Rule answering the new colors from the current ones in name order.
-
-    Returns:
-        `Ok` of the count of blocks whose color changed; `Error` of each refused write.
-    """
+    """Writes chosen colors onto entity names, each block keeping its alpha."""
     rows = named(layer, entity, member)
     return accumulated(
         member.write(block, (color.red, color.green, color.blue, getattr(block, member.prop.identifier)[3])) for (_, block, _), color in zip(rows, chosen(tuple(color for _, _, color in rows)))
@@ -1441,16 +1177,7 @@ def recolored(layer: bpy.types.ViewLayer, entity: Entity, member: Descriptor[bpy
 
 
 def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> BlenderResult[None]:
-    """Writes one ID layer file per matte of a written multilayer file, each name's color under its coverage.
-
-    Args:
-        scene: Rendered scene.
-        file: Written multilayer file holding Cryptomatte ranks.
-        identity: Extension whose output path and stamp the files take.
-
-    Returns:
-        `Ok` once every file is written; `Error` of the bind's faults, `imaging`, `absent` for a matte or manifest name the scene lacks, and `collision` for a path equal to the source's.
-    """
+    """Writes one ID layer file per matte of a written multilayer file, refusing a path equal to source."""
     frame = scene.frame_current
 
     def stored(matte: Matte, known: dict[str, Rgb], target: str, _: tuple[None, ...]) -> BlenderResult[str]:
@@ -1499,15 +1226,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Blend
 
 
 def unfiled(identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[tuple[str, str, str], ...]]:
-    """Answers the source names of the context layer's plan no file row holds, the items of the file row's search.
-
-    Args:
-        identity: Extension whose marks find the routing group.
-        context: Context whose layer, scene, preferences, and day the plan reads.
-
-    Returns:
-        `Ok` of one item per source name, none for a layer without `use`; `Error` of the bind, read, path, and plan faults.
-    """
+    """Returns file row search items for context layer sources no file row holds."""
     layer, scene = context.view_layer, context.scene
     match layer, scene:
         case bpy.types.ViewLayer(), bpy.types.Scene():

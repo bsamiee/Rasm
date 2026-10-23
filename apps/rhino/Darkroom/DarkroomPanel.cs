@@ -32,7 +32,7 @@ public sealed class DarkroomPanel(RhinoDoc? document) : DefinedPanel(document, R
                 Anchor: SplitAnchor.Shared(ValueKey.Of<SplitShare, double>(
                     "HistorySplit",
                     "Render history height",
-                    "Share of the panel height the render history takes above compare",
+                    "Share of panel height above Compare",
                     SplitShare.Even))),
         ],
     };

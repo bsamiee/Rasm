@@ -15,5 +15,5 @@ rule:
                     pattern: _COMMAND
 transform:
     COMMAND_TEXT: {replace: {source: $COMMAND, replace: '^["'']|["'']$', by: ''}}
-message: '`Exec` starts a build process `$COMMAND_TEXT` the engine neither schedules nor logs'
-note: 'Use `ProjectReference` with `ReferenceOutputAssembly="false"` or the `MSBuild` task, BC0302 reports the lowercase unqualified spellings'
+message: '`Exec` starts `$COMMAND_TEXT` as a build the engine neither schedules nor logs'
+note: 'Build the project through `ProjectReference` with `ReferenceOutputAssembly="false"` or the `MSBuild` task'

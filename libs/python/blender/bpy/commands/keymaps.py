@@ -1,4 +1,4 @@
-"""Native shortcut batches, platform chords, user counterparts, and keymap editing."""
+"""Add-on shortcuts with user keymap editors."""
 
 from collections.abc import Generator, Iterator, Mapping
 from contextlib import contextmanager
@@ -32,7 +32,7 @@ type ModifierState = Literal[-1, 0, 1]
 
 
 class Button(Enum):
-    """Mouse role assigned by the active key configuration's selection preference."""
+    """Mouse role resolved through `select_mouse` preference."""
 
     SELECT = auto()
     CONTEXT = auto()
@@ -42,30 +42,30 @@ class Button(Enum):
 
 
 class Toggle(msgspec.Struct, frozen=True, kw_only=True):
-    """Toggle of a context-relative native boolean property."""
+    """Toggle of context-relative boolean property."""
 
     path: str
 
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Resolves the boolean path and its native context-toggle operator."""
+        """Resolves boolean path and its `wm.context_toggle` operator."""
         return Descriptor.resolve(bpy.types.Context, self.path, bpy.types.BoolProperty).bind(lambda _: Stock(operator=bpy.ops.wm.context_toggle, values={"data_path": self.path}).invocation(identity))
 
 
 class Assign(msgspec.Struct, frozen=True, kw_only=True):
-    """Assignment through the context setter named by the native RNA property type."""
+    """Assignment through `wm.context_set_<type>` of property type."""
 
     path: str
     value: Scalar
 
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Resolves the property's native setter and its placement values."""
+        """Resolves setter operator and values."""
         return Descriptor.resolve(bpy.types.Context, self.path, bpy.types.Property).bind(
             lambda setting: Stock(operator=getattr(bpy.ops.wm, f"context_set_{setting.prop.type.lower()}"), values={"data_path": self.path, "value": self.value}).invocation(identity)
         )
 
 
 class Chord(msgspec.Struct, frozen=True, kw_only=True):
-    """Native event pattern, modifier states, and optional preference-selected button."""
+    """Event pattern with modifier states."""
 
     type: "rna_enums.EventTypeItems | Button"
     value: Option["rna_enums.EventValueItems"] = Nothing
@@ -79,7 +79,7 @@ class Chord(msgspec.Struct, frozen=True, kw_only=True):
     repeat: bool = False
 
     def added(self, manager: bpy.types.WindowManager, keymap: bpy.types.KeyMap, operator: str, *, pie: bool = False) -> Iterator[bpy.types.KeyMapItem]:
-        """Yields each added native item for immediate caller ownership."""
+        """Adds keymap items lazily, caller holding each for removal."""
 
         def preference(name: str) -> Option[object]:
             return (
@@ -114,19 +114,19 @@ class Chord(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Keymap:
-    """Shortcut batch owning native add-on items throughout registration."""
+    """Add-on keymap items held during registration."""
 
     # --- [LIFECYCLE]
 
     def __init__(self, *, keymap: str, bindings: Mapping[Chord, Target]) -> None:
-        """Creates a batch with no acquired native shortcut items."""
+        """Stores bindings with no acquired items."""
         self.keymap, self.bindings = keymap, bindings
         self._items: tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...] = ()
 
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Resolves native contexts and acquires targets after operator registration."""
+        """Adds target items to each keymap space after operator registration."""
 
         @contextmanager
         def added(given: tuple[tuple[Location, ...], bpy.types.WindowManager]) -> Generator[BlenderResult[None]]:
@@ -158,7 +158,7 @@ class Keymap:
     # --- [USER_ITEMS]
 
     def counterparts(self, context: bpy.types.Context) -> tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
-        """Resolves each owned item to the current user keymap and counterpart item."""
+        """Returns user keymap and item matching each owned item."""
         return tuple(
             (keymap, item)
             for manager in Option.of_optional(context.window_manager).to_list()
@@ -168,7 +168,7 @@ class Keymap:
         )
 
     def drawn(self, layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
-        """Draws the native user shortcut editors, including per-item restore controls."""
+        """Draws user shortcut editors with per-item restore controls."""
         for manager in Option.of_optional(context.window_manager).to_list():
             for keymap, item in self.counterparts(context):
                 rna_keymap_ui.draw_kmi([], manager.keyconfigs.user, keymap, item, layout, 0)
@@ -178,7 +178,7 @@ class Keymap:
 
 
 def nesting(name: str) -> BlenderResult[tuple[Location, ...]]:
-    """Returns every distinct native context of a hierarchy name."""
+    """Returns distinct spaces and regions of keymap name."""
 
     def walked(nodes: list[Node]) -> Iterator[Location]:
         for label, space, region, children in nodes:
@@ -191,7 +191,7 @@ def nesting(name: str) -> BlenderResult[tuple[Location, ...]]:
 
 
 def invocation(target: Target, identity: Identity) -> BlenderResult[tuple[str, Writer]]:
-    """Resolves a native placement or registered popup into an operator and writer."""
+    """Resolves target into operator name and writer."""
     match target:
         case MenuPopup() | PanelPopup() | ShelfPopup():
             return resolved(target, identity).bind(lambda pair: Stock(operator=pair[0], values=pair[1]).invocation(identity))

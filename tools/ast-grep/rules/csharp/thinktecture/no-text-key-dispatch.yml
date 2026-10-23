@@ -89,5 +89,5 @@ rule:
             all:
                 - has: {field: name, regex: '^Validate$'}
                 - inside: {stopBy: end, kind: 'class_declaration, struct_declaration, record_declaration', has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^ObjectFactory'}}}}
-message: '`$SUBJECT` selects among a closed set by text key by hand'
+message: '`$SUBJECT` dispatches on text keys by hand'
 note: Declare a `[SmartEnum<string>]` with one item per key holding its case, read through the generated `TryGet` or `Validate`, and write through `Key`

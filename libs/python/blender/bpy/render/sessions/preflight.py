@@ -1,4 +1,4 @@
-"""File audit, evaluated scene measures, and camera admission before render dispatch."""
+"""Audits and measures before render dispatch."""
 
 import datetime
 from functools import partial
@@ -35,26 +35,26 @@ from blender.rendering.outputs.naming import Count, Number, Output, Slot, Word
 
 
 class NotCamera(msgspec.Struct, frozen=True, kw_only=True):
-    """Camera binding naming an object with another native data type."""
+    """Camera binding naming non-camera object."""
 
     binding: str
     kind: str
 
     @property
     def message(self) -> str:
-        """Names the binding and the object's native type."""
-        return f"Requires a camera at {self.binding}, which names an object of type {self.kind}"
+        """Requirement text."""
+        return f"Requires camera object for {self.binding}, got {self.kind}"
 
 
 class Unvaried(msgspec.Struct, frozen=True, kw_only=True):
-    """Output template missing a field varied by its render scope."""
+    """Output template lacking a field its scope varies."""
 
     field: Word | Count
 
     @property
     def message(self) -> str:
-        """Names the field needed to distinguish the scope's written files."""
-        return f"Requires {self.field.label} in the output template, since the render writes one file per {self.field.label.lower()}"
+        """Requirement text."""
+        return f"Requires {self.field.label} in output template to name one file per {self.field.label.lower()}"
 
 
 class Measure(msgspec.Struct, frozen=True, kw_only=True):
@@ -69,27 +69,25 @@ class Measure(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def notes(self) -> tuple[str, ...]:
-        """Displays geometry counts and image memory in mebibytes."""
+        """Counts and image memory as report lines."""
         return (f"Objects {self.objects:,}", f"Vertices {self.vertices:,}", f"Faces {self.faces:,}", f"Triangles {self.triangles:,}", f"Images {self.images:,} ({self.image_bytes / 2**20:,.1f} MiB)")
 
     @property
     def caption(self) -> str:
-        """Joins the current counts for a status bar."""
+        """Notes joined for status bar."""
         return " | ".join(self.notes)
 
 
 class Shader(msgspec.Struct, frozen=True, kw_only=True):
-    """Native shader class whose material users an operator lists."""
+    """Shader node class to list material users of."""
 
     kind: Annotated[
-        str,
-        msgspec.Meta(title="Shader", description="Shader node class the listed materials hold"),
-        Choices(lambda *_: ((kind.__name__, kind.bl_rna.name, kind.bl_rna.description) for kind in shader_kinds())),  # ty: ignore[unresolved-attribute]
+        str, msgspec.Meta(title="Shader", description="Shader node class to find"), Choices(lambda *_: ((kind.__name__, kind.bl_rna.name, kind.bl_rna.description) for kind in shader_kinds()))  # ty: ignore[unresolved-attribute]
     ]
 
 
 class JobScope(msgspec.Struct, frozen=True, kw_only=True):
-    """One planned scene, layer, camera binding, and optional temporal denoise job."""
+    """Planned job render scope."""
 
     scene: str
     camera: JobCamera
@@ -98,7 +96,7 @@ class JobScope(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Preflight(msgspec.Struct, frozen=True, kw_only=True):
-    """Native audit commands, dispatch conditions, and current scene statistics."""
+    """Audit operators, dispatch condition, and scene statistic labels."""
 
     measures: ClassVar[tuple[Label]] = (Label(text=lambda context: Option.of_optional(context.view_layer).bind(lambda layer: measured(layer).to_option()).map(lambda measure: measure.caption)),)
     counts: ClassVar[tuple[Label]] = (
@@ -117,7 +115,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def condition(self) -> BlenderResult[conditions.AllOf]:
-        """Requires a saved file, used layers, writable output space, and no render job."""
+        """Saved file, used view layer, writable output folder, no running render."""
         return paired(
             paired(Descriptor.resolve(bpy.types.Context, "blend_data.filepath", bpy.types.StringProperty), Descriptor.resolve(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty)),
             paired(Descriptor.resolve(bpy.types.ViewLayer, "use", bpy.types.BoolProperty), Descriptor.resolve(bpy.types.Scene, "render.filepath", bpy.types.StringProperty)),
@@ -136,14 +134,14 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def operators(self) -> tuple[Operator[Empty] | Operator[Shader], ...]:
-        """File audit, users, shader search, measurement, and library commands."""
+        """Audit operators."""
 
         def active(context: bpy.types.Context) -> BlenderResult[bpy.types.ID]:
-            """Reads the editor's optional native data-block context."""
+            """Reads editor `context.id`, absent when unset."""
             return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="id"),))
 
         def opened(block: bpy.types.ID, folder: Path) -> BlenderResult[Done]:
-            """Opens the block's library in a detached native Blender process."""
+            """Opens block library in detached Blender process."""
             match block if isinstance(block, bpy.types.Library) else block.library:
                 case bpy.types.Library() as library:
                     return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), folder / "library.log").map_error(BlenderRenderingFault.lifted).map(lambda _: Done())
@@ -151,7 +149,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
                     return Error((BlenderAbsentFault(owner=repr(block), key="library"),))
 
         def listed(kind: str) -> BlenderResult[Done]:
-            """Resolves the chosen native class and reports each material user."""
+            """Reports each material user of chosen shader class."""
             return (
                 Option
                 .of_optional(next((shader for shader in shader_kinds() if shader.__name__ == kind), None))
@@ -163,7 +161,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             Operator(
                 key="audit",
                 title="Audit File",
-                description="Report missing files, material slots, group trees, and texture images",
+                description="Report missing files, empty material slots, and empty group or image nodes",
                 icon=Some("CHECKMARK"),
                 form=Empty,
                 run=lambda _: Ok(Done(skipped=audited().swap().to_option())),
@@ -172,7 +170,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             Operator(
                 key="users",
                 title="List Users",
-                description="Report each data-block using the active data-block",
+                description="Report users of active data-block",
                 form=Empty,
                 run=lambda call: active(call.context).map(lambda block: Done(notes=tuple(("INFO", repr(user)) for user in users(block)))),
                 undo=False,
@@ -180,7 +178,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             Operator[Shader](
                 key="shader",
                 title="List Shader Users",
-                description="Report each material containing the chosen shader node",
+                description="Report materials using shader node, groups included",
                 form=Shader,
                 run=lambda call: listed(call.record.kind),
                 invoke=Some(InvokePopup.SEARCH),
@@ -190,7 +188,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             Operator[Empty](
                 key="measure",
                 title="Measure View Layer",
-                description="Report evaluated geometry and image memory of the active view layer",
+                description="Report evaluated geometry and image memory",
                 form=Empty,
                 run=lambda call: (
                     Option
@@ -204,7 +202,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             Operator(
                 key="library_open",
                 title="Open Library",
-                description="Open the active data-block's library in another Blender",
+                description="Open active data-block's library in new Blender process",
                 icon=Some("FILE_BLEND"),
                 form=Empty,
                 run=lambda call: active(call.context).bind(lambda block: opened(block, call.identity.folder)),
@@ -213,11 +211,11 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, _identity: Identity, /) -> BlenderResult[Acquisitions]:
-        """Retains every native audit command declaration for registration."""
+        """Returns audit operators for registration."""
         return Ok(self.operators)
 
     def section(self) -> Section:
-        """Returns audit commands beside Blender's missing-file browser."""
+        """Returns section of audit buttons and Find Missing Files."""
         return Single(
             key="preflight",
             title="Preflight",
@@ -231,14 +229,14 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def audited() -> BlenderResult[None]:
-    """Accumulates missing external files, empty material slots, group trees, and images."""
+    """Accumulates missing files, empty material slots, and empty group or image nodes."""
 
     def absent(owner: object, key: str | int) -> BlenderResult[None]:
-        """Preserves the missing native owner and member in a typed finding."""
+        """Returns absent fault naming owner and key."""
         return Error((BlenderAbsentFault(owner=repr(owner), key=key),))
 
     def lost(missing: tuple[Dependency, ...]) -> BlenderResult[None]:
-        """Resolves the missing dependencies' original owners once before reporting their paths."""
+        """Resolves missing dependency owners in one pass, one fault per path."""
         return resolved(dependency.owner for dependency in missing).bind(
             lambda owners: accumulated(absent(owner, str(dependency.path)) for dependency, owner in zip(missing, owners)).map(lambda _: None)
         )
@@ -258,17 +256,17 @@ def audited() -> BlenderResult[None]:
 
 
 def users(block: bpy.types.ID) -> tuple[bpy.types.ID, ...]:
-    """Returns the data-block's native users."""
+    """Returns IDs using block."""
     return tuple(bpy.data.user_map(subset=(block,))[block])
 
 
 def shader_kinds() -> tuple[type[bpy.types.ShaderNode], ...]:
-    """Reads every registered shader class from Blender's native type namespace."""
+    """Returns every registered `ShaderNode` subclass in `bpy.types`."""
     return tuple(kind for kind in map(partial(getattr, bpy.types), dir(bpy.types)) if isinstance(kind, type) and issubclass(kind, bpy.types.ShaderNode) and kind is not bpy.types.ShaderNode)
 
 
 def shader_users(kind: type[bpy.types.ShaderNode]) -> tuple[bpy.types.Material, ...]:
-    """Returns materials using the shader directly or through a native node group."""
+    """Returns materials using shader class, groups included."""
 
     def contains(tree: bpy.types.NodeTree) -> bool:
         return any(isinstance(node, kind) or (isinstance(node, bpy.types.ShaderNodeGroup) and node.node_tree is not None and contains(node.node_tree)) for node in tree.nodes)
@@ -280,10 +278,10 @@ def shader_users(kind: type[bpy.types.ShaderNode]) -> tuple[bpy.types.Material, 
 
 
 def measured(view_layer: bpy.types.ViewLayer) -> BlenderResult[Measure]:
-    """Counts evaluated geometry per instance and image memory through native buffers."""
+    """Counts evaluated instance geometry and image memory of view layer."""
 
     def counted(depsgraph: bpy.types.Depsgraph) -> Measure:
-        """Reads copied instances and their evaluated mesh data in native order."""
+        """Counts instance meshes and images of depsgraph."""
         instances = Instance.read(depsgraph)
         meshes = tuple(data for instance in instances for data in (instance.source.evaluated_get(depsgraph).data,) if isinstance(data, bpy.types.Mesh))
         images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
@@ -303,21 +301,21 @@ def measured(view_layer: bpy.types.ViewLayer) -> BlenderResult[Measure]:
 
 
 def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> BlenderResult[None]:
-    """Accumulates missing cameras, invalid bindings, and unsupported temporal projection."""
+    """Accumulates frames without camera, missing or non-camera bindings, and Custom projection under temporal denoise."""
     custom = "CUSTOM"
     match scope.camera:
         case Bound(camera=camera, markers=markers) as bound:
             numbers = frames.numbers
             gaps = tuple(next(run) for missing, run in groupby(numbers, key=lambda frame: bound.at(frame).is_none()) if missing)
-            bindings = (*(("the scene camera", name) for name in Option.of_optional(camera).to_list()), *((f"the marker at frame {marker.frame}", marker.camera) for marker in markers))
+            bindings = (*(("scene camera", name) for name in Option.of_optional(camera).to_list()), *((f"marker at frame {marker.frame}", marker.camera) for marker in markers))
         case Fixed(camera=camera):
-            gaps, bindings = (), (("the fixed camera", camera),)
+            gaps, bindings = (), (("fixed camera", camera),)
 
-    def admitted(accepted: tuple[str, ...]) -> BlenderResult[None]:
-        """Admits each camera binding through its native object and projection."""
+    def verified(accepted: tuple[str, ...]) -> BlenderResult[None]:
+        """Checks object and projection of each camera binding."""
 
         def checked(binding: str, name: str) -> BlenderResult[None]:
-            """Returns the absent object, wrong data kind, or unsupported projection."""
+            """Returns object, camera, or projection fault."""
 
             def native(bound_object: bpy.types.Object) -> BlenderResult[None]:
                 camera = bound_object.data
@@ -334,7 +332,7 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> BlenderR
         return accumulated((*(Error((BlenderAbsentFault(owner=repr(scene), key=frame),)) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
 
     return Descriptor.resolve(bpy.types.Camera, "type", bpy.types.EnumProperty).bind(
-        lambda descriptor: admitted(tuple(item.identifier for item in descriptor.prop.enum_items if item.identifier != custom))
+        lambda descriptor: verified(tuple(item.identifier for item in descriptor.prop.enum_items if item.identifier != custom))
     )
 
 
@@ -342,7 +340,7 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> BlenderR
 
 
 def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames: Frames) -> BlenderResult[None]:
-    """Accumulates missing varying fields and written-path composition refusals."""
+    """Accumulates output path faults and missing layer, pass, or frame template fields."""
     layers = Option.of_optional(scope.layer).map(lambda layer: (layer,)).default_with(lambda: tuple(layer.name for layer in scene.view_layers if layer.use))
     slots = path.name.slots
     varied = (
@@ -357,7 +355,7 @@ def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames:
 
 
 def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) -> BlenderResult[tuple[Measure, ...]]:
-    """Audits every scope before measuring its distinct native scene and layer owners."""
+    """Audits every scope, then measures each distinct view layer."""
     planned = tuple(
         (
             scope,

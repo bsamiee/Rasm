@@ -27,25 +27,25 @@ class Sensitivity(msgspec.Struct, frozen=True, kw_only=True):
     """Primary's hue, reciprocal saturation, and photographic gain."""
 
     scale: Annotated[AtLeastOne, msgspec.Meta(description="Reciprocal HSV saturation"), Presentation(soft=Some((1.0, 2.0)))] = 1.0
-    rotation: Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6.0, description="Hue rotation about the primary"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    gain: Annotated[Positive, msgspec.Meta(description="Sensitivity of the photographic layer"), Presentation(soft=Some((0.1, 2.0)))] = 1.0
+    rotation: Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6.0, description="Hue turn about primary"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    gain: Annotated[Positive, msgspec.Meta(description="Photographic layer sensitivity"), Presentation(soft=Some((0.1, 2.0)))] = 1.0
 
 
 class Characteristic(msgspec.Struct, frozen=True, kw_only=True):
     """Logarithmic exposure window with a tangent-continuous toe and shoulder."""
 
-    low: Annotated[Stops, msgspec.Meta(description="Stops from scene one to the window's lower endpoint")] = -10.0
-    span: Annotated[Positive, msgspec.Meta(description="Stops between the window's endpoints"), Presentation(soft=Some((1.0, 64.0)))] = 22.0 - -10.0
-    toe_x: Annotated[Share, msgspec.Meta(description="Toe exposure within the window")] = 0.44
-    toe_y: Annotated[Share, msgspec.Meta(description="Toe density within the stock")] = 0.28
-    across: Annotated[Share, msgspec.Meta(description="Shoulder's share of exposure above the toe")] = (0.591 - 0.44) / (1.0 - 0.44)
-    up: Annotated[Share, msgspec.Meta(description="Shoulder's share of density above the toe")] = (0.779 - 0.28) / (1.0 - 0.28)
+    low: Annotated[Stops, msgspec.Meta(description="Stops from scene one to window lower endpoint")] = -10.0
+    span: Annotated[Positive, msgspec.Meta(description="Stops between window endpoints"), Presentation(soft=Some((1.0, 64.0)))] = 22.0 - -10.0
+    toe_x: Annotated[Share, msgspec.Meta(description="Toe exposure within window")] = 0.44
+    toe_y: Annotated[Share, msgspec.Meta(description="Toe density within stock")] = 0.28
+    across: Annotated[Share, msgspec.Meta(description="Shoulder share of exposure above toe")] = (0.591 - 0.44) / (1.0 - 0.44)
+    up: Annotated[Share, msgspec.Meta(description="Shoulder share of density above toe")] = (0.779 - 0.28) / (1.0 - 0.28)
 
 
 class Stock(msgspec.Struct, frozen=True, kw_only=True):
     """Photographic stock's exposure and maximum density in stops."""
 
-    exposure: Annotated[Stops, msgspec.Meta(description="Exposure of this stock in stops")] = 6.0
+    exposure: Annotated[Stops, msgspec.Meta(description="Stock exposure in stops")] = 6.0
     density: Annotated[Positive, msgspec.Meta(description="Maximum optical density in stops"), Presentation(soft=Some((0.1, 40.0)))] = 5.0
 
 
@@ -53,21 +53,21 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     """Editable negative and print stocks sampled into an OCIO formation."""
 
     space: ClassVar[str] = REC709_SCENE
-    pre_exposure: Annotated[Stops, msgspec.Meta(description="Exposure ahead of photographic development")] = 4.3
-    pre_filter: Annotated[Rgb[Unit], msgspec.Meta(description="Channel transmission ahead of the negative")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    pre_exposure: Annotated[Stops, msgspec.Meta(description="Exposure before development")] = 4.3
+    pre_filter: Annotated[Rgb[Unit], msgspec.Meta(description="Channel transmission before negative")] = Rgb(red=1.0, green=1.0, blue=1.0)
     red: Sensitivity = Sensitivity(scale=1.05, rotation=math.radians(0.5))
     green: Sensitivity = Sensitivity(scale=1.12, rotation=math.radians(2.0))
     blue: Sensitivity = Sensitivity(scale=1.045, rotation=math.radians(0.1))
     characteristic: Characteristic = Characteristic()
     negative: Stock = Stock()
-    backlight: Annotated[Rgb[Positive], msgspec.Meta(description="Light illuminating the developed negative")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    backlight: Annotated[Rgb[Positive], msgspec.Meta(description="Light behind developed negative")] = Rgb(red=1.0, green=1.0, blue=1.0)
     positive: Annotated[Stock, msgspec.Meta(title="Print", description="Photographic print stock")] = Stock(density=27.5)
-    black_point: Annotated[Gated[Annotated[float, msgspec.Meta(ge=-sys.float_info.max, lt=1.0)]], msgspec.Meta(description="Explicit black as a fraction of white, or the print's own black")] = Gated(
+    black_point: Annotated[Gated[Annotated[float, msgspec.Meta(ge=-sys.float_info.max, lt=1.0)]], msgspec.Meta(description="Black as a share of white, print black when off")] = Gated(
         enabled=False, value=0.0
     )
-    post_filter: Annotated[Rgb[Unit], msgspec.Meta(description="Channel transmission after photographic development")] = Rgb(red=1.0, green=1.0, blue=1.0)
-    saturation: Annotated[NonNegative, msgspec.Meta(description="HSV saturation multiplier in the midtones"), Presentation(soft=Some((0.0, 2.0)))] = 1.02
-    weights: Annotated[tuple[Positive, Positive, Positive], msgspec.Meta(description="Relative channel weights for photographic brightness")] = (0.3, 0.5, 0.2)
+    post_filter: Annotated[Rgb[Unit], msgspec.Meta(description="Channel transmission after development")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    saturation: Annotated[NonNegative, msgspec.Meta(description="HSV saturation multiplier in midtones"), Presentation(soft=Some((0.0, 2.0)))] = 1.02
+    weights: Annotated[tuple[Positive, Positive, Positive], msgspec.Meta(description="Channel weights of photographic brightness")] = (0.3, 0.5, 0.2)
     lattice: Lattice = Lattice(size=80, spacing=Logarithmic(low=-10.0, span=20.0))
 
     # --- [DEVELOPMENT]
@@ -160,7 +160,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     # --- [TABLE]
 
     def transform(self) -> ImagingResult[PyOpenColorIO.GroupTransform]:
-        """Builds the film's native encoded tetrahedral formation table."""
+        """Builds native encoded tetrahedral formation table."""
         return self.lattice.samples().bind(self.developed).map(self.lattice.transform)
 
 

@@ -46,4 +46,4 @@ rule:
                 - pattern: $ROWS.collect::<$TYPE>()
             - has: {field: function, has: {field: value, any: [{matches: repeated-row}, {has: {stopBy: end, matches: repeated-row}}]}}
 message: '`$GRID` builds a rectangular grid as a vector of row vectors'
-note: 'Allocate an `ndarray::Array2`, `nalgebra::DMatrix`, or `faer::Mat` through `zeros` with the rows and columns'
+note: 'Allocate `ndarray::Array2::from_elem((<rows>, <cols>), <value>)` or `from_shape_fn`, a `nalgebra::DMatrix` or `faer::Mat` for linear algebra'

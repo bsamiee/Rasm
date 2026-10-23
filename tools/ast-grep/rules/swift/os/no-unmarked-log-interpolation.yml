@@ -12,5 +12,5 @@ rule:
             all:
                 - has: {field: name, regex: '^privacy$'}
                 - has: {field: value, regex: '^((os\.)?OSLogPrivacy)?\.(public|private|sensitive)\b'}
-message: '`$VALUE` enters a log message with no `privacy:` mark or `.auto`'
-note: 'Mark each interpolation `privacy: .public`, `.private`, or `.sensitive`, the system redacts an unmarked or `.auto` string or object'
+message: '`$VALUE` enters a log message under `.auto` privacy, redacted for a string or object'
+note: 'Mark each interpolation with `privacy: .public`, `.private`, or `.sensitive`'

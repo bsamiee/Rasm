@@ -35,5 +35,5 @@ rule:
                 - has: {field: arguments, has: {matches: computed, any: [{has: {field: name, regex: '^None$'}}, {nthChild: 3, not: {has: {field: name, kind: identifier}}}]}}
 transform:
     HEAD: {replace: {source: $VALUE, replace: '(?s)^((?:new\s+|await\s+)?[@\w.]+).*$', by: '$1'}}
-message: '`$MAP.$METHOD` computes `$HEAD` on every call, a hit discards it'
-note: 'Pass `static () => <value>` to `FindOrAdd` or as `AddOrUpdate`''s `None`, and a `Func<Option<V>>` to `FindOrMaybeAdd`'
+message: '`$MAP.$METHOD` evaluates `$HEAD` on every call, a hit discards the value'
+note: 'Pass `() => <value>` to the `Func` overload of the same method'

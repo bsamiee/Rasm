@@ -1,6 +1,6 @@
 use core::iter;
 
-use clippy_utils::{desugar_await, diagnostics::span_lint_hir_and_then, fn_def_id, peel_blocks, res::MaybeDef as _, sym};
+use clippy_utils::{desugar_await, diagnostics::span_lint_hir_and_then, fn_def_id, peel_blocks, res::MaybeDef as _, source::snippet, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::{ClosureKind, CoroutineDesugaring, CoroutineKind, CoroutineSource, Expr, ExprKind, MatchSource, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
@@ -62,8 +62,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && awaited.peel_refs().opt_def_id() == Some(handle)
         {
             span_lint_hir_and_then(cx, REDUNDANT_SPAWN, expr.hir_id, expr.span, format!("`{}` spawns a task that only awaits `{awaited}`", item_path(cx, spawner)), |diag| {
-                diag.span_note(at, format!("`{awaited}` awaited here"));
-                diag.help(format!("await `{awaited}` where its result is read, with no task around it"));
+                diag.span_note(at, "awaited here");
+                diag.help(format!("delete the call and await `{}` where its result is read", snippet(cx, at, "..")));
             });
         }
     }

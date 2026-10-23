@@ -1,4 +1,4 @@
-"""Display quantization with ordered Bayer thresholds and native HSY hue retention."""
+"""Display quantization with ordered Bayer thresholds and HSY hue retention."""
 
 import bpy
 from expression import Some
@@ -18,13 +18,13 @@ from blender.imaging.parameters import Gated
 
 
 def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
-    """Quantizes straight display color and maps luminance through its native ramp.
+    """Quantizes straight display color and maps luminance through color ramp.
 
     Args:
-        shell: Native entry inputs and its retained gradient.
+        shell: Entry inputs and retained gradient.
 
     Returns:
-        Straight color for the stack's alpha scope, or accumulated builder faults.
+        Straight color for stack alpha scope, or accumulated builder faults.
     """
     source = shell.source
     posterize, gradient_field = Palette.__struct_fields__

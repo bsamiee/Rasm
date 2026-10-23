@@ -19,7 +19,7 @@ from blender.imaging.parameters import STOP_RANGE
 
 
 class Histogram(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Covered luminance counts, linear to one and logarithmic through four stops."""
+    """Covered luminance and channel counts, linear to one, then four log stops."""
 
     resolution: ClassVar[int] = 256
     headroom: ClassVar[int] = 4
@@ -29,21 +29,21 @@ class Histogram(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def edges(cls) -> npt.NDArray[np.float64]:
-        """Returns interior boundaries of the 1281-bin luminance axis."""
+        """Returns inner luminance bin boundaries."""
         edges = np.concatenate((np.arange(1, cls.resolution) / cls.resolution, np.exp2(np.arange(cls.resolution * cls.headroom + 1) / cls.resolution)))
         edges.setflags(write=False)
         return edges
 
     @classmethod
     def mask(cls, values: npt.NDArray[np.float32] | npt.NDArray[np.float64], first: int, last: int) -> npt.NDArray[np.bool]:
-        """Selects values in an inclusive bin interval, omitting NaN."""
+        """Selects non-NaN values in inclusive bin interval."""
         selected = np.isin(np.digitize(values, cls.edges()), np.arange(first, last + 1)) & ~np.isnan(values)
         selected.setflags(write=False)
         return selected
 
 
 def histogram_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], clip: Option[tuple[float, float]] = Nothing) -> ImagingResult[Histogram]:
-    """Counts covered RGB and luminance, with optional low/high channel clip counts."""
+    """Counts covered RGB and luminance, `clip` counting channels outside [low, high)."""
 
     def counted(samples: Samples) -> Histogram:
         color, bins = samples.color[samples.covered], np.r_[-np.inf, Histogram.edges(), np.inf]
@@ -65,7 +65,7 @@ class Vectorscope(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 def vectorscope_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int], zoom: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0) -> ImagingResult[Vectorscope]:
-    """Bins covered chroma and returns its native YCbCr-to-RGB color matrix."""
+    """Returns covered Cb/Cr counts with YCbCr-to-RGB matrix."""
 
     def scoped(coefficients: npt.NDArray[np.float32]) -> Vectorscope:
         inverse = np.asarray(colour.matrix_YCbCr(K=coefficients[[0, 2]].astype(np.float64), is_legal=False, is_int=False), dtype=np.float64)
@@ -89,21 +89,21 @@ class Clipping(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @property
     def low(self) -> npt.NDArray[np.bool]:
-        """Covered pixels with any channel at the lowest code."""
+        """Pixels with any channel at lowest code."""
         mask = self.low_channels.any(axis=-1)
         mask.setflags(write=False)
         return mask
 
     @property
     def high(self) -> npt.NDArray[np.bool]:
-        """Covered pixels with any channel at the highest code."""
+        """Pixels with any channel at highest code."""
         mask = self.high_channels.any(axis=-1)
         mask.setflags(write=False)
         return mask
 
     @classmethod
     def of(cls, codes: npt.NDArray[np.uint8] | npt.NDArray[np.uint16]) -> Self:
-        """Returns per-pixel low and high clipping masks at the array's native depth."""
+        """Returns channel masks at code endpoints of array dtype."""
         color, covered = codes[..., :3], (codes[..., 3:] > 0).all(axis=-1)
         low, high = (color == 0) & covered[..., None], (color == np.iinfo(codes.dtype).max) & covered[..., None]
         for array in (low, high):
@@ -120,7 +120,7 @@ class Bands(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, view: DisplayView) -> ImagingResult[Option[Self]]:
-        """Reads neutral-response plateaus, or absence for a view without constant runs."""
+        """Reads neutral view response plateaus, or absence without plateaus."""
         least, most = STOP_RANGE
         exposures = np.arange(round(least * cls.resolution), round(most * cls.resolution) + 1) / cls.resolution
 
@@ -138,7 +138,7 @@ class Bands(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Chromaticity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """XY density with working and display primaries and white points."""
+    """CIE xy density with working and display chromaticities."""
 
     trace: npt.NDArray[np.float64]
     working: npt.NDArray[np.float64]
@@ -146,7 +146,7 @@ class Chromaticity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 def chromaticity_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, cells: tuple[int, int]) -> ImagingResult[Chromaticity]:
-    """Returns XY counts at the requested x/y resolution and every independent build fault."""
+    """Returns xy counts over `cells`, or every color fault."""
     locus = observer.locus()
 
     def built(pair: tuple[tuple[PyOpenColorIO.Processor, npt.NDArray[np.float64]], Option[npt.NDArray[np.float64]]]) -> Chromaticity:
@@ -165,7 +165,7 @@ def chromaticity_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]
 
 
 def waveform(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int]) -> ImagingResult[npt.NDArray[np.float64]]:
-    """Returns covered RGB/Y density planes with value rows and source-column groups."""
+    """Returns covered RGB/Y density planes, value rows by column groups."""
 
     def traced(samples: Samples) -> npt.NDArray[np.float64]:
         width, rows = min(cells[0], plane.shape[1]), cells[1]

@@ -51,4 +51,4 @@ rule:
                 stopBy: {kind: function_item}
                 has: {field: body, has: {stopBy: {kind: function_item}, matches: sliced-hex-read}}
 message: '`$STRIP` tests a hex color for `#` and decodes its digits by hand'
-note: 'Call `color::parse_color(<text>)?` for a `color::DynamicColor`, and `.to_alpha_color::<color::Srgb>().to_rgba8()` where channels are needed'
+note: 'Call `color::parse_color(<text>)?` for a `color::DynamicColor`, and `.to_alpha_color::<color::Srgb>().to_rgba8()` for 8-bit channels'

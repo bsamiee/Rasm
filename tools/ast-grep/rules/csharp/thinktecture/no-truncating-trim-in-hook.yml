@@ -76,5 +76,5 @@ rule:
         - any:
             - matches: cut
             - matches: relay
-message: "`ValidateFactoryArguments` cuts the key to a length through `$CUT` and merges distinct inputs into one value"
-note: Assign `validationError` when the text exceeds the length
+message: '`$CUT` truncates the key inside `ValidateFactoryArguments` and collapses distinct inputs into one value'
+note: 'Assign `validationError` when the key exceeds the length'
