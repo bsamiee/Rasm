@@ -39,7 +39,7 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
             new(new Guid(0x7fd6b2cd, 0x5a6c, 0x4c55, 0xbf, 0x34, 0x80, 0x34, 0xa0, 0x90, 0x8c, 0x8c), "OgeeArch", "Ogee Arch", "Select ogee arch type",
                 "Ogee arch: reversing or concave arcs rising to the crown", IterableNE.create<ArchChoice>(
                     new ArchChoice.Raised("ThreeCenteredOgee", "Three-Centered Ogee", "Three-centered ogee arch: semicircle haunches reversing into concave arcs meeting in a point", RaisedArch.ThreeCenteredOgee),
-                    new ArchChoice.Raised("ReverseOgee", "Reverse Ogee", "Reverse ogee arch: concave then convex arcs meeting in a rounded crown at chosen rise below half the span", RaisedArch.ReverseOgee),
+                    new ArchChoice.Raised("ReverseOgee", "Reverse Ogee", "Reverse ogee arch: concave then convex arcs meeting in a rounded crown at a chosen rise below half the span", RaisedArch.ReverseOgee),
                     new ArchChoice.Spanned("Tented", "Tented", "Tented arch: four concave arcs rising to a point", SpannedArch.TentedOgee),
                     new ArchChoice.Raised("FourCenteredOgee", "Four-Centered Ogee", "Four-centered ogee arch: haunch arcs of a third of the span reversing into concave arcs meeting in a point", RaisedArch.FourCenteredOgee))),
         ],
@@ -50,7 +50,7 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
                     new ArchChoice.Raised("Depressed", "Depressed", "Depressed three-centered arch: three arcs at a chosen rise below half the span", RaisedArch.DepressedThreeCentered))),
             new(new Guid(0xee54b6c4, 0x410c, 0x45c7, 0xb4, 0xe8, 0x66, 0x5f, 0x0d, 0x20, 0xc4, 0x2e), "FourCenteredArch", "Four-Centered Arch", "Select four-centered arch type",
                 "Four-centered arch: four arcs meeting in a point", IterableNE.create<ArchChoice>(
-                    new ArchChoice.Raised("Tudor", "Tudor", "Tudor arch: four arcs, quarter-span haunches turning into a flat pointed crown at chosen rise from a quarter of the span up to the Persian rise", RaisedArch.Tudor),
+                    new ArchChoice.Raised("Tudor", "Tudor", "Tudor arch: four arcs, quarter-span haunches turning into a flat pointed crown at a chosen rise from a quarter of the span up to the Persian rise", RaisedArch.Tudor),
                     new ArchChoice.Spanned("Persian", "Persian", "Persian arch: four arcs, haunches turning 45° into a pointed crown rising just under half the span", SpannedArch.Persian),
                     new ArchChoice.Spanned("Keel", "Keel", "Keel arch: flared springing and convex arcs meeting in a point", SpannedArch.Keel))),
         ],
@@ -65,7 +65,7 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
             new(new Guid(0x7d37f77d, 0x297e, 0x4aa1, 0xa7, 0xad, 0xef, 0x90, 0xc5, 0x85, 0xb8, 0x10), "ConicArch", "Conic Arch", "Select conic arch type",
                 "Conic arch: parabola or half ellipse", IterableNE.create<ArchChoice>(
                     new ArchChoice.Raised("Parabolic", "Parabolic", "Parabolic arch: parabola at a chosen rise", RaisedArch.Parabolic),
-                    new ArchChoice.Raised("Elliptical", "Elliptical", "Elliptical arch: half ellipse rising less than half the span", RaisedArch.Elliptical))),
+                    new ArchChoice.Raised("Elliptical", "Elliptical", "Elliptical arch: half ellipse at a chosen rise", RaisedArch.Elliptical))),
         ],
     ];
 

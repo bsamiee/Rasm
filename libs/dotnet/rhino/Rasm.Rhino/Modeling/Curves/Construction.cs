@@ -59,7 +59,7 @@ public sealed partial class RaisedArch {
     public static readonly RaisedArch FourCenteredOgee = new(new Interval(0.5, (1 + double.Sqrt(2)) / 2));
     public static readonly RaisedArch ReverseOgee = new(new Interval(0, 0.5));
     public static readonly RaisedArch Parabolic = new(new Interval(0, double.MaxValue));
-    public static readonly RaisedArch Elliptical = new(new Interval(0, 0.5));
+    public static readonly RaisedArch Elliptical = new(new Interval(0, double.MaxValue));
 
     public Interval Ratios { get; }
 
