@@ -65,12 +65,13 @@ class Fullscreen(Enum):
 
 
 class NewWindow(Enum):
-    """Temporary editor windows and area duplicate."""
+    """Temporary editor windows, the render view where render display preference places it, and area duplicate."""
 
     PREFERENCES = auto()
     INFO = auto()
     DRIVERS = auto()
     PROJECT = auto()
+    RENDER = auto()
     DUPLICATE = auto()
 
 
@@ -285,6 +286,8 @@ def windowed(window: NewWindow, located: Located, identity: Identity) -> Blender
             return located.run(bpy.ops.screen.drivers_editor_show, {})
         case NewWindow.PROJECT:
             return located.run(bpy.ops.screen.project_setup_show, {})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        case NewWindow.RENDER:
+            return located.run(bpy.ops.render.view_show, {}, context="INVOKE_DEFAULT")
         case NewWindow.DUPLICATE:
             return located.run(bpy.ops.screen.area_dupli, {}, context="INVOKE_DEFAULT")
 

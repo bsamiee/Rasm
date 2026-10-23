@@ -3,12 +3,12 @@
 from bl_ui.properties_render import RENDER_PT_color_management
 from bl_ui.space_topbar import TOPBAR_MT_file_export
 import bpy
-from expression import Some
+from expression import Nothing, Some
 import msgspec
 
 from blender.bpy.render.color.exposure import AutoExposure
 from blender.bpy.render.color.luts import LutExport
-from blender.bpy.render.color.spaces import change, ConfigInstall, FilmView
+from blender.bpy.render.color.spaces import ConfigInstall, FilmView, WorkingColors
 from blender.bpy.render.effects.tone.curves import Response
 from blender.bpy.render.effects.tone.exposure import exposure
 from blender.bpy.render.effects.viewers import ViewerRead
@@ -17,7 +17,7 @@ from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.render.review.frames import meter_pick
 from blender.bpy.ui.drawing.charts import Outline
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay
-from blender.bpy.ui.layout.rows import Member, OperatorButton
+from blender.bpy.ui.layout.rows import Caption, Flow, Member, OperatorButton
 from blender.bpy.ui.layout.sections import Hosted, Single, Store
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.surfaces.appends import Append
@@ -76,7 +76,7 @@ sampling = PreviewScene(stack=stack)
 luts = LutExport(stack=stack, sampling=sampling, install=install)
 response = Response(stack=stack, sampling=sampling, selection=(Stage.TONE, DisplayView), allocation="blender:agxlog_rec2020_scene", caption="Tone Response")
 rows = (
-    change,
+    WorkingColors(),
     install,
     luts,
     auto_exposure,
@@ -85,11 +85,12 @@ rows = (
         drawing=Drawing(area=AreaQuery(space="IMAGE_EDITOR", ui_type=Some("IMAGE_EDITOR"), shows=Some(image_type(("COMPOSITING",)))), part=Outline(read=response.chart), refreshes=(response.signal,)),
         space=bpy.types.SpaceImageEditor,
         scissor_enabled=False,
-        respect_overlays=False,
     ),
-    Append(target=TOPBAR_MT_file_export, rows=tuple(OperatorButton(target=command) for command in (luts.forming, luts.stripping, luts.toning))),
+    Append(target=TOPBAR_MT_file_export, rows=tuple(OperatorButton(target=command) for command in (luts.forming, luts.stripping))),
     Panel(
-        section=Single(key="formation", title="Image Formation", rows=(OperatorButton(target=change), OperatorButton(target=install.installing))),
+        section=Single(
+            key="formation", title="Image Formation", rows=(Caption(rows=(OperatorButton(target=install.installing), OperatorButton(target=luts.toning)), flow=Flow.ALIGNED, separator=Nothing),)
+        ),
         at=Child(parent=RENDER_PT_color_management),
         children=(
             Single(

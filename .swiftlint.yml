@@ -119,7 +119,7 @@ deployment_target:
 discouraged_direct_init:
     types: [Bundle, DateFormatter, ISO8601DateFormatter, NSError]
 legacy_objc_type:
-    allowed_types: [NSNumber]
+    allowed_types: [NSNumber, NSString]
 modifier_order:
     preferred_modifier_order: [acl, setterACL, override, isolation, dynamic, mutators, lazy, final, required, convenience, typeMethods, owned]
 nesting:

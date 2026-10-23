@@ -91,6 +91,9 @@ public sealed class PlugInSession(IO<Unit> flush, Seq<Action<ILoggingBuilder>> l
 public sealed class PlugInSlot<T> where T : notnull {
     public IO<Unit> Publish(IPlugInSink owner, T value) => IO.lift(() => PlugInSession.Of(owner)).Bind(session => session.Publish(this, value));
 
+    public IO<Option<T>> Find(IPlugInSink owner) =>
+        IO.lift(() => PlugInSession.Of(owner).Map(session => session.Find(this).Map(static value => (T)value)));
+
     public IO<T> Of(IPlugInSink owner) =>
         IO.lift(() => PlugInSession.Of(owner).Bind(session => session.Find(this).Map(static value => (T)value).ToFin(Error.New($"plug-in session holds no {typeof(T).Name}"))));
 }
@@ -141,6 +144,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,
             ViewRegistration.AddCustomUISections,
+            Toolbars.Registered,
             DocumentArchive.Rewrites,
             .. definition.Acquisitions,
             (_, _) => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),

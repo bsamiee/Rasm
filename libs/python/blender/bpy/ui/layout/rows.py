@@ -516,21 +516,65 @@ class Pulldown(Line, frozen=True, kw_only=True):
         )
 
 
+class Divider(Line, frozen=True, kw_only=True):
+    """Gap or line between rows, a vertical bar in headers."""
+
+    type: Literal["AUTO", "SPACE", "LINE"] = "LINE"
+    factor: Annotated[float, msgspec.Meta(ge=0.0)] = 1.0
+
+    def separated(self, layout: bpy.types.UILayout) -> None:
+        """Draws separator into layout."""
+        layout.separator(type=self.type, factor=self.factor)
+
+    def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
+        """Returns separator draw."""
+        return Ok(lambda layout, _holder, _context: self.separated(layout))
+
+
+class Spacer(Line, frozen=True, kw_only=True):
+    """Header split pushing later rows to the far edge, each side drawn as its own section."""
+
+    @staticmethod
+    def separated(layout: bpy.types.UILayout) -> None:
+        """Draws spacer into layout."""
+        layout.separator_spacer()
+
+    def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
+        """Returns spacer draw."""
+        return Ok(lambda layout, _holder, _context: self.separated(layout))
+
+
+class Sizing(msgspec.Struct, frozen=True, kw_only=True):
+    """Layout scale and fixed width or height in interface units, zero units leaving the size to content."""
+
+    scale_x: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0
+    scale_y: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0
+    ui_units_x: Annotated[float, msgspec.Meta(ge=0.0)] = 0.0
+    ui_units_y: Annotated[float, msgspec.Meta(ge=0.0)] = 0.0
+
+    def applied(self, layout: bpy.types.UILayout) -> bpy.types.UILayout:
+        """Writes sizes onto layout, returning it."""
+        layout.scale_x, layout.scale_y, layout.ui_units_x, layout.ui_units_y = self.scale_x, self.scale_y, self.ui_units_x, self.ui_units_y
+        return layout
+
+
 class Caption(Line, frozen=True, kw_only=True):
-    """Rows grouped under heading or separator."""
+    """Rows grouped under heading after separator, in caption flow and sizing."""
 
     rows: tuple[RowContent, ...]
     heading: Option[str] = Nothing
     flow: Flow = Flow.STACK
+    separator: Option[Divider | Spacer] = Some(Divider())
+    sizing: Sizing = Sizing()
 
     def framed(self, draws: tuple[RowDraw, ...]) -> RowDraw:
         """Returns joined draws in caption arrangement."""
         draw = joined(draws)
 
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-            if self.heading.is_none():
-                layout.separator(type="LINE")
-            draw(self.flow.opened(layout.column(heading=self.heading.default_value(""))), holder, context)
+            for separator in self.separator.to_list():
+                separator.separated(layout)
+            draw(self.flow.opened(self.sizing.applied(layout.column(heading=self.heading.default_value("")))), holder, context)
 
         return shown
 
@@ -540,28 +584,28 @@ class Caption(Line, frozen=True, kw_only=True):
 
 
 class Label(Line, frozen=True, kw_only=True):
-    """Fixed or live text as Markdown, header, or glyph label."""
+    """Fixed or live text with glyph wrapped to the layout, one line in headers, Markdown without glyph when declared."""
 
     text: str | Callable[[bpy.types.Context], Option[str]]
     icon: Option[Glyph] = Nothing
+    markdown: bool = False
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Resolves glyph once, returning draw reading text each redraw."""
 
-        def draw(icon: Option[int]) -> RowDraw:
+        def draw(icon: int) -> RowDraw:
             def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for text in (Some(self.text) if isinstance(self.text, str) else self.text(context)).to_list():
-                    match icon:
-                        case Option(tag="some", some=value):
-                            layout.label_multiline(text=text, icon_value=value)
-                        case _ if Option.of_optional(context.region).filter(lambda region: region.type == "HEADER").is_some():
-                            layout.label(text=text)
-                        case _:
-                            layout.label_markdown(text=text)
+                    if Option.of_optional(context.region).filter(lambda region: region.type in {"HEADER", "TOOL_HEADER"}).is_some():
+                        layout.label(text=text, icon_value=icon)
+                    elif self.markdown:
+                        layout.label_markdown(text=text)
+                    else:
+                        layout.label_multiline(text=text, icon_value=icon)
 
             return shown
 
-        return self.icon.map(lambda glyph: Icons.value(identity, glyph).map(Some)).default_value(Ok(Nothing)).map(draw)
+        return iconed(identity, self.icon).map(draw)
 
 
 class Text(Line, frozen=True, kw_only=True):
@@ -887,6 +931,7 @@ __all__ = [
     "Branch",
     "Caption",
     "DataBlocks",
+    "Divider",
     "Flow",
     "Items",
     "Label",
@@ -908,6 +953,8 @@ __all__ = [
     "RowDraw",
     "SearchField",
     "Selector",
+    "Sizing",
+    "Spacer",
     "SurfaceDraw",
     "Template",
     "Text",

@@ -213,7 +213,7 @@
         "lint:periphery": [
             { "filter": { "projects": [ "tag:build:xcode" ] }, "options": { "args": [ "--index-store-path", "\"$XCODE_DERIVED_DATA_PATH/Index.noindex/DataStore\"" ] }, "inputs": [ "xcode" ] },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "options": { "args": [ "--index-store-path", "\"$SWIFTPM_BUILD_DIR/out\"", "--retain-public" ] } },
-            { "filter": { "projects": [ "tag:language:swift" ] }, "command": "periphery scan --report-include '{projectRoot}/**'", "dependsOn": [ "build" ], "inputs": [ "...", "default", "^default", "swift", "{workspaceRoot}/{.periphery.yml,.config/periphery.json}", { "runtime": "periphery version" } ], "cache": true }
+            { "filter": { "projects": [ "tag:language:swift" ] }, "command": "periphery scan --config .config/periphery.yml --report-include '{projectRoot}/**'", "dependsOn": [ "build" ], "inputs": [ "...", "default", "^default", "swift", "{workspaceRoot}/.config/periphery.{yml,json}", { "runtime": "periphery version" } ], "cache": true }
         ],
         "format:*": { "parallelism": false },
         "format:{dotnet-format,*.cs}": {

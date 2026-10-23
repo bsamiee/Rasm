@@ -36,9 +36,9 @@
         "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "nx.json": ".editorconfig, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml",
+        "nx.json": ".editorconfig, mise.toml, sgconfig.yml",
         "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, vite.shared.ts, vitest.config.ts",
-        "Package.swift": ".periphery.yml, .swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
+        "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "pixi.lock, uv.lock",
         "README.md": "LICENSE"
     },
@@ -72,6 +72,7 @@
     // --- [SWIFT] -----------------------------------------------------------------------
     "swift.autoGenerateLaunchConfigurations": false,
     "swift.buildPath": "${workspaceFolder}/.cache/swiftpm/vscode",
+    "swift.swiftEnvironmentVariables": { "SWIFTPM_BUILD_DIR": ".cache/swiftpm/vscode" },
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.configuration.runtimes": [ { "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" } ],

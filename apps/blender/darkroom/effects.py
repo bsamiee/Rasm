@@ -2,7 +2,7 @@
 
 from importlib.resources import files
 
-from bl_ui.properties_compositor import SCENE_PT_compositor_effects
+from bl_ui.properties_compositor import SCENE_MT_add_compositor_effect, SCENE_PT_compositor_effects
 from bl_ui.space_node import NODE_PT_backdrop
 from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
 import bpy
@@ -123,8 +123,11 @@ strips = StripEffect(stack=stack)
 tiles = Tiles(stack=stack)
 nodes = NodePreview(stack=stack, tiles=tiles, settings=previewing, stored=previewed)
 sections = effect_section(viewer=viewer, thumbnail=StageThumbnail(preview=nodes), locks=Some(SetupLocks.effect_actions()))
+adding = stack.menu(key="effect_add", title="Darkroom", description="Add a Darkroom effect by imaging phase")
 rows = (
     stack,
+    adding,
+    Append(target=SCENE_MT_add_compositor_effect, rows=(Pulldown(menu=adding.key),)),
     tiles,
     nodes,
     strips,

@@ -369,7 +369,7 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
                 width, height = min(checker.cell, inner.width - column * checker.cell), min(checker.cell, inner.height - row * checker.cell)
                 canvas.frame(Rect(x=inner.x + column * checker.cell, y=inner.y + row * checker.cell, width=width, height=height), fill=ground, edge=ground, radius=0.0)
             for texture in cache.shown(item.key).to_list():
-                canvas.picture(texture, inner, shader)
+                canvas.picture(texture, inner, shader, blend="ALPHA")
             for text, _ in mark.to_list():
                 canvas.label(text, at=centre, color=canvas.theme.text_hi, points=points, align=Align.CENTER)
             blf.size(0, points)

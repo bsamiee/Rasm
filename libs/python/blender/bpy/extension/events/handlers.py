@@ -1,9 +1,11 @@
 """Persistent callbacks on `bpy.app.handlers` lists."""
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from enum import auto, Flag
+import inspect
 from pathlib import Path
+from types import MethodType
 from typing import Protocol
 
 import bpy
@@ -25,6 +27,9 @@ class Change(Flag):
     SHADING = auto()
 
 
+type Callback = Callable[[*tuple[object, ...]], None]
+
+
 class Handlers[E](Protocol):
     """Handler list of one callback shape, wider callback unions included."""
 
@@ -33,6 +38,9 @@ class Handlers[E](Protocol):
 
     def remove(self, entry: E, /) -> None:
         """Removes callback."""
+
+    def __iter__(self) -> Iterator[object]:
+        """Iterates held callbacks."""
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -59,7 +67,7 @@ class SceneHandler(msgspec.Struct, frozen=True, kw_only=True):
             """Runs body outside extension's runtime scenes."""
             return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene).to_optional()  # type: ignore[operator]
 
-        return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
+        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
 
 
 class FrameHandler(msgspec.Struct, frozen=True, kw_only=True):
@@ -83,7 +91,7 @@ class FrameHandler(msgspec.Struct, frozen=True, kw_only=True):
             """Runs body outside extension's runtime scenes."""
             return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene, depsgraph).to_optional()  # type: ignore[operator]
 
-        return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
+        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
 
 
 class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
@@ -107,7 +115,7 @@ class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
             """Lifts empty startup file path to Nothing."""
             return body(Option.of_optional(path or None).map(Path)).to_optional()
 
-        return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
+        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
 
 
 class UpdateHandler(msgspec.Struct, frozen=True, kw_only=True):
@@ -157,7 +165,36 @@ class ImportHandler(msgspec.Struct, frozen=True, kw_only=True):
             """Runs import body through reports."""
             return body(context).to_optional()
 
-        return Ok(((Band.APP_HANDLERS, appended(self.handlers, entry)),))
+        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
+
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
+    """One persistent callback an extension keeps on a handler list, running each held callback with the arguments it reads."""
+
+    package: str
+    entries: list[tuple[Callback, int]]
+
+    @classmethod
+    def held[E](cls, handlers: Handlers[E], package: str) -> "Dispatcher":
+        """Returns the dispatcher of `package` on handler list, appending a new one when absent."""
+
+        def opened() -> Dispatcher:
+            dispatcher = cls(package=package, entries=[])
+            handlers.append(dispatcher.dispatched)
+            return dispatcher
+
+        return Option.of_optional(
+            next((handler.__self__ for handler in handlers if isinstance(handler, MethodType) and isinstance(handler.__self__, cls) and handler.__self__.package == package), None)
+        ).default_with(opened)
+
+    @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
+    def dispatched(self, *arguments: object) -> None:
+        """Runs every held callback with the arguments it reads."""
+        for held, count in tuple(self.entries):
+            held(*arguments[:count])
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -178,23 +215,28 @@ def changed(update: bpy.types.DepsgraphUpdate) -> Change:
 
 
 @contextmanager
-def appended[E](handlers: Handlers[E], entry: E) -> Generator[None]:
-    """Holds one persistent callback on handler list.
+def appended[E](identity: Identity, handlers: Handlers[E], entry: E) -> Generator[None]:
+    """Holds callback on the one persistent dispatcher an extension keeps on a handler list.
 
     Args:
+        identity: Extension owning the dispatcher.
         handlers: Handler list accepting callback argument shape.
-        entry: Plain function with positional parameters Blender inspects.
+        entry: Plain function with the positional parameters it reads from the padded arguments.
 
     Yields:
-        None while handler list holds callback.
+        None while the dispatcher holds callback.
     """
-    handlers.append(bpy.app.handlers.persistent(entry))
+    dispatcher = Dispatcher.held(handlers, identity.package)
+    member: tuple[Callback, int] = (entry, len(inspect.signature(entry).parameters))  # type: ignore[assignment, arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
+    dispatcher.entries.append(member)
     try:
         yield
     finally:
-        handlers.remove(entry)
+        dispatcher.entries.remove(member)
+        if not dispatcher.entries:
+            handlers.remove(dispatcher.dispatched)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Change", "FrameHandler", "Handlers", "ImportHandler", "PathHandler", "SceneHandler", "UpdateHandler", "appended", "changed"]
+__all__ = ["Change", "Dispatcher", "FrameHandler", "Handlers", "ImportHandler", "PathHandler", "SceneHandler", "UpdateHandler", "appended", "changed"]

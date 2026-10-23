@@ -21,7 +21,6 @@ const SWIFT_MANIFEST = 'Package.swift';
 const XCODE_PROJECT = 'project.xcproj';
 const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
-const SWIFTPM = { SWIFTPM_BUILD_DIR: '.cache/swiftpm/build' };
 const DEPLOYMENT_ROWS = {
     'Xcode.xcconfig': [/^MACOSX_DEPLOYMENT_TARGET = .+$/mu, (version: string) => `MACOSX_DEPLOYMENT_TARGET = ${version}`],
     '.swiftlint.yml': [/^ {4}macOS_deployment_target: .+$/mu, (version: string) => `    macOS_deployment_target: '${version}'`],
@@ -116,12 +115,12 @@ const openStore = (root: string) =>
         Effect.map(Path.Path, (path) => ({ root, cache: new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.hash')) })),
         ({ cache }) => Effect.sync(() => cache.writeToDisk()),
     );
-const cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, { root, cache }: Store, { inputs, argv: [command, ...args], env }: { readonly inputs: string[]; readonly argv: [string, ...string[]]; readonly env?: Record<string, string> }) {
+const cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, { root, cache }: Store, { inputs, argv: [command, ...args] }: { readonly inputs: string[]; readonly argv: [string, ...string[]] }) {
     const [key, hash] = [[command, ...args].join(' '), yield* Effect.tryPromise(() => hashWithWorkspaceContext(root, inputs))];
     const text = yield* Option.fromUndefinedOr(cache.get(key)).pipe(
         Option.filter((entry) => entry.hash === hash),
         Option.map(Struct.get('output')),
-        Option.match({ onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root, env, extendEnv: true }) }),
+        Option.match({ onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root }) }),
     );
     return yield* Effect.tap(Schema.decodeEffect(schema)(text), () => Effect.sync(() => cache.set(key, { hash, output: text })));
 });
@@ -140,7 +139,7 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
             mise: Effect.cached(decode(Mise, root, 'mise.toml')),
             hosts: Effect.cached(fs.readDirectory(path.join(root, 'apps'))),
             crates: Effect.cached(readCrates(store)),
-            swift: Effect.cached(cached(SwiftPackage, store, { inputs: [SWIFT_MANIFEST], argv: ['swift', 'package', 'describe', '--type', 'json'], env: SWIFTPM })),
+            swift: Effect.cached(cached(SwiftPackage, store, { inputs: [SWIFT_MANIFEST], argv: ['swift', 'package', 'describe', '--type', 'json'] })),
         })),
     };
 });
@@ -371,7 +370,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
     );
     const platformed = platforms.map(Struct.get('name'));
     const modules = sources.map((target) => {
-        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], SWIFTPM, target.type === 'executable' ? ['install', 'upgrade:swiftpm'] : []);
+        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], {}, target.type === 'executable' ? ['install', 'upgrade:swiftpm'] : []);
         const suite = Array.findFirst(suites, ({ name }) => name === `${target.name}Tests`);
         return [
             target.path,
@@ -381,7 +380,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
                 name: target.name,
                 ...Option.match(suite, {
                     onNone: () => ({}),
-                    onSome: ({ name, path }) => ({ ...suiteInput(path), targets: { ...project.targets, test: { options: { env: SWIFTPM, args: ['--filter', `'^${name}\\.'`] } } } }),
+                    onSome: ({ name, path }) => ({ ...suiteInput(path), targets: { ...project.targets, test: { options: { args: ['--filter', `'^${name}\\.'`] } } } }),
                 }),
             },
         ] as const;
@@ -393,7 +392,6 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
             '.': {
                 root: '.',
                 targets: {
-                    'upgrade:swift': { options: { env: SWIFTPM } },
                     'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)], outputs: [`{workspaceRoot}/${check.SWIFTPM_BUILD_DIR}/swiftc.log`], options: { env: check } },
                     'lint:swiftlint': { options: { env: check, args: targets.map(({ path }) => path) } },
                 },

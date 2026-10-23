@@ -35,7 +35,7 @@ from blender.bpy.render.effects.stack import CameraFrame, CompositorEffect, Cove
 from blender.bpy.render.effects.viewers import ViewerRead
 from blender.bpy.render.previews.queue import Job as PreviewJob, PreviewQueue, Rank
 from blender.bpy.ui.drawing.canvas import Align
-from blender.bpy.ui.drawing.charts import TracePlot, Well
+from blender.bpy.ui.drawing.charts import Grid, TracePlot, Well
 from blender.bpy.ui.drawing.handlers import Signal
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.analysis.metering import Extent, samples_of
@@ -98,9 +98,8 @@ class Response[E: Effect](msgspec.Struct, kw_only=True, eq=False):
             x = (np.arange(request.columns, dtype=np.float32) + 0.5) / request.columns
             return TracePlot.of(
                 metrics,
-                traces=((np.column_stack((x, values.mean(axis=1))).astype(np.float32), (1.0, 1.0, 1.0, 0.9)),),
-                verticals=(),
-                horizontals=guides,
+                traces=((np.column_stack((x, values.mean(axis=1))).astype(np.float32), Well.trace),),
+                grid=Grid(ink=Well.grid, horizontals=guides),
                 labels=tuple((f"{level:.2%}", 0.0, code, Align.START) for level, code in zip(request.guide_levels, guides)),
                 caption=request.caption,
             )

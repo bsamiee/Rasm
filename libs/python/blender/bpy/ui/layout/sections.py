@@ -3,7 +3,6 @@
 from collections.abc import Callable, Mapping
 import datetime
 from enum import Enum
-from functools import partial
 from itertools import product, starmap
 from pathlib import Path
 from types import MappingProxyType, MemberDescriptorType
@@ -29,7 +28,7 @@ from blender.bpy.settings.history import ValueHistory
 from blender.bpy.settings.presets import copied, pasted, Preset, PresetName, removed
 from blender.bpy.settings.properties import RecordGroup
 from blender.bpy.settings.shapes import ENABLED, Entries, field_shapes, Gate, Nested, Records, Shape, Tagged
-from blender.bpy.ui.layout.lists import keyed
+from blender.bpy.ui.layout.lists import ItemList, keyed
 from blender.bpy.ui.layout.rows import (
     acquired,
     alerted,
@@ -118,6 +117,10 @@ class Section(Row, Registrable, Protocol):
     @property
     def description(self) -> str:
         """Hover text of a popover button opening the section."""
+
+    @property
+    def opened(self) -> bool:
+        """Whether the section starts open."""
 
     @property
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
@@ -638,12 +641,12 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         holder: "bpy.types.bpy_struct[object]",
         host: Option[Host],
         context: bpy.types.Context,
-        opened: Option[tuple[Native, str]],
+        opened: tuple[Native, str] | bool,
         *,
         active: bool = True,
     ) -> Option[bpy.types.UILayout]:
-        """Draws layout panel header, returning body while open."""
-        header, body = opened.starmap(layout.panel_prop).default_with(lambda: layout.panel(idname, default_closed=True))
+        """Draws layout panel header open by stored property or by default, returning body while open."""
+        header, body = layout.panel(idname, default_closed=not opened) if isinstance(opened, bool) else layout.panel_prop(*opened)
         header.active = header.active and active
         header.context_pointer_set(self.name, holder)
         self.head(header, holder, context)
@@ -659,7 +662,7 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
-    """Rows under header over one holder, the drawing holder while `holder` is unset."""
+    """Rows under header over one holder, a member of the drawing holder, the active item of a list, or the drawing holder while `holder` is unset."""
 
     key: Key
     title: str
@@ -669,7 +672,8 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
     enable: Option[Member] = Nothing
     store: Option[Hosted[T]] = Nothing
     condition: Option[Condition] = Nothing
-    holder: Option[Member] = Nothing
+    holder: Option[Member | ItemList] = Nothing
+    opened: bool = False
 
     @property
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
@@ -677,8 +681,11 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
         return tuple(hosted.store.popover for hosted in self.store.to_list())
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Acquires registrable rows and store rows."""
-        return Ok((*acquired((*self.rows, *self.header)), *(row for hosted in self.store.to_list() for row in (hosted.store.attachment, hosted.store))))
+        """Acquires registrable rows, holding list, and store rows."""
+        return Ok((
+            *acquired((*self.rows, *self.header, *(held for held in self.holder.to_list() if isinstance(held, ItemList)))),
+            *(row for hosted in self.store.to_list() for row in (hosted.store.attachment, hosted.store)),
+        ))
 
     def realized(self, identity: Identity) -> BlenderResult[Drawn]:
         """Realizes section into panel and layout panel draws."""
@@ -686,13 +693,17 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
             Ok(Nothing)
         )
 
-        holding = self.holder.map(lambda member: member.resolved().map(Some)).default_value(Ok(Nothing))
+        def reached(source: Member | ItemList) -> BlenderResult[Callable[["bpy.types.bpy_struct[object]", bpy.types.Context], "Option[bpy.types.bpy_struct[object]]"]]:
+            match source:
+                case Member():
+                    return source.resolved().map(lambda bound: lambda holder, context: located(bound, holder, context).bind(lambda pair: Option.of_optional(getattr(*pair))))
+                case ItemList():
+                    return source.picked(identity).map(lambda reach: lambda _holder, context: reach(context))
 
-        def drawn(parts: tuple[tuple[Assembly[T], Option[Resolved]], Option[Resolved]]) -> Drawn:
-            (frame, host), reach = parts
+        holding = self.holder.map(reached).default_value(Ok(lambda holder, _context: Some(holder)))
 
-            def held(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> "Option[bpy.types.bpy_struct[object]]":
-                return reach.map(lambda bound: located(bound, holder, context).bind(lambda pair: Option.of_optional(getattr(*pair)))).default_value(Some(holder))
+        def drawn(parts: tuple[tuple[Assembly[T], Option[Resolved]], Callable[["bpy.types.bpy_struct[object]", bpy.types.Context], "Option[bpy.types.bpy_struct[object]]"]]) -> Drawn:
+            (frame, host), held = parts
 
             def found(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[Host]:
                 return host.bind(lambda bound: located(bound, holder, context)).bind(lambda pair: Option.of_optional(getattr(*pair)))
@@ -714,7 +725,7 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
                 for holder in held(outer, context).to_list():
                     active = all(holds(required, context, Some(holder)) for required in self.condition.to_list())
                     host = found(holder, context)
-                    for shown in frame.framed(layout, frame.name, self.title, holder, host, context, Nothing, active=active).to_list():
+                    for shown in frame.framed(layout, frame.name, self.title, holder, host, context, self.opened, active=active).to_list():
                         frame.body(shown, holder, host, context, frame.name)
 
             return Drawn(
@@ -738,19 +749,20 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
 
 
 class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
-    """Section per collection item, item as holder and store host."""
+    """Section per collection item, item as holder and store host, each item storing its open state in its `open` property."""
 
     key: Key
     title: str
     collection: Member
+    open: str
     description: str = ""
     rows: tuple[RowContent, ...] = ()
     header: tuple[RowContent, ...] = ()
     enable: Option[Member] = Nothing
     store: Option[Store[T]] = Nothing
-    open: Option[str] = Nothing
     empty: tuple[RowContent, ...] = ()
     condition: Option[Condition] = Nothing
+    opened: bool = False
 
     @property
     def popovers(self) -> tuple[Single[operators.Empty], ...]:
@@ -766,12 +778,12 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
 
         def items(
             bound: ResolvedMember[bpy.types.CollectionProperty],
-        ) -> BlenderResult[tuple[ResolvedMember[bpy.types.CollectionProperty], bpy.types.StringProperty, Option[ResolvedMember], Option[Slots[T]]]]:
+        ) -> BlenderResult[tuple[ResolvedMember[bpy.types.CollectionProperty], bpy.types.StringProperty, ResolvedMember, Option[Slots[T]]]]:
             match bound.descriptor.prop.fixed_type:
                 case None:
                     return Error((BlenderAbsentFault(owner=bound.descriptor.path, key="fixed_type"),))
                 case item:
-                    opened = self.open.map(lambda path: Member(root=type(item), path=path).resolved(bpy.types.BoolProperty).map(Some)).default_value(Ok(Nothing))
+                    opened = Member(root=type(item), path=self.open).resolved(bpy.types.BoolProperty)
                     stored = self.store.map(
                         lambda store: (
                             store.bound(identity) if isinstance(item, store.attachment.owner) else Error(refused(bound.descriptor.path, type(item).__name__, (store.attachment.owner.__name__,)))
@@ -782,8 +794,15 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
                         paired(opened, stored),
                     ).map(lambda pair: (bound, pair[0], *pair[1]))
 
-        def drawn(parts: tuple[tuple[ResolvedMember, bpy.types.StringProperty, Option[ResolvedMember], Option[Slots[T]]], tuple[Assembly[T], tuple[RowDraw, ...]]]) -> Drawn:
+        def drawn(parts: tuple[tuple[ResolvedMember, bpy.types.StringProperty, ResolvedMember, Option[Slots[T]]], tuple[Assembly[T], tuple[RowDraw, ...]]]) -> Drawn:
             ((collection, named, opened, _), (frame, empties)) = parts
+
+            def section(layout: bpy.types.UILayout, item: Host, context: bpy.types.Context) -> None:
+                idname = f"{frame.name}_{keyed(item)}"
+                active = all(holds(required, context, Some(item)) for required in self.condition.to_list())
+                for place in located(opened, item, context).to_list():
+                    for shown in frame.framed(layout, idname, getattr(item, named.identifier), item, Some(item), context, place, active=active).to_list():
+                        frame.body(shown, item, Some(item), context, idname)
 
             def listed(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 for owner, key in located(collection, holder, context).to_list():
@@ -791,11 +810,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
                     for draw in () if members else empties:
                         draw(layout, holder, context)
                     for item in members:
-                        idname = f"{frame.name}_{keyed(item)}"
-                        title = getattr(item, named.identifier)
-                        active = all(holds(required, context, Some(item)) for required in self.condition.to_list())
-                        for shown in frame.framed(layout, idname, title, item, Some(item), context, opened.bind(partial(located, holder=item, context=context)), active=active).to_list():
-                            frame.body(shown, item, Some(item), context, idname)
+                        section(layout, item, context)
 
             return Drawn(head=Nothing, tail=Nothing, body=lambda layout, context: listed(layout, context, context), inline=listed)
 
@@ -880,7 +895,7 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
         def each(nest: Nest) -> Nest:
             def draw(layout: bpy.types.UILayout, owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
                 for index, item in enumerate(getattr(owner, key)):
-                    idname = f"{prefix}_{index}"
+                    idname = f"{prefix}_{keyed(item)}"
                     header, body = layout.panel(idname, default_closed=True)
                     title = Option.of_optional(item.bl_rna.name_property).map(lambda prop: getattr(item, prop.identifier)).default_value(f"{owner.bl_rna.properties[key].name} {index + 1}")
                     header.label(text=title)

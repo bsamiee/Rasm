@@ -92,7 +92,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
                 *self.passepartout,
                 _camera_row("show_safe_areas"),
                 _camera_row("show_safe_center", Some("show_safe_areas")),
-                Caption(rows=tuple(map(_camera_row, (*guides, "composition_guide_color"))), heading=Some("Composition Guides")),
+                Caption(rows=tuple(map(_camera_row, (*guides, "composition_guide_color"))), heading=Some("Composition Guides"), separator=Nothing),
                 *map(_camera_row, ("show_name", "show_sensor", "show_limits", "show_mist")),
             ),
             header=(Popover(panel=CAMERA_PT_presets),),
@@ -123,7 +123,7 @@ class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
         return Single(
             key="render_views",
             title="Render Views",
-            rows=(Caption(rows=tuple(map(_camera_row, stereo)), heading=Some("Stereo"), condition=Some(multiview)),),
+            rows=(Caption(rows=tuple(map(_camera_row, stereo)), heading=Some("Stereo"), separator=Nothing, condition=Some(multiview)),),
             store=Some(Hosted(host=Member(root=bpy.types.Context, path="scene"), store=Store(attachment=self.attachment, retention=self.retention))),
         )
 

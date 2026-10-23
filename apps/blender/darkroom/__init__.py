@@ -14,7 +14,7 @@ register, unregister = scope(
     __name__,
     (
         Icons(),
-        PreferencesPage(record=preferences.Settings, sections=preferences.sections, bindings=rendering.batch.bindings),
+        PreferencesPage(record=preferences.Settings, sections=(*preferences.sections, rendering.batch.setup), bindings=rendering.batch.bindings),
         PreviewQueue(),
         Arranger(),
         *color.rows,

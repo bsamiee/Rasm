@@ -81,7 +81,7 @@ Interface needs, each owner a row `extension.registration.scope` acquires:
 |  [07]   | UI list with filter and sort                | `ui.layout.lists.ItemList`                                                                 |
 |  [08]   | Rows, fields, labels, progress              | `ui.layout.rows` `Property`, `Caption`, `Label`, `Text`, `Progress`, `Selector`, `Tree`    |
 |  [09]   | Operator, popover, and menu buttons         | `ui.layout.rows` `OperatorButton`, `Popover`, `Pulldown`, `invoking`                       |
-|  [10]   | Templates                                   | `ui.layout.templates` `Wheel`, `Ranged`, `IconView`, `Preview`, `ImageFormat`, `Shortcut`  |
+|  [10]   | Templates                                   | `ui.layout.templates` `Wheel`, `Pages`, `IconView`, `Preview`, `ImageFormat`, `Shortcut`   |
 |  [11]   | Report banner, cursor progress              | `ui.layout.status` `Status`, `progressed`                                                  |
 |  [12]   | Generated previews, package icons           | `ui.resources.previews.Previews`, `ui.resources.icons.Icons`                               |
 |  [13]   | Theme colors, interface metrics             | `ui.resources.theme` `Theme`, `Metrics.read`                                               |

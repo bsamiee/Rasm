@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager, ExitStack
 import re
-from typing import Annotated, ClassVar, TYPE_CHECKING
+from typing import Annotated, ClassVar, Literal, TYPE_CHECKING
 
 import _bpy_types
 from bl_ui.space_properties import PropertiesAnimationMixin
@@ -83,10 +83,10 @@ class Child(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class EditorRegion(msgspec.Struct, frozen=True, kw_only=True, gc=False):
-    """Editor region with no tab and no popover."""
+    """Editor region laying out panels, with no tab and no popover."""
 
     space: "rna_enums.SpaceTypeItems"
-    region: "rna_enums.RegionTypeItems"
+    region: Literal["UI", "TOOLS", "TOOL_PROPS", "HUD", "HEADER", "TOOL_HEADER", "FOOTER"]
 
 
 class PopoverPanel(msgspec.Struct, frozen=True, kw_only=True):
@@ -117,6 +117,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
     mirrors: tuple[Mirror, ...] = ()
     children: tuple[Section, ...] = ()
     headed: bool = True
+    expand_header: bool = False
     header: tuple[RowContent, ...] = ()
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
@@ -179,6 +180,9 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
             key = self.section.key
             return accumulated((site(key, self.at, self.condition), *(site(f"{key}_{suffix(mirror.at)}", mirror.at, mirror.condition) for mirror in self.mirrors)))
 
+        def options(section: Section) -> set[str]:
+            return set() if section.opened else {"DEFAULT_CLOSED"}
+
         def built(site: PanelSite, at: Placed, mark: int) -> tuple[type[bpy.types.Panel], ...]:
             shared = members(at, mark) | {"bl_owner_id": identity.package}
 
@@ -209,10 +213,10 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
                     },
                 )
 
-            top = {"bl_options": {"DEFAULT_CLOSED"} if site.headed else {"HIDE_HEADER"}, **shared, "poll": classmethod(poll)}
+            top = {"bl_options": options(site.top.section) | ({"HEADER_LAYOUT_EXPAND"} if self.expand_header else set()) if site.headed else {"HIDE_HEADER"}, **shared, "poll": classmethod(poll)}
             return (
                 classed(site.top, top | {"bl_order": preceding(top)}, site.header),
-                *(classed(child, shared | {"bl_parent_id": site.top.name, "bl_order": index, "bl_options": {"DEFAULT_CLOSED"}}) for index, child in enumerate(site.children)),
+                *(classed(child, shared | {"bl_parent_id": site.top.name, "bl_order": index, "bl_options": options(child.section)}) for index, child in enumerate(site.children)),
             )
 
         @contextmanager

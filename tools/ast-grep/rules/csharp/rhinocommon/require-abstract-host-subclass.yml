@@ -42,6 +42,7 @@ rule:
     all:
         - has: {field: name, pattern: $NAME}
         - not: {has: {kind: modifier, regex: '^abstract$'}}
+        - not: {has: {kind: parameter_list, has: {kind: parameter}}}
         - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-base}]}}
 transform:
     ABSTRACT:

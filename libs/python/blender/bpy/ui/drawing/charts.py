@@ -56,15 +56,16 @@ class ChartFrame(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Well(msgspec.Struct, frozen=True, kw_only=True):
-    """Stock scope styling and well size."""
+    """Black chart well palette of the stock scopes, label ink, and well size."""
 
-    back: ClassVar[Color] = (0.0, 0.0, 0.0, 1.0)
+    ground: ClassVar[Color] = (0.0, 0.0, 0.0, 1.0)
     rim: ClassVar[Color] = (0.0, 0.0, 0.0, 0.5)
     clear: ClassVar[Color] = (0.0, 0.0, 0.0, 0.0)
-    grid: ClassVar[Color] = (1.0, 1.0, 1.0, 0.08)
+    fine: ClassVar[Color] = (1.0, 1.0, 1.0, 0.08)
+    grid: ClassVar[Color] = (1.0, 1.0, 1.0, 0.2)
     major: ClassVar[Color] = (1.0, 1.0, 1.0, 0.5)
     trace: ClassVar[Color] = (1.0, 1.0, 1.0, 0.75)
-    text: ClassVar[Color] = (1.0, 1.0, 1.0, 0.2)
+    label: ClassVar[Color] = (1.0, 1.0, 1.0, 0.7)
     radius: ClassVar[float] = 3.0
     stroke: ClassVar[float] = 1.5
     points: ClassVar[float] = 8.0
@@ -92,8 +93,8 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
         return metrics.unit * cls.margin
 
     @classmethod
-    def label(cls, metrics: Metrics) -> float:
-        """Returns label size in device pixels."""
+    def font(cls, metrics: Metrics) -> float:
+        """Returns label font size in device pixels."""
         return float(metrics.scaled(cls.points))
 
     @property
@@ -105,11 +106,19 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
 
     def under(self, canvas: Canvas) -> None:
         """Draws rounded black background."""
-        canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.back, self.clear, self.radius)
+        canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.ground, self.clear, self.radius)
 
     def over(self, canvas: Canvas) -> None:
         """Draws outline above lower edge."""
         canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), self.clear, self.rim, self.radius)
+
+
+class Grid(msgspec.Struct, frozen=True, kw_only=True):
+    """Normalized grid line positions per axis and their ink."""
+
+    ink: Color
+    verticals: tuple[float, ...] = ()
+    horizontals: tuple[float, ...] = ()
 
 
 class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -117,6 +126,7 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     well: Well
     grid: gpu.types.GPUBatch
+    rule: Color
     majors: gpu.types.GPUBatch
     ticks: Option[gpu.types.GPUBatch]
     traces: tuple[tuple[gpu.types.GPUBatch, Color], ...]
@@ -129,8 +139,7 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         metrics: Metrics,
         *,
         traces: tuple[tuple[npt.NDArray[np.float32], Color], ...],
-        verticals: tuple[float, ...],
-        horizontals: tuple[float, ...],
+        grid: Grid,
         labels: tuple[tuple[str, float, float, Align], ...],
         caption: str,
         ticks: tuple[float, ...] = (),
@@ -140,8 +149,8 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         well, shader = Well.scope(metrics), gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
         plot = well.plot
         right, top = plot.x + plot.width, plot.y + plot.height
-        bounds = tuple(plot.x + position * plot.width for position in verticals)
-        rows = tuple(plot.y + position * plot.height for position in horizontals)
+        bounds = tuple(plot.x + position * plot.width for position in grid.verticals)
+        rows = tuple(plot.y + position * plot.height for position in grid.horizontals)
 
         def lines(points: Iterable[tuple[float, float]]) -> gpu.types.GPUBatch:
             """Builds grid and tick line pairs."""
@@ -150,6 +159,7 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return cls(
             well=well,
             grid=lines((*(point for x in bounds for point in ((x, plot.y), (x, top))), *(point for y in rows for point in ((plot.x, y), (right, y))))),
+            rule=grid.ink,
             majors=lines((
                 *(point for position in majors for point in ((plot.x + position * plot.width, plot.y), (plot.x + position * plot.width, top))),
                 (right, plot.y),
@@ -176,25 +186,23 @@ class Outline(msgspec.Struct, frozen=True, kw_only=True):
 
     def drawn(self, canvas: Canvas, geometry: TracePlot) -> None:
         """Draws chart at lower-left corner."""
-        inset, points, plot = Well.inset(canvas.metrics), Well.label(canvas.metrics), geometry.well.plot
+        inset, points, plot = Well.inset(canvas.metrics), Well.font(canvas.metrics), geometry.well.plot
         x, y = canvas.extent.x + inset, canvas.extent.y + inset
         with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
             gpu.matrix.translate((x, y))
             geometry.well.under(canvas)
             shader = canvas.lines(1.0)
-            for batch, color in ((geometry.grid, Well.grid), (geometry.majors, Well.major), *((ticks, Well.major) for ticks in geometry.ticks.to_list())):
+            for batch, color in ((geometry.grid, geometry.rule), (geometry.majors, Well.major), *((ticks, Well.major) for ticks in geometry.ticks.to_list())):
                 shader.uniform_float("color", color)
                 batch.draw(shader)
-            with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)):
-                gpu.state.blend_set("ADDITIVE")
+            with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)), Canvas.blended("ADDITIVE"):
                 stroke = canvas.lines(Well.stroke)
                 for batch, color in geometry.traces:
                     stroke.uniform_float("color", color)
                     batch.draw(stroke)
-                gpu.state.blend_set("ALPHA")
             for text, at_x, at_y, align in geometry.labels:
-                canvas.label(text, (at_x + points / 2 * (1 - 2 * align.value), at_y + points / 2), Well.text, points, align)
-            canvas.label(geometry.caption, (plot.x + points / 2, plot.y + plot.height - points * 1.5), Well.text, points)
+                canvas.label(text, (at_x + points / 2 * (1 - 2 * align.value), at_y + points / 2), Well.label, points, align)
+            canvas.label(geometry.caption, (plot.x + points / 2, plot.y + plot.height - points * 1.5), Well.label, points)
             geometry.well.over(canvas)
 
 
@@ -257,7 +265,7 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             working=gamut(reading.working),
             display=reading.display.map2(lambda rows, _space: gamut(rows), display_space),
             trace=Some(occupied).filter(lambda found: found.size > 0).map(traced),
-            lines=(*block(working, Well.trace), *(line for named in display.to_list() for line in block(named, Well.major))),
+            lines=(*block(working, Well.label), *(line for named in display.to_list() for line in block(named, Well.label))),
         )
 
 
@@ -283,7 +291,7 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
 
     def drawn(self, canvas: Canvas, geometry: GamutPlot) -> None:
         """Draws diagram at lower-right corner."""
-        inset, points, plot = Well.inset(canvas.metrics), Well.label(canvas.metrics), geometry.well.plot
+        inset, points, plot = Well.inset(canvas.metrics), Well.font(canvas.metrics), geometry.well.plot
         x, y = canvas.extent.x + canvas.extent.width - inset - geometry.well.width, canvas.extent.y + inset
         pitch = points + canvas.metrics.spacing.button_y
         with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
@@ -300,10 +308,9 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
                 ):
                     shader.uniform_float("color", color)
                     batch.draw(shader)
-                gpu.state.blend_set("ADDITIVE")
-                for trace in geometry.trace.to_list():
-                    trace.draw(canvas.points())
-                gpu.state.blend_set("ALPHA")
+                with Canvas.blended("ADDITIVE"):
+                    for trace in geometry.trace.to_list():
+                        trace.draw(canvas.points())
                 for index, (text, color) in enumerate(geometry.lines, 1):
                     canvas.label(text, (plot.x + plot.width - points / 2, plot.y + plot.height - points / 2 - index * pitch), color, points, Align.END)
             geometry.well.over(canvas)
@@ -320,7 +327,7 @@ class KeyPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     @staticmethod
     def of(metrics: Metrics, bands: Bands) -> "BlenderResult[KeyPlot]":
         """Builds nearest-filtered key."""
-        points, pad, width = Well.label(metrics), float(metrics.spacing.template), float(metrics.unit * 20)
+        points, pad, width = Well.font(metrics), float(metrics.spacing.template), float(metrics.unit * 20)
         stops = np.log2(bands.edges / GREY)
         low, high = np.min(stops, initial=0.0) - 1.0, np.max(stops, initial=0.0) + 1.0
         bar = Rect(x=pad, y=2 * pad + points, width=width - 2 * pad, height=float(metrics.unit // 2))
@@ -362,13 +369,13 @@ class FalseColor(msgspec.Struct, frozen=True, kw_only=True):
 
     def drawn(self, canvas: Canvas, geometry: KeyPlot) -> None:
         """Draws key at upper-left corner."""
-        inset, points = Well.inset(canvas.metrics), Well.label(canvas.metrics)
+        inset, points = Well.inset(canvas.metrics), Well.font(canvas.metrics)
         with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
             gpu.matrix.translate((canvas.extent.x + inset, canvas.extent.y + canvas.extent.height - inset - geometry.well.height))
             geometry.well.under(canvas)
-            canvas.picture(geometry.texture, geometry.bar, gpu.shader.from_builtin("IMAGE_COLOR"))
+            canvas.picture(geometry.texture, geometry.bar, gpu.shader.from_builtin("IMAGE_COLOR"), blend="ALPHA")
             for text, x, y in geometry.labels:
-                canvas.label(text, (x, y), Well.trace, points, Align.CENTER)
+                canvas.label(text, (x, y), Well.label, points, Align.CENTER)
             geometry.well.over(canvas)
 
 
@@ -389,8 +396,7 @@ def histogram(source: Callable[[], BlenderResult[Option[ChartFrame]]], metrics: 
             return TracePlot.of(
                 metrics,
                 traces=((np.column_stack((np.arange(bins) / bins, heights)).astype(np.float32), Well.trace),),
-                verticals=bounds[1:],
-                horizontals=(0.25, 0.5, 0.75),
+                grid=Grid(ink=Well.fine, verticals=bounds[1:], horizontals=(0.25, 0.5, 0.75)),
                 majors=bounds[:1],
                 ticks=tuple(position / bins for reading in bands.to_list() for position in np.searchsorted(Histogram.edges(), reading.edges, side="right")),
                 labels=(*((f"{2 ** (stop - 1):g}", x, 0.0, Align.START) for stop, x in enumerate(bounds, 1)), (f"{2**Histogram.headroom:g}", 1.0, 0.0, Align.END)),
@@ -406,4 +412,4 @@ def histogram(source: Callable[[], BlenderResult[Option[ChartFrame]]], metrics: 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ChartFrame", "FalseColor", "GamutPlot", "Gamuts", "KeyPlot", "Outline", "TracePlot", "Well", "histogram"]
+__all__ = ["ChartFrame", "FalseColor", "GamutPlot", "Gamuts", "Grid", "KeyPlot", "Outline", "TracePlot", "Well", "histogram"]

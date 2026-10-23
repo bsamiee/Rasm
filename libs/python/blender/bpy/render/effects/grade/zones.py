@@ -13,12 +13,13 @@ from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, logarithm
 from blender.bpy.render.effects.stack import CompositorEffect, Shell
 from blender.imaging.effects.grade.zones import Zone, Zones
 from blender.imaging.faults import accumulated, paired
+from blender.imaging.parameters import Rgb
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _PIECE = ("input", "start", "end", "level", "start_slope", "end_slope")
 _PIVOT = ("input", "low", "high", "low_slope", "high_slope", "reverse")
-_, _, _, _, start, width = Zone.__struct_fields__
+_, _, start, width = Zone.__struct_fields__
 _ZONE = ("input", "adjustment", start, width)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -677,11 +678,18 @@ def _contrast() -> BlenderResult[NodeGroup]:
 
 
 def zoned(shell: Shell[Zones]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns per-channel tonal-zone chain with master placement and clamp."""
+    """Returns per-channel tonal-zone chain with master placement and clamp, zone colors spanning each adjustment range."""
     blacks, shadows, midtones, highlights, whites, s_contrast = Zones.__struct_fields__
-    master, red, green, blue, start, width = Zone.__struct_fields__
-    channels = ((red, "Red"), (green, "Green"), (blue, "Blue"))
-    paths = (*((zone, field) for zone in (blacks, shadows, midtones, highlights, whites) for field in (master, red, green, blue)), (s_contrast,))
+    color, master, start, width = Zone.__struct_fields__
+    red, green, blue = Rgb.__struct_fields__
+    channels = ((red, "Red", "X"), (green, "Green", "Y"), (blue, "Blue", "Z"))
+    zones, reaches = (blacks, shadows, midtones, highlights, whites), Zones.reaches()
+    adjustments = {
+        (zone, field): end
+        for zone in zones
+        for field, end in ((master, End(node=INPUTS, socket=item_key(zone, master))), *((channel, End(node=item_key(zone, "channels"), socket=axis)) for channel, _, axis in channels))
+    }
+    deviations = (*((item_key(*path), end) for path, end in adjustments.items()), (item_key(s_contrast), End(node=INPUTS, socket=item_key(s_contrast))))
     whites_reach, whites_width, blacks_reach, blacks_width, graded = (End(node=key) for key in ("whites_reach", "whites_width", "blacks_reach", "blacks_width", "graded"))
     whites_start, whites_end, blacks_start, blacks_end = (End(node=key, socket="value") for key in ("whites_start", "whites_end", "blacks_start", "blacks_end"))
     linear = End(node="linear", socket=COLOR_RESULT.key)
@@ -702,38 +710,41 @@ def zoned(shell: Shell[Zones]) -> BlenderResult[tuple[Fragment, End]]:
             (blacks_end, shade, blacks_reach, shadows),
         )
         chains = {
-            channel: tuple(
-                (item_key(channel, zone, adjustment), group, End(node=INPUTS, socket=item_key(zone, adjustment)), low, extent)
-                for zone, group, low, extent in placed
-                for adjustment in (channel, master)
-            )
-            for channel, _ in channels
+            channel: tuple((item_key(channel, zone, adjustment), group, adjustments[zone, adjustment], low, extent) for zone, group, low, extent in placed for adjustment in (channel, master))
+            for channel, _, _ in channels
         }
-        offsets = tuple(End(node=item_key("offset", *path)) for path in paths)
-        sums = tuple(End(node=item_key("deviation", *path)) for path in paths)
+        offsets = tuple(End(node=item_key("offset", key)) for key, _ in deviations)
+        sums = tuple(End(node=item_key("deviation", key)) for key, _ in deviations)
         previous: tuple[Operand, ...] = (0.0, *sums[:-1])
         return Fragment.joined(
+            *(
+                Fragment.joined(
+                    vector(item_key(zone, color), "MULTIPLY_ADD", End(node=INPUTS, socket=item_key(zone, color)), (reaches[zone],) * 3, (1.0 - reaches[zone],) * 3),
+                    node(item_key(zone, "channels"), bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node=item_key(zone, color), socket="Vector")}, {}),
+                )
+                for zone in zones
+            ),
             nested("stops", forward, {COLOR_INPUT.key: shell.source}, COLOR_RESULT.key),
             node("split", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="stops", socket=COLOR_RESULT.key)}, {"mode": "RGB"}),
             *(nested(end.node, group, dict(zip(_ZONE, (value, *(End(node=INPUTS, socket=item_key(zone, field)) for field in (master, start, width))))), "value") for end, group, value, zone in knots),
             *(
                 nested(key, group, dict(zip(_ZONE, (value, adjustment, low, extent))), "value")
-                for channel, socket in channels
+                for channel, socket, _ in channels
                 for (key, group, adjustment, low, extent), value in zip(chains[channel], (End(node="split", socket=socket), *(End(node=held, socket="value") for held, *_ in chains[channel][:-1])))
             ),
             *(
                 nested(
                     item_key(channel, s_contrast), contrast, {"input": End(node=item_key(channel, blacks, master), socket="value"), "contrast": End(node=INPUTS, socket=item_key(s_contrast))}, "value"
                 )
-                for channel, _ in channels
+                for channel, _, _ in channels
             ),
-            node("combined", bpy.types.CompositorNodeCombineColor, {socket: End(node=item_key(channel, s_contrast), socket="value") for channel, socket in channels}, {"mode": "RGB"}),
+            node("combined", bpy.types.CompositorNodeCombineColor, {socket: End(node=item_key(channel, s_contrast), socket="value") for channel, socket, _ in channels}, {"mode": "RGB"}),
             nested(linear.node, inverse, {COLOR_INPUT.key: End(node="combined", socket="Image")}, COLOR_RESULT.key),
             math(whites_reach.node, "ADD", End(node=INPUTS, socket=item_key(whites, start)), End(node=INPUTS, socket=item_key(whites, width))),
             math(whites_width.node, "SUBTRACT", whites_end, whites_start),
             math(blacks_reach.node, "SUBTRACT", End(node=INPUTS, socket=item_key(blacks, start)), End(node=INPUTS, socket=item_key(blacks, width))),
             math(blacks_width.node, "SUBTRACT", blacks_start, blacks_end),
-            *(math(offset.node, "SUBTRACT", End(node=INPUTS, socket=item_key(*path)), 1.0) for offset, path in zip(offsets, paths)),
+            *(math(offset.node, "SUBTRACT", end, 1.0) for offset, (_, end) in zip(offsets, deviations)),
             *(math(total.node, "MULTIPLY_ADD", offset, offset, prior) for total, offset, prior in zip(sums, offsets, previous)),
             math(graded.node, "LESS_THAN", 0.0, sums[-1]),
             vector("clamped", "MINIMUM", linear, (65504.0, 65504.0, 65504.0)),

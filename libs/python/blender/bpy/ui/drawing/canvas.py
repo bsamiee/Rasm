@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from enum import Enum
 import functools
-from typing import ClassVar, Final, Self
+from typing import ClassVar, Final, Literal, Self
 
 import blf
 import bpy
@@ -16,6 +16,8 @@ import msgspec
 from blender.bpy.ui.resources.theme import Color, Metrics, Theme
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+type Blend = Literal["NONE", "ALPHA", "ALPHA_PREMULT", "ADDITIVE", "ADDITIVE_PREMULT", "MULTIPLY", "SUBTRACT", "INVERT"]
 
 
 class Align(Enum):
@@ -105,13 +107,19 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @contextmanager
     def drawn(self) -> Generator[Self]:
         """Scopes matrix stacks and alpha blending."""
-        blend = gpu.state.blend_get()
-        with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
-            gpu.state.blend_set("ALPHA")
-            try:
-                yield self
-            finally:
-                gpu.state.blend_set(blend)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection(), Canvas.blended("ALPHA"):  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
+            yield self
+
+    @staticmethod
+    @contextmanager
+    def blended(mode: Blend) -> Generator[None]:
+        """Scopes blend mode, restoring the mode it found."""
+        held = gpu.state.blend_get()
+        gpu.state.blend_set(mode)
+        try:
+            yield
+        finally:
+            gpu.state.blend_set(held)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     @staticmethod
     @contextmanager
@@ -159,7 +167,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def label(
         text: str, at: tuple[float, float], color: Color, points: float, align: Align = Align.START, shadow: Option[Shadow] = Nothing, *, font: int = 0, translation_context: str | None = None
     ) -> None:
-        """Draws translated text, interface font by default."""
+        """Draws translated text under the blend mode it found, interface font by default."""
         blf.size(font, points)
         blf.color(font, *color)
         shown = bpy.app.translations.pgettext_iface(text, translation_context)
@@ -172,10 +180,11 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             blf.shadow(font, shade.level, *shade.color)
             offset_x, offset_y = shade.offset
             blf.shadow_offset(font, round(offset_x), round(offset_y))
-        try:
-            blf.draw(font, shown)
-        finally:
-            blf.disable(font, blf.SHADOW)
+        with Canvas.blended(gpu.state.blend_get()):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            try:
+                blf.draw(font, shown)
+            finally:
+                blf.disable(font, blf.SHADOW)
 
     def frame(self, rect: Rect, fill: Color, edge: Color, radius: float) -> None:
         """Draws antialiased rounded frame."""
@@ -183,21 +192,17 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         shader.bind()
         box = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 16, (rect.x, rect.y, rect.width, rect.height, *fill, *edge, radius, self.metrics.line(1.0), 0.0, 0.0)))
         shader.uniform_block("box", box)
-        blend = gpu.state.blend_get()
-        gpu.state.blend_set("ALPHA_PREMULT")
-        try:
+        with Canvas.blended("ALPHA_PREMULT"):
             quad.draw(shader)
-        finally:
-            gpu.state.blend_set(blend)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     @staticmethod
-    def picture(texture: gpu.types.GPUTexture, rect: Rect, shader: gpu.types.GPUShader, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
-        """Draws texture under caller blend mode."""
+    def picture(texture: gpu.types.GPUTexture, rect: Rect, shader: gpu.types.GPUShader, *, blend: Blend, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
+        """Draws texture under its blend mode."""
         quad = textured()
         shader.bind()
         shader.uniform_sampler("image", texture)
         shader.uniform_float("color", color)
-        with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
+        with gpu.matrix.push_pop(), Canvas.blended(blend):  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
             gpu.matrix.translate((rect.x, rect.y))
             gpu.matrix.scale((rect.width, rect.height))
             quad.draw(shader)
@@ -274,4 +279,4 @@ def textured() -> gpu.types.GPUBatch:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["DECODED", "QUAD", "Align", "Canvas", "Programs", "Rect", "Shadow", "compiled", "rounded", "textured"]
+__all__ = ["DECODED", "QUAD", "Align", "Blend", "Canvas", "Programs", "Rect", "Shadow", "compiled", "rounded", "textured"]

@@ -31,6 +31,7 @@ from blender.imaging.chain import Effect
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.hashing import content_hash, ContentHash
+from blender.imaging.parameters import heading
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
@@ -96,9 +97,7 @@ class EffectLibrary(msgspec.Struct, frozen=True, kw_only=True):
         checker = Metrics.read().checker()
 
         def entry(record: Entry[Effect], group: NodeGroup) -> BlenderResult[tuple[bpy.types.ID, AssetMark]]:
-            mark = AssetMark(
-                key=group.key, catalog=f"{identity.manifest.name}/{bpy.path.display_name(record.effect.stage.name.lower())}", description=Option.of_optional(record.effect.__doc__).default_value("")
-            )
+            mark = AssetMark(key=group.key, catalog=f"{identity.manifest.name}/{heading(record.effect.stage.phase.name)}", description=Option.of_optional(record.effect.__doc__).default_value(""))
 
             def shown(tree: bpy.types.NodeTree, plane: npt.NDArray[np.float32]) -> BlenderResult[None]:
                 return (

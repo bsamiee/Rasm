@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import datetime
-from enum import auto, Enum
+from enum import Enum
 import functools
 import itertools
 from pathlib import Path
@@ -20,7 +20,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.modal import Gesture, Modal, Travel
-from blender.bpy.commands.operators import Call, Command, Done, Empty, InvokePopup, Open, Operator, Outcome, Own, Placed, Properties, Unchanged
+from blender.bpy.commands.operators import Call, Command, Done, Empty, InvokePopup, Open, Operator, Outcome, Properties, Unchanged
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.rna.conditions import Condition, Setting
@@ -42,6 +42,8 @@ from blender.bpy.render.effects.compositing.recombination import Denoising, Reco
 from blender.bpy.render.effects.detail.denoise import denoiser, Filters, guided
 from blender.bpy.render.effects.stack import (
     CameraFrame,
+    curve_editors,
+    CurveEditor,
     Derived,
     Edge,
     EffectStack,
@@ -51,6 +53,7 @@ from blender.bpy.render.effects.stack import (
     formation,
     framing,
     graph_values,
+    graphed,
     inputs,
     KeyPath,
     Pinned,
@@ -69,9 +72,11 @@ from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.settings.presets import Preset
 from blender.bpy.settings.properties import Changed, Choices
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import alerted, joined, Member, operated, Popover, Property, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import alerted, Divider, Member, OperatorButton, Popover, pressed, Property, Pulldown, realized, RowContent, RowDraw
 from blender.bpy.ui.layout.sections import Listing, Single
+from blender.bpy.ui.layout.templates import ColorRamp
 from blender.bpy.ui.resources.theme import Metrics
+from blender.bpy.ui.surfaces.menus import Dropdown, Menu, Submenus
 from blender.imaging.chain import Domain, Effect, Stage
 from blender.imaging.color.processors import DisplayView, unassociated
 from blender.imaging.compositing.blending import Blend, Entry
@@ -92,13 +97,13 @@ type Source = Adjustment | RenderPass | NodeSource | Recombined
 
 
 class Edit(Enum):
-    """Edit actions on layers, effects, and masks."""
+    """Edit actions on layers, effects, and masks, valued by button icon."""
 
-    REMOVE = auto()
-    DUPLICATE = auto()
-    UP = auto()
-    DOWN = auto()
-    RESET = auto()
+    REMOVE = "REMOVE"
+    DUPLICATE = "DUPLICATE"
+    UP = "TRIA_UP"
+    DOWN = "TRIA_DOWN"
+    RESET = "LOOP_BACK"
 
 
 # --- [CHOICES] --------------------------------------------------------------------------
@@ -465,28 +470,20 @@ class LayerStacking[E: Effect]:
             )
             for action in Edit
         }
-        self.commands = (
-            Operator(key="layer_stack_new", title="New Stack", description="Create layer stack", form=Empty, run=created),
-            Operator(key="layer_stack_duplicate", title="Duplicate Stack", description="Copy stack with source settings", form=Empty, run=duplicated),
-            Operator(key="layer_stack_remove", title="Remove Stack", description="Remove stack and its effect entry", form=Empty, run=removed),
-            Operator(
-                key="layer_stack_switch",
-                title="Switch Stack",
-                description="Edit another stack",
-                form=Switched,
-                run=lambda call: tree(call.record.stack).bind(lambda group: self.switched(call.context, group)).map(lambda _: Done()),
-                invoke=Some(InvokePopup.SEARCH),
-            ),
-            Operator(key="layer_stack_nested", title="Edit Nested Stack", description="Edit selected layer's stack", form=Empty, run=nested),
-            Operator(key="layer_stack_clear", title="Clear Layers", description="Remove every layer", form=Empty, run=clear),
-            Operator(
-                key="layer_copy_all",
-                title="Copy All Layers",
-                description="Copy layers of another stack with source settings",
-                form=Switched,
-                run=lambda call: copied(call.context, call.record.stack, Nothing),
-                invoke=Some(InvokePopup.SEARCH),
-            ),
+        self.creating = Operator(key="layer_stack_new", title="New Stack", description="Create layer stack", form=Empty, run=created)
+        self.duplicating = Operator(key="layer_stack_duplicate", title="Duplicate Stack", description="Copy stack with source settings", form=Empty, run=duplicated)
+        self.removing = Operator(key="layer_stack_remove", title="Remove Stack", description="Remove stack and its effect entry", form=Empty, run=removed)
+        self.switching = Operator(
+            key="layer_stack_switch",
+            title="Switch Stack",
+            description="Edit another stack",
+            form=Switched,
+            run=lambda call: tree(call.record.stack).bind(lambda group: self.switched(call.context, group)).map(lambda _: Done()),
+            invoke=Some(InvokePopup.SEARCH),
+        )
+        self.nesting = Operator(key="layer_stack_nested", title="Edit Nested Stack", description="Edit selected layer's stack", form=Empty, run=nested)
+        self.clearing = Operator(key="layer_stack_clear", title="Clear Layers", description="Remove every layer", form=Empty, run=clear)
+        self.copying = (
             Operator(
                 key="layer_copy",
                 title="Copy Layer",
@@ -495,6 +492,26 @@ class LayerStacking[E: Effect]:
                 run=lambda call: copied(call.context, call.record.stack, Some(call.record.layer)),
                 invoke=Some(Properties()),
             ),
+            Operator(
+                key="layer_copy_all",
+                title="Copy All Layers",
+                description="Copy layers of another stack with source settings",
+                form=Switched,
+                run=lambda call: copied(call.context, call.record.stack, Nothing),
+                invoke=Some(InvokePopup.SEARCH),
+            ),
+        )
+        self.dragging = Operator[Empty, Dragged[E]](
+            key="layer_drag",
+            title="Drag Layer",
+            description="Drag selected layer by list rows",
+            form=Empty,
+            run=lambda _: Ok(Done()),
+            invoke=Some(
+                Modal[Dragged[E]](gesture=Gesture.DRAG_Y, begin=dragged, preview=moved, restore=lambda context, state: self.written_selection(context, state.entry, state.record, state.index))
+            ),
+        )
+        self.sourcing: tuple[Command, ...] = (
             Operator(key="layer_add_adjustment", title=Adjustment.title, description="Add layer processing composite beneath", form=Adjustment, run=added),
             Operator(key="layer_add_render_pass", title=RenderPass.title, description="Add view layer output", form=RenderPass, run=added, invoke=Some(Properties())),
             Operator(key="layer_add_recombined", title=Recombined.title, description="Add beauty from view layer light", form=Recombined, run=added, invoke=Some(Properties())),
@@ -516,24 +533,39 @@ class LayerStacking[E: Effect]:
                 run=media,
                 invoke=Some(Open(extensions=lambda _: (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie)))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             ),
+        )
+        self.effects = tuple(
+            (row, Operator(key=f"layer_effect_add_{row.kind}", title=row.record.title, description=f"Add {row.record.title} to layer", form=Empty, run=functools.partial(effect, row)))
+            for row in self.stack.effects
+            if row.record.stage < Stage.FORMATION
+        )
+        self.adding = Menu(key="layer_add", title="Add Layer", description="Add layer source to stack", body=Dropdown(entries=tuple(OperatorButton(target=command) for command in self.sourcing)))
+        self.effecting = Menu(
+            key="layer_effect_add",
+            title="Add Effect",
+            description="Add effect to selected layer by imaging phase",
+            body=Submenus(entries=tuple((row.record.stage.phase, OperatorButton(target=command)) for row, command in sorted(self.effects, key=lambda pair: pair[0].record.stage))),
+        )
+        self.specials = Menu(
+            key="layer_stack_specials",
+            title="Layer Stack Specials",
+            description="Stack and layer commands beside the layer list",
+            body=Dropdown(entries=tuple(OperatorButton(target=command) for command in (self.duplicating, self.switching, self.nesting, *self.copying, self.dragging, self.clearing, self.removing))),
+        )
+        self.commands = (
+            self.creating,
+            self.duplicating,
+            self.removing,
+            self.switching,
+            self.nesting,
+            self.clearing,
+            *self.copying,
+            *self.sourcing,
             self.output,
             self.masking,
-            Operator[Empty, Dragged[E]](
-                key="layer_drag",
-                title="Drag Layer",
-                description="Drag selected layer by list rows",
-                form=Empty,
-                run=lambda _: Ok(Done()),
-                invoke=Some(
-                    Modal[Dragged[E]](gesture=Gesture.DRAG_Y, begin=dragged, preview=moved, restore=lambda context, state: self.written_selection(context, state.entry, state.record, state.index))
-                ),
-            ),
+            self.dragging,
             *self.editing.values(),
-            *(
-                Operator(key=f"layer_effect_add_{row.kind}", title=row.record.title, description=f"Add {row.record.title} to layer", form=Empty, run=functools.partial(effect, row))
-                for row in self.stack.effects
-                if row.record.stage < Stage.FORMATION
-            ),
+            *(command for _, command in self.effects),
         )
 
         def current(context: bpy.types.Context) -> BlenderResult[LayerStack[Source, E]]:
@@ -598,6 +630,17 @@ class LayerStacking[E: Effect]:
             columns=tuple(Property(target=Member(root=type(layer), path=name), text=Some("")) for name in ("visible", "solo", "matte.enabled")),
             enabled=Some(lambda context, item: self.selected(context).map(lambda selected: any(held.key == item.key for held, _ in selected[1].composited()))),
             sort_reverse=True,
+            side=(
+                Pulldown(menu=self.adding.key, text=Some(""), icon=Some("ADD")),
+                self.edit(Edit.REMOVE, lambda view: LayerAt(layer=view.active)),
+                Divider(type="SPACE"),
+                Pulldown(menu=self.specials.key, text=Some(""), icon=Some("DOWNARROW_HLT")),
+                Divider(type="SPACE"),
+                self.edit(Edit.DUPLICATE, lambda view: LayerAt(layer=view.active)),
+                self.edit(Edit.UP, lambda view: LayerAt(layer=view.active)),
+                self.edit(Edit.DOWN, lambda view: LayerAt(layer=view.active)),
+            ),
+            absent=(OperatorButton(target=self.creating),),
         )
 
     # --- [GRAPH]
@@ -764,26 +807,23 @@ class LayerStacking[E: Effect]:
             )
 
         def read(record: LayerStack[Source, E]) -> BlenderResult[LayerStack[Source, E]]:
-            records = tuple(
-                item
-                for held in record.layers
-                for item in (
-                    *(
-                        ((held.key, name), type(value), Some(value), Domain.SCENE_LINEAR)
-                        for name, value in (("source", held.source), ("affine", held.affine), ("blend", held.blend), ("matte", held.matte.value))
-                    ),
-                    *(
-                        item
-                        for index, effect in enumerate(held.effects.value, 1)
-                        for item in (
-                            ((held.key, "effects", index), type(effect.value.effect), Some(effect.value.effect), effect.value.effect.stage.domain),
-                            ((held.key, "effects", index, Shell.blend), Blend, Some(effect.value.blend), effect.value.effect.stage.domain),
-                        )
-                    ),
+            sourced = tuple(((held.key, name), type(value), Some(value), Domain.SCENE_LINEAR, ()) for held in record.layers for name, value in held.parts)
+
+            def effected(
+                held: Layer[Source, E], index: int, effect: Gated[Entry[E]]
+            ) -> BlenderResult[tuple[tuple[KeyPath, type[msgspec.Struct], Option[msgspec.Struct], Domain, tuple[CurveEditor, ...]], ...]]:
+                domain = effect.value.effect.stage.domain
+                return self.stack.offering(type(effect.value.effect)).map(
+                    lambda row: (
+                        ((held.key, "effects", index), type(effect.value.effect), Some(effect.value.effect), domain, row.editors),
+                        ((held.key, "effects", index, Shell.blend), Blend, Some(effect.value.blend), domain, ()),
+                    )
                 )
-            )
-            return graph_values(self.identity, entry, records).bind(
-                lambda graphs: accumulated(layer(held, graphs) for held in record.layers).map(lambda layers: structs.replace(record, layers=layers))
+
+            return (
+                accumulated(effected(held, index, effect) for held in record.layers for index, effect in enumerate(held.effects.value, 1))
+                .bind(lambda effects: graph_values(self.identity, entry, (*sourced, *itertools.chain.from_iterable(effects))))
+                .bind(lambda graphs: accumulated(layer(held, graphs) for held in record.layers).map(lambda layers: structs.replace(record, layers=layers)))
             )
 
         tree: BlenderResult[bpy.types.NodeTree] = stacked_by(self.identity, entry).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=LayerStacks.ownership.key),))
@@ -796,9 +836,8 @@ class LayerStacking[E: Effect]:
             return entry_input(self.identity, entry, item_key(*at)).bind(lambda owner: written(owner, "value", enabled)).map(lambda _: None)
 
         def layer(held: Layer[Source, E]) -> BlenderResult[None]:
-            fields = (("source", held.source), ("affine", held.affine), ("blend", held.blend), ("matte", held.matte.value))
             return accumulated((
-                *(entered(self.identity, entry, (held.key, name), value) for name, value in fields),
+                *(entered(self.identity, entry, (held.key, name), value) for name, value in held.parts),
                 toggle((held.key, "effects"), enabled=held.effects.enabled),
                 *(
                     answer
@@ -1000,76 +1039,105 @@ class LayerStacking[E: Effect]:
 
     # --- [EDITOR]
 
+    def edit(self, action: Edit, target: Callable[[StackView], LayerAt | EffectAt | LayerMaskAt | EffectMaskAt]) -> RowDraw:
+        """Returns icon button of one edit over a target of the screen selection."""
+
+        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+            for _, _, view, _ in self.selected(context).to_option().to_list():
+                alerted(layout, pressed(layout, self.identity, self.editing[action], Addressed(target=target(view)), text="", icon=action.value))
+
+        return shown
+
     def drawn(self) -> BlenderResult[RowDraw]:
-        """Returns draw of layer list, source settings, inputs, and graph widgets."""
-        commands = {command.key: command for command in self.commands}
+        """Returns draw of layer list, then selected layer source, inputs, and widgets, and one section per layer effect."""
 
-        def draw(listing: RowDraw) -> RowDraw:
-            def button(layout: bpy.types.UILayout, command: Placed, text: Option[str] = Nothing) -> None:
-                def pressed(idname: str) -> BlenderResult[bpy.types.OperatorProperties]:
-                    return text.map(lambda label: operated(layout.operator(idname, text=label), idname)).default_with(lambda: operated(layout.operator(idname), idname))
+        def edits(layout: bpy.types.UILayout, target: LayerAt | EffectAt | LayerMaskAt | EffectMaskAt) -> None:
+            line = layout.row(align=True)
+            for action in Edit:
+                alerted(line, pressed(line, self.identity, self.editing[action], Addressed(target=target), text="", icon=action.value))
 
-                alerted(layout, command.invocation(self.identity).bind(lambda placement: pressed(placement[0]).bind(placement[1])))
+        def draw(parts: tuple[tuple[RowDraw, RowDraw], tuple[dict[type[bpy.types.Node], RowDraw], RowDraw]]) -> RowDraw:
+            (listing, adding), (curves, ramp) = parts
 
-            def edits(layout: bpy.types.UILayout, target: LayerAt | EffectAt | LayerMaskAt | EffectMaskAt) -> None:
-                line = layout.row(align=True)
-                for action in Edit:
-                    button(line, Own(command=self.editing[action], values=Addressed(target=target)))
+            def editable(prefix: KeyPath, value: msgspec.Struct, editors: tuple[CurveEditor, ...] = ()) -> frozenset[Key]:
+                shared = frozenset(field for editor in editors for field in editor.fields)
+                return frozenset((
+                    *(item_key(*path) for path in graphed(type(value), value=Some(value), prefix=prefix) if path[-1] not in shared),
+                    *(item_key(*prefix, editor.key) for editor in editors),
+                ))
+
+            def widgets(
+                layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, prefix: Key, inner: tuple[Key, ...], editors: frozenset[Key], context: bpy.types.Context
+            ) -> None:
+                def held(key: Key) -> bool:
+                    return key.startswith(f"{prefix}_") and not any(key.startswith(f"{nested}_") for nested in inner)
+
+                for key, current in owned(tree, self.identity).items():
+                    match current:
+                        case bpy.types.ShaderNodeValToRGB() if key in editors:
+                            ramp(layout, current, context)
+                        case bpy.types.Node() if type(current) in curves and key in editors:
+                            curves[type(current)](layout, current, context)
+                for key in (key for keys in slot(self.identity).map(lambda name: addresses(tree, name)).to_option().to_list() for key in keys if held(key)):
+                    alerted(layout, entry_input(self.identity, entry, key).map(lambda owner: layout.prop(owner, "value")))
+
+            def effected(
+                layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, at: EffectAt, place: KeyPath, effect: Gated[Entry[E]], context: bpy.types.Context
+            ) -> None:
+                header, body = layout.panel(f"{item_key(*place)}_{tree.session_uid}", default_closed=False)
+                header.label(text=type(effect.value.effect).title)
+                edits(header, at)
+                for inner in Option.of_optional(body).to_list():
+                    alerted(
+                        inner,
+                        self.stack.offering(type(effect.value.effect)).map(
+                            lambda row: widgets(
+                                inner, entry, tree, item_key(*place), (), editable(place, effect.value.effect, row.editors) | editable((*place, Shell.blend), effect.value.blend), context
+                            )
+                        ),
+                    )
+                    alerted(inner, pressed(inner, self.identity, self.masking, Addressed(target=at), text=self.masking.title, icon="MOD_MASK"))
+                    for mask in range(len(effect.value.blend.masks)):
+                        edits(inner, EffectMaskAt(layer=at.layer, entry=at.entry, mask=mask))
+
+            def detail(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, layer: Layer[Source, E], at: LayerAt, context: bpy.types.Context) -> None:
+                native = self.attached.struct(tree).layers[at.layer]  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                places = tuple((layer.key, "effects", index) for index in range(1, len(layer.effects.value) + 1))
+                source_values = getattr(native.source, type(layer.source).__name__)
+                for field in structs.fields(type(layer.source)):
+                    if isinstance(getattr(layer.source, field.name), str):
+                        layout.prop(source_values, field.name)
+                for source in Option.of_optional(owned(tree, self.identity).get(f"{layer.key}_source")).to_list():
+                    source.draw_buttons_ext(context, layout)
+                    layout.template_node_inputs(source)
+                    outputs = layout.row(align=True)
+                    for output in (output for output in source.outputs if output.enabled):
+                        alerted(outputs, pressed(outputs, self.identity, self.output, OutputChoice(layer=at.layer, output=output.name), text=output.name, icon="NONE"))
+                widgets(layout, entry, tree, layer.key, tuple(itertools.starmap(item_key, places)), frozenset().union(*(editable((layer.key, name), value) for name, value in layer.parts)), context)
+                masks = layout.row(align=True)
+                alerted(masks, pressed(masks, self.identity, self.masking, Addressed(target=at), text=self.masking.title, icon="MOD_MASK"))
+                alerted(masks, pressed(masks, self.identity, self.editing[Edit.RESET], Addressed(target=at), text="", icon=Edit.RESET.value))
+                for index in range(len(layer.blend.masks)):
+                    edits(layout, LayerMaskAt(layer=at.layer, mask=index))
+                for index, effect in enumerate(layer.effects.value):
+                    effected(layout, entry, tree, EffectAt(layer=at.layer, entry=index), places[index], effect, context)
 
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                line = layout.row(align=True)
-                for key in ("layer_stack_new", "layer_stack_duplicate", "layer_stack_remove", "layer_stack_switch"):
-                    button(line, commands[key])
                 listing(layout, holder, context)
-                for key in ("layer_stack_clear", "layer_copy", "layer_copy_all", "layer_drag", "layer_stack_nested"):
-                    button(layout, commands[key])
-                for key in ("layer_add_adjustment", "layer_add_render_pass", "layer_add_recombined", "layer_add_node", "layer_add_nested", "layer_add_media"):
-                    button(layout, commands[key])
-                selected = self.selected(context)
-                alerted(layout, selected)
-                for entry, record, view, tree in selected.to_option().to_list():
-                    if view.active >= len(record.layers):
-                        continue
-                    layer = record.layers[view.active]
-                    native = self.attached.struct(tree).layers[view.active]  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    for name in ("name", "visible", "solo"):
-                        layout.prop(native, name)
-                    edits(layout, LayerAt(layer=view.active))
-                    layout.prop(native.matte, "enabled")
-                    source_values = getattr(native.source, type(layer.source).__name__)
-                    for field in structs.fields(type(layer.source)):
-                        if isinstance(getattr(layer.source, field.name), str):
-                            layout.prop(source_values, field.name)
-                    button(layout, Own(command=self.masking, values=Addressed(target=LayerAt(layer=view.active))))
-                    nodes = owned(tree, self.identity)
-                    for source in Option.of_optional(nodes.get(f"{layer.key}_source")).to_list():
-                        source.draw_buttons_ext(context, layout)
-                        layout.template_node_inputs(source)
-                        for output in (output for output in source.outputs if output.enabled):
-                            button(layout, Own(command=self.output, values=OutputChoice(layer=view.active, output=output.name)), Some(output.name))
-                    for key, current in nodes.items():
-                        match current:
-                            case bpy.types.ShaderNodeValToRGB() if key.startswith(f"{layer.key}_"):
-                                layout.template_color_ramp(current, "color_ramp", expand=True)
-                            case bpy.types.ShaderNodeFloatCurve() if key.startswith(f"{layer.key}_"):
-                                layout.template_curve_mapping(current, "mapping")
-                    for key in (key for keys in slot(self.identity).map(lambda name: addresses(tree, name)).to_option().to_list() for key in keys if key.startswith(f"{layer.key}_")):
-                        alerted(layout, entry_input(self.identity, entry, key).map(lambda owner: layout.prop(owner, "value")))
-                    for index, _ in enumerate(layer.blend.masks):
-                        edits(layout, LayerMaskAt(layer=view.active, mask=index))
-                    for index, effect in enumerate(layer.effects.value):
-                        layout.label(text=type(effect.value.effect).title)
-                        edits(layout, EffectAt(layer=view.active, entry=index))
-                        button(layout, Own(command=self.masking, values=Addressed(target=EffectAt(layer=view.active, entry=index))))
-                        for mask, _ in enumerate(effect.value.blend.masks):
-                            edits(layout, EffectMaskAt(layer=view.active, entry=index, mask=mask))
-                    for row in self.stack.effects:
-                        if row.record.stage < Stage.FORMATION:
-                            button(layout, commands[f"layer_effect_add_{row.kind}"])
+                for _ in rooted(bpy.types.Scene, context).bind(self.head).to_option().to_list():
+                    selected = self.selected(context)
+                    alerted(layout, selected)
+                    for entry, record, view, tree in selected.to_option().to_list():
+                        for layer in record.layers[view.active : view.active + 1]:
+                            detail(layout, entry, tree, layer, LayerAt(layer=view.active), context)
+                            adding(layout, holder, context)
 
             return shown
 
-        return self.listing.drawn(self.identity).map(draw)
+        return paired(
+            paired(self.listing.drawn(self.identity), realized(Pulldown(menu=self.effecting.key, icon=Some("ADD")), self.identity)),
+            paired(curve_editors(self.identity), realized(ColorRamp(ramp=Member(root=bpy.types.ShaderNodeValToRGB, path="color_ramp")), self.identity)),
+        ).map(draw)
 
     # --- [DOCUMENTS]
 
@@ -1510,7 +1578,7 @@ class LayerStacks[E: Effect]:
 
     def section(self, header: tuple[RowContent, ...] = ()) -> Single:
         """Returns editor section under application header rows."""
-        return Single(key=self.ownership.key, title=self.title, header=(Popover(panel=self.presets().key, text=Some(""), icon=Some("PRESET")), *header), rows=(self,))
+        return Single(key=self.ownership.key, title=self.title, header=(Popover(panel=self.presets().key, text=Some(""), icon=Some("PRESET")), *header), rows=(self,), opened=True)
 
     def presets(self) -> Single:
         """Returns section of stack, layer, and effect preset listings."""
@@ -1519,8 +1587,32 @@ class LayerStacks[E: Effect]:
         )
 
     def presets_drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns joined preset listing draws."""
-        return self.bound(identity).bind(lambda stacking: accumulated(listing.drawn(identity) for listing in stacking.listings)).map(joined)
+        """Returns preset listing draws of each held stack, layer, or effect, the New Stack button while no stack exists."""
+
+        def gated[T: msgspec.Struct](listing: Listing[T]) -> BlenderResult[RowDraw]:
+            def held(draw: RowDraw) -> RowDraw:
+                def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                    if listing.current(context).is_ok():
+                        draw(layout, holder, context)
+
+                return shown
+
+            return listing.drawn(identity).map(held)
+
+        def draw(stacking: LayerStacking[E], draws: tuple[RowDraw, ...]) -> RowDraw:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                if rooted(bpy.types.Scene, context).bind(stacking.head).is_error():
+                    alerted(layout, pressed(layout, stacking.identity, stacking.creating, Empty(), text=stacking.creating.title, icon="NONE"))
+                for each in draws:
+                    each(layout, holder, context)
+
+            return shown
+
+        def listed(stacking: LayerStacking[E]) -> BlenderResult[RowDraw]:
+            stack, layer, entry = stacking.listings
+            return accumulated((gated(stack), gated(layer), gated(entry))).map(lambda draws: draw(stacking, draws))
+
+        return self.bound(identity).bind(listed)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Returns editor draw of bound stack."""
@@ -1540,6 +1632,9 @@ class LayerStacks[E: Effect]:
                     lambda stacking: (
                         self.ownership,
                         stacking.listing,
+                        stacking.adding,
+                        stacking.effecting,
+                        stacking.specials,
                         *stacking.commands,
                         *stacking.listings,
                         PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: updated()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

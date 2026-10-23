@@ -8,7 +8,7 @@ from functools import reduce
 import inspect
 from operator import or_
 import typing
-from typing import Annotated, ClassVar, Generic, Protocol, TypeVar
+from typing import Annotated, ClassVar, Generic, Literal, Protocol, TypeVar
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -52,6 +52,9 @@ from blender.bpy.scene import cameras
 from blender.bpy.settings.attachments import Stored
 from blender.bpy.settings.properties import RecordGroup, Unit
 from blender.bpy.settings.shapes import unwrapped, vector
+from blender.bpy.ui.layout.rows import Member, OperatorButton, realized, RowDraw
+from blender.bpy.ui.layout.templates import Curve
+from blender.bpy.ui.surfaces.menus import Menu, Submenus
 from blender.imaging.chain import Domain, Effect, Stage
 from blender.imaging.color.processors import bracketed, DisplayView, Spaced
 from blender.imaging.compositing.blending import Blend, Entry
@@ -138,6 +141,11 @@ class Placeable(Registrable, Protocol[_E_co]):
     @property
     def kind(self) -> Key:
         """Record-derived ownership key."""
+        ...
+
+    @property
+    def editors(self) -> tuple["CurveEditor", ...]:
+        """Native curve nodes holding several knot fields of the record."""
         ...
 
     @property
@@ -325,6 +333,14 @@ class Shell[R: Effect](msgspec.Struct, frozen=True, kw_only=True):
         return Option.of_optional(next((value for value in self.cases[parts] if isinstance(value, kind)), None))
 
 
+class CurveEditor(msgspec.Struct, frozen=True, kw_only=True):
+    """Native curve node holding knot fields of a record as its curves in field order, drawn as one editor with channel tabs."""
+
+    key: Key
+    node: type[bpy.types.Node]
+    fields: tuple[str, ...]
+
+
 class Pinned(msgspec.Struct, frozen=True, kw_only=True):
     """Unranked owned group with stack end, enables, and conditions."""
 
@@ -381,6 +397,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
     native_validated: Option[Callable[[Identity, bpy.types.Scene, Option[bpy.types.SceneCompositorEffect], R, Context], BlenderResult[None]]] = Nothing
     preparation: Option[Preparing[R]] = Nothing
     opened: Option[Opened[R]] = Nothing
+    editors: tuple[CurveEditor, ...] = ()
 
     # --- [ROW_VALUES]
 
@@ -447,9 +464,9 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
             return paired(accepted, Ok(Blend()) if self.record is DisplayView else inputs(identity, entry, (Shell.blend,), Blend, graphs)).map(lambda pair: Entry(effect=pair[0], blend=pair[1]))
 
         records = (
-            (((), self.record, Nothing, self.record.stage.domain),)
+            (((), self.record, Nothing, self.record.stage.domain, self.editors),)
             if self.record is DisplayView
-            else (((), self.record, Nothing, self.record.stage.domain), ((Shell.blend,), Blend, Nothing, self.record.stage.domain))
+            else (((), self.record, Nothing, self.record.stage.domain, self.editors), ((Shell.blend,), Blend, Nothing, self.record.stage.domain, ()))
         )
         return graph_values(identity, entry, records, edited=edited).bind(lambda values: decoded({**values, **graphs}))
 
@@ -851,6 +868,17 @@ class EffectStack[E: Effect = Effect]:
         """Finds row of exact effect type."""
         return Option.of_optional(next((row for row in self.rows if row.record is kind), None)).to_result_with(
             lambda: (BlenderAbsentFault(owner=repr(tuple(row.kind for row in self.rows)), key=item_key(kind)),)
+        )
+
+    def menu(self, key: Key, title: str, description: str) -> Menu:
+        """Builds add menu of every row, one submenu per imaging phase, rows in stage order."""
+        return Menu(
+            key=key,
+            title=title,
+            description=description,
+            body=Submenus(
+                entries=tuple((row.record.stage.phase, OperatorButton(target=operator)) for row, operator in sorted(zip(self.rows, self.operators.adding), key=lambda pair: pair[0].record.stage))
+            ),
         )
 
     def entries(self, identity: Identity, scene: bpy.types.Scene, selection: Stage | type[Effect]) -> tuple[bpy.types.SceneCompositorEffect, ...]:
@@ -1382,6 +1410,16 @@ class EffectStack[E: Effect = Effect]:
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def curve_editors(identity: Identity) -> BlenderResult[dict[type[bpy.types.Node], RowDraw]]:
+    """Realizes the native curve editor per curve node kind effect graphs own, channel tabs by kind."""
+    kinds: tuple[tuple[type[bpy.types.Node], Literal["COLOR", "HUE", "NONE"]], ...] = (
+        (bpy.types.CompositorNodeCurveRGB, "COLOR"),
+        (bpy.types.CompositorNodeHueCorrect, "HUE"),
+        (bpy.types.ShaderNodeFloatCurve, "NONE"),
+    )
+    return accumulated(realized(Curve(mapping=Member(root=kind, path="mapping"), type=label), identity).map(lambda draw: (kind, draw)) for kind, label in kinds).map(dict)
 
 
 @contextmanager
@@ -1928,33 +1966,38 @@ def active(value: msgspec.Struct, path: KeyPath) -> bool:
 
 
 def graph_values(
-    identity: Identity, entry: bpy.types.SceneCompositorEffect, records: tuple[tuple[KeyPath, type[msgspec.Struct], Option[msgspec.Struct], Domain], ...], *, edited: bool = True
+    identity: Identity,
+    entry: bpy.types.SceneCompositorEffect,
+    records: tuple[tuple[KeyPath, type[msgspec.Struct], Option[msgspec.Struct], Domain, tuple[CurveEditor, ...]], ...],
+    *,
+    edited: bool = True,
 ) -> BlenderResult[dict[Key, object]]:
-    """Overlays ramp and curve edits on stored or given graph values."""
+    """Overlays ramp and curve edits on stored or given graph values, knots read from the curve of a shared editor or the field node."""
 
     def values(group: bpy.types.NodeTree, held: dict[Key, object]) -> BlenderResult[dict[Key, object]]:
         marked = owned(group, identity)
         supplied = {
             item_key(*prefix, *path): msgspec.to_builtins(reached(record, path))
-            for prefix, kind, value, _ in records
+            for prefix, kind, value, _, _ in records
             for record in value.to_list()
             for path in graphed(kind, value=value)
             if active(record, path)
         }
         answer = held | supplied
         fields = tuple(
-            (path, shape, domain)
-            for prefix, kind, value, domain in records
+            (path, shape, domain, Option.of_optional(next(((item_key(*prefix, editor.key), editor.fields.index(path[-1])) for editor in editors if path[-1] in editor.fields), None)))
+            for prefix, kind, value, domain, editors in records
             for path, (_, shape) in graphed(kind, value=value, prefix=prefix, counts={key: len(value) for key, value in answer.items() if isinstance(value, tuple | list)}).items()
         )
 
         def overlaid(restored: dict[Key, tuple[str, Ramp]]) -> dict[Key, object]:
             answer.update({key: msgspec.to_builtins(value) for key, (_, value) in restored.items()})
-            for path, shape, _domain in fields:
+            for path, shape, _domain, shared in fields:
                 key = item_key(*path)
                 if not edited or (key in restored and restored[key][0] != bpy.data.colorspace.working_space):
                     continue
-                match shape, marked.get(key):
+                node, curve = shared.map(lambda held: (marked.get(held[0]), held[1])).default_with(lambda: (marked.get(key), 0))
+                match shape, node:
                     case native.StructType(cls=record), bpy.types.ShaderNodeValToRGB() as node if record is Ramp:
                         ramp = node.color_ramp
                         value = Ramp(
@@ -1964,8 +2007,11 @@ def graph_values(
                             hue_path=HuePath[ramp.hue_interpolation],  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                         )
                         answer[key] = msgspec.to_builtins(value)
-                    case native.VarTupleType(item_type=native.StructType(cls=record)), bpy.types.ShaderNodeFloatCurve() as node if (typing.get_origin(record) or record) is Knot:
-                        answer[key] = tuple((point.location.x, point.location.y) for point in node.mapping.curves[0].points)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                    case (
+                        native.VarTupleType(item_type=native.StructType(cls=record)),
+                        bpy.types.ShaderNodeFloatCurve() | bpy.types.CompositorNodeCurveRGB() | bpy.types.CompositorNodeHueCorrect() as held,
+                    ) if (typing.get_origin(record) or record) is Knot:
+                        answer[key] = tuple((point.location.x, point.location.y) for point in held.mapping.curves[curve].points)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             return answer
 
         return (
@@ -1973,7 +2019,7 @@ def graph_values(
                 catch(lambda: msgspec.convert(held[key], tuple[str, Ramp]), exception=msgspec.ValidationError)()
                 .map_error(lambda error: (BlenderReadFault(request=key, error=error),))
                 .map(lambda value: (key, value))
-                for path, shape, domain in fields
+                for path, shape, domain, _ in fields
                 for key in (item_key(*path),)
                 if isinstance(shape, native.StructType) and shape.cls is Ramp and domain is Domain.DISPLAY and key in held and key not in supplied
             )
@@ -1983,7 +2029,7 @@ def graph_values(
 
     return Result[bpy.types.NodeTree, BlenderFaults].bind(
         Option.of_optional(entry.node_group).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key="node_group"),)),
-        lambda group: (stored(identity, group, "values", dict[Key, object]).map(lambda pair: pair[1]) if any(value.is_none() for _, _, value, _ in records) else Ok({})).bind(
+        lambda group: (stored(identity, group, "values", dict[Key, object]).map(lambda pair: pair[1]) if any(value.is_none() for _, _, value, _, _ in records) else Ok({})).bind(
             lambda held: values(group, held)
         ),
     )
@@ -2193,6 +2239,7 @@ __all__ = [
     "Configured",
     "Context",
     "Coverage",
+    "CurveEditor",
     "Derived",
     "Edge",
     "EffectName",
@@ -2217,6 +2264,7 @@ __all__ = [
     "capturing",
     "case_values",
     "composites",
+    "curve_editors",
     "entered",
     "entries",
     "entry_input",

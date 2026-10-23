@@ -98,11 +98,13 @@
         <_PlugInPackageIcon Condition="Exists('$(_PlugInIconSource)')">icon.png</_PlugInPackageIcon>
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
         <_PlugInIcon>PlugIn.ico</_PlugInIcon>
+        <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
+        <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.references</_PlugInRuiReferences>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In Files" Condition="'$(TargetExt)' == '.rhp'">
         <PackageReference Include="MinVer" PrivateAssets="all" />
-        <None Update="$(TargetName).rui" CopyToPublishDirectory="PreserveNewest" />
+        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" />
         <_PlugInDescription Include="Organization" Value="$(Authors)" />
         <_PlugInDescription Include="WebSite" Value="$(PackageProjectUrl)" />
         <_GrasshopperPackage Include="@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))" />
@@ -136,6 +138,20 @@
         <Exec Command="magick &quot;$(_PlugInPackageIcon)&quot; -define icon:auto-resize &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" Condition="'@(_GrasshopperPackage)' == ''" />
         <ItemGroup>
             <FileWrites Include="@(_PlugInAsset)" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp'" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(_RuiWriter)" Outputs="$(_PlugInRui)">
+        <WriteLinesToFile File="$(_PlugInRuiReferences)" Lines="@(ReferenceCopyLocalPaths->WithMetadataValue('Extension', '.dll')->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(_RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" />
+        <ItemGroup>
+            <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences)" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="ListPlugInRui" BeforeTargets="GetCopyToOutputDirectoryItems;GetCopyToPublishDirectoryItems" Condition="'$(TargetExt)' == '.rhp' and Exists('$(_PlugInRui)')">
+        <ItemGroup>
+            <ContentWithTargetPath Include="$(_PlugInRui)" TargetPath="$(TargetName).rui" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
         </ItemGroup>
     </Target>
 

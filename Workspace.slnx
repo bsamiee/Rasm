@@ -4,6 +4,7 @@
         <Project Path="apps/rhino/Darkroom/Darkroom.csproj" />
     </Folder>
     <Folder Name="/eng/dotnet/">
+        <Project Path="eng/dotnet/Rasm.Rui/Rasm.Rui.csproj" />
         <Project Path="eng/dotnet/Rasm.Upgrade/Rasm.Upgrade.csproj" />
     </Folder>
     <Folder Name="/libs/dotnet/bim/">
@@ -16,6 +17,10 @@
     <Folder Name="/libs/dotnet/rhino/">
         <Project Path="libs/dotnet/rhino/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
         <Project Path="libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+    </Folder>
+    <Folder Name="/libs/dotnet/ui/">
+        <Project Path="libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
+        <Project Path="libs/dotnet/ui/Rasm.UI.Imaging/Rasm.UI.Imaging.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />

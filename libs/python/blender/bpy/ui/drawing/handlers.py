@@ -105,21 +105,9 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
         later: Callable[[], None]
 
         def deferring(*_: object) -> BlenderResult[None]:
-            """Schedules main-thread refresh."""
+            """Schedules main-thread refresh from a handler."""
             later()
             return Ok(None)
-
-        def followed(refresh: Refresh) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-            """Builds acquisitions of one refresh source."""
-            match refresh:
-                case Watch(owner=owner, identifier=identifier):
-                    return Descriptor.resolve(owner, identifier, bpy.types.Property).bind(lambda found: Subscription(owner=owner, setting=found.prop, body=refreshed).acquisitions(identity))
-                case Updated(handlers=handlers, ids=ids, changes=changes):
-                    return UpdateHandler(handlers=handlers, ids=ids, body=deferring, changes=changes).acquisitions(identity)
-                case Signal() as signal:
-                    return Ok(((Band.DRAW_HANDLERS, signal.followed(refreshed)),))
-                case list():
-                    return SceneHandler(handlers=refresh, body=deferring).acquisitions(identity)
 
         def drew(pointer: Option[tuple[int, int]]) -> None:
             """Rereads on invalidation or scale change, then draws."""
@@ -148,7 +136,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
 
         followers = (
             PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: refreshed()).acquisitions(identity),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            *(followed(refresh) for refresh in self.refreshes),
+            *(followed(identity, refresh, refreshed, deferring) for refresh in self.refreshes),
         )
         return accumulated(followers).map(lambda rows: (((Band.RESOURCES, Programs()), (Band.DRAW_HANDLERS, cleared()), *chain.from_iterable(rows)), drew))
 
@@ -223,7 +211,25 @@ class Signal(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return accumulated(refresh() for refresh in self.refreshes).map(lambda _: None)
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def followed(
+    identity: Identity, refresh: Refresh, refreshed: Callable[[], BlenderResult[None]], deferring: Callable[[*tuple[object, ...]], BlenderResult[None]]
+) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    """Builds acquisitions of one refresh source, refreshing on main thread and scheduling a later refresh from handlers through `deferring`."""
+    match refresh:
+        case Watch(owner=owner, identifier=identifier):
+            return Descriptor.resolve(owner, identifier, bpy.types.Property).bind(lambda found: Subscription(owner=owner, setting=found.prop, body=refreshed).acquisitions(identity))
+        case Updated(handlers=handlers, ids=ids, changes=changes):
+            return UpdateHandler(handlers=handlers, ids=ids, body=deferring, changes=changes).acquisitions(identity)
+        case Signal() as signal:
+            return Ok(((Band.DRAW_HANDLERS, signal.followed(refreshed)),))
+        case list():
+            return SceneHandler(handlers=refresh, body=deferring).acquisitions(identity)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["DrawState", "Drawing", "Drew", "Overlay", "Part", "Refresh", "Signal", "Updated", "Watch"]
+__all__ = ["DrawState", "Drawing", "Drew", "Overlay", "Part", "Refresh", "Signal", "Updated", "Watch", "followed"]

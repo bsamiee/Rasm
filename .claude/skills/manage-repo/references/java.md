@@ -13,7 +13,7 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint and
 - `-Xlint:-path` drops warnings for `Class-Path` entries Ghidra's JAR manifests name and its release omits
 - `pmd check` runs on the mise `java` row's JDK and takes files or directories
 - Ruleset references each category whole and excludes rules by name, a threshold rule keeps its default or goes
-- Host API checks that need resolved types are XPath rules in `pmd.xml` under `[GHIDRA]`, `pmd-java:matchesSig` names the method
+- Host API checks that need resolved types are XPath rules in `.config/pmd.xml` under `[GHIDRA]`, `pmd-java:matchesSig` names the method
 - PMD tags a `-SNAPSHOT` development build after each release
 
 ## [03]-[CLONES]

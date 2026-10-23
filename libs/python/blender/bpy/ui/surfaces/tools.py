@@ -19,6 +19,7 @@ from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFaults, BlenderResult
 from blender.bpy.ui.drawing.handlers import Drawing, Drew
+from blender.bpy.ui.layout.rows import acquired, placed, RowContent, RowDraw
 from blender.bpy.ui.resources.icons import Icons
 from blender.bpy.ui.surfaces.gizmos import Linked
 from blender.imaging.faults import accumulated, paired
@@ -98,7 +99,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     options: frozenset[Literal["KEYMAP_FALLBACK", "USE_BRUSHES"]] = frozenset()
     widget_properties: list[tuple[str, object]] = msgspec.field(default_factory=list)
     data_block: Option[str] = Nothing
-    settings: Option[Callable[[bpy.types.Context, bpy.types.UILayout, bpy.types.WorkSpaceTool], None]] = Nothing
+    settings: tuple[RowContent, ...] = ()
 
     def drafted(self, identity: Identity, toolbar: Toolbar) -> BlenderResult[Draft]:
         """Builds tool class once names, bindings, gizmo, and cursor drawing resolve."""
@@ -113,15 +114,23 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
         pointed = self.pointer.map(lambda drawing: drawing.acquired(identity).map(Some)).default_value(Ok(Nothing))
         bound = accumulated(placed.invocation(identity).map(lambda invocation: (chord, invocation)) for chord, placed in self.bindings.items())
 
-        def built(parts: tuple[tuple[str, str], tuple[tuple[Option[str], Option[tuple[tuple[tuple[Band, Acquisition], ...], Drew]]], tuple[tuple[Chord, tuple[str, Writer]], ...]]]) -> Draft:
+        def built(
+            parts: tuple[
+                tuple[tuple[str, str], tuple[RowDraw, ...]], tuple[tuple[Option[str], Option[tuple[tuple[tuple[Band, Acquisition], ...], Drew]]], tuple[tuple[Chord, tuple[str, Writer]], ...]]
+            ],
+        ) -> Draft:
             """Returns tool draft."""
-            (name, operator), ((gizmo, pointer), items) = parts
+            ((name, operator), settings), ((gizmo, pointer), items) = parts
 
-            def shown(_context: bpy.types.Context, layout: bpy.types.UILayout, tool: bpy.types.WorkSpaceTool) -> None:
-                """Draws visible tool operator properties."""
-                properties = tool.operator_properties(operator)
+            def every(layout: bpy.types.UILayout, properties: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
+                """Draws every visible tool operator property."""
                 for prop in (held for held in properties.bl_rna.properties if not held.is_hidden):
                     layout.prop(properties, prop.identifier)
+
+            def shown(context: bpy.types.Context, layout: bpy.types.UILayout, tool: bpy.types.WorkSpaceTool) -> None:
+                """Draws settings rows over tool operator properties, every visible property while none is declared."""
+                for draw in settings or (every,):
+                    draw(layout, tool.operator_properties(operator), context)
 
             return Draft(
                 tool=type(
@@ -141,15 +150,15 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
                         "bl_data_block": self.data_block.to_optional(),
                         "bl_keymap": () if items else None,
                         "bl_operator": operator,
-                        "draw_settings": self.settings.default_value(shown),
+                        "draw_settings": shown,
                         "draw_cursor": pointer.map(lambda acquired: lambda _context, _tool, xy: acquired[1](Some(xy))).to_optional(),
                     },
                 ),
                 items=items,
-                rows=(*self.gizmo.to_list(), *(row for rows, _ in pointer.to_list() for row in rows)),
+                rows=(*self.gizmo.to_list(), *(row for rows, _ in pointer.to_list() for row in rows), *acquired(self.settings)),
             )
 
-        return paired(paired(identity.name(Name.OPERATOR, self.key), named), paired(paired(widget, pointed), bound)).map(built)
+        return paired(paired(paired(identity.name(Name.OPERATOR, self.key), named), placed(self.settings, identity)), paired(paired(widget, pointed), bound)).map(built)
 
 
 class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):

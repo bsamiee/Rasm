@@ -4,6 +4,8 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
@@ -62,6 +64,18 @@ public sealed class FramePicker(Option<RowSource<ScopeState>> scope) {
         from swapped in PreviewRows.Swapped(views, held => held.TrySetItem(serial, static shown => shown with { Pending = None }))
         from ran in swapped.Before.Find(serial).Bind(static shown => shown.Pending).Map(run => run(pixel)).IfNone(IO.pure(unit))
         select ran;
+
+    internal IO<Unit> Availability(uint serial, Action<bool> show, IPlugInSink sink, Action<IDisposable> retain) =>
+        from heard in Subscriptions.Host<AtomChangedEvent<(HashMap<uint, Shown> Before, HashMap<uint, Shown> After)>, (HashMap<uint, Shown> Before, HashMap<uint, Shown> After)>(
+                typeof(FramePicker), handler => views.Change += handler, handler => views.Change -= handler, static handler => held => handler(sender: null, held), nameof(views.Change))
+            .Inline(held => IO.lift(() => show(held.After.ContainsKey(serial))), sink, retain)
+        from current in IO.lift(() => show(views.Value.After.ContainsKey(serial)))
+        select unit;
+
+    // --- [PUBLICATION]
+    public static PlugInSlot<FramePicker> Current { get; } = new();
+
+    public Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Published => (owner, _) => Current.Publish(owner, this);
 
     private sealed record Shown(FrameView View, Option<Func<(double X, double Y), IO<Unit>>> Pending);
 }
@@ -370,7 +384,9 @@ public static partial class PreviewRows {
     public static IO<Button> Pick(StageInput stage, string caption, Func<System.Numerics.Vector4, IO<Unit>> picked, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from command in IO.lift(static () => new Command())
-        from faced in IO.lift(() => { (command.ToolTip, command.Enabled) = (RowText.Localize(caption).Local, stage.Pick.IsSome); })
+        from faced in IO.lift(() => { command.ToolTip = RowText.Localize(caption).Local; })
+        from shown in (from picker in stage.Pick from document in scope.Document select picker.Availability(document.RuntimeSerialNumber, available => command.Enabled = available, scope.Sink, owned))
+            .IfNone(IO.lift(() => { command.Enabled = false; }))
         let site = new CallbackSite(scope.Sink, typeof(Command), nameof(Command.Executed))
         from executed in stage.Pick.Traverse(picker => Subscriptions.Attach(
             h => command.Executed += h, h => command.Executed -= h,

@@ -41,7 +41,7 @@ public abstract partial record EffectEntry {
     private EffectEntry(Guid id) => Id = id;
 
     public Guid Id { get; }
-    public bool Runs => Switch(listed: static listed => listed.On, selectable: static selectable => selectable.Selected);
+    public bool Runs => Switch(listed: static listed => listed.On && listed.Shown, selectable: static selectable => selectable.Selected);
 
     public sealed record Listed(Guid Id, bool On, bool Shown) : EffectEntry(Id);
 

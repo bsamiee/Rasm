@@ -714,6 +714,7 @@ class QueueRun:
     description: ClassVar[str] = ""
     popovers: ClassVar[tuple[Single[Empty], ...]] = ()
     condition: ClassVar[Option[Condition]] = Nothing
+    opened: ClassVar[bool] = False
     sets: RenderSet
     stack: EffectStack
     settings: Callable[[Identity], BlenderResult[Queueing]]
@@ -843,12 +844,25 @@ class QueueRun:
                 key=self.key,
                 title=self.title,
                 rows=(
-                    *(rows.OperatorButton(target=command) for command in (self.dispatching, self.managing, self.installing, self.testing)),
+                    rows.OperatorButton(target=self.dispatching),
                     rows.Progress(runs=dispatcher.runs),
                     Status(),
-                    *(rows.OperatorButton(target=command) for command in (self.resuming, self.stopping, self.logging, self.unscheduling, self.packing)),
+                    rows.Caption(
+                        rows=tuple(rows.OperatorButton(target=command, text=Some("")) for command in (self.resuming, self.stopping, self.logging, self.unscheduling, self.packing)),
+                        flow=rows.Flow.ALIGNED,
+                        separator=Nothing,
+                    ),
                 ),
             ).realized(identity)
+        )
+
+    @property
+    def setup(self) -> Single:
+        """Preferences section of Manager reads, job type install, and notice test."""
+        return Single(
+            key=f"{self.key}_setup",
+            title=self.title,
+            rows=(rows.Caption(rows=tuple(rows.OperatorButton(target=command) for command in (self.managing, self.installing, self.testing)), flow=rows.Flow.ALIGNED, separator=Nothing),),
         )
 
     def drawn(self, identity: Identity) -> BlenderResult[rows.RowDraw]:

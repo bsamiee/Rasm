@@ -39,7 +39,7 @@ public sealed class ContrastSaturation : StageEffect<ContrastSaturation, Contras
 public sealed class SceneLevels : StageEffect<SceneLevels, Levels, LevelsParameter>;
 
 [Guid("b10c1e89-0353-49ca-9e6e-5b9dc0c0c82c")]
-[CustomPostEffect(PostEffectType.Early, "Curves")]
+[CustomPostEffect(PostEffectType.Early, "RGB Curves")]
 public sealed class RgbCurves : StageEffect<RgbCurves, PointCurves, PointCurveParameter>;
 
 [Guid("2f6b8d41-93c7-4e0a-b5d2-7a1c64e9f308")]

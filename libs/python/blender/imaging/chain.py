@@ -24,6 +24,15 @@ class Domain(Enum):
     DISPLAY = auto()
 
 
+class Phase(IntEnum):
+    """Run of consecutive stages, in processing order."""
+
+    OPTICS = 0
+    GRADE = auto()
+    FORMATION = auto()
+    FINISH = auto()
+
+
 class Stage(IntEnum):
     """Processing position ranked by declaration order."""
 
@@ -69,6 +78,11 @@ class Stage(IntEnum):
         return Domain.SCENE_LINEAR if self <= Stage.FORMATION else Domain.DISPLAY
 
     @property
+    def phase(self) -> Phase:
+        """Optics before exposure, grade before tone, formation through peak, finish after."""
+        return Phase.OPTICS if self < Stage.EXPOSURE else Phase.GRADE if self < Stage.TONE else Phase.FORMATION if self <= Stage.PEAK else Phase.FINISH
+
+    @property
     def single(self) -> bool:
         """Whether stage holds at most one chain entry."""
         return self in {Stage.CDL, Stage.TONE, Stage.FORMATION, Stage.PEAK, Stage.QUANTIZATION}
@@ -99,4 +113,4 @@ class Effect(Case, metaclass=EffectMeta, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["GREY", "Domain", "Effect", "Stage"]
+__all__ = ["GREY", "Domain", "Effect", "Phase", "Stage"]

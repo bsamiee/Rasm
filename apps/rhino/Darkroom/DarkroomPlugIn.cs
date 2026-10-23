@@ -7,7 +7,10 @@ using Rasm.Rhino.Render.Queue;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
+using Rasm.Rhino.UI.Rows;
 using Rhino.PlugIns;
+
+[assembly: RuiFile<Darkroom.DarkroomPlugIn>]
 
 namespace Darkroom;
 
@@ -22,10 +25,10 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
         static sink => new PanelCommand(sink, new Guid(0xd19b5cfb, 0x5262, 0x4f60, 0x86, 0xeb, 0xdd, 0x8e, 0x34, 0x98, 0x8d, 0xed), DarkroomPanel.Row),
         static sink => new QueueJobCommand(sink, new Guid(0x4a60fdca, 0x6daf, 0x4fef, 0x8d, 0x5e, 0xfd, 0xc7, 0x71, 0x63, 0x9f, 0xee), "DarkroomRenderQueue"),
         static sink => new QueueFarmJobCommand(sink, new Guid(0x3857668a, 0x1b07, 0x4ae9, 0x97, 0x13, 0x63, 0x33, 0xb3, 0xca, 0x46, 0xee), "DarkroomRenderFarm"),
-        static sink => new FrameExportCommand(sink, new Guid(0x66a517fb, 0x68c5, 0x42c9, 0x86, 0xe4, 0x30, 0x01, 0x03, 0x63, 0xa4, 0x57), "DarkroomExportStMap",
+        static sink => new FrameExportCommand(sink, new Guid(0x66a517fb, 0x68c5, 0x42c9, 0x86, 0xe4, 0x30, 0x01, 0x03, 0x63, 0xa4, 0x57), ExportStMap,
             static (settings, extent) => EffectRegistry.State<RadialDistortion, LensDistortion>(settings)
                 .Map(state => state.Placed.Bake(extent))),
-        static sink => new LutExportCommand(sink, new Guid(0x09625191, 0xac85, 0x44eb, 0xa7, 0x67, 0x23, 0x07, 0x6c, 0x4c, 0x64, 0xcf), "DarkroomExportLut"),
+        static sink => new LutExportCommand(sink, new Guid(0x09625191, 0xac85, 0x44eb, 0xa7, 0x67, 0x23, 0x07, 0x6c, 0x4c, 0x64, 0xcf), ExportLut),
     ],
     Views = [DarkroomPanel.Row, DarkroomPage.Row, OutputPage.Row],
     Acquisitions = [
@@ -33,13 +36,23 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
             .Add<GuidedDenoise>(BuiltinEffect.Denoise)
             .Add<NightSky>()
             .Add<Atmosphere>()
-            .Add<LensBlur>()
             .Add<NoiseLayer>()
             .Add<Flames>()
             .Add<Particles>()
             .Add<LightningBolt>()
             .Add<SunBeams>()
             .Add<SourceFlare>()
+            .Add<SceneExposure>()
+            .Add<WhiteBalanceCorrection>()
+            .Add<LensBlur>()
+            .Add<RadialDistortion>()
+            .Add<AxialFringing>()
+            .Add<LensBloom>()
+            .Add<VeilingFlare>()
+            .Add<ApertureDiffraction>()
+            .Add<LensReflections>()
+            .Add<NaturalVignetting>()
+            .Add<FilmHalation>()
             .Add<ViewReprojection>()
             .Add<Swirl>()
             .Add<Spherize>()
@@ -52,20 +65,6 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
             .Add<ImageTransform>()
             .Add<CornerPin2D>()
             .Add<CameraShake>()
-            .Add<RadialDistortion>()
-            .Add<AxialFringing>()
-            .Add<AdaptiveSharpening>()
-            .Add<LensBloom>()
-            .Add<VeilingFlare>()
-            .Add<ApertureDiffraction>()
-            .Add<LensReflections>()
-            .Add<NaturalVignetting>()
-            .Add<FilmHalation>()
-            .Add<SceneExposure>()
-            .Add<ProjectorFlicker>()
-            .Add<EmulsionGrain>()
-            .Add<ImageNoise>()
-            .Add<WhiteBalanceCorrection>()
             .Add<ChannelMixer>()
             .Add<ColorWheels>()
             .Add<ColorDecisionList>()
@@ -78,7 +77,11 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
             .Add<GradientMapping>()
             .Add<ReferenceGamutCompression>()
             .Add<SceneLook>()
+            .Add<AdaptiveSharpening>()
+            .Add<EmulsionGrain>()
+            .Add<ImageNoise>()
             .Add<LocalExposure>()
+            .Add<ProjectorFlicker>()
             .Add<ImageFormation>()
             .Add<DisplayLook>()
             .Add<Pixelation>()
@@ -103,10 +106,20 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
             .Add<ShapeLayer>()
             .Add<AspectBars>()
             .Add<OutputDither>(BuiltinEffect.Dithering)),
+        CompareSection.Picker.Published,
         Framing.Extent.Attach,
         TargetRows.Shown.Attach,
         RenderHistory.Register(HistorySection.Row, static history => [RenderingComparison.Register(history), .. RenderSnapshots.Clients(history)]),
         PreviewTiles.Register(Some(TileLimitRows.Default), static _ => []),
         Queues.Register(QueueSettingRows.Default, DarkroomPanel.Row),
     ],
-});
+}), IRuiSource {
+    private const string ExportLut = "DarkroomExportLut";
+    private const string ExportStMap = "DarkroomExportStMap";
+
+    public static RuiFile Rui { get; } = new([], [new MenuExtension(["Render"], [
+        new MenuItemRow.Separator(),
+        new MenuItemRow.Run(new Macro(new CommandScript(ExportLut, []), new CommandFace(ExportLut, "Export LUT...", "Bake the formation and grade chain into a 3D LUT file", None, None))),
+        new MenuItemRow.Run(new Macro(new CommandScript(ExportStMap, []), new CommandFace(ExportStMap, "Export ST Map...", "Write the lens distortion of the active view as an ST map", None, None))),
+    ])]);
+}

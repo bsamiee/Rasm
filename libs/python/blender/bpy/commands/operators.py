@@ -22,7 +22,7 @@ from blender.bpy.data.rna.snapshots import Applied
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Band
 from blender.bpy.extension.reports import rendered
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.settings.attachments import preferred
 from blender.bpy.settings.properties import RecordGroup
 from blender.imaging.faults import accumulated, paired
@@ -132,6 +132,17 @@ class Open[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     extensions: Callable[[T], tuple[str, ...]]
     confirm_text: str = ""
+
+
+class Unopened(msgspec.Struct, frozen=True, kw_only=True):
+    """File browser call holding no chosen file."""
+
+    title: str
+
+    @property
+    def message(self) -> str:
+        """Report naming the operator."""
+        return f"{self.title} requires a chosen file"
 
 
 class Save[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
@@ -273,18 +284,18 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
             return result.map(concluded).default_with(lambda faults: noted(operator, rendered(faults), "CANCELLED"))
 
         def prepared(operator: bpy.types.Operator) -> BlenderResult[tuple[T, tuple[Path, ...]]]:
-            def projected(record: T) -> tuple[T, tuple[Path, ...]]:
+            def projected(record: T) -> BlenderResult[tuple[T, tuple[Path, ...]]]:
                 match self.invoke.to_optional():
                     case Open():
-                        paths = tuple(Path(operator.directory, item.name) for item in operator.files) or (Path(operator.filepath),)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        chosen = tuple(Path(operator.directory, item.name) for item in operator.files if item.name) or tuple(Path(path) for path in (operator.filepath,) if path)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        return Ok((record, chosen)) if chosen else Error((BlenderUnmetFault(requirement=Unopened(title=self.title)),))
                     case Save(destinations=destinations):
                         path = Path(operator.filepath)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                        paths = destinations.map(lambda project: project(path, record)).default_value((path,))
+                        return Ok((record, destinations.map(lambda project: project(path, record)).default_value((path,))))
                     case _:
-                        paths = ()
-                return record, paths
+                        return Ok((record, ()))
 
-            return binding.read(operator.properties).map(projected)
+            return binding.read(operator.properties).bind(projected)
 
         def performed(operator: bpy.types.Operator, context: bpy.types.Context, record: T, paths: tuple[Path, ...]) -> BlenderResult[Outcome]:
             result = self.run(Call(identity=identity, context=context, record=record, paths=paths))
@@ -633,6 +644,7 @@ __all__ = [
     "Stock",
     "Suppressible",
     "Unchanged",
+    "Unopened",
     "Writer",
     "answered",
     "tallied",

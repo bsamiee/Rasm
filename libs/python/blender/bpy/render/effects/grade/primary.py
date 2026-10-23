@@ -10,6 +10,7 @@ from blender.bpy.render.effects.stack import CompositorEffect, Shell
 from blender.imaging.chain import GREY
 from blender.imaging.color.processors import luma
 from blender.imaging.effects.grade.primary import Contrast, Primary, Saturation, Wheel
+from blender.imaging.parameters import Rgb
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -17,20 +18,15 @@ from blender.imaging.effects.grade.primary import Contrast, Primary, Saturation,
 
 
 def graded(shell: Shell[Primary]) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns additive offset, then gain in stops."""
-    red, green, blue, master = Wheel.__struct_fields__
-    channels = (("X", red), ("Y", green), ("Z", blue))
+    """Returns additive offset of color less white plus master, then gain of color times two to the master."""
+    color, master = Wheel.__struct_fields__
     gain, offset = Primary.__struct_fields__
     return Fragment.joined(
-        *(
-            math(key, "ADD", End(node=INPUTS, socket=key), End(node=INPUTS, socket=item_key(wheel, master)))
-            for wheel in (gain, offset)
-            for _, channel in channels
-            for key in (item_key(wheel, channel),)
-        ),
-        *(node(item_key(wheel, "vector"), bpy.types.ShaderNodeCombineXYZ, {axis: End(node=item_key(wheel, channel)) for axis, channel in channels}, {}) for wheel in (gain, offset)),
-        vector("gain", "POWER", (2.0, 2.0, 2.0), End(node=item_key(gain, "vector"), socket="Vector")),
-        vector("offset", "ADD", shell.source, End(node=item_key(offset, "vector"), socket="Vector")),
+        math(item_key(gain, master), "POWER", 2.0, End(node=INPUTS, socket=item_key(gain, master))),
+        vector("gain", "SCALE", End(node=INPUTS, socket=item_key(gain, color)), End(node=item_key(gain, master))),
+        vector(item_key(offset, color), "SUBTRACT", End(node=INPUTS, socket=item_key(offset, color)), (1.0, 1.0, 1.0)),
+        vector(item_key(offset, master), "ADD", End(node=item_key(offset, color), socket="Vector"), End(node=INPUTS, socket=item_key(offset, master))),
+        vector("offset", "ADD", shell.source, End(node=item_key(offset, master), socket="Vector")),
         vector("graded", "MULTIPLY", End(node="offset", socket="Vector"), End(node="gain", socket="Vector")),
     ).map(ended("graded", "Vector"))
 
@@ -41,7 +37,7 @@ def graded(shell: Shell[Primary]) -> BlenderResult[tuple[Fragment, End]]:
 def contrasted(shell: Shell[Contrast]) -> BlenderResult[tuple[Fragment, End]]:
     """Returns signed power contrast around grey pivot."""
     pivot, power = End(node="pivot"), End(node="pivot_power")
-    red, green, blue, _ = Wheel.__struct_fields__
+    red, green, blue = Rgb.__struct_fields__
     channels = (("X", red), ("Y", green), ("Z", blue))
     slope, pivot_field = Contrast.__struct_fields__
     return Fragment.joined(

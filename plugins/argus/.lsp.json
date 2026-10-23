@@ -36,6 +36,7 @@
         "command": "sourcekit-lsp",
         "extensionToLanguage": { ".swift": "swift" },
         "diagnostics": false,
+        "env": { "SWIFTPM_BUILD_DIR": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index" },
         "initializationOptions": { "swiftPM": { "scratchPath": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index", "forceResolvedVersions": true } }
     },
     "java": {

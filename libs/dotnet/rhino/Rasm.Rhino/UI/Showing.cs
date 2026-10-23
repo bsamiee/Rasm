@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
@@ -44,14 +43,6 @@ public sealed record PageTarget(string EnglishTitle, PageDialog Dialog) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Showing {
-    // --- [CALLBACKS]
-    private const string IsTabVisible = "Rhino.UI.Internal.NamedCallbacks.RhinoUiIsTabVisible";
-    private const string CloseDockbarTab = "Rhino.UI.Internal.NamedCallbacks.RhinoUiCloseDockbarTab";
-    private const string FactoryEntry = "factoryId";
-    private const string SelectedEntry = "isSelectedTab";
-    private const string DocumentEntry = "documentSerialNumber";
-    private const string VisibleEntry = "isVisible";
-
     // --- [WINDOWS]
     public static IO<TWindow> Show<TWindow>(RhinoDoc doc) where TWindow : DefinedWindow, new() =>
         IO.lift(() => toSeq(EtoExtensions.WindowsFromDocument<TWindow>(doc)).Head).Bind(open => open.Match(
@@ -64,15 +55,15 @@ public static class Showing {
     private static IO<Unit> Opened<TWindow>(TWindow window, RhinoDoc doc) where TWindow : DefinedWindow =>
         from owner in IO.lift(() => Conversions.Cast<IPlugInViews>(IPlugInSink.Of(window)))
         from main in Appearance.InitialMainWindowPosition()
-        from frame in DisposalOps.Acquire(IO.lift(static () => new ViewFrame()), window.Owned.Retain)
+        from frame in DisposalOps.Acquire(IO.lift(static () => new ViewHost()), window.Owned.Retain)
         from body in DisposalOps.Acquire(ViewBody.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None), frame.Owned.Retain)
         from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Window, HostTheme.In(window), frames => window.Icon = frames, window.Owned.Retain)).As()
         from configured in IO.lift(() => {
             window.Title = RowText.Localize(window.Row.Caption, owner).Local;
-            frame.Content = body.Content;
+            frame.Seat(window.Row, body.Content);
             window.Content = frame;
             window.UseRhinoStyle();
-            window.ClientSize = Size.Ceiling(frame.GetPreferredSize());
+            window.ClientSize = window.Row.Size.IfNone(() => Size.Ceiling(frame.GetPreferredSize()));
             _ = main.Iter(bounds => window.Location = Eto.Drawing.Point.Round(bounds.ToEtoScreen().Center - ((SizeF)window.Size / 2f)));
             window.LocalizeAndRestore(window.Row.Identity);
         })
@@ -125,55 +116,24 @@ public static class Showing {
             select (Value: unit, Suppress: box.Exists(static held => held.Checked is true)), DisposalOps.Release);
 
     // --- [PANELS]
-    public static IO<TabVisibility> Shown(View.Panel row, RhinoDoc doc) =>
-        from selected in TabVisible(row, doc, isSelectedTab: true)
-        from shown in selected
-            ? IO.pure(TabVisibility.Selected)
-            : TabVisible(row, doc, isSelectedTab: false).Map(static visible => visible ? TabVisibility.Visible : TabVisibility.Hidden)
-        select shown;
+    public static IO<TabVisibility> Shown(View.Panel row) =>
+        IO.lift(() => Panels.IsPanelVisible(row.Identity, isSelectedTab: true)
+            ? TabVisibility.Selected
+            : Panels.IsPanelVisible(row.Identity, isSelectedTab: false) ? TabVisibility.Visible : TabVisibility.Hidden);
 
     public static IO<Unit> Close(View.Panel row, RhinoDoc doc) =>
-        NamedCallbacks.Execute(
-            CloseDockbarTab,
-            NamedCallbacks.Handled,
-            args => args.Set(FactoryEntry, row.Identity.GUID),
-            args => args.Set(DocumentEntry, doc.RuntimeSerialNumber));
-
-    public static IO<Guid> OpenBeside(View.Panel row, Guid siblingPanelId, bool makeSelectedPanel) =>
-        from dockBar in IO.lift(() => Conversions.Required(Panels.PanelDockBar(siblingPanelId), nameof(Panels.PanelDockBar)))
-        from opened in IO.lift(() => Conversions.Required(Panels.OpenPanel(dockBar, row.Identity, makeSelectedPanel), nameof(Panels.OpenPanel)))
-        select opened;
+        IO.lift(() => Panels.ClosePanel(row.Identity.GUID, doc));
 
     public static IO<Unit> Open(View.Panel row) =>
-        InitialPlacement(row).Bind(_ => IO.lift(() => Panels.OpenPanel(row.Identity, makeSelectedPanel: true)));
+        IO.lift(() => Panels.OpenPanel(row.Identity, makeSelectedPanel: true));
 
     public static IO<Unit> Toggle(View.Panel row, RhinoDoc doc) =>
-        Shown(row, doc).Bind(shown => shown is TabVisibility.Selected
+        Shown(row).Bind(shown => shown is TabVisibility.Selected
             ? Close(row, doc)
             : Open(row));
 
     public static IO<Seq<TPanel>> GetPanels<TPanel>(RhinoDoc doc) where TPanel : DefinedPanel =>
         IO.lift(() => Conversions.Rows(Panels.GetPanels<TPanel>(doc)));
-
-    private static IO<bool> TabVisible(View.Panel row, RhinoDoc doc, bool isSelectedTab) =>
-        NamedCallbacks.Execute(
-            IsTabVisible,
-            static args => Callbacks.Found(args.TryGetBool(VisibleEntry, out bool visible), visible),
-            args => args.Set(FactoryEntry, row.Identity.GUID),
-            args => args.Set(SelectedEntry, isSelectedTab),
-            args => args.Set(DocumentEntry, doc.RuntimeSerialNumber));
-
-    private static IO<Unit> InitialPlacement(View.Panel row) =>
-        row.InitialAfter.TraverseM(sibling =>
-            IO.lift(() => Optional(LastCollections(owner: null)).Exists(placements => placements.ContainsKey(row.Identity.GUID)))
-                .Bind(remembered => unless(remembered,
-                      from dockBar in IO.lift(() => Conversions.Required(Panels.PanelDockBar(sibling), nameof(Panels.PanelDockBar)))
-                      from collection in IO.lift(() => Refused.UnlessFound(FromDockBarId(owner: null, dockBar), nameof(FromDockBarId)))
-                      from item in IO.lift(() => Refused.UnlessFound(ItemFromId(collection, sibling), nameof(ItemFromId)))
-                      from placed in IO.lift(() => Refused.Unless(AddTabPanel(collection, row.Identity.GUID, IndexOf(collection, item) + 1, makeActivePanel: false), nameof(AddTabPanel)))
-                      select placed).As()))
-            .As()
-            .Map(unit);
 
     // --- [PAGES]
     public static IO<Option<Window>> WindowForPage(OptionsDialogPage page) =>
@@ -241,27 +201,7 @@ public static class Showing {
             .Bind(data => Conversions.Present(SidePaneUiIdFromPanelObject(data, pane)))
             .Bind(static id => Optional(RenderWindow.FromSessionId(id))));
 
-    // --- [PANEL_PLACEMENT]
-    private const string TabPanelCollection = "Rhino.UI.Internal.TabPanels.TabPanelCollection, Rhino.UI";
-    private const string TabPanelCollectionItem = "Rhino.UI.Internal.TabPanels.TabPanelCollectionItem, Rhino.UI";
-
-    [UnsafeAccessor(UnsafeAccessorKind.StaticField, Name = "_lastCollectionPanleWasIn")]
-    private static extern ref ConcurrentDictionary<Guid, Guid>? LastCollections([UnsafeAccessorType(TabPanelCollection)] object? owner);
-
-    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
-    [return: UnsafeAccessorType(TabPanelCollection)]
-    private static extern object? FromDockBarId([UnsafeAccessorType("Rhino.UI.Internal.TabPanels.TabPanelCollections, Rhino.UI")] object? owner, Guid dockBarId);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    [return: UnsafeAccessorType(TabPanelCollectionItem)]
-    private static extern object? ItemFromId([UnsafeAccessorType(TabPanelCollection)] object collection, Guid id);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern int IndexOf([UnsafeAccessorType(TabPanelCollection)] object collection, [UnsafeAccessorType(TabPanelCollectionItem)] object item);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern bool AddTabPanel([UnsafeAccessorType(TabPanelCollection)] object collection, Guid panelId, int index, bool makeActivePanel);
-
+    // --- [RENDER_PANELS]
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "FindExistingPanelData")]
     [return: UnsafeAccessorType("Rhino.Render.RenderPanelData, RhinoCommon")]
     private static extern object? FindExistingPanelData(RenderPanels? owner, Guid pluginId, Guid tabId);

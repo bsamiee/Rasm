@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Retained Skia scenes with pure layout, cascading appearances, and input routing for drawn host UI</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color">
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
+    <ItemGroup Label="Desktop UI">
+        <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="SkiaSharp.HarfBuzz" />
+        <PackageReference Include="HarfBuzzSharp" />
+        <PackageReference Include="Topten.RichTextKit" />
+        <PackageReference Include="Svg.Skia" />
+        <PackageReference Include="Svg.Model" />
+    </ItemGroup>
+
+    <ItemGroup Label="Embedded Resources">
+        <EmbeddedResource Include="Styling/Appearances.json" WithCulture="false" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Writes a built Rhino plug-in's RUI file from the toolbars and menu extensions its assembly declares</Description>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+    </ItemGroup>
+</Project>

@@ -659,6 +659,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
     description: ClassVar[str] = ""
     popovers: ClassVar[tuple[Single[Empty], ...]] = ()
     condition: ClassVar[Option[Condition]] = Nothing
+    opened: ClassVar[bool] = False
     record: ClassVar[TextRecord[Sets]] = TextRecord(key="render_set", form=Sets)
     scenes: ClassVar[Attachment[SceneMember]] = Attachment(key="render_set", form=SceneMember, owner=bpy.types.Scene)
     layers: ClassVar[Attachment[LayerMember]] = Attachment(key="render_set", form=LayerMember, owner=bpy.types.ViewLayer)
@@ -854,7 +855,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                                 lambda: members.form(context).bind(lambda form: members.copies(context).map(lambda scenes: item in scenes) if isinstance(form, Copies) else Ok(False))
                             )().default_value(False)
                         ),
-                        side=(OperatorButton(target=commands.remove),),
+                        side=tuple(OperatorButton(target=command, text=Some("")) for command in (commands.add, commands.remove, commands.lock)),
                     ),
                     ItemList[LayerMember, bpy.types.ViewLayer](
                         key="render_set_layers",
@@ -864,12 +865,11 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                         attachment=Some(self.layers),
                         where=Some(lambda context, _item: members.identity.reports.reported(members.form)(context).filter(lambda form: isinstance(form, Layers)).is_some()),
                     ),
-                    *(OperatorButton(target=placed) for placed in commands.listed),
                     *(
                         Single(
                             key=category.key,
                             title=category.title,
-                            header=(Pulldown(menu=self.captured(members, category).key), OperatorButton(target=sync)),
+                            header=(Pulldown(menu=self.captured(members, category).key, text=Some(""), icon=Some("PRESET")), OperatorButton(target=sync, text=Some(""))),
                             rows=(
                                 Matrix(
                                     scope=MemberScope(members=members, owner_type=category.root, unlocked=False),

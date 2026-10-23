@@ -565,12 +565,27 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
                 run=edited(lambda call, samples: samples[list(call.record.mirror.order)]),
             ),
             turn=Operator(
-                key="chart_turn", title="Turn Chart", description="Rotate patch order a quarter turn", condition=shown, form=Empty, run=edited(lambda _, samples: np.roll(samples, 1, axis=0))
+                key="chart_turn",
+                title="Turn Chart",
+                description="Rotate patch order a quarter turn",
+                icon=Some("FILE_REFRESH"),
+                condition=shown,
+                form=Empty,
+                run=edited(lambda _, samples: np.roll(samples, 1, axis=0)),
             ),
-            center=Operator(key="chart_center", title="Center Chart", description="Center chart in visible frame", condition=shown, form=Empty, run=centered),
-            reset=Operator(key="chart_reset", title="Reset Chart", description="Reset chart layout", condition=shown, form=Empty, run=resetting),
-            frame=Operator(key="chart_frame", title="View Chart", description="Show panorama chart in a rectilinear view", condition=shown, form=Framing, run=framing, invoke=Some(Properties())),
-            leave=Operator(key="chart_leave", title="Leave View", description="Show panorama holding chart", condition=shown, form=Empty, run=leaving),
+            center=Operator(key="chart_center", title="Center Chart", description="Center chart in visible frame", icon=Some("ALIGN_CENTER"), condition=shown, form=Empty, run=centered),
+            reset=Operator(key="chart_reset", title="Reset Chart", description="Reset chart layout", icon=Some("LOOP_BACK"), condition=shown, form=Empty, run=resetting),
+            frame=Operator(
+                key="chart_frame",
+                title="View Chart",
+                description="Show panorama chart in a rectilinear view",
+                icon=Some("ZOOM_SELECTED"),
+                condition=shown,
+                form=Framing,
+                run=framing,
+                invoke=Some(Properties()),
+            ),
+            leave=Operator(key="chart_leave", title="Leave View", description="Show panorama holding chart", icon=Some("SCREEN_BACK"), condition=shown, form=Empty, run=leaving),
             grade=Operator(key="chart_grade", title="Apply Calibration", description="Write calibration into scene primaries", form=Empty, run=grading),
             node=Operator(key="chart_node", title="Insert Calibration", description="Insert calibration matrix after active node", condition=Some(ChartCalibration.shader), form=Empty, run=splicing),
             bake=Operator(
@@ -673,14 +688,13 @@ class Calibrator(Line, frozen=True, kw_only=True):
             Caption(
                 rows=(
                     *(
-                        OperatorButton(target=Own(command=commands.flip, values=Flipping(mirror=mirror)), icon=Some(glyph))
+                        OperatorButton(target=Own(command=commands.flip, values=Flipping(mirror=mirror)), text=Some(""), icon=Some(glyph))
                         for mirror, glyph in ((Mirror.ACROSS, self.row.across), (Mirror.UPRIGHT, self.row.upright))
                     ),
-                    *(OperatorButton(target=command) for command in (commands.turn, commands.center, commands.reset)),
+                    *(OperatorButton(target=command, text=Some("")) for command in (commands.turn, commands.center, commands.reset, commands.frame, commands.leave)),
                 ),
                 flow=Flow.ALIGNED,
             ),
-            Caption(rows=(OperatorButton(target=commands.frame), OperatorButton(target=commands.leave)), flow=Flow.ALIGNED),
             Caption(rows=(OperatorButton(target=commands.grade), OperatorButton(target=commands.bake), OperatorButton(target=commands.write)), flow=Flow.ALIGNED),
         )
 

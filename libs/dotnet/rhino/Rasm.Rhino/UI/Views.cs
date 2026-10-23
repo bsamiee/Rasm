@@ -86,6 +86,7 @@ public abstract partial record View {
 
     public sealed record Window : View {
         public required WindowKind Kind { get; init; }
+        public Option<Eto.Drawing.Size> Size { get; init; }
 
         public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Dialog;
     }
@@ -100,7 +101,6 @@ public abstract partial record View {
 
     public sealed record Panel : View {
         public Option<PanelType> Kind { get; init; }
-        public Option<Guid> InitialAfter { get; init; }
 
         public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Panel;
     }

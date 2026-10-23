@@ -1,6 +1,7 @@
 """RGB and HSY curve tables with knots inserted from covered frames."""
 
 from bisect import bisect_left
+from typing import Final
 
 import bpy
 from expression import Error, Nothing, Option, Result, Some
@@ -17,7 +18,7 @@ from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.graphs import CurvePoints, End, ended, Fragment, math, nested, node, NodeGroup, Points
 from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, config_of, hsy, logarithmic
-from blender.bpy.render.effects.stack import CompositorEffect, Shell
+from blender.bpy.render.effects.stack import CompositorEffect, CurveEditor, Shell
 from blender.bpy.render.effects.viewers import Unread, ViewerRead
 from blender.bpy.settings.shapes import unwrapped
 from blender.imaging.color.processors import applied, lin_to_log, luma, processor, unassociated
@@ -27,9 +28,42 @@ from blender.imaging.faults import accumulated, paired
 from blender.imaging.files.images import ImageFile
 from blender.imaging.parameters import Knot
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+CHANNELS: Final = CurveEditor(key="channels", node=bpy.types.CompositorNodeCurveRGB, fields=Curves.__struct_fields__)
+HUES: Final = CurveEditor(key="hues", node=bpy.types.CompositorNodeHueCorrect, fields=HueCurves.__struct_fields__[:3])
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [BINDINGS]
+
+
+def _editors(bindings: dict[str, tuple[Points, CurvePoints]], editors: tuple[CurveEditor, ...]) -> BlenderResult[Fragment]:
+    """Builds one node per shared editor over its fields, one curve node per other field."""
+    shared = frozenset(field for editor in editors for field in editor.fields)
+    return Fragment.joined(
+        *(
+            node(
+                editor.key,
+                editor.node,
+                {},
+                {},
+                Some(
+                    msgspec.structs.replace(
+                        bindings[editor.fields[0]][1], maps=tuple(bindings[field][1].maps[0] for field in editor.fields), clip=Some(bounded(tuple(bindings[field][1] for field in editor.fields)))
+                    )
+                ),
+            )
+            for editor in editors
+        ),
+        *(node(key, bpy.types.ShaderNodeFloatCurve, {}, {}, Some(curve)) for key, (_, curve) in bindings.items() if key not in shared),
+    )
+
+
+def bounded(curves: tuple[CurvePoints, ...]) -> tuple[float, float, float, float]:
+    """Returns view bounds covering every curve."""
+    bounds = tuple(curve.clip.default_value((0.0, 0.0, 1.0, 1.0)) for curve in curves)
+    return (min(bound[0] for bound in bounds), min(bound[1] for bound in bounds), max(bound[2] for bound in bounds), max(bound[3] for bound in bounds))
 
 
 def _bindings(record: Curves | HueCurves) -> dict[str, tuple[Points, CurvePoints]]:
@@ -62,7 +96,7 @@ def curved(shell: Shell[Curves]) -> BlenderResult[tuple[Fragment, End]]:
     def built(groups: tuple[NodeGroup, ...]) -> BlenderResult[tuple[Fragment, End]]:
         forward, inverse = groups
         return Fragment.joined(
-            *(node(key, bpy.types.ShaderNodeFloatCurve, {}, {}, Some(editor)) for key, (_, editor) in bindings.items()),
+            _editors(bindings, (CHANNELS,)),
             nested("encoded", forward, {COLOR_INPUT.key: shell.source}, COLOR_RESULT.key),
             node(
                 "channel_table",
@@ -97,7 +131,7 @@ def hue_curved(shell: Shell[HueCurves]) -> BlenderResult[tuple[Fragment, End]]:
     def built(groups: tuple[NodeGroup, ...]) -> BlenderResult[tuple[Fragment, End]]:
         forward, inverse, encoded, decoded = groups
         return Fragment.joined(
-            *(node(key, bpy.types.ShaderNodeFloatCurve, {}, {}, Some(editor)) for key, (_, editor) in bindings.items()),
+            _editors(bindings, (HUES,)),
             nested("hsy", forward, {COLOR_INPUT.key: shell.source}, COLOR_RESULT.key),
             node("split", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="hsy", socket=COLOR_RESULT.key)}, {"mode": "RGB"}),
             nested("encoded", encoded, {COLOR_INPUT.key: End(node="hsy", socket=COLOR_RESULT.key)}, COLOR_RESULT.key),
@@ -219,16 +253,22 @@ def consumed[R: (Curves, HueCurves)](
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 curves: CompositorEffect[Curves] = CompositorEffect(
-    record=Curves, graph=curved, straight=True, validated=Some(validated), registrables=(ViewerRead(consume=lambda identity, scene, entry, plane: consumed(curves, identity, scene, entry, plane)),)
+    record=Curves,
+    graph=curved,
+    straight=True,
+    validated=Some(validated),
+    editors=(CHANNELS,),
+    registrables=(ViewerRead(consume=lambda identity, scene, entry, plane: consumed(curves, identity, scene, entry, plane)),),
 )
 hue_curves: CompositorEffect[HueCurves] = CompositorEffect(
     record=HueCurves,
     graph=hue_curved,
     straight=True,
     validated=Some(validated),
+    editors=(HUES,),
     registrables=(ViewerRead(consume=lambda identity, scene, entry, plane: consumed(hue_curves, identity, scene, entry, plane)),),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["consumed", "curved", "curves", "hue_curved", "hue_curves"]
+__all__ = ["CHANNELS", "HUES", "bounded", "consumed", "curved", "curves", "hue_curved", "hue_curves"]

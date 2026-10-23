@@ -18,7 +18,8 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 
 - SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR` over `--scratch-path` and reads it from no file
 - SwiftPM writes `.build/` in the working folder when neither is set, `--help` included
-- `SWIFTPM_BUILD_DIR` sits on Nx SwiftPM targets alone, in `mise.toml` `[env]` it moves sourcekit-lsp's build off `swiftPM.scratchPath`
+- `SWIFTPM_BUILD_DIR` holds an absolute path in `mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
+- `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
 - SwiftPM locks its scratch path per process, each SwiftPM target takes `parallelism: false`
 - Executables `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, `experimental-install` refuses an installed name until `rm` deletes it
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
@@ -113,7 +114,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 
 ## [09]-[PERIPHERY]
 
-- `.periphery.yml` names a generic configuration, `--project` rejects a `project.xcproj` with no `.pbxproj`
+- `.config/periphery.yml` names a generic configuration, `--project` rejects a `project.xcproj` with no `.pbxproj` and SwiftPM mode runs `swift package describe` per scan
 - Bodyless `@_silgen_name` declarations name parameters `_:`, Periphery reports each named one unused
 
 ## [10]-[LANGUAGE_SERVER]

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
@@ -15,16 +16,17 @@ using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 namespace Rasm.Rhino.UI;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class ViewFrame : RhinoScrollableDialogPanel {
-    internal Retained<IDisposable> Owned { get; } = new(DisposalOps.Release);
-
-    protected override void Dispose(bool disposing) {
-        try { if (disposing) Owned.Dispose(); } finally { base.Dispose(disposing); }
-    }
-}
-
 internal sealed class ViewHost : Panel {
     internal Retained<IDisposable> Owned { get; } = new(DisposalOps.Release);
+
+    internal void Seat(View row, Control body) =>
+        Content = row.Children.Exists(static child => child.Fill) ? body : Scrolled(body);
+
+    private RhinoScrollableDialogPanel Scrolled(Control body) {
+        RhinoScrollableDialogPanel scroll = new() { Content = body };
+        Owned.Retain(scroll);
+        return scroll;
+    }
 
     protected override void Dispose(bool disposing) {
         try { if (disposing) Owned.Dispose(); } finally { base.Dispose(disposing); }
@@ -90,19 +92,22 @@ public abstract class DefinedPanel(RhinoDoc? document, View.Panel row) : ViewPan
 public abstract class DefinedSection : EtoCollapsibleSection3 {
     // --- [STATE]
     private readonly View.Section row;
+    private readonly IPlugInViews owner;
     private readonly SectionLifetime lifetime;
     private Option<Func<Action<IDisposable>, IO<ViewBody>>> source;
 
-    protected DefinedSection(View.Section row) {
-        this.row = row;
-        lifetime = new SectionLifetime(this, IPlugInSink.Of(this), None, static () => false, visible: false,
+    protected DefinedSection(View.Section row) : this(row, None) { }
+
+    private protected DefinedSection(View.Section row, Option<IPlugInViews> owner) {
+        (this.row, this.owner) = (row, owner.IfNone(() => IPlugInViews.Of(this)));
+        lifetime = new SectionLifetime(this, this.owner, None, static () => false, visible: false,
             retain => IO.lift(() => source.ToFin(new Refused(nameof(Attach), Refused.Absent))).Bind(realize => realize(retain)));
     }
 
     // --- [IDENTITY]
-    public override LocalizeStringPair Caption => RowText.Localize(row.Caption, IPlugInSink.Of(this));
+    public override LocalizeStringPair Caption => RowText.Localize(row.Caption, owner);
 
-    public override Guid PlugInId => IPlugInViews.Of(this).PlugIn.Id;
+    public override Guid PlugInId => owner.PlugIn.Id;
 
     public override int SectionHeight => lifetime.Height;
 
@@ -121,9 +126,9 @@ public abstract class DefinedSection : EtoCollapsibleSection3 {
         Holder = Optional(holder as SectionHolder);
     }
 
-    public override void HolderVisible(bool visible) => Callbacks.Run(lifetime.Visible(visible), CallbackSite.Of(this));
+    public override void HolderVisible(bool visible) => Callbacks.Run(lifetime.Visible(visible), new CallbackSite(owner, GetType(), nameof(HolderVisible)));
 
-    public override void UpdateView(uint flags) => Callbacks.Run(lifetime.Reread, CallbackSite.Of(this));
+    public override void UpdateView(uint flags) => Callbacks.Run(lifetime.Reread, new CallbackSite(owner, GetType(), nameof(UpdateView)));
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
@@ -134,6 +139,15 @@ public abstract class DefinedSection : EtoCollapsibleSection3 {
             base.Dispose(disposing);
         }
     }
+}
+
+internal sealed class DisclosureSection(View.Section row, IPlugInViews owner, Guid id, bool expanded) : DefinedSection(row, Some(owner)), ICollapsibleSection {
+    // --- [IDENTITY]
+    Guid ICollapsibleSection.Id => id;
+
+    public override string SettingsTag => id.ToString("D", CultureInfo.InvariantCulture);
+
+    public override bool InitiallyExpanded => expanded;
 }
 
 public abstract class DefinedContentSection : EtoContentUISection3 {
@@ -257,10 +271,10 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
     private Option<(ViewBody Body, Control Frame)> Realized =>
         page.Value || Callbacks.Answer(
             from held in document.ValueIO
-            from frame in IO.lift(static () => new ViewFrame())
+            from frame in IO.lift(static () => new ViewHost())
             from realized in DisposalOps.OnFailure(
                 from body in DisposalOps.Acquire(ViewBody.Open(IPlugInViews.Of(this), row, held, commit, Some(Marking)), frame.Owned.Retain)
-                from configured in IO.lift(() => { frame.Content = body.Content; frame.UseRhinoStyle(); })
+                from configured in IO.lift(() => { frame.Seat(row, body.Content); frame.UseRhinoStyle(); })
                 from published in page.SwapIO(_ => Some((Body: body, Frame: (Control)frame)))
                 select published,
                 IO.lift(frame.Dispose))

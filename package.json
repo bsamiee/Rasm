@@ -398,7 +398,7 @@
                 "options": {
                     "commands": [
                         {
-                            "command": "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --cache .cache/pmd/java --aux-classpath \"$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
+                            "command": "fd --hidden --extension java --exec-batch pmd check --rulesets .config/pmd.xml --cache .cache/pmd/java --aux-classpath \"$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
                             "forwardAllArgs": false
                         },
                         "fd --hidden --extension java --exec-batch pmd cpd --language java",
@@ -407,12 +407,12 @@
                     ],
                     "args": [ "--minimum-tokens", "100" ]
                 },
-                "inputs": [ "javaFiles", "swiftFiles", "{workspaceRoot}/**/*.py", "{workspaceRoot}/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" } ],
+                "inputs": [ "javaFiles", "swiftFiles", "{workspaceRoot}/**/*.py", "{workspaceRoot}/.config/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" } ],
                 "outputs": [ "{workspaceRoot}/.cache/pmd/java" ]
             },
             "lint:tombi": { "executor": "nx:run-commands", "options": { "commands": [ "tombi lint --error-on-warnings", "tombi format --check" ], "parallel": false }, "inputs": [ "{workspaceRoot}/**/*.toml", { "externalDependencies": [] }, { "runtime": "tombi --version" } ] },
             "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "inputs": [ "python", "yamlFiles" ] },
-            "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
+            "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml -lint", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
             "lint:actionlint": {
                 "command": "actionlint",
                 "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "externalDependencies": [] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ]
@@ -452,7 +452,7 @@
             "format:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec xcrun xcprojformatter --update", "configurations": { "files": { "command": "find {args} -exec xcrun xcprojformatter --update {} ';'" } }, "metadata": { "extensions": [ ".xcproj" ] } },
             "format:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --replace", "configurations": { "files": { "command": "google-java-format --aosp --replace" } }, "metadata": { "extensions": [ ".java" ] } },
             "format:tombi": { "command": "tombi format", "metadata": { "extensions": [ ".toml" ] } },
-            "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt", "configurations": { "files": { "command": "yamlfmt" } }, "metadata": { "extensions": [ ".yaml", ".yml" ] } },
+            "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml", "configurations": { "files": { "command": "yamlfmt -conf .config/yamlfmt.yaml" } }, "metadata": { "extensions": [ ".yaml", ".yml" ] } },
             "format:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -w --", "configurations": { "files": { "command": "shfmt -w --" } }, "metadata": { "extensions": [ ".sh" ] } },
             "check": { "dependsOn": [ "lint", "typecheck" ] },
             "upgrade": { "command": "node eng/typescript/upgrade/main.ts", "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:build:swiftpm" ], "target": "upgrade:swiftpm" }, { "projects": [ "tag:build:xcode" ], "target": "upgrade:xcode" } ] },

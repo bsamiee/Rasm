@@ -1,42 +1,35 @@
-"""Working-space changes, compositor color coordinates, and OCIO installation."""
+"""Working-space effect color follow-through, compositor color coordinates, and OCIO installation."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
+from contextlib import contextmanager, ExitStack
 import functools
 import math as numeric
 from pathlib import Path
-from typing import Annotated, Self
+from typing import ClassVar, Self
 
 import bpy
-from expression import Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
+import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome, Properties, Unchanged
+from blender.bpy.commands.operators import Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, struct_at
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at
+from blender.bpy.extension.events.handlers import PathHandler, UpdateHandler
+from blender.bpy.extension.events.timers import Timer
+from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, masked, math, mixed, node, NodeGroup, Operand
 from blender.bpy.nodes.interface import Interface, Socket
-from blender.bpy.settings.properties import Choices
+from blender.bpy.settings.attachments import Stored
 from blender.imaging.color.authoring import ConfigBuild, Formation
 from blender.imaging.color.config import ConfigFile, opened, resolved
 from blender.imaging.color.processors import lin_to_log, processor
 from blender.imaging.effects.tone.film import Film
 from blender.imaging.faults import accumulated, paired
-
-# --- [CHOICES] --------------------------------------------------------------------------
-
-working = Choices(
-    lambda _identity, _owner, _context: (
-        (name, name, space.getDescription())
-        for space in PyOpenColorIO.GetCurrentConfig().getColorSpaces()
-        if bpy.types.UILayout.enum_item_name(bpy.data.colorspace, "working_space", name := space.getName())
-    )
-)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -44,11 +37,71 @@ COLOR_INPUT = Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor)
 COLOR_RESULT = Socket(key="result", name="Image", kind=bpy.types.NodeSocketColor)
 
 
-class WorkingSpace(msgspec.Struct, frozen=True, kw_only=True):
-    """File's new scene-linear space and stored-color conversion policy."""
+class WorkingColors(msgspec.Struct, frozen=True, kw_only=True):
+    """Effect color inputs native working space conversion skips, carried into each new working space from the space each scene last held them in."""
 
-    space: Annotated[str, msgspec.Meta(title="Working Space", description="Scene-linear space of shading and compositing"), working]
-    convert: Annotated[bool, msgspec.Meta(title="Convert Colors", description="Convert stored colors to new space")] = True
+    stamp: ClassVar[Key] = "working_space"
+
+    @contextmanager
+    def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
+        """Holds depsgraph check converting effect colors in one undo step after a working space change, which publishes no property notification."""
+        previous: Option[str] = Nothing
+
+        def seeded() -> BlenderResult[None]:
+            nonlocal previous
+            previous = Some(bpy.data.colorspace.working_space)
+            return Ok(None)
+
+        def source(stamped: Stored[str], scene: bpy.types.Scene, target: str) -> BlenderResult[str]:
+            return stamped.read(scene).map(lambda held: held.or_else(previous).default_value(target))
+
+        def converted(stamped: Stored[str]) -> BlenderResult[Option[str]]:
+            target = bpy.data.colorspace.working_space
+
+            def scene_converted(scene: bpy.types.Scene, start: str) -> BlenderResult[int]:
+                inputs = effect_colors(scene)
+
+                def recolored(cpu: PyOpenColorIO.CPUProcessor) -> BlenderResult[int]:
+                    for _item, _descriptor, values in inputs:
+                        cpu.applyRGB(values[:3])
+                    return (
+                        accumulated(descriptor.write(item, tuple(values.tolist())) for item, descriptor, values in inputs)
+                        .map(lambda priors: sum(prior.is_some() for prior in priors))
+                        .bind(lambda count: stamped.write(scene, target).map(lambda _: count))
+                    )
+
+                return (
+                    config_of((start, target))
+                    .bind(
+                        lambda config: (
+                            processor(config, PyOpenColorIO.ColorSpaceTransform(src=start, dst=target)).map(PyOpenColorIO.Processor.getDefaultCPUProcessor).map_error(BlenderImagingFault.lifted)
+                        )
+                    )
+                    .bind(recolored)
+                )
+
+            def each(scene: bpy.types.Scene) -> BlenderResult[Option[int]]:
+                return source(stamped, scene, target).bind(lambda start: Ok(Nothing) if start == target else scene_converted(scene, start).map(Some))
+
+            counted = accumulated(each(scene) for scene in bpy.data.scenes)
+            return seeded().bind(lambda _: counted).map(lambda counts: Some("Convert Effect Colors") if any(count.is_some() for count in counts) else Nothing)
+
+        with ExitStack() as scope:
+
+            def followed(stamped: Stored[str]) -> Acquisitions:
+                later = scope.enter_context(identity.reports.deferred(lambda: converted(stamped)))
+
+                def checked(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> BlenderResult[None]:
+                    target = bpy.data.colorspace.working_space
+                    return source(stamped, scene, target).map(lambda start: None if start == target else later())
+
+                return (
+                    PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _path: seeded()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    Timer(body=lambda: seeded().map(lambda _: Nothing)),
+                    UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.ID,), body=checked),
+                )
+
+            yield identity.name(Name.ATTACHMENT, self.stamp).map(lambda name: followed(Stored(name=name, decoder=msgspec.msgpack.Decoder(str))))
 
 
 class FilmView(msgspec.Struct, frozen=True, kw_only=True):
@@ -114,45 +167,23 @@ def config_of(spaces: Iterable[str] = ()) -> BlenderResult[PyOpenColorIO.Config]
     return resolved(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(BlenderImagingFault.lifted)
 
 
-def changed(call: Call[WorkingSpace]) -> BlenderResult[Outcome]:
-    """Changes working space and converts effect color inputs native conversion skips, Unchanged on current space."""
-    source, record = bpy.data.colorspace.working_space, call.record
-    if source == record.space:
-        return Ok(Unchanged(reason=f"Working space is {source}"))
-    inputs = (
-        tuple(
-            (item, descriptor, np.asarray(descriptor.read(item), dtype=np.float32).copy())
-            for scene in bpy.data.scenes
-            for effect in scene.compositor_effects
-            for properties in Option.of_optional(effect.properties).to_list()
-            for inputs_prop in properties.bl_rna.properties
-            if isinstance(inputs_prop, bpy.types.PointerProperty) and inputs_prop.identifier == "inputs"
-            for group in struct_at(properties, inputs_prop.identifier).to_list()
-            for sockets in Option.of_optional(inputs_prop.fixed_type).to_list()
-            for prop in sockets.properties
-            if isinstance(prop, bpy.types.PointerProperty)
-            for item in struct_at(group, prop.identifier).to_list()
-            for socket in Option.of_optional(prop.fixed_type).to_list()
-            for color in socket.properties
-            if isinstance(color, bpy.types.FloatProperty) and color.identifier == "value" and color.subtype == "COLOR"
-            for descriptor in (Descriptor(root=type(item), owner="", prop=color),)
-        )
-        if record.convert
-        else ()
-    )
-
-    def recolored(cpu: PyOpenColorIO.CPUProcessor) -> BlenderResult[int]:
-        for _item, _descriptor, values in inputs:
-            cpu.applyRGB(values[:3])
-        return accumulated(descriptor.write(item, tuple(values.tolist())) for item, descriptor, values in inputs).map(lambda priors: sum(prior.is_some() for prior in priors))
-
-    return (
-        config_of((source, record.space))
-        .bind(
-            lambda config: processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=record.space)).map(PyOpenColorIO.Processor.getDefaultCPUProcessor).map_error(BlenderImagingFault.lifted)
-        )
-        .bind(lambda held: called(bpy.ops.wm.set_working_color_space, {"working_space": record.space, "convert_colors": record.convert}).bind(lambda _: recolored(held)))
-        .map(lambda count: Done(notes=(("INFO", f"Working space {record.space}, {count} effect colors converted"),)))
+def effect_colors(scene: bpy.types.Scene) -> tuple[tuple[Native, Descriptor[bpy.types.FloatProperty], npt.NDArray[np.float32]], ...]:
+    """Returns color socket values of every scene effect group input with its writer."""
+    return tuple(
+        (item, descriptor, np.asarray(descriptor.read(item), dtype=np.float32).copy())
+        for effect in scene.compositor_effects
+        for properties in Option.of_optional(effect.properties).to_list()
+        for inputs_prop in properties.bl_rna.properties
+        if isinstance(inputs_prop, bpy.types.PointerProperty) and inputs_prop.identifier == "inputs"
+        for group in struct_at(properties, inputs_prop.identifier).to_list()
+        for sockets in Option.of_optional(inputs_prop.fixed_type).to_list()
+        for prop in sockets.properties
+        if isinstance(prop, bpy.types.PointerProperty)
+        for item in struct_at(group, prop.identifier).to_list()
+        for socket in Option.of_optional(prop.fixed_type).to_list()
+        for color in socket.properties
+        if isinstance(color, bpy.types.FloatProperty) and color.identifier == "value" and color.subtype == "COLOR"
+        for descriptor in (Descriptor(root=type(item), owner="", prop=color),)
     )
 
 
@@ -362,35 +393,6 @@ def configured() -> BlenderResult[Setting]:
     return Descriptor.resolve(bpy.types.BlendData, "colorspace.is_missing_opencolorio_config", bpy.types.BoolProperty).map(lambda descriptor: Setting(descriptor=descriptor, accepted=(False,)))
 
 
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-change = Operator(
-    key="working_space",
-    title="Set Working Space",
-    description="Change scene-linear working space and convert stored colors",
-    form=WorkingSpace,
-    run=changed,
-    invoke=Some(Properties()),
-    seed=Some(lambda record, _event, _identity: msgspec.structs.replace(record, space=bpy.data.colorspace.working_space)),
-)
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "COLOR_INPUT",
-    "COLOR_RESULT",
-    "ConfigInstall",
-    "FilmView",
-    "WorkingSpace",
-    "change",
-    "changed",
-    "config_of",
-    "configured",
-    "converted",
-    "hsy",
-    "logarithmic",
-    "pointwise",
-    "space_item",
-    "working",
-]
+__all__ = ["COLOR_INPUT", "COLOR_RESULT", "ConfigInstall", "FilmView", "WorkingColors", "config_of", "configured", "converted", "effect_colors", "hsy", "logarithmic", "pointwise", "space_item"]

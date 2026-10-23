@@ -40,6 +40,11 @@ class Layer[S: Case, E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     visible: Annotated[bool, msgspec.Meta(description="Composite layer")] = True
     solo: Annotated[bool, msgspec.Meta(description="Composite soloed layers alone")] = False
 
+    @property
+    def parts(self) -> tuple[tuple[str, msgspec.Struct], ...]:
+        """Source, placement, blend, and matte records under their field names."""
+        return (("source", self.source), ("affine", self.affine), ("blend", self.blend), ("matte", self.matte.value))
+
 
 class LayerStack[S: Case, E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     """Layers ordered bottom first over a transparent frame."""

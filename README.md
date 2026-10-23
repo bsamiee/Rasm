@@ -50,7 +50,6 @@ Rasm/
 ├── vitest.config.ts          # Test and coverage options every project config imports
 ├── vite.shared.ts            # Bundling options every project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
-├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── rust-toolchain.toml       # Rust toolchain channel and components
 ├── rustfmt.toml              # Rust format rules
@@ -61,9 +60,6 @@ Rasm/
 ├── .gitignore                # Generated, secret, and machine-local paths
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
-├── .periphery.yml            # Swift unused code scan options
-├── .yamllint.yaml            # YAML lint rules
-├── .yamlfmt.yaml             # YAML format rules
 ├── .cargo/                   # Cargo build settings and compiler source link
 ├── .config/                  # Files tools find in .config/ or read through a path setting
 ├── .playwright/              # Playwright CLI workspace and browser options every CLI session reads

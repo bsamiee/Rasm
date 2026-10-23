@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
+from typing import Annotated, Literal
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -14,7 +15,7 @@ from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, entered
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, pointed
-from blender.bpy.ui.layout.rows import acquired, alerted, Line, located, Member, Property, realized, refused, ResolvedMember, RowContent, RowDraw
+from blender.bpy.ui.layout.rows import acquired, alerted, Line, located, Member, placed, Property, Reach, realized, refused, ResolvedMember, RowContent, RowDraw
 from blender.imaging.faults import accumulated, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -53,8 +54,13 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
     icon: Option[str] = Nothing
     where: Option[Where[O]] = Nothing
     enabled: Option[Callable[[bpy.types.Context, O], BlenderResult[bool]]] = Nothing
+    rows: Annotated[int, msgspec.Meta(ge=1)] = 5
+    maxrows: Annotated[int, msgspec.Meta(ge=1)] = 5
+    layout_type: Literal["DEFAULT", "COMPACT"] = "DEFAULT"
     sort_reverse: bool = False
+    sort_lock: bool = False
     side: tuple[RowContent, ...] = ()
+    absent: tuple[RowContent, ...] = ()
 
     def selection(self, identity: Identity) -> BlenderResult[Member]:
         """Names selection property on shared owner or window manager."""
@@ -253,16 +259,38 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 case _:
                     return Ok(())
 
-        return self.active.resolved().bind(schema).map(lambda pairs: (*self.attachment.to_list(), *acquired((*self.columns, *self.side)), *pairs, (Band.INTERFACE, registered())))
+        return self.active.resolved().bind(schema).map(lambda pairs: (*self.attachment.to_list(), *acquired((*self.columns, *self.side, *self.absent)), *pairs, (Band.INTERFACE, registered())))
+
+    def picked(self, identity: Identity) -> BlenderResult[Reach]:
+        """Returns reach of the active item the list highlights, through the selection the list draws."""
+
+        def reach(listed: Listed) -> Reach:
+            def indexed(found: tuple[Native, str], pick: tuple[Native, str]) -> "Option[bpy.types.bpy_struct[object]]":
+                items, index = getattr(*found), getattr(*pick)
+                return Some(items[index]) if 0 <= index < len(items) else Nothing
+
+            def active(context: bpy.types.Context) -> "Option[bpy.types.bpy_struct[object]]":
+                match listed.active.descriptor.prop:
+                    case bpy.types.PointerProperty():
+                        return located(listed.active, context, context).bind(lambda pair: Option.of_optional(getattr(*pair)))
+                    case _:
+                        return located(listed.collection, context, context).bind(lambda found: located(listed.active, context, context).bind(lambda pick: indexed(found, pick)))
+
+            return active
+
+        return self.resolved(identity).map(reach)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Draws list with its side column."""
+        """Draws list with its side column, absent rows while no owner holds the collection."""
 
-        def draw(listed: Listed) -> RowDraw:
+        def draw(parts: tuple[Listed, tuple[RowDraw, ...]]) -> RowDraw:
+            listed, absent = parts
+
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for (owner, key), (picked, member) in (
-                    (found, pick) for found in located(listed.collection, holder, context).to_list() for pick in located(listed.chosen.default_value(listed.active), holder, context).to_list()
-                ):
+                found = located(listed.collection, holder, context)
+                for draw in () if found.is_some() else absent:
+                    draw(layout, holder, context)
+                for (owner, key), (picked, member) in ((held, pick) for held in found.to_list() for pick in located(listed.chosen.default_value(listed.active), holder, context).to_list()):
                     row = layout.row()
                     row.template_list(
                         listed.name,
@@ -272,8 +300,11 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                         picked,
                         member,
                         item_dyntip_propname=listed.item_dyntip_propname.map(lambda bound: bound.descriptor.prop.identifier).default_value(""),
+                        rows=self.rows,
+                        maxrows=self.maxrows,
+                        type=self.layout_type,
                         sort_reverse=self.sort_reverse,
-                        sort_lock=self.sort_reverse,
+                        sort_lock=self.sort_lock,
                     )
                     column = row.column(align=True)
                     for side in listed.sides:
@@ -281,7 +312,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
 
             return shown
 
-        return self.resolved(identity).map(draw)
+        return paired(self.resolved(identity), placed(self.absent, identity)).map(draw)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

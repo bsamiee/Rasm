@@ -279,8 +279,19 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
         select stack;
 
     public static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, RowScope scope, Action<DefinedSection> retain) =>
+        Section(owner, row, () => (DefinedSection)Activator.CreateInstance(row.Identity)!, scope, retain);
+
+    public static IO<SectionHolder> Disclose(IPlugInViews owner, ContainerRow.Disclosure disclosure, RowScope scope, Action<IDisposable> retain) =>
+        new View.Section { Identity = typeof(DisclosureSection), Caption = disclosure.Caption, Children = toSeq(disclosure.Body) } switch {
+            var row =>
+                from stack in DisposalOps.Acquire(IO.lift(static () => new SectionHolder(None)), retain)
+                from section in Section(owner, row, () => new DisclosureSection(row, owner, UUIDNext.Uuid.NewNameBased(owner.PlugIn.Id, disclosure.Caption), disclosure.Expanded), scope, stack.Add)
+                select stack,
+        };
+
+    private static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, Func<DefinedSection> create, RowScope scope, Action<DefinedSection> retain) =>
         DisposalOps.Acquire(owned =>
-            from section in DisposalOps.Acquire(IO.lift(() => (DefinedSection)Activator.CreateInstance(row.Identity)!), owned)
+            from section in DisposalOps.Acquire(IO.lift(create), owned)
             from attached in section.Attach(acquired => ViewBody.Realize(owner, row, scope, acquired))
             select section, (section, _) => retain(section));
 
@@ -289,6 +300,7 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
         content switch {
             SectionHolder stack => Callbacks.Each(toSeq(stack.Sections).Choose(static section => Optional(section as EtoCollapsibleSection2))
                 .Map(section => IO.lift(() => section.HolderVisible(visible)))).Map(unit),
+            TabControl tabs => Callbacks.Each(toSeq(tabs.Pages).Map(page => Shown(page, visible && ReferenceEquals(page, tabs.SelectedPage)))).Map(unit),
             Container container => Callbacks.Each(toSeq(container.Controls).Map(child => Shown(child, visible))).Map(unit),
             _ => IO.pure(unit),
         };
@@ -298,7 +310,12 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
 
     // --- [LAYOUT]
     private Unit Fit() =>
-        above.Iter(count => SetFullHeightSection(SectionAt(toSeq(Sections).Take(count).Filter(static section => !section.Hidden).Count)));
+        above.Iter(count => SetFullHeightSection(SectionAt(Stretched(toSeq(Sections).Strict(), count))));
+
+    private static int Stretched(Seq<ICollapsibleSection> sections, int above) =>
+        sections.At(above).Exists(static fill => fill.Hidden)
+            ? sections.Filter(static section => !section.Hidden).Count
+            : sections.Take(above).Filter(static section => !section.Hidden).Count;
 
     protected override void OnPreLoad(EventArgs e) {
         base.OnPreLoad(e);

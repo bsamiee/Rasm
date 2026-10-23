@@ -14,12 +14,14 @@ namespace Arches;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 internal abstract partial record ArchChoice {
-    private ArchChoice(string caption) => Caption = caption;
-    public string Caption { get; }
-    public sealed record Spanned(string Caption, SpannedArch Kind) : ArchChoice(Caption);
-    public sealed record Raised(string Caption, RaisedArch Kind) : ArchChoice(Caption);
-    public sealed record Foiled(string Caption, FoiledArch Kind) : ArchChoice(Caption);
-    public sealed record Counted(string Caption, FoilCount InitialCount) : ArchChoice(Caption);
+    private ArchChoice(string option, string label, string tooltip) => (Option, Label, Tooltip) = (option, label, tooltip);
+    public string Option { get; }
+    public string Label { get; }
+    public string Tooltip { get; }
+    public sealed record Spanned(string Option, string Label, string Tooltip, SpannedArch Kind) : ArchChoice(Option, Label, Tooltip);
+    public sealed record Raised(string Option, string Label, string Tooltip, RaisedArch Kind) : ArchChoice(Option, Label, Tooltip);
+    public sealed record Foiled(string Option, string Label, string Tooltip, FoiledArch Kind) : ArchChoice(Option, Label, Tooltip);
+    public sealed record Counted(string Option, string Label, string Tooltip, FoilCount InitialCount) : ArchChoice(Option, Label, Tooltip);
 }
 
 [Union]
@@ -33,21 +35,24 @@ internal abstract partial record ArchStage {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ArchPrompts {
+    // --- [OPTIONS]
+    internal const string BothSides = "BothSides";
+
     // --- [PROMPTS]
     internal static IO<StageStep<ArchStage, Seq<Guid>>> Pick(RhinoDoc doc, CallbackSite site, string prompt, IterableNE<ArchChoice> choices, Tolerances tolerances, ArchStage stage, Accepts<StageStep<ArchStage, Seq<Guid>>> accept) =>
         stage.Switch((Doc: doc, Site: site, Prompt: prompt, Choices: choices, Tolerances: tolerances, Accept: accept),
             choosing: static (at, _) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>(at.Prompt, at.Site) {
                 Accept = at.Accept,
-                Options = toSeq(at.Choices.Map(static choice => OptionSpec.Plain(choice.Caption, None, hidden: false, _ => Advance(new ArchStage.Starting(choice, BothSides: false))))),
+                Options = toSeq(at.Choices.Map(static choice => OptionSpec.Plain(choice.Option, None, hidden: false, _ => Advance(new ArchStage.Starting(choice, BothSides: false))))),
             }, pick => Anchor(pick.Pick, at.Choices.Head, bothSides: false)),
             starting: static (at, start) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>(start.BothSides ? "Middle of span" : "First end point", at.Site) {
                 Accept = at.Accept,
-                Options = Seq(Toggle("BothSides", LabelPair.NoYes, start.BothSides, value => start with { BothSides = value })),
+                Options = Seq(Toggle(BothSides, LabelPair.NoYes, start.BothSides, value => start with { BothSides = value })),
             }, pick => Anchor(pick.Pick, start.Choice, start.BothSides)),
             ending: static (at, end) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>(end.BothSides ? "End of span" : "Second end point", at.Site) {
                 Accept = at.Accept,
                 Configure = [getter => IO.lift(() => getter.SetBasePoint(end.Start, showDistanceInStatusBar: true))],
-                Options = Seq(Toggle("BothSides", LabelPair.NoYes, end.BothSides, value => end with { BothSides = value }))
+                Options = Seq(Toggle(BothSides, LabelPair.NoYes, end.BothSides, value => end with { BothSides = value }))
                     + (end.Choice is ArchChoice.Raised ? [] : Seq(Toggle("Flip", LabelPair.NoYes, end.Flip, value => end with { Flip = value })))
                     + (end.Choice is ArchChoice.Foiled or ArchChoice.Counted ? Seq(Toggle("Shape", new LabelPair("Rounded", "Pointed"), end.Pointed, value => end with { Pointed = value })) : []),
                 Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => Span(end, args.CurrentPoint).Match(

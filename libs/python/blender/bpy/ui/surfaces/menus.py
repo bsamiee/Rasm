@@ -21,6 +21,7 @@ from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import acquired, bound, fits, OperatorButton, painted, placed, Property, Pulldown, realized, RowContent, RowDraw, SurfaceDraw
 from blender.bpy.ui.layout.sections import Listing, Store
 from blender.imaging.faults import accumulated
+from blender.imaging.parameters import heading
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -37,6 +38,13 @@ class Keyed[K: Hashable](msgspec.Struct, frozen=True, kw_only=True):
 
     entries: Mapping[K, RowContent]
     keys: Callable[[bpy.types.Context], Iterable[K]]
+    search: bool = False
+
+
+class Submenus[G: Enum](msgspec.Struct, frozen=True, kw_only=True):
+    """Entries filed into one submenu per group in group declaration order, the native add-menu form."""
+
+    entries: tuple[tuple[G, RowContent], ...]
     search: bool = False
 
 
@@ -59,7 +67,7 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     key: Key
     title: str
     description: str
-    body: Dropdown | Keyed[K] | Pie
+    body: Dropdown | Keyed[K] | Submenus[Enum] | Pie
     condition: Option[Condition] = Nothing
 
     # --- [PLACEMENT]
@@ -93,6 +101,27 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
 
                 def drawing() -> BlenderResult[SurfaceDraw]:
                     return accumulated(realized(row, identity).map(lambda draw: (key, draw)) for key, row in offered).map(dict).map(keyed)
+
+            case Submenus(entries=entries, search=search):
+                groups = tuple(
+                    Menu(
+                        key=f"{self.key}_{group.name.lower()}",
+                        title=heading(group.name),
+                        description=f"{heading(group.name)}: {self.description}",
+                        body=Dropdown(entries=tuple(row for held, row in entries if held is group)),
+                        condition=self.condition,
+                    )
+                    for present in (frozenset(held for held, _ in entries),)
+                    for kind in dict.fromkeys(type(held) for held, _ in entries)
+                    for group in kind
+                    if group in present
+                )
+                rows = tuple(Pulldown(menu=group.key) for group in groups)
+
+                def drawing() -> BlenderResult[SurfaceDraw]:
+                    return placed(rows, identity).map(painted)
+
+                return Ok((*groups, (Band.INTERFACE, registered(identity, self.key, self.title, self.description, drawing, search=search, condition=self.condition))))
 
             case Pie():
                 slots = msgspec.structs.astuple(self.body)
@@ -245,4 +274,4 @@ def registered(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Captured", "Dropdown", "Keyed", "Menu", "Pie", "PresetMenu"]
+__all__ = ["Captured", "Dropdown", "Keyed", "Menu", "Pie", "PresetMenu", "Submenus"]

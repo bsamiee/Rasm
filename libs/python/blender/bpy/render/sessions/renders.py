@@ -84,7 +84,7 @@ class Launch(msgspec.Struct, frozen=True, kw_only=True):
 class ValueSet(msgspec.Struct, frozen=True, kw_only=True):
     """Scene value preset for one render."""
 
-    name: Annotated[str, msgspec.Meta(title="Value Set"), value_set_names]
+    name: Annotated[str, msgspec.Meta(title="Preset"), value_set_names]
 
 
 class Isolated(msgspec.Struct, frozen=True, kw_only=True):
@@ -97,7 +97,7 @@ class Isolated(msgspec.Struct, frozen=True, kw_only=True):
 class RenderOverride(msgspec.Struct, frozen=True, kw_only=True):
     """Overrides applied for one render."""
 
-    values: Gated[ValueSet] = Gated(enabled=False, value=ValueSet(name=""))
+    values: Annotated[Gated[ValueSet], msgspec.Meta(title="Value Set", description="Scene value preset applied for the render")] = Gated(enabled=False, value=ValueSet(name=""))
     isolated: Gated[Isolated] = Gated(enabled=False, value=Isolated())
 
 

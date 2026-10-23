@@ -36,7 +36,7 @@ class TileSet(msgspec.Struct, frozen=True, kw_only=True):
     """Preview collection and finished request per slot, pixelless requests included."""
 
     collection: bpy.utils.previews.ImagePreviewCollection
-    drawn: dict[str, Drawn]
+    drawn: dict[str, Hashable]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -83,6 +83,19 @@ class Previews(msgspec.Struct, frozen=True, kw_only=True):
 
         return Ok(self.icon_id(slot)) if tiles.drawn.get(slot) == shown else rendered(shown.side).bind(lambda outcome: outcome.map(drawn).default_value(Ok(Nothing)))
 
+    def picture(self, slot: str, key: Hashable, rendered: Callable[[Metrics], BlenderResult[Option[npt.NDArray[np.float32]]]]) -> BlenderResult[Option[int]]:
+        """Writes rendered straight RGBA once per key and interface metrics, dropping slot while render returns Nothing."""
+        tiles, metrics = Previews.held[self.identity.package], Metrics.read()
+        shown = (key, metrics.scale, metrics.pixel_size)
+
+        def drawn(plane: Option[npt.NDArray[np.float32]]) -> BlenderResult[Option[int]]:
+            icon = plane.map(lambda pixels: filled(Option.of_optional(tiles.collection.get(slot)).default_with(lambda: tiles.collection.new(slot)), pixels).icon_id)
+            redraw = redrawn().map(lambda _: None) if plane.is_some() else self.dropped(slot)
+            tiles.drawn[slot] = shown
+            return redraw.map(lambda _: icon)
+
+        return Ok(self.icon_id(slot)) if tiles.drawn.get(slot) == shown else rendered(metrics).bind(drawn)
+
     def dropped(self, slot: str) -> BlenderResult[None]:
         """Clears slot, redrawing when a preview was removed."""
         tiles = Previews.held[self.identity.package]
@@ -101,8 +114,13 @@ def written(preview: bpy.types.ImagePreview, plane: npt.NDArray[np.float32], che
     height, width, _ = plane.shape
     rows, columns = np.indices((height, width), sparse=True)
     ground = np.where(((rows // checker.cell + columns // checker.cell) % 2 == 0)[..., None], np.asarray(checker.primary[:3], dtype=np.float32), np.asarray(checker.secondary[:3], dtype=np.float32))
-    opaque = np.concatenate((plane[..., :3] + (1.0 - plane[..., 3:]) * ground, np.ones((height, width, 1), np.float32)), axis=-1)
-    pixels, size = np.ascontiguousarray(opaque[::-1]).reshape(-1), (width, height)
+    return filled(preview, np.concatenate((plane[..., :3] + (1.0 - plane[..., 3:]) * ground, np.ones((height, width, 1), np.float32)), axis=-1))
+
+
+def filled(preview: bpy.types.ImagePreview, plane: npt.NDArray[np.float32]) -> bpy.types.ImagePreview:
+    """Writes top-first RGBA into preview image and icon buffers at full size."""
+    height, width, _ = plane.shape
+    pixels, size = np.ascontiguousarray(plane[::-1]).reshape(-1), (width, height)
     preview.image_size = size  # type: ignore[assignment]
     preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
     preview.icon_size = size  # type: ignore[assignment]
@@ -112,4 +130,4 @@ def written(preview: bpy.types.ImagePreview, plane: npt.NDArray[np.float32], che
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Drawn", "Previews", "TileSet", "written"]
+__all__ = ["Drawn", "Previews", "TileSet", "filled", "written"]

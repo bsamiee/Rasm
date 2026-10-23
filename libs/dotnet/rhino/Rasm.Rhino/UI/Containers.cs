@@ -125,18 +125,15 @@ public static class Containers {
             from body in ViewOps.Realize(owner, toSeq(page.Body), scope, retain)
             from seated in IO.lift(() => { tab.Text = Wording.English.Shown(page.Caption, scope.Sink); tab.Content = body; control.Pages.Add(tab); })
             select unit).As()
+        from selected in Subscriptions.Attach(
+            handler => control.SelectedIndexChanged += handler, handler => control.SelectedIndexChanged -= handler,
+            Callbacks.Handler<EventArgs>(_ => scope.Visibility.Bind(visible => SectionHolder.Shown(control, visible)),
+                new CallbackSite(scope.Sink, typeof(TabControl), nameof(TabControl.SelectedIndexChanged))), retain)
         select (Control)control;
 
     // --- [DISCLOSURES]
     private static IO<Control> Disclosure(IPlugInViews owner, ContainerRow.Disclosure disclosure, RowScope scope, Action<IDisposable> retain) =>
-        from expander in DisposalOps.Acquire(IO.lift(static () => new Expander()), retain)
-        from header in DisposalOps.Acquire(IO.lift(static () => new Label()), retain)
-        from body in ViewOps.Realize(owner, toSeq(disclosure.Body), scope, retain)
-        from configured in IO.lift(() => {
-            header.Text = Wording.English.Shown(disclosure.Caption, scope.Sink);
-            (expander.Header, expander.Expanded, expander.Content) = (header, disclosure.Expanded, body);
-        })
-        select (Control)expander;
+        SectionHolder.Disclose(owner, disclosure, scope, retain).Map(static holder => (Control)holder);
 
     // --- [TILES]
     private static IO<Control> Tiles(ContainerRow.Tiles tiles, RowScope scope, Action<IDisposable> retain) =>

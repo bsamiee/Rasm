@@ -56,7 +56,7 @@ class Link(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class CurvePoints(msgspec.Struct, frozen=True, kw_only=True):
     """Curve map points with view bounds and evaluation clipping."""
 
-    maps: tuple[Points] | tuple[Points, Points, Points, Points]
+    maps: tuple[Points, *tuple[Points, ...]]
     clip: Option[tuple[float, float, float, float]] = Nothing
     handle: Literal["AUTO", "AUTO_CLAMPED", "VECTOR"] = "VECTOR"
     clipped: bool = False

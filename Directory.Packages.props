@@ -779,6 +779,7 @@
         <PackageVersion Include="Svg.Model"                                               Version="5.2.3" />                             <!-- SVG document parameters and rendering model -->
         <PackageVersion Include="Svg.Skia"                                                Version="5.2.3" />                             <!-- SVG rendering over SkiaSharp -->
         <PackageVersion Include="System.Reactive"                                         Version="7.0.0" />                             <!-- Reactive Extensions for composable event and asynchronous sequences -->
+        <PackageVersion Include="Topten.RichTextKit"                                      Version="0.6.170" />                           <!-- Rich text layout, measurement, and rendering for Skia -->
         <PackageVersion Include="Xaml.Behaviors.Avalonia"                                 Version="12.0.7" />                            <!-- XAML behaviors, triggers, and actions for declarative interactivity -->
     </ItemGroup>
 
@@ -930,7 +931,6 @@
         <PackageVersion Include="System.Threading.RateLimiting"                           Version="11.0.0-rc.2.26504.105" />             <!-- Rate limiting primitives including fixed window and token bucket -->
         <PackageVersion Include="System.ValueTuple"                                       Version="4.6.2" />                             <!-- Value tuple types for frameworks without them -->
         <PackageVersion Include="Tmds.DBus.Protocol"                                      Version="0.95.1" />                            <!-- Low-level D-Bus protocol implementation with NativeAOT compatibility -->
-        <PackageVersion Include="Topten.RichTextKit"                                      Version="0.6.170" />                           <!-- Rich text layout, measurement, and rendering for Skia -->
         <PackageVersion Include="Uncodium.Eigensystems"                                   Version="1.1.2" />                             <!-- Eigenvalue and eigenvector computation for 3x3 matrices -->
         <PackageVersion Include="Uncodium.SimpleStore"                                    Version="3.0.31" />                            <!-- Key-value store for blob data -->
         <PackageVersion Include="Xbim.Common"                                             Version="6.1.605" />                           <!-- Common behaviors, interfaces, and metadata for BIM model handling -->

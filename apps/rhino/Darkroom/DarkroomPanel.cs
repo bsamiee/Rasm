@@ -2,7 +2,6 @@ using System.Runtime.InteropServices;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Styling;
 using Rhino;
-using Rhino.UI;
 
 namespace Darkroom;
 
@@ -21,7 +20,6 @@ public sealed class DarkroomPanel(RhinoDoc? document) : DefinedPanel(document, R
         Identity = typeof(DarkroomPanel),
         Caption = "Darkroom",
         Icon = Some<IGlyph>(DarkroomGlyph.Mark),
-        InitialAfter = Some(PanelIds.Rendering),
         Children = [new HolderRow.Stacked([HistorySection.Row, CompareSection.Row, RenderQueueSection.Row])],
     };
 }

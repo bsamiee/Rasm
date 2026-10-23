@@ -37,14 +37,14 @@ from blender.bpy.settings.properties import Definition
 from blender.bpy.ui.drawing.canvas import Align, Canvas, compiled, DECODED, Rect, Shadow
 from blender.bpy.ui.drawing.charts import ChartFrame, FalseColor, Gamuts, histogram, Outline
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Part, Refresh, Signal, Watch
-from blender.bpy.ui.layout.rows import Caption, Flow, joined, Line, Member, placed, Property, Row, RowDraw
+from blender.bpy.ui.layout.rows import Caption, Divider, Flow, joined, Line, Member, placed, Property, Row, RowDraw
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.textures import uploaded
 from blender.bpy.ui.resources.theme import Color, color, Metrics
-from blender.bpy.ui.screens.areas import AreaQuery, Located
+from blender.bpy.ui.screens.areas import AreaQuery, Located, NewWindow, windowed
 from blender.bpy.ui.screens.editors import EditorState
-from blender.bpy.ui.surfaces.gizmos import Gizmos, Move
+from blender.bpy.ui.surfaces.gizmos import Cage, Gizmos, Handler, MatrixValues, Move
 from blender.imaging.analysis.metering import Region
 from blender.imaging.analysis.scopes import Clipping
 from blender.imaging.color.processors import unassociated
@@ -59,7 +59,7 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Shape = Aligned | Free
-type RegionPart = int | tuple[int, int] | Motion
+type RegionPart = int | Motion
 
 
 class Motion(Enum):
@@ -92,6 +92,7 @@ class Shown(IntEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 HANDLE: Final = 80 * 0.35 / 2
+UNIT: Final[MatrixValues] = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -284,7 +285,7 @@ class Masks(msgspec.Struct, frozen=True, kw_only=True):
         for space, texture, region in ((space, texture, region) for space in canvas.space.bind(edited).to_list() for texture in state for region in canvas.region.to_list()):
             frame = framed(region)
             texture.filter_mode(space.zoom[0] < 1.0)  # type: ignore[index]
-            canvas.picture(texture, frame, gpu.shader.from_builtin("IMAGE_COLOR"))
+            canvas.picture(texture, frame, gpu.shader.from_builtin("IMAGE_COLOR"), blend="ALPHA")
 
 
 class Access(msgspec.Struct, frozen=True, kw_only=True):
@@ -384,18 +385,14 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
         def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
             enabled = next(field for field in msgspec.structs.fields(Gated[Compare]) if field.name == "enabled")
             value = next(field for field in msgspec.structs.fields(Gated[Compare]) if field.name == "value")
+            mode, _, swapped = Compare.__struct_fields__
             return self.state.bound(identity).map(
                 lambda attached: (
                     Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.{enabled.name}"), icon=Some(self.glyph), icon_only=True),
-                    *(
-                        Property(
-                            target=Member(root=bpy.types.Screen, path=f"{attached.name}.{value.name}.{field.name}"),
-                            icon=Some("ARROW_LEFTRIGHT") if field.name == "swapped" else Nothing,
-                            icon_only=field.name == "swapped",
-                        )
-                        for field in msgspec.structs.fields(Compare)
-                        if field.name != "split"
-                    ),
+                    Divider(type="SPACE"),
+                    Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.{value.name}.{mode}"), expand=True),
+                    Divider(type="SPACE"),
+                    Property(target=Member(root=bpy.types.Screen, path=f"{attached.name}.{value.name}.{swapped}"), icon=Some("ARROW_LEFTRIGHT"), icon_only=True),
                 )
             )
 
@@ -480,7 +477,7 @@ class FrameMask(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
-    """Corner, edge, and affine handles with rollback."""
+    """Region handles with rollback, one cage for aligned regions, corner and affine handles for free quads."""
 
     key: Key
     title: str
@@ -489,19 +486,59 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     kinds: tuple[str, ...] = ("RENDER_RESULT",)
     refreshes: tuple[Refresh, ...] = ()
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns gesture operators, native handles, and region outline."""
-        return Ok(self.rows(image_type(self.kinds)))
+    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+        """Returns handle group, free quads with their gesture operators and outline."""
+        shown = image_type(self.kinds)
+        match self.shape:
+            case Aligned() as aligned:
+                return Ok((Gizmos(key=self.key, title=self.title, space="IMAGE_EDITOR", parts=(self.cage(identity, aligned),), condition=Some(shown)),))
+            case Free():
+                return Ok(self.moves(shown))
 
-    def rows(self, shown: Setting) -> tuple[Registrable, ...]:
-        """Returns each operator before its handle, then outline."""
-        corners = tuple(range(len(Quad.__struct_fields__)))
-        parts: tuple[RegionPart, ...] = (
-            *corners,
-            *(tuple((index, (index + 1) % len(corners)) for index in corners) if isinstance(self.shape, Aligned) and not self.shape.locked else ()),
-            Motion.TRANSLATE,
-            *((Motion.ROTATE, Motion.SCALE) if isinstance(self.shape, Free) else ()),
+    def held(self, context: bpy.types.Context) -> BlenderResult[Option[tuple[Access, Rect]]]:
+        """Reads region access with the region frame holding it."""
+        return self.access(context).map(lambda found: found.bind(lambda access: root_in(bpy.types.Region, context).map(lambda region: (access, framed(region)))))
+
+    def cage(self, identity: Identity, aligned: Aligned) -> Cage:
+        """Returns cage over the region rectangle in frame pixels, aspect kept while locked and bounds clipping each edit."""
+
+        def matrix(access: Access, frame: Rect) -> MatrixValues:
+            pixels = access.quad.samples[:, :2] * (frame.width, frame.height)
+            (left, bottom), (right, top) = pixels.min(axis=0), pixels.max(axis=0)
+            return (right - left, 0.0, 0.0, 0.0, 0.0, top - bottom, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, (left + right) / 2.0, (bottom + top) / 2.0, 0.0, 1.0)
+
+        def place(context: bpy.types.Context) -> BlenderResult[Option[Matrix]]:
+            return self.held(context).map(lambda found: found.map(lambda pair: Matrix.Translation((pair[1].x, pair[1].y, 0.0))))
+
+        def get(context: bpy.types.Context) -> MatrixValues:
+            return identity.reports.reported(self.held)(context).bind(lambda found: found).map(lambda pair: matrix(*pair)).default_value(UNIT)
+
+        def wrote(context: bpy.types.Context, values: MatrixValues) -> BlenderResult[None]:
+            def written(access: Access, frame: Rect) -> BlenderResult[None]:
+                center, half = np.array((values[12], values[13])), np.abs((values[0], values[5])) / 2.0
+                low, high = (center - half) / (frame.width, frame.height), (center + half) / (frame.width, frame.height)
+                (left, bottom), (right, top) = aligned.bounds.map(
+                    lambda region: (np.clip(low, (region.left, region.bottom), (region.right, region.top)), np.clip(high, (region.left, region.bottom), (region.right, region.top)))
+                ).default_value((low, high))
+                return access.write(
+                    Quad(top_left=(float(left), float(top)), top_right=(float(right), float(top)), bottom_right=(float(right), float(bottom)), bottom_left=(float(left), float(bottom)))
+                )
+
+            return self.held(context).bind(lambda found: found.to_result_with(lambda: (BlenderAbsentFault(owner=repr(context.area), key=self.key),))).bind(lambda pair: written(*pair))
+
+        return Cage(
+            place=place,
+            bind=Handler(get=get, set=wrote),
+            dimensions=Some((1.0, 1.0)),
+            transform=Some(frozenset({"TRANSLATE", "SCALE_UNIFORM"} if aligned.locked else {"TRANSLATE", "SCALE"})),
+            draw_style=Some("BOX"),
+            draw_options=Some(frozenset({"CORNER_HANDLES"})),
         )
+
+    def moves(self, shown: Setting) -> tuple[Registrable, ...]:
+        """Returns each free quad gesture operator before its handle, then outline."""
+        corners = tuple(range(len(Quad.__struct_fields__)))
+        parts: tuple[RegionPart, ...] = (*corners, Motion.TRANSLATE, Motion.ROTATE, Motion.SCALE)
 
         def handle(part: RegionPart, order: int) -> tuple[Operator[Empty, tuple[Access, Rect]], Move]:
             def point(quad: Quad, frame: Rect) -> npt.NDArray[np.float64]:
@@ -509,8 +546,6 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
                 match part:
                     case int(index):
                         return samples[index, :]
-                    case tuple(edge):
-                        return samples[list(edge)].mean(axis=0)
                     case Motion.TRANSLATE:
                         return samples.mean(axis=0)
                     case Motion.ROTATE:
@@ -519,57 +554,27 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
                         return np.add(samples.mean(axis=0), (HANDLE * 2, 0.0))
 
             def place(context: bpy.types.Context) -> BlenderResult[Option[Matrix]]:
-                return self.access(context).map(
-                    lambda found: found.bind(lambda held: root_in(bpy.types.Region, context).map(lambda region: Matrix.Translation((*point(held.quad, framed(region)), 0.0))))
-                )
+                return self.held(context).map(lambda found: found.map(lambda pair: Matrix.Translation((*point(pair[0].quad, pair[1]), 0.0))))
 
             def begin(context: bpy.types.Context, _travel: Travel) -> BlenderResult[tuple[Access, Rect]]:
-                return paired(
-                    self.access(context).bind(lambda found: found.to_result_with(lambda: (BlenderAbsentFault(owner=repr(context.area), key=self.key),))), rooted(bpy.types.Region, context)
-                ).map(lambda pair: (pair[0], framed(pair[1])))
+                return self.held(context).bind(lambda found: found.to_result_with(lambda: (BlenderAbsentFault(owner=repr(context.area), key=self.key),)))
 
             def preview(_context: bpy.types.Context, state: tuple[Access, Rect], travel: Travel) -> BlenderResult[Option[str]]:
                 held, frame = state
                 pixels = held.quad.samples[:, :2] * (frame.width, frame.height)
                 delta = np.array((travel.dx, travel.dy), dtype=np.float64) * (0.1 if travel.precise else 1.0)
                 center = pixels.mean(axis=0)
-                bounds = (
-                    self.shape.bounds.map(lambda region: np.array(((region.left, region.bottom), (region.right, region.top))) * (frame.width, frame.height))
-                    if isinstance(self.shape, Aligned)
-                    else Nothing
-                )
                 match part:
                     case Motion.TRANSLATE:
-                        movement = bounds.map(lambda limits: np.clip(delta, limits[0] - pixels.min(axis=0), limits[1] - pixels.max(axis=0))).default_value(delta)
-                        changed = pixels + movement
+                        changed = pixels + delta
                     case Motion.ROTATE:
                         angle = math.atan2(-delta[0], HANDLE * 2 + delta[1])
                         cosine, sine = math.cos(angle), math.sin(angle)
                         changed = (pixels - center) @ np.array(((cosine, sine), (-sine, cosine))) + center
                     case Motion.SCALE:
                         changed = (pixels - center) * math.hypot(HANDLE * 2 + delta[0], delta[1]) / (HANDLE * 2) + center
-                    case int(index) if isinstance(self.shape, Free):
-                        changed = pixels + np.where((np.arange(len(corners)) == index)[:, None], delta, 0.0)
                     case int(index):
-                        opposite = (index + len(corners) // 2) % len(corners)
-                        selected = bounds.map(lambda limits: np.clip(pixels[index] + delta, limits[0], limits[1])).default_value(pixels[index] + delta)
-                        if isinstance(self.shape, Aligned) and self.shape.locked:
-                            diagonal = pixels[index] - pixels[opposite]
-                            requested = float(np.linalg.lstsq(diagonal[:, None], selected - pixels[opposite], rcond=None)[0][0])
-                            maximum = bounds.map(
-                                lambda limits: float(
-                                    np.divide(np.where(diagonal > 0, limits[1], limits[0]) - pixels[opposite], diagonal, out=np.full_like(diagonal, math.inf), where=diagonal != 0).min()
-                                )
-                            ).default_value(math.inf)
-                            changed = (pixels - pixels[opposite]) * min(max(requested, 0.0), maximum) + pixels[opposite]
-                        else:
-                            low, high = np.minimum(selected, pixels[opposite]), np.maximum(selected, pixels[opposite])
-                            changed = np.array(((low[0], high[1]), high, (high[0], low[1]), low))
-                    case tuple(edge):
-                        axis = 1 if edge[0] % 2 == 0 else 0
-                        selected = bounds.map(lambda limits: np.clip(pixels[edge[0], axis] + delta[axis], limits[0, axis], limits[1, axis])).default_value(pixels[edge[0], axis] + delta[axis])
-                        changed = pixels.copy()
-                        changed[list(edge), axis] = selected
+                        changed = pixels + np.where((np.arange(len(corners)) == index)[:, None], delta, 0.0)
                 return held.write(Quad.of(np.column_stack((changed / (frame.width, frame.height), np.ones(len(corners)))))).map(lambda _: Nothing)
 
             command = Operator(
@@ -864,6 +869,44 @@ meter_pick = picking(
 meter_region = MeterRegion(attachment=AutoExposure.attachment)
 
 
+def review_window(key: Key, title: str, description: str) -> Operator[Empty]:
+    """Returns command showing the render view where the render display preference places it, its sidebar shown, keeping a view the window shows that the host toggle would hide."""
+
+    def rendered(area: bpy.types.Area) -> bool:
+        return isinstance(space := area.spaces.active, bpy.types.SpaceImageEditor) and space.image is not None and space.image.type == "RENDER_RESULT"
+
+    def shown(located: Located, identity: Identity) -> BlenderResult[None]:
+        screen = located.window.screen
+        return Ok(None) if screen.is_temporary or any(map(rendered, screen.areas)) else windowed(NewWindow.RENDER, located, identity)
+
+    def viewing(context: bpy.types.Context) -> BlenderResult[bpy.types.Area]:
+        return Option.of_optional(
+            next(
+                (
+                    area
+                    for manager in Option.of_optional(context.window_manager).to_list()
+                    for window in manager.windows
+                    if window.scene == context.scene
+                    for area in window.screen.areas
+                    if rendered(area)
+                ),
+                None,
+            )
+        ).to_result_with(lambda: (BlenderAbsentFault(owner="window_manager.windows", key="RENDER_RESULT"),))
+
+    def opened(call: Call[Empty]) -> BlenderResult[Outcome]:
+        return (
+            Located
+            .current(call.context)
+            .bind(lambda located: shown(located, call.identity))
+            .bind(lambda _: paired(viewing(call.context), EditorState.of(bpy.types.SpaceImageEditor, {"show_region_ui": True})))
+            .bind(lambda pair: pair[1].applied(pair[0]))
+            .map(lambda _: Done())
+        )
+
+    return Operator(key=key, title=title, description=description, undo=False, form=Empty, run=opened)
+
+
 def read_pick(viewer: EffectViewer) -> Operator[EntryPick]:
     """Returns pick handing entry input square to entry's read."""
     return picking(
@@ -881,6 +924,7 @@ def read_pick(viewer: EffectViewer) -> Operator[EntryPick]:
 __all__ = [
     "HANDLE",
     "RESULT",
+    "UNIT",
     "Access",
     "Aligned",
     "Before",
@@ -910,5 +954,6 @@ __all__ = [
     "picking",
     "read_pick",
     "revealed",
+    "review_window",
     "showing",
 ]
