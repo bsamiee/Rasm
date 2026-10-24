@@ -12,7 +12,7 @@ from idprop.types import IDPropertyGroup
 import msgspec
 
 from blender.bpy.data.ids.ownership import committed, kept, released
-from blender.bpy.data.ids.store import Handle, named, resolved
+from blender.bpy.data.ids.store import Handle, member, named, resolved, vacant
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
@@ -192,12 +192,10 @@ def moved(item: bpy.types.Object, target: bpy.types.Collection, scene: bpy.types
 
 
 def instanced(collection: bpy.types.Collection, target: bpy.types.Collection, name: str) -> BlenderResult[bpy.types.Object]:
-    """Creates named empty instancing collection in target, removing it on fault."""
+    """Creates empty instancing collection in target under the first vacant label of name, removing it on fault."""
     return kept(
-        BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(name, None)),
-        lambda item: named(item, name).bind(
-            lambda made: accumulated((written(made, "instance_type", "COLLECTION"), written(made, "instance_collection", collection))).bind(lambda _: joined(target, (made,))).map(lambda _: made)
-        ),
+        BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(vacant(name, bpy.data.objects.keys()), None)),
+        lambda made: accumulated((written(made, "instance_type", "COLLECTION"), written(made, "instance_collection", collection))).bind(lambda _: joined(target, (made,))).map(lambda _: made),
     )
 
 
@@ -209,13 +207,13 @@ def _editable(collection: bpy.types.Collection) -> bool:
 
 
 def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bpy.types.Collection]:
-    """Creates named collection under parent, removing it on fault."""
-    return kept(BlenderEditFault.attempted(name, lambda: bpy.data.collections.new(name)), lambda made: named(made, name).bind(lambda block: _parented(block, parent)))
+    """Creates collection under parent with the first vacant label of name, removing it on fault."""
+    return kept(BlenderEditFault.attempted(name, lambda: bpy.data.collections.new(vacant(name, bpy.data.collections.keys()))), lambda made: _parented(made, parent))
 
 
 def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection]) -> BlenderResult[bpy.types.Collection]:
     """Returns shallow copy linked into parent, removing it on fault."""
-    return kept(_copied(collection), lambda made: _parented(made, parent))
+    return kept(_copied(collection), lambda made: _labelled(made, collection).bind(lambda made: _parented(made, parent)))
 
 
 def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, copies: frozenset[type[bpy.types.ID]]) -> BlenderResult[bpy.types.Collection]:
@@ -233,7 +231,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
     with ExitStack() as rollback:
 
         def copied[T: bpy.types.ID](blocks: Iterable[T]) -> BlenderResult[dict[T, T]]:
-            return accumulated(kept(_copied(block), Ok, Some(rollback)).map(lambda held: (block, held)) for block in blocks).map(dict)
+            return accumulated(kept(_copied(block), lambda copy: _labelled(copy, block), Some(rollback)).map(lambda held: (block, held)) for block in blocks).map(dict)
 
         def finished(
             collections: dict[bpy.types.Collection, bpy.types.Collection], objects: dict[bpy.types.Object, bpy.types.Object], data: dict[bpy.types.ID, bpy.types.ID]
@@ -372,6 +370,10 @@ def _parented(collection: bpy.types.Collection, parent: Option[bpy.types.Collect
 
 def _copied[T: bpy.types.ID](block: T) -> BlenderResult[T]:
     return Option.of_optional(block.copy()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="copy"),))
+
+
+def _labelled[T: bpy.types.ID](copy: T, source: T) -> BlenderResult[T]:
+    return named(copy, vacant(source.name, (held.name for held in getattr(bpy.data, member(type(copy))) if held != copy)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

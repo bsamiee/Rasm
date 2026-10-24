@@ -13,7 +13,7 @@ import numpy as np
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.ownership import kept, Mark, Ownership, Saved
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -27,7 +27,7 @@ from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
 from blender.bpy.ui.surfaces.panels import enumerated
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Finite, Gated, NonNegative, Presentation, Quantity, Rgb
+from blender.imaging.parameters import Case, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb
 from blender.rendering.history import Retention
 from blender.rendering.lighting.solar import SunPosition
 
@@ -356,7 +356,7 @@ def swapped(row: Ownership[bpy.types.World], prepared: tuple[Environment, Graph]
             _shown(row, scene, identity)
             .map(lambda world: displayed(attached, world))
             .default_with(
-                lambda: kept(BlenderEditFault.attempted(row.key, lambda: bpy.data.worlds.new(row.key)), emptied).bind(
+                lambda: kept(BlenderEditFault.attempted(row.key, lambda: bpy.data.worlds.new(vacant(f"{scene.name} {heading(row.key)}", bpy.data.worlds.keys()))), emptied).bind(
                     lambda world: row.owned(identity, world, of=predecessor, filled=lambda world: displayed(attached, world), scope=scope)
                 )
             )

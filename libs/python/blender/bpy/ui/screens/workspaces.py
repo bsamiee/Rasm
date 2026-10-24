@@ -10,7 +10,7 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.ids.store import Handle, named
+from blender.bpy.data.ids.store import Handle, named, vacant
 from blender.bpy.data.rna.descriptors import written
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.timers import Timer
@@ -129,7 +129,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
                 screens.callback(bpy.data.batch_remove, ids=tuple(workspace.screens))
                 with ExitStack() as pending:
                     pending.callback(bpy.data.batch_remove, ids=(workspace,))
-                    if (answer := named(workspace, self.name).bind(moded)).is_ok():
+                    if (answer := named(workspace, vacant(self.name, (held.name for held in bpy.data.workspaces if held != workspace))).bind(moded)).is_ok():
                         pending.pop_all()
                     return answer
 

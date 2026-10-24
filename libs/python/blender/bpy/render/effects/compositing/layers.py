@@ -23,6 +23,7 @@ from blender.bpy.commands.modal import Gesture, Modal, Travel
 from blender.bpy.commands.operators import Call, Command, Done, Empty, InvokePopup, Open, Operator, Outcome, Properties, Unchanged
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
+from blender.bpy.data.ids.store import named, vacant
 from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, IdName, root_in, rooted, written
 from blender.bpy.data.rna.snapshots import Snapshot
@@ -52,8 +53,11 @@ from blender.bpy.render.effects.stack import (
     expanded,
     formation,
     framing,
+    graph_drawn,
     graph_values,
-    graphed,
+    graph_widgets,
+    GraphWidget,
+    hidden,
     inputs,
     KeyPath,
     Pinned,
@@ -276,11 +280,19 @@ class LayerStacking[E: Effect]:
                 lambda: (BlenderAbsentFault(owner=repr(bpy.data.node_groups), key=name),)
             )
 
+        def fresh() -> BlenderResult[bpy.types.CompositorNodeTree]:
+            group: bpy.types.CompositorNodeTree = bpy.data.node_groups.new(vacant(LayerStacks.title, bpy.data.node_groups.keys()), "CompositorNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return Ok(group)
+
+        def cloned(tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.CompositorNodeTree]:
+            group: bpy.types.CompositorNodeTree = tree.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return named(group, vacant(LayerStacks.title, bpy.data.node_groups.keys()))
+
         def created(call: Call[Empty]) -> BlenderResult[Done]:
             return (
                 call
                 .root(bpy.types.Scene)
-                .bind(lambda scene: LayerStacks.ownership.made(self.identity, lambda: Ok(bpy.data.node_groups.new(LayerStacks.title, "CompositorNodeTree")), of=Some(scene)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                .bind(lambda scene: LayerStacks.ownership.made(self.identity, fresh, of=Some(scene)))
                 .bind(lambda group: self.attached.write(group, self.form()).bind(lambda _: self.switched(call.context, group)))
                 .map(lambda _: Done())
             )
@@ -293,7 +305,7 @@ class LayerStacking[E: Effect]:
                     lambda scene: self.head(scene).bind(
                         lambda entry: Result[bpy.types.NodeTree, BlenderFaults].bind(
                             stacked_by(self.identity, entry).to_result_with(lambda: (BlenderAbsentFault(owner=repr(entry), key=LayerStacks.ownership.key),)),
-                            lambda tree: LayerStacks.ownership.made(self.identity, lambda: Ok(tree.copy()), of=Some(scene)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                            lambda tree: LayerStacks.ownership.made(self.identity, lambda: cloned(tree), of=Some(scene)),
                         )
                     )
                 )
@@ -882,7 +894,7 @@ class LayerStacking[E: Effect]:
         def switched(scene: bpy.types.Scene) -> BlenderResult[None]:
             held = Option.of_optional(next((entry for entry in scene.compositor_effects if stacked_by(self.identity, entry).is_some()), None))
             with ExitStack() as rollback:
-                entry = held.default_with(lambda: scene.compositor_effects.new(tree.name))
+                entry = held.default_with(lambda: scene.compositor_effects.new(vacant(LayerStacks.title, (item.name for item in scene.compositor_effects))))
                 if held.is_none():
                     rollback.callback(scene.compositor_effects.remove, entry)
                 return (
@@ -1059,25 +1071,22 @@ class LayerStacking[E: Effect]:
         def draw(parts: tuple[tuple[RowDraw, RowDraw], tuple[dict[type[bpy.types.Node], RowDraw], RowDraw]]) -> RowDraw:
             (listing, adding), (curves, ramp) = parts
 
-            def editable(prefix: KeyPath, value: msgspec.Struct, editors: tuple[CurveEditor, ...] = ()) -> frozenset[Key]:
-                shared = frozenset(field for editor in editors for field in editor.fields)
-                return frozenset((
-                    *(item_key(*path) for path in graphed(type(value), value=Some(value), prefix=prefix) if path[-1] not in shared),
-                    *(item_key(*prefix, editor.key) for editor in editors),
-                ))
-
             def widgets(
-                layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, prefix: Key, inner: tuple[Key, ...], editors: frozenset[Key], context: bpy.types.Context
+                layout: bpy.types.UILayout,
+                entry: bpy.types.SceneCompositorEffect,
+                tree: bpy.types.NodeTree,
+                prefix: Key,
+                inner: tuple[Key, ...],
+                graphs: tuple[GraphWidget, ...],
+                context: bpy.types.Context,
             ) -> None:
                 def held(key: Key) -> bool:
                     return key.startswith(f"{prefix}_") and not any(key.startswith(f"{nested}_") for nested in inner)
 
-                for key, current in owned(tree, self.identity).items():
-                    match current:
-                        case bpy.types.ShaderNodeValToRGB() if key in editors:
-                            ramp(layout, current, context)
-                        case bpy.types.Node() if type(current) in curves and key in editors:
-                            curves[type(current)](layout, current, context)
+                nodes = owned(tree, self.identity)
+                for widget in graphs:
+                    for live in Option.of_optional(nodes.get(widget.node)).to_list():
+                        alerted(layout, graph_drawn(layout, live, widget, (curves, ramp), context))
                 for key in (key for keys in slot(self.identity).map(lambda name: addresses(tree, name)).to_option().to_list() for key in keys if held(key)):
                     alerted(layout, entry_input(self.identity, entry, key).map(lambda owner: layout.prop(owner, "value")))
 
@@ -1092,7 +1101,7 @@ class LayerStacking[E: Effect]:
                         inner,
                         self.stack.offering(type(effect.value.effect)).map(
                             lambda row: widgets(
-                                inner, entry, tree, item_key(*place), (), editable(place, effect.value.effect, row.editors) | editable((*place, Shell.blend), effect.value.blend), context
+                                inner, entry, tree, item_key(*place), (), (*graph_widgets(effect.value.effect, place, row.editors), *graph_widgets(effect.value.blend, (*place, Shell.blend))), context
                             )
                         ),
                     )
@@ -1113,7 +1122,15 @@ class LayerStacking[E: Effect]:
                     outputs = layout.row(align=True)
                     for output in (output for output in source.outputs if output.enabled):
                         alerted(outputs, pressed(outputs, self.identity, self.output, OutputChoice(layer=at.layer, output=output.name), text=output.name, icon="NONE"))
-                widgets(layout, entry, tree, layer.key, tuple(itertools.starmap(item_key, places)), frozenset().union(*(editable((layer.key, name), value) for name, value in layer.parts)), context)
+                widgets(
+                    layout,
+                    entry,
+                    tree,
+                    layer.key,
+                    tuple(itertools.starmap(item_key, places)),
+                    tuple(widget for name, value in layer.parts for widget in graph_widgets(value, (layer.key, name))),
+                    context,
+                )
                 masks = layout.row(align=True)
                 alerted(masks, pressed(masks, self.identity, self.masking, Addressed(target=at), text=self.masking.title, icon="MOD_MASK"))
                 alerted(masks, pressed(masks, self.identity, self.editing[Edit.RESET], Addressed(target=at), text="", icon=Edit.RESET.value))
@@ -1493,10 +1510,7 @@ def planned[E: Effect](record: LayerStack[Source, E], planning: Planning[E]) -> 
                 group,
                 graph=structs.replace(
                     group.graph,
-                    members={
-                        Descriptor(root=bpy.types.NodeTree, owner="", prop=bpy.types.CompositorNodeTree.bl_rna.properties[name]): True
-                        for name in ("allow_usage_in_scene_compositor_effect", "use_fake_user")
-                    },
+                    members={Descriptor(root=bpy.types.NodeTree, owner="", prop=bpy.types.CompositorNodeTree.bl_rna.properties["use_fake_user"]): True},
                     nodes={**{key: value for key, value in group.graph.nodes.items() if key not in framed_keys}, **frames},
                 ),
             )
@@ -1508,8 +1522,13 @@ def planned[E: Effect](record: LayerStack[Source, E], planning: Planning[E]) -> 
                 lambda joined: NodeGroup.built(
                     key=LayerStacks.ownership.key,
                     name=LayerStacks.title,
-                    interface=structs.replace(face, outputs=(Socket(key=Shell.image, name="Image", kind=bpy.types.NodeSocketColor),), panels=tuple(panel for _, panel, _ in parts)),
-                    outputs={Shell.image: (joined, running[-1])},
+                    interface=structs.replace(
+                        face,
+                        inputs=(Socket(key=Shell.image, name="Image", kind=bpy.types.NodeSocketColor), *face.inputs),
+                        outputs=(Socket(key=Shell.result, name="Image", kind=bpy.types.NodeSocketColor),),
+                        panels=tuple(panel for _, panel, _ in parts),
+                    ),
+                    outputs={Shell.result: (joined, running[-1])},
                 )
             )
             .map(framed_group)
@@ -1517,7 +1536,7 @@ def planned[E: Effect](record: LayerStack[Source, E], planning: Planning[E]) -> 
 
     return paired(
         accumulated(unit(layer, below, base, planning, mixes=layer.key in shown) for layer, below, base in zip(record.layers, covered, running)),
-        paired(background, Interface.of(CameraFrame).map(lambda face: under(Shell.frame, face))),
+        paired(background, Interface.of(CameraFrame).map(lambda face: hidden(under(Shell.frame, face)))),
     ).bind(lambda parts: built(parts[0], *parts[1]))
 
 
@@ -1534,7 +1553,7 @@ class LayerStacks[E: Effect]:
     ownership: ClassVar[Ownership[bpy.types.CompositorNodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="layer_stack", saved=Saved.ALWAYS, single=False)
     view: ClassVar[Attachment[StackView]] = Attachment(key="layer_stack_view", form=StackView, owner=bpy.types.Screen)
 
-    pinned: ClassVar[Pinned] = Pinned(ownership=ownership, edge=Edge.HEAD, conditions=Some(layer_conditions))
+    pinned: ClassVar[Pinned] = Pinned(ownership=ownership, title=title, edge=Edge.HEAD, conditions=Some(layer_conditions))
 
     def __init__(self, *, stack: EffectStack[E]) -> None:
         """Stores stack, form over its offered effect records, and attachment, with bindings per identity."""

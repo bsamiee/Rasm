@@ -708,7 +708,7 @@ class QueueRun:
     record: ClassVar[TextRecord[Queued]] = TextRecord(key="queue", form=Queued)
     denoise: ClassVar[Attachment[Denoising]] = Attachment(key="queue_denoise", form=Denoising, owner=bpy.types.Scene)
     inputs: ClassVar[Attachment[Rendered]] = Attachment(key="queue_inputs", form=Rendered, owner=bpy.types.Scene)
-    pinned: ClassVar[Pinned] = Pinned(ownership=Rendered.ownership, edge=Edge.HEAD, enables=frozenset({Enabled.RENDER}))
+    pinned: ClassVar[Pinned] = Pinned(ownership=Rendered.ownership, title=TemporalDenoise.title, edge=Edge.HEAD, enables=frozenset({Enabled.RENDER}))
     key: ClassVar[Key] = "queue"
     title: ClassVar[str] = "Render Queue"
     description: ClassVar[str] = ""

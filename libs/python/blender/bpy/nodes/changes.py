@@ -11,6 +11,7 @@ import msgspec
 
 from blender.bpy.data.ids.images import generated, loaded
 from blender.bpy.data.ids.ownership import Mark
+from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, differing, holds, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
@@ -407,7 +408,7 @@ def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Not
     """
     return group.ownership.made(
         identity,
-        lambda: Ok(bpy.data.node_groups.new(group.name, group.graph.kind.__name__)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        lambda: Ok(bpy.data.node_groups.new(vacant(group.name, bpy.data.node_groups.keys()), group.graph.kind.__name__)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         of=of,
         filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree),
     )
@@ -437,8 +438,11 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
         return tuple(items)
 
     match content:
-        case Ramp() | CurvePoints():
+        case Ramp():
             return Snapshot(struct=live.bl_rna.identifier, tree=_tree(content)).apply(live).outcome  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        case CurvePoints():
+            mapping: bpy.types.CurveMapping = live.mapping  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return Snapshot(struct=live.bl_rna.identifier, tree=_tree(content)).apply(live).outcome.map(lambda _: mapping.reset_view()).map(lambda _: mapping.update())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         case Generated(ownership=ownership, content=hashed, name=name, plane=plane, tag=tag):
             return generated(ownership, identity, name, hashed, plane, tag).bind(
                 lambda image: written(live, "image", image.to_optional()).bind(

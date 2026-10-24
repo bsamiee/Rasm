@@ -11,6 +11,7 @@ import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
+from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import Descriptor, member_path, struct_at, Value, written
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.imaging.faults import accumulated, paired
@@ -179,7 +180,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                     else Option
                     .of_optional(data.action)
                     .map(Ok)
-                    .default_with(lambda: Ok(bpy.data.actions.new(f"{owner.name}Action")).bind(lambda action: written(data, "action", action).map(lambda _: action)))
+                    .default_with(lambda: Ok(bpy.data.actions.new(vacant(f"{owner.name}Action", bpy.data.actions.keys()))).bind(lambda action: written(data, "action", action).map(lambda _: action)))
                     .bind(
                         lambda action: (
                             Option

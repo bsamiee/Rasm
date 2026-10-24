@@ -14,6 +14,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import answered, Call, Done, Empty, Operator, Outcome, Own, tallied, Unchanged
+from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna import conditions
 from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted
 from blender.bpy.data.rna.snapshots import Applied, Scenes, Snapshot, ViewLayers
@@ -374,7 +375,7 @@ def split(scene: bpy.types.Scene, flag: Flag, flags: dict[Flag, Descriptor[bpy.t
     with ExitStack() as rollback:
 
         def made(collection: bpy.types.Collection) -> BlenderResult[str]:
-            layer = scene.view_layers.new(collection.name)
+            layer = scene.view_layers.new(vacant(collection.name, scene.view_layers.keys()))
             rollback.callback(scene.view_layers.remove, layer)
             return applied(CollectionState(layer=layer.name, collection=IdName.of(collection), flag=flag, value=False, extent=Extent.ISOLATE), scene, flags).map(lambda _: layer.name)
 

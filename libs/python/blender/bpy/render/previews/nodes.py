@@ -27,7 +27,7 @@ from blender.bpy.commands.keymaps import Chord, Keymap
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome, Save, tallied, Unchanged
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.ids.store import Handle, resolved
+from blender.bpy.data.ids.store import Handle, resolved, vacant
 from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import Change, PathHandler, SceneHandler, UpdateHandler
@@ -586,7 +586,9 @@ class NodePreview:
             )
 
         def clay() -> BlenderResult[bpy.types.Material]:
-            return paired(NodePreview.clay.made(identity, lambda: Ok(bpy.data.materials.new("Clay"))), self.stack.config()).bind(lambda pair: shaded(pair[0], Clay(), pair[1], identity))
+            return paired(NodePreview.clay.made(identity, lambda: Ok(bpy.data.materials.new(vacant("Clay", bpy.data.materials.keys())))), self.stack.config()).bind(
+                lambda pair: shaded(pair[0], Clay(), pair[1], identity)
+            )
 
         def staged(world: Environment | bpy.types.World, lamp: Lamp | bpy.types.Light) -> Staging:
             return Staging(source=scene, size=(size, size), engine=PreviewEngine.of(scene), world=world, lamp=lamp, value=render.valued, chain=Chain.of(scene, Nothing, (), ()))
@@ -632,7 +634,7 @@ class NodePreview:
                 .map(lambda root: Editor(source=target.source, groups=target.groups).tree(root) if isinstance(root, bpy.types.NodeTree) else Nothing)
                 .bind(lambda tree: tree.bind(lambda inner: Option.of_optional(inner.nodes.get(target.node))).to_result_with(lambda: (BlenderAbsentFault(owner=repr(target.source), key=target.node),)))
             )
-            return paired(paired(found, aov), NodePreview.swatch.made(identity, lambda: Ok(bpy.data.materials.new("Swatch")))).bind(
+            return paired(paired(found, aov), NodePreview.swatch.made(identity, lambda: Ok(bpy.data.materials.new(vacant("Swatch", bpy.data.materials.keys()))))).bind(
                 lambda parts: tree_of(parts[1]).bind(lambda tree: reconciled(graph(*parts[0]), tree, identity)).map(lambda _: parts[1])
             )
 

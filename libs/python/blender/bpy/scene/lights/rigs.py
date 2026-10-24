@@ -18,7 +18,7 @@ from blender.bpy.commands.operators import Call, Done, Empty, InvokePopup, Opera
 from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.images import generated, read, Tag
 from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released, Saved
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.descriptors import IdName, root_in, rooted, typed, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
@@ -649,7 +649,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
 
             def spawned_light(row: Ownership[bpy.types.Object], placement: Placement, power: float) -> BlenderResult[bpy.types.Object]:
                 kind, values = emitted(placement, power)
-                label = placement.light.role.label
+                label = f"{holder.name} {placement.light.role.label}"
 
                 def stated(item: bpy.types.Object) -> ObjectState:
                     return ObjectState(
@@ -662,7 +662,7 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
                 def built() -> BlenderResult[bpy.types.Object]:
                     return (
                         BlenderEditFault
-                        .attempted(label, lambda: bpy.data.lights.new(label, kind))
+                        .attempted(label, lambda: bpy.data.lights.new(vacant(label, bpy.data.lights.keys()), kind))
                         .bind(lambda light: LightRig.data.owned(identity, light, of=Some(rig), scope=Some(rollback)))
                         .bind(lambda light: spawned(label, Some(light), home))
                     )

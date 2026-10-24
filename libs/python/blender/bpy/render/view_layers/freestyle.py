@@ -11,6 +11,7 @@ import msgspec
 
 from blender.bpy.commands.operators import Empty, Operator, Outcome, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
+from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
@@ -224,7 +225,7 @@ def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity
             .of_optional(held.linestyle)
             .filter(lambda current: Mark.read(identity, current).filter(lambda mark: mark.key == ownership.key).is_some())
             .map(Ok)
-            .default_with(lambda: ownership.made(identity, lambda: Ok(bpy.data.linestyles.new(row.name))))
+            .default_with(lambda: ownership.made(identity, lambda: Ok(bpy.data.linestyles.new(vacant(f"{layer.name} {row.name}", bpy.data.linestyles.keys())))))
         )
 
         def values(outcome: Applied) -> BlenderResult[Applied]:

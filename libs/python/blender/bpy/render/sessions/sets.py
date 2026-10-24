@@ -17,14 +17,14 @@ import numpy.typing as npt
 
 from blender.bpy.commands.operators import answered, Call, Confirm, Done, Empty, Operator, Outcome, Own, Suppressible, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
-from blender.bpy.data.ids.store import named
+from blender.bpy.data.ids.store import named, vacant
 from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Native, rooted, struct_at, Value
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, NativeValue, Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band, Registrable
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
 from blender.bpy.render.effects.stack import Configured, EffectName, EffectStack, Named, projected, viewed
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import Chain, PreviewEngine
@@ -712,12 +712,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
         """Returns render set operators."""
 
         def add(call: Call[Empty]) -> BlenderResult[Done]:
-            return (
-                members
-                .copies(call.context)
-                .bind(lambda scenes: added(members, scenes[0], f"{scenes[0].name} {len(scenes)}"))
-                .map(lambda pair: Done(notes=(("INFO", f"Added {pair[0].name}"),), skipped=pair[1]))
-            )
+            return members.copies(call.context).bind(lambda scenes: added(members, scenes[0], f"{scenes[0].name} {len(scenes)}")).map(lambda scene: Done(notes=(("INFO", f"Added {scene.name}"),)))
 
         def adopt(call: Call[Empty]) -> BlenderResult[Outcome]:
             def joined(source: bpy.types.Scene) -> BlenderResult[Outcome]:
@@ -1120,21 +1115,10 @@ def propagated(members: Members, edited: bpy.types.Scene | bpy.types.ViewLayer) 
     return members.unlocked(bpy.context).bind(wrote)
 
 
-def added(members: Members, source: bpy.types.Scene, name: str) -> BlenderResult[tuple[bpy.types.Scene, Option[BlenderFaults]]]:
-    """Copies source as retained member, keeping suffixed name on collision."""
-
-    def renamed(scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Scene, Option[BlenderFaults]]]:
-        def collided(faults: BlenderFaults) -> BlenderResult[tuple[bpy.types.Scene, Option[BlenderFaults]]]:
-            match faults:
-                case (BlenderCollisionFault(),):
-                    return Ok((scene, Some(faults)))
-                case _:
-                    return Error(faults)
-
-        return named(scene, name).map(lambda native: (native, Nothing)).or_else_with(collided)
-
+def added(members: Members, source: bpy.types.Scene, name: str) -> BlenderResult[bpy.types.Scene]:
+    """Copies source as retained member under the first vacant label of name."""
     return RenderSet.ownership.made(members.identity, lambda: Option.of_optional(source.copy()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(source), key="copy"),)), of=Some(source)).bind(
-        renamed
+        lambda scene: named(scene, vacant(name, (held.name for held in bpy.data.scenes if held != scene)))
     )
 
 
@@ -1176,17 +1160,12 @@ def converted(members: Members, form: Form, context: bpy.types.Context) -> Blend
             )
 
             def placed(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, name: str) -> BlenderResult[tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.ViewLayer]]:
-                def created() -> bpy.types.ViewLayer:
-                    target = source.view_layers.new(name)
+                def created() -> tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.ViewLayer]:
+                    target = source.view_layers.new(vacant(name, source.view_layers.keys()))
                     made.append((source, target))
-                    return target
+                    return scene, layer, target
 
-                created_layer: BlenderResult[bpy.types.ViewLayer] = catch(created, exception=RuntimeError)().map_error(
-                    lambda error: (BlenderEditFault(request=f"{source!r}.view_layers.new({name!r})", error=error),)
-                )
-                return Result[bpy.types.ViewLayer, BlenderFaults].bind(
-                    created_layer, lambda target: Ok((scene, layer, target)) if target.name == name else Error((BlenderCollisionFault(request=name, error=target.name),))
-                )
+                return catch(created, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=f"{source!r}.view_layers.new({name!r})", error=error),))
 
             def filled(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, target: bpy.types.ViewLayer) -> BlenderResult[str]:
                 def sampled(pair: tuple[Snapshot, int]) -> BlenderResult[str]:
@@ -1208,16 +1187,13 @@ def converted(members: Members, form: Form, context: bpy.types.Context) -> Blend
 
         def copied(source: bpy.types.Scene) -> BlenderResult[tuple[str, ...]]:
             def each(name: str) -> BlenderResult[str]:
-                def retained(pair: tuple[bpy.types.Scene, Option[BlenderFaults]]) -> BlenderResult[str]:
-                    scene, collision = pair
+                def retained(scene: bpy.types.Scene) -> BlenderResult[str]:
                     made.append(scene)
-                    trimmed: BlenderResult[tuple[None, ...]] = accumulated(
+                    return accumulated(
                         catch(lambda: scene.view_layers.remove(layer), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(layer), error=error),))
                         for layer in tuple(scene.view_layers)
                         if layer.name != name
-                    )
-                    named_scene: BlenderResult[None] = collision.map(Error).default_value(Ok(None))
-                    return paired(trimmed, named_scene).map(lambda _: scene.name)
+                    ).map(lambda _: scene.name)
 
                 return added(members, source, name).bind(retained)
 

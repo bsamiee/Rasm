@@ -19,7 +19,7 @@ import PyOpenColorIO
 from blender.bpy.commands.calls import called
 from blender.bpy.data.ids.images import filled, intermediate, produced, Production, saved, Tag
 from blender.bpy.data.ids.ownership import Mark, Saved
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.descriptors import IdName, struct_at, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
@@ -219,7 +219,7 @@ class Execution:
                 )
 
             created: BlenderResult[bpy.types.Image] = catch(
-                lambda: bpy.data.images.new(f"Prepared {key}", values.shape[1], values.shape[0], alpha=values.shape[2] == 4, float_buffer=True), exception=RuntimeError
+                lambda: bpy.data.images.new(vacant(f"Prepared {key}", bpy.data.images.keys()), values.shape[1], values.shape[0], alpha=values.shape[2] == 4, float_buffer=True), exception=RuntimeError
             )().map_error(lambda error: (BlenderEditFault(request=key, error=error),))
             return Result[bpy.types.Image, BlenderFaults].bind(created, populated)
 

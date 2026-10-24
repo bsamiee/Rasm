@@ -138,7 +138,7 @@ class Bands(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Chromaticity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """CIE xy density with working and display chromaticities."""
+    """CIE xy density over the diagram frame with working and display chromaticities."""
 
     trace: npt.NDArray[np.float64]
     working: npt.NDArray[np.float64]
@@ -146,13 +146,13 @@ class Chromaticity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 def chromaticity_of(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, cells: tuple[int, int]) -> ImagingResult[Chromaticity]:
-    """Returns xy counts over `cells`, or every color fault."""
-    locus = observer.locus()
+    """Returns xy counts over `cells` spanning the diagram frame, or every color fault."""
+    extent, _ = observer.frame()
 
     def built(pair: tuple[tuple[PyOpenColorIO.Processor, npt.NDArray[np.float64]], Option[npt.NDArray[np.float64]]]) -> Chromaticity:
         (trace, working), display = pair
         points = observer.coordinates(applied(trace.getDefaultCPUProcessor(), plane)[..., :3][(plane[..., 3:] > 0.0).all(axis=-1)])
-        counts = np.histogram2d(points[:, 0], points[:, 1], bins=cells, range=np.stack((locus.min(axis=0), locus.max(axis=0)), axis=-1))[0]
+        counts = np.histogram2d(points[:, 0], points[:, 1], bins=cells, range=np.stack((np.zeros(2), extent), axis=-1))[0]
         for array in (counts, working, *display.to_list()):
             array.setflags(write=False)
         return Chromaticity(trace=counts, working=working, display=display)

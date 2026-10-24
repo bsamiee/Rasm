@@ -23,6 +23,16 @@ def locus() -> npt.NDArray[np.float64]:
     return coordinates(table()[:, 1:])
 
 
+@functools.cache
+def frame() -> tuple[npt.NDArray[np.float64], npt.NDArray[np.intp]]:
+    """Returns the diagram frame's far xy corner from the origin, the spectral locus maxima rounded up to tenths, and its tenths per axis."""
+    tenths = np.ceil(locus().max(axis=0) * 10.0).astype(np.intp)
+    extent = tenths / 10.0
+    for array in (extent, tenths):
+        array.setflags(write=False)
+    return extent, tenths
+
+
 def coordinates(xyz: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float64]:
     """Returns float64 xy over last axis, NaN where X + Y + Z is nonpositive."""
     xy = xyz[..., :2]
@@ -32,4 +42,4 @@ def coordinates(xyz: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.flo
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["coordinates", "locus", "table"]
+__all__ = ["coordinates", "frame", "locus", "table"]

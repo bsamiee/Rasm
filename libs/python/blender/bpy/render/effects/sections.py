@@ -8,7 +8,6 @@ import bpy
 from expression import Nothing, Ok, Option, Result, Some
 import gpu
 import msgspec
-from msgspec import inspect
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, InvokePopup, Operator, Outcome, Own, Unchanged
@@ -30,14 +29,17 @@ from blender.bpy.render.effects.stack import (
     entry_interface,
     expanded,
     formation,
+    graph_drawn,
+    graph_widgets,
     graphed,
-    KeyPath,
+    GraphWidget,
     Named,
     Placeable,
     reached,
     rows,
     Shell,
     StackEntry,
+    titled,
     viewed,
 )
 from blender.bpy.render.effects.viewers import EffectViewer, ViewerRead, ViewTarget
@@ -53,7 +55,7 @@ from blender.imaging.color.processors import DisplayView
 from blender.imaging.compositing.blending import Blend, Entry
 from blender.imaging.effects.grade import primary
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import GraphForm, Knot, markers, Ramp
+from blender.imaging.parameters import GraphForm, markers
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import IconItems
@@ -131,9 +133,6 @@ class EffectBody(Line, frozen=True, kw_only=True):
         def locked(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, path: tuple[Key | int, ...], context: bpy.types.Context) -> BlenderResult[None]:
             return accumulated(realized(locks(Some(path)), identity).map(lambda draw: draw(layout, entry, context)) for locks in self.locks.to_list()).map(lambda _: None)
 
-        def titled(field: msgspec.structs.FieldInfo) -> str:
-            return next((meta.title for meta in markers(field.type, msgspec.Meta) if meta.title is not None), bpy.path.display_name(field.name))
-
         def listed(
             layout: bpy.types.UILayout,
             entry: bpy.types.SceneCompositorEffect,
@@ -179,7 +178,6 @@ class EffectBody(Line, frozen=True, kw_only=True):
             context: bpy.types.Context,
             editing: tuple[Mapping[type[bpy.types.Node], RowDraw], RowDraw],
         ) -> BlenderResult[None]:
-            curves, ramp = editing
             values = tuple((value, (Shell.blend,) if isinstance(value, Blend) else (), field.name) for field in entry_fields for value in (getattr(record, field.name),))
             parameters = tuple((value, prefix, field, path) for value, prefix, field in values for path, _, _ in rows(type(value), value=Some(value)))
             paths = {
@@ -190,42 +188,18 @@ class EffectBody(Line, frozen=True, kw_only=True):
             paths[Shell.blend] = (record_key, next(field for value, _, field in values if isinstance(value, Blend)))
             hidden = frozenset(item_key(*prefix, *path) for value, prefix, _, path in parameters if not active(value, path))
             nodes = owned(group, identity)
-            shared = {field: editor for editor in row.editors for field in editor.fields}
-            graphs = tuple(
-                (field, key, path, shape, value, prefix)
-                for value, prefix, _ in values
-                for path, (field, shape) in graphed(type(value), value=Some(value)).items()
-                for key in (item_key(*prefix, *path),)
-                if key not in hidden
-            )
+            graphs = tuple(widget for value, prefix, _ in values for widget in graph_widgets(value, prefix, () if prefix else row.editors))
 
-            def widget(node: bpy.types.Node, heading: str, shape: inspect.Type) -> BlenderResult[None]:
-                inner = layout.column()
-                inner.use_property_split = False
-                inner.label(text=heading)
-                match shape:
-                    case inspect.VarTupleType(item_type=inspect.StructType(cls=kind)) if (get_origin(kind) or kind) is Knot:
-                        return Option.of_optional(curves.get(type(node))).map(lambda draw: draw(inner, node, context)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(node), key="mapping"),))
-                    case inspect.StructType(cls=kind) if kind is Ramp:
-                        return Ok(ramp(inner, node, context))
-                    case inspect.VarTupleType():
-                        return Ok(None)
-                    case _:
-                        inner.template_node_inputs(node)
-                        return Ok(None)
-
-            def graph_field(field: msgspec.structs.FieldInfo, key: Key, path: KeyPath, shape: inspect.Type, value: msgspec.Struct, prefix: KeyPath) -> tuple[BlenderResult[None], ...]:
-                match reached(value, path), Option.of_optional(shared.get(field.name)).filter(lambda _: not prefix):
-                    case str(space), _ if GraphForm.COLOR_SPACE in markers(field.type, GraphForm):
-                        button(layout.row(align=True), self.colorspace, SpaceField(name=entry.name, field=key, space=space), titled(field))
+            def graph_field(widget: GraphWidget) -> tuple[BlenderResult[None], ...]:
+                match reached(widget.value, widget.path):
+                    case str(space) if GraphForm.COLOR_SPACE in markers(widget.field.type, GraphForm):
+                        button(layout.row(align=True), self.colorspace, SpaceField(name=entry.name, field=widget.node, space=space), widget.heading)
                         return ()
-                    case _, Option(tag="some", some=editor):
-                        return tuple(widget(node, bpy.path.display_name(editor.key), shape) for node in Option.of_optional(nodes.get(editor.key)).to_list() if field.name == editor.fields[0])
                     case _:
-                        return tuple(widget(node, titled(field), shape) for node in Option.of_optional(nodes.get(key)).to_list())
+                        return tuple(graph_drawn(layout, node, widget, editing, context) for node in Option.of_optional(nodes.get(widget.node)).to_list())
 
             def graph_fields() -> BlenderResult[None]:
-                return accumulated(answer for each in graphs for answer in graph_field(*each)).map(lambda _: None)
+                return accumulated(answer for widget in graphs for answer in graph_field(widget)).map(lambda _: None)
 
             def wheeled() -> BlenderResult[None]:
                 color, master = primary.Wheel.__struct_fields__
@@ -275,7 +249,23 @@ class EffectBody(Line, frozen=True, kw_only=True):
                     lambda _: accumulated(
                         entry_interface(row.record, len(record.blend.masks))
                         .bind(lambda face: expanded(face, record.effect))
-                        .bind(lambda face: listed(layout, entry, face, hidden, paths, tuple((titled(field), paths[key]) for field, key, *_ in graphs), context))
+                        .bind(
+                            lambda face: listed(
+                                layout,
+                                entry,
+                                face,
+                                hidden,
+                                paths,
+                                tuple(
+                                    (titled(field), paths[key])
+                                    for value, prefix, _ in values
+                                    for path, (field, _) in graphed(type(value), value=Some(value)).items()
+                                    for key in (item_key(*prefix, *path),)
+                                    if key not in hidden
+                                ),
+                                context,
+                            )
+                        )
                         for _ in self.locks.to_list()
                     )
                 )

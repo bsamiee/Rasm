@@ -1,15 +1,12 @@
-"""Effect stack, active effect, and strip, asset, and preview rows."""
+"""Effect stack, active effect, and strip, save, and preview rows."""
 
 from importlib.resources import files
 
 from bl_ui.properties_compositor import SCENE_MT_add_compositor_effect, SCENE_PT_compositor_effects
 from bl_ui.space_node import NODE_PT_backdrop
 from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
-import bpy
 from expression import Some
 
-from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.files.assets import AssetLibrary
 from blender.bpy.render.color.luts import Enabled
 from blender.bpy.render.effects.compositing.layers import LayerStacks
 from blender.bpy.render.effects.detail.denoise import spatial_denoise
@@ -27,7 +24,7 @@ from blender.bpy.render.effects.grade.primaries import primaries
 from blender.bpy.render.effects.grade.primary import contrast, primary, saturation
 from blender.bpy.render.effects.grade.white_balance import white_balance
 from blender.bpy.render.effects.grade.zones import zones
-from blender.bpy.render.effects.library import EffectLibrary
+from blender.bpy.render.effects.library import save_effect
 from blender.bpy.render.effects.optics.atmosphere import atmosphere
 from blender.bpy.render.effects.optics.defocus import defocus
 from blender.bpy.render.effects.optics.distortion import aberration, distortion
@@ -115,7 +112,7 @@ stack = EffectStack(
         emulation,
         dither,
     ),
-    pinned=(LayerStacks.pinned, Pinned(ownership=PassSet.ownership, edge=Edge.TAIL, enables=frozenset({Enabled.RENDER})), QueueRun.pinned),
+    pinned=(LayerStacks.pinned, Pinned(ownership=PassSet.ownership, title=PassSet.title, edge=Edge.TAIL, enables=frozenset({Enabled.RENDER})), QueueRun.pinned),
     gain=Some(exposure),
 )
 viewer = EffectViewer(stack=stack)
@@ -131,15 +128,7 @@ rows = (
     tiles,
     nodes,
     strips,
-    EffectLibrary(
-        stack=stack,
-        library=AssetLibrary(title="Darkroom Effects", folder="effects"),
-        thumbnail=Some(
-            lambda identity, record, scene: Descriptor.resolve(bpy.types.AssetShelf, "bl_default_preview_size", bpy.types.IntProperty).bind(
-                lambda descriptor: tiles.rendered(identity, record, descriptor.prop.hard_max, scene=scene)
-            )
-        ),
-    ),
+    save_effect,
     Append(target=SEQUENCER_MT_modifier_add, rows=(Pulldown(menu=strips.menu.key),), condition=strips.menu.condition),
     Panel(section=sections, at=Tab(context=SCENE_PT_compositor_effects.bl_context)),
     Panel(section=nodes.section(), at=Joined(space=NODE_PT_backdrop.bl_space_type, category=NODE_PT_backdrop.bl_category)),

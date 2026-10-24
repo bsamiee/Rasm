@@ -17,7 +17,7 @@ from blender.bpy.data.ids import images
 from blender.bpy.faults import BlenderImagingFault, BlenderResult
 from blender.bpy.ui.drawing.canvas import Align, Canvas, Rect
 from blender.bpy.ui.resources.textures import uploaded
-from blender.bpy.ui.resources.theme import Color, Metrics
+from blender.bpy.ui.resources.theme import CLEAR, Color, Metrics, Shipped
 from blender.imaging.analysis.scopes import Bands, Chromaticity, chromaticity_of, Histogram, histogram_of
 from blender.imaging.chain import GREY
 from blender.imaging.color import observer
@@ -56,20 +56,15 @@ class ChartFrame(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Well(msgspec.Struct, frozen=True, kw_only=True):
-    """Black chart well palette of the stock scopes, label ink, and well size."""
+    """Black chart well of the stock scopes, its inks read from the shared well looks."""
 
-    ground: ClassVar[Color] = (0.0, 0.0, 0.0, 1.0)
-    rim: ClassVar[Color] = (0.0, 0.0, 0.0, 0.5)
-    clear: ClassVar[Color] = (0.0, 0.0, 0.0, 0.0)
-    fine: ClassVar[Color] = (1.0, 1.0, 1.0, 0.08)
-    grid: ClassVar[Color] = (1.0, 1.0, 1.0, 0.2)
-    major: ClassVar[Color] = (1.0, 1.0, 1.0, 0.5)
-    trace: ClassVar[Color] = (1.0, 1.0, 1.0, 0.75)
-    label: ClassVar[Color] = (1.0, 1.0, 1.0, 0.7)
-    radius: ClassVar[float] = 3.0
-    stroke: ClassVar[float] = 1.5
-    points: ClassVar[float] = 8.0
-    margin: ClassVar[float] = 0.4
+    ground: ClassVar[Color] = Shipped.read().look("well").color("fill")
+    rim: ClassVar[Color] = Shipped.read().look("well").color("edge")
+    fine: ClassVar[Color] = Shipped.read().look("grid-fine").color("edge")
+    grid: ClassVar[Color] = Shipped.read().look("grid").color("edge")
+    major: ClassVar[Color] = Shipped.read().look("major").color("edge")
+    trace: ClassVar[Color] = Shipped.read().look("trace").color("edge")
+    label: ClassVar[Color] = Shipped.read().look("label").color("text")
     width: float
     height: float
 
@@ -82,20 +77,20 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def gamut(cls, metrics: Metrics) -> Self:
-        """Returns ten-unit well at spectral locus aspect."""
-        span = np.ptp(observer.locus(), axis=0)
-        width = float(metrics.unit * 10)
-        return cls(width=width, height=(width - 2.0) * float(span[1] / span[0]) + 2.0)
+        """Returns ten-unit well whose plot takes the chromaticity frame aspect."""
+        extent, _ = observer.frame()
+        square = cls(width=float(metrics.unit * 10), height=float(metrics.unit * 10))
+        return msgspec.structs.replace(square, height=square.plot.width * float(extent[1] / extent[0]) + square.height - square.plot.height)
 
     @classmethod
     def inset(cls, metrics: Metrics) -> float:
         """Returns well margin from region edges."""
-        return metrics.unit * cls.margin
+        return metrics.sized("well", "inset")
 
     @classmethod
     def font(cls, metrics: Metrics) -> float:
         """Returns label font size in device pixels."""
-        return float(metrics.scaled(cls.points))
+        return metrics.sized("label", "type")
 
     @property
     def plot(self) -> Rect:
@@ -106,11 +101,11 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
 
     def under(self, canvas: Canvas) -> None:
         """Draws rounded black background."""
-        canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.ground, self.clear, self.radius)
+        canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.ground, CLEAR, canvas.metrics.sized("well", "radius"))
 
     def over(self, canvas: Canvas) -> None:
         """Draws outline above lower edge."""
-        canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), self.clear, self.rim, self.radius)
+        canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), CLEAR, self.rim, canvas.metrics.sized("well", "radius"))
 
 
 class Grid(msgspec.Struct, frozen=True, kw_only=True):
@@ -191,12 +186,12 @@ class Outline(msgspec.Struct, frozen=True, kw_only=True):
         with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
             gpu.matrix.translate((x, y))
             geometry.well.under(canvas)
-            shader = canvas.lines(1.0)
-            for batch, color in ((geometry.grid, geometry.rule), (geometry.majors, Well.major), *((ticks, Well.major) for ticks in geometry.ticks.to_list())):
+            for batch, color, role in ((geometry.grid, geometry.rule, "grid"), (geometry.majors, Well.major, "major"), *((ticks, Well.major, "major") for ticks in geometry.ticks.to_list())):
+                shader = canvas.lines(Shipped.read().metric(role, "stroke"))
                 shader.uniform_float("color", color)
                 batch.draw(shader)
             with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)), Canvas.blended("ADDITIVE"):
-                stroke = canvas.lines(Well.stroke)
+                stroke = canvas.lines(Shipped.read().metric("trace", "stroke"))
                 for batch, color in geometry.traces:
                     stroke.uniform_float("color", color)
                     batch.draw(stroke)
@@ -224,11 +219,10 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         counts = reading.trace
         working = space, reading.working
         display = reading.display.map2(lambda rows, native: (native.getName(), rows), display_space)
-        well, locus = Well.gamut(metrics), observer.locus()
-        low, span = locus.min(axis=0), np.ptp(locus, axis=0)
+        well, locus, (extent, tenths) = Well.gamut(metrics), observer.locus(), observer.frame()
         plot, side = well.plot, float(metrics.scaled(4.0)) / 2.0
         line_shader, point_shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), gpu.shader.from_builtin("POINT_FLAT_COLOR")
-        tenths = tuple(np.arange(np.ceil(low[axis] * 10), np.floor((low[axis] + span[axis]) * 10) + 1) / 10 for axis in (0, 1))
+        lattice = tuple(np.linspace(0.0, extent[axis], tenths[axis] + 1) for axis in (0, 1))
         occupied = np.argwhere(counts > 0)
         tangent = np.gradient(locus, axis=0)
         outward = np.column_stack((-tangent[:, 1], tangent[:, 0]))
@@ -238,7 +232,7 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
         def placed(xy: npt.ArrayLike) -> npt.NDArray[np.float32]:
             """Maps chromaticity onto plot per axis."""
-            return ((np.asarray(xy) - low) / span * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32)
+            return (np.asarray(xy) / extent * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32)
 
         def gamut(rows: npt.NDArray[np.float64]) -> gpu.types.GPUBatch:
             """Builds gamut triangle with white-point square."""
@@ -256,7 +250,7 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             positions = ((found + 0.5) / counts.shape * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32)
             return batch_for_shader(point_shader, "POINTS", {"pos": positions, "color": np.column_stack((np.ones((len(found), 3)), alpha)).astype(np.float32)})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
-        grid = (*(point for x in tenths[0] for point in ((x, low[1]), (x, low[1] + span[1]))), *(point for y in tenths[1] for point in ((low[0], y), (low[0] + span[0], y))))
+        grid = (*(point for x in lattice[0] for point in ((x, 0.0), (x, extent[1]))), *(point for y in lattice[1] for point in ((0.0, y), (extent[0], y))))
         return cls(
             well=well,
             grid=batch_for_shader(line_shader, "LINES", {"pos": placed(grid)}),  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
@@ -298,14 +292,14 @@ class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
             gpu.matrix.translate((x, y))
             geometry.well.under(canvas)
             with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)):
-                shader = canvas.lines(1.0)
-                for batch, color in (
-                    (geometry.grid, Well.grid),
-                    (geometry.locus, Well.major),
-                    (geometry.ticks, Well.major),
-                    *((display, Well.major) for display in geometry.display.to_list()),
-                    (geometry.working, Well.trace),
+                for batch, color, role in (
+                    (geometry.grid, Well.grid, "grid"),
+                    (geometry.locus, Well.major, "major"),
+                    (geometry.ticks, Well.major, "major"),
+                    *((display, Well.major, "major") for display in geometry.display.to_list()),
+                    (geometry.working, Well.trace, "trace"),
                 ):
+                    shader = canvas.lines(Shipped.read().metric(role, "stroke"))
                     shader.uniform_float("color", color)
                     batch.draw(shader)
                 with Canvas.blended("ADDITIVE"):

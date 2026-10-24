@@ -2,82 +2,16 @@ using Eto.Forms;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Modeling;
+using Rasm.UI;
 using Rhino;
 
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<Duration>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct MotionSpan : System.Numerics.IMinMaxValue<MotionSpan> {
-    public static MotionSpan MinValue { get; } = new(Duration.Epsilon);
-    public static MotionSpan MaxValue { get; } = new(Duration.FromMilliseconds(int.MaxValue));
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Duration value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct DampingRatio : System.Numerics.IMinMaxValue<DampingRatio> {
-    public static DampingRatio MinValue { get; } = new(1d);
-    public static DampingRatio MaxValue { get; } = new(double.Sqrt(double.MaxValue));
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct VisibleChange : System.Numerics.IMinMaxValue<VisibleChange> {
-    public static VisibleChange MinValue { get; } = new(double.BitIncrement(0d));
-    public static VisibleChange MaxValue { get; } = new(1d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[SmartEnum]
-public sealed partial class Easing {
-    public static readonly Easing Linear = new(static time => time);
-    public static readonly Easing In = new(static time => double.Pow(time, 3d));
-    public static readonly Easing Out = new(static time => 1d - double.Pow(1d - time, 3d));
-    public static readonly Easing InOut = new(static time => time < 0.5d ? 4d * double.Pow(time, 3d) : 1d - (double.Pow((-2d * time) + 2d, 3d) / 2d));
-
-    [UseDelegateFromConstructor]
-    public partial double Progress(double time);
-}
-
 [SmartEnum]
 public sealed partial class FrameTick {
     public static readonly FrameTick Next = new();
     public static readonly FrameTick Final = new();
-}
-
-[Union]
-public abstract partial record TimingCurve {
-    public static Reduced<double> End { get; } = Reduced.Done(1d);
-
-    public abstract Reduced<double> Sample(Duration elapsed);
-
-    private static Reduced<double> Decayed(double remaining, VisibleChange rest) =>
-        remaining < rest ? End : Reduced.Continue(1d - remaining);
-
-    public sealed record Eased(MotionSpan Length, Easing Easing) : TimingCurve {
-        public override Reduced<double> Sample(Duration elapsed) =>
-            elapsed >= Length ? End : Reduced.Continue(Easing.Progress(elapsed / Length));
-    }
-
-    public sealed record Spring(MotionSpan Response, DampingRatio Damping, VisibleChange Rest) : TimingCurve {
-        public override Reduced<double> Sample(Duration elapsed) =>
-            Decayed(Remaining(double.Tau * (elapsed / Response), Damping, double.Sqrt((Damping - 1d) * (Damping + 1d))), Rest);
-
-        private static double Remaining(double phase, double damping, double root) =>
-            root is 0d
-                ? (1d + phase) * double.Exp(-phase)
-                : (-2d * root * phase) switch {
-                    var gap => 0.5d * double.Exp(-phase / (damping + root)) * (1d + double.Exp(gap) - (damping / root * double.ExpM1(gap))),
-                };
-    }
-
-    public sealed record Glide(MotionSpan TimeConstant, VisibleChange Rest) : TimingCurve {
-        public override Reduced<double> Sample(Duration elapsed) =>
-            Decayed(double.Exp(-(elapsed / TimeConstant)), Rest);
-    }
 }
 
 public sealed record CameraMove(ViewportSet Viewports, CameraPose From, CameraPose To, TimingCurve Curve, RedrawPolicy Redraw);

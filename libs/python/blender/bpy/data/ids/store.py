@@ -1,6 +1,7 @@
-"""Session handles, BlendData collections, and collision-checked renames."""
+"""Session handles, BlendData collections, collision-checked renames, and vacant labels."""
 
 from collections.abc import Iterable
+import itertools
 from typing import Self
 
 import bpy
@@ -85,6 +86,12 @@ def named[T: bpy.types.ID](block: T, name: str) -> BlenderResult[T]:
     )
 
 
+def vacant(title: str, taken: Iterable[str]) -> str:
+    """Returns title, else its first numbered label no name in `taken` holds, so the host never suffixes a name it dedups."""
+    held = frozenset(taken)
+    return next(label for label in itertools.chain((title,), (f"{title} {ordinal}" for ordinal in itertools.count(2))) if label not in held)
+
+
 def _tree_member(struct: bpy.types.Struct) -> Option[str]:
     """Returns struct's read-only node tree pointer identifier."""
     return Option.of_optional(
@@ -94,4 +101,4 @@ def _tree_member(struct: bpy.types.Struct) -> Option[str]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Handle", "blocks", "embedded", "holder", "member", "named", "resolved"]
+__all__ = ["Handle", "blocks", "embedded", "holder", "member", "named", "resolved", "vacant"]

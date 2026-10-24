@@ -10,6 +10,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator
+from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.conditions import AllOf, Not, Present, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.extension.identity import Identity
@@ -82,11 +83,16 @@ class StripEffect:
                             holder: bpy.types.Strip | bpy.types.StripModifier
                             match call.record.placement:
                                 case Placing.MODIFIER:
-                                    holder = strip.modifiers.new(name=row.record.title, type="COMPOSITOR")
+                                    holder = strip.modifiers.new(name=vacant(row.record.title, (modifier.name for modifier in strip.modifiers)), type="COMPOSITOR")
                                     rollback.callback(strip.modifiers.remove, holder)
                                 case Placing.STRIP:
                                     holder = editor.strips.new_effect(
-                                        name=row.record.title, type="COMPOSITOR", channel=strip.channel + 1, frame_start=strip.left_handle, length=strip.duration, input1=strip
+                                        name=vacant(row.record.title, (held.name for held in editor.strips_all)),
+                                        type="COMPOSITOR",
+                                        channel=strip.channel + 1,
+                                        frame_start=strip.left_handle,
+                                        length=strip.duration,
+                                        input1=strip,
                                     )
                                     rollback.callback(editor.strips.remove, holder)
                             return holder
@@ -130,14 +136,7 @@ class StripEffect:
 def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: PyOpenColorIO.Config, *, context: Context = Nothing) -> BlenderResult[NodeGroup]:
     """Builds effect group as strip modifier group, scene-linear in any sequencer space."""
     return (
-        row
-        .seeded(scene)
-        .bind(lambda effect: row.grouped(identity, scene, Entry(effect=effect), config, context=context))
-        .bind(
-            lambda group: Descriptor.resolve(bpy.types.CompositorNodeTree, "is_strip_modifier", bpy.types.BoolProperty).map(
-                lambda trait: msgspec.structs.replace(group, key=f"{group.key}_strip", graph=msgspec.structs.replace(group.graph, members=group.graph.members | {trait: True}))
-            )
-        )
+        row.seeded(scene).bind(lambda effect: row.grouped(identity, scene, Entry(effect=effect), config, context=context)).map(lambda group: msgspec.structs.replace(group, key=f"{group.key}_strip"))
     )
 
 

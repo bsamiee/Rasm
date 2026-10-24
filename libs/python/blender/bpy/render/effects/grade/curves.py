@@ -18,7 +18,7 @@ from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.graphs import CurvePoints, End, ended, Fragment, math, nested, node, NodeGroup, Points
 from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, config_of, hsy, logarithmic
-from blender.bpy.render.effects.stack import CompositorEffect, CurveEditor, Shell
+from blender.bpy.render.effects.stack import CompositorEffect, CurveEditor, Plot, Shell
 from blender.bpy.render.effects.viewers import Unread, ViewerRead
 from blender.bpy.settings.shapes import unwrapped
 from blender.imaging.color.processors import applied, lin_to_log, luma, processor, unassociated
@@ -31,7 +31,9 @@ from blender.imaging.parameters import Knot
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 CHANNELS: Final = CurveEditor(key="channels", node=bpy.types.CompositorNodeCurveRGB, fields=Curves.__struct_fields__)
-HUES: Final = CurveEditor(key="hues", node=bpy.types.CompositorNodeHueCorrect, fields=HueCurves.__struct_fields__[:3])
+HUES: Final = CurveEditor(
+    key="hues", node=bpy.types.CompositorNodeHueCorrect, fields=HueCurves.__struct_fields__[:3], plots=(Plot(slope=-1.0, offset=0.5), Plot(scale=0.5), Plot(scale=0.5)), view=Some((0.0, 0.0, 1.0, 1.0))
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -50,7 +52,9 @@ def _editors(bindings: dict[str, tuple[Points, CurvePoints]], editors: tuple[Cur
                 {},
                 Some(
                     msgspec.structs.replace(
-                        bindings[editor.fields[0]][1], maps=tuple(bindings[field][1].maps[0] for field in editor.fields), clip=Some(bounded(tuple(bindings[field][1] for field in editor.fields)))
+                        bindings[editor.fields[0]][1],
+                        maps=tuple(tuple((x, editor.plot(field).shown(x, y)) for x, y in bindings[field][1].maps[0]) for field in editor.fields),
+                        clip=Some(editor.view.default_with(lambda: bounded(tuple(bindings[field][1] for field in editor.fields)))),
                     )
                 ),
             )

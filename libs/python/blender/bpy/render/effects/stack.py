@@ -25,7 +25,7 @@ from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Empty, Open, Operator, Outcome, Unchanged
 from blender.bpy.data.ids.images import produced, productions
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, named, vacant
 from blender.bpy.data.rna.animation import Animation, Driven, Keys, sampled
 from blender.bpy.data.rna.conditions import check, Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, IdName, struct_at, Value, written
@@ -333,18 +333,55 @@ class Shell[R: Effect](msgspec.Struct, frozen=True, kw_only=True):
         return Option.of_optional(next((value for value in self.cases[parts] if isinstance(value, kind)), None))
 
 
+class Plot(msgspec.Struct, frozen=True, kw_only=True):
+    """Record curve placed in its editor's native axes, the shown height `scale * y + slope * x + offset`."""
+
+    scale: float = 1.0
+    slope: float = 0.0
+    offset: float = 0.0
+
+    def shown(self, x: float, y: float) -> float:
+        """Returns editor height of record point."""
+        return self.scale * y + self.slope * x + self.offset
+
+    def held(self, x: float, y: float) -> float:
+        """Returns record height of editor point."""
+        return (y - self.slope * x - self.offset) / self.scale
+
+
 class CurveEditor(msgspec.Struct, frozen=True, kw_only=True):
-    """Native curve node holding knot fields of a record as its curves in field order, drawn as one editor with channel tabs."""
+    """Native curve node holding knot fields of a record as its curves in field order, drawn as one editor with channel tabs.
+
+    `plots` place each field's curve in the node's own axes, and `view` is the node's own view in place of the record bounds.
+    """
 
     key: Key
     node: type[bpy.types.Node]
     fields: tuple[str, ...]
+    plots: tuple[Plot, ...] = ()
+    view: Option[tuple[float, float, float, float]] = Nothing
+
+    def plot(self, field: object) -> Plot:
+        """Returns placement of field's curve, identity when the editor declares none."""
+        return self.plots[self.fields.index(field)] if self.plots else Plot()
+
+
+class GraphWidget(msgspec.Struct, frozen=True, kw_only=True):
+    """Owned node editing one active graphed path under its heading, a shared editor standing once for its fields."""
+
+    node: Key
+    heading: str
+    shape: native.Type
+    field: msgspec.structs.FieldInfo
+    path: KeyPath
+    value: msgspec.Struct
 
 
 class Pinned(msgspec.Struct, frozen=True, kw_only=True):
-    """Unranked owned group with stack end, enables, and conditions."""
+    """Unranked owned group with entry title, stack end, enables, and conditions."""
 
     ownership: Ownership[bpy.types.CompositorNodeTree]
+    title: str
     edge: Edge
     enables: frozenset[Enabled] = frozenset(Enabled)
     conditions: Option[Callable[[Identity, bpy.types.SceneCompositorEffect], BlenderResult[dict[Key, Condition]]]] = Nothing
@@ -647,10 +684,9 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
                     )
                 )
                 .bind(
-                    lambda group: accumulated(
-                        Descriptor.resolve(bpy.types.CompositorNodeTree, name, bpy.types.Property).map(lambda descriptor: (descriptor, value))
-                        for name, value in {"allow_usage_in_scene_compositor_effect": True, "description": inspect.getdoc(self.record) or ""}.items()
-                    ).map(lambda members: msgspec.structs.replace(group, single=ownership.single, graph=msgspec.structs.replace(group.graph, members=dict(members))))
+                    lambda group: Descriptor.resolve(bpy.types.CompositorNodeTree, "description", bpy.types.StringProperty).map(
+                        lambda descriptor: msgspec.structs.replace(group, single=ownership.single, graph=msgspec.structs.replace(group.graph, members={descriptor: inspect.getdoc(self.record) or ""}))
+                    )
                 )
             )
 
@@ -751,11 +787,12 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         self, identity: Identity, scene: bpy.types.Scene, record: Entry[Effect], *, context: Context = Nothing, name: Option[EffectName] = Nothing
     ) -> BlenderResult[bpy.types.SceneCompositorEffect]:
         """Creates entry once requirements and group succeed."""
+        label = vacant(name.default_value(self.record.title), (entry.name for entry in scene.compositor_effects))
 
         def created(typed: Entry[R], config: PyOpenColorIO.Config) -> BlenderResult[bpy.types.SceneCompositorEffect]:
             def appended(group: bpy.types.NodeTree) -> BlenderResult[bpy.types.SceneCompositorEffect]:
                 with ExitStack() as rollback:
-                    entry = scene.compositor_effects.new(name.default_value(self.record.title))
+                    entry = scene.compositor_effects.new(label)
                     rollback.callback(scene.compositor_effects.remove, entry)
                     return (
                         accumulated((written(entry, "node_group", group), *(enabled.descriptor.write(entry, enabled in self.enables) for enabled in Enabled)))
@@ -877,7 +914,10 @@ class EffectStack[E: Effect = Effect]:
             title=title,
             description=description,
             body=Submenus(
-                entries=tuple((row.record.stage.phase, OperatorButton(target=operator)) for row, operator in sorted(zip(self.rows, self.operators.adding), key=lambda pair: pair[0].record.stage))
+                entries=tuple(
+                    (row.record.stage.phase, OperatorButton(target=operator, text=Some(row.record.title)))
+                    for row, operator in sorted(zip(self.rows, self.operators.adding), key=lambda pair: pair[0].record.stage)
+                )
             ),
         )
 
@@ -1157,13 +1197,14 @@ class EffectStack[E: Effect = Effect]:
     def refreshed(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[bool]:
         """Separates per-entry groups, places missing pinned entries, and releases stale holds, answering whether an entry changed."""
 
-        def separated(entry: bpy.types.SceneCompositorEffect, owner: Ownership[bpy.types.NodeTree], group: bpy.types.NodeTree) -> BlenderResult[bool]:
+        def separated(entry: bpy.types.SceneCompositorEffect, row: Placeable, owner: Ownership[bpy.types.NodeTree], group: bpy.types.NodeTree) -> BlenderResult[bool]:
+            label = vacant(row.record.title, bpy.data.node_groups.keys())
             copied: bpy.types.NodeTree = group.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            return owner.owned(identity, copied, of=Some(scene)).bind(lambda owned: written(entry, "node_group", owned)).map(lambda _: True)
+            return named(copied, label).bind(lambda labelled: owner.owned(identity, labelled, of=Some(scene))).bind(lambda owned: written(entry, "node_group", owned)).map(lambda _: True)
 
         def placed(pinned: Pinned, group: bpy.types.CompositorNodeTree) -> BlenderResult[bool]:
             with ExitStack() as rollback:
-                entry = scene.compositor_effects.new(group.name)
+                entry = scene.compositor_effects.new(vacant(pinned.title, (held.name for held in scene.compositor_effects)))
                 rollback.callback(scene.compositor_effects.remove, entry)
                 return (
                     accumulated((written(entry, "node_group", group), *(enabled.descriptor.write(entry, enabled in pinned.enables) for enabled in Enabled)))
@@ -1174,14 +1215,14 @@ class EffectStack[E: Effect = Effect]:
 
         def refreshed(_: bpy.types.Scene) -> BlenderResult[bool]:
             personal = tuple(
-                (held.entry, owner, group)
+                (held.entry, row, owner, group)
                 for held in self.held(identity, scene)
                 for row in held.row.to_list()
                 for owner in (ownerships(row.record)[1],)
                 for group in Option.of_optional(held.entry.node_group).to_list()
                 if Mark.read(identity, group).filter(lambda mark: mark.key == owner.key).is_some()
             )
-            keeper = {group.session_uid: entry for entry, _, group in reversed(personal)}
+            keeper = {group.session_uid: entry for entry, _, _, group in reversed(personal)}
             absent = (
                 (pinned, group)
                 for pinned in self.pinned
@@ -1189,7 +1230,9 @@ class EffectStack[E: Effect = Effect]:
                 if not any(entry.node_group == group for entry in scene.compositor_effects)
             )
             return (
-                reduce(lambda done, shared: done.bind(lambda _: separated(*shared)), ((entry, owner, group) for entry, owner, group in personal if keeper[group.session_uid] != entry), Ok(False))
+                reduce(
+                    lambda done, shared: done.bind(lambda _: separated(*shared)), ((entry, row, owner, group) for entry, row, owner, group in personal if keeper[group.session_uid] != entry), Ok(False)
+                )
                 .bind(lambda changed: reduce(lambda done, missing: done.bind(lambda _: placed(*missing)), absent, Ok(changed)))
                 .bind(
                     lambda changed: (
@@ -1422,6 +1465,50 @@ def curve_editors(identity: Identity) -> BlenderResult[dict[type[bpy.types.Node]
     return accumulated(realized(Curve(mapping=Member(root=kind, path="mapping"), type=label), identity).map(lambda draw: (kind, draw)) for kind, label in kinds).map(dict)
 
 
+def titled(field: msgspec.structs.FieldInfo) -> str:
+    """Returns field's declared title, else its display name."""
+    return next((meta.title for meta in markers(field.type, msgspec.Meta) if meta.title is not None), bpy.path.display_name(field.name))
+
+
+def graph_widgets(value: msgspec.Struct, prefix: KeyPath, editors: tuple[CurveEditor, ...] = ()) -> tuple[GraphWidget, ...]:
+    """Returns active graphed paths of value in field order, each shared editor once at its first field."""
+    shared = {field: editor for editor in editors for field in editor.fields}
+    return tuple(
+        GraphWidget(
+            node=item_key(*prefix, editor.key) if editor is not None else item_key(*prefix, *path),
+            heading=bpy.path.display_name(editor.key) if editor is not None else titled(field),
+            shape=shape,
+            field=field,
+            path=path,
+            value=value,
+        )
+        for path, (field, shape) in graphed(type(value), value=Some(value)).items()
+        if active(value, path)
+        for editor in (shared.get(field.name),)
+        if editor is None or field.name == editor.fields[0]
+    )
+
+
+def graph_drawn(
+    layout: bpy.types.UILayout, node: bpy.types.Node, widget: GraphWidget, editing: tuple[Mapping[type[bpy.types.Node], RowDraw], RowDraw], context: bpy.types.Context
+) -> BlenderResult[None]:
+    """Draws widget heading over its node's native editor: curve, ramp, or node inputs."""
+    curves, ramp = editing
+    inner = layout.column()
+    inner.use_property_split = False
+    inner.label(text=widget.heading)
+    match widget.shape:
+        case native.VarTupleType(item_type=native.StructType(cls=kind)) if (typing.get_origin(kind) or kind) is Knot:
+            return Option.of_optional(curves.get(type(node))).map(lambda draw: draw(inner, node, context)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(node), key="mapping"),))
+        case native.StructType(cls=kind) if kind is Ramp:
+            return Ok(ramp(inner, node, context))
+        case native.VarTupleType():
+            return Ok(None)
+        case _:
+            inner.template_node_inputs(node)
+            return Ok(None)
+
+
 @contextmanager
 def capturing(identity: Identity, before: bpy.types.SceneCompositorEffect, output: Fragment, *, stop: bool = False) -> Generator[BlenderResult[bpy.types.SceneCompositorEffect]]:
     """Places scoped pass-through capture entry before entry."""
@@ -1448,11 +1535,7 @@ def capturing(identity: Identity, before: bpy.types.SceneCompositorEffect, outpu
             .bind(lambda _: check(enabled, bpy.context, Some(scene)))
             .bind(lambda _: accumulated(written(entry, "enable_for_render", False) for entry in suffix))
             .bind(lambda _: NodeGroup.built("input_capture", "Input Capture", face, {Shell.result: (output, End(node=INPUTS, socket=Shell.image))}))
-            .bind(
-                lambda group: Descriptor.resolve(bpy.types.CompositorNodeTree, "allow_usage_in_scene_compositor_effect", bpy.types.BoolProperty).map(
-                    lambda descriptor: msgspec.structs.replace(group, single=False, saved=Saved.NEVER, graph=msgspec.structs.replace(group.graph, members=group.graph.members | {descriptor: True}))
-                )
-            )
+            .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
             .bind(lambda group: made(group, identity, of=Some(scene)))
             .bind(placed)
         )
@@ -1985,7 +2068,12 @@ def graph_values(
         }
         answer = held | supplied
         fields = tuple(
-            (path, shape, domain, Option.of_optional(next(((item_key(*prefix, editor.key), editor.fields.index(path[-1])) for editor in editors if path[-1] in editor.fields), None)))
+            (
+                path,
+                shape,
+                domain,
+                Option.of_optional(next(((item_key(*prefix, editor.key), editor.fields.index(path[-1]), editor.plot(path[-1])) for editor in editors if path[-1] in editor.fields), None)),
+            )
             for prefix, kind, value, domain, editors in records
             for path, (_, shape) in graphed(kind, value=value, prefix=prefix, counts={key: len(value) for key, value in answer.items() if isinstance(value, tuple | list)}).items()
         )
@@ -1996,7 +2084,7 @@ def graph_values(
                 key = item_key(*path)
                 if not edited or (key in restored and restored[key][0] != bpy.data.colorspace.working_space):
                     continue
-                node, curve = shared.map(lambda held: (marked.get(held[0]), held[1])).default_with(lambda: (marked.get(key), 0))
+                node, curve, plot = shared.map(lambda held: (marked.get(held[0]), held[1], held[2])).default_with(lambda: (marked.get(key), 0, Plot()))
                 match shape, node:
                     case native.StructType(cls=record), bpy.types.ShaderNodeValToRGB() as node if record is Ramp:
                         ramp = node.color_ramp
@@ -2011,7 +2099,7 @@ def graph_values(
                         native.VarTupleType(item_type=native.StructType(cls=record)),
                         bpy.types.ShaderNodeFloatCurve() | bpy.types.CompositorNodeCurveRGB() | bpy.types.CompositorNodeHueCorrect() as held,
                     ) if (typing.get_origin(record) or record) is Knot:
-                        answer[key] = tuple((point.location.x, point.location.y) for point in held.mapping.curves[curve].points)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                        answer[key] = tuple((point.location.x, plot.held(point.location.x, point.location.y)) for point in held.mapping.curves[curve].points)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             return answer
 
         return (
@@ -2246,11 +2334,13 @@ __all__ = [
     "EffectOperators",
     "EffectStack",
     "GainRow",
+    "GraphWidget",
     "KeyPath",
     "Named",
     "Opened",
     "Pinned",
     "Placeable",
+    "Plot",
     "Preparing",
     "Requested",
     "Shell",
@@ -2273,7 +2363,9 @@ __all__ = [
     "formation",
     "formed",
     "framing",
+    "graph_drawn",
     "graph_values",
+    "graph_widgets",
     "graphed",
     "hidden",
     "inputs",
@@ -2291,5 +2383,6 @@ __all__ = [
     "shutter",
     "shuttered",
     "stored_graphs",
+    "titled",
     "viewed",
 ]

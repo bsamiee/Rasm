@@ -14,7 +14,7 @@ import numpy.typing as npt
 
 from blender.bpy.commands.operators import Done, Empty, InvokePopup, Operator, Outcome, Unchanged
 from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released, Saved
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.animation import Animation, Keys
 from blender.bpy.data.rna.descriptors import Descriptor, Native, root_in, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
@@ -266,9 +266,9 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity, context: bpy.types.Co
     def built() -> BlenderResult[bpy.types.Object]:
         return (
             BlenderEditFault
-            .attempted("Sun", lambda: bpy.data.lights.new("Sun", "SUN"))
+            .attempted(f"{scene.name} Sun", lambda: bpy.data.lights.new(vacant(f"{scene.name} Sun", bpy.data.lights.keys()), "SUN"))
             .bind(lambda light: SunLight.light.owned(identity, light, of=Some(scene), filled=lambda light: written(light, "energy", 139.3).map(lambda _: light), scope=Some(rollback)))
-            .bind(lambda light: spawned("Sun", Some(light), scene.collection))
+            .bind(lambda light: spawned(f"{scene.name} Sun", Some(light), scene.collection))
         )
 
     def ranged(timing: Timing, count: int) -> BlenderResult[None]:
@@ -387,8 +387,26 @@ def drawn(setup: SunSetup, scene: bpy.types.Scene, identity: Identity) -> Blende
         vertices, loops = prepared
         return _gone(tuple(item for row, value in ((SunLight.surface, vertices), (SunLight.analemmas, loops)) if value.is_none() for item in row.serving(identity, scene)), identity).bind(
             lambda _: accumulated((
-                *(held(SunLight.surface, SunLight.mesh, "Sun Surface", lambda: bpy.data.meshes.new("Sun Surface"), lambda mesh: shaped(mesh, points, paths.faces)) for points in vertices.to_list()),
-                *(held(SunLight.analemmas, SunLight.curve, "Sun Analemmas", lambda: bpy.data.curves.new("Sun Analemmas", "CURVE"), lambda curve: curved(curve, points)) for points in loops.to_list()),
+                *(
+                    held(
+                        SunLight.surface,
+                        SunLight.mesh,
+                        f"{scene.name} Sun Surface",
+                        lambda: bpy.data.meshes.new(vacant(f"{scene.name} Sun Surface", bpy.data.meshes.keys())),
+                        lambda mesh: shaped(mesh, points, paths.faces),
+                    )
+                    for points in vertices.to_list()
+                ),
+                *(
+                    held(
+                        SunLight.analemmas,
+                        SunLight.curve,
+                        f"{scene.name} Sun Analemmas",
+                        lambda: bpy.data.curves.new(vacant(f"{scene.name} Sun Analemmas", bpy.data.curves.keys()), "CURVE"),
+                        lambda curve: curved(curve, points),
+                    )
+                    for points in loops.to_list()
+                ),
             ))
         )
 

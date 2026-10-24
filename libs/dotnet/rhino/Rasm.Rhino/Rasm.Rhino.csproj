@@ -47,9 +47,11 @@
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
+        <ProjectReference Include="../../ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../LanguageJson.cs" />
         <Compile Include="../../ValidationResults.cs" />
     </ItemGroup>
 

@@ -41,7 +41,7 @@ from blender.bpy.ui.layout.rows import Caption, Divider, Flow, joined, Line, Mem
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.textures import uploaded
-from blender.bpy.ui.resources.theme import Color, color, Metrics
+from blender.bpy.ui.resources.theme import Color, color, fixed, Metrics, Shipped
 from blender.bpy.ui.screens.areas import AreaQuery, Located, NewWindow, windowed
 from blender.bpy.ui.screens.editors import EditorState
 from blender.bpy.ui.surfaces.gizmos import Cage, Gizmos, Handler, MatrixValues, Move
@@ -171,8 +171,8 @@ class Sides(msgspec.Struct, frozen=True, kw_only=True):
 class Wipe(msgspec.Struct, frozen=True, kw_only=True):
     """Formed frame in editor channels with optional compare."""
 
-    light: ClassVar[Color] = (1.0, 1.0, 1.0, 1.0)
-    dark: ClassVar[Color] = (0.0, 0.0, 0.0, 0.5)
+    light: ClassVar[Color] = Shipped.read().look("overlay-caption").color("text")
+    dark: ClassVar[Color] = fixed(Shipped.read().look("overlay-caption").shadows[0].ink)
     identity: Identity
     source: Callable[[Metrics], BlenderResult[Option[Before]]]
     compare: Option[Callable[[bpy.types.Context], BlenderResult[Option[Compare]]]] = Nothing
@@ -515,11 +515,18 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
         def wrote(context: bpy.types.Context, values: MatrixValues) -> BlenderResult[None]:
             def written(access: Access, frame: Rect) -> BlenderResult[None]:
-                center, half = np.array((values[12], values[13])), np.abs((values[0], values[5])) / 2.0
-                low, high = (center - half) / (frame.width, frame.height), (center + half) / (frame.width, frame.height)
-                (left, bottom), (right, top) = aligned.bounds.map(
-                    lambda region: (np.clip(low, (region.left, region.bottom), (region.right, region.top)), np.clip(high, (region.left, region.bottom), (region.right, region.top)))
-                ).default_value((low, high))
+                size = np.array((frame.width, frame.height))
+                center, half = np.array((values[12], values[13])) / size, np.abs((values[0], values[5])) / 2.0 / size
+                held = access.quad.samples[:, :2]
+                moved = np.allclose(half * 2.0 * size, (held.max(axis=0) - held.min(axis=0)) * size, atol=0.5)
+
+                def bounded(region: Region) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+                    floor, ceiling = np.array((region.left, region.bottom)), np.array((region.right, region.top))
+                    kept = np.minimum(half, (ceiling - floor) / 2.0)
+                    shifted = np.clip(center, floor + kept, ceiling - kept)
+                    return (shifted - kept, shifted + kept) if moved else (np.clip(center - half, floor, ceiling), np.clip(center + half, floor, ceiling))
+
+                (left, bottom), (right, top) = aligned.bounds.map(bounded).default_value((center - half, center + half))
                 return access.write(
                     Quad(top_left=(float(left), float(top)), top_right=(float(right), float(top)), bottom_right=(float(right), float(bottom)), bottom_left=(float(left), float(bottom)))
                 )
@@ -652,8 +659,8 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
     """Row drawing last render charts and clip ends over Render Result."""
 
     key: ClassVar[Key] = "charts"
-    under: ClassVar[Color] = (0.0, 0.0, 1.0, 1.0)
-    over: ClassVar[Color] = (1.0, 0.0, 0.0, 1.0)
+    under: ClassVar[Color] = Shipped.read().look("clip-under").color("fill")
+    over: ClassVar[Color] = Shipped.read().look("clip-over").color("fill")
     switches: ClassVar[Attachment[Charted]] = Attachment(key=key, form=Charted, owner=bpy.types.Screen)
     ends: ClassVar[Attachment[ClipEnds]] = Attachment(key=f"{key}_clips", form=ClipEnds, owner=bpy.types.Screen)
     prerequisites: ClassVar[tuple[Registrable, ...]] = (switches, ends)

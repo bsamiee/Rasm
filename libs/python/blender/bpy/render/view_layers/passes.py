@@ -294,7 +294,6 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
     label: Descriptor[bpy.types.StringProperty]
     custom: Descriptor[bpy.types.BoolProperty]
     tint: Descriptor[bpy.types.FloatProperty]
-    usage: Descriptor[bpy.types.BoolProperty]
     dimensions: Descriptor[bpy.types.IntProperty]
 
     def used(self, scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
@@ -304,12 +303,11 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
     def grouped(self, frames: tuple[tuple[FrameNode, tuple[Link, ...], LayerPlan], ...]) -> BlenderResult[NodeGroup]:
         """Builds routing group around image pass-through with each layer frame."""
         interface = Interface(outputs=(Socket(key="result", name="Image", kind=bpy.types.NodeSocketColor),), inputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),))
-        return NodeGroup.built(PassSet.ownership.key, "Passes", interface, {"result": End(node=INPUTS, socket="image")}).map(
+        return NodeGroup.built(PassSet.ownership.key, PassSet.title, interface, {"result": End(node=INPUTS, socket="image")}).map(
             lambda group: msgspec.structs.replace(
                 group,
                 graph=msgspec.structs.replace(
                     group.graph,
-                    members={self.usage: True},
                     nodes={**group.graph.nodes, **{plan.frame: frame for frame, _, plan in frames}},
                     links=tuple(dict.fromkeys((*group.graph.links, *(link for _, links, _ in frames for link in links)))),
                 ),
@@ -549,15 +547,12 @@ class PassSet(Line, frozen=True):
     prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
     presets: ClassVar[Preset[PassPreset]] = Preset(key="passes", form=PassPreset)
     ownership: ClassVar[Ownership[bpy.types.CompositorNodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="passes", saved=Saved.USED)
+    title: ClassVar[str] = "Passes"
 
     def bound(self, identity: Identity) -> BlenderResult[PassRouting]:
         """Binds attachments and resolves flags, lobe group, and descriptors."""
         attached = paired(paired(self.attachment.bound(identity), ScenePaths().bound(identity)), LayerOverride.layer.bound(identity))
-        switches = accumulated((
-            Descriptor.resolve(bpy.types.ViewLayer, "use", bpy.types.BoolProperty),
-            Descriptor.resolve(bpy.types.NodeFrame, "use_custom_color", bpy.types.BoolProperty),
-            Descriptor.resolve(bpy.types.CompositorNodeTree, "allow_usage_in_scene_compositor_effect", bpy.types.BoolProperty),
-        ))
+        switches = accumulated((Descriptor.resolve(bpy.types.ViewLayer, "use", bpy.types.BoolProperty), Descriptor.resolve(bpy.types.NodeFrame, "use_custom_color", bpy.types.BoolProperty)))
         frames = paired(Descriptor.resolve(bpy.types.NodeFrame, "label", bpy.types.StringProperty), Descriptor.resolve(bpy.types.NodeFrame, "color", bpy.types.FloatProperty))
         others = paired(
             Descriptor.resolve(bpy.types.Scene, "render.compositor_precision", bpy.types.EnumProperty),
@@ -573,7 +568,7 @@ class PassSet(Line, frozen=True):
             ],
         ) -> PassRouting:
             (((routing, pathed), layers), ((flags, group), id_colors)), (toggles, ((label, tint), (precision, dimensions))) = held, resolved
-            use, custom, usage = toggles
+            use, custom = toggles
             return PassRouting(
                 identity=identity,
                 routing=routing,
@@ -587,7 +582,6 @@ class PassSet(Line, frozen=True):
                 label=label,
                 custom=custom,
                 tint=tint,
-                usage=usage,
                 dimensions=dimensions,
             )
 

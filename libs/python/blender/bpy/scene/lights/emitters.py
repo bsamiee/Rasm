@@ -12,7 +12,7 @@ import numpy as np
 
 from blender.bpy.commands.operators import Done, Operator
 from blender.bpy.data.ids.ownership import kept, Ownership, Saved
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.descriptors import Descriptor, IdName, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
@@ -236,7 +236,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
     )
 
     def built() -> BlenderResult[bpy.types.Material]:
-        return kept(BlenderEditFault.attempted("Mesh Light material", lambda: bpy.data.materials.new("Mesh Light")), emptied)
+        return kept(BlenderEditFault.attempted(f"{item.name} material", lambda: bpy.data.materials.new(vacant(item.name, bpy.data.materials.keys()))), emptied)
 
     return (
         typed(item.data, bpy.types.Mesh, f"{item!r}.data")
@@ -281,7 +281,7 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
         )
 
     return kept(
-        BlenderEditFault.attempted("Mesh Light mesh", lambda: bpy.data.meshes.new("Mesh Light")),
+        BlenderEditFault.attempted("Mesh Light mesh", lambda: bpy.data.meshes.new(vacant("Mesh Light", bpy.data.meshes.keys()))),
         lambda mesh: MeshLights.light.made(identity, lambda: spawned("Mesh Light", Some(mesh), collection), filled=configured),
     )
 

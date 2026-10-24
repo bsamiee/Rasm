@@ -4,6 +4,8 @@
     </PropertyGroup>
 
     <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Streaming" />
+        <PackageReference Include="NodaTime" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
@@ -20,7 +22,12 @@
         <PackageReference Include="Svg.Model" />
     </ItemGroup>
 
+    <ItemGroup Label="Workspace Sources">
+        <Compile Include="../../LanguageJson.cs" />
+        <Compile Include="../../ValidationResults.cs" />
+    </ItemGroup>
+
     <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="Styling/Appearances.json" WithCulture="false" />
+        <EmbeddedResource Include="../../../python/blender/bpy/ui/resources/appearances.json" LogicalName="appearances.json" WithCulture="false" />
     </ItemGroup>
 </Project>

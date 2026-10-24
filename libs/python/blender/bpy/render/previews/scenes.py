@@ -20,6 +20,7 @@ import PyOpenColorIO
 
 from blender.bpy.data.ids.images import filled, Tag
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
+from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import Descriptor, IdName, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -43,7 +44,7 @@ from blender.imaging.chain import Effect
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Choice, Rgb
+from blender.imaging.parameters import Case, Choice, heading, Rgb
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -220,7 +221,10 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     def made(self, identity: Identity) -> BlenderResult[bpy.types.Scene]:
         """Returns extension runtime preview scene."""
         return self.scene.made(
-            identity, lambda: catch(lambda: bpy.data.scenes.new("Preview"), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=self.scene.key, error=error),))
+            identity,
+            lambda: catch(lambda: bpy.data.scenes.new(vacant("Preview", bpy.data.scenes.keys())), exception=RuntimeError)().map_error(
+                lambda error: (BlenderEditFault(request=self.scene.key, error=error),)
+            ),
         )
 
     def headed(self, identity: Identity, plane: npt.NDArray[np.float32]) -> BlenderResult[bpy.types.NodeTree]:
@@ -231,7 +235,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         def built() -> BlenderResult[bpy.types.Image]:
             with ExitStack() as rollback:
                 try:
-                    image = bpy.data.images.new("Preview Input", width=width, height=height, alpha=True, float_buffer=True)
+                    image = bpy.data.images.new(vacant("Preview Input", bpy.data.images.keys()), width=width, height=height, alpha=True, float_buffer=True)
                 except (MemoryError, RuntimeError, ValueError) as error:
                     return Error((BlenderEditFault(request=self.image.key, error=error),))
                 rollback.callback(bpy.data.images.remove, image)
@@ -428,7 +432,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                                 self.world
                                 .made(
                                     identity,
-                                    lambda: catch(lambda: bpy.data.worlds.new("Preview World"), exception=RuntimeError)().map_error(
+                                    lambda: catch(lambda: bpy.data.worlds.new(vacant("Preview World", bpy.data.worlds.keys())), exception=RuntimeError)().map_error(
                                         lambda error: (BlenderEditFault(request=self.world.key, error=error),)
                                     ),
                                 )
@@ -654,12 +658,12 @@ def piece(identity: Identity, kind: Piece, scene: bpy.types.Scene) -> BlenderRes
         def native() -> bpy.types.Mesh | bpy.types.Camera | bpy.types.Light:
             match kind:
                 case Rig.CAMERA:
-                    return bpy.data.cameras.new(data.key)
+                    return bpy.data.cameras.new(vacant(heading(data.key), bpy.data.cameras.keys()))
                 case Rig.LAMP:
-                    return bpy.data.lights.new(data.key, type="SUN")
+                    return bpy.data.lights.new(vacant(heading(data.key), bpy.data.lights.keys()), type="SUN")
                 case Shape() as shape:
                     with ExitStack() as scope:
-                        mesh = bpy.data.meshes.new(data.key)
+                        mesh = bpy.data.meshes.new(vacant(heading(data.key), bpy.data.meshes.keys()))
                         rollback = scope.enter_context(ExitStack())
                         rollback.callback(bpy.data.meshes.remove, mesh)
                         surface = bmesh.new()
@@ -683,7 +687,7 @@ def piece(identity: Identity, kind: Piece, scene: bpy.types.Scene) -> BlenderRes
     def linked(block: bpy.types.Mesh | bpy.types.Camera | bpy.types.Light) -> BlenderResult[bpy.types.Object]:
         def native() -> bpy.types.Object:
             with ExitStack() as rollback:
-                item = bpy.data.objects.new(objects.key, block)
+                item = bpy.data.objects.new(vacant(heading(objects.key), bpy.data.objects.keys()), block)
                 rollback.callback(bpy.data.objects.remove, item)
                 scene.collection.objects.link(item)
                 rollback.pop_all()

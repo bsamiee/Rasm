@@ -16,7 +16,7 @@ import numpy.typing as npt
 
 from blender.bpy.commands.operators import answered, Operator, Outcome
 from blender.bpy.data.ids.ownership import kept
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.conditions import Not, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, written
 from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, Selection, Snapshot, ViewLayers
@@ -166,7 +166,7 @@ def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) ->
 
 def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collection) -> BlenderResult[bpy.types.Object]:
     """Creates object linked into collection, removing it on fault."""
-    return kept(BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(name, data.to_optional())), lambda item: joined(collection, (item,)).map(lambda _: item))
+    return kept(BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(vacant(name, bpy.data.objects.keys()), data.to_optional())), lambda item: joined(collection, (item,)).map(lambda _: item))
 
 
 # --- [STACKS]

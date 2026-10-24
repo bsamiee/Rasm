@@ -18,6 +18,7 @@ import PyOpenColorIO
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Call, Done, Operator, Properties, Save
 from blender.bpy.data.ids.ownership import Ownership, Saved
+from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.conditions import AllOf, Count, Job
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.snapshots import Snapshot
@@ -257,7 +258,7 @@ class LutExport:
     @contextmanager
     def staged(self, identity: Identity) -> Generator[BlenderResult[bpy.types.Scene]]:
         """Owns a marked runtime scene, removed on exit."""
-        made = self.lattices.made(identity, lambda: Ok(bpy.data.scenes.new("LUT Lattice")))
+        made = self.lattices.made(identity, lambda: Ok(bpy.data.scenes.new(vacant("LUT Lattice", bpy.data.scenes.keys()))))
         try:
             yield made
         finally:

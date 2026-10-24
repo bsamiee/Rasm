@@ -76,8 +76,8 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     # --- [HOLDERS]
 
     def held(self, identity: Identity) -> tuple[tuple[T, Mark], ...]:
-        """Returns holders and marks in collection order."""
-        return tuple((block, mark) for block in blocks(bpy.data, self.kind) for mark in self.marked(identity, block).to_list())
+        """Returns local holders and marks in collection order, linked library blocks staying their library's."""
+        return tuple((block, mark) for block in blocks(bpy.data, self.kind) if block.library is None for mark in self.marked(identity, block).to_list())
 
     def marked(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Mark]:
         """Returns holder's mark, Nothing for another purpose."""
@@ -194,7 +194,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         def merged(context: bpy.types.BlendImportContext) -> BlenderResult[None]:
             """Remaps imported duplicates to earliest local holder."""
             imported = frozenset(item.id for item in context.import_items if isinstance(item.id, self.kind) and item.id.library is None)
-            local = tuple((block, mark) for block, mark in self.held(identity) if block.library is None)
+            local = self.held(identity)
             keepers = _earliest(local)
             duplicates = tuple((block, keeper) for block, mark in local if block in imported and block != (keeper := keepers[mark]))
             for block, keeper in duplicates:

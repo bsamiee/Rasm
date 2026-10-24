@@ -17,7 +17,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.data.ids.ownership import kept, Ownership
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import PathHandler, SceneHandler
@@ -264,7 +264,7 @@ def generated(
         height, width, channels = values.shape
 
         return kept(
-            BlenderEditFault.attempted(name, lambda: bpy.data.images.new(name, width, height, alpha=channels == 4, float_buffer=True)),
+            BlenderEditFault.attempted(name, lambda: bpy.data.images.new(vacant(name, bpy.data.images.keys()), width, height, alpha=channels == 4, float_buffer=True)),
             lambda image: tag.applied(image).bind(lambda _: filled(image, values)).bind(lambda _: BlenderEditFault.attempted(repr(image), image.pack)).map(lambda _: image),
         )
 

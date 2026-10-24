@@ -20,7 +20,6 @@
     </Folder>
     <Folder Name="/libs/dotnet/ui/">
         <Project Path="libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
-        <Project Path="libs/dotnet/ui/Rasm.UI.Imaging/Rasm.UI.Imaging.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />

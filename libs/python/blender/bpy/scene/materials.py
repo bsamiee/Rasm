@@ -15,7 +15,7 @@ import PyOpenColorIO
 from blender.bpy.commands.operators import Call, Done, Empty, Open, Operator
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import committed, kept, Ownership, Saved
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.conditions import Present
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.snapshots import Scenes, Snapshot
@@ -352,7 +352,7 @@ def material(setup: ShadingSetup, config: PyOpenColorIO.Config, identity: Identi
     """Reuses or creates owned setup material, removing a created one on fault or scope unwind."""
 
     def built() -> BlenderResult[bpy.types.Material]:
-        return kept(BlenderEditFault.attempted(setup.title, lambda: bpy.data.materials.new(setup.title)), emptied)
+        return kept(BlenderEditFault.attempted(setup.title, lambda: bpy.data.materials.new(vacant(setup.title, bpy.data.materials.keys()))), emptied)
 
     return Materials.attachment.bound(identity).bind(
         lambda attached: setup.ownership.made(

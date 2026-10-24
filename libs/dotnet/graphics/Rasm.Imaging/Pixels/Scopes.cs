@@ -6,7 +6,6 @@ using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Tone;
 
@@ -146,7 +145,7 @@ public abstract partial record ScopeRequest {
         public override ScopeReading.Vectorscope Read(PixelFrame frame) =>
             new(
                 this,
-                new BinGrid(Plot.Width, Plot.Height, BandFold.Run(frame, new VectorscopeFold(new ChromaAxes(Gamut.Luminance).Forward, Zoom.Reach, Plot.Width, Plot.Height))));
+                new BinGrid(Plot.Width, Plot.Height, BandFold.Run(frame, new VectorscopeFold(new ChromaAxes(Gamut.Luminance).Forward.Transpose(), Zoom.Reach, Plot.Width, Plot.Height))));
     }
 
     public sealed record Chromaticity(Gamut Gamut, Transfer Encoding, PixelExtent Plot) : ScopeRequest(Gamut) {
@@ -222,16 +221,22 @@ internal readonly struct WaveformFold((double X, double Y, double Z) luminance, 
     }
 }
 
+internal static class Lanes {
+    public static (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) Of(Matrix<double> matrix) =>
+        (Lane(matrix, 0), Lane(matrix, 1), Lane(matrix, 2));
+
+    private static Vector256<double> Lane(Matrix<double> matrix, int column) => Vector256.Create(matrix[0, column], matrix[1, column], matrix[2, column], 0d);
+}
+
 internal readonly struct VectorscopeFold(Matrix<double> forward, float reach, int columns, int rows) : IRowFold {
+    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) _lanes = Lanes.Of(forward);
+
     public int Bins => columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
         Span2D<int> grid = bins.AsSpan2D(rows, columns);
-        DenseVector source = new(3);
-        DenseVector ycc = new(3);
         foreach (Vector4 pixel in row) {
-            (source[0], source[1], source[2]) = (pixel.X, pixel.Y, pixel.Z);
-            forward.LeftMultiply(source, ycc);
+            Vector256<double> ycc = (_lanes.Red * pixel.X) + (_lanes.Green * pixel.Y) + (_lanes.Blue * pixel.Z);
             (double u, double v) = ((ycc[1] + reach) / (2d * reach), (ycc[2] + reach) / (2d * reach));
             if (pixel.W > 0f && u >= 0f && u < 1f && v >= 0f && v < 1f)
                 grid[(int)(v * rows), (int)(u * columns)]++;
@@ -240,9 +245,7 @@ internal readonly struct VectorscopeFold(Matrix<double> forward, float reach, in
 }
 
 internal readonly struct ChromaticityFold(Matrix<double> toXyz, Transfer encoding, int columns, int rows) : IRowFold {
-    private readonly Vector256<double> _red = Vector256.Create(toXyz[0, 0], toXyz[1, 0], toXyz[2, 0], 0d);
-    private readonly Vector256<double> _green = Vector256.Create(toXyz[0, 1], toXyz[1, 1], toXyz[2, 1], 0d);
-    private readonly Vector256<double> _blue = Vector256.Create(toXyz[0, 2], toXyz[1, 2], toXyz[2, 2], 0d);
+    private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) _lanes = Lanes.Of(toXyz);
 
     public int Bins => columns * rows;
 
@@ -252,7 +255,7 @@ internal readonly struct ChromaticityFold(Matrix<double> toXyz, Transfer encodin
         encoding.Decode(scratch.Span, Nits.ReferenceWhite);
         Span2D<int> grid = bins.AsSpan2D(rows, columns);
         foreach (Vector4 rgb in scratch.Span) {
-            Vector256<double> xyz = (_red * rgb.X) + (_green * rgb.Y) + (_blue * rgb.Z);
+            Vector256<double> xyz = (_lanes.Red * rgb.X) + (_lanes.Green * rgb.Y) + (_lanes.Blue * rgb.Z);
             double sum = Vector256.Sum(xyz);
             (double x, double y) = (xyz[0] / sum, xyz[1] / sum);
             if (rgb.W > 0f && sum > 0d && x >= 0d && x < 1d && y >= 0d && y < 1d)
