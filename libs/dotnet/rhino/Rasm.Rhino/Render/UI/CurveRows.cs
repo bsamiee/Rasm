@@ -6,6 +6,7 @@ using Rasm.Imaging.Grade.Curves;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.Events;
+using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Numeric;
@@ -84,7 +85,7 @@ public static class CurveRows {
                 h => editor.Anchored += h, h => editor.Anchored -= h,
                 Callbacks.Handler<AnchorShownEventArgs>(
                     shown => anchor.SwapIO(_ => shown.Anchor).Bind(_ => input.Show(shown.Anchor)).Bind(_ => output.Show(shown.Anchor)), site with { Member = nameof(CurveEditor.Anchored) }), retain)
-        from stack in DisposalOps.Acquire(IO.lift(() => new StackLayout(new StackLayoutItem(strip.Control, HorizontalAlignment.Left), new StackLayoutItem(editor, HorizontalAlignment.Stretch))), retain)
+        from stack in Containers.Frame(() => new StackLayout(new StackLayoutItem(strip.Control, HorizontalAlignment.Left), new StackLayoutItem(editor, HorizontalAlignment.Stretch)), retain)
         from arranged in IO.lift(() => {
             stack.Orientation = Orientation.Vertical;
             stack.Spacing = RhinoLayout.StackedSpacing(RhinoLayout.SpacingType.Table);
@@ -103,7 +104,7 @@ public static class CurveRows {
                 from field in DisposalOps.Acquire(IO.lift(() => new NumberField<CurveCoordinate, double>(text, text.Domain.Create, text.Domain.Key, text.Domain.Bounds, sink) { Enabled = false }), retain)
                 select (axis, field)).As()
         let fields = toHashMap(entries)
-        from panel in DisposalOps.Acquire(IO.lift(static () => new Panel()), retain)
+        from panel in Containers.Frame(static () => new Panel(), retain)
         from placed in IO.lift(() => panel.Content = fields[side.Plotted(lanes.Head.Curve(record))])
         let site = new CallbackSite(sink, typeof(NumberField<CurveCoordinate, double>), nameof(NumberField<,>.Edited))
         let handler = Callbacks.Handler<EditEventArgs<CurveCoordinate>>(args => Entered(args.Edit, side.Coordinate, anchored, editor), site)

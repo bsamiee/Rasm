@@ -39,7 +39,7 @@ internal sealed class ClayMeshProvider(IPlugInViews sink, uint serial, RenderMat
 public static class RenderOverrides {
     // --- [SCOPE]
     public static IO<T> Around<T>(RenderOverride over, OverrideScope scope, IO<T> launch) =>
-        DisposalOps.Within(() => (Serial: scope.Document.RuntimeSerialNumber, Capture: new Capture(scope.Sink, scope.Group, Ref(Option<ValueSet>.None), Ref(Option<IDisposable>.None))) switch {
+        DisposalOps.Within(() => (Serial: scope.Document.RuntimeSerialNumber, Capture: new Capture(scope.Sink, scope.Group, Atom(Option<ValueSet>.None), Atom(Option<IDisposable>.None))) switch {
             var claim => Captures.Swap(held => held.Active.ContainsKey(claim.Serial) || held.Retiring.ContainsKey(claim.Serial) ? held : (held.Active.Add(claim.Serial, claim.Capture), held.Retiring))
                 .Active.Find(claim.Serial).Exists(found => ReferenceEquals(found, claim.Capture))
                     ? Fin.Succ(claim)
@@ -47,7 +47,7 @@ public static class RenderOverrides {
         }, answer =>
             from held in IO.lift(answer)
             from before in scope.Group.Capture
-            from captured in atomicIO(() => held.Capture.Values.Swap(_ => Some(new ValueSet(before.Entries.Intersect(over.Values.Entries.Keys)))))
+            from captured in writeIO(held.Capture.Values, Some(new ValueSet(before.Entries.Intersect(over.Values.Entries.Keys))))
             from applied in Applied(over, scope, held.Serial, held.Capture)
             from launched in launch
             select launched, static answer => answer.Match(
@@ -65,16 +65,14 @@ public static class RenderOverrides {
 
     private static IO<Unit> Applied(RenderOverride over, OverrideScope scope, uint serial, Capture capture) =>
         from diff in scope.Group.Apply(over.Values, LanguageExt.HashSet.empty<EntryKey>())
-        from clay in over.Clay.TraverseM(albedo => Clay(albedo, scope, lease =>
-            atomic(() => {
-                if (!Captures.Value.Active.ContainsKey(serial))
-                    return Fin.Fail<Unit>(Errors.Cancelled);
-                _ = capture.Clay.Swap(_ => Some(lease));
-                return unit;
-            }).ThrowIfFail())).As()
+        from clay in over.Clay.TraverseM(albedo => Clay(albedo, scope, lease => {
+            if (!Captures.Value.Active.ContainsKey(serial))
+                throw Errors.Cancelled.ToException();
+            _ = capture.Clay.Swap(_ => Some(lease));
+        })).As()
         select unit;
 
-    private sealed record Capture(IPlugInSink Sink, BindingGroup Group, Ref<Option<ValueSet>> Values, Ref<Option<IDisposable>> Clay);
+    private sealed record Capture(IPlugInSink Sink, BindingGroup Group, Atom<Option<ValueSet>> Values, Atom<Option<IDisposable>> Clay);
 
     // --- [RESTORE]
     private static IO<Unit> Release(uint serial, Capture capture) =>

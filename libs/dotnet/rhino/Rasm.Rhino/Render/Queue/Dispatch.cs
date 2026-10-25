@@ -341,15 +341,8 @@ public static class Dispatch {
             : Error.New($"Rhino farm workers run on macOS or Windows, not {platform}");
 
     public static IO<bool> FarmStartup(string farmScript) =>
-        IO.lift(() => {
-            bool mac = OperatingSystem.IsMacOS();
-#if !WINDOWS
-            string[] arguments = mac ? Foundation.NSProcessInfo.ProcessInfo.Arguments : Environment.GetCommandLineArgs();
-#else
-            string[] arguments = Environment.GetCommandLineArgs();
-#endif
-            return FarmArguments(mac ? OSPlatform.OSX : OSPlatform.Windows, farmScript).Map(expected => arguments.AsSpan().EndsWith(expected.AsSpan()));
-        });
+        IO.lift(() => FarmArguments(OperatingSystem.IsMacOS() ? OSPlatform.OSX : OSPlatform.Windows, farmScript)
+            .Map(static expected => (OperatingSystem.IsMacOS() ? SafeNativeMethods.Arguments() : Environment.GetCommandLineArgs()).AsSpan().EndsWith(expected)));
 
     private static IO<Uri> Submitted(QueueTarget.Flamenco farm, string copy, string[] arguments) =>
         DisposalOps.Within(static () => new HttpClient(), client =>
@@ -403,7 +396,7 @@ public static class Dispatch {
                         pid=$1; shift; caffeinate -w "$pid"; exec open "$@"
                         """, "sh",
                     Environment.ProcessId.ToString(CultureInfo.InvariantCulture),
-                    "-g", "-b", string.Create(CultureInfo.InvariantCulture, $"com.mcneel.rhinoceros.{RhinoApp.ExeVersion}"),
+                    "-g", "-a", RhinoApp.GetInstallDirectory().FullName,
                     "--env", $"{variable}={job}", "--args", "-runscript=_NoEcho", $"_{command}",
                 },
                 UseShellExecute = false, }

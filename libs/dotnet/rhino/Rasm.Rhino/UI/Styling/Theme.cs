@@ -87,12 +87,7 @@ public static class HostTheme {
     public static HostEvent<Unit> In(Control control) =>
         new(typeof(Control), nameof(Control.LoadComplete), (deliver, site, retain) =>
             DisposalOps.Acquire(owned =>
-                from mounted in IO.lift(static () => Ref(Some(Option<IDisposable>.None)))
-                let exchange = fun((Option<Option<IDisposable>> next) => atomicIO(() => {
-                    Option<Option<IDisposable>> prior = mounted.Value;
-                    mounted.Value = prior.Bind(_ => next);
-                    return prior.Flatten();
-                }).Bind(static prior => IO.lift(() => prior.Iter(static lease => lease.Dispose()))).Uninterruptible())
+                from mounted in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), owned)
                 let mount = DisposalOps.Replace(windowOwned =>
                     IO.lift(() => Optional(control.ParentWindow)).Bind(window => window.Traverse(parent =>
                         Subscriptions.Host<EventArgs>(typeof(Window),
@@ -100,19 +95,14 @@ public static class HostTheme {
                             handler => parent.LogicalPixelSizeChanged -= handler,
                             nameof(Window.LogicalPixelSizeChanged))
                         .Choose(static _ => Some(unit)).Inline(deliver, site.Sink, windowOwned)).As()).Map(unit),
-                    (_, lease) => atomicIO(() => {
-                        Option<Option<IDisposable>> prior = mounted.Value;
-                        mounted.Value = prior.Map(_ => Some(lease));
-                        return prior.ToFin(Errors.Cancelled);
-                    }).Bind(IO.lift).Bind(static prior => IO.lift(() => prior.Iter(static held => held.Dispose()))))
-                from lifetime in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Option<Option<IDisposable>>>>(mounted, _ => exchange(None).Run())), owned)
+                    (_, lease) => mounted.Replace(lease))
                 from changed in Changed.Inline(deliver, site.Sink, owned)
                 from loaded in Subscriptions.Attach(
                     handler => control.LoadComplete += handler, handler => control.LoadComplete -= handler,
                     Callbacks.Handler<EventArgs>(_ => mount.Bind(__ => deliver(unit)), site), owned)
                 from unloaded in Subscriptions.Attach(
                     handler => control.UnLoad += handler, handler => control.UnLoad -= handler,
-                    Callbacks.Handler<EventArgs>(_ => exchange(Some(Option<IDisposable>.None)), site), owned)
+                    Callbacks.Handler<EventArgs>(_ => mounted.Drain, site), owned)
                 from initial in when(control.Loaded, mount).As()
                 select unit, retain));
 

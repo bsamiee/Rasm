@@ -26,7 +26,7 @@ public sealed record TransformedObjects(Transform Transform, bool ObjectsWillBeC
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class Debouncer<A> {
-    private readonly Atom<(Option<(long Since, Seq<A> Changes)> Pending, Option<Seq<A>> Taken)> held = Atom((Pending: Option<(long Since, Seq<A> Changes)>.None, Taken: Option<Seq<A>>.None));
+    private readonly Ref<Option<(long Since, Seq<A> Changes)>> held = Ref(Option<(long Since, Seq<A> Changes)>.None);
     private readonly TimeProvider clock;
     private readonly TimeSpan quiet;
 
@@ -40,17 +40,21 @@ internal sealed class Debouncer<A> {
 
     public IO<Unit> Post(A change) =>
         from since in IO.lift(clock.GetTimestamp)
-        from posted in held.SwapIO(state => (Some((since, state.Pending.Map(static batch => batch.Changes).IfNone(Seq<A>()).Add(change))), Option<Seq<A>>.None))
+        from posted in atomicIO(() => held.Swap(pending => Some((since, pending.ToSeq().Bind(static batch => batch.Changes).Add(change)))))
         from armed in IO.lift(() => Timer.Change(quiet, Timeout.InfiniteTimeSpan))
         select unit;
 
     private IO<Unit> Tick(Func<Seq<A>, IO<Unit>> deliver) =>
         from now in IO.lift(clock.GetTimestamp)
-        from swapped in held.SwapIO(state => state.Pending.Exists(batch => clock.GetElapsedTime(batch.Since, now) >= quiet)
-            ? (Option<(long Since, Seq<A> Changes)>.None, state.Pending.Map(static batch => batch.Changes))
-            : state with { Taken = None })
-        from delivered in swapped.Taken.Traverse(deliver).As()
-        from rearmed in swapped.Pending.Traverse(batch => IO.lift(() => Timer.Change(quiet - clock.GetElapsedTime(batch.Since, now), Timeout.InfiniteTimeSpan))).As()
+        from prior in atomicIO(() => {
+            Option<(long Since, Seq<A> Changes)> pending = held.Value;
+            held.Value = pending.Filter(batch => clock.GetElapsedTime(batch.Since, now) < quiet);
+            return pending;
+        })
+        from fired in prior.Traverse(batch => clock.GetElapsedTime(batch.Since, now) switch {
+            var elapsed when elapsed >= quiet => deliver(batch.Changes),
+            var elapsed => IO.lift(() => Timer.Change(quiet - elapsed, Timeout.InfiniteTimeSpan)).Map(unit),
+        }).As()
         select unit;
 }
 
@@ -110,18 +114,22 @@ public static class EventKind {
         typeof(RhinoDoc),
         nameof(TransformObjects),
         static (deliver, site, retain) => DisposalOps.Acquire(own =>
-            from held in atomIO((Pending: HashMap<uint, TransformedObjects>(), Taken: Option<TransformedObjects>.None))
+            from pending in IO.lift(static () => Ref(HashMap<uint, TransformedObjects>()))
             from before in BeforeTransformObjects.Inline(
                         args =>
                             from raised in IO.lift(() => (Id: args.TransformEventId, Objects: TransformedObjects.Of(args)))
-                            from swapped in held.SwapIO(state => state with { Pending = state.Pending.AddOrUpdate(raised.Id, raised.Objects) })
+                            from added in atomicIO(() => pending.Swap(held => held.AddOrUpdate(raised.Id, raised.Objects)))
                             select unit,
                         site.Sink, own)
             from after in AfterTransformObjects.Inline(
                         args =>
                             from id in IO.lift(() => args.TransformEventId)
-                            from swapped in held.SwapIO(state => (state.Pending.Remove(id), state.Pending.Find(id)))
-                            from delivered in swapped.Taken.Traverse(deliver).As()
+                            from taken in atomicIO(() => {
+                                Option<TransformedObjects> found = pending.Value.Find(id);
+                                pending.Value = pending.Value.Remove(id);
+                                return found;
+                            })
+                            from delivered in taken.Traverse(deliver).As()
                             select unit,
                         site.Sink, own)
             select unit,
@@ -202,12 +210,16 @@ public static class EventKind {
         typeof(DisplayPipeline),
         nameof(DisplayPipeline.ViewportProjectionChanged),
         static (deliver, site, retain) =>
-            from counters in atomIO((Counters: HashMap<Guid, uint>(), Repeat: false))
+            from counters in IO.lift(static () => Ref(HashMap<Guid, uint>()))
             from attached in ProjectionRaised.Inline(
                 args =>
                     from raised in IO.lift(() => (Viewport: args.Viewport.Id, Counter: args.Viewport.ChangeCounter))
-                    from swapped in counters.SwapIO(state => (state.Counters.AddOrUpdate(raised.Viewport, raised.Counter), state.Counters.Find(raised.Viewport) == Some(raised.Counter)))
-                    from delivered in unless(swapped.Repeat, IO.pure(args).Bind(deliver)).As()
+                    from repeat in atomicIO(() => {
+                        HashMap<Guid, uint> seen = counters.Value;
+                        counters.Value = seen.AddOrUpdate(raised.Viewport, raised.Counter);
+                        return seen.Find(raised.Viewport) == Some(raised.Counter);
+                    })
+                    from delivered in unless(repeat, IO.pure(args).Bind(deliver)).As()
                     select unit,
                 site.Sink, retain)
             select attached,

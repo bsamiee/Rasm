@@ -38,7 +38,7 @@ internal interface IDefinedPlugIn : IPlugInViews, IPlugInLifetime {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class PlugInSession(IO<Unit> flush, Seq<Action<ILoggingBuilder>> logging) {
+public sealed class PlugInSession(Seq<Action<ILoggingBuilder>> logging) {
     // --- [STATE]
     private static readonly Action<ILoggingBuilder> Host = static builder => builder.AddCommandWindow();
     private static readonly ILoggerFactory Window = LoggerFactory.Create(Host);
@@ -74,7 +74,7 @@ public sealed class PlugInSession(IO<Unit> flush, Seq<Action<ILoggingBuilder>> l
 
     // --- [CLOSE]
     public IO<Unit> Close =>
-        (from settled in Callbacks.Each(Seq(Callbacks.Drained, Released, flush)).Map(unit).Catch(error => IO.lift(() => Report(error, typeof(PlugInSession), nameof(Close)))).As()
+        (from settled in Callbacks.Each(Seq(Callbacks.Drained, Released)).Map(unit).Catch(error => IO.lift(() => Report(error, typeof(PlugInSession), nameof(Close)))).As()
          from disposed in IO.lift(loggers.Dispose)
          select unit).Uninterruptible();
 
@@ -104,7 +104,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
 
     public PlugInDefinition Definition => definition;
 
-    public PlugInSession Session { get; } = new(IO.lift(PlugIn.FlushSettingsSavedQueue), definition.Logging);
+    public PlugInSession Session { get; } = new(definition.Logging);
 
     public ViewCatalog Views => views.Value;
 

@@ -77,6 +77,7 @@ public sealed record ListRow<TItem, TKey>(
     public Option<ListSearch<TItem>> Search { get; init; }
     public Option<Func<TItem, bool>> Available { get; init; }
     public Option<Func<TItem, IO<Unit>>> Activate { get; init; }
+    public Option<string> Empty { get; init; }
     public Option<(CommandRow.Run Add, CommandRow.Run Remove)> Pair { get; init; }
     public Func<IO<Seq<TItem>>, Seq<CommandRow>> Commands { get; init; } = static _ => [];
     public bool AllowMultipleSelection { get; init; }
@@ -162,7 +163,8 @@ public static class ListRows {
                 scope, new CallbackSite(scope.Sink, typeof(TreeGridView), nameof(TreeGridView.ScrollToRow)), owned)).As()
             let brackets = Seq((items.Keys, items.Shown), (selection.Keys, selection.Shown)) + expanded.ToSeq() + current.ToSeq()
             from gestures in Gestures(grid, list, row, emphasis, commands.Keys, scope, owned)
-            from paired in Paired(grid, commands.Pair, owned)
+            from emptied in row.Empty.Traverse(text => Emptied(grid, list, row.Wording.Shown(text, scope.Sink), scope.Sink, owned)).As()
+            from paired in Paired(emptied.IfNone(grid), commands.Pair, owned)
             from content in Searched(paired, row.Search, row.Wording, kept => writeIO(keep, kept).Bind(_ => items.Shown), scope, owned)
             from listened in Listened(brackets + content.Brackets, scope, owned)
             select new RowCells(content.Control, None, None, None, [], [], new RowHelp(None, None),
@@ -501,9 +503,21 @@ public static class ListRows {
         };
 
     // --- [PLACEMENT]
+    private static IO<Control> Emptied<TItem>(TreeGridView grid, Atom<ListState<TItem>> list, string text, IPlugInSink sink, Action<IDisposable> retain) where TItem : notnull =>
+        from label in DisposalOps.Acquire(IO.lift(() => new Label { Text = text, TextColor = SystemColors.DisabledText, TextAlignment = TextAlignment.Center }), retain)
+        from stack in Containers.Frame(static () => new StackLayout { HorizontalContentAlignment = HorizontalAlignment.Stretch }, retain)
+        let shown = fun((ListState<TItem> state) => IO.lift(() => (grid.Visible, label.Visible) = (!state.Nodes.IsEmpty, state.Nodes.IsEmpty)).Map(unit))
+        from placed in IO.lift(() => {
+            stack.Items.Add(new StackLayoutItem(grid, expand: true));
+            stack.Items.Add(label);
+        })
+        from heard in Subscriptions.Changed(list, nameof(list.Change)).Inline(shown, sink, retain)
+        from current in list.ValueIO.Bind(shown)
+        select (Control)stack;
+
     private static IO<Control> Paired(Control content, Option<Control> pair, Action<IDisposable> retain) =>
         pair.Match(Some: buttons =>
-            from stack in DisposalOps.Acquire(IO.lift(static () => new StackLayout()), retain)
+            from stack in Containers.Frame(static () => new StackLayout(), retain)
             from added in IO.lift(() => {
                 (stack.HorizontalContentAlignment, stack.Spacing) = (HorizontalAlignment.Stretch, RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Panel));
                 stack.Items.Add(new StackLayoutItem(content, expand: true));
@@ -518,7 +532,7 @@ public static class ListRows {
             from field in ChoiceRows.Search(wording.Shown(held.Placeholder, scope.Sink), matches => keep(item => matches(held.Text(scope, item))), scope.Sink, retain)
             from shown in held.Shown.Traverse(source => Watched(source, Named(source, scope), visible => IO.lift(() => { field.Visible = visible; }), scope,
                 new CallbackSite(scope.Sink, typeof(SearchBox), nameof(SearchBox.Visible)), retain)).As()
-            from stack in DisposalOps.Acquire(IO.lift(static () => new StackLayout()), retain)
+            from stack in Containers.Frame(static () => new StackLayout(), retain)
             from placed in IO.lift(() => {
                 (stack.HorizontalContentAlignment, stack.Spacing) = (HorizontalAlignment.Stretch, RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Panel));
                 stack.Items.Add(field);
@@ -570,7 +584,7 @@ public static class ListRows {
         from movedRoute in Subscriptions.Attach(h => slider.Edited += h, h => slider.Edited -= h, moved, retain)
         from sizedRoute in Subscriptions.Attach(h => browser.SizeChanged += h, h => browser.SizeChanged -= h,
             Callbacks.Handler<EventArgs>(_ => widths, new CallbackSite(scope.Sink, typeof(ThumbnailBrowser<TItem, TKey>), nameof(Control.SizeChanged))), retain)
-        from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), retain)
+        from table in Containers.Frame(static () => new TableLayout(), retain)
         from placed in IO.lift(() => {
             table.Rows.Add(new TableRow(new TableCell(slider, scaleWidth: true), modes.Control));
             table.Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table);
@@ -605,7 +619,7 @@ public static class ListRows {
         ThumbnailBrowser<TItem, TKey> browser, BrowserRow<TItem, TKey> row, RowScope scope, CallbackSite site, Action<IDisposable> retain)
         where TItem : notnull
         where TKey : notnull =>
-        from pending in IO.lift(static () => Ref(Option<TKey>.None))
+        from pending in atomIO(Option<TKey>.None)
         from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), retain)
         let shown = row.Current(scope).Bind(value => browser.Receive(value.Map<BrowserEdit<TItem, TKey>>(static key => new BrowserEdit<TItem, TKey>.Applied(key))))
         let settled = Settled(row, scope, timer, pending).Bind(_ => shown)
@@ -614,7 +628,7 @@ public static class ListRows {
         let stepped = (Func<BrowserEdit<TItem, TKey>, IO<Unit>>)(value => applied(value).Match(
             Some: key =>
                 from delay in Accessors.StepEventsDelay
-                from queued in atomicIO(() => pending.Value = Some(key))
+                from queued in writeIO(pending, Some(key))
                 from started in IO.lift(() => { timer.Interval = delay; timer.Start(); })
                 select unit,
             None: static () => IO.pure(unit)))
@@ -626,19 +640,19 @@ public static class ListRows {
                 preview: static (held, preview) => held.Stepped(preview.Value),
                 step: static (held, step) => held.Stepped(step.Value),
                 commit: static (held, committed) => held.Applied(committed.Value).Match(
-                    Some: key => atomicIO(() => held.Pending.Value = Some(key)).Bind(_ => held.Settled), None: static () => IO.pure(unit)),
-                cancel: static (held, _) => IO.lift(held.Timer.Stop).Bind(_ => atomicIO(() => held.Pending.Value = None)).Bind(_ => held.Shown)), site), retain)
+                    Some: key => writeIO(held.Pending, Some(key)).Bind(_ => held.Settled), None: static () => IO.pure(unit)),
+                cancel: static (held, _) => IO.lift(held.Timer.Stop).Bind(_ => writeIO(held.Pending, Option<TKey>.None)).Bind(_ => held.Shown)), site), retain)
         from changed in scope.Listen(_ => shown, retain)
         select shown;
 
-    private static IO<Unit> Settled<TItem, TKey>(BrowserRow<TItem, TKey> row, RowScope scope, UITimer timer, Ref<Option<TKey>> pending)
+    private static IO<Unit> Settled<TItem, TKey>(BrowserRow<TItem, TKey> row, RowScope scope, UITimer timer, Atom<Option<TKey>> pending)
         where TItem : notnull
         where TKey : notnull =>
         DisposalOps.Transacted(
             IO.lift(timer.Stop).Bind(_ => pending.ValueIO),
             held => held.Traverse(key => row.Choose(scope, key)).As(),
             static _ => unitIO,
-            (held, _) => when(held.IsSome, atomicIO(() => pending.Value = None).Map(unit)).As());
+            (held, _) => when(held.IsSome, writeIO(pending, Option<TKey>.None).Map(unit)).As());
 
     private static Option<Edit<TOut>> Mapped<TIn, TOut>(Edit<TIn> change, Func<TIn, Option<TOut>> map)
         where TIn : notnull

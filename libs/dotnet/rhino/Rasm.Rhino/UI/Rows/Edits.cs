@@ -31,7 +31,7 @@ public abstract class RowEdit {
         where TRecord : notnull
         where THandler : Delegate =>
         from signals in source.Signals(scope)
-        from state in IO.lift(static () => Ref(Option<OpenEdit<TRecord>>.None))
+        from state in atomIO(Option<OpenEdit<TRecord>>.None)
         from timer in DisposalOps.Acquire(IO.lift(static () => new UITimer()), retain)
         let edit = new RowEdit<TRecord>(source, fields, scope, state, timer, made => handler(made) switch {
             var attached => (keep => Subscriptions.Attach(add, remove, attached, keep), value => Subscriptions.Detached(add, remove, attached, show(value))),
@@ -42,7 +42,7 @@ public abstract class RowEdit {
         from elapsed in Subscriptions.Attach(
             h => timer.Elapsed += h, h => timer.Elapsed -= h,
             Callbacks.Handler<EventArgs>(_ => edit.Elapsed, site), retain)
-        from heard in Callbacks.Each(signals.Map(signal => signal.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => edit.Heard), site.Sink, retain)))
+        from heard in Callbacks.Each(signals.Map(signal => signal.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => edit.Shown.Bind(_ => edit.Heard)), site.Sink, retain)))
         from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<RowEdit<TRecord>>(edit, static closed => Callbacks.Settled(closed.Released, CancellationToken.None).ThrowIfFail())), retain)
         select edit;
 }
@@ -52,14 +52,14 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
     private readonly RowSource<TRecord> source;
     private readonly Seq<RowField<TRecord>> fields;
     private readonly RowScope scope;
-    private readonly Ref<Option<OpenEdit<TRecord>>> state;
+    private readonly Atom<Option<OpenEdit<TRecord>>> state;
     private readonly UITimer timer;
     private readonly Func<Option<TRecord>, IO<Unit>> show;
     private readonly Func<RowEdit<TRecord>, Action<IDisposable>, IO<Unit>> pace;
     private readonly Ref<Option<IDisposable>> pacing = Ref(Option<IDisposable>.None);
 
     internal RowEdit(
-        RowSource<TRecord> source, IterableNE<RowField<TRecord>> fields, RowScope scope, Ref<Option<OpenEdit<TRecord>>> state, UITimer timer,
+        RowSource<TRecord> source, IterableNE<RowField<TRecord>> fields, RowScope scope, Atom<Option<OpenEdit<TRecord>>> state, UITimer timer,
         Func<RowEdit<TRecord>, (Func<Action<IDisposable>, IO<Unit>> Attach, Func<Option<TRecord>, IO<Unit>> Show)> controls,
         Func<RowEdit<TRecord>, Action<IDisposable>, IO<Unit>> pace) {
         (this.source, this.fields, this.scope, this.state, this.timer, this.pace) = (source, toSeq(fields), scope, state, timer, pace);
@@ -82,7 +82,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
             Succ: latest =>
                 from opened in Opened
                 from seconds in delay.Traverse(static read => read).As()
-                from moved in atomicIO(() => state.Value = state.Value.Map(open => open with { Latest = latest, Stepping = seconds.IsSome }))
+                from moved in state.SwapIO(held => held.Map(open => open with { Latest = latest, Stepping = seconds.IsSome }))
                 from timed in IO.lift(() => seconds.Match(
                     Some: held => {
                         timer.Interval = held;
@@ -151,7 +151,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
         from records in scope.Records
         let diff = scope.History.Filter(_ => records).Map(static _ => ValueDiff.Empty)
         let open = new OpenEdit<TRecord>(targets, targets.Head.Bind(static target => target.Start).IfNone(source.Default), Stepping: false, diff, None)
-        from opened in atomicIO(() => state.Value = Some(open))
+        from opened in writeIO(state, Some(open))
         from paced in DisposalOps.Acquire(keep => pace(this, keep), lease => atomic(() => pacing.Value = Some(lease)))
         select open;
 
@@ -161,7 +161,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
             None: static () => IO.pure(Seq<TRecord>())));
 
     private IO<Unit> Closed =>
-        from closed in atomicIO(() => state.Value = None)
+        from closed in writeIO(state, Option<OpenEdit<TRecord>>.None)
         from lease in atomicIO(() => {
             Option<IDisposable> held = pacing.Value;
             pacing.Value = None;
@@ -195,7 +195,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
                  select (Applied: applied, Value: (applied.Value.HasChanged ? applied.Value.ToOption() : held).IfNone(source.Default)),
             static _ => unitIO,
             (_, accepted) => IO.pure(ValueDiff.Of(accepted.Applied.Value, source.Default, source.Capture))
-                .Bind(diff => atomicIO(() => state.Value = state.Value.Map(open => open with {
+                .Bind(diff => state.SwapIO(held => held.Map(open => open with {
                     Diff = open.Diff.Map(earlier => earlier.Then(diff)),
                     Owed = open.Owed | accepted.Applied.Owed,
                 })))

@@ -14,33 +14,36 @@ public sealed class Disposal<T>(T held, Action<T> release) : IDisposable {
 public sealed class Retained<T>(Func<Seq<T>, IO<Unit>> release) : IDisposable {
     private readonly Ref<Option<Seq<T>>> held = Ref(Some(Seq<T>()));
 
-    public IO<Unit> Drain => Taken(open: true);
+    public Fin<Seq<T>> Held => held.Value.ToFin(Errors.Cancelled);
 
-    public IO<Unit> Close => Taken(open: false);
+    public IO<Unit> Drain => Exchanged(static prior => prior.Map(static _ => Seq<T>()), Released);
+
+    public IO<Unit> Close => Exchanged(static _ => None, Released);
 
     public void Retain(T value) {
-        if (!atomic(() => {
-            Option<Seq<T>> prior = held.Value;
-            held.Value = prior.Map(items => items.Add(value));
-            return prior.IsSome;
-        })) throw Errors.Cancelled.ToException();
+        if (atomic(() => held.Swap(items => items.Map(retained => retained.Add(value)))).IsNone) throw Errors.Cancelled.ToException();
     }
 
     public IO<Unit> Replace(T value) =>
-        atomicIO(() => {
-            Option<Seq<T>> prior = held.Value;
-            held.Value = prior.Map(_ => Seq(value));
-            return prior;
-        }).Bind(prior => prior.Match(Some: release, None: () => release(Seq(value)).Bind(static _ => IO.fail<Unit>(Errors.Cancelled)))).Uninterruptible();
+        Exchanged(prior => prior.Map(_ => Seq(value)), prior => prior.Match(Some: release, None: () => Refused(value)));
+
+    public IO<Unit> Admit(T value) =>
+        Exchanged(prior => prior.Map(retained => retained.IsEmpty ? Seq(value) : retained), prior => prior.Match(
+            Some: retained => unless(retained.IsEmpty, release(Seq(value))).As(),
+            None: () => Refused(value)));
 
     public void Dispose() => Close.Run();
 
-    private IO<Unit> Taken(bool open) =>
+    private IO<Unit> Released(Option<Seq<T>> prior) => prior.Match(Some: release, None: static () => IO.pure(unit));
+
+    private IO<Unit> Refused(T value) => release(Seq(value)).Bind(static _ => IO.fail<Unit>(Errors.Cancelled));
+
+    private IO<Unit> Exchanged(Func<Option<Seq<T>>, Option<Seq<T>>> next, Func<Option<Seq<T>>, IO<Unit>> settle) =>
         atomicIO(() => {
             Option<Seq<T>> prior = held.Value;
-            held.Value = prior.Filter(_ => open).Map(static _ => Seq<T>());
+            held.Value = next(prior);
             return prior;
-        }).Bind(prior => prior.Match(Some: release, None: static () => IO.pure(unit))).Uninterruptible();
+        }).Bind(settle).Uninterruptible();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

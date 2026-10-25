@@ -131,7 +131,9 @@ public static partial class Linetypes {
             distance: static distance => (Width: Millimeters(distance.Width), WidthUnits: UnitSystem.Millimeters, Taper: distance.Taper.Map(static taper => taper.Lowered(Millimeters))))
         from styled in IO.lift(() => Write((definition.Settings.LineCapStyle, definition.Settings.LineJoinStyle, definition.Settings.AlwaysModelDistances, stroke.Width, stroke.WidthUnits), staged))
         from tapered in IO.lift(() => stroke.Taper.Match(
-            Some: taper => staged.SetTaper(taper.Start, taper.Waist.IfNone(Point2d.Unset), taper.End),
+            Some: taper => taper.Waist.Match(
+                Some: waist => staged.SetTaper(taper.Start, waist, taper.End),
+                None: () => staged.SetTaper(taper.Start, taper.End)),
             None: staged.RemoveTaper))
         from cleared in IO.lift(staged.RemoveAllShapes)
         let additions = from shapes in definition.Shapes.ToSeq()

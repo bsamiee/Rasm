@@ -29,7 +29,7 @@ public static class UserTexts {
                         from committed in IO.lift(row.CommitViewportChanges)
                         from marked in IO.lift(() => { doc.Modified = true; })
                         select marked, DisposalOps.Release)
-                    : IO.lift(() => { _ = doc.Strings.SetString(address.Text, Conversions.Unset(text)); }),
+                    : UserStrings.Write(doc, address, text).Map(static _ => unit),
             },
             Applied.Live,
             target.IsNone ? Some(EventKind.UserStringChanged.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit))) : None);

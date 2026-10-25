@@ -250,7 +250,7 @@ public static partial class AttributeEdits {
     // --- [OVERRIDES]
     public static IO<Unit> DisplayModeOverride(ObjectAttributes staged, Guid viewport, Option<Guid> mode) =>
         mode.Match(
-            Some: id => Viewports.WithMode(id, description => IO.lift(() => Refused.Unless(staged.SetDisplayModeOverride(description, viewport), nameof(ObjectAttributes.SetDisplayModeOverride)))),
+            Some: id => Viewports.WithMode(id, description => IO.lift(() => { _ = staged.SetDisplayModeOverride(description, viewport); })),
             None: () => IO.lift(() => staged.RemoveDisplayModeOverride(viewport)));
 
     public static IO<Unit> ActiveInViewport(ObjectAttributes staged, RowsEdit<Guid, Guid> edit, bool active) =>

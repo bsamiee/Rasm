@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Rasm.UI;
 
@@ -13,7 +14,7 @@ public readonly partial struct MotionSpan : System.Numerics.IMinMaxValue<MotionS
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 public readonly partial struct DampingRatio : System.Numerics.IMinMaxValue<DampingRatio> {
-    public static DampingRatio MinValue { get; } = new(1d);
+    public static DampingRatio MinValue { get; } = new(double.BitIncrement(0d));
     public static DampingRatio MaxValue { get; } = new(double.Sqrt(double.MaxValue));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
@@ -31,17 +32,16 @@ public readonly partial struct VisibleChange : System.Numerics.IMinMaxValue<Visi
 public sealed partial class Easing {
     private const int Bisections = 32;
 
-    public static readonly Easing Linear = new(0d, 0d, 1d, 1d);
-    public static readonly Easing In = new(1d / 3d, 0d, 2d / 3d, 0d);
-    public static readonly Easing Out = new(1d / 3d, 1d, 2d / 3d, 1d);
-    public static readonly Easing InOut = new(0.65d, 0d, 0.35d, 1d);
-
     public double X1 { get; }
     public double Y1 { get; }
     public double X2 { get; }
     public double Y2 { get; }
 
     public double Progress(double time) => Bezier(Solved(time, 0d, 1d, Bisections), Y1, Y2);
+
+    public double Slope(double time) => Solved(time, 0d, 1d, Bisections) switch {
+        var solved => Tangent(solved, Y1, Y2) / Tangent(solved, X1, X2),
+    };
 
     private double Solved(double time, double low, double high, int steps) =>
         ((low + high) / 2d) switch {
@@ -52,9 +52,36 @@ public sealed partial class Easing {
 
     private static double Bezier(double s, double first, double second) => (3d * (1d - s) * (1d - s) * s * first) + (3d * (1d - s) * s * s * second) + (s * s * s);
 
+    private static double Tangent(double s, double first, double second) => (3d * (1d - s) * (1d - s) * first) + (6d * (1d - s) * s * (second - first)) + (3d * s * s * (1d - second));
+
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double x1, ref double y1, ref double x2, ref double y2) =>
         validationError = ValidationResults.OutsideRange(x1, 0d, 1d) ?? ValidationResults.OutsideRange(x2, 0d, 1d)
             ?? (double.IsFinite(y1) && double.IsFinite(y2) ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"easing ordinates {y1} and {y2} are not finite")));
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TimingForm {
+    public static readonly TimingForm Linear = new("linear", Easing.Create(0d, 0d, 1d, 1d));
+    public static readonly TimingForm Ease = new("ease", Easing.Create(0.25d, 0.1d, 0.25d, 1d));
+    public static readonly TimingForm EaseIn = new("ease-in", Easing.Create(0.42d, 0d, 1d, 1d));
+    public static readonly TimingForm EaseOut = new("ease-out", Easing.Create(0d, 0d, 0.58d, 1d));
+    public static readonly TimingForm EaseInOut = new("ease-in-out", Easing.Create(0.42d, 0d, 0.58d, 1d));
+    public static readonly TimingForm CubicBezier = new("cubic-bezier", None, 4, static (span, points) =>
+        ValidationResults.ToFin(Easing.Validate(points[0], points[1], points[2], points[3], out Easing? easing), easing).Map(easing => (TimingCurve)new TimingCurve.Eased(span, easing)));
+    public static readonly TimingForm Spring = new("spring", None, 2, static (span, points) =>
+        (DampingRatio.Validated(points[0]), VisibleChange.Validated(points[1])).Apply((damping, rest) => (TimingCurve)new TimingCurve.Spring(span, damping, rest)).As());
+    public static readonly TimingForm Glide = new("glide", None, 1, static (span, points) =>
+        VisibleChange.Validated(points[0]).Map(rest => (TimingCurve)new TimingCurve.Glide(span, rest)));
+
+    private TimingForm(string key, Easing curve) : this(key, curve, 0, (span, _) => new TimingCurve.Eased(span, curve)) { }
+
+    public Option<Easing> Curve { get; }
+    public int Arity { get; }
+
+    [UseDelegateFromConstructor]
+    public partial Fin<TimingCurve> Make(MotionSpan span, Seq<double> points);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -65,19 +92,40 @@ public abstract partial record TimingCurve {
 
     public abstract Reduced<double> Sample(Duration elapsed);
 
-    private static Reduced<double> Decayed(double remaining, VisibleChange rest) => remaining < rest ? End : Reduced.Continue(1d - remaining);
+    public abstract double Velocity(Duration elapsed);
+
+    public abstract TimingCurve From(double velocity);
+
+    private static Reduced<(double Progress, double Rate)> Oscillated(double damping, double phase, double start, VisibleChange rest) =>
+        Modes(damping, phase) switch {
+            var (even, odd) => (Remaining: even + ((damping - start) * odd), Rate: (start * even) + ((1d - (damping * start)) * odd)) switch {
+                var moved when double.Abs(moved.Remaining) < rest && double.Abs(moved.Rate) < rest => Reduced.Done((1d, 0d)),
+                var moved => Reduced.Continue((1d - moved.Remaining, moved.Rate)),
+            },
+        };
+
+    private static (double Even, double Odd) Modes(double damping, double phase) =>
+        (damping - 1d) switch {
+            < 0d => (Root: double.Sqrt((1d - damping) * (1d + damping)), Decay: double.Exp(-damping * phase)) switch {
+                var under => (under.Decay * double.Cos(under.Root * phase), under.Decay * double.Sin(under.Root * phase) / under.Root),
+            },
+            > 0d => double.Sqrt((damping - 1d) * (damping + 1d)) switch {
+                var root => (Slow: double.Exp(-phase / (damping + root)), Gap: double.ExpM1(-2d * root * phase)) switch {
+                    var over => (0.5d * over.Slow * (2d + over.Gap), -0.5d * over.Slow * over.Gap / root),
+                },
+            },
+            _ => double.Exp(-phase) switch {
+                var decay => (decay, phase * decay),
+            },
+        };
 
     // --- [WIRE]
     private const string Instantly = "instant";
-    private const string Milliseconds = "ms";
-    private static readonly Seq<(string Name, Easing Easing)> Named = [("linear", Easing.Linear), ("in", Easing.In), ("out", Easing.Out), ("in-out", Easing.InOut)];
-    private static readonly Seq<(string Name, int Count, Func<MotionSpan, Seq<double>, Fin<TimingCurve>> Make)> Forms =
-        Named.Map(static named => (named.Name, 0, (Func<MotionSpan, Seq<double>, Fin<TimingCurve>>)((span, _) => new Eased(span, named.Easing))))
-        + [
-            ("cubic-bezier", 4, static (span, points) => ValidationResults.ToFin(Easing.Validate(points[0], points[1], points[2], points[3], out Easing? easing), easing).Map(easing => (TimingCurve)new Eased(span, easing))),
-            ("spring", 2, static (span, points) => (DampingRatio.Validated(points[0]), VisibleChange.Validated(points[1])).Apply((damping, rest) => (TimingCurve)new Spring(span, damping, rest)).As()),
-            ("glide", 1, static (span, points) => VisibleChange.Validated(points[0]).Map(rest => (TimingCurve)new Glide(span, rest))),
-        ];
+
+    private protected abstract Option<(TimingForm Form, Seq<double> Points, MotionSpan Span)> Wire { get; }
+
+    [GeneratedRegex(@"^(?<form>[a-z]+(?:-[a-z]+)*)(?:\((?<points>[^)]*)\))?\s+(?<time>[-+0-9.eE]+)(?<milli>m)?s\z", RegexOptions.CultureInvariant)]
+    private static partial Regex Grammar { get; }
 
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out TimingCurve? item) {
         (item, ValidationError? fault) = value is null
@@ -87,62 +135,94 @@ public abstract partial record TimingCurve {
     }
 
     public string ToValue() =>
-        Switch(
-            instant: static _ => Instantly,
-            eased: static eased => $"{Named.Find(named => named.Easing == eased.Easing).Map(static named => named.Name).IfNone(() => string.Create(CultureInfo.InvariantCulture, $"cubic-bezier({eased.Easing.X1}, {eased.Easing.Y1}, {eased.Easing.X2}, {eased.Easing.Y2})"))} {Spanned(eased.Length)}",
-            spring: static spring => string.Create(CultureInfo.InvariantCulture, $"spring({(double)spring.Damping}, {(double)spring.Rest}) {Spanned(spring.Response)}"),
-            glide: static glide => string.Create(CultureInfo.InvariantCulture, $"glide({(double)glide.Rest}) {Spanned(glide.TimeConstant)}"));
+        Wire.Match(
+            Some: static wire => string.Create(CultureInfo.InvariantCulture,
+                $"{wire.Form.Key}{(wire.Points.IsEmpty ? "" : $"({string.Join(", ", wire.Points.Map(static point => point.ToString("R", CultureInfo.InvariantCulture)))})")} {((Duration)wire.Span).TotalMilliseconds:R}ms"),
+            None: static () => Instantly);
 
     private static Fin<TimingCurve> Read(string text) =>
         string.Equals(text, Instantly, StringComparison.Ordinal)
             ? new Instant()
-            : from held in (from gap in Some(text.LastIndexOf(' ')).Filter(static gap => gap > 0)
-                            let head = text[..gap].Split('(', 2)
-                            from form in Forms.Find(form => string.Equals(form.Name, head[0], StringComparison.Ordinal))
-                            from points in Points(head)
-                            where points.Count == form.Count
-                            from count in text.EndsWith(Milliseconds, StringComparison.Ordinal) && int.TryParse(text.AsSpan(gap + 1, text.Length - gap - 1 - Milliseconds.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int whole) ? Some(whole) : None
-                            select (Form: form, Points: points, Count: count))
-                  .ToFin(Error.New(ErrorCodes.ValidationFailed, $"'{text}' is neither {Instantly} nor a curve form followed by a whole span in {Milliseconds}"))
-              from span in MotionSpan.Validated(Duration.FromMilliseconds(held.Count))
-              from curve in held.Form.Make(span, held.Points)
-              select curve;
+            : Grammar.Match(text) switch {
+                { Success: false } => Error.New(ErrorCodes.ValidationFailed, $"'{text}' is neither {Instantly} nor <form>[(<points>)] <time>ms or <time>s"),
+                var match =>
+                    from form in TimingForm.Validated(match.Groups["form"].Value)
+                    from points in match.Groups["points"] switch {
+                        { Success: true } held => toSeq(held.Value.Split(',', StringSplitOptions.TrimEntries)).Traverse(Number).As(),
+                        _ => Seq<double>(),
+                    }
+                    from _ in guard(points.Count == form.Arity, Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"'{text}' gives {form.Key} {points.Count} points, not {form.Arity}")))
+                    from time in Number(match.Groups["time"].Value)
+                    from span in MotionSpan.Validated(Duration.FromNanoseconds(long.CreateSaturating(double.Round(time * (match.Groups["milli"].Success ? NodaConstants.NanosecondsPerMillisecond : NodaConstants.NanosecondsPerSecond), MidpointRounding.ToEven))))
+                    from curve in form.Make(span, points)
+                    select curve,
+            };
 
-    private static Option<Seq<double>> Points(string[] head) =>
-        head.Length is 1
-            ? Some(Seq<double>())
-            : head[1].EndsWith(')') ? toSeq(head[1][..^1].Split(',', StringSplitOptions.TrimEntries)).Traverse(static part => double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? Some(parsed) : None).As() : None;
-
-    private static string Spanned(MotionSpan span) => string.Create(CultureInfo.InvariantCulture, $"{((Duration)span).TotalMilliseconds}{Milliseconds}");
+    private static Fin<double> Number(string text) =>
+        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? parsed : Error.New(ErrorCodes.ValidationFailed, $"'{text}' is not a number");
 
     // --- [CASES]
     public sealed record Instant : TimingCurve {
+        private protected override Option<(TimingForm Form, Seq<double> Points, MotionSpan Span)> Wire => None;
+
         public override Reduced<double> Sample(Duration elapsed) => End;
+
+        public override double Velocity(Duration elapsed) => 0d;
+
+        public override TimingCurve From(double velocity) => this;
     }
 
     public sealed record Eased(MotionSpan Length, Easing Easing) : TimingCurve {
+        private protected override Option<(TimingForm Form, Seq<double> Points, MotionSpan Span)> Wire =>
+            toSeq(TimingForm.Items).Find(form => form.Curve == Some(Easing)).Match(
+                Some: form => (form, Seq<double>(), Length),
+                None: () => (TimingForm.CubicBezier, Seq(Easing.X1, Easing.Y1, Easing.X2, Easing.Y2), Length));
+
         public override Reduced<double> Sample(Duration elapsed) => elapsed >= Length ? End : Reduced.Continue(Easing.Progress(elapsed / Length));
+
+        public override double Velocity(Duration elapsed) => elapsed >= Length ? 0d : Easing.Slope(elapsed / Length) / ((Duration)Length).TotalSeconds;
+
+        public override TimingCurve From(double velocity) => this;
     }
 
     public sealed record Spring(MotionSpan Response, DampingRatio Damping, VisibleChange Rest) : TimingCurve {
-        public override Reduced<double> Sample(Duration elapsed) =>
-            Decayed(Remaining(double.Tau * (elapsed / Response), Damping, double.Sqrt((Damping - 1d) * (Damping + 1d))), Rest);
+        public double Initial { get; init; }
 
-        private static double Remaining(double phase, double damping, double root) =>
-            root is 0d
-                ? (1d + phase) * double.Exp(-phase)
-                : (-2d * root * phase) switch {
-                    var gap => 0.5d * double.Exp(-phase / (damping + root)) * (1d + double.Exp(gap) - (damping / root * double.ExpM1(gap))),
-                };
+        private protected override Option<(TimingForm Form, Seq<double> Points, MotionSpan Span)> Wire => (TimingForm.Spring, Seq((double)Damping, (double)Rest), Response);
+
+        private double Frequency => double.Tau / ((Duration)Response).TotalSeconds;
+
+        public override Reduced<double> Sample(Duration elapsed) => Moved(elapsed).Map(static moved => moved.Progress);
+
+        public override double Velocity(Duration elapsed) => Frequency * Moved(elapsed).Value.Rate;
+
+        public override TimingCurve From(double velocity) => this with { Initial = velocity };
+
+        private Reduced<(double Progress, double Rate)> Moved(Duration elapsed) => Oscillated(Damping, double.Tau * (elapsed / Response), Initial / Frequency, Rest);
     }
 
     public sealed record Glide(MotionSpan TimeConstant, VisibleChange Rest) : TimingCurve {
-        public override Reduced<double> Sample(Duration elapsed) => Decayed(double.Exp(-(elapsed / TimeConstant)), Rest);
+        public double Initial { get; init; } = 1d / ((Duration)TimeConstant).TotalSeconds;
+
+        private protected override Option<(TimingForm Form, Seq<double> Points, MotionSpan Span)> Wire => (TimingForm.Glide, Seq((double)Rest), TimeConstant);
+
+        public override Reduced<double> Sample(Duration elapsed) => Moved(elapsed).Map(static moved => moved.Progress);
+
+        public override double Velocity(Duration elapsed) => Moved(elapsed).Value.Rate / ((Duration)TimeConstant).TotalSeconds;
+
+        public override TimingCurve From(double velocity) => this with { Initial = velocity };
+
+        private Reduced<(double Progress, double Rate)> Moved(Duration elapsed) => Oscillated(1d, elapsed / TimeConstant, Initial * ((Duration)TimeConstant).TotalSeconds, Rest);
     }
 }
 
 public sealed record Animated(float From, float To, Duration Start, TimingCurve Curve) {
-    public Reduced<float> At(Duration now) => Curve.Sample(now - Start).Map(progress => From + ((To - From) * (float)progress));
+    public Reduced<float> At(Duration now) => Curve.Sample(now - Start).Map(progress => float.Lerp(From, To, (float)progress));
 
-    public Animated Toward(float target, Duration now, TimingCurve curve) => To.CompareTo(target) is 0 ? this : new(At(now).Value, target, now, curve);
+    public Animated Toward(float target, Duration now, TimingCurve curve) =>
+        To.CompareTo(target) is 0
+            ? this
+            : At(now).Value switch {
+                var at => new(at, target, now, curve.From(at.CompareTo(target) is 0 ? 0d : Curve.Velocity(now - Start) * (To - From) / (target - at))),
+            };
 }

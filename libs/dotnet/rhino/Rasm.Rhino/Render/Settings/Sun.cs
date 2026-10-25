@@ -47,7 +47,11 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
 
     public static IO<SunAngles> Angles(RenderSettingsSource source) =>
         RenderSettingsSources.Read(source, static scope => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun =>
-            IO.lift(() => { sun.Accuracy = Sun.Accuracies.Maximum; }).Map(_ => SunMapper.ToAngles(sun))));
+            DisposalOps.Within(static () => new Sun(), copy => IO.lift(() => {
+                copy.CopyFrom(sun);
+                copy.Accuracy = Sun.Accuracies.Maximum;
+                return SunMapper.ToAngles(copy);
+            }))));
 
     public static ValueStore<SunMoment> Moment(RenderSettingsSource source, TimeProvider clock) =>
         ValueStore.Of(

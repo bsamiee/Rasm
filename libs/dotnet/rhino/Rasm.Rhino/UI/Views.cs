@@ -247,7 +247,7 @@ public static class ViewOps {
     // --- [REALIZATION]
     public static IO<Control> Realize(IPlugInViews owner, Seq<Child> children, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from stack in DisposalOps.Acquire(IO.lift(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel)), owned)
+            from stack in Containers.Frame(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel), owned)
             from parts in Runs(children).TraverseM(run => Part(owner, children, run, scope, owned)).As()
             from configured in IO.lift(() => {
                 stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;

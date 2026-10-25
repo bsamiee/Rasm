@@ -255,7 +255,7 @@ public static class Getters {
                  from handlers in request.Handlers.TraverseM(handler => handler.Attach(getter, request.Site, retain)).As()
                  from result in IO.lift(() => {
                      getter.AcceptCustomMessage(!request.Handlers.IsEmpty || request.Accept.Message.IsSome);
-                     getter.FullFrameRedrawDuringGet |= getter is GetTransform && request.FullFrame;
+                     getter.FullFrameRedrawDuringGet |= request.FullFrame;
                      if (request.Default.Case is Point3d point)
                          getter.SetDefaultPoint(point);
                      return get(getter);

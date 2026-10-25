@@ -402,7 +402,7 @@ public static class LutTables {
                 ? Fin.Succ(unit)
                 : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT of size {size} needs {count} samples, not {samples.Length}")),
          TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : Error.New("LUT holds non-finite sample"),
-         Vector3.LessThanAll(domainMinimum, domainMaximum) && Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
+         Vector3.AllWhereAllBitsSet(Vector3.LessThan(domainMinimum, domainMaximum) & Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
                 ? Fin.Succ(unit)
                 : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must be finite and ascending")))
             .Apply(static (_, _, _) => unit).As();

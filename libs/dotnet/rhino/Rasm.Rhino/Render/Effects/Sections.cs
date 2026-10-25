@@ -120,6 +120,9 @@ public static class SectionRows {
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "RhinoDocumentId")]
     internal static extern uint RhinoDocumentId([UnsafeAccessorType("Rhino.Render.Rendering, RhinoCommon")] object rendering);
 
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "GetPostEffects")]
+    internal static extern PostEffect[] GetPostEffects([UnsafeAccessorType("Rhino.Render.RenderingPostEffects, RhinoCommon")] object effects, PostEffectType type);
+
     // --- [EFFECTS]
     public static Func<EtoPostEffectCollapsibleSection, View.Section> Stage<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<StageFrame> input)
@@ -128,8 +131,7 @@ public static class SectionRows {
         section => Row(effect, state, looks, section, source =>
             Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over stage input",
                 FramePicker.Current.Find(IPlugInViews.Of(effect)).Bind(picker => IO.lift(() => input.Value.Input.Map(held => new StageInput(IO.pure(Some(held.Frame)), held.Context, picker)))),
-                [Subscriptions.Host<AtomChangedEvent<StageFrame>, StageFrame>(typeof(Atom<StageFrame>), handler => input.Change += handler, handler => input.Change -= handler,
-                    static handler => frame => handler(sender: null, frame), nameof(input.Change)).Choose(static _ => Some(unit))],
+                [Subscriptions.Changed(input, nameof(input.Change)).Choose(static _ => Some(unit))],
                 stage => Blocks(source, stage), RowRules.Always)) + Amount(state, section));
 
     public static Func<EtoPostEffectCollapsibleSection, View.Section> Job<TState, TParameter>(

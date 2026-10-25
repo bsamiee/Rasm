@@ -188,14 +188,17 @@ public sealed class PreviewTiles {
             _ = atomic(() => rasters.Swap(rows => rows.Map(row => row.Key == key ? row with { Drawn = now } : row)));
             draw(bitmap);
         })).As()
-        from released in DisposalOps.Within(() => atomic(() => {
-            Seq<Raster> current = rasters.Value;
-            Seq<Bitmap> gone = toSeq(current.Filter(row => !Recent(now)(row.Drawn)).AsIterable()
-                .OrderBy(static row => row.Drawn).Take(current.Count + held.Value.Tiles.Count - bounds.Value.Capacity)
-                .Select(static row => row.Pixels));
-            rasters.Value = current.Filter(row => !gone.Exists(removed => ReferenceEquals(row.Pixels, removed)));
-            return gone;
-        }), static _ => IO.pure(unit), DisposalOps.Release)
+        from released in IO.lift(() => {
+            int excess = held.Value.Tiles.Count - bounds.Value.Capacity;
+            return atomic(() => {
+                Seq<Raster> prior = rasters.Value;
+                Seq<Bitmap> gone = toSeq(prior.Filter(row => !Recent(now)(row.Drawn)).AsIterable()
+                    .OrderBy(static row => row.Drawn).Take(prior.Count + excess)
+                    .Select(static row => row.Pixels));
+                rasters.Value = prior.Filter(row => !gone.Exists(removed => ReferenceEquals(row.Pixels, removed)));
+                return gone;
+            });
+        }).Bind(DisposalOps.Release).Uninterruptible()
         select painted;
 
     private IO<Bitmap> Rastered((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Imaging.Color.Transfer Encoding) key, long now) {
@@ -209,9 +212,9 @@ public sealed class PreviewTiles {
 
     private IO<Unit> Emptied =>
         atomicIO(() => {
-            Seq<Raster> images = rasters.Value;
+            Seq<Raster> prior = rasters.Value;
             rasters.Value = [];
-            return images.Map(static row => row.Pixels);
+            return prior.Map(static row => row.Pixels);
         }).Bind(DisposalOps.Release).OnUiThread().Uninterruptible();
 
     private IO<Option<(PixelFrame Frame, PixelFrame Proxy)>> Asked(TileRequest request, PixelExtent asked, TileRank rank) =>
@@ -223,10 +226,7 @@ public sealed class PreviewTiles {
 
     // --- [FORMATION]
     private IO<Unit> Ticked =>
-        (from reset in atomicIO(() => {
-            if (usage.Value.Running is 0) usage.Value = (0, Duration.Zero, 0);
-            return unit;
-        })
+        (from reset in atomicIO(() => usage.Swap(static current => current.Running is 0 ? (0, Duration.Zero, 0) : current))
          from _ in Monad.recur(unit, _ => Step).As()
          from limits in bounds.ValueIO
          from now in IO.lift(clock.GetTimestamp)
@@ -247,19 +247,18 @@ public sealed class PreviewTiles {
 
     private IO<Option<T>> Requested<T>(IO<T> request) =>
         DisposalOps.Within(
-            () => atomic(() => {
-                (int count, Duration spent, int running) = usage.Value;
+            () => {
                 TileLimits policy = bounds.Value;
-                bool accepted = count < policy.Batch && (count is 0 || spent < policy.Budget.Span);
-                if (accepted) usage.Value = (count + 1, spent, running + 1);
-                return accepted ? Some(clock.GetTimestamp()) : Option<long>.None;
-            }),
+                return atomic(() => {
+                    (int count, Duration spent, int running) = usage.Value;
+                    bool accepted = count < policy.Batch && (count is 0 || spent < policy.Budget.Span);
+                    if (accepted) usage.Value = (count + 1, spent, running + 1);
+                    return accepted;
+                }) ? Some(clock.GetTimestamp()) : Option<long>.None;
+            },
             began => began.Match(Some: _ => request.Map(static value => Some(value)), None: static () => IO.pure(Option<T>.None)),
-            began => began.Traverse(at => atomicIO(() => {
-                (int count, Duration spent, int running) = usage.Value;
-                usage.Value = (count, spent + clock.GetElapsedTime(at).ToDuration(), running - 1);
-                return unit;
-            })).As().Map(unit));
+            began => began.Traverse(at => IO.lift(() => clock.GetElapsedTime(at).ToDuration())
+                .Bind(elapsed => atomicIO(() => usage.Swap(current => (current.Count, current.Spent + elapsed, current.Running - 1))))).As().Map(unit));
 
     private IO<Unit> Land(Pending running, HashMap<ContentKey, PixelFrame> proxies) =>
         (from proxy in Proxied(running, proxies)

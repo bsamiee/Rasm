@@ -49,35 +49,24 @@ internal sealed class ExecutionControl(Func<Guid, IO<bool>> ready, IPlugInSink s
 
 internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
     private readonly CancellationTokenSource cancellation = new();
-    private readonly Ref<Option<Seq<IDisposable>>> scenes = Ref(Some(Seq<IDisposable>()));
+    private readonly Retained<IDisposable> scenes = new(DisposalOps.Release);
 
     public IPlugInSink Sink { get; } = sink;
 
     public IO<bool> Start(RenderWindow window, Func<Action<IDisposable>, IO<RenderWork>> open, LocalizeStringPair caption) =>
         DisposalOps.OnFailure(
-            from work in DisposalOps.Replace(open, (_, lease) => atomicIO(() => {
-                Option<Seq<IDisposable>> held = scenes.Value;
-                scenes.Value = held.Map(_ => Seq(lease));
-                return held.ToFin(Errors.Cancelled);
-            }).Bind(IO.lift).Bind(DisposalOps.Release))
+            from work in DisposalOps.Replace(open, (_, lease) => scenes.Replace(lease))
             from control in work.Ready.Traverse(ready => DisposalOps.Acquire(IO.lift(() => new ExecutionControl(ready, Sink)), window.RegisterPostEffectExecutionControl)).As()
             from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
             select started,
-            Callbacks.Each(Seq(IO.lift(StopRendering), Released)).Map(unit));
+            Callbacks.Each(Seq(IO.lift(StopRendering), scenes.Drain)).Map(unit));
 
     public override void StopRendering() =>
         _ = Callbacks.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))).Run();
 
     protected override void Dispose(bool isDisposing) {
-        Option<Seq<IDisposable>> prior = isDisposing
-            ? atomic(() => {
-                Option<Seq<IDisposable>> held = scenes.Value;
-                scenes.Value = None;
-                return held;
-            })
-            : None;
         try {
-            _ = prior.Iter(static held => DisposalOps.Release(held).Run());
+            if (isDisposing) scenes.Dispose();
         } finally {
             try {
                 if (isDisposing) cancellation.Dispose();
@@ -86,12 +75,6 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
             }
         }
     }
-
-    private IO<Unit> Released => IO.lift(() => atomic(() => {
-        Option<Seq<IDisposable>> held = scenes.Value;
-        scenes.Value = held.Map(static _ => Seq<IDisposable>());
-        return held.ToSeq().Flatten();
-    })).Bind(DisposalOps.Release);
 
     private void Rendered(RenderWindow window, IO<Unit> render, Option<ExecutionControl> control, string caption) {
         CallbackSite site = new(Sink, typeof(AsyncContext), nameof(StartRenderThread));

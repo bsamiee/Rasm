@@ -26,6 +26,21 @@ internal static partial class SafeNativeMethods {
     [SupportedOSPlatform("macos")]
     internal static partial int CGAssociateMouseAndMouseCursorPosition([MarshalAs(UnmanagedType.Bool)] bool connected);
 
+    // --- [ARGUMENTS]
+    [LibraryImport("/usr/lib/libSystem.B.dylib")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    [SupportedOSPlatform("macos")]
+    private static partial nint _NSGetArgv();
+
+    [LibraryImport("/usr/lib/libSystem.B.dylib")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    [SupportedOSPlatform("macos")]
+    private static partial nint _NSGetArgc();
+
+    [SupportedOSPlatform("macos")]
+    internal static string[] Arguments() =>
+        [.. Enumerable.Range(0, Marshal.ReadInt32(_NSGetArgc())).Select(static index => Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(Marshal.ReadIntPtr(_NSGetArgv()), index * nint.Size))!)];
+
     // --- [OBJECTIVE_C]
     private const string ObjectiveCLibrary = "/usr/lib/libobjc.dylib";
 

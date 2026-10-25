@@ -287,16 +287,17 @@ public static class Toolbars {
         static (plugIn, retain) => Optional(plugIn.GetType().Assembly.GetCustomAttribute<RuiFileAttribute>()).Match(
             Some: declared => DisposalOps.Acquire(acquired =>
                 from file in IO.lift(() => Identity(plugIn.GetType().Assembly))
-                from live in DisposalOps.Acquire(IO.lift(static () => new CancellationTokenSource()), static held => IO.lift(() => {
-                    held.Cancel();
-                    held.Dispose();
-                }), acquired)
+                from live in DisposalOps.Acquire(IO.lift(static () => new CancellationTokenSource()), Ended,
+                    held => acquired(new Disposal<CancellationTokenSource>(held, static source => Ended(source).Run())))
                 from registered in IO.lift(() => Callbacks.Each(
                     Stateful(file, declared.Rui.Menus, plugIn, live.Token),
                     item => RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Item, item.Handler),
                     nameof(RuiUpdateUi.RegisterMenuItem)))
                 select unit, retain),
             None: static () => IO.pure(unit));
+
+    private static IO<Unit> Ended(CancellationTokenSource live) =>
+        Callbacks.Each(Seq(IO.lift(live.Cancel), IO.lift(live.Dispose))).Map(unit);
 
     private static RuiUpdateUi.UpdateMenuItemEventHandler Handler(
         CommandFace face, Option<RowRule> enabled, Func<RowScope, IO<bool>> read, Action<RuiUpdateUi, bool> mark, IPlugInSink sink, CancellationToken live) =>

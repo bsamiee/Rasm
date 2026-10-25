@@ -62,7 +62,7 @@ public static class MeshEdits {
                     Some: vertices => state.Copy.Smooth(vertices, of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane),
                     None: () => state.Copy.Smooth(of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane)),
                 nameof(Mesh.Smooth))),
-            collapseFacesByEdgeLength: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.CollapseFacesByEdgeLength(of.GreaterThan, of.EdgeLength) != -1, nameof(Mesh.CollapseFacesByEdgeLength))),
+            collapseFacesByEdgeLength: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.CollapseFacesByEdgeLength(of.GreaterThan, of.EdgeLength) >= 0, nameof(Mesh.CollapseFacesByEdgeLength))),
             collapseFacesByArea: static (state, of) => IO.lift(() => ignore(state.Copy.CollapseFacesByArea(of.LessThanArea, of.GreaterThanArea))),
             collapseFacesByByAspectRatio: static (state, of) => IO.lift(() => ignore(state.Copy.CollapseFacesByByAspectRatio(of.AspectRatio))),
             rebuildNormals: static (state, _) => IO.lift(() => state.Copy.RebuildNormals()),

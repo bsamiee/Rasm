@@ -6,7 +6,6 @@ using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.PlugIns;
 using NativeConstructionPlane = Rhino.DocObjects.ConstructionPlane;
@@ -181,10 +180,7 @@ public static class NamedStates {
 
     private static IO<Option<Guid>> Scope(RhinoDoc doc, Option<ViewportTarget> viewport) =>
         viewport.Traverse(target => DisposalOps.Within<IDisposable, Guid>(retain =>
-            Viewports.ResolveViewport(doc, target, retain).Bind(static row => IO.lift(() => {
-                using ViewInfo view = new(row.Viewport);
-                return view.Viewport.Id;
-            })), DisposalOps.Release)).As();
+            Viewports.ResolveViewport(doc, target, retain).Map(static row => row.Viewport.Id), DisposalOps.Release)).As();
 
     private static IO<Unit> Saved(RhinoDoc doc, string name, Option<Guid> scope) =>
         IO.lift(() => Conversions.Required(doc.NamedLayerStates.Save(name, Conversions.Unset(scope)), nameof(NamedLayerStateTable.Save)).Map(static _ => unit));

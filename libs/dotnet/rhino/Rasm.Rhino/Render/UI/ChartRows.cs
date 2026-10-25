@@ -152,7 +152,7 @@ public static class ChartRows {
                 from ticked in IO.lift(() => command.Checked)
                 from swapped in held.SwapIO(state => state with { Frozen = ticked ? state.Pointed : None })
                 select unit, site), retain)
-        from toggle in ToggleRows.Command(command, GlyphRole.LockClosed, IconSlot.PanelButton, sink, retain)
+        from toggle in ToggleRows.Command(command, Some<IGlyph>(GlyphRole.LockClosed), IconSlot.PanelButton, sink, retain)
         select (toggle, command);
 
     private static IO<Unit> Ticked(

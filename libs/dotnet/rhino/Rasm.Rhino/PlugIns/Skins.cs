@@ -39,7 +39,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
         public sealed record Ready : SkinLoad;
     }
 
-    public PlugInSession Session { get; } = new(unitIO, logging);
+    public PlugInSession Session { get; } = new(logging);
     private readonly Atom<SkinLoad> load = Atom<SkinLoad>(new SkinLoad.Starting());
     private readonly Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>> splash = Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>>(None);
 
@@ -72,7 +72,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
     private IO<SkinLoad> Advanced(Func<SkinLoad, SkinLoad> transition) =>
         from next in load.SwapIO(transition)
         from shown in IO.lift(() => {
-            _ = atomic(() => splash.Value).Iter(held => {
+            _ = splash.Value.Iter(held => {
                 Refresh(next, held.Status, held.Bar);
                 Placed(held.Window, Size.Max(held.Window.ClientSize, Size.Ceiling(held.Window.Content.GetPreferredSize())));
             });
@@ -89,15 +89,15 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
                         from mark in Mark
                         from status in DisposalOps.Acquire(IO.lift(static () => new Label { Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), owned)
                         from bar in DisposalOps.Acquire(IO.lift(static () => new ProgressBar()), owned)
-                        from detail in DisposalOps.Acquire(IO.lift(() => new StackLayout(status, bar) {
+                        from detail in Containers.Frame(() => new StackLayout(status, bar) {
                             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),
                             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                        }), owned)
+                        }, owned)
                         from content in Layout(mark, detail, owned)
-                        from window in DisposalOps.Acquire(IO.lift(() => new Form {
+                        from window in Containers.Frame(() => new Form {
                             Title = ApplicationName, WindowStyle = WindowStyle.None, Resizable = false, Minimizable = false, Maximizable = false, ShowInTaskbar = false, Topmost = true,
                             Content = content,
-                        }), owned)
+                        }, owned)
                         from shown in IO.lift(() => {
                             Refresh(load.Value, status, bar);
                             window.UseRhinoStyle();
@@ -113,11 +113,11 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
         Callbacks.Run(Swapped(None), CallbackSite.Of(this));
 
     private IO<Unit> Swapped(Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> next) =>
-        IO.lift(() => atomic(() => {
+        atomicIO(() => {
             Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)> previous = splash.Value;
             splash.Value = next;
             return previous;
-        })).Bind(static previous => previous.TraverseM(static held =>
+        }).Bind(static previous => previous.TraverseM(static held =>
             Callbacks.Each(Seq(IO.lift(held.Window.Close), IO.lift(held.Lease.Dispose)))).As()).Map(unit).Uninterruptible();
 
     // --- [HELP]
@@ -128,7 +128,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
                     from mark in Mark
                     from detail in DisposalOps.Acquire(IO.lift(static () => new Label { Text = RowText.Localize("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), owned)
                     from content in Layout(mark, detail, owned)
-                    from dialog in DisposalOps.Acquire(IO.lift(() => new Dialog { Title = ApplicationName, Resizable = false, Content = content }), owned)
+                    from dialog in Containers.Frame(() => new Dialog { Title = ApplicationName, Resizable = false, Content = content }, owned)
                     from shown in IO.lift(() => {
                         dialog.UseRhinoStyle();
                         dialog.ShowModal(RhinoEtoApp.MainWindow);
@@ -188,11 +188,11 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
     private IO<StackLayout> Layout(Option<Icon> mark, Control detail, Action<IDisposable> retain) =>
         from heading in DisposalOps.Acquire(IO.lift(() => new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont }), retain)
         from image in mark.TraverseM(icon => DisposalOps.Acquire(IO.lift(() => new ImageView { Image = icon }), retain)).As()
-        from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. image.ToSeq().Map<StackLayoutItem>(static view => view), heading, new StackLayoutItem(detail, HorizontalAlignment.Stretch)]) {
+        from layout in Containers.Frame(() => new StackLayout([.. image.ToSeq().Map<StackLayoutItem>(static view => view), heading, new StackLayoutItem(detail, HorizontalAlignment.Stretch)]) {
             Padding = RhinoLayout.Padding(RhinoLayout.PaddingType.Dialog),
             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),
             HorizontalContentAlignment = HorizontalAlignment.Center,
-        }), retain)
+        }, retain)
         select layout;
 
     private static void Placed(Form window, Size client) {

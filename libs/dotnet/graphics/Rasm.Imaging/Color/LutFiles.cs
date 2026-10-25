@@ -415,7 +415,7 @@ public static class LutFiles {
             .Apply(static (style, values) => (Style: style, Values: values))
             .As()
         from _ in guard<Error>(
-            Vector3.GreaterThanOrEqualAll(read.Values.Slope, Vector3.Zero) && Vector3.GreaterThanAll(read.Values.Power, Vector3.Zero) && read.Values.Saturation >= 0f,
+            Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(read.Values.Slope, Vector3.Zero) & Vector3.GreaterThan(read.Values.Power, Vector3.Zero)) && read.Values.Saturation >= 0f,
             Malformed(node, format)).ToFin()
         select (LutTable)new LutTable.Cdl(read.Style, read.Values.Slope, read.Values.Offset, read.Values.Power, read.Values.Saturation);
 
@@ -554,7 +554,7 @@ public static class LutFiles {
             Some((Power: 1f, Offset: 0f)))
         from table in (Across(channels, static channel => channel.Power), Across(channels, static channel => channel.Offset)) switch {
             var (power, offset) when offset == Vector3.Zero => Fin.Succ<LutTable>(new LutTable.Exponent(style.Basic.IfNone(style), power, offset)),
-            var (power, offset) when Vector3.GreaterThanAll(offset, Vector3.Zero) && Vector3.GreaterThanAll(power, Vector3.One) => new LutTable.Exponent(style, power, offset),
+            var (power, offset) when Vector3.AllWhereAllBitsSet(Vector3.GreaterThan(offset, Vector3.Zero) & Vector3.GreaterThan(power, Vector3.One)) => new LutTable.Exponent(style, power, offset),
             _ => Malformed(node, format),
         }
         select table;

@@ -23,7 +23,10 @@ public static class Exchange {
                 toSeq(patterns.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)).Map(static pattern => pattern.TrimStart('*')).Strict()))
             .Strict();
 
-    public static bool LoadSilently(PlugInInfo info) => info.IsLoadProtected(out bool loadSilently) && loadSilently;
+    public static bool LoadSilently(PlugInInfo info) {
+        _ = info.IsLoadProtected(out bool loadSilently);
+        return loadSilently;
+    }
 
     public static IO<Seq<FileTypeRow>> FileTypes(PlugInType direction) =>
         IO.lift(() => toSeq(PlugIn.GetInstalledPlugIns().Keys)

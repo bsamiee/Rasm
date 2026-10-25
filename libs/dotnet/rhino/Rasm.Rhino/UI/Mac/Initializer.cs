@@ -39,7 +39,8 @@ internal sealed class WorkspaceTheme : IThemeHandler {
         new(typeof(NSWorkspace), nameof(NSWorkspace.DisplayOptionsDidChangeNotification), static (deliver, site, retain) =>
             DisposalOps.Acquire(owned =>
                 from callback in IO.pure(Callbacks.Handler<NSNotificationEventArgs>(_ => deliver(EventArgs.Empty), site))
-                from accessibility in DisposalOps.Acquire(IO.lift(() => NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(callback)), owned)
+                from accessibility in DisposalOps.Acquire(IO.lift(() => NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(
+                    NSWorkspace.DisplayOptionsDidChangeNotification, notification => callback(notification.Object, new NSNotificationEventArgs(notification)))), owned)
                 from displays in DisposalOps.Acquire(IO.lift(() => NSApplication.Notifications.ObserveDidChangeScreenParameters(callback)), owned)
                 select unit, retain));
 

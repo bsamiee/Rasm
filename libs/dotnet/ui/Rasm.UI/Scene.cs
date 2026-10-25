@@ -6,19 +6,22 @@ namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Laid {
+internal abstract partial record Laid {
     public required Seq<Key> Path { get; init; }
     public required Node Node { get; init; }
     public required Cascade Cascade { get; init; }
     public required Style Style { get; init; }
-    public SKSize Fit { get; init; }
+    public SKSize Intrinsic { get; init; }
     public SKRect Frame { get; init; }
     public Seq<Laid> Children { get; init; }
+    internal Seq<Laid> Members { get; init; }
+
+    public SKRect ContentBox => Inset switch { var inset => SKRect.Create(inset, inset, float.Max(0f, Frame.Width - (2f * inset)), float.Max(0f, Frame.Height - (2f * inset))) };
 
     public virtual SKRect Painted => SKRect.Inflate(Frame, Overhang, Overhang);
 
     public SKRect Reach =>
-        Children.Filter(child => !Scene.Clips(this, child)).Fold(Painted, (union, child) => child.Reach switch {
+        Children.Filter(child => !Node.Clips(child.Node)).Fold(Painted, (union, child) => child.Reach switch {
             var reach when reach.IsEmpty => union,
             var reach => SKRect.Create(reach.Location + Frame.Location, reach.Size) switch {
                 var moved when union.IsEmpty => moved,
@@ -26,14 +29,21 @@ public abstract partial record Laid {
             },
         });
 
-    public bool Timed => Node.Role.IsSome && Style.Look.Fill.Exists(static fill => fill is Material.Drawn { Timed: true });
+    public bool Timed =>
+        Node.Role.IsSome && Style.Fills.Exists(static fill => fill.Switch(
+            solid: static _ => false, gradient: static _ => false, drawn: static drawn => drawn.Timed, backdrop: static _ => false, blurred: static _ => false));
 
-    private float Overhang => Node.Role.IsSome || Node is Node.Mark ? Style.Overhang : 0f;
+    internal SKRect LocalReach => Reach switch { var reach => SKRect.Create(reach.Location - Frame.Location, reach.Size) };
+
+    internal float Inset => Node.Role.IsSome ? Style.Metrics[Metric.Inset] : 0f;
+
+    private float Overhang => Node.Role.IsSome || Node.Traced.IsSome ? Style.Overhang : 0f;
 
     public sealed record Box : Laid;
 
-    public sealed record Text(Typeset Typeset, TextStyle TextStyle) : Laid {
+    public sealed record Text(Node.Text Source, Typeset Typeset, TextStyle TextStyle) : Laid {
         public SKPoint Origin { get; init; }
+        public float MinContent { get; init; }
 
         public override SKRect Painted =>
             SKRect.Create(Frame.Location + Origin, Typeset.Size) switch {
@@ -41,199 +51,280 @@ public abstract partial record Laid {
                     set.Right + float.Max(Overhang, Typeset.Overhang.Right), set.Bottom + float.Max(Overhang, Typeset.Overhang.Bottom))),
             };
     }
-
-    public sealed record Choice(Seq<Laid> Alternatives) : Laid;
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Adjuster {
+    public required Seq<Key> Owner { get; init; }
+    public required Orientation Axis { get; init; }
+    public required float Value { get; init; }
+    public required float Min { get; init; }
+    public required float Max { get; init; }
+    public required float Gearing { get; init; }
+    public required float Step { get; init; }
+
+    public Cursor Cursor => Switch(scroll: static _ => Cursor.Default, split: static split => Cursor.Resizing(split.Axis));
+
+    public float Clamped(float value) => float.Clamp(value, Min, Max);
+
+    public Option<float> Navigated(Navigation toward) =>
+        toward.Along == Axis
+            ? Some(toward.Grain.Switch(
+                (Adjuster: this, toward.Sign),
+                unit: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Step),
+                word: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Step),
+                page: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Switch(scroll: static scroll => scroll.Page, split: static split => split.Step)),
+                edge: static held => held.Sign < 0 ? held.Adjuster.Min : held.Adjuster.Max))
+            : None;
+
+    internal bool Scrolls(Vector2 delta) =>
+        Switch(delta, scroll: static (along, scroll) => scroll.Max > scroll.Min && MathF.Abs(scroll.Axis.Of(along)) >= MathF.Abs(scroll.Axis.Cross.Of(along)), split: static (_, _) => false);
+
+    public sealed record Scroll(float Page) : Adjuster;
+
+    public sealed record Split : Adjuster;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Hosted {
+    public required Seq<Key> Path { get; init; }
+    public required SKRect Frame { get; init; }
+    public required SKRect Clip { get; init; }
+
+    public sealed record Slot : Hosted;
+
+    public sealed record Backdrop(float Radius, Glass Glass, Option<SKColorF> Tint) : Hosted;
+}
+
+internal sealed record Place(SKPoint Origin, SKRect Clip, Option<PlotFrame> Plot);
+
 public sealed class Scene {
-    private Scene(Laid layout, HashMap<Seq<Key>, Laid> index, HashMap<Seq<Key>, float> adjusted, HashMap<Style, TextStyle> texts) {
+    // --- [STATE]
+    private Scene(Laid layout, HashMap<Seq<Key>, Laid> index, HashMap<Seq<Key>, Place> places, HashMap<Seq<Key>, float> adjusted) {
         Layout = layout;
         Index = index;
+        Places = places;
         Adjusted = Clamped(adjusted, index);
-        Texts = texts;
+        Order = Preorder(layout);
+        Timed = Order.Filter(static laid => laid.Timed);
+        Hosted = from laid in Order
+                 from place in places.Find(laid.Path).ToSeq()
+                 from hosted in Hosts(laid, place)
+                 select hosted;
     }
 
-    public Laid Layout { get; }
-    public HashMap<Seq<Key>, Laid> Index { get; }
     public HashMap<Seq<Key>, float> Adjusted { get; }
-    public Seq<Laid> Order => Preorder(Layout);
-    public Seq<(SKRect Frame, SKRect Clip, Laid Laid)> Hosted => Hosting(Layout, Root);
-    internal HashMap<Style, TextStyle> Texts { get; }
+    public Seq<Hosted> Hosted { get; }
+    internal Laid Layout { get; }
+    internal HashMap<Seq<Key>, Laid> Index { get; }
+    internal HashMap<Seq<Key>, Place> Places { get; }
+    internal Seq<Laid> Order { get; }
+    internal Seq<Laid> Timed { get; }
 
-    private (SKPoint Origin, SKRect Clip) Root => (SKPoint.Empty, SKRect.Create(Layout.Frame.Size));
+    // --- [TRANSITIONS]
+    internal static Fin<Scene> Of(Theme theme, Shipped shipped, Node root, SKSize size, HashMap<Seq<Key>, float> adjusted) =>
+        Layouts.Unique(Layouts.Arrange(Styles.Root(theme, shipped), root, size, adjusted, []), []).Map(unique => new Scene(unique, toHashMap(Indexed(unique)), toHashMap(Placing(unique, Root(unique), adjusted)), adjusted));
 
-    // --- [TRANSITION]
-    public static Fin<Scene> Of(Theme theme, Shipped shipped, Node root, SKSize size, HashMap<Seq<Key>, float> adjusted) =>
-        Layouts.Arrange(Styles.Root(theme, shipped), root, size, adjusted, [], []) switch {
-            var (laid, texts) => Layouts.Unique(laid, []).Map(unique => new Scene(unique, toHashMap(Preorder(unique).Map(static held => (held.Path, held))), adjusted, texts)),
-        };
+    internal Fin<(Scene Scene, Seq<SKRect> Damage)> Reconcile(Node root) =>
+        Layouts.Unique(Layouts.Arrange(Layout.Cascade, root, Layout.Frame.Size, Adjusted, Index), Index).Map(unique => Settled(unique, Adjusted));
 
-    public Fin<(Scene Scene, Seq<SKRect> Damage)> Reconcile(Node root) =>
-        Layouts.Arrange(Layout.Cascade, root, Layout.Frame.Size, Adjusted, Index, Texts) switch {
-            var (laid, texts) => Layouts.Unique(laid, Index).Map(unique => Settled(unique, Adjusted, texts)),
-        };
+    internal (Scene Scene, Seq<SKRect> Damage) Resize(SKSize size) => Arranged(Layout.Cascade, size, Adjusted, Index);
 
-    public (Scene Scene, Seq<SKRect> Damage) Resize(SKSize size) => Arranged(Layout.Cascade, size, Adjusted, Index, Texts);
+    internal (Scene Scene, Seq<SKRect> Damage) Restyle(Theme theme) => Arranged(Styles.Root(theme, Layout.Cascade.Shipped), Layout.Frame.Size, Adjusted, []);
 
-    public (Scene Scene, Seq<SKRect> Damage) Restyle(Theme theme) => Arranged(Styles.Root(theme, Layout.Cascade.Shipped), Layout.Frame.Size, Adjusted, [], []);
-
-    private (Scene Scene, Seq<SKRect> Damage) Arranged(Cascade root, SKSize size, HashMap<Seq<Key>, float> adjusted, HashMap<Seq<Key>, Laid> prior, HashMap<Style, TextStyle> texts) =>
-        Layouts.Arrange(root, Layout.Node, size, adjusted, prior, texts) switch {
-            var (laid, held) => Settled(laid, adjusted, held),
-        };
-
-    private (Scene Scene, Seq<SKRect> Damage) Settled(Laid next, HashMap<Seq<Key>, float> adjusted, HashMap<Style, TextStyle> texts) =>
-        Walk(new Diff(Adjusted, adjusted), Layout, next, Root, (SKPoint.Empty, SKRect.Create(next.Frame.Size)), (Index, Seq<SKRect>())) switch {
-            var (index, damage) => (new Scene(next, index, adjusted, texts), damage),
-        };
-
-    private (Scene Scene, Seq<SKRect> Damage) Readjusted(HashMap<Seq<Key>, float> adjusted, Seq<Seq<Key>> changed) =>
-        Arranged(Layout.Cascade, Layout.Frame.Size, adjusted, Index.RemoveRange(changed.Bind(Above)), Texts);
-
-    public (Scene Scene, Seq<SKRect> Damage) Adjust(Seq<Key> path, float delta) =>
-        (from held in Held(path)
-         let moved = held.Value + (held.Gearing * delta)
-         let value = held.Owner.Node is Node.Scroll scroll ? Scrolling(held.Owner, scroll.Axis, moved) : moved
-         where value.CompareTo(held.Value) is not 0
-         select Readjusted(Adjusted.AddOrUpdate(held.Owner.Path, value), Seq(held.Owner.Path)))
+    internal (Scene Scene, Seq<SKRect> Damage) Adjust(Seq<Key> path, Func<float, float> move) =>
+        (from adjuster in Adjuster(path)
+         let value = adjuster.Clamped(move(adjuster.Value))
+         where value.CompareTo(adjuster.Value) is not 0
+         select Readjusted(Adjusted.AddOrUpdate(adjuster.Owner, value), Seq(adjuster.Owner)))
         .IfNone((this, Seq<SKRect>()));
 
-    private Option<(Laid Owner, float Value, float Gearing)> Held(Seq<Key> path) =>
-        from laid in Index.Find(path)
-        from owner in Adjustable(laid.Path) ? Index.Find(laid.Path.Init) : Some(laid)
-        from value in Extent(owner, Adjusted.Find(owner.Path).IfNone(0f))
-        select (owner, value, laid.Path.Last.Exists(static last => last is Key.Thumb) && owner.Node is Node.Scroll scroll ? Layouts.Scrollable(owner, owner.Children[0], scroll.Axis) switch {
-            var (total, viewport) => Layouts.Rescaled(1f, viewport - scroll.Axis.Of(laid.Frame.Size), total - viewport),
-        } : 1f);
+    internal (Scene Scene, Seq<SKRect> Damage) Reveal(Seq<Key> path) =>
+        (Frame(path) | Slotted(path)).Map(target => Above(path).Tail.Choose(Adjuster).Choose(static adjuster => adjuster.Switch(scroll: static scroll => Some(scroll), split: static _ => Option<Adjuster.Scroll>.None)).Fold(
+                (Adjusted, Target: target, Moved: Seq<Seq<Key>>()),
+                (held, adjuster) => Revealing(adjuster, held.Target).Filter(static moved => moved.CompareTo(0f) is not 0).Match(
+                    Some: moved => (held.Adjusted.AddOrUpdate(adjuster.Owner, adjuster.Value + moved), Absolute(held.Target, (SKPoint)adjuster.Axis.With(Vector2.Zero, -moved)), held.Moved.Add(adjuster.Owner)),
+                    None: () => held)))
+            .Filter(static revealed => !revealed.Moved.IsEmpty)
+            .Match(Some: revealed => Readjusted(revealed.Adjusted, revealed.Moved), None: () => (this, Seq<SKRect>()));
 
-    public (Scene Scene, Seq<SKRect> Damage) Reveal(Seq<Key> path) =>
-        Above(path).Tail.Choose(Index.Find)
-            .Choose(static laid => laid.Node is Node.Scroll scroll ? Some((Laid: laid, scroll.Axis)) : None) switch {
-                var scrolls => Readjusted(scrolls.Fold(Adjusted, (adjusted, scroll) => Revealed(adjusted, scroll.Laid, scroll.Axis, path)), scrolls.Map(static scroll => scroll.Laid.Path)),
-            };
+    private (Scene Scene, Seq<SKRect> Damage) Arranged(Cascade root, SKSize size, HashMap<Seq<Key>, float> adjusted, HashMap<Seq<Key>, Laid> prior) =>
+        Settled(Layouts.Arrange(root, Layout.Node, size, adjusted, prior), adjusted);
 
-    private HashMap<Seq<Key>, float> Revealed(HashMap<Seq<Key>, float> adjusted, Laid scroll, Orientation axis, Seq<Key> path) =>
-        (from target in Located(path, adjusted)
-         from viewport in Located(scroll.Path, adjusted).Map(frame => SKRect.Inflate(frame, -Layouts.Inset(scroll), -Layouts.Inset(scroll)))
-         let low = (Target: axis.Of(target.Location), View: axis.Of(viewport.Location))
-         let high = (Target: axis.Of(new SKPoint(target.Right, target.Bottom)), View: axis.Of(new SKPoint(viewport.Right, viewport.Bottom)))
-         let delta = low.Target < low.View ? low.Target - low.View : high.Target > high.View ? float.Min(high.Target - high.View, low.Target - low.View) : 0f
-         select adjusted.AddOrUpdate(scroll.Path, Scrolling(scroll, axis, adjusted.Find(scroll.Path).IfNone(0f) + delta))).IfNone(adjusted);
+    private (Scene Scene, Seq<SKRect> Damage) Readjusted(HashMap<Seq<Key>, float> adjusted, Seq<Seq<Key>> changed) =>
+        Arranged(Layout.Cascade, Layout.Frame.Size, adjusted, Index.RemoveRange(changed.Bind(Above)));
+
+    private (Scene Scene, Seq<SKRect> Damage) Settled(Laid next, HashMap<Seq<Key>, float> adjusted) {
+        Diff diff = new(Adjusted, adjusted);
+        Walked prior = new(Index, Places, []);
+        Walked walked = Layout.Cascade.Theme.Equals(next.Cascade.Theme)
+            ? Walk(diff, Layout, next, Root(Layout), Root(next), prior)
+            : Replaced(diff, Layout, next, Root(Layout), Root(next), prior);
+        return (new Scene(next, walked.Index, walked.Places, adjusted), walked.Damage);
+    }
+
+    private Option<float> Revealing(Adjuster.Scroll adjuster, SKRect target) =>
+        from viewport in Placed(adjuster.Owner).Map(static held => Absolute(held.Laid.ContentBox, Absolute(held.Laid.Frame, held.Place.Origin).Location))
+        let low = (Target: adjuster.Axis.Of(target.Location), View: adjuster.Axis.Of(viewport.Location))
+        let high = (Target: adjuster.Axis.Of(new SKPoint(target.Right, target.Bottom)), View: adjuster.Axis.Of(new SKPoint(viewport.Right, viewport.Bottom)))
+        let delta = low.Target < low.View ? low.Target - low.View : high.Target > high.View ? float.Min(high.Target - high.View, low.Target - low.View) : 0f
+        select adjuster.Clamped(adjuster.Value + delta) - adjuster.Value;
+
+    private Option<SKRect> Slotted(Seq<Key> path) =>
+        from key in path.Last
+        from lazy in Placed(path.Init)
+        from node in lazy.Laid.Node.Windowed
+        from slot in Layouts.Slot(lazy.Laid, node, key)
+        select SKRect.Create(slot.Location + Absolute(lazy.Laid.Frame, lazy.Place.Origin).Location, slot.Size);
 
     // --- [QUERY]
-    public static Seq<Seq<Key>> Above(Seq<Key> path) => toSeq(Range(0, path.Count + 1)).Rev().Map(path.Take);
+    public Option<SKRect> Frame(Seq<Key> path) => Placed(path).Map(static held => Absolute(held.Laid.Frame, held.Place.Origin));
 
-    public Option<float> Adjustment(Seq<Key> path) => Held(path).Map(static held => held.Gearing > 0f ? held.Value / held.Gearing : 0f);
+    public Option<SKRect> Bounds(Seq<Key> path) => Placed(path).Map(static held => Painted(held.Laid, held.Place));
 
-    public Option<SKRect> Frame(Seq<Key> path) => Located(path, Adjusted);
+    public Option<SKRect> Visible(Seq<Key> path) => Placed(path).Map(static held => SKRect.Intersect(Absolute(held.Laid.Frame, held.Place.Origin), held.Place.Clip)).Filter(static shown => !shown.IsEmpty);
 
-    public SKSize Preferred(SKSize offered) => Layouts.Preferred(Layout, offered);
+    public bool Covers(SKPoint at) =>
+        Order.Exists(laid => Places.Find(laid.Path).Exists(place => place.Clip.Contains(at) && Absolute(laid.Frame, place.Origin).Contains(at)
+            && ((laid.Node.Role.IsSome && (!laid.Style.Fills.IsEmpty || !laid.Style.Strokes.IsEmpty)) || laid.Node.Paints)));
 
-    public Option<SKRect> Bounds(Seq<Key> path) => Placement(path, Adjusted).Map(static held => Painted(held.Laid, held.Place));
+    public SKSize Preferred(SKSize offered) => Layouts.Preferred(Layout, offered, Adjusted);
 
-    public Seq<(Laid Laid, SKPoint Local)> Hit(SKPoint at) => Hits(Layout, Root, None, at);
+    internal Option<(Laid Laid, SKRect Frame, SKRect Clip, Style Style)> Ring(Seq<Key> path) =>
+        Placed(path).Map(static held => (held.Laid, Absolute(held.Laid.Frame, held.Place.Origin), held.Place.Clip, Styles.Resolve(held.Laid.Cascade, Role.FocusRing, held.Laid.Style.Conditions)));
 
-    public bool Covers(SKPoint at) => Covering(Layout, Root, at);
+    internal Option<Adjuster> Adjuster(Seq<Key> path) =>
+        Index.Find(path).Bind(laid => Layouts.IsHandle(laid)
+            ? Index.Find(path.Init).Bind(owner => Adjusting(owner, Some(laid), Adjusted.Find(owner.Path)))
+            : Adjusting(laid, None, Adjusted.Find(path)));
+
+    internal Seq<(Laid Laid, SKPoint Local)> Hit(SKPoint at) =>
+        Order.Rev().Choose(laid => Reached(laid, at)).Head
+            .Map(first => first.Cons(Above(first.Laid.Path).Tail.Choose(Index.Find).Choose(laid => Reached(laid, at))))
+            .IfNone([]);
 
     internal SKPoint Shift(Laid parent, Laid child) => Shift(parent, child, Adjusted);
 
-    internal static bool Adjustable(Seq<Key> path) => path.Last.Exists(static last => last is Key.Divider or Key.Thumb);
+    internal static Seq<Seq<Key>> Above(Seq<Key> path) => toSeq(Range(0, path.Count + 1)).Rev().Map(path.Take);
 
-    private Option<SKRect> Located(Seq<Key> path, HashMap<Seq<Key>, float> adjusted) => Placement(path, adjusted).Map(static held => Absolute(held.Laid.Frame, held.Place.Origin));
+    internal static Seq<Laid> Preorder(Laid laid) => laid.Cons(laid.Children.Bind(Preorder));
 
-    private Option<(Laid Laid, (SKPoint Origin, SKRect Clip) Place)> Placement(Seq<Key> path, HashMap<Seq<Key>, float> adjusted) =>
-        Range(0, path.Count).Fold(Index.Find([]).Map(root => (Laid: root, Place: Root)), (place, depth) =>
-            from held in place
-            from child in Index.Find(path.Take(depth + 1))
-            select (Laid: child, Place: Within(held.Laid, child, held.Place, adjusted)));
+    private Option<(Laid Laid, Place Place)> Placed(Seq<Key> path) =>
+        from laid in Index.Find(path)
+        from place in Places.Find(path)
+        select (laid, place);
 
-    private Seq<(Laid Laid, SKPoint Local)> Hits(Laid laid, (SKPoint Origin, SKRect Clip) place, Option<(PlotPlane Plane, SKMatrix Frame)> plane, SKPoint at) {
-        if (!place.Clip.Contains(at)) return [];
-        SKRect frame = Absolute(laid.Frame, place.Origin);
-        Option<(PlotPlane Plane, SKMatrix Frame)> inner = Layouts.Plotted(laid).Map(plot => (plot.Plane, Frame: plot.Frame.PostConcat(SKMatrix.CreateTranslation(frame.Left, frame.Top)))) | plane;
-        Seq<(Laid Laid, SKPoint Local)> deeper = laid.Children.Rev().Map(child => Hits(child, Within(laid, child, place, Adjusted), inner, at)).Find(static hits => !hits.IsEmpty).IfNone([]);
-        float reach = laid.Style.Metrics[Metric.Reach];
-        bool reached = (laid.Node.Key.IsSome || laid.Node.Part.IsSome) && (laid.Node is Node.Mark mark
-            ? plane.Exists(held => mark.Figure.Hits(held.Plane, held.Frame, at, reach + laid.Style.HalfStroke))
-            : laid.Node is Node.Pin || Adjustable(laid.Path)
-                ? SKRect.Inflate(frame, reach, reach).Contains(at)
-                : frame.Contains(at));
-        return reached ? deeper.Add((laid, at - frame.Location)) : deeper;
-    }
+    private Option<(Laid Laid, SKPoint Local)> Reached(Laid laid, SKPoint at) =>
+        from place in Places.Find(laid.Path)
+        where place.Clip.Contains(at) && (laid.Node.Key.IsSome || laid.Node.Part.IsSome)
+        let frame = Absolute(laid.Frame, place.Origin)
+        let reach = laid.Style.Metrics[Metric.Reach]
+        where laid.Node.Traced.Match(
+            Some: figure => place.Plot.Exists(plot => figure.Hits(plot, at, reach + laid.Style.HalfStroke)),
+            None: () => (laid.Node.Pinned.IsSome || Layouts.IsHandle(laid) ? SKRect.Inflate(frame, reach, reach) : frame).Contains(at))
+        select (laid, at - frame.Location);
 
-    private bool Covering(Laid laid, (SKPoint Origin, SKRect Clip) place, SKPoint at) =>
-        place.Clip.Contains(at)
-        && ((Absolute(laid.Frame, place.Origin).Contains(at)
-                && ((laid.Node.Role.IsSome && (laid.Style.Look.Fill.IsSome || laid.Style.Look.Stroke.IsSome)) || laid.Node is Node.Text or Node.Glyph or Node.Image or Node.Mark or Node.Slot))
-            || laid.Children.Exists(child => Covering(child, Within(laid, child, place, Adjusted), at)));
+    private static Option<Adjuster> Adjusting(Laid owner, Option<Laid> handle, Option<float> stored) =>
+        owner.Node.Switch(
+            (Owner: owner, Handle: handle, Stored: stored),
+            box: Unadjusted, flex: Unadjusted, grid: Unadjusted, lazy: Unadjusted, overlay: Unadjusted, choice: Unadjusted, scroll: Scrolled, split: Divided, plot: Unadjusted,
+            pin: Unadjusted, mark: Unadjusted, text: Unadjusted, glyph: Unadjusted, image: Unadjusted, slot: Unadjusted, styled: Unadjusted);
 
-    private Seq<(SKRect Frame, SKRect Clip, Laid Laid)> Hosting(Laid laid, (SKPoint Origin, SKRect Clip) place) =>
-        (laid.Node is Node.Slot || (laid.Node.Role.IsSome && laid.Style.Look.Fill.Exists(static fill => fill is Material.Backdrop))
-                ? Seq((Absolute(laid.Frame, place.Origin), place.Clip, laid))
-                : [])
-            .Concat(laid.Children.Bind(child => Hosting(child, Within(laid, child, place, Adjusted))));
+    private static Option<Adjuster> Unadjusted((Laid Owner, Option<Laid> Handle, Option<float> Stored) _, Node __) => None;
+
+    private static Option<Adjuster> Scrolled((Laid Owner, Option<Laid> Handle, Option<float> Stored) held, Node.Scroll node) =>
+        Layouts.Scrollable(held.Owner, node).Map(scroll => (Adjuster)new Adjuster.Scroll(scroll.Viewport) {
+            Owner = held.Owner.Path,
+            Axis = node.Axis,
+            Value = Layouts.Scrolling(held.Stored.IfNone(0f), scroll.Content, scroll.Viewport),
+            Min = 0f,
+            Max = float.Max(0f, scroll.Content - scroll.Viewport),
+            Gearing = held.Handle.Map(thumb => Layouts.Rescaled(1f, scroll.Viewport - node.Axis.Of(thumb.Frame.Size), scroll.Content - scroll.Viewport)).IfNone(1f),
+            Step = held.Owner.Style.Metrics[Metric.Spacing],
+        });
+
+    private static Option<Adjuster> Divided((Laid Owner, Option<Laid> Handle, Option<float> Stored) held, Node.Split node) =>
+        Layouts.Travel(held.Owner, node).Map(split => (Adjuster)new Adjuster.Split {
+            Owner = held.Owner.Path, Axis = node.Axis, Value = split.Extent, Min = split.Least, Max = split.Most, Gearing = 1f, Step = held.Owner.Style.Metrics[Metric.Spacing],
+        });
+
+    private static HashMap<Seq<Key>, float> Clamped(HashMap<Seq<Key>, float> adjusted, HashMap<Seq<Key>, Laid> index) =>
+        toHashMap(toSeq(adjusted.AsIterable()).Choose(entry => index.Find(entry.Key).Bind(laid => Adjusting(laid, None, Some(entry.Value))).Map(adjuster => (entry.Key, adjuster.Value))));
+
+    private static Seq<Hosted> Hosts(Laid laid, Place place) =>
+        laid.Node.Switch(
+            (Laid: laid, Frame: Absolute(laid.Frame, place.Origin), place.Clip),
+            box: Backed, flex: Backed, grid: Backed, lazy: Backed, overlay: Backed, choice: Backed, scroll: Backed, split: Backed, plot: Backed, pin: Backed, mark: Backed,
+            text: Backed, glyph: Backed, image: Backed, slot: Hosting, styled: Backed);
+
+    private static Seq<Hosted> Hosting((Laid Laid, SKRect Frame, SKRect Clip) held, Node.Slot _) => [new Hosted.Slot { Path = held.Laid.Path, Frame = held.Frame, Clip = held.Clip }];
+
+    private static Seq<Hosted> Backed((Laid Laid, SKRect Frame, SKRect Clip) held, Node node) =>
+        node.Role.IsNone
+            ? []
+            : held.Laid.Style.Fills.Choose(static fill => fill.Switch(
+                    solid: static _ => None, gradient: static _ => None, drawn: static _ => None, backdrop: static backdrop => Some(backdrop), blurred: static _ => None))
+                .Map(backdrop => (Hosted)new Hosted.Backdrop(held.Laid.Style.Metrics[Metric.Radius], backdrop.Glass, backdrop.Tint.Bind(tint => held.Laid.Cascade.Theme.Color(tint, held.Laid.Style, None, None))) {
+                    Path = held.Laid.Path, Frame = held.Frame, Clip = held.Clip,
+                });
 
     // --- [DAMAGE]
     private sealed record Diff(HashMap<Seq<Key>, float> Was, HashMap<Seq<Key>, float> Now);
 
-    private static (HashMap<Seq<Key>, Laid> Index, Seq<SKRect> Damage) Walk(Diff diff, Laid before, Laid after, (SKPoint Origin, SKRect Clip) was, (SKPoint Origin, SKRect Clip) now,
-                                                                         (HashMap<Seq<Key>, Laid> Index, Seq<SKRect> Damage) state) {
+    private sealed record Walked(HashMap<Seq<Key>, Laid> Index, HashMap<Seq<Key>, Place> Places, Seq<SKRect> Damage);
+
+    private static Walked Walk(Diff diff, Laid before, Laid after, Place was, Place now, Walked state) {
         bool same = ReferenceEquals(before, after);
-        bool moved = was != now || Planes(before) != Planes(after) || Alpha(before).CompareTo(Alpha(after)) is not 0 || !before.Cascade.Theme.Equals(after.Cascade.Theme);
+        bool moved = was != now || before.Node.Plotted != after.Node.Plotted || before.Node.Alpha.CompareTo(after.Node.Alpha) is not 0;
         if (same && !moved) return state;
-        if (moved) {
-            return (same ? state.Index : state.Index.RemoveRange(Preorder(before).Map(static held => held.Path)).AddOrUpdateRange(Preorder(after).Map(static held => (held.Path, held))),
-                state.Damage.Concat(Extents(before, was)).Concat(Extents(after, now)));
-        }
+        if (moved) return Replaced(diff, before, after, was, now, state);
         bool own = before.Frame != after.Frame || !before.Style.Equals(after.Style) || (before.Children.IsEmpty && after.Children.IsEmpty && !before.Node.Equals(after.Node));
         HashMap<Seq<Key>, Laid> prior = toHashMap(before.Children.Map(static child => (child.Path, child)));
         LanguageExt.HashSet<Seq<Key>> kept = toHashSet(after.Children.Map(static child => child.Path));
-        (HashMap<Seq<Key>, Laid> Index, Seq<SKRect> Damage) walked = after.Children.Fold(
-            (state.Index.AddOrUpdate(after.Path, after), own ? state.Damage.Add(Painted(before, was)).Add(Painted(after, now)) : state.Damage),
+        Walked walked = after.Children.Fold(
+            state with { Index = state.Index.AddOrUpdate(after.Path, after), Damage = own ? state.Damage.Add(Painted(before, was)).Add(Painted(after, now)) : state.Damage },
             (held, child) => prior.Find(child.Path).Match(
                 Some: matched => Walk(diff, matched, child, Within(before, matched, was, diff.Was), Within(after, child, now, diff.Now), held),
-                None: () => (held.Item1.AddOrUpdateRange(Preorder(child).Map(static added => (added.Path, added))), held.Item2.Concat(Extents(child, Within(after, child, now, diff.Now))))));
-        return before.Children.Filter(child => !kept.Contains(child.Path)).Fold(walked, (held, child) =>
-            (held.Index.RemoveRange(Preorder(child).Map(static removed => removed.Path)), held.Damage.Concat(Extents(child, Within(before, child, was, diff.Was)))));
+                None: () => Added(diff, child, Within(after, child, now, diff.Now), held)));
+        return before.Children.Filter(child => !kept.Contains(child.Path)).Fold(walked, (held, child) => Removed(child, Within(before, child, was, diff.Was), held));
     }
 
-    private static Seq<SKRect> Extents(Laid laid, (SKPoint Origin, SKRect Clip) place) =>
+    private static Walked Replaced(Diff diff, Laid before, Laid after, Place was, Place now, Walked state) => Added(diff, after, now, Removed(before, was, state));
+
+    private static Walked Added(Diff diff, Laid laid, Place place, Walked state) =>
+        new(state.Index.AddOrUpdateRange(Indexed(laid)), state.Places.AddOrUpdateRange(Placing(laid, place, diff.Now)), state.Damage.Concat(Extents(laid, place)));
+
+    private static Walked Removed(Laid laid, Place place, Walked state) =>
+        Preorder(laid).Map(static held => held.Path) switch {
+            var paths => new(state.Index.RemoveRange(paths), state.Places.RemoveRange(paths), state.Damage.Concat(Extents(laid, place))),
+        };
+
+    private static Seq<SKRect> Extents(Laid laid, Place place) =>
         SKRect.Intersect(Absolute(laid.Reach, place.Origin), place.Clip) switch {
             var reach when reach.IsEmpty => [],
             var reach => [reach],
         };
 
-    private static SKRect Painted(Laid laid, (SKPoint Origin, SKRect Clip) place) => SKRect.Intersect(Absolute(laid.Painted, place.Origin), place.Clip);
-
-    private static Option<PlotPlane> Planes(Laid laid) => laid.Node is Node.Plot plot ? Some(plot.Plane) : None;
-
-    private static float Alpha(Laid laid) => laid.Node is Node.Styled styled ? (float)styled.Opacity : 1f;
+    private static SKRect Painted(Laid laid, Place place) => SKRect.Intersect(Absolute(laid.Painted, place.Origin), place.Clip);
 
     // --- [PLACEMENT]
-    private static (SKPoint Origin, SKRect Clip) Within(Laid parent, Laid child, (SKPoint Origin, SKRect Clip) place, HashMap<Seq<Key>, float> adjusted) =>
-        Absolute(parent.Frame, place.Origin) switch {
-            var frame => (frame.Location + Shift(parent, child, adjusted), Clips(parent, child) ? SKRect.Intersect(place.Clip, frame) : place.Clip),
-        };
+    private static Place Root(Laid laid) => new(SKPoint.Empty, SKRect.Create(laid.Frame.Size), None);
 
-    internal static bool Clips(Laid parent, Laid child) => parent.Node is Node.Scroll || (parent.Node is Node.Plot && Layouts.Pinned(child.Node).IsNone);
+    private static Seq<(Seq<Key> Path, Laid Laid)> Indexed(Laid laid) => Preorder(laid).Map(static held => (held.Path, held));
+
+    private static Seq<(Seq<Key> Path, Place Place)> Placing(Laid laid, Place place, HashMap<Seq<Key>, float> adjusted) =>
+        (laid.Path, place).Cons(laid.Children.Bind(child => Placing(child, Within(laid, child, place, adjusted), adjusted)));
+
+    private static Place Within(Laid parent, Laid child, Place place, HashMap<Seq<Key>, float> adjusted) =>
+        Absolute(parent.Frame, place.Origin) switch {
+            var frame => new Place(frame.Location + Shift(parent, child, adjusted), parent.Node.Clips(child.Node) ? SKRect.Intersect(place.Clip, frame) : place.Clip,
+                Layouts.Plotted(parent).Map(own => own.Translated(frame.Location)) | place.Plot),
+        };
 
     private static SKPoint Shift(Laid parent, Laid child, HashMap<Seq<Key>, float> adjusted) =>
-        parent.Node is Node.Scroll scroll && !child.Path.Last.Exists(static last => last is Key.Thumb)
-            ? scroll.Axis.With(Vector2.Zero, -Scrolling(parent, scroll.Axis, adjusted.Find(parent.Path).IfNone(0f)))
-            : SKPoint.Empty;
-
-    private static float Scrolling(Laid scroll, Orientation axis, float offset) =>
-        Layouts.Scrollable(scroll, scroll.Children[0], axis) switch {
-            var (total, viewport) => Layouts.Scrolling(offset, total, viewport),
-        };
-
-    private static Option<float> Extent(Laid laid, float stored) =>
-        laid.Node is Node.Scroll scroll ? Some(Scrolling(laid, scroll.Axis, stored)) : laid.Node is Node.Split split ? Some(Layouts.Pane(laid, split)) : None;
+        (from adjuster in Adjusting(parent, None, adjusted.Find(parent.Path))
+         where !Layouts.IsHandle(child)
+         select adjuster.Switch(scroll: static scroll => (SKPoint)scroll.Axis.With(Vector2.Zero, -scroll.Value), split: static _ => SKPoint.Empty)).IfNone(SKPoint.Empty);
 
     private static SKRect Absolute(SKRect frame, SKPoint origin) => SKRect.Create(frame.Location + origin, frame.Size);
-
-    private static HashMap<Seq<Key>, float> Clamped(HashMap<Seq<Key>, float> adjusted, HashMap<Seq<Key>, Laid> index) =>
-        toHashMap(toSeq(adjusted.AsIterable()).Choose(entry => index.Find(entry.Key).Bind(laid => Extent(laid, entry.Value)).Map(value => (entry.Key, value))));
-
-    internal static Seq<Laid> Preorder(Laid laid) => laid.Cons(laid.Children.Bind(Preorder));
 }

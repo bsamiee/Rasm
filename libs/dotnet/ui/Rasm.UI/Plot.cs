@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using System.Numerics.Tensors;
 using SkiaSharp;
 
 namespace Rasm.UI;
@@ -37,16 +38,18 @@ public abstract partial record Axis {
 
     public virtual float Value(float fraction) => Range.From + (fraction * Range.Span);
 
-    public float Unit(float value) =>
-        Fraction(value) switch {
-            var fraction => this is Periodic ? Wrapped(fraction) : fraction,
-        };
+    public float Unit(float value) => Wrapped(Fraction(value));
 
     public virtual float Delta(float from, float to) => to - from;
 
     public virtual float Held(float value) => float.Clamp(value, Range.Low, Range.High);
 
     public virtual bool Contains(AxisRange band, float value) => value >= band.Low && value <= band.High;
+
+    public virtual Seq<(float Low, float High)> Spans(AxisRange band) =>
+        (Fraction(band.From), Fraction(band.To)) switch {
+            var (from, to) => [(float.Min(from, to), float.Max(from, to))],
+        };
 
     public abstract Option<float> Step(float least);
     public abstract Seq<float> Ticks(float least);
@@ -57,7 +60,7 @@ public abstract partial record Axis {
             var largest => MathF.Abs(Range.Span) >= pixels * (MathF.BitIncrement(largest) - largest),
         };
 
-    private static float Wrapped(float fraction) => ((fraction % 1f) + 1f) % 1f;
+    private protected virtual float Wrapped(float fraction) => fraction;
 
     private static Option<float> Nice(float span) =>
         float.IsFinite(span) && span > 0f
@@ -75,7 +78,7 @@ public abstract partial record Axis {
             }).IfNone([]);
 
         public override float Snapped(float value, int steps, float least) =>
-            Step(least).Map(step => Held((MathF.Round(value / step, MidpointRounding.ToEven) + steps) * step)).IfNone(value);
+            Step(least).Map(step => Held((MathF.Round(value / step, MidpointRounding.ToEven) + (steps * MathF.Sign(Range.Span))) * step)).IfNone(value);
     }
 
     public sealed record Logarithmic(AxisRange Range) : Axis(Range) {
@@ -107,10 +110,10 @@ public abstract partial record Axis {
             };
     }
 
-    public sealed record Scale(AxisRange Range, Func<double, double, double, double> Position, Func<double, double, double, double> Key) : Axis(Range) {
-        public override float Fraction(float value) => (float)Position(value, Range.From, Range.To);
+    public sealed record Scale(AxisRange Range, Func<float, AxisRange, float> Forward, Func<float, AxisRange, float> Inverse) : Axis(Range) {
+        public override float Fraction(float value) => Forward(value, Range);
 
-        public override float Value(float fraction) => (float)Key(fraction, Range.From, Range.To);
+        public override float Value(float fraction) => Inverse(fraction, Range);
 
         public override Option<float> Step(float least) => None;
 
@@ -118,7 +121,7 @@ public abstract partial record Axis {
             least > 0f ? toSeq(Prelude.Range(0, (int)MathF.Floor(1f / least) + 1)).Map(index => Snapped(Value(index * least), 0, least)).Distinct() : [];
 
         public override float Snapped(float value, int steps, float least) =>
-            Nice(MathF.Abs(Value(Fraction(value) + least) - value)).Map(step => Held((MathF.Round(value / step, MidpointRounding.ToEven) + steps) * step)).IfNone(value);
+            Nice(MathF.Abs(Value(Fraction(value) + least) - value)).Map(step => Held((MathF.Round(value / step, MidpointRounding.ToEven) + (steps * MathF.Sign(Range.Span))) * step)).IfNone(value);
     }
 
     public sealed record Periodic(AxisRange Range, int Grid, int Snap) : Axis(Range) {
@@ -130,6 +133,18 @@ public abstract partial record Axis {
 
         public override float Held(float value) => Value(Unit(value));
 
+        public override bool Contains(AxisRange band, float value) => band.Low + (Wrapped((value - band.Low) / Turn) * Turn) <= band.High;
+
+        public override Seq<(float Low, float High)> Spans(AxisRange band) =>
+            (From: Fraction(band.From), To: Fraction(band.To)) switch {
+                var whole when MathF.Abs(whole.To - whole.From) >= 1f => [(0f, 1f)],
+                var (from, to) => (Wrapped(from), Wrapped(to)) switch {
+                    var (low, high) when high > low => [(low, high)],
+                    var (low, high) when high > 0f => [(low, 1f), (0f, high)],
+                    var (low, _) => [(low, 1f)],
+                },
+            };
+
         public override Option<float> Step(float least) => Snap > 0 ? Some(Range.Span / Snap) : None;
 
         public override Seq<float> Ticks(float least) =>
@@ -140,8 +155,30 @@ public abstract partial record Axis {
         public override float Snapped(float value, int steps, float least) =>
             Step(least).Map(step => Held(Range.From + ((MathF.Round((value - Range.From) / step, MidpointRounding.ToEven) + steps) * step))).IfNone(value);
 
-        public override bool Contains(AxisRange band, float value) => band.Low + (Wrapped((value - band.Low) / Turn) * Turn) <= band.High;
+        private protected override float Wrapped(float fraction) => ((fraction % 1f) + 1f) % 1f;
     }
+}
+
+public sealed record Pen(SKMatrix Device, float Stroke, float Spacing) {
+    public static Pen Hit { get; } = new(SKMatrix.Identity, 0f, 0f);
+
+    internal SKPoint Snapped(SKPoint local) =>
+        Device.MapPoint(local) switch {
+            var device => Local(new SKPoint(Grid(device.X, 0f), Grid(device.Y, 0f)), local),
+        };
+
+    internal (SKPoint From, SKPoint To) Snapped(SKPoint from, SKPoint to) =>
+        (Start: Device.MapPoint(from), End: Device.MapPoint(to), Half: MathF.Round(Device.MapRadius(Stroke), MidpointRounding.ToEven) / 2f) switch {
+            var held when held.Start.X.CompareTo(held.End.X) is 0 =>
+                (Local(held.Start with { X = Grid(held.Start.X, held.Half) }, from), Local(held.End with { X = Grid(held.End.X, held.Half) }, to)),
+            var held when held.Start.Y.CompareTo(held.End.Y) is 0 =>
+                (Local(held.Start with { Y = Grid(held.Start.Y, held.Half) }, from), Local(held.End with { Y = Grid(held.End.Y, held.Half) }, to)),
+            _ => (from, to),
+        };
+
+    private static float Grid(float device, float offset) => MathF.Round(device - offset, MidpointRounding.ToEven) + offset;
+
+    private SKPoint Local(SKPoint device, SKPoint local) => Device.TryInvert(out SKMatrix inverse) ? inverse.MapPoint(device) : local;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -150,38 +187,15 @@ public abstract partial record PlotPlane {
 
     public virtual SKMatrix Frame(SKRect content) => SKMatrix.CreateScaleTranslation(content.Width, -content.Height, content.Left, content.Bottom);
 
+    public virtual Option<Aspect> Aspect => None;
+
+    public PlotFrame In(SKRect content) => new(this, Frame(content));
+
     public SKPoint Unit(Vector2 value) => Placed(Each(value, static (axis, held) => axis.Unit(held)));
 
     public Vector2 Value(SKPoint square) => Each(Unplaced(square), static (axis, held) => axis.Value(held));
 
     public Vector2 Held(Vector2 value) => Each(value, static (axis, held) => axis.Held(held));
-
-    public Option<Vector2> At(SKMatrix frame, SKPoint local) => Local(frame, local).Map(square => Held(Value(square)));
-
-    public Option<Vector2> Travel(SKPoint origin, SKPoint target, SKMatrix frame) =>
-        from start in Local(frame, origin).Map(Value)
-        from end in Local(frame, target).Map(Value)
-        select new Vector2(Delta(Orientation.Horizontal, start.X, end.X), Delta(Orientation.Vertical, start.Y, end.Y));
-
-    public Option<Vector2> Moved(Vector2 held, SKPoint origin, SKPoint target, SKMatrix frame, float gain) =>
-        Travel(origin, target, frame).Map(travel => Held(held + (travel * gain)));
-
-    public Vector2 Stepped(Vector2 held, Orientation along, int steps, SKMatrix frame, float least) =>
-        Free(along) switch {
-            var free => Dimension(free).Map(axis => free.With(held, axis.Snapped(free.Of(held), steps, least / Pixels(free, frame)))).IfNone(held),
-        };
-
-    public Vector2 Ended(Vector2 held, Orientation along, Heading toward) =>
-        Free(along) switch {
-            var free => Dimension(free).Map(axis => free.With(held, toward is Heading.Back ? axis.Range.From : axis.Range.To)).IfNone(held),
-        };
-
-    public Option<int> Nearest(Vector2 raw, Seq<Vector2> detents, SKMatrix frame, float reach) =>
-        frame.MapPoint(Unit(raw)) switch {
-            var at => detents.Map((detent, index) => (Index: index, Distance: SKPoint.Distance(frame.MapPoint(Unit(detent)), at))).Filter(held => held.Distance <= reach) switch {
-                var near => near.IsEmpty ? None : Some(near.MinBy(static held => held.Distance).Index),
-            },
-        };
 
     public Seq<(Orientation Along, Axis Axis)> Dimensions => toSeq(Orientation.Items).Choose(along => Dimension(along).Map(axis => (Along: along, Axis: axis)));
 
@@ -189,30 +203,47 @@ public abstract partial record PlotPlane {
 
     public Option<PlotPlane> Scaled(Vector2 about, float factor) => Mapped((along, axis) => axis.Range.Scaled(along.Of(about), factor).Map(range => axis with { Range = range }));
 
-    public bool Resolves(SKMatrix frame) => toSeq(Orientation.Items).ForAll(along => Dimension(along).ForAll(axis => axis.Resolves(Pixels(along, frame))));
+    public Option<Vector2> Turned(Vector2 value, float radians) =>
+        Switch(
+            (Value: value, Radians: radians),
+            cartesian: static (_, _) => Option<Vector2>.None,
+            track: static (_, _) => Option<Vector2>.None,
+            polar: static (held, polar) => Some(held.Value with { X = polar.Angle.Held(held.Value.X + (held.Radians / MathF.Tau * polar.Angle.Range.Span)) }));
 
     internal virtual SKPoint Placed(Vector2 fractions) => fractions;
 
     internal virtual Vector2 Unplaced(SKPoint square) => square;
 
-    internal virtual float Pixels(Orientation along, SKMatrix frame) => MathF.Abs(along.Of(new Vector2(frame.ScaleX, frame.ScaleY)));
+    internal virtual float Length(Orientation along) => 1f;
+
+    internal virtual void Trace(SKPathBuilder path, SKMatrix frame, Pen pen, Orientation held, float at) {
+        (SKPoint from, SKPoint to) = pen.Snapped(frame.MapPoint(held.With(Vector2.Zero, at)), frame.MapPoint(held.With(Vector2.One, at)));
+        path.MoveTo(from);
+        path.LineTo(to);
+    }
+
+    internal virtual void Enclose(SKPathBuilder path, SKMatrix frame, Pen pen, Seq<(float Low, float High)> across, Seq<(float Low, float High)> up) =>
+        _ = (from x in across
+             from y in up
+             select frame.MapRect(new SKRect(x.Low, y.Low, x.High, y.High)))
+            .Iter(cell => {
+                SKPoint low = pen.Snapped(cell.Location);
+                SKPoint high = pen.Snapped(new SKPoint(cell.Right, cell.Bottom));
+                path.AddRect(new SKRect(low.X, low.Y, high.X, high.Y));
+            });
+
+    internal float Fraction(Orientation along, float value) => Dimension(along).Map(axis => axis.Fraction(value)).IfNone(value);
+
+    internal Seq<(float Low, float High)> Spans(Orientation along, Option<AxisRange> band) =>
+        band.Match(
+            Some: held => Dimension(along).Match(Some: axis => axis.Spans(held), None: () => [(held.Low, held.High)]),
+            None: static () => [(0f, 1f)]);
 
     private protected abstract Option<PlotPlane> Mapped(Func<Orientation, Axis, Option<Axis>> map);
-
-    internal float Fraction(Orientation along, float value) => Of(along, value, static (axis, held) => axis.Fraction(held));
-
-    internal bool Periodic(Orientation along) => Dimension(along).Exists(static axis => axis is Axis.Periodic);
 
     private float Of(Orientation along, float value, Func<Axis, float, float> map) => Dimension(along).Map(axis => map(axis, value)).IfNone(value);
 
     private Vector2 Each(Vector2 value, Func<Axis, float, float> map) => new(Of(Orientation.Horizontal, value.X, map), Of(Orientation.Vertical, value.Y, map));
-
-    private float Delta(Orientation along, float from, float to) => Dimension(along).Map(axis => axis.Delta(from, to)).IfNone(0f);
-
-    private Orientation Free(Orientation along) =>
-        Dimension(along).IsSome ? along : Dimension(Orientation.Horizontal).IsSome ? Orientation.Horizontal : Orientation.Vertical;
-
-    private static Option<SKPoint> Local(SKMatrix frame, SKPoint local) => frame.TryInvert(out SKMatrix inverse) ? Some(inverse.MapPoint(local)) : None;
 
     public sealed record Cartesian(Axis X, Axis Y) : PlotPlane {
         public override Option<Axis> Dimension(Orientation along) => Some(along.Map(horizontal: X, vertical: Y));
@@ -232,6 +263,8 @@ public abstract partial record PlotPlane {
     public sealed record Polar(Axis Angle, Option<Axis> Radius) : PlotPlane {
         public override SKMatrix Frame(SKRect content) => base.Frame(content.AspectFit(new SKSize(1f, 1f)));
 
+        public override Option<Aspect> Aspect => Some(UI.Aspect.Create(1f));
+
         public override Option<Axis> Dimension(Orientation along) => along.Map(horizontal: Some(Angle), vertical: Radius);
 
         internal override SKPoint Placed(Vector2 fractions) =>
@@ -244,25 +277,102 @@ public abstract partial record PlotPlane {
                 var offset => new Vector2(MathF.Atan2(offset.Y, offset.X) / MathF.Tau, 2f * offset.Length()),
             };
 
-        internal override float Pixels(Orientation along, SKMatrix frame) => MathF.Abs(frame.ScaleX) * along.Map(horizontal: MathF.PI, vertical: 0.5f);
+        internal override float Length(Orientation along) => along.Map(horizontal: MathF.PI, vertical: 0.5f);
+
+        internal override void Trace(SKPathBuilder path, SKMatrix frame, Pen pen, Orientation held, float at) =>
+            held.Switch(
+                (Path: path, Center: frame.MapPoint(Placed(Vector2.Zero)), Rim: frame.MapPoint(Placed(new Vector2(at, 1f))), Radius: Half(frame) * at),
+                horizontal: static ray => {
+                    ray.Path.MoveTo(ray.Center);
+                    ray.Path.LineTo(ray.Rim);
+                },
+                vertical: static ring => ring.Path.AddCircle(ring.Center.X, ring.Center.Y, ring.Radius));
+
+        internal override void Enclose(SKPathBuilder path, SKMatrix frame, Pen pen, Seq<(float Low, float High)> across, Seq<(float Low, float High)> up) {
+            SKPoint center = frame.MapPoint(Placed(Vector2.Zero));
+            float half = Half(frame);
+            float extent = across.Fold(0f, static (sum, span) => sum + (span.High - span.Low));
+            float turn = MathF.CopySign(360f, frame.ScaleX * frame.ScaleY);
+            float start = across.Head.Map(static span => span.Low).IfNone(0f) * turn;
+            float sweep = extent * turn;
+            _ = up.Iter(ring => {
+                if (extent >= 1f) {
+                    path.FillType = SKPathFillType.EvenOdd;
+                    path.AddCircle(center.X, center.Y, half * ring.High);
+                    if (ring.Low > 0f) path.AddCircle(center.X, center.Y, half * ring.Low);
+                    return;
+                }
+                path.ArcTo(Oval(center, half * ring.High), start, sweep, forceMoveTo: true);
+                if (ring.Low > 0f) path.ArcTo(Oval(center, half * ring.Low), start + sweep, -sweep, forceMoveTo: false);
+                else path.LineTo(center);
+                path.Close();
+            });
+        }
 
         private protected override Option<PlotPlane> Mapped(Func<Orientation, Axis, Option<Axis>> map) =>
             from angle in map(Orientation.Horizontal, Angle)
             from radius in Radius.Match(Some: held => map(Orientation.Vertical, held).Map(Some), None: static () => Some(Option<Axis>.None))
             select (PlotPlane)new Polar(angle, radius);
+
+        private static float Half(SKMatrix frame) => MathF.Abs(frame.ScaleX) / 2f;
+
+        private static SKRect Oval(SKPoint center, float radius) => SKRect.Create(center.X - radius, center.Y - radius, 2f * radius, 2f * radius);
     }
+}
+
+public sealed record PlotFrame(PlotPlane Plane, SKMatrix Matrix) {
+    public bool Resolves => Plane.Dimensions.ForAll(held => held.Axis.Resolves(Pixels(held.Along)));
+
+    public SKPoint Point(Vector2 value) => Matrix.MapPoint(Plane.Unit(value));
+
+    public Option<Vector2> At(SKPoint local) => Square(local).Map(square => Plane.Held(Plane.Value(square)));
+
+    public Option<Vector2> Travel(SKPoint origin, SKPoint target) =>
+        from start in Square(origin).Map(Plane.Value)
+        from end in Square(target).Map(Plane.Value)
+        select Plane.Dimensions.Fold(Vector2.Zero, (travel, held) => held.Along.With(travel, held.Axis.Delta(held.Along.Of(start), held.Along.Of(end))));
+
+    public Option<Vector2> Moved(Vector2 held, SKPoint origin, SKPoint target, float gain) => Travel(origin, target).Map(travel => Plane.Held(held + (travel * gain)));
+
+    public Vector2 Stepped(Vector2 held, Orientation along, int steps, float least) =>
+        Free(along).Map(free => free.Along.With(held, free.Axis.Snapped(free.Along.Of(held), steps, least / Pixels(free.Along)))).IfNone(held);
+
+    public Vector2 Ended(Vector2 held, Orientation along, int sign) =>
+        Free(along).Map(free => free.Along.With(held, sign > 0 ? free.Axis.Range.To : free.Axis.Range.From)).IfNone(held);
+
+    public Option<int> Nearest(Vector2 raw, Seq<Vector2> detents, float reach) =>
+        Point(raw) switch {
+            var at => detents.Map((detent, index) => (Index: index, Distance: SKPoint.Distance(Point(detent), at))).Filter(held => held.Distance <= reach) switch {
+                { IsEmpty: true } => None,
+                var near => Some(near.MinBy(static held => held.Distance).Index),
+            },
+        };
+
+    public float Pixels(Orientation along) => MathF.Abs(along.Of(new Vector2(Matrix.ScaleX, Matrix.ScaleY))) * Plane.Length(along);
+
+    public PlotFrame Translated(SKPoint by) => this with { Matrix = Matrix.PostConcat(SKMatrix.CreateTranslation(by.X, by.Y)) };
+
+    internal SKPoint Placed(Vector2 fractions) => Matrix.MapPoint(Plane.Placed(fractions));
+
+    private Option<(Orientation Along, Axis Axis)> Free(Orientation along) => Plane.Dimension(along).Map(axis => (Along: along, Axis: axis)) | Plane.Dimensions.Head;
+
+    private Option<SKPoint> Square(SKPoint local) => Matrix.TryInvert(out SKMatrix inverse) ? Some(inverse.MapPoint(local)) : None;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Figure {
-    public abstract void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing);
-    public virtual void Interior(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale) { }
+    private static readonly Func<ReadOnlySpan<float>, Seq<int>> Extremes = static column => toSeq(Seq(TensorPrimitives.IndexOfMin(column), TensorPrimitives.IndexOfMax(column)).Order());
+    private static readonly Func<ReadOnlySpan<float>, Seq<int>> Peaks = static column => Seq(TensorPrimitives.IndexOfMax(column));
 
-    public virtual bool Hits(PlotPlane plane, SKMatrix frame, SKPoint local, float reach) {
-        using SKPath interior = Traced(path => Interior(path, plane, frame, 1f));
+    public abstract void Edges(SKPathBuilder path, PlotFrame frame, Pen pen);
+
+    public virtual void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) { }
+
+    public virtual bool Hits(PlotFrame frame, SKPoint local, float reach) {
+        using SKPath interior = Traced(path => Interior(path, frame, Pen.Hit));
         using SKPath outline = Traced(path => {
-            Interior(path, plane, frame, 1f);
-            Edges(path, plane, frame, 1f, 0f, 0f);
+            Interior(path, frame, Pen.Hit);
+            Edges(path, frame, Pen.Hit);
         });
         using SKPaint pen = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2f * reach, StrokeCap = SKStrokeCap.Round, StrokeJoin = SKStrokeJoin.Round };
         using SKPath? reached = pen.GetFillPath(outline);
@@ -275,123 +385,67 @@ public abstract partial record Figure {
         return builder.Detach();
     }
 
-    private static SKPoint Mapped(PlotPlane plane, SKMatrix frame, Vector2 value) => frame.MapPoint(plane.Unit(value));
-
-    private static SKPoint Fractioned(PlotPlane plane, SKMatrix frame, Vector2 fractions) => frame.MapPoint(plane.Placed(fractions));
-
-    private static Seq<SKPoint> Sampled(PlotPlane plane, SKMatrix frame, Seq<float> samples) =>
-        plane.Periodic(Orientation.Horizontal)
-            ? samples.Add(samples.Head.IfNone(0f)).Map((sample, index) => Fractioned(plane, frame, new Vector2((float)index / samples.Count, plane.Fraction(Orientation.Vertical, sample))))
-            : samples.Map((sample, index) => Fractioned(plane, frame, new Vector2(samples.Count > 1 ? (float)index / (samples.Count - 1) : 0f, plane.Fraction(Orientation.Vertical, sample))));
-
-    private static Seq<SKPoint> Based(PlotPlane plane, SKMatrix frame, Seq<SKPoint> points) =>
-        plane is PlotPlane.Polar
-            ? points
-            : points.Add(new SKPoint(points.Last.Map(static last => last.X).IfNone(0f), frame.MapPoint(SKPoint.Empty).Y))
-                .Add(new SKPoint(points.Head.Map(static first => first.X).IfNone(0f), frame.MapPoint(SKPoint.Empty).Y));
-
-    private static Seq<(float Low, float High)> Spans(PlotPlane plane, Orientation along, Option<AxisRange> band) =>
-        band.Map(held => (plane.Fraction(along, held.From), plane.Fraction(along, held.To)) switch {
-            var (from, to) => (Low: float.Min(from, to), High: float.Max(from, to)),
-        })
-            .Match(
-                Some: held => plane.Periodic(along)
-                    ? Seq(-1f, 0f, 1f).Map(turn => (Low: float.Max(0f, held.Low + turn), High: float.Min(1f, held.High + turn))).Filter(static span => span.High > span.Low)
-                    : Seq(held),
-                None: static () => Seq((Low: 0f, High: 1f)));
-
-    private static Seq<SKRect> Rectangles(PlotPlane plane, SKMatrix frame, Option<AxisRange> first, Option<AxisRange> second) =>
-        from across in Spans(plane, Orientation.Horizontal, first)
-        from up in Spans(plane, Orientation.Vertical, second)
-        select frame.MapRect(new SKRect(across.Low, up.Low, across.High, up.High));
-
-    private static float Snap(float coordinate, float scale, float stroke) =>
-        MathF.Round(stroke * scale, MidpointRounding.ToEven) switch {
-            var device => (MathF.Round((coordinate * scale) - (device / 2f), MidpointRounding.ToEven) + (device / 2f)) / scale,
-        };
-
-    private static (SKPoint From, SKPoint To) Snapped(SKPoint from, SKPoint to, float scale, float stroke) =>
-        (from.X.CompareTo(to.X) is 0, from.Y.CompareTo(to.Y) is 0) switch {
-            (true, _) => (new SKPoint(Snap(from.X, scale, stroke), from.Y), new SKPoint(Snap(to.X, scale, stroke), to.Y)),
-            (_, true) => (new SKPoint(from.X, Snap(from.Y, scale, stroke)), new SKPoint(to.X, Snap(to.Y, scale, stroke))),
-            _ => (from, to),
-        };
-
-    private static (SKPoint Center, float Half) Disc(SKMatrix frame) => (frame.MapPoint(new SKPoint(0.5f, 0.5f)), MathF.Abs(frame.ScaleX) / 2f);
-
-    private static void Ruled(SKPathBuilder path, (SKPoint From, SKPoint To) rule) {
-        path.MoveTo(rule.From);
-        path.LineTo(rule.To);
+    private static Seq<Vector2> Sampled(PlotFrame frame, Pen pen, AxisRange domain, Seq<float> samples, Func<ReadOnlySpan<float>, Seq<int>> kept) {
+        float[] across = [.. samples.Map((_, index) => frame.Plane.Fraction(Orientation.Horizontal, samples.Count > 1 ? domain.From + (index * domain.Span / (samples.Count - 1)) : domain.From))];
+        float[] up = [.. samples.Map(sample => frame.Plane.Fraction(Orientation.Vertical, sample))];
+        float columns = frame.Pixels(Orientation.Horizontal) * pen.Device.MapRadius(1f);
+        int[] column = [.. across.Select(fraction => (int)MathF.Floor(fraction * columns))];
+        Seq<int> starts = toSeq(Range(0, up.Length)).Filter(index => index is 0 || column[index] != column[index - 1]);
+        return up.Length is 0
+            ? []
+            : (Seq(0)
+               + (from run in starts.Zip(starts.Tail.Add(up.Length))
+                  from offset in kept(up.AsSpan(run.First, run.Second - run.First))
+                  select run.First + offset)
+               + Seq(up.Length - 1))
+                .Distinct().Map(index => new Vector2(across[index], up[index]));
     }
 
     public sealed record Rule(Vector2 From, Vector2 To) : Figure {
-        public override void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing) =>
-            Ruled(path, Snapped(Mapped(plane, frame, From), Mapped(plane, frame, To), scale, stroke));
-    }
-
-    public sealed record Polyline(Seq<Vector2> Points) : Figure {
-        public override void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing) =>
-            path.AddPoly([.. Points.Map(point => Mapped(plane, frame, point))], close: false);
-    }
-
-    public sealed record Polygon(Seq<Vector2> Points) : Figure {
-        public override void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing) => Interior(path, plane, frame, scale);
-
-        public override void Interior(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale) => path.AddPoly([.. Points.Map(point => Mapped(plane, frame, point))], close: true);
-    }
-
-    public sealed record Region(Option<AxisRange> First, Option<AxisRange> Second) : Figure {
-        public override void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing) => Interior(path, plane, frame, scale);
-
-        public override void Interior(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale) {
-            if (plane is not PlotPlane.Polar) {
-                _ = Rectangles(plane, frame, First, Second).Iter(rect => path.AddRect(new SKRect(Snap(rect.Left, scale, 0f), Snap(rect.Top, scale, 0f), Snap(rect.Right, scale, 0f), Snap(rect.Bottom, scale, 0f))));
-                return;
-            }
-            (SKPoint center, float half) = Disc(frame);
-            (float inner, float outer) = Spans(plane, Orientation.Vertical, Second).Head.IfNone((Low: 0f, High: 1f));
-            (float from, float to) = First.Map(band => (plane.Fraction(Orientation.Horizontal, band.From), plane.Fraction(Orientation.Horizontal, band.To))).IfNone((0f, 1f));
-            if (MathF.Abs(to - from) >= 1f) {
-                path.FillType = SKPathFillType.EvenOdd;
-                path.AddCircle(center.X, center.Y, half * outer);
-                if (inner > 0f) path.AddCircle(center.X, center.Y, half * inner);
-                return;
-            }
-            float start = -from * 360f;
-            float sweep = -(to - from) * 360f;
-            path.ArcTo(SKRect.Create(center.X - (half * outer), center.Y - (half * outer), 2f * half * outer, 2f * half * outer), start, sweep, forceMoveTo: true);
-            if (inner > 0f) path.ArcTo(SKRect.Create(center.X - (half * inner), center.Y - (half * inner), 2f * half * inner, 2f * half * inner), start + sweep, -sweep, forceMoveTo: false);
-            else path.LineTo(center);
-            path.Close();
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) {
+            (SKPoint from, SKPoint to) = pen.Snapped(frame.Point(From), frame.Point(To));
+            path.MoveTo(from);
+            path.LineTo(to);
         }
     }
 
-    public sealed record Curve(Seq<float> Samples) : Figure {
-        public override void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing) =>
-            path.AddPoly([.. Sampled(plane, frame, Samples)], close: false);
+    public sealed record Polyline(Seq<Vector2> Points) : Figure {
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => path.AddPoly([.. Points.Map(frame.Point)], close: false);
     }
 
-    public sealed record Area(Seq<float> Samples) : Figure {
-        public override void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing) =>
-            path.AddPoly([.. Sampled(plane, frame, Samples)], close: false);
+    public sealed record Polygon(Seq<Vector2> Points) : Figure {
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => Interior(path, frame, pen);
 
-        public override void Interior(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale) =>
-            path.AddPoly([.. Based(plane, frame, Sampled(plane, frame, Samples))], close: true);
+        public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => path.AddPoly([.. Points.Map(frame.Point)], close: true);
+    }
+
+    public sealed record Region(Option<AxisRange> First, Option<AxisRange> Second) : Figure {
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => Interior(path, frame, pen);
+
+        public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
+            frame.Plane.Enclose(path, frame.Matrix, pen, frame.Plane.Spans(Orientation.Horizontal, First), frame.Plane.Spans(Orientation.Vertical, Second));
+    }
+
+    public sealed record Curve(AxisRange Domain, Seq<float> Samples) : Figure {
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => path.AddPoly([.. Sampled(frame, pen, Domain, Samples, Extremes).Map(frame.Placed)], close: false);
+    }
+
+    public sealed record Area(AxisRange Domain, Seq<float> Samples) : Figure {
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => path.AddPoly([.. Sampled(frame, pen, Domain, Samples, Extremes).Map(frame.Placed)], close: false);
+
+        public override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) {
+            Seq<Vector2> envelope = Sampled(frame, pen, Domain, Samples, Peaks);
+            _ = (from first in envelope.Head
+                 from last in envelope.Last
+                 select envelope.Add(last with { Y = 0f }).Add(first with { Y = 0f }))
+                .Iter(outline => path.AddPoly([.. outline.Map(frame.Placed)], close: true));
+        }
     }
 
     public sealed record Grid(Orientation Along) : Figure {
-        public override void Edges(SKPathBuilder path, PlotPlane plane, SKMatrix frame, float scale, float stroke, float spacing) =>
-            _ = plane.Dimension(Along).Iter(axis => axis.Ticks(spacing / plane.Pixels(Along, frame)).Map(axis.Fraction).Iter(fraction => {
-                if (plane is not PlotPlane.Polar) {
-                    Ruled(path, Snapped(frame.MapPoint(Along.With(Vector2.Zero, fraction)), frame.MapPoint(Along.With(Vector2.One, fraction)), scale, stroke));
-                } else if (Along == Orientation.Horizontal) {
-                    Ruled(path, (Disc(frame).Center, Fractioned(plane, frame, new Vector2(fraction, 1f))));
-                } else {
-                    (SKPoint center, float half) = Disc(frame);
-                    path.AddCircle(center.X, center.Y, half * fraction);
-                }
-            }));
+        public override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) =>
+            _ = frame.Plane.Dimension(Along).Iter(axis => axis.Ticks(pen.Spacing / frame.Pixels(Along)).Map(axis.Fraction).Iter(at => frame.Plane.Trace(path, frame.Matrix, pen, Along, at)));
 
-        public override bool Hits(PlotPlane plane, SKMatrix frame, SKPoint local, float reach) => false;
+        public override bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
     }
 }

@@ -14,7 +14,7 @@ public static class NamedCallbacks {
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register(string name, Func<NamedParametersEventArgs, IO<Unit>> reply) =>
         (sink, retain) => IO.lift(() => Handlers(owner: null).ContainsKey(name) ? Error.New($"{nameof(HostUtils.RegisterNamedCallback)} already holds {name}") : Fin.Succ(unit))
             >> Subscriptions.Host<NamedParametersEventArgs>(typeof(HostUtils), handler => HostUtils.RegisterNamedCallback(name, handler),
-                handler => ((ICollection<KeyValuePair<string, EventHandler<NamedParametersEventArgs>>>)Handlers(owner: null)).Remove(new(name, handler)), name)
+                _ => HostUtils.RemoveNamedCallback(name), name)
                 .Inline(args => reply(args) >> IO.lift(() => args.Set(HandledEntry, value: true)), sink, retain);
 
     // --- [EXECUTION]

@@ -113,7 +113,7 @@ public static class MomentRows {
         from start in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
         from end in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), owned)
         from moded in IO.lift(() => { (start.Mode, end.Mode) = (DateTimePickerMode.Date, DateTimePickerMode.Date); })
-        from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), owned)
+        from table in Containers.Frame(static () => new TableLayout(), owned)
         from placed in IO.lift(() => {
             table.Rows.Add(new TableRow(new TableCell(start, scaleWidth: true), new TableCell(end, scaleWidth: true)));
             table.Spacing = new Size(RhinoLayout.StackedSpacing(Orientation.Horizontal, RhinoLayout.SpacingType.Table), 0);

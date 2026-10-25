@@ -19,14 +19,14 @@ namespace Rasm.Rhino.UI;
 internal sealed class ViewHost : Panel {
     internal Retained<IDisposable> Owned { get; } = new(DisposalOps.Release);
 
-    internal void Seat(View row, Control body) =>
-        Content = row.Children.Exists(static child => child.Fill) ? body : Scrolled(body);
-
-    private RhinoScrollableDialogPanel Scrolled(Control body) {
-        RhinoScrollableDialogPanel scroll = new() { Content = body };
-        Owned.Retain(scroll);
-        return scroll;
-    }
+    internal IO<Unit> Seat(View row, Control body) =>
+        (row.Children.Exists(static child => child.Fill)
+            ? IO.pure(body)
+            : Containers.Frame(static () => new RhinoScrollableDialogPanel(), Owned.Retain).Map(scroll => {
+                scroll.Content = body;
+                return (Control)scroll;
+            }))
+        .Bind(seated => IO.lift(() => { Content = seated; }));
 
     protected override void Dispose(bool disposing) {
         try { if (disposing) Owned.Dispose(); } finally { base.Dispose(disposing); }
@@ -274,7 +274,8 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
             from frame in IO.lift(static () => new ViewHost())
             from realized in DisposalOps.OnFailure(
                 from body in DisposalOps.Acquire(ViewBody.Open(IPlugInViews.Of(this), row, held, commit, Some(Marking)), frame.Owned.Retain)
-                from configured in IO.lift(() => { frame.Seat(row, body.Content); frame.UseRhinoStyle(); })
+                from seated in frame.Seat(row, body.Content)
+                from configured in IO.lift(frame.UseRhinoStyle)
                 from published in page.SwapIO(_ => Some((Body: body, Frame: (Control)frame)))
                 select published,
                 IO.lift(frame.Dispose))

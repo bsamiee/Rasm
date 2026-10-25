@@ -9,6 +9,10 @@
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
+    <ItemGroup Label="Mathematics">
+        <PackageReference Include="System.Numerics.Tensors" />
+    </ItemGroup>
+
     <ItemGroup Label="Color">
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>

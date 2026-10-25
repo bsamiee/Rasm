@@ -589,7 +589,7 @@ public static class Queues {
                 from changed in Change(doc, RowText.Localize("Edit Entries"), _ => new QueueBook(rows.IfNone([]).Map(static row => row.Entry)))
                 select unit,
             Applied.Live,
-            None));
+            RenderSettingsSources.DictionaryChanged(scope)));
 
     private static readonly (RowSource<LanguageExt.HashSet<int>> Source, RowField<LanguageExt.HashSet<int>> Field) Picked =
         RowSource.Opaque(Owner, "picked", LanguageExt.HashSet<int>.Empty);
@@ -597,6 +597,13 @@ public static class Queues {
     private static readonly (RowSource<bool> Source, RowField<bool> Field) Clayed = RowSource.Opaque(Owner, "clay", @default: false);
 
     private static readonly (RowSource<Option<Preflight>> Source, RowField<Option<Preflight>> Field) Report = RowSource.Opaque(Owner, "check", Option<Preflight>.None);
+
+    private static readonly HostEvent<Unit> Estimated = new(typeof(QueueContext), nameof(QueueContext.Estimate), static (deliver, site, retain) =>
+        QueueContext.Current.Of(site.Sink).Bind(context => Subscriptions.Changed(context.Estimate).Attach(_ => deliver(unit), site, retain)));
+
+    private static readonly (RowSource<RunState> Source, RowField<RunState> Field) Observed =
+        RowSource.Opaque(Owner, "run", new RunState.Absent(), static scope => ValueStore.Readout(
+            QueueContext.Current.Of(scope.Sink).Bind(QueueProgress.Observed).Map(static observed => observed.State), Some(Estimated)));
 
     private static readonly ReadoutSource<(QueueEstimate Estimate, TimeProvider Clock, DateTimeZone Zone)> Zoned =
         new ReadoutSource<(QueueEstimate Estimate, TimeProvider Clock, DateTimeZone Zone)>.Scoped(static scope =>
@@ -607,8 +614,9 @@ public static class Queues {
 
     public static Seq<Child> Rows(QueueSettingRows settings) {
         ReadoutSource<Option<Preflight>> check = new ReadoutSource<Option<Preflight>>.Scoped(static scope => scope.Read(Report.Source));
-        Func<RowScope, IO<RunState>> state = static scope =>
-            QueueContext.Current.Of(scope.Sink).Bind(QueueProgress.Observed).Map(static observed => observed.State);
+        Func<RowScope, IO<RunState>> state = static scope => scope.Read(Observed.Source);
+        RowRules ran = new(None, Some(RowRule.When(Observed.Source, static current => current is not RunState.Absent)));
+        RowRules reported = new(None, Some(RowRule.When(Report.Source, static report => report.IsSome)));
         RowRule ready = new([], [], scope => state(scope).Map(static current => current.Map(absent: true, active: false, ended: true, crashed: true)));
         RowRule resumable = new([], [], scope => state(scope).Map(static current => current.Switch(
             absent: static _ => false, active: static _ => false, ended: static ended => ended.End != RunEnd.Succeeded, crashed: static _ => true)));
@@ -627,7 +635,6 @@ public static class Queues {
             ("File size", bytes, static report => report.Statistics.FileLength.Map(static length => (object)length)),
         ];
         return [
-            new ControlRow.Group("Entries", RowRules.Always) { Wording = Wording.Library },
             ListRows.List("Entries", "Queued renders of document, in add order", new ListRow<(QueuedEntry Entry, int Index), int>(
                     IterableNE.create<ListColumn<(QueuedEntry Entry, int Index)>>(
                         new ListColumn<(QueuedEntry Entry, int Index)>.Check(Some("Render"), Lens<(QueuedEntry Entry, int Index), bool>.New(
@@ -642,6 +649,7 @@ public static class Queues {
                     Picked) {
                 AllowMultipleSelection = true,
                 Wording = Wording.Library,
+                Empty = Some("No renders queued"),
                 Pair = Some((
                         new CommandRow.Run(Face("render-queue-add-view", "Add Active Viewport", "Queue active viewport at document render size"), None,
                             static scope => Added(scope, static _ => IO.pure(Seq(Placement.Active)))),
@@ -674,19 +682,20 @@ public static class Queues {
                 ],
             },
                 RowRules.Always),
-            new ControlRow.Group("Run", RowRules.Always) { Wording = Wording.Library },
+            new ControlRow.Group("Run", ran) { Wording = Wording.Library },
             TextRows.Progress("Progress", "Frames rendered of queue total", new ReadoutSource<WorkState>.Scoped(static scope =>
-                QueueContext.Current.Of(scope.Sink).Bind(static context => context.Estimate.ValueIO).Map(static estimate => estimate.Work)), RowRules.Always) with { Wording = Wording.Library, },
-            TextRows.Readout("State", "Queue record state", stated, static shown => Stated(shown.State, shown.Zone), RowRules.Always) with { Wording = Wording.Library },
-            TextRows.Readout("Remaining", "Time left and finish time, from rendered frames", Zoned, static shown => shown.Estimate.Description(shown.Zone), RowRules.Always) with { Wording = Wording.Library },
-            .. toSeq(FrameStage.Items).Map(static stage => TextRows.Readout(stage.Caption,
+                QueueContext.Current.Of(scope.Sink).Bind(static context => context.Estimate.ValueIO).Map(static estimate => estimate.Work)), ran) with { Wording = Wording.Library, },
+            TextRows.Readout("State", "Queue record state", stated, static shown => Stated(shown.State, shown.Zone), ran) with { Wording = Wording.Library },
+            TextRows.Readout("Remaining", "Time left and finish time, from rendered frames", Zoned, static shown => shown.Estimate.Description(shown.Zone), ran) with { Wording = Wording.Library },
+            .. toSeq(FrameStage.Items).Map(stage => TextRows.Readout(stage.Caption,
                 "Time last finished frame spent in stage", Zoned,
                 shown => shown.Estimate.Last.Map<string>(mark => RowText.Localize("{0:N3} s", arguments: [stage.Of(mark, shown.Clock).TotalSeconds])).IfNone(""),
-                RowRules.Always) with { Wording = Wording.Library, }),
+                ran) with { Wording = Wording.Library, }),
             TextRows.Readout("Peak memory", "Peak process memory at last finished frame", Zoned,
-                static shown => shown.Estimate.Last.Map<string>(static mark => RowText.Localize(bytes, arguments: [mark.PeakWorkingSet])).IfNone(""), RowRules.Always) with { Wording = Wording.Library, },
+                static shown => shown.Estimate.Last.Map<string>(static mark => RowText.Localize(bytes, arguments: [mark.PeakWorkingSet])).IfNone(""), ran) with { Wording = Wording.Library, },
+            new ControlRow.Group("Check", reported) { Wording = Wording.Library },
             .. measures.Map(measure => TextRows.Readout(measure.Caption, "From last queue check", check,
-                report => report.Bind(measure.Value).Map<string>(value => RowText.Localize(measure.Format, arguments: [value])).IfNone(""), RowRules.Always) with { Wording = Wording.Library, }),
+                report => report.Bind(measure.Value).Map<string>(value => RowText.Localize(measure.Format, arguments: [value])).IfNone(""), reported) with { Wording = Wording.Library, }),
             ListRows.List("Estimated memory", "Scene and render channel memory per entry, from last check", new ListRow<(int Entry, ulong Memory), int>(
                     IterableNE.create<ListColumn<(int Entry, ulong Memory)>>(
                         new ListColumn<(int Entry, ulong Memory)>.Label(Some(entryCaption), static entry => (entry.Entry + 1).ToString(RowText.Culture), None, None),
@@ -695,16 +704,15 @@ public static class Queues {
                     RowSource.Opaque(Owner, "memory", Seq<(int Entry, ulong Memory)>(), static scope => ValueStore.Readout(
                         scope.Read(Report.Source).Map(static report => report.Map(static held => toSeq(held.Memory.AsIterable()).Map(static entry => (Entry: entry.Key, Memory: entry.Value))).IfNone(Seq<(int Entry, ulong Memory)>())),
                         None)),
-                    RowSource.Opaque(Owner, "memory-picked", LanguageExt.HashSet<int>.Empty)) { Wording = Wording.Library }, RowRules.Always),
-            ListRows.List("Check", "Refusals and cautions from last check", new ListRow<PreflightFinding, PreflightFinding>(
+                    RowSource.Opaque(Owner, "memory-picked", LanguageExt.HashSet<int>.Empty)) { Wording = Wording.Library }, reported),
+            ListRows.List("Findings", "Refusals and cautions from last check", new ListRow<PreflightFinding, PreflightFinding>(
                     IterableNE.create<ListColumn<PreflightFinding>>(new ListColumn<PreflightFinding>.Label(None, static finding => ErrorOps.Localize(finding.Error), None, None)),
                     static finding => finding,
                     RowSource.Opaque(Owner, "findings", Seq<PreflightFinding>(), static scope => ValueStore.Readout(
                         scope.Read(Report.Source).Map(static check => check.Map(static held => held.Refusals + held.Cautions).IfNone(Seq<PreflightFinding>())),
                         None)),
                     RowSource.Opaque(Owner, "finding", LanguageExt.HashSet<PreflightFinding>.Empty)) { Wording = Wording.Library },
-                RowRules.Always),
-            .. settings.Children,
+                reported),
         ];
     }
 

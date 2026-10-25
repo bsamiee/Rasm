@@ -58,9 +58,9 @@ public static class Showing {
         from frame in DisposalOps.Acquire(IO.lift(static () => new ViewHost()), window.Owned.Retain)
         from body in DisposalOps.Acquire(ViewBody.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None), frame.Owned.Retain)
         from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Window, HostTheme.In(window), frames => window.Icon = frames, window.Owned.Retain)).As()
+        from seated in frame.Seat(window.Row, body.Content)
         from configured in IO.lift(() => {
             window.Title = RowText.Localize(window.Row.Caption, owner).Local;
-            frame.Seat(window.Row, body.Content);
             window.Content = frame;
             window.UseRhinoStyle();
             window.ClientSize = window.Row.Size.IfNone(() => Size.Ceiling(frame.GetPreferredSize()));

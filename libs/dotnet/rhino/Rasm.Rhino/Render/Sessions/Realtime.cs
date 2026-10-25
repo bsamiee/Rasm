@@ -185,7 +185,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
                 select (Queue: queue, Now: now, Target: target), (created, lease) => {
                     Option<RealtimeSession> prior = atomic(() => {
                         Option<RealtimeSession> held = sessions.Value;
-                        _ = sessions.Swap(_ => Some(RealtimeSession.Of(created.Target, lease, created.Now)));
+                        sessions.Value = Some(RealtimeSession.Of(created.Target, lease, created.Now));
                         return held;
                     });
                     return DisposalOps.Release(prior.Map(static session => session.Scene).ToSeq());
@@ -197,9 +197,9 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
     private IO<Unit> Closed =>
         atomicIO(() => {
-            Option<RealtimeSession> held = sessions.Value;
-            _ = sessions.Swap(static _ => None);
-            return held;
+            Option<RealtimeSession> prior = sessions.Value;
+            sessions.Value = None;
+            return prior;
         }).Bind(static held => DisposalOps.Release(held.Map(static session => session.Scene).ToSeq())).Uninterruptible();
 
     private IO<Unit> Resized(RealtimeTarget target, Func<RealtimeTarget, IO<Unit>> resize) =>

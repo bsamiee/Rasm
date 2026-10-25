@@ -44,7 +44,7 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Axis
     private static readonly HashMap<string, FieldText<TState>> Fields =
         toHashMap(FieldTexts.Items<TState>().Map(static field => (EntryKey.Name(field.Path), field)));
 
-    private readonly Ref<EffectValue<TState>> held = Ref(new EffectValue<TState>(factory, amount));
+    private readonly Atom<EffectValue<TState>> held = Atom(new EffectValue<TState>(factory, amount));
 
     private readonly AsyncLocal<Option<Func<string, Option<IO<Unit>>>>> writing = new();
 
@@ -66,11 +66,11 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Axis
             None: () => (Fields.Find(key).Map(field =>
                     from step in IO.lift(new EntryKey(Owner, field.Path).Read(text, field.Recall))
                     from set in step
-                    from swapped in IO.lift(() => atomic(() => held.Swap(value => value with { Record = set(value.Record) })))
+                    from swapped in held.SwapIO(value => value with { Record = set(value.Record) })
                     select unit)
                 | Mixed(key).Map(_ =>
                     from mix in IO.lift(EffectStates.AmountOf(Owner, text))
-                    from swapped in IO.lift(() => atomic(() => held.Swap(value => value with { Amount = Some(mix) })))
+                    from swapped in held.SwapIO(value => value with { Amount = Some(mix) })
                     select unit)).Map(change));
 
     internal IO<Change<TState>> Write(TState target, Func<string, string, Fin<Unit>> set) =>
@@ -97,7 +97,7 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Axis
             EffectValue<TState> before = held.Value;
             Change<A> change = ValueStore.Between(project(before), project(keys.Choose(prepare).Fold(before, static (value, update) => update(value))));
             Func<string, Option<IO<Unit>>> apply = key => prepare(key).Map(update =>
-                IO.lift(() => atomic(() => held.Swap(update))).Map(unit));
+                held.SwapIO(update).Map(unit));
             return DisposalOps.Within(
                 () => {
                     Option<Func<string, Option<IO<Unit>>>> prior = writing.Value;
@@ -113,7 +113,7 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Axis
     // --- [PERSISTENCE]
     public IO<Unit> ReadState(PostEffectState store) =>
         from read in EffectStates.Folded(Owner, path => IO.lift(() => Callbacks.Found(store.TryGetValue(EntryKey.Name(path), out string text), text)), factory, amount)
-        from _ in IO.lift(() => atomic(() => held.Swap(_ => read.Value)))
+        from _ in writeIO(held, read.Value)
         from __ in unless(read.Refused.IsEmpty, IO.fail<Unit>(Error.Many(read.Refused))).As()
         select unit;
 
@@ -124,7 +124,7 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Axis
             nameof(PostEffectState.SetValue))));
 
     public IO<Unit> ResetToFactoryDefaults() =>
-        IO.lift(() => atomic(() => held.Swap(_ => Default))).Map(unit);
+        writeIO(held, Default).Map(unit);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

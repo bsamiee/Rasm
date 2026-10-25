@@ -73,16 +73,16 @@ public sealed class RowGrid : Drawable {
         from acquired in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
         from grid in DisposalOps.OnFailure(
             from placed in rows.Map(static (row, at) => (Row: row, At: at)).TraverseM(row => Placed(row.At, row.Row, scope, acquired.Retain)).As()
-            from metrics in Measured(column, placed, scope.Sink, acquired.Retain)
-            from stack in DisposalOps.Acquire(IO.lift(() => new StackLayout {
+            from metrics in Measured(column, placed, scope.Sink)
+            from stack in Containers.Frame(() => new StackLayout {
                 Orientation = Orientation.Vertical,
                 Spacing = metrics.Spacing.Height,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            }), acquired.Retain)
+            }, acquired.Retain)
             from created in DisposalOps.Acquire(IO.lift(() => new RowGrid(scope, placed, metrics, stack, acquired)), retain)
             select created,
             IO.lift(acquired.Dispose))
-        from attached in DisposalOps.OnFailure(IO.lift(() => grid.Style = HandlerStyle).Bind(_ => grid.Attached), IO.lift(grid.Dispose))
+        from attached in IO.lift(() => grid.Style = HandlerStyle).Bind(_ => grid.Attached)
         select grid;
 
     public Option<string> Caption(Control value) =>
@@ -116,23 +116,24 @@ public sealed class RowGrid : Drawable {
                           + held.Lines.Map(line => Headed(line, row.Wording, scope.Sink, None))
                         : Seq(new LineSpec(caption.Map(static text => new LineCaption(text, CaptionCell.Column, Own: true)), Columned: true, held.Gate, Some(held.Value), held.Pick, first, Trailing: true, Fills: false)),
                     None: () => Seq(new LineSpec(None, Columned: false, None, Some(held.Value), None, None, Trailing: false, Fills: false)))
-                from hosted in lines.TraverseM(spec => Hosted(spec, retain)).As()
-                select new RowPlace(at, row, cells, caption, help, hosted, first),
+                from hosted in lines.TraverseM(spec => Hosted(spec, help, retain)).As()
+                select new RowPlace(at, row, cells, caption, hosted, first),
             None: () =>
-                from hosted in Hosted(new LineSpec(Some(new LineCaption(row.Wording.Shown(row.Caption, scope.Sink), CaptionCell.Rule, Own: true)), Columned: false, None, None, None, None, Trailing: false, Fills: false), retain)
-                select new RowPlace(at, row, None, None, row.Help.Map(text => row.Wording.Shown(text, scope.Sink)), Seq(hosted), None));
+                from hosted in Hosted(new LineSpec(Some(new LineCaption(row.Wording.Shown(row.Caption, scope.Sink), CaptionCell.Rule, Own: true)), Columned: false, None, None, None, None, Trailing: false, Fills: false),
+                    row.Help.Map(text => row.Wording.Shown(text, scope.Sink)), retain)
+                select new RowPlace(at, row, None, None, Seq(hosted), None));
 
     private static Option<string> Helped(ControlRow row, RowCells cells, IPlugInSink sink) => row.Help.Map(text => cells.Help.Text(text, row.Wording, sink));
 
     private static LineSpec Headed(RowLine line, Wording wording, IPlugInSink sink, Option<RowTrail> trail) =>
         new(line.Caption.Map(caption => new LineCaption(wording.Shown(caption, sink), CaptionCell.Column, Own: false)), line.Caption.IsSome, None, Some(line.Value), line.Pick, trail, Trailing: true, Fills: false);
 
-    private static IO<GridLine> Hosted(LineSpec spec, Action<IDisposable> retain) =>
-        from host in DisposalOps.Acquire(IO.lift(static () => new Panel()), static held => IO.lift(() => { held.Content = null; held.Dispose(); }), retain)
+    private static IO<GridLine> Hosted(LineSpec spec, Option<string> help, Action<IDisposable> retain) =>
+        from host in Containers.Frame(() => new Panel { ToolTip = help.ValueUnsafe() }, retain)
         from content in spec.Gate.IsNone && spec.Pick.IsNone && spec.Trail.IsNone
             ? IO.pure(spec.Value)
-            : DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(spec.Cells)) { Padding = 0, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }),
-                static held => IO.lift(() => { held.Rows.Clear(); held.Dispose(); }), retain).Map(static table => Some<Control>(table))
+            : Containers.Frame(() => new TableLayout(new TableRow(spec.Cells)) { Padding = 0, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }, retain)
+                .Map(static table => Some<Control>(table))
         from placed in IO.lift(() => host.Content = content.ValueUnsafe())
         select new GridLine(spec, host);
 
@@ -163,9 +164,9 @@ public sealed class RowGrid : Drawable {
         select button;
 
     // --- [FORM]
-    private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink, Action<IDisposable> retain) =>
-        from regular in DisposalOps.Acquire(IO.lift(static () => SystemFonts.Label()), retain)
-        from emphasis in DisposalOps.Acquire(IO.lift(() => SystemFonts.Bold(regular.Size)), retain)
+    private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink) =>
+        from regular in IO.lift(static () => SystemFonts.Label())
+        from emphasis in IO.lift(() => SystemFonts.Bold(regular.Size))
         let labels = column
             .Filter(static row => row.Layout.Exists(static shape => shape.Labeled && !shape.Spans))
             .Map(row => emphasis.MeasureString(row.Wording.Shown(row.Caption, sink)).Width)
@@ -236,18 +237,11 @@ public sealed class RowGrid : Drawable {
         Seq(scope.Listen(Refresh, acquired.Retain),
             HostTheme.Changed.Inline(_ => Refreshed(places), Sink, acquired.Retain),
             Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink, acquired.Retain),
-            Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, acquired.Retain),
-            Subscriptions.Host<AtomChangedEvent<RowMarks>, RowMarks>(typeof(Atom<RowMarks>), h => marks.Change += h, h => marks.Change -= h,
-                static handler => held => handler(sender: null, held), nameof(marks.Change)).Inline(held => IO.lift(() => {
-                    ToolTip = held.Hovered.Bind(at => places.Find(place => place.At == at)).Bind(static place => place.Help).ValueUnsafe();
-                    Invalidate();
-                }), Sink, acquired.Retain))
+            Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, acquired.Retain))
         + places.Choose(place => place.Cells.Bind(static cells => cells.Menu).Map(attach =>
             attach(place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)), acquired.Retain)
                 .Bind(menu => marks.SwapIO(held => held with { Menus = held.Menus.AddOrUpdate(place.At, menu) })).Map(unit)))
-        + places.Bind(static place => place.Sources).Distinct()
-            .Filter(source => !places.Exists(place => place.Row.Bound.Exists(bound => bound == source)))
-            .Map(Watched);
+        + places.Bind(static place => place.Sources).Distinct().Map(Watched);
 
     private IO<Unit> Watched(RowSource source) =>
         from signals in source.Signals(scope)
@@ -325,19 +319,6 @@ public sealed class RowGrid : Drawable {
     private Option<int> Hit(PointF at) =>
         Placements(form.Value.Beside).Choose(drawn => drawn.Caption.Filter(caption => caption.Bounds.Contains(at)).Map(_ => drawn.Place.At)).Head;
 
-    private IO<Unit> Pointed(Option<int> hovered) =>
-        marks.SwapMaybeIO(held => Some(held with { Hovered = hovered }).Filter(_ => hovered != held.Hovered)).Map(unit);
-
-    protected override void OnMouseMove(MouseEventArgs e) {
-        Callbacks.Run(Pointed(Hit(e.Location)), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseMove)));
-        base.OnMouseMove(e);
-    }
-
-    protected override void OnMouseLeave(MouseEventArgs e) {
-        Callbacks.Run(Pointed(None), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseLeave)));
-        base.OnMouseLeave(e);
-    }
-
     protected override void OnMouseDown(MouseEventArgs e) {
         Callbacks.Run(
             from hit in IO.lift(() => Hit(e.Location))
@@ -380,7 +361,7 @@ public sealed class RowGrid : Drawable {
         public Seq<ImageButton> Buttons => Reset.Cons(Shackle.ToSeq());
     }
 
-    private sealed record RowPlace(int At, ControlRow Row, Option<RowCells> Cells, Option<string> Caption, Option<string> Help, Seq<GridLine> Lines, Option<RowTrail> Trail) {
+    private sealed record RowPlace(int At, ControlRow Row, Option<RowCells> Cells, Option<string> Caption, Seq<GridLine> Lines, Option<RowTrail> Trail) {
         public Seq<EntryKey> Reads => Row.Keys + Row.Rules.Each.Bind(static rule => rule.Reads);
 
         public Seq<RowSource> Sources => Row.Rules.Each.Bind(static rule => rule.Sources);
@@ -390,8 +371,8 @@ public sealed class RowGrid : Drawable {
         public static RowPaint Plain { get; } = new(Enabled: true, Modified: false);
     }
 
-    private sealed record RowMarks(HashMap<int, RowPaint> Paints, HashMap<int, ContextMenu> Menus, Option<int> Hovered) {
-        public static RowMarks Initial { get; } = new([], [], None);
+    private sealed record RowMarks(HashMap<int, RowPaint> Paints, HashMap<int, ContextMenu> Menus) {
+        public static RowMarks Initial { get; } = new([], []);
     }
 
     private sealed record DrawnLine(RowPlace Place, Option<(LineCaption Text, RectangleF Bounds)> Caption);

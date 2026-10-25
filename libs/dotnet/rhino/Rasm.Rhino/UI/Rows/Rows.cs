@@ -334,7 +334,7 @@ public sealed class RowScope {
             Option<T> before = cell.Value;
             cell.Value = next;
             return ValueStore.Between(before, next);
-        }), EqualityComparer<T>.Default.Equals, Applied.Live, None);
+        }), EqualityComparer<T>.Default.Equals, Applied.Live, Some(Subscriptions.Changed(cell).Choose(static _ => Some(unit))));
 
     internal IO<bool> Paced => mode.ValueIO.Map(static held => held.Map(immediate: true, revertible: true, deferred: true, targets: false, contents: false));
 

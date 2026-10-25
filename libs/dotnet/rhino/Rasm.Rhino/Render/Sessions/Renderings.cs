@@ -316,9 +316,7 @@ public sealed class RenderHistory {
         nameof(Changed),
         static (deliver, site, retain) =>
             Current.Of(site.Sink)
-                .Bind(history => Subscriptions.Host<AtomChangedEvent<Ledger>, Ledger>(
-                        typeof(RenderHistory), handler => history.held.Change += handler, handler => history.held.Change -= handler,
-                        static handler => ledger => handler(sender: null, ledger), nameof(Changed))
+                .Bind(history => Subscriptions.Changed(history.held, nameof(Changed))
                     .Choose(static _ => Some(unit))
                     .Attach(deliver, site, retain)));
 

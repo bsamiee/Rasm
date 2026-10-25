@@ -117,7 +117,7 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
     private const string ExportLut = "DarkroomExportLut";
     private const string ExportStMap = "DarkroomExportStMap";
 
-    public static RuiFile Rui { get; } = new([], [new MenuExtension(["Render"], [
+    public static RuiFile Rui { get; } = new([], [new MenuExtension(["Render", "Render Properties..."], [
         new MenuItemRow.Separator(),
         new MenuItemRow.Run(new Macro(new CommandScript(ExportLut, []), new CommandFace(ExportLut, "Export LUT...", "Bake the formation and grade chain into a 3D LUT file", None, None))),
         new MenuItemRow.Run(new Macro(new CommandScript(ExportStMap, []), new CommandFace(ExportStMap, "Export ST Map...", "Write the lens distortion of the active view as an ST map", None, None))),

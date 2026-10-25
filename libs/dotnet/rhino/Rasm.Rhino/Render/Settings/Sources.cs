@@ -58,6 +58,7 @@ public static class RenderSettingsSources {
             live: static (body, held) => Opened(held.Doc, live =>
                 DisposalOps.Within(live.Settings.Duplicate, staged =>
                     from edited in body(live with { Settings = staged })
+                    from recorded in Recorded(held.Doc, live.Settings, staged)
                     from committed in IO.lift(() => { held.Doc.RenderSettings = staged; })
                     select edited)),
             section: static (body, held) => SectionModels.Write(held.Host, Provider.RhinoSettings, data =>
@@ -70,6 +71,21 @@ public static class RenderSettingsSources {
 
     private static IO<T> Opened<T>(RhinoDoc doc, Func<RenderSettingsScope, IO<T>> body) =>
         DisposalOps.Within(() => doc.RenderSettings, settings => body(new RenderSettingsScope(settings, doc.ModelUnits)));
+
+    private static IO<Unit> Recorded(RhinoDoc doc, RenderSettings prior, RenderSettings next) =>
+        from open in IO.lift(() => doc.UndoRecordingIsActive)
+        from recorded in when(open, IO.lift(() => (Prior: prior.Duplicate(), Next: next.Duplicate())).Bind(held => Undoable(doc, held.Prior, held.Next))).As()
+        select recorded;
+
+    private static IO<Unit> Undoable(RhinoDoc doc, RenderSettings restored, RenderSettings replaced) =>
+        IO.lift(() => Refused.Unless(
+            doc.AddCustomUndoEvent(nameof(RhinoDoc.RenderSettings), (_, args) => Restored(args.Document, restored, replaced).Run()),
+            nameof(RhinoDoc.AddCustomUndoEvent)));
+
+    private static IO<Unit> Restored(RhinoDoc doc, RenderSettings restored, RenderSettings replaced) =>
+        from registered in Undoable(doc, replaced, restored)
+        from assigned in IO.lift(() => { doc.RenderSettings = restored; })
+        select assigned;
 
     // --- [SUB_OWNERS]
     public static IO<T> SubOwner<THost, T>(RenderSettingsScope scope, Func<RenderSettings, THost> select, Func<THost, IO<T>> body) where THost : IDisposable =>
@@ -97,6 +113,9 @@ public static class RenderSettingsSources {
             archive: static _ => Option<uint>.None,
             detached: static _ => Option<uint>.None)
         select ValueStore.Signal(row.In(serial), static _ => true);
+
+    public static Option<HostEvent<Unit>> DictionaryChanged(RowScope scope) =>
+        scope.Document.Map(static doc => ValueStore.Signal(EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber), static _ => true));
 
     public static DictionaryOwner Dictionary(RenderSettingsSource source) =>
         new(Read(source, static scope => ArchivableDictionaries.UserDictionary(scope.Settings).Map(static held => held.Clone())),

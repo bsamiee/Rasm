@@ -264,9 +264,6 @@ public static class TargetRows {
     private static IO<Unit> Write(RhinoDoc doc, OutputBook book) =>
         ArchivableDictionaries.Write(RenderSettingsSources.Dictionary(doc), OutputBook.Codec, book.Captured);
 
-    private static Option<HostEvent<Unit>> Signal(RowScope scope) =>
-        scope.Document.Map(static doc => ValueStore.Signal(EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber), static _ => true));
-
     private static ValueStore<T> Booked<T>(RowScope scope, Func<OutputBook, Option<T>> read, Func<OutputBook, Option<T>, OutputBook> write) where T : notnull =>
         ValueStore.Of(
             from doc in scope.DocumentIO
@@ -278,7 +275,7 @@ public static class TargetRows {
                 from written in Write(doc, write(book, value))
                 select written,
             Applied.Live,
-            Signal(scope));
+            RenderSettingsSources.DictionaryChanged(scope));
 
     // --- [ROWS]
     private const string Owner = "output-targets";
@@ -322,7 +319,7 @@ public static class TargetRows {
                     from written in Write(doc, book with { Targets = book.Targets.Add(OutputTarget.Default), Current = Some(book.Targets.Count) })
                     select written),
                 new CommandRow.Run(new CommandFace("output-target-remove", "Remove Targets", "Remove selected targets", None, None),
-                    Some(RowRule.When(Picked.Source, static picked => !picked.IsEmpty, Picked.Field.Parameter)), static scope =>
+                    Some(RowRule.When(Picked.Source, static picked => !picked.IsEmpty)), static scope =>
                         from doc in scope.DocumentIO
                         from picked in scope.Read(Picked.Source)
                         from book in Book(doc)
@@ -346,7 +343,7 @@ public static class TargetRows {
                     from book in Book(doc)
                     from listed in Saves.Preview(doc, book)
                     select listed,
-                    Signal(scope))),
+                    RenderSettingsSources.DictionaryChanged(scope))),
                 RowSource.Opaque(Owner, "path-picked", LanguageExt.HashSet<string>.Empty)),
             RowRules.Always),
     ];

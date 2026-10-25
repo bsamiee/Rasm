@@ -432,16 +432,17 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     // --- [READS]
     public IO<Option<FrameZoom>> Zoom =>
-        IO.lift(() => Placed(State, Size, ParentWindow.LogicalPixelSize).Bind(static at => FrameZoom.Validated(at.Zoom).ToOption()));
+        IO.lift(() => CurrentSurface.Bind(surface => Placed(State, surface.Size, surface.Scale)).Bind(static at => FrameZoom.Validated(at.Zoom).ToOption()));
 
     public IO<Option<(double X, double Y)>> Hovered =>
         IO.lift(() =>
             from pointer in Pointer
-            from at in At(State, Size, ParentWindow.LogicalPixelSize, pointer)
+            from surface in CurrentSurface
+            from at in At(State, surface.Size, surface.Scale, pointer)
             from pixel in Pixel(at, pointer)
             select pixel);
 
-    public IO<Option<RectangleF>> VisibleFrame => IO.lift(() => Placed(State, Size, ParentWindow.LogicalPixelSize).Map(static at => at.Visible));
+    public IO<Option<RectangleF>> VisibleFrame => IO.lift(() => CurrentSurface.Bind(surface => Placed(State, surface.Size, surface.Scale)).Map(static at => at.Visible));
 
     private static Option<(double X, double Y)> Pixel(Placement at, PointF view) =>
         at.Point(view) switch {

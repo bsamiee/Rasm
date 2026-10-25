@@ -50,7 +50,12 @@ public static class UserStrings {
         IO.lift(() => Conversions.Present(doc.Strings.GetValue(key.Text)));
 
     public static IO<Option<string>> Write(RhinoDoc doc, DocumentKey key, Option<string> value) =>
-        Value(doc, key).Bind(prior => IO.lift(() => prior == value.Bind(Conversions.Present) ? prior : Conversions.Present(doc.Strings.SetString(key.Text, Conversions.Unset(value)))));
+        from prior in Value(doc, key)
+        let next = value.Bind(Conversions.Present)
+        from written in when(prior != next, next.Match(
+            Some: text => IO.lift(() => ignore(doc.Strings.SetString(key.Text, text))),
+            None: () => IO.lift(() => doc.Strings.Delete(key.Text)))).As()
+        select prior;
 
     public static IO<HashMap<EqStringOrdinalIgnoreCase, string, string>> Entries(RhinoDoc doc, KeyName section) =>
         IO.lift(() => toHashMap<EqStringOrdinalIgnoreCase, string, string>(

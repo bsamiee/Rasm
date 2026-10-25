@@ -120,7 +120,7 @@ public static class NumericRows {
         from text in IO.pure(NumberText.Scalar(domain, RowEdit.Varies))
         from typed in Typed(text, domain.Create, domain.Key, domain.Bounds, sink, retain)
         from track in Track(text, caption, sink, retain)
-        from value in DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(track.Map(static part => part.Cell).ToSeq().Add(typed.Part.Cell)))), retain)
+        from value in Containers.Frame(() => new TableLayout(new TableRow(track.Map(static part => part.Cell).ToSeq().Add(typed.Part.Cell))), retain)
         from spaced in IO.lift(() => { value.Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table); })
         select new NumericCell<TValue, TKey>(value, typed.Field.Fit, track, typed.Part, text, domain.Key, domain.Bounds);
 

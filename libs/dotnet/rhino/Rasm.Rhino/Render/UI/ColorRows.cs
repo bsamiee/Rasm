@@ -192,17 +192,14 @@ public static class ColorRows {
         })
         from pair in ButtonRows.AddRemove(add, remove, retain)
         from state in atomIO(new StripState<TRecord>(None, None, 0))
-        from wells in IO.lift(static () => Ref(Seq<Well>()))
-        from owned in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
-        from panel in DisposalOps.Acquire(IO.lift(() => new Panel { Tag = owned }), value =>
-            IO.lift(() => { value.Content = null; value.Dispose(); })
-                .Bind(_ => atomicIO(() => wells.Value = []))
-                .Bind(_ => owned.Close), retain)
-        from body in DisposalOps.Acquire(IO.lift(() => new StackLayout(
+        from wells in atomIO(Seq<Well>())
+        from owned in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), retain)
+        from panel in Containers.Frame(static () => new Panel(), retain)
+        from body in Containers.Frame(() => new StackLayout(
                 new StackLayoutItem(pair, HorizontalAlignment.Left), new StackLayoutItem(panel)) {
             Orientation = Orientation.Vertical,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-        }), retain)
+        }, retain)
         let site = new CallbackSite(scope.Sink, typeof(ColorRows), nameof(Swatches))
         let made = fun((RowEdit<TRecord> edit) => new Strip<TRecord>(
             panel, add, remove, state, wells, owned,
@@ -265,7 +262,7 @@ public static class ColorRows {
         from made in DisposalOps.Replace(keep => Built(strip, held, columns, keep),
             (value, lease) =>
                 from published in DisposalOps.Published(strip.Owned, (Control?)value.Layout, lease, () => strip.Panel.Content, content => strip.Panel.Content = content)
-                from shown in atomicIO(() => strip.Wells.Value = value.Wells)
+                from shown in writeIO(strip.Wells, value.Wells)
                 from laid in strip.State.SwapIO(current => current with { Columns = columns })
                 select unit)
         from framed in Framed(strip, held)
@@ -273,8 +270,8 @@ public static class ColorRows {
 
     private static IO<(Seq<Well> Wells, StackLayout Layout)> Built<TRecord>(Strip<TRecord> strip, StripState<TRecord> held, int columns, Action<IDisposable> keep) where TRecord : notnull =>
         from wells in Entries(strip, held).Map((entry, index) => Placed(strip, entry, index, keep)).TraverseM(static make => make).As()
-        from lines in toSeq(wells.Chunk(columns)).TraverseM(line => DisposalOps.Acquire(IO.lift(() => new StackLayout([.. toSeq(line).Map(static well => new StackLayoutItem(well.Button))]) { Orientation = Orientation.Horizontal }), keep)).As()
-        from layout in DisposalOps.Acquire(IO.lift(() => new StackLayout([.. lines.Map(static line => new StackLayoutItem(line, HorizontalAlignment.Left))]) { Orientation = Orientation.Vertical }), keep)
+        from lines in toSeq(wells.Chunk(columns)).TraverseM(line => Containers.Frame(() => new StackLayout([.. toSeq(line).Map(static well => new StackLayoutItem(well.Button))]) { Orientation = Orientation.Horizontal }, keep)).As()
+        from layout in Containers.Frame(() => new StackLayout([.. lines.Map(static line => new StackLayoutItem(line, HorizontalAlignment.Left))]) { Orientation = Orientation.Vertical }, keep)
         select (Wells: wells, Layout: layout);
 
     private static IO<Unit> Framed<TRecord>(Strip<TRecord> strip, StripState<TRecord> held) where TRecord : notnull =>
@@ -353,7 +350,7 @@ public static class ColorRows {
 
     private sealed record Strip<TRecord>(
         Panel Panel, Command Add, Command Remove, Atom<StripState<TRecord>> State,
-        Ref<Seq<Well>> Wells, Retained<IDisposable> Owned,
+        Atom<Seq<Well>> Wells, Retained<IDisposable> Owned,
         Func<TRecord, Seq<Swatch>> Listed, Func<TRecord, Func<Seq<Swatch>, Seq<Swatch>>, Fin<TRecord>> Revise, RowEdit<TRecord> Edit, RowScope Scope, CallbackSite Site)
         where TRecord : notnull;
 
@@ -547,7 +544,7 @@ public static class ColorRows {
                        picked => bound.Take(new Edit<RampInterpolation>.Commit(picked), (interpolation, held) => Interpolated(lens, interpolation, held)).Map(unit), scope.Sink, retain)
                from well in Welled(new SwatchEncoding.SceneLinear(working), new Size(-1, SwatchSide), IO.pure(unit), scope.Sink, retain)
                from position in DisposalOps.Acquire(IO.lift(() => new NumberField<RampPosition, double>(text, domain.Create, domain.Key, domain.Bounds, scope.Sink)), retain)
-               from line in DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(new TableCell(well.Button, scaleWidth: true), new TableCell(position)))), retain)
+               from line in Containers.Frame(() => new TableLayout(new TableRow(new TableCell(well.Button, scaleWidth: true), new TableCell(position))), retain)
                from spaced in IO.lift(() => { line.Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table); })
                let stopped = Stopped(stop.ValueIO, well, position)
                from session in Session(well, bound, (color, record) => Recolored(lens, stop.Value.Selected, color, record), scope, site, retain)

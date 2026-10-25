@@ -73,10 +73,17 @@ public static class ButtonRows {
         from added in IO.lift(() => strip.Items.AddRange(segments))
         select strip, retain);
 
-    public static IO<RhinoButtonRow> Strip(Seq<Control> actions, Seq<Control> toggles, Option<Control> modes, Action<IDisposable> retain) =>
+    public static IO<StackLayout> Strip(Seq<Seq<Control>> clusters, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-        from strip in DisposalOps.Acquire(IO.lift(static () => new RhinoButtonRow()), owned)
-        from groups in Seq(actions, toggles, modes.ToSeq()).Filter(static cluster => !cluster.IsEmpty).TraverseM(cluster => Cluster(strip, cluster, owned)).As()
+        from rows in clusters.Filter(static cluster => !cluster.IsEmpty).TraverseM(cluster =>
+            from row in Containers.Frame(static () => new RhinoButtonRow { VerticalContentAlignment = VerticalAlignment.Center }, owned)
+            from filled in IO.lift(() => cluster.Iter(control => row.Items.Add(control)))
+            select row).As()
+        from strip in Containers.Frame(() => new StackLayout([.. rows]) {
+            Orientation = Orientation.Horizontal,
+            Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Panel).Width,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        }, owned)
         select strip, retain);
 
     private static IO<SegmentedItem> Segment(
@@ -87,16 +94,6 @@ public static class ButtonRows {
         from bound in DisposalOps.Change(() => segment.Command, value => segment.Command = value, mode.Command, owned)
         from themed in mode.Glyph.Traverse(glyph => Icons.Themed(sink, glyph, slot, HostTheme.In(strip), icon => segment.Image = icon, owned)).As()
         select (SegmentedItem)segment;
-
-    private static IO<Unit> Cluster(RhinoButtonRow strip, Seq<Control> cluster, Action<IDisposable> owned) =>
-        from divider in strip.Items.Count is 0
-            ? IO.pure(Option<Divider>.None)
-            : DisposalOps.Acquire(IO.lift(static () => new Divider()), owned).Map(static held => Some(held))
-        from added in IO.lift(() => {
-            _ = divider.Iter(held => strip.Items.Add(new StackLayoutItem(held, VerticalAlignment.Stretch)));
-            _ = cluster.Iter(control => strip.Items.Add(new StackLayoutItem(control)));
-        })
-        select unit;
 
     // --- [MENUS]
     public static IO<SegmentedButton> Menu(ContextMenu menu, IGlyph glyph, IconSlot slot, string toolTip, IPlugInSink sink, Action<IDisposable> retain) =>

@@ -91,6 +91,13 @@ public abstract partial record ContainerRow {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Containers {
+    // --- [FRAMES]
+    public static IO<T> Frame<T>(Func<T> create, Action<IDisposable> retain) where T : Container =>
+        DisposalOps.Acquire(IO.lift(create), Emptied, held => retain(new Disposal<T>(held, static frame => Emptied(frame).Run())));
+
+    private static IO<Unit> Emptied(Container frame) =>
+        Callbacks.Each(Seq(IO.lift(frame is StackLayout stack ? stack.Items.Clear : frame.RemoveAll), IO.lift(frame.Dispose))).Map(unit);
+
     // --- [REALIZATION]
     public static IO<Control> Realize(IPlugInViews owner, ContainerRow row, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned => row.Switch(

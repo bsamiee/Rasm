@@ -4,7 +4,6 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
-using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.Render.DataSources;
 using Rhino.UI;
@@ -360,17 +359,14 @@ public sealed partial class RenderChannelsParameter : IStateParameter<RenderChan
             }));
 }
 
-public sealed record EditorState(Guid CurrentRenderer, Option<Guid> RenderingViewport, Seq<Size> CustomRenderSizes, bool CustomImageSizeIsPreset, Seq<(Guid Id, string Name)> Renderers) {
+public sealed record EditorState(Guid CurrentRenderer, Option<Guid> RenderingViewport, Seq<Size> CustomRenderSizes, bool CustomImageSizeIsPreset, Seq<RenderPlugInInfo> Renderers) {
     public static IO<EditorState> Read(RhinoSettings settings) =>
         IO.lift(() => new EditorState(
             settings.GetCurrentRenderer(),
             Optional(settings.RenderingView()).Map(static view => view.Viewport.Id),
             toSeq(settings.GetCustomRenderSizes()),
             settings.CustomImageSizeIsPreset,
-            toSeq(PlugIn.GetInstalledPlugIns())
-                .Filter(static plugIn => Optional(PlugIn.GetPlugInInfo(plugIn.Key)).Exists(static info => info.PlugInType is PlugInType.Render))
-                .Map(static plugIn => (Id: plugIn.Key, Name: plugIn.Value))
-                .Strict()));
+            toSeq(new RenderPlugInList())));
 
     public static IO<Unit> Choose(Guid renderer) =>
         IO.lift(() => Refused.Unless(Utilities.SetDefaultRenderPlugIn(renderer), nameof(Utilities.SetDefaultRenderPlugIn)));

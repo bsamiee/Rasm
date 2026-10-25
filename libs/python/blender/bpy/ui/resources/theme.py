@@ -95,10 +95,10 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         return StyleSpacing(**{name: int(self.scaled(value)) for name, value in msgspec.structs.asdict(Metrics.unscaled).items()})
 
     def sized(self, role: str, metric: str) -> float:
-        """Returns a shared metric in device pixels, ``type`` scaling the widget font, ``stroke`` through ``line``, lengths by interface scale."""
+        """Returns a shared metric in device pixels, ``font-size`` scaling the widget font, ``stroke`` through ``line``, lengths by interface scale."""
         value = Shipped.read().metric(role, metric)
         match metric:
-            case "type":
+            case "font-size":
                 return float(self.scaled(value * self.preferences.ui_styles[0].widget.points))
             case "stroke":
                 return self.line(value)
@@ -235,28 +235,38 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Look(msgspec.Struct, frozen=True, kw_only=True):
-    """Shared appearance row, host inks where the file states none."""
+    """Shared appearance row, the parts Blender draws, with the rows it scopes onto its subtree."""
 
-    fill: Solid | None = msgspec.field(default_factory=lambda: Solid(ink="fill"))
-    stroke: Stroke | None = msgspec.field(default_factory=lambda: Stroke(ink="edge"))
-    text: str = "text"
+    fills: tuple[Solid, ...] = ()
+    strokes: tuple[Stroke, ...] = ()
+    text: str | None = None
     shadows: tuple[Shadow, ...] = ()
+    within: dict[str, "Look"] = {}
 
     def color(self, channel: Channel) -> Color:
-        """Returns a channel's fixed ink, clear where the look draws none."""
+        """Returns a channel's first fixed ink, clear where the row states none."""
         match channel:
             case "fill":
-                return fixed(None if self.fill is None else self.fill.ink)
+                return fixed(self.fills[0].ink if self.fills else None)
             case "edge":
-                return fixed(None if self.stroke is None else self.stroke.ink)
+                return fixed(self.strokes[0].ink if self.strokes else None)
             case "text":
                 return fixed(self.text)
 
 
-class Shipped(msgspec.Struct, frozen=True, kw_only=True):
-    """Well looks, metric defaults, and regular metrics of the appearance file Rasm.UI embeds."""
+class Native(msgspec.Struct, frozen=True, kw_only=True, rename="kebab"):
+    """Native rows Blender draws, the file's other rows left undecoded."""
 
-    well: dict[str, dict[str, Look]]
+    well: Look
+    overlay_caption: Look
+    clip_over: Look
+    clip_under: Look
+
+
+class Shipped(msgspec.Struct, frozen=True, kw_only=True):
+    """Native rows, metric defaults, and regular metrics of the appearance file Rasm.UI embeds."""
+
+    native: Native
     defaults: dict[str, float]
     regular: dict[str, dict[str, float]]
 
@@ -265,10 +275,6 @@ class Shipped(msgspec.Struct, frozen=True, kw_only=True):
     def read(cls) -> Self:
         """Reads the packaged appearance file once."""
         return msgspec.json.decode(importlib.resources.files(__name__).joinpath("appearances.json").read_bytes(), type=cls)
-
-    def look(self, role: str) -> Look:
-        """Returns a well role's plain look."""
-        return self.well[role]["plain"]
 
     def metric(self, role: str, metric: str) -> float:
         """Returns a role's regular metric in points, the file's default where the row names none."""
@@ -319,4 +325,4 @@ def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CLEAR", "Channel", "Checker", "Color", "DataInk", "HostInk", "Ink", "Look", "Metrics", "Shadow", "Shipped", "Solid", "Stroke", "StyleSpacing", "Theme", "color", "fixed", "ink"]
+__all__ = ["CLEAR", "Channel", "Checker", "Color", "DataInk", "HostInk", "Ink", "Look", "Metrics", "Native", "Shadow", "Shipped", "Solid", "Stroke", "StyleSpacing", "Theme", "color", "fixed", "ink"]

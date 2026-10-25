@@ -78,9 +78,9 @@ public sealed record ComparisonSettingRows(
 public sealed class RenderingComparison : IDisposable {
     // --- [STATE]
     private readonly Ref<Option<Preview>> previewed = Ref(Option<Preview>.None);
-    private readonly Ref<Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>>> displayed =
-        Ref(Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>>.None);
-    private static readonly (RowSource<bool> Source, RowField<bool> Field) difference = RowSource.Opaque(nameof(RenderingComparison), nameof(Difference), @default: false);
+    private readonly Atom<Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>>> displayed =
+        Atom(Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>>.None);
+    private static readonly RowSource<bool> difference = RowSource.Opaque(nameof(RenderingComparison), nameof(Difference), @default: false).Source;
     private readonly Derivations derivations = new();
 
     private readonly Ref<Option<Chosen>> held = Ref(Option<Chosen>.None);
@@ -175,7 +175,7 @@ public sealed class RenderingComparison : IDisposable {
         from current in Updated(state => state.Filter(chosen => chosen.Side == side) | Some(next))
         from graded in when(current.Exists(chosen => ReferenceEquals(chosen, next)),
             DisposalOps.Fork(Grade(request), lease => Updated(state => state.Map(chosen => ReferenceEquals(chosen.Request, request) ? chosen with { Work = Some(lease) } : chosen))
-                .Map(chosen => { if (!chosen.Exists(held => ReferenceEquals(held.Request, request))) lease.Dispose(); return unit; }).Run()).Map(unit)).As()
+                .Bind(chosen => unless(chosen.Exists(held => ReferenceEquals(held.Request, request)), IO.lift(lease.Dispose)).As()).Run()).Map(unit)).As()
         select graded;
 
     public IO<Unit> Clear => Updated(static _ => Option<Chosen>.None).Map(unit);
@@ -274,23 +274,20 @@ public sealed class RenderingComparison : IDisposable {
                 .Bind(tiles => tiles.Formed(preview.Request, preview.Request.Rendering.Extent, TileRank.Current))
                 .Bind(frame => Landed(preview, (frame.Frame, frame.Proxy)))
                 .Catch(error => Landed(preview, error))
-                .As(), lease => atomicIO(() => {
-                    bool current = previewed.Value.Exists(shown => ReferenceEquals(shown.Request, preview.Request));
-                    previewed.Value = previewed.Value.Map(shown => ReferenceEquals(shown.Request, preview.Request) ? shown with { Work = Some(lease) } : shown);
-                    return current;
-                }).Map(current => { if (!current) lease.Dispose(); return unit; }).Run())
+                .As(), lease => atomicIO(() => previewed.Swap(state => state.Map(shown => ReferenceEquals(shown.Request, preview.Request) ? shown with { Work = Some(lease) } : shown)))
+                    .Bind(state => unless(state.Exists(shown => ReferenceEquals(shown.Request, preview.Request)), IO.lift(lease.Dispose)).As()).Run())
                 .Map(unit),
             None: static () => IO.pure(unit))
         select formed;
 
     private IO<Unit> Landed(Preview asked, Fin<(PixelFrame Frame, PixelFrame Scene)> formed) =>
-        atomicIO(() => previewed.Value = previewed.Value.Map(preview => ReferenceEquals(preview.Request, asked.Request) ? preview with { Frame = Some(formed) } : preview)).Map(unit);
+        atomicIO(() => previewed.Swap(state => state.Map(preview => ReferenceEquals(preview.Request, asked.Request) ? preview with { Frame = Some(formed) } : preview))).Map(unit);
 
     private IO<Unit> Withdrawn(TileRequest request) =>
         atomicIO(() => {
-            Option<Preview> removed = previewed.Value.Filter(preview => ReferenceEquals(preview.Request, request));
-            previewed.Value = previewed.Value.Filter(preview => !ReferenceEquals(preview.Request, request));
-            return removed.Bind(static preview => preview.Work);
+            Option<Preview> prior = previewed.Value;
+            previewed.Value = prior.Filter(preview => !ReferenceEquals(preview.Request, request));
+            return prior.Filter(preview => ReferenceEquals(preview.Request, request)).Bind(static preview => preview.Work);
         }).Bind(static work => DisposalOps.Release(work.ToSeq())).Uninterruptible();
 
     private IO<FrameShown> Dropped(Preview failed, Error error) =>
@@ -311,7 +308,7 @@ public sealed class RenderingComparison : IDisposable {
         return new(
             Compared(scope, comparison =>
                 from live in comparison.Live
-                from shown in scope.Read(difference.Source)
+                from shown in scope.Read(difference)
                 from sampled in comparison.Sampled(owner, live.Current.Frame, shown)
                 from retained in comparison.displayed.SwapIO(_ => live.Source)
                 select (live.Current, sampled.Reference, sampled.Masks),
@@ -320,17 +317,9 @@ public sealed class RenderingComparison : IDisposable {
                 chosen.Measurement.Exists(measurement => ReferenceEquals(measurement.Work.Owner, owner)) ? chosen with { Measurement = None } : chosen)).Map(unit), IO.pure(unit)));
     }
 
-    public static ControlRow Difference { get; } =
-        ToggleRows.Check(
-            difference.Source,
-            difference.Field with {
-                Caption = "Difference",
-                Help = "Tints frame where compared rendering differs from newest rendering",
-            },
-            Lens.identity<bool>(),
-            RowRules.Always) with {
-            Wording = Wording.Library,
-        };
+    public static CommandRow.Check Difference { get; } = new(
+        new CommandFace("comparison-difference", "Difference", "Tints frame where compared rendering differs from newest rendering", None, None) { Wording = Wording.Library }, None,
+        static scope => scope.Read(difference), static (scope, on) => scope.Store(difference).Put(Some(on)).Map(unit));
 
     public static ControlRow Measures(ComparisonSettingRows bars) =>
         TextRows.Readout(

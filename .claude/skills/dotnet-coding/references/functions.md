@@ -233,7 +233,7 @@ internal static class DataFlow {
 }
 ```
 
-Small general primitives beat one specific aggregate operation. Functions compose when they are pure, chainable through an instance or extension receiver, general in performing one operation for many uses, structure-preserving in returning the outer structure they accept where possible, and non-`void` in returning data for the next function. Terminal operations reduce, materialize, or perform an effect and end the chain:
+Functions compose when they are pure, chainable through an instance or extension receiver, general in performing one operation for many uses, structure-preserving in returning the outer structure they accept where possible, and non-`void` in returning data for the next function. Terminal operations reduce, materialize, or perform an effect and end the chain:
 
 ```csharp
 internal static class Quartiles {

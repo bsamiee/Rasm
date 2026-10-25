@@ -27,7 +27,7 @@ internal abstract partial record Phase {
     internal sealed record Stopped : Phase;
 }
 
-internal sealed record Course(Leg Leg, CameraPose Shown, Duration Excluded, Phase Phase) {
+internal sealed record Course(Leg Leg, CameraPose Shown, Duration Excluded, Phase Phase, TimingCurve Curve) {
     public Duration Motion(Duration elapsed) =>
         Phase.Switch(
             elapsed,
@@ -36,9 +36,9 @@ internal sealed record Course(Leg Leg, CameraPose Shown, Duration Excluded, Phas
             stopped: static (at, _) => at)
         - Excluded;
 
-    public Option<Reduced<double>> Sample(TimingCurve curve, FrameTick tick, Duration elapsed) =>
+    public Option<Reduced<double>> Sample(FrameTick tick, Duration elapsed) =>
         Phase.Map(
-            running: Some(tick.Map(next: curve.Sample(Motion(elapsed) - Leg.Start), final: TimingCurve.End)),
+            running: Some(tick.Map(next: Curve.Sample(Motion(elapsed) - Leg.Start), final: TimingCurve.End)),
             paused: Option<Reduced<double>>.None,
             stopped: Option<Reduced<double>>.None);
 
@@ -46,7 +46,11 @@ internal sealed record Course(Leg Leg, CameraPose Shown, Duration Excluded, Phas
         this with { Excluded = Excluded + (elapsed - paused.Since), Phase = new Phase.Running(source) };
 
     public Course Retargeted(CameraPose goal, Duration elapsed) =>
-        this with { Leg = new Leg(Shown, goal, Motion(elapsed)) };
+        (At: Motion(elapsed), Was: Span(Leg.From, Leg.To), Now: Span(Shown, goal)) switch {
+            var held => this with { Leg = new Leg(Shown, goal, held.At), Curve = Curve.From(held.Now > 0d ? Curve.Velocity(held.At - Leg.Start) * held.Was / held.Now : 0d) },
+        };
+
+    private static double Span(CameraPose from, CameraPose to) => from.Frame.Origin.DistanceTo(to.Frame.Origin) + from.Target.DistanceTo(to.Target);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -170,7 +174,7 @@ public static class Motions {
         from start in IO.lift(time.GetTimestamp)
         from pacing in Copies.Owned(() => new Pacing(
             document, move, frames, IO.lift(() => time.GetElapsedTime(start).ToDuration()), ticks,
-            Atom(new Course(new Leg(move.From, move.To, Duration.Zero), move.From, Duration.Zero, new Phase.Paused(Duration.Zero)))),
+            Atom(new Course(new Leg(move.From, move.To, Duration.Zero), move.From, Duration.Zero, new Phase.Paused(Duration.Zero), move.Curve))),
             static state => Fin.Succ(state), static state => state.Halt(), owned)
         from consumer in DisposalOps.Fork(
             DisposalOps.Within(() => pacing, static state => state.Ticks.Reduce(unit, (_, tick) => Frame(state, tick)), static state => state.Halt().OnUiThread())
@@ -183,7 +187,7 @@ public static class Motions {
     private static IO<Reduced<Unit>> Frame(Pacing pacing, FrameTick tick) =>
         (from course in pacing.Course.ValueIO
          from elapsed in pacing.Elapsed
-         from reduced in course.Sample(pacing.Move.Curve, tick, elapsed).Match(
+         from reduced in course.Sample(tick, elapsed).Match(
              Some: sample => Show(pacing, course.Leg, sample),
              None: static () => Reduced.ContinueIO(unit))
          select reduced)

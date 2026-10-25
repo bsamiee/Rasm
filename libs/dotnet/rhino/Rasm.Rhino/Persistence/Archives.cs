@@ -133,7 +133,11 @@ public static partial class Archives {
 
     // --- [WRITES]
     public static IO<Option<string>> Write(File3dm archive, DocumentKey key, Option<string> value) =>
-        IO.lift(() => Conversions.Present(archive.Strings.SetString(key.Text, Conversions.Unset(value))));
+        from prior in IO.lift(() => Conversions.Present(archive.Strings.GetValue(key.Text)))
+        from written in value.Bind(Conversions.Present).Match(
+            Some: text => IO.lift(() => ignore(archive.Strings.SetString(key.Text, text))),
+            None: () => IO.lift(() => archive.Strings.Delete(key.Text)))
+        select prior;
 
     public static IO<Unit> Write(File3dm archive, EarthAnchor anchor) =>
         DisposalOps.Within(() => archive.EarthAnchorPoint, point =>

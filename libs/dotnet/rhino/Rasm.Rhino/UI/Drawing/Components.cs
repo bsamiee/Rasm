@@ -70,8 +70,6 @@ public abstract class ComponentControl : Drawable {
         RefreshToolTip();
     });
 
-    protected (SizeF Size, float Scale) Surface => hosted.Match(Some: static read => read(), None: () => (Size, ParentWindow.LogicalPixelSize));
-
     protected Option<(SizeF Size, float Scale)> CurrentSurface =>
         hosted.Match(Some: static read => Some(read()), None: () => Optional(ParentWindow).Map(window => ((SizeF)Size, window.LogicalPixelSize)));
 
@@ -163,10 +161,10 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
         return Refresh(surface, before, was);
     }
 
-    private Unit Tracked(SizeF size, float scale, Action change) {
+    private Unit Tracked(Option<(SizeF Size, float Scale)> surface, Action change) {
         Interaction<TPart> was = Cues;
         change();
-        return Refresh(Some((size, scale)), State, was);
+        return Refresh(surface, State, was);
     }
 
     private Unit Refresh(Option<(SizeF Size, float Scale)> surface, TState before, Interaction<TPart> was) {
@@ -232,22 +230,22 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     public override IO<Unit> Press(SizeF size, float scale, MouseEventArgs e) => IO.lift(() => Pressing(size, scale, e));
 
     public override IO<Unit> Move(SizeF size, float scale, MouseEventArgs e) =>
-        IO.lift(() => grip.Match(Some: held => Dragging(size, scale, e, held), None: () => Tracked(size, scale, () => Pointer = e.Location)));
+        IO.lift(() => grip.Match(Some: held => Dragging(size, scale, e, held), None: () => Tracked(Some((size, scale)), () => Pointer = e.Location)));
 
     public override IO<Unit> Release(SizeF size, float scale, MouseEventArgs e) {
-        return IO.lift(() => e.Buttons is MouseButtons.None ? Abandon(size, scale) : grip.Match(Some: Releasing, None: static () => unit));
+        return IO.lift(() => e.Buttons is MouseButtons.None ? Abandon(Some((size, scale))) : grip.Match(Some: Releasing, None: static () => unit));
 
         Unit Releasing(Grip held) {
             _ = Apply(size, scale, Released(State, size, scale, held.Part, e));
-            _ = grip.Bind(static current => current.Open).Iter(open => Closed(size, scale, new Edit<TValue>.Commit(open)));
-            return Tracked(size, scale, () => grip = None);
+            _ = grip.Bind(static current => current.Open).Iter(open => Closed(Some((size, scale)), new Edit<TValue>.Commit(open)));
+            return Tracked(Some((size, scale)), () => grip = None);
         }
     }
 
     public override IO<Unit> DoubleClick(SizeF size, float scale, MouseEventArgs e) =>
         IO.lift(() => Claimed(size, scale, DoubleClicked(State, size, scale, Hit(size, scale, e.Location), e), () => {
             e.Handled = true;
-            _ = Abandon(size, scale);
+            _ = Abandon(Some((size, scale)));
         }));
 
     public override IO<Unit> Scroll(SizeF size, float scale, MouseEventArgs e) =>
@@ -255,12 +253,9 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
 
     public override IO<Unit> Key(SizeF size, float scale, KeyEventArgs e) => IO.lift(() => Keying(size, scale, e));
 
-    public override IO<Unit> Leave(SizeF size, float scale) => IO.lift(() => grip.IsSome ? unit : Tracked(size, scale, () => Pointer = None));
+    public override IO<Unit> Leave(SizeF size, float scale) => IO.lift(() => grip.IsSome ? unit : Tracked(Some((size, scale)), () => Pointer = None));
 
-    public override IO<Unit> Cancel(SizeF size, float scale) => IO.lift(() => {
-        _ = Abandon(size, scale);
-        return Tracked(size, scale, () => Pointer = None);
-    });
+    public override IO<Unit> Cancel(SizeF size, float scale) => IO.lift(() => Cancelled(Some((size, scale))));
 
     protected override void OnMouseDown(MouseEventArgs e) {
         Answered(scale => Pressing(Size, scale, e));
@@ -307,7 +302,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     }
 
     private Unit Pressing(SizeF size, float scale, MouseEventArgs e) {
-        _ = Abandon(size, scale);
+        _ = Abandon(Some((size, scale)));
         Option<TPart> part = Hit(size, scale, e.Location);
         Pointer = e.Location;
         return Claimed(size, scale, Pressed(State, size, scale, part, e), () => {
@@ -324,12 +319,17 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
         return Apply(size, scale, next);
     }
 
-    private Unit Abandon(SizeF size, float scale) {
-        _ = grip.Bind(static held => held.Open).Iter(_ => Closed(size, scale, new Edit<TValue>.Cancel()));
-        return grip.IsSome ? Tracked(size, scale, () => grip = None) : unit;
+    private Unit Abandon(Option<(SizeF Size, float Scale)> surface) {
+        _ = grip.Bind(static held => held.Open).Iter(_ => Closed(surface, new Edit<TValue>.Cancel()));
+        return grip.IsSome ? Tracked(surface, () => grip = None) : unit;
     }
 
-    private Unit Closed(SizeF size, float scale, Edit<TValue> edit) => Apply(size, scale, new Transition<TState, TValue>(State, Some(edit)));
+    private Unit Cancelled(Option<(SizeF Size, float Scale)> surface) {
+        _ = Abandon(surface);
+        return Tracked(surface, () => Pointer = None);
+    }
+
+    private Unit Closed(Option<(SizeF Size, float Scale)> surface, Edit<TValue> edit) => Apply(surface, new Transition<TState, TValue>(State, Some(edit)));
 
     // --- [KEYS]
     protected override void OnKeyDown(KeyEventArgs e) {
@@ -345,13 +345,13 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     }
 
     protected override void OnLostFocus(EventArgs e) {
-        Answered(scale => Abandon(Size, scale));
+        Callbacks.Run(IO.lift(() => Abandon(CurrentSurface)), Site());
         Invalidate();
         base.OnLostFocus(e);
     }
 
     protected override void OnEnabledChanged(EventArgs e) {
-        Answered(scale => Abandon(Size, scale));
+        Callbacks.Run(IO.lift(() => Abandon(CurrentSurface)), Site());
         Invalidate();
         base.OnEnabledChanged(e);
     }
@@ -359,7 +359,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     private Unit Keying(SizeF size, float scale, KeyEventArgs e) {
         bool escapes = e.Key is Keys.Escape && grip.Exists(static held => held.Open.IsSome);
         e.Handled = escapes;
-        return escapes ? Abandon(size, scale) : Claimed(size, scale, KeyPressed(State, size, scale, hovered, e), () => e.Handled = true);
+        return escapes ? Abandon(Some((size, scale))) : Claimed(size, scale, KeyPressed(State, size, scale, hovered, e), () => e.Handled = true);
     }
 
     // --- [GESTURES]
@@ -374,9 +374,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
 
     // --- [ACCESSIBILITY]
     public override Seq<Part> Parts =>
-        Surface switch {
-            var surface => Layout(State, surface.Size, surface.Scale).Choose(mark => mark.Part.Map(part => new Part(mark.Shape, part.Reach, Facet(State, part.Key)))),
-        };
+        CurrentSurface.ToSeq().Bind(surface => Layout(State, surface.Size, surface.Scale).Choose(mark => mark.Part.Map(part => new Part(mark.Shape, part.Reach, Facet(State, part.Key)))));
 
     public override bool Adjust(PointF at, int steps) =>
         Acted(at, static role => role.Adjusts, (held, size, scale, key) => Stepped(held, size, scale, key, steps));
@@ -385,8 +383,9 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
 
     private bool Acted(PointF at, Func<PartRole, bool> takes, Func<TState, SizeF, float, TPart, Option<Transition<TState, TValue>>> act, [CallerMemberName] string member = "") =>
         Callbacks.Succeeded(
-            IO.lift(() => Surface)
-                .Map(surface => Apply(surface.Size, surface.Scale, Hit(surface.Size, surface.Scale, at).Filter(key => takes(Facet(State, key).Role)).Bind(key => act(State, surface.Size, surface.Scale, key)))),
+            CurrentSurface.Map(surface => IO.lift(() =>
+                Apply(surface.Size, surface.Scale, Hit(surface.Size, surface.Scale, at).Filter(key => takes(Facet(State, key).Role)).Bind(key => act(State, surface.Size, surface.Scale, key))))),
+            static () => false,
             Site(member));
 
     // --- [PAINT]
@@ -424,7 +423,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
         Option<IDisposable> held = lifetime;
         lifetime = None;
         Callbacks.Run(Callbacks.Each(Seq(
-            Cancel(Size, ParentWindow.LogicalPixelSize),
+            IO.lift(() => Cancelled(CurrentSurface)),
             IO.lift(() => held.Iter(static lease => lease.Dispose())),
             IO.lift(() => base.OnUnLoad(e)))), Site());
     }

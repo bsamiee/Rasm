@@ -17,29 +17,19 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
     static EffectKind IEffectDefinition.Kind { get; } = Defined(None);
 
     // --- [RESOURCE]
-    private readonly Ref<Option<Option<Disposal<TResource>>>> opened = Ref(Some(Option<Disposal<TResource>>.None));
+    private readonly Retained<Disposal<TResource>> opened;
 
     private readonly Atom<WorkState> work = Atom<WorkState>(new WorkState.Inactive());
 
+    protected JobEffect() =>
+        opened = new(held => DisposalOps.Release(held).IfFail(error => IO.lift(() => IPlugInSink.Of(this).Report(error, typeof(TResource), nameof(IDisposable.Dispose)))));
+
     private IO<Unit> Opening =>
-        IO.lift(() => opened.Value.Exists(static held => held.IsNone)).Bind(absent => when(absent,
-            DisposalOps.Acquire(TResource.Open, (resource, release) => {
-                Disposal<TResource> fresh = new(resource, _ => release.Dispose());
-                bool accepted = atomic(() => {
-                    Option<Option<Disposal<TResource>>> prior = opened.Value;
-                    opened.Value = prior.Map(held => held | Some(fresh));
-                    return prior.Exists(static held => held.IsNone);
-                });
-                if (!accepted) throw Errors.Cancelled.ToException();
-            }).Map(unit)).As());
+        IO.lift(() => opened.Held.Exists(static held => held.IsEmpty)).Bind(absent => when(absent,
+            DisposalOps.Replace(TResource.Open, (resource, lease) => opened.Admit(new Disposal<TResource>(resource, _ => lease.Dispose()))).Map(unit)).As());
 
     public sealed override void Dispose(bool bDisposing) {
-        if (bDisposing)
-            Callbacks.Run(IO.lift(() => atomic(() => {
-                Option<Option<Disposal<TResource>>> prior = opened.Value;
-                opened.Value = None;
-                return prior.Flatten().ToSeq();
-            })).Bind(DisposalOps.Release), CallbackSite.Of(this));
+        if (bDisposing) opened.Dispose();
         base.Dispose(bDisposing);
     }
 
@@ -69,7 +59,7 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
     // --- [JOBS]
     private Func<Rectangle, PostEffectJobChannels, bool> Rewrite(TState state, PixelExtent extent, Option<float> meters, CallbackSite site) =>
         (rect, access) => Callbacks.Succeeded(
-            opened.Value.Bind(static held => held).Bind(static cell => cell.Held).Map(resource => DisposalOps.Within(() => new WorkProgress(work, rect.Height), rows =>
+            opened.Held.ToOption().Bind(static held => held.Head).Bind(static cell => cell.Held).Map(resource => DisposalOps.Within(() => new WorkProgress(work, rect.Height), rows =>
                 from started in work.SwapIO(static _ => new WorkState.Indeterminate())
                 from color in EffectPipeline.Read(access.GetChannel, extent, RenderWindow.StandardChannels.RGBA, rect)
                 from guides in EffectPipeline.Guides(access.GetChannel, extent, rect, TResource.Channels(state), meters)

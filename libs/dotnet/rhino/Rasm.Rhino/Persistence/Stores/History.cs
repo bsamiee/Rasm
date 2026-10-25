@@ -146,13 +146,9 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
                         from diff in state.Binding.Group.Apply(state.Target, state.Locks)
                         from recording in IO.lift(() => scope.Doc.UndoRecordingIsActive)
                         from registered in when(recording && !diff.Changes.IsEmpty,
-                            TableOps.Register(scope.Doc, new CustomUndo(state.Binding.Caption, state.Binding.Followed(diff.Inverse()), state.Binding.Followed(diff), scope.Site))).As()
+                            TableOps.Register(scope.Doc, new CustomUndo(state.Binding.Caption,
+                                state.Binding.Swapped(history => history.Followed(diff.Inverse())), state.Binding.Swapped(history => history.Followed(diff)), scope.Site))).As()
                         select diff).Map(static committed => committed.Value));
-
-    private IO<Unit> Followed(ValueDiff taken) =>
-        from applied in Group.Apply(taken.After(), [])
-        from moved in Swapped(history => history.Followed(taken))
-        select moved;
 
     private IO<Unit> Swapped(Func<ValueHistory, ValueHistory> step) =>
         from histories in Scope.Histories

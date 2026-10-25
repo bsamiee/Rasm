@@ -112,7 +112,7 @@ internal sealed partial class NtfyContext : JsonSerializerContext;
 public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlugInSink sink) : IDisposable {
     // --- [ACQUISITION]
     private readonly HttpClient client = new() { Timeout = Duration.FromSeconds(10).ToTimeSpan() };
-    private readonly Ref<Option<Option<Disposal<Notification>>>> raised = Ref(Some(Option<Disposal<Notification>>.None));
+    private readonly Retained<Disposal<Notification>> raised = new(DisposalOps.Release);
 
     public static IO<NoticeSender> Acquire(NoticeOptions options, TimeProvider clock, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => new NoticeSender(options, clock, sink)), retain);
@@ -126,20 +126,9 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
             .Catch(static error => !error.Is(Errors.Cancelled), error => IO.lift(() => sink.Report(error, typeof(NoticeSender), nameof(Notify))));
 
     private IO<Unit> Noticed(bool fresh, Notice notice) =>
-        atomicIO(() => {
-            Option<Option<Disposal<Notification>>> prior = raised.Value;
-            raised.Value = prior.Map(held => held.Filter(_ => !fresh));
-            return prior;
-        }).Bind(static prior => IO.lift(prior.ToFin(Errors.Cancelled)))
-            .Bind(prior => Status.Show(notice, None, sink, cell => atomic(() => {
-                Option<Option<Disposal<Notification>>> current = raised.Value;
-                raised.Value = current.Map(_ => Some(cell));
-                return current.ToFin(Errors.Cancelled).Map(static _ => unit);
-            }).ThrowIfFail()).Map(static _ => unit) switch {
-                var show => fresh
-                    ? DisposalOps.Within(() => prior, _ => show, static withdrawn => DisposalOps.Release(withdrawn.ToSeq()))
-                    : prior.Match(Some: kept => Status.Revise(kept, notice), None: () => show),
-            });
+        IO.lift(() => raised.Held).Bind(held => held.Head.Filter(_ => !fresh).Match(
+            Some: kept => Status.Revise(kept, notice),
+            None: () => DisposalOps.OnFailure(Status.Show(notice, None, sink, cell => raised.Replace(cell).Run()).Map(static _ => unit), raised.Drain)));
 
     private IO<Unit> Configured(QueueEvent queued, Notice notice) =>
         options.Settings.OnUiThread().Bind(settings => settings.Topic.Match(
@@ -159,11 +148,7 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
     // --- [RELEASE]
     public void Dispose() {
         try {
-            _ = atomic(() => {
-                Option<Option<Disposal<Notification>>> prior = raised.Value;
-                raised.Value = None;
-                return prior;
-            }).Iter(static prior => DisposalOps.Release(prior.ToSeq()).Run());
+            raised.Dispose();
         } finally {
             client.Dispose();
         }

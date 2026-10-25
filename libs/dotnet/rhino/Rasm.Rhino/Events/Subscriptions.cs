@@ -47,24 +47,24 @@ public sealed record JournalSnapshot<TKey, TValue>(Seq<JournalEntry<TKey, TValue
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class EventJournal<TKey, TValue> : IDisposable {
     // --- [STATE]
-    private readonly Ref<JournalSnapshot<TKey, TValue>> state;
+    private readonly Atom<JournalSnapshot<TKey, TValue>> state;
     private readonly Channel<(Option<TKey> Partition, Instant At, TValue Value)> channel;
     private readonly ForkIO<Unit> worker;
 
-    private EventJournal(Ref<JournalSnapshot<TKey, TValue>> state, Channel<(Option<TKey> Partition, Instant At, TValue Value)> channel, ForkIO<Unit> worker) =>
+    private EventJournal(Atom<JournalSnapshot<TKey, TValue>> state, Channel<(Option<TKey> Partition, Instant At, TValue Value)> channel, ForkIO<Unit> worker) =>
         (this.state, this.channel, this.worker) = (state, channel, worker);
 
     public JournalSnapshot<TKey, TValue> Snapshot => state.Value;
 
     // --- [OPEN]
     public static IO<EventJournal<TKey, TValue>> Open(BoundedChannelOptions queue, uint retainedPerPartition, CallbackSite site, Action<IDisposable> retain) =>
-        (from state in IO.lift(static () => Ref(new JournalSnapshot<TKey, TValue>([], 0, 0, 0, 0, None)))
+        (from state in atomIO(new JournalSnapshot<TKey, TValue>([], 0, 0, 0, 0, None))
          from channel in IO.lift(() => Channel.CreateBounded<(Option<TKey> Partition, Instant At, TValue Value)>(
-             queue, _ => atomic(() => state.Swap(static held => held with { QueueDropped = held.QueueDropped + 1 }))))
+             queue, _ => state.Swap(static held => held with { QueueDropped = held.QueueDropped + 1 })))
          from journal in DisposalOps.OnFailure(
              from worker in Source.lift(channel)
-             .ReduceIO(unit, (_, entry) => atomicIO(() => state.Swap(held => held.Append(entry, retainedPerPartition))).Map(static _ => Reduced.Continue(unit)))
-             .Catch(error => atomicIO(() => state.Swap(held => held with { Failure = Some(error) }))
+             .ReduceIO(unit, (_, entry) => state.SwapIO(held => held.Append(entry, retainedPerPartition)).Map(static _ => Reduced.Continue(unit)))
+             .Catch(error => state.SwapIO(held => held with { Failure = Some(error) })
                  .Bind(_ => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member))))
              .Finally(IO.lift(() => channel.Writer.TryComplete()).Map(unit))
              .As()
@@ -77,7 +77,7 @@ public sealed class EventJournal<TKey, TValue> : IDisposable {
     // --- [RECORD]
     public IO<Unit> Post((Option<TKey> Partition, Instant At, TValue Value) entry) =>
         IO.lift(() => channel.Writer.TryWrite(entry)).Bind(written => unless(written,
-            atomicIO(() => state.Swap(static held => held with { Refused = held.Refused + 1 })).Bind(static _ => IO.fail<Unit>(Errors.SinkFull))).As()).Uninterruptible();
+            state.SwapIO(static held => held with { Refused = held.Refused + 1 }).Bind(static _ => IO.fail<Unit>(Errors.SinkFull))).As()).Uninterruptible();
 
     // --- [CLOSE]
     public IO<JournalSnapshot<TKey, TValue>> Close() =>
@@ -115,6 +115,12 @@ public static class Subscriptions {
             DisposalOps.Acquire(owned => IO.lift(sources)
                 .Bind(rows => rows.TraverseM(row => row.Inline(deliver, site.Sink, owned)).As()).Map(unit), retain));
 
+    public static HostEvent<TValue> Changed<TValue>(Atom<TValue> atom, [CallerMemberName] string member = "") =>
+        Host<AtomChangedEvent<TValue>, TValue>(typeof(Atom<TValue>), handler => atom.Change += handler, handler => atom.Change -= handler, static handler => value => handler(sender: null, value), member);
+
+    public static HostEvent<TValue> Changed<TValue>(Ref<TValue> cell, [CallerMemberName] string member = "") =>
+        Host<AtomChangedEvent<TValue>, TValue>(typeof(Ref<TValue>), handler => cell.Change += handler, handler => cell.Change -= handler, static handler => value => handler(sender: null, value), member);
+
     public static DocumentEvent<TArgs> Watched<TArgs>(Action<EventWatcher, EventHandler<TArgs>> add, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
         new(typeof(EventWatcher), member, (deliver, site, retain) =>
             DisposalOps.Acquire(owned =>
@@ -126,10 +132,14 @@ public static class Subscriptions {
     // --- [MAILBOXES]
     public static Func<CallbackSite, Action<IDisposable>, IO<Func<(TKey Key, TValue Value), IO<Unit>>>> Idle<TKey, TValue>(Func<HashMap<TKey, TValue>, IO<Unit>> drain) =>
         (site, retain) =>
-            from pending in atomIO((Pending: HashMap<TKey, TValue>(), Taken: HashMap<TKey, TValue>()))
+            from pending in IO.lift(static () => Ref(HashMap<TKey, TValue>()))
             from idle in Attach<EventHandler>(static handler => RhinoApp.Idle += handler, static handler => RhinoApp.Idle -= handler, Callbacks.Handler<EventArgs>(
-                _ => pending.SwapIO(static held => (HashMap<TKey, TValue>(), held.Pending)).Bind(held => unless(held.Taken.IsEmpty, IO.pure(held.Taken).Bind(drain)).As()), site).Invoke, retain)
-            select fun(((TKey Key, TValue Value) entry) => pending.SwapIO(held => held with { Pending = held.Pending.AddOrUpdate(entry.Key, entry.Value) }).Map(unit));
+                _ => atomicIO(() => {
+                    HashMap<TKey, TValue> taken = pending.Value;
+                    pending.Value = [];
+                    return taken;
+                }).Bind(taken => unless(taken.IsEmpty, drain(taken)).As()), site).Invoke, retain)
+            select fun(((TKey Key, TValue Value) entry) => atomicIO(() => pending.Swap(held => held.AddOrUpdate(entry.Key, entry.Value))).Map(unit));
 
     public static IO<Func<TItem, IO<Unit>>> Queued<TItem>(Buffer<TItem> buffer, Func<TItem, IO<Unit>> consume, Func<Error, IO<Unit>> failed, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>

@@ -397,18 +397,21 @@ public static class Appearance {
             SettingChanged);
 
     private static ValueStore<int> Strip(string name, IO<int> current) =>
-        Sized(
-            name,
+        ValueStore.Defaulted(
             current,
-            IO.pure(18),
-            IO.pure((Minimum: 16, Maximum: 32)),
+            from registered in current
+            from node in SettingRoots.AddChild(SettingsNode.Application)
+            from size in IO.lift(() => Refused.Unless(node.TryGetDefault(name, out int size), size, nameof(PersistentSettings.TryGetDefault)))
+            select size,
             size =>
                 from node in SettingRoots.AddChild(SettingsNode.Application)
                 from writable in IO.lift(() => PlugInSettings.Writable(node, name))
                 from written in IO.lift(() => SettingType.Integer.Set(node, name, size))
-                select written,
+                from clamped in current
+                select unit,
+            EqualityComparer<int>.Default.Equals,
             Applied.IdleSave,
-            SettingRoots.Saved(SettingsNode.Application));
+            Some(SettingRoots.Saved(SettingsNode.Application)));
 
     // --- [WINDOW]
     public static IO<Option<Rectangle>> InitialMainWindowPosition() =>

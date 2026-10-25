@@ -80,6 +80,10 @@
 - ALWAYS reach members through typed handles instead of member-name strings
 - ALWAYS derive a label, undo name, or progress text from the operation and its target, a caller-written description is a defect
 
+[CAPABILITY]: Libraries hold general capability in layers independent of any consumer, specific instances sit where a composition uses them
+- ALWAYS build each part once in the layer of what it does, on whole layers, packages, or hosts beneath and on nothing beside or above
+- ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
+
 [PRODUCTS]: Products are the artifacts their host installs or serves to a person holding no checkout
 - ALWAYS give a product the identity its host reads from an installed one (identifier, version, signature)
 - ALWAYS register a product's services and permissions through the mechanism its host gives installed products

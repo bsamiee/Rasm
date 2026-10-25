@@ -72,6 +72,13 @@ public static class StyleTables {
         new(new ComponentIdentity(dependency.Id, dependency.ComponentType), new ComponentIdentity(dependent.Id, dependent.ComponentType));
 
     // --- [PRUNE]
+    private static IO<LanguageExt.HashSet<Guid>> DimensionStylesInUse(RhinoDoc doc) =>
+        from users in IO.lift(() => Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings {
+            ObjectTypeFilter = ObjectType.Annotation | ObjectType.ClipPlane, HiddenObjects = true, ReferenceObjects = true, IdefObjects = true,
+        })))
+        select toHashSet(users.OfType<AnnotationObjectBase>().Select(static user => user.AnnotationGeometry.DimensionStyleId)
+            .Concat(users.OfType<ClippingPlaneObject>().Select(static user => user.ClippingPlaneGeometry.DimensionStyleId)));
+
     private static Seq<(ComponentIdentity Row, IO<bool> Delete)> Candidates<T>(RhinoDocCommonTable<T> table, Seq<T> rows, Func<T, bool> held) where T : ModelComponent =>
         rows.Map(row => (
             new ComponentIdentity(row.Id, row.ComponentType),
@@ -113,12 +120,13 @@ public static class StyleTables {
             from dimensionCurrent in spec.CurrentDimensionStyle.Traverse(address => DimensionStyles.SetCurrent(doc, address)).As()
             from reassigned in reassign(written)
             from graph in Graph(doc)
+            from styled in DimensionStylesInUse(doc)
             from removed in Pruned(
                 graph,
                 Candidates(doc.HatchPatterns, plan.HatchPatterns.Prunes, row => row.InUse || row.Index == doc.HatchPatterns.CurrentHatchPatternIndex)
                 + Candidates(doc.Linetypes, plan.Linetypes.Prunes, row => row.InUse || row.Index == doc.Linetypes.CurrentLinetypeIndex)
                 + Candidates(doc.SectionStyles, plan.SectionStyles.Prunes, static row => row.InUse)
-                + Candidates(doc.DimStyles, plan.DimensionStyles.Prunes, row => row.Index == doc.DimStyles.CurrentIndex))
+                + Candidates(doc.DimStyles, plan.DimensionStyles.Prunes, row => styled.Contains(row.Id) || row.Index == doc.DimStyles.CurrentIndex))
             select new ReconciledStyles(written, removed))
         select committed;
 }

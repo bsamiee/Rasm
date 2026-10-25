@@ -100,7 +100,7 @@ public static class EffectRegistry {
     public static IO<Seq<EffectEntry>> Read(EffectSource source) =>
         source.Switch(
             document: static held => RenderSettingsSources.Read(held.Doc, static scope => Read(scope.Settings)),
-            section: static held => IO.lift(() => Hosted(held.Host).Map(EffectEntry.Of)));
+            section: static held => Hosted(held.Host).Map(static effects => effects.Map(EffectEntry.Of)));
 
     public static IO<Unit> Apply(RenderSettings settings, Seq<EffectRequest> requests) =>
         Within(settings, (effects, held) => IO.lift(() => Callbacks.Each(requests, (request, _) => Applied(effects, held, request))).Map(unit));
@@ -109,7 +109,7 @@ public static class EffectRegistry {
         source.Switch(
             tunings,
             document: static (requests, held) => RenderSettingsSources.Edit(held.Doc, scope => Apply(scope.Settings, requests.Map(static request => (EffectRequest)request))),
-            section: static (requests, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, _ => IO.lift(() => Hosted(held.Host) switch {
+            section: static (requests, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, data => IO.lift(() => Listed(data) switch {
                 var effects => Callbacks.Each(requests, (request, _) => effects.Find(effect => effect.Id == request.Id).ToFin(new NotFound("post effect", $"{request.Id}"))
                     .Bind(effect => Refused.Unless(effect.SetParam(request.Key, request.Text), nameof(PostEffect.SetParam)))),
             }).Map(unit)));
@@ -131,8 +131,8 @@ public static class EffectRegistry {
         source.Switch(
             read,
             document: static (body, held) => RenderSettingsSources.Read(held.Doc, scope => Entry(scope.Settings, typeof(TEffect).GUID, data => body(name => Stored(data, name)))),
-            section: static (body, held) => IO.lift(() => Hosted(held.Host).Find(static effect => effect.Id == typeof(TEffect).GUID)
-                    .ToFin(new NotFound("post effect", $"{typeof(TEffect).GUID}")))
+            section: static (body, held) => Hosted(held.Host)
+                .Bind(static effects => IO.lift(effects.Find(static effect => effect.Id == typeof(TEffect).GUID).ToFin(new NotFound("post effect", $"{typeof(TEffect).GUID}"))))
                 .Bind(effect => body(name => Parameter(effect, name))));
 
     private static IO<A> Entry<A>(RenderSettings settings, Guid id, Func<PostEffectData, IO<A>> read) =>
@@ -144,8 +144,11 @@ public static class EffectRegistry {
             held => body(effects, held),
             DisposalOps.Release));
 
-    private static Seq<PostEffect> Hosted(EtoPostEffectCollapsibleSection host) =>
-        toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(host.GetPostEffects(type))).Strict();
+    private static IO<Seq<PostEffect>> Hosted(EtoPostEffectCollapsibleSection host) =>
+        SectionModels.Read(host, Provider.RdkRenderingPostEffects, static effects => IO.lift(() => Listed(effects)));
+
+    private static Seq<PostEffect> Listed(IDisposable effects) =>
+        toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(SectionRows.GetPostEffects(effects, type))).Strict();
 
     private static Fin<PostEffectData> Resolved(Seq<PostEffectData> held, Guid id) =>
         held.Find(data => data.Id == id).ToFin(new NotFound("post effect", $"{id}"));

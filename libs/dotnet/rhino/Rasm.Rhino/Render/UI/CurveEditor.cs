@@ -113,7 +113,8 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
     public IO<Unit> Enter(CurveAnchor anchor) =>
         Advance(state =>
-            (from plotted in Plotting(state, Surface.Size)
+            (from surface in CurrentSurface
+             from plotted in Plotting(state, surface.Size)
              from index in plotted.State.Selected.Last
              from point in plotted.Curve.Points.At(index)
              from moved in plotted.Moving(Seq(index), anchor.Point.X - point.X, anchor.Point.Y - point.Y)
@@ -122,7 +123,8 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
     public IO<Unit> Pick(Func<CurveKey, double> input) =>
         Advance(state =>
-            (from plotted in Plotting(state, Surface.Size)
+            (from surface in CurrentSurface
+             from plotted in Plotting(state, surface.Size)
              let placed = Picks(plotted.Curve, input(plotted.State.Active)).Fold(plotted, static (held, at) => held.Inserting(at).IfNone(held))
              where placed != plotted
              select placed.Raised(static curve => new Edit<PlottedCurve>.Commit(curve)))
@@ -201,7 +203,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
                 graph: static (held, graph) => Graphed(graph, held.Size, held.Scale)));
 
     protected override PartFacet Facet(CurveEditorState state, CurvePart key) =>
-        state.Switch((Key: key, Text: text, Surface.Size, Pointer),
+        state.Switch((Key: key, Text: text, Surface: CurrentSurface, Pointer),
             editing: static (held, editing) => Indexed(held.Key).Match(
                 Some: index => new PartFacet(
                     PartRole.Handle, Cursors.Pointer, RowText.Localize("{0} point {1}", arguments: [held.Text.Curve(editing.Active), index + 1]).Local,
@@ -213,8 +215,9 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
             graph: static (held, graph) => new PartFacet(
                 PartRole.Image, Cursors.Default, held.Text.Caption,
                 from at in held.Pointer
+                from surface in held.Surface
                 from transfer in graph.Transfer
-                select graph.Output(transfer(GraphPlane(graph, held.Size).Value(at).First)),
+                select graph.Output(transfer(GraphPlane(graph, surface.Size).Value(at).First)),
                 None));
 
     private static Option<CurveEditorState.Editing> Editing(CurveEditorState state) =>

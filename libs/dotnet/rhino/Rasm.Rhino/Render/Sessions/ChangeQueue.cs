@@ -101,12 +101,11 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
     public IO<Unit> World => IO.lift(() => CreateWorld(bFlushWhenReady: false)).Bind(_ => Drain);
 
     public IO<SceneBatch> Take(Action<Disposal<SceneBatch>> retain) =>
-        DisposalOps.Acquire(IO.lift(() => atomic(() => feed.Value.Match(
-                Some: current => {
-                    _ = feed.Swap(static held => held.Map(static value => value with { Pending = (SceneBatch.Empty, Seq<IDisposable>()) }));
-                    return Fin.Succ(current.Pending);
-                },
-                None: static () => Errors.Cancelled))),
+        DisposalOps.Acquire(IO.lift(() => atomic(() => {
+            Option<SceneFeed> prior = feed.Value;
+            feed.Value = prior.Map(static value => value with { Pending = SceneFeed.Empty.Pending });
+            return prior.Map(static current => current.Pending).ToFin(Errors.Cancelled);
+        })),
             static pending => DisposalOps.Release(pending.Owned),
             pending => retain(new Disposal<SceneBatch>(pending.Batch, _ => DisposalOps.Release(pending.Owned).Run())))
             .Map(static pending => pending.Batch);
@@ -130,9 +129,9 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     protected override void Dispose(bool isDisposing) =>
         atomicIO(() => {
-            Option<SceneFeed> current = feed.Value;
-            _ = feed.Swap(static _ => None);
-            return current;
+            Option<SceneFeed> prior = feed.Value;
+            feed.Value = None;
+            return prior;
         }).Bind(current => Callbacks.Each(Seq(
             IO.lift(() => base.Dispose(isDisposing)),
             DisposalOps.Release(current.ToSeq().Bind(static held => held.Pending.Owned + held.Collecting.Owned)))))
@@ -256,12 +255,8 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     // --- [ANSWERS]
     private void Collect(Func<Action<IDisposable>, IO<SceneBatch>> change, [CallerMemberName] string member = "") =>
-        Answer(DisposalOps.Replace(change, (batch, lease) => atomicIO(() => feed.Value.Match(
-                Some: current => {
-                    _ = feed.Swap(_ => Some(current.Collect(batch, lease)));
-                    return Fin.Succ(unit);
-                },
-                None: static () => Errors.Cancelled)).Bind(IO.lift))
+        Answer(DisposalOps.Replace(change, (batch, lease) => atomicIO(() => feed.Swap(held => held.Map(current => current.Collect(batch, lease))))
+                .Bind(static held => IO.lift(held.ToFin(Errors.Cancelled))).Map(unit))
             .Map(unit), member);
 
     private void Answer(IO<Unit> effect, [CallerMemberName] string member = "") =>

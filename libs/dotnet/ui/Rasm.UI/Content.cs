@@ -9,7 +9,15 @@ public sealed partial class Progress {
     public long Done { get; }
     public long Total { get; }
 
-    public double Fraction => (double)Done / Total;
+    public Fraction Fraction => Fraction.Create((float)((double)Done / Total));
+
+    public static Node Meter(Option<Progress> work) =>
+        new Node.Flex(Orientation.Horizontal, work.Map(static progress => (Node)new Node.Box { Role = Role.Span, Width = new Sizing.Percent(progress.Fraction), Height = new Sizing.Grow(Factor.Create(1f)) }).ToSeq()) {
+            Role = Role.Track,
+            Width = new Sizing.Grow(Factor.Create(1f)),
+            Conditions = [Condition.Busy],
+            Accessible = new Accessible { Role = AccessRole.ProgressBar, Value = work.Map(static progress => (AccessValue)new AccessValue.Ranged(progress.Done, 0d, progress.Total)) },
+        };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long done, ref long total) =>
         validationError = total > 0L
@@ -28,22 +36,14 @@ public abstract partial record Content<T> where T : notnull {
     public Node Drawn(Func<T, Node> ready, string unexpected) =>
         Switch(
             (Ready: ready, Unexpected: unexpected),
-            pending: static (held, pending) => pending.Prior.Map(value => (Node)Kept(held.Ready(value), [Veil])).IfNone(() => Meter(pending.Work)),
+            pending: static (held, pending) => pending.Prior.Map(value => (Node)Kept(held.Ready(value), [Veil])).IfNone(() => Progress.Meter(pending.Work)),
             ready: static (held, ready) => Kept(held.Ready(ready.Value), []),
-            empty: static (_, empty) => new Node.Text(empty.Reason) { Role = Role.Label },
-            failed: static (held, failed) => new Node.Text(failed.Error.IsExpected ? failed.Error.Message : held.Unexpected) { Role = Role.Label, Conditions = [Condition.Faulted] });
+            empty: static (_, empty) => new Node.Text([empty.Reason]) { Role = Role.Label },
+            failed: static (held, failed) => new Node.Text([failed.Error.IsExpected ? failed.Error.Message : held.Unexpected]) { Role = Role.Label, Conditions = [Condition.Faulted] });
 
-    private static Node.Flex Veil { get; } =
-        new(Orientation.Horizontal, []) { Role = Role.Veil, Width = new Sizing.Grow(1f), Height = new Sizing.Grow(1f), Conditions = [Condition.Busy] };
+    private static Node.Box Veil { get; } = new() { Role = Role.Veil, Width = new Sizing.Grow(Factor.Create(1f)), Height = new Sizing.Grow(Factor.Create(1f)), Conditions = [Condition.Busy] };
 
-    private static Node.Overlay Kept(Node held, Seq<Node> above) => new(held.Cons(above)) { Key = held.Key, Width = held.Width, Height = held.Height };
-
-    private static Node.Flex Meter(Option<Progress> work) =>
-        new(Orientation.Horizontal, work.Map(static progress => (Node)new Node.Flex(Orientation.Horizontal, []) { Role = Role.Span, Width = new Sizing.Percent((float)progress.Fraction), Height = new Sizing.Grow(1f) }).ToSeq()) {
-            Role = Role.Track,
-            Width = new Sizing.Grow(1f),
-            Conditions = [Condition.Busy],
-        };
+    private static Node.Overlay Kept(Node held, Seq<Node> above) => new(held, above) { Key = held.Key };
 
     public sealed record Pending(Option<T> Prior, Option<Progress> Work) : Content<T>;
 
@@ -54,16 +54,15 @@ public abstract partial record Content<T> where T : notnull {
     public sealed record Failed(Error Error) : Content<T>;
 }
 
-public sealed record Row<TItem>(TItem Item, int Depth, Option<bool> Open, bool Visible) where TItem : notnull {
+public sealed record Row<TItem>(TItem Item, int Depth, Option<bool> Open) where TItem : notnull {
     public static Seq<Row<TItem>> Flatten<TKey>(Seq<TItem> roots, Func<TItem, Seq<TItem>> children, Func<TItem, TKey> key, LanguageExt.HashSet<TKey> open, Func<TItem, bool> keep) where TKey : notnull {
-        return Rows(roots, 0, visible: true);
+        return Rows(roots.Filter(Holds), 0);
 
-        Seq<Row<TItem>> Rows(Seq<TItem> items, int depth, bool visible) =>
-            items.Bind(item => open.Contains(key(item)) switch {
-                var opened => Rows(children(item), depth + 1, visible && opened) switch {
-                    var below when below.IsEmpty && !keep(item) => Seq<Row<TItem>>(),
-                    var below => new Row<TItem>(item, depth, below.IsEmpty ? None : Some(opened), visible).Cons(below),
-                },
+        bool Holds(TItem item) => keep(item) || children(item).Exists(Holds);
+
+        Seq<Row<TItem>> Rows(Seq<TItem> items, int depth) =>
+            items.Bind(item => (Opened: open.Contains(key(item)), Below: children(item).Filter(Holds)) switch {
+                var held => new Row<TItem>(item, depth, held.Below.IsEmpty ? None : Some(held.Opened)).Cons(held.Opened ? Rows(held.Below, depth + 1) : []),
             });
     }
 }
