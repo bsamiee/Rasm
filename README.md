@@ -161,7 +161,7 @@ Products reach a person through separate levels:
 
 ## [07]-[STRUCTURE]
 
-- Libraries group under `libs/<language>/<group>/` by domain or by host
+- Libraries group under `libs/<language>/<group>/`
 - Tests sit under `tests/<language>/` at their source path without the language folder, Playwright suites in `tests/typescript/e2e-<app>/`
 - Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path
 - .NET build takes Rhino hosts from the `rhino/` path folder

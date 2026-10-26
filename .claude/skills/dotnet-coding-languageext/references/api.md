@@ -90,13 +90,13 @@ Traits sit in `LanguageExt.Traits`:
 
 ### [01.4]-[DOMAIN_TRAITS]
 
-Domain modelling traits sit in `LanguageExt.Traits.Domain`:
+`LanguageExt.Traits.Domain` holds:
 
 | [INDEX] | [SYMBOL]                                 | [DECLARATION] | [DESCRIPTION]                          |
 | :-----: | :--------------------------------------- | :------------ | :------------------------------------- |
 |  [01]   | `DomainType<SELF>`                       | `interface`   | Arity-one marker interface, no members |
 |  [02]   | `DomainType<SELF, REPR>`                 | `interface`   | `From`/`FromUnsafe` in, `To()` out     |
-|  [03]   | `Identifier<SELF>`                       | `interface`   | Equality-only domain identity          |
+|  [03]   | `Identifier<SELF>`                       | `interface`   | Equality-only identity                 |
 |  [04]   | `VectorSpace<SELF, SCALAR>`              | `interface`   | Addition and scalar multiplication     |
 |  [05]   | `Amount<SELF, SCALAR>`                   | `interface`   | Ordered vector space with comparison   |
 |  [06]   | `Locus<SELF, DISTANCE, DISTANCE_SCALAR>` | `interface`   | Affine position over a distance type   |

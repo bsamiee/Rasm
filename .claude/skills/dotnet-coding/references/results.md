@@ -99,7 +99,7 @@ internal static class Pipeline {
 }
 ```
 
-Every bound function returns the same failure type, choose the workflow's domain errors before composing it. Lifting a multi-argument function first with `Some`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first follows partial application:
+Every bound function returns the same failure type, choose the workflow's errors before composing it. Lifting a multi-argument function first with `Some`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first follows partial application:
 
 ```csharp
 internal static class Lifting {
@@ -198,7 +198,7 @@ internal static class Inputs {
 
 Code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
 
-Union cases can hold the union type itself, and a union of that kind models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), while wire serialization stays with `System.Text.Json` at the host boundary:
+Union cases can hold the union type itself, and a union of that kind models a tree (configuration, expressions, UI hierarchies, document fragments), while wire serialization stays with `System.Text.Json` at the host boundary:
 
 ```csharp
 [Union]
@@ -259,7 +259,7 @@ Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 
 Identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
 
-Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
+Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
 
 ```csharp
 internal static class Properties {

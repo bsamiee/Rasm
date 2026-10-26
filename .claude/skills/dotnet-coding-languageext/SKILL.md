@@ -8,7 +8,7 @@ description: "Use when calling a LanguageExt member"
 Covers LanguageExt types and operations, from result types and conversions to shared state.
 
 [REFERENCES]:
-- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Trait encoding, transformer stacks, and the domain monads over them
+- [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Trait encoding, transformer stacks, and the wrappers over them
 - [02]-[STREAMS](references/streams.md): Stream API from sources to pipes, with the buffer policies and their forking order
 - [03]-[API](references/api.md): Public types and members by scope, with the notes each scope needs
 
@@ -361,7 +361,7 @@ Transformers stack one concern over an inner monad `M`, and the wrapped represen
 - `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom
 - `Run` removes one layer, the host runs the layers from the outside in
 - `ValidationT` serves errors that must accumulate inside an effect alone
-- Domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving`
+- `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving`
 - `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` need `Transform` and `CoTransform` alone
 - `Deriving.MonadIO` needs a stack that implements `MonadIO`, `StateT` implements `Maybe.MonadIO` and `Maybe.MonadUnliftIO`
 - Wrapper lifts an effect through `CoTransform` over `StateT.liftIO`

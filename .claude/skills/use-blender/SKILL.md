@@ -192,4 +192,4 @@ Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BL
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
-- Crash reports sit in the tree's `tmp`, output in its `blender.log`
+- Crash reports sit in the tree's root, output in its `blender.log`

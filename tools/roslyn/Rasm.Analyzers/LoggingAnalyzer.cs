@@ -3,24 +3,24 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
-namespace Rasm.Analyzers.Logging;
+namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LoggingAnalyzer : RasmAnalyzer {
     // --- [RULES]
-    private const string Domain = "Microsoft.Extensions.Logging";
+    private const string Category = "Microsoft.Extensions.Logging";
 
     public static readonly DiagnosticDescriptor Defined = Rule(
         "RASM1201",
-        Domain,
+        Category,
         "Log message defined by hand",
         "`LoggerMessage.{0}` defines a log message by hand. Declare a `partial void` method under `[LoggerMessage]`",
         "`LoggerMessage.Define` call outside generated code.");
 
     public static readonly DiagnosticDescriptor Called = Rule(
         "RASM1202",
-        Domain,
+        Category,
         "Logger called by hand",
         "`ILogger.{0}` called with hand-written state. Replace with {1}",
         "`ILogger.Log` or `ILogger.BeginScope` call outside generated code and types implementing `ILogger`.");

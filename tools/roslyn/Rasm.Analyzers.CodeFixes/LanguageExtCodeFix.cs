@@ -7,9 +7,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Simplification;
-using Rasm.Analyzers.LanguageExt;
 
-namespace Rasm.Analyzers.CodeFixes.LanguageExt;
+namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [ExportCodeFixProvider(LanguageNames.CSharp)]

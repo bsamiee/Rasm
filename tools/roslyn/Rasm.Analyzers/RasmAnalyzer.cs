@@ -8,6 +8,32 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Rasm.Analyzers;
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class Scopes {
+    public static IEnumerable<string> Declared(SyntaxNode node) =>
+        node.DescendantNodesAndSelf().Select(static declared => declared switch {
+            ParameterSyntax parameter => parameter.Identifier,
+            VariableDeclaratorSyntax variable => variable.Identifier,
+            SingleVariableDesignationSyntax designation => designation.Identifier,
+            LocalFunctionStatementSyntax local => local.Identifier,
+            ForEachStatementSyntax each => each.Identifier,
+            CatchDeclarationSyntax caught => caught.Identifier,
+            FromClauseSyntax range => range.Identifier,
+            LetClauseSyntax range => range.Identifier,
+            JoinClauseSyntax range => range.Identifier,
+            JoinIntoClauseSyntax range => range.Identifier,
+            QueryContinuationSyntax range => range.Identifier,
+            TypeParameterSyntax parameter => parameter.Identifier,
+            _ => default,
+        }).Where(static token => !token.IsKind(SyntaxKind.None)).Select(static token => token.ValueText);
+
+    public static IEnumerable<IdentifierNameSyntax> Referenced(SyntaxNode node) {
+        ImmutableHashSet<string> own = [.. Declared(node)];
+        return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Where(used => !own.Contains(used.Identifier.ValueText) && used.Identifier.ValueText is not "_"
+            && used.Parent switch { MemberAccessExpressionSyntax access => access.Name != used, MemberBindingExpressionSyntax or NameColonSyntax or NameEqualsSyntax => false, _ => true });
+    }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = GeneratedCodeAnalysisFlags.None) : DiagnosticAnalyzer {
     public sealed override void Initialize(AnalysisContext context) {

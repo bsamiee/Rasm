@@ -3,31 +3,31 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
-namespace Rasm.Analyzers.Thinktecture;
+namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     // --- [RULES]
-    private const string Domain = "Thinktecture";
+    private const string Category = "Thinktecture";
 
     public static readonly DiagnosticDescriptor CatchAll = Rule(
         "RASM1101",
-        Domain,
+        Category,
         "Catch-all arm over smart enum or union",
         "Catch-all arm over `{0}` hides unhandled cases. Call generated `Switch` or `Map` with one argument per case",
         "Catch-all arm in a `switch` over a Thinktecture union or smart enum with other arms naming a case.");
 
     public static readonly DiagnosticDescriptor Validation = Rule(
         "RASM1102",
-        Domain,
+        Category,
         "Thinktecture validation outside Validated",
         "`{0}` validates outside `Validated` and returns no `Fin`. Call `{1}`",
         "Thinktecture `Validate` or `TryCreate` call outside a validation hook, object factory, or `ValidationResults`.");
 
     public static readonly DiagnosticDescriptor Conversion = Rule(
         "RASM1103",
-        Domain,
+        Category,
         "ValidationError converted to Error by hand",
         "`{0}` converts a `ValidationError` message to an `Error` by hand. Call `ValidationResults.ToFin({1}, <value>)`",
         "`ValidationError.Message` passed to an `Error` factory or constructor outside `ValidationResults`.");

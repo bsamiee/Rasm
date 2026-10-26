@@ -161,7 +161,7 @@ internal sealed class Greeter(string separator) {
 - Factory methods introduce generic type parameters, and fields and properties cannot
 - `fun` gives a lambda its `Func` type at the call site, the lambda is invoked or passed without a declared local
 
-Existing APIs can expose arguments in an order that works poorly for partial application. Adapters expose domain-specific types in place of ambiguous primitives, acquire a short-lived resource only when the operation runs, and return a `Func` that later specialization infers:
+Existing APIs can expose arguments in an order that works poorly for partial application. Adapters expose specific types in place of ambiguous primitives, acquire a short-lived resource only when the operation runs, and return a `Func` that later specialization infers:
 
 ```csharp
 internal sealed record Template(string Text);
@@ -301,7 +301,7 @@ internal sealed class Handler(IRepository<State> states, Func<Command, State, IO
 }
 ```
 
-`Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel in place of nested result types. `Save` and `notify` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the error. Expressions move effects to explicit boundaries in order: receive external input, transform and validate through expressions, compute the new domain state with pure functions, then persist or communicate at the effect boundary. Terminal steps with more than one effect keep each effect visible. Composition has limits:
+`Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel in place of nested result types. `Save` and `notify` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the error. Expressions move effects to explicit boundaries in order: receive external input, transform and validate through expressions, compute the new state with pure functions, then persist or communicate at the effect boundary. Terminal steps with more than one effect keep each effect visible. Composition has limits:
 - `Option` short-circuits and discards the reason, a missing state and an insufficient balance read the same, `Fin` keeps the reason
 - Composition does not make distributed effects atomic, saving a state and sending a notification can fail between the operations
 - Database transactions cannot protect an external call from a process failure after the call and before the commit

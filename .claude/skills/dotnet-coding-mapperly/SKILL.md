@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-mapperly
-description: "Use when writing or reviewing a Mapperly mapper between domain types and contracts, covering mapping at the host boundary"
+description: "Use when writing or reviewing a Mapperly mapper, covering mapping at the host boundary"
 ---
 
 # [DOTNET_CODING_MAPPERLY]
@@ -16,7 +16,7 @@ Mapperly generates each mapping at build time as ordinary member assignments, wi
 
 ## [01]-[BOUNDARIES]
 
-Adapters that reference both representations own the mapper, and the domain references neither Mapperly nor an external contract:
+Adapters that reference both representations own the mapper, and no other code references Mapperly or an external contract:
 - Define one mapper per aggregate or feature area, and keep it internal unless mapping is an intentional public contract
 - Declare a static partial mapper for a transformation with no stored inputs
 - Keep an instance mapper deterministic through immutable and pure collaborators
@@ -24,14 +24,14 @@ Adapters that reference both representations own the mapper, and the domain refe
 
 | [INDEX] | [DIRECTION]                                       | [MAPPERLY_ROLE]             | [REQUIRED_FORM]                                       |
 | :-----: | :------------------------------------------------ | :-------------------------- | :---------------------------------------------------- |
-|  [01]   | External contract to raw input model              | Structural mapping          | Validate the raw model before domain construction     |
-|  [02]   | External contract to constrained domain value     | None                        | Cross through `X.Validated`, keep its error           |
-|  [03]   | Validated components to domain aggregate          | Optional construction       | Use one constructor total over the components         |
-|  [04]   | Domain value to transport or persistence          | Structural projection       | Map only after the domain result is successful        |
-|  [05]   | Domain snapshot to next domain snapshot           | None                        | Call a named transition returning the next value      |
+|  [01]   | External contract to raw input model              | Structural mapping          | Validate the raw model before construction            |
+|  [02]   | External contract to constrained value            | None                        | Cross through `X.Validated`, keep its error           |
+|  [03]   | Validated components to aggregate                 | Optional construction       | Use one constructor total over the components         |
+|  [04]   | Value to transport or persistence                 | Structural projection       | Map only after the result is successful               |
+|  [05]   | Snapshot to next snapshot                         | None                        | Call a named transition returning the next value      |
 |  [06]   | Closed union to external case                     | Structural mapping per case | Dispatch through the union's exhaustive `Switch`      |
 |  [07]   | Mutable boundary value to a caller-created target | Existing-target mapping     | Mutate a target that never escapes its creating scope |
-|  [08]   | Persistence query to read model                   | Expression projection       | Materialize before domain construction or effects     |
+|  [08]   | Persistence query to read model                   | Expression projection       | Materialize before construction or effects            |
 
 Mappings that can reject input are not plain `TSource -> TTarget` functions:
 - Validation owns the rejection through `X.Validated`
@@ -71,7 +71,7 @@ MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method a
 - `MapperDefaultsAttribute` derives from `MapperAttribute` with the same options
 - Overrides replace the whole value, a deviating mapper names its full `EnabledConversions` allowlist
 - Mappers and methods state only an option that differs, `RequiredMappingStrategy.Source` where every source member must reach an existing host object
-- Inbound mappers that feed constrained domain types keep `ParseMethod`, `Constructor`, `StaticConvertMethods`, and the casts out of their allowlist
+- Inbound mappers that feed constrained types keep `ParseMethod`, `Constructor`, `StaticConvertMethods`, and the casts out of their allowlist
 - Outbound mappers convert a value object to its key, or null for a nullable target, through a `[UserMapping]` (`int Key(Quantity value) => value`)
 - Inbound operator from the key is explicit and calls the throwing `Create`
 - Named mappings selected with `Use` own every remaining conversion
@@ -100,7 +100,7 @@ Mapping form decides who owns the target while its members are written:
 |  [05]   | Runtime dispatch        | Registered source and target pairs        | Unregistered pair or subtype throws                             |
 
 - Prefer one total constructor for an immutable external record
-- `[MapperConstructor]` chooses between equivalent external constructors and selects no domain transition
+- `[MapperConstructor]` chooses between equivalent external constructors and selects no transition
 - Types with invariants that depend on assignments after construction are not valid mapping targets
 - Mapperly cannot skip an init-only assignment to preserve its member initializer
 
@@ -112,7 +112,7 @@ Mapperly object factories allocate or select the target and expose no typed fail
 
 Member and constructor visibility stays at `AllAccessible`:
 - Direct assignment can return the source reference, sharing is valid only when the complete reachable graph is immutable
-- Deep cloning is an allocation strategy and establishes no ownership, validity, or completed domain transition
+- Deep cloning is an allocation strategy and establishes no ownership, validity, or completed transition
 
 Existing-target mappings mutate their target, and an existing collection adds without replacement:
 - Lists add, queues enqueue, stacks push in source order, and a null source collection leaves the target unchanged
@@ -123,11 +123,11 @@ Existing-target mappings mutate their target, and an existing collection adds wi
 Reference handling materializes an external graph that requires cycles or shared identity, and one handler serves one mapping call:
 - Constructor and init-only edges run before registration and cannot close a generated cycle
 - Existing-target roots start unregistered, a back-reference that must retain the supplied root needs the pair registered before mapping
-- Domain identity uses explicit identifiers
+- Identity uses explicit identifiers
 
-## [04]-[DOMAIN_TYPE_INTEGRATION]
+## [04]-[TYPE_INTEGRATION]
 
-Generated domain types cross the mapper only through their declared conversions:
+Generated types cross the mapper only through their declared conversions:
 - Inbound through `X.Validated(raw)`
 - Outbound through the key member or `ToValue()`, a declared `[ObjectFactory<T>]` included
 - `ToString()` defines no outbound representation
@@ -155,7 +155,7 @@ LanguageExt owns absence, failure, validation, effects, traversal, and transform
 LanguageExt collections keep their own construction policy:
 - Direct assignment shares an immutable collection only when sharing is intentional
 - Element-changing sequences use the collection's `Map`
-- Mutable sources are snapshotted before domain publication, an arbitrary enumerable materializes first
+- Mutable sources are snapshotted before publication, an arbitrary enumerable materializes first
 - Key validation defines map ordering, uniqueness, and collision behavior before construction, incidental enumerable-tuple construction defines none
 
 ## [05]-[QUERY_PROJECTIONS]
@@ -176,7 +176,7 @@ Nullable analysis and the property-null options do not apply inside a projection
 - Nullable paths can become empty text, `default`, or a conditional fallback, the read model matches storage nullability
 - Object factories, existing-target mapping, dictionary mapping, deep cloning, and reference handling do not apply
 - Reference handling reports `RMG029`, unsupported enum configuration reports `RMG032` and emits a value cast
-- Project stored values, materialize the query, then validate and construct domain values
+- Project stored values, materialize the query, then validate and construct values
 - `Validated` crossings, LanguageExt composition, and effects run after materialization
 - Unmatched derived projections return `default(TTarget)`, valid only when the target contract states that result
 - `AsEnumerable` leaves the boundary where it is, a narrow query materializes before the in-memory pipeline begins
@@ -310,14 +310,14 @@ Mapperly resolves a flattening (`Item.Owner.Id` to `ItemDto.OwnerId`) from Pasca
 - Immediate source members outrank automatic flattening, which outranks nested members
 - Nested paths that reach the same target member have no defined order, `MapPropertyAttribute` names the mapping
 - Members are instance properties and fields, a property spelled like a method (`GetItems`) included
-- `MapPropertyAttribute` resolves a name mismatch while domain and DTO members keep their names
+- `MapPropertyAttribute` resolves a name mismatch while both types keep their member names
 - `MapperIgnoreSourceAttribute` and `MapperIgnoreTargetAttribute` silence the unmapped-member diagnostic for an omission their `Justification` states
 
 ```csharp
 [Mapper]
 internal static partial class ProfileMapper {
     [MapProperty(nameof(Profile.FullName), nameof(ProfileDto.Name))]
-    [MapperIgnoreSource(nameof(Profile.Secret), Justification = "Never leaves the domain")]
+    [MapperIgnoreSource(nameof(Profile.Secret), Justification = "Never serialized")]
     [MapperIgnoreTarget(nameof(ProfileDto.Badge), Justification = "Presentation computes it")]
     public static partial ProfileDto ToDto(Profile profile);
 }
@@ -458,7 +458,7 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
 
 | [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                    |
 | :-----: | :------------------------------------------------------------------ | :---------------------------------------------------------------- |
-|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type   | `X.Validated` over the generated `Validate`                       |
+|  [01]   | Mapper conversion that calls `Create` or `Parse`                    | `X.Validated` over the generated `Validate`                       |
 |  [02]   | `MapDerivedType` or a partial `Switch` over a closed union          | Generated exhaustive `Switch`, one mapper call per arm            |
 |  [03]   | `EnabledConversions` on a mapper naming the one added bit           | Whole allowlist, the value replaces and never merges              |
 |  [04]   | Mapper method that builds or unwraps a LanguageExt result or effect | Mapper over the success value, `Map` keeps the context            |

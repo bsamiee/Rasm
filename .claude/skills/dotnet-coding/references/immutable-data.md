@@ -43,7 +43,7 @@ internal static class Shapes {
 
 Entity identity persists while state changes, each allowed change is a function constructing another immutable snapshot, and the previous snapshot stays intact.
 
-## [04]-[DOMAIN_STATE]
+## [04]-[SNAPSHOTS]
 
 Snapshots construct through factories that set initial values and copy a mutable input collection at the boundary out of reach of the caller's later changes:
 

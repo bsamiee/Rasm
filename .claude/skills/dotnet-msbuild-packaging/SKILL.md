@@ -17,7 +17,7 @@ Project files hold what differs from root `Directory.Build.props`: `Sdk` attribu
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Domain model for the Item aggregate</Description>
+        <Description>Item aggregate model</Description>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="Contoso.Logging.Abstractions" />

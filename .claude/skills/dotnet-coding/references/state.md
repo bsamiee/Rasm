@@ -17,7 +17,7 @@ Callers pass the returned state into the next operation, earlier state values st
 - `State.pure` lifts a value into a computation that returns the state unchanged
 - `State.gets` reads a projection, `State.put` replaces the state, `State.modify` replaces it with a function of it, `put` and `modify` produce `Unit`
 - `Select` and `SelectMany` expose the operations to query syntax, which hides the forwarding and preserves the dependency order
-- `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`
+- `Stateful.state` and `Stateful.local` are the trait forms for a wrapper over `State` or `StateT`
 - `Stateful.local` restores the prior state after the nested computation
 
 Produced values can be an `Option<A>` that the consumer matches at the boundary, or a function, which lets a stateful computation hold behavior beside data. Keep explicit tuple passing for a short state flow, use composition when many dependent transitions otherwise repeat the forwarding, and treat sequencing as semantic: each computation receives the state its predecessor produced.

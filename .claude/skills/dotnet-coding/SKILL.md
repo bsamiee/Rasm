@@ -141,7 +141,7 @@ C# has no active patterns, `Deconstruct` is the only user code that runs inside 
 
 ### [02.2]-[TUPLES]
 
-Tuples group related values without inventing a domain type that has no independent meaning, and named elements hold lookup results together between `Map` operations on a `Seq<A>` until the next projection consumes them:
+Tuples group related values without inventing a type that has no independent meaning, and named elements hold lookup results together between `Map` operations on a `Seq<A>` until the next projection consumes them:
 
 ```csharp
 internal static class Report {
@@ -210,7 +210,7 @@ Seq<int> sorted = toSeq(values.Order());
 Seq<int> odd = values.Filter(static x => x % 2 == 1);
 ```
 
-Concurrent reorders of a shared list during a sum give the reader an inconsistent traversal, a separate ordered view removes the interference. Choose the collection by the operation the domain performs most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
+Concurrent reorders of a shared list during a sum give the reader an inconsistent traversal, a separate ordered view removes the interference. Choose the collection by the operation performed most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
 
 ## [04]-[RESULTS]
 
@@ -226,7 +226,7 @@ Every function returns an explicit result type, and one type serves one concern:
 |  [06]   | `IO<A>`                | Side effects with a failure channel             |
 |  [07]   | `Eff<RT, A>`           | Effects that read a capability                  |
 
-Input boundary selects the result type, domain functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit where no target type fixes the result (a `var` local, an inferred type argument), and a `Unit` or `Error` in a position that fixes `Fin` or `Validation` converts alone. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
+Input boundary selects the result type, functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit where no target type fixes the result (a `var` local, an inferred type argument), and a `Unit` or `Error` in a position that fixes `Fin` or `Validation` converts alone. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
 ### [04.1]-[COMPOSITION]
 
@@ -261,7 +261,7 @@ internal static class Workflow {
 }
 ```
 
-Workflow runs in domain order (normalize, validate, transition), `Fin` handles the control flow, and adding a step means defining one function and inserting one clause.
+Workflow runs in order (normalize, validate, transition), `Fin` handles the control flow, and adding a step means defining one function and inserting one clause.
 
 ### [04.2]-[ERRORS]
 
@@ -277,7 +277,7 @@ Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
 ### [04.3]-[UNIONS]
 
-Model each valid state as a distinct case, and count the values a type has (a product multiplies the counts of its fields, `Option<A>` adds one) to expose states the domain does not need:
+Model each valid state as a distinct case, and count the values a type has (a product multiplies the counts of its fields, `Option<A>` adds one) to expose unneeded states:
 
 ```csharp
 [Union]
@@ -292,7 +292,7 @@ internal abstract partial record Identity {
 - Treat a case as an alternative to its siblings, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
 - Every `Switch` lacking an arm for a new union case fails to compile
 - Unions fit a growing set of operations, abstract members fit a growing set of cases
-- Use a domain union when the consumer needs domain outcome names, and `Option`, `Fin`, or `Either` otherwise
+- Use a union of named outcomes when the consumer needs the names, and `Option`, `Fin`, or `Either` otherwise
 - Keep absence and failure separate when the consumer responds differently
 - Fold a recursive union with one replacement per constructor, and fold an unbounded depth through `Trampoline<A>`
 
@@ -305,7 +305,7 @@ internal abstract partial record Identity {
 |  [03]   | Matching on message text couples the consumer to prose                    | `IsType<E>` or `Filter<E>`                                  |
 |  [04]   | `OptionT<IO, A>` or a match per step over an `Option` inside an effect    | `IO<Option<A>>` matched once by its consumer                |
 |  [05]   | `Fin`, `Either<Error, A>`, `Validation`, or `Try` inside an effect        | `Expected` on `IO`, `ValidationT<Error, IO, A>` accumulates |
-|  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step                      |
+|  [06]   | `Run` inside a pipeline performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step                      |
 |  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary                             |
 |  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases               |
 |  [09]   | Flag with fields that are meaningful for one flag value                   | One union case per valid state                              |
@@ -313,7 +313,7 @@ internal abstract partial record Identity {
 
 ## [05]-[EFFECTS]
 
-`IO<A>` describes a side effect with a failure channel, performs nothing until the host runs it, and holds a domain rejection as an `Expected` on that channel in place of a nested result:
+`IO<A>` describes a side effect with a failure channel, performs nothing until the host runs it, and holds a rejection as an `Expected` on that channel in place of a nested result:
 - `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel
 - `IO.liftAsync` adapts a task thunk, its `EnvIO` overload passes `env.Token`
 - Operations that wait on I/O enter through `IO.liftAsync` and have no synchronous counterpart that blocks a thread

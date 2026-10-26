@@ -20,7 +20,7 @@ Package names omit prefix `Thinktecture.Runtime.Extensions.` and analyzer codes 
 
 Simple value objects wrap one key member under `[ValueObject<TKey>]`, complex value objects hold read-only members under `[ComplexValueObject]`:
 - Both are `partial`, generator adds `sealed` to a class and `readonly` to a struct and owns the private constructor
-- Hand-written part holds the validation hook and domain behavior
+- Hand-written part holds the validation hook and the type's behavior
 
 ```csharp
 [ValueObject<string>]
@@ -140,9 +140,9 @@ String keys compare with `StringComparer.OrdinalIgnoreCase` by default and every
 - `AllowDefaultStructs` stays `false` when the key is a reference type (057) or a member disallows default (058)
 - `AllowDefaultStructs` stays `false` when the type implements `IDisallowDefaultValue` by hand (080)
 - `IDisallowDefaultValue` on a class warns (110)
-- Choose a struct for a small value that is always valid, allow the default when it has a domain meaning (zero, an open end)
+- Choose a struct for a small value that is always valid, allow the default when it has a meaning (zero, an open end)
 - Represent absence as `Option<T>` in place of a `null` class
-- `SkipKeyMember = true` with `KeyMemberName` lets a nullable backing field map the CLR default to a domain value
+- `SkipKeyMember = true` with `KeyMemberName` lets a nullable backing field map the CLR default to a chosen value
 - Hand-written `ToString()` sets `SkipToString` and `SkipIFormattable` together, the generated `IFormattable` formats the key on its own
 
 Complex value objects compose simple value objects, smart enums, and other complex value objects:
@@ -449,7 +449,7 @@ internal static class Crossings {
 
 ## [07]-[CONVENIENCE_MEMBERS]
 
-Plain static members the package supplies beside its generators stay at the BCL boundary, domain code uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in their place:
+Plain static members the package supplies beside its generators stay at the BCL boundary, code behind it uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in their place:
 - `Thinktecture.Empty.Action` converts to every `Action` delegate up to 16 parameters
 - `Empty.Disposable()` and `Empty.AsyncDisposable()` return cached no-op instances
 - `Empty.Collection<T>()`, `Empty.Dictionary<TKey, TValue>()`, `Empty.Lookup<TKey, TValue>()`, and `Empty.Set<T>()` return cached read-only empties
@@ -459,7 +459,7 @@ Plain static members the package supplies beside its generators stay at the BCL 
 - `ToReadOnlyCollection(count)` wraps a sequence without enumerating it and trusts the caller's count
 - `ToReadOnlyCollection(selector)` composes a projection with the source count and reruns the selector on every enumeration
 - `TrimOrNullify()` returns `null` for blank text and the trimmed text otherwise, `TrimOrNullify(maxLength)` cuts the trimmed text by `char` count
-- `TrimOrNullify` sits inside a validation hook that assigns the result back to `value`, an absent domain value is `Option<string>` through `Optional`
+- `TrimOrNullify` sits inside a validation hook that assigns the result back to `value`, an absent value is `Option<string>` through `Optional`
 - `Thinktecture.Collections.ProjectionEqualityComparer<T, TItem>` compares projections
 - `StringKeyedObjectComparer<T>` compares `ToValue()` of any `IConvertible<string>` type with its `Ordinal` and culture fields
 - `StringKeyedObjectComparer<T>.Ordinal` restores exact matches for one collection of a case-insensitive type

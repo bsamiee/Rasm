@@ -7,49 +7,54 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
-namespace Rasm.Analyzers.CSharp;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Scopes {
-    public static IEnumerable<string> Declared(SyntaxNode node) =>
-        node.DescendantNodesAndSelf().Select(static declared => declared switch {
-            ParameterSyntax parameter => parameter.Identifier,
-            VariableDeclaratorSyntax variable => variable.Identifier,
-            SingleVariableDesignationSyntax designation => designation.Identifier,
-            LocalFunctionStatementSyntax local => local.Identifier,
-            ForEachStatementSyntax each => each.Identifier,
-            CatchDeclarationSyntax caught => caught.Identifier,
-            FromClauseSyntax range => range.Identifier,
-            LetClauseSyntax range => range.Identifier,
-            JoinClauseSyntax range => range.Identifier,
-            JoinIntoClauseSyntax range => range.Identifier,
-            QueryContinuationSyntax range => range.Identifier,
-            TypeParameterSyntax parameter => parameter.Identifier,
-            _ => default,
-        }).Where(static token => !token.IsKind(SyntaxKind.None)).Select(static token => token.ValueText);
-
-    public static IEnumerable<IdentifierNameSyntax> Referenced(SyntaxNode node) {
-        ImmutableHashSet<string> own = [.. Declared(node)];
-        return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Where(used => !own.Contains(used.Identifier.ValueText) && used.Identifier.ValueText is not "_"
-            && used.Parent switch { MemberAccessExpressionSyntax access => access.Name != used, MemberBindingExpressionSyntax or NameColonSyntax or NameEqualsSyntax => false, _ => true });
-    }
-}
+namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class SingleReaderAnalyzer : RasmAnalyzer {
+public sealed class LanguageAnalyzer : RasmAnalyzer {
+    // --- [RULES]
+    private const string Category = "CSharp";
+
     public static readonly DiagnosticDescriptor Reader = Rule(
         "RASM3001",
-        LanguageAnalyzer.Domain,
+        Category,
         "Private member read once",
         "`{0}` has one read, in `{1}`. Inline `{0}` at that read",
         "Private constant, `Contains` set, or one-line expression-bodied member with one read in its own type that inlines without losing a word of its name.");
 
+    public static readonly DiagnosticDescriptor Covered = Rule(
+        "RASM3002",
+        Category,
+        "Catch-all arm over a covered enum",
+        "Catch-all arm over `{0}` matches no declared member. Delete the arm",
+        "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms naming every member.");
+
+    public static readonly DiagnosticDescriptor Discarded = Rule(
+        "RASM3003",
+        Category,
+        "Discarded awaitable",
+        "`_ =` discards awaitable `{0}`. Await `{0}` or return it to an awaiting caller",
+        "Awaitable value assigned to a discard.");
+
+    public static readonly DiagnosticDescriptor Fallback = Rule(
+        "RASM3004",
+        Category,
+        "Catch-all arm over an enum",
+        "Catch-all arm over `{0}` maps {1} to one result. Replace it with arms naming {1}, joined by `or` per shared result",
+        "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms leaving members unnamed.");
+
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback];
 
     protected override void Start(CompilationStartAnalysisContext context) {
+        Readers(context);
+        if (context.Compilation.GetTypeByMetadataName("System.FlagsAttribute") is { } flags) Enums(context, flags);
+        Awaitables(context);
+    }
+
+    // --- [READERS]
+    private static void Readers(CompilationStartAnalysisContext context) {
         ImmutableArray<INamedTypeSymbol?> sets = [context.Compilation.GetTypeByMetadataName("System.Collections.Generic.ISet`1"), context.Compilation.GetTypeByMetadataName("System.Collections.Generic.IReadOnlySet`1")];
         static bool Candidate(ISymbol symbol) =>
             symbol is { DeclaredAccessibility: Accessibility.Private, IsImplicitlyDeclared: false, ContainingType.IsExtension: false } && symbol.GetAttributes().IsEmpty && symbol switch {
@@ -160,13 +165,13 @@ public sealed class SingleReaderAnalyzer : RasmAnalyzer {
                 { Length: 1 } uses => !Deferred(uses[0], body),
                 _ => false,
             }));
-        static bool Substituted(IOperation value, int nesting, ImmutableHashSet<string> local, ImmutableArray<IParameterSymbol> parameters, ImmutableArray<IArgumentOperation> arguments) {
+        bool Substituted(IOperation value, int nesting, ImmutableHashSet<string> local, ImmutableArray<IParameterSymbol> parameters, ImmutableArray<IArgumentOperation> arguments) {
             SyntaxNode body = value.Syntax;
             ImmutableHashSet<string> names = [.. parameters.Select(static parameter => parameter.Name)];
             ImmutableArray<IdentifierNameSyntax> used = [.. Scopes.Referenced(body)];
             ImmutableHashSet<string> passed = [.. arguments.SelectMany(static argument => Scopes.Referenced(argument.Syntax)).Select(static name => name.Identifier.ValueText)];
             return value is not IConversionOperation { IsImplicit: true } && !Targeted(value) && Free(body, names, local)
-                && body.SyntaxTree.GetLineSpan(body.Span) is var lines && lines.StartLinePosition.Line == lines.EndLinePosition.Line
+                && body.SyntaxTree.GetLineSpan(body.Span, context.CancellationToken) is var lines && lines.StartLinePosition.Line == lines.EndLinePosition.Line
                 && !body.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any(static call => call.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" })
                 && !Scopes.Declared(body).Any(name => names.Contains(name) || local.Contains(name) || passed.Contains(name))
                 && nesting + Depth(body) <= 3
@@ -223,5 +228,38 @@ public sealed class SingleReaderAnalyzer : RasmAnalyzer {
                 });
             },
             SymbolKind.NamedType);
+    }
+
+    // --- [ENUMS]
+    private static void Enums(CompilationStartAnalysisContext context, INamedTypeSymbol flags) {
+        static IEnumerable<object?> Named(IOperation? test) =>
+            test switch {
+                IConstantPatternOperation { Value.ConstantValue: { HasValue: true } constant } => [constant.Value],
+                IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.Or } either => Named(either.LeftPattern).Concat(Named(either.RightPattern)),
+                _ => [],
+            };
+        static bool CatchesRest((IOperation Arm, IOperation? Test, IOperation? Guard) arm) =>
+            CatchesAll(arm) || (arm is { Guard: null, Test: INegatedPatternOperation { Pattern: var excluded } } && Named(excluded).Any());
+        Report<ISwitchExpressionOperation>(context, [OperationKind.SwitchExpression], (dispatch, _) => {
+            if (Dispatch(dispatch) is not (_, var arms) || dispatch.Value.Type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } subject
+                || !Sourced(subject) || Marked(subject, flags) is not null) return [];
+            ImmutableHashSet<object?> named = [.. arms.Where(static arm => arm.Guard is null).SelectMany(static arm => Named(arm.Test))];
+            ImmutableArray<IFieldSymbol> unnamed = [.. subject.GetMembers().OfType<IFieldSymbol>().Where(member => member.HasConstantValue && !named.Contains(member.ConstantValue))];
+            return named.IsEmpty ? [] : arms.Where(CatchesRest).Select(arm => Diagnostic.Create(
+                unnamed.IsEmpty ? Covered : Fallback,
+                arm.Arm.Syntax.GetLocation(),
+                subject.Name,
+                string.Join(", ", unnamed.Select(member => $"`{subject.Name}.{member.Name}`"))));
+        });
+    }
+
+    // --- [AWAITABLES]
+    private static void Awaitables(CompilationStartAnalysisContext context) {
+        static bool Awaitable(ITypeSymbol? type) =>
+            type is not null && (type.GetMembers(WellKnownMemberNames.GetAwaiter).Any(static member => member is IMethodSymbol { IsStatic: false, Parameters.IsEmpty: true }) || Awaitable(type.BaseType));
+        Report<ISimpleAssignmentOperation>(context, [OperationKind.SimpleAssignment], static (assignment, _) =>
+            assignment is { Target: IDiscardOperation, Value: var value } && Stripped(value) is var awaited && Awaitable(awaited.Type)
+                ? [Diagnostic.Create(Discarded, assignment.Syntax.GetLocation(), awaited.Syntax)]
+                : []);
     }
 }

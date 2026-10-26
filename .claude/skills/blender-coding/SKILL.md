@@ -266,7 +266,7 @@ Evaluation follows host rules:
 - Bad arguments print and drop the property at `register_class`, integer bounds past `int32` printing `OverflowError`
 - Float bounds past `float32` store as infinity, and `min > max` and out-of-range defaults register with no error
 - Assignment clamps to hard bounds with no raise and leaves soft bounds unenforced, and `written` refuses a value outside the hard range
-- Socket defaults take `float32` limits as hard bounds, and a record's `msgspec.Meta` holds the domain bound
+- Socket defaults take `float32` limits as hard bounds, and a record's `msgspec.Meta` holds the value's bound
 - Operator records hold an ID as `IdName`, an ID `PointerProperty` on an operator printing a `ValueError` at `register_class` and the operator registering without it
 - `PointerProperty` takes ID and `PropertyGroup` types, `CurveMapping`, `ColorRamp`, `Scopes`, and `Histogram` coming from an owning ID
 - `PointerProperty` `poll` filters UI assignment alone, and assigning an embedded ID (`Scene.collection`, `Material.node_tree`) raises `RuntimeError`
@@ -367,7 +367,7 @@ Faults and exceptions stay apart:
 - Independent per-item faults accumulate, and a body returns them in `Done.skipped` when it changed other items or as its error when it changed none
 
 Values cross the boundary in host units and axes:
-- Lengths are Blender units scaled by `unit_settings.scale_length` and angles radians, and domain values hold SI quantities
+- Lengths are Blender units scaled by `unit_settings.scale_length` and angles radians, and decoded values hold SI quantities
 - Display strings come from `bpy.utils.units.to_string(system, category, value, split_unit=True)` and parse through `bpy.utils.units.to_value`
 - `to_value` reads `-` and `+` as arithmetic and unitless numbers as the base unit
 - Importers and exporters convert axes through `bpy_extras.io_utils.axis_conversion(from_forward=, from_up=, to_forward=, to_up=).to_4x4()`

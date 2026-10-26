@@ -5,66 +5,66 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
-namespace Rasm.Analyzers.LanguageExt;
+namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     // --- [RULES]
-    private const string Domain = "LanguageExt";
+    private const string Category = "LanguageExt";
 
     public static readonly DiagnosticDescriptor Lift = Rule(
         "RASM1001",
-        Domain,
+        Category,
         "Explicit result lift",
         "`{0}` restates the implicit conversion of `{1}` to `{2}`. Replace with `{1}`",
         "`Fin` or `Validation` factory call, case construction, or arm cast that an implicit conversion replaces with the same overloads and arm types.");
 
     public static readonly DiagnosticDescriptor TypeTest = Rule(
         "RASM1003",
-        Domain,
+        Category,
         "Type test on Error",
         "{0} misses errors inside `ManyErrors`. Call `{1}.IsType<{2}>()`, or bind fields through `{1}.Filter<{2}>().Head is {2} <name>`",
         "Cast, type test, switch arm, or `GetType()` call on an `Error` value that can hold `ManyErrors`.");
 
     public static readonly DiagnosticDescriptor RoundTrip = Rule(
         "RASM1004",
-        Domain,
+        Category,
         "Fin round trip through Validation",
         "`{0}` round-trips `Fin` through `Validation`. Delete each `{1}()` and the closing `{2}()`",
         "Parameterless `Validation` to `Fin` call over `Fin` operands converted to `Validation`, directly or through `Apply` or `Traverse`.");
 
     public static readonly DiagnosticDescriptor Spread = Rule(
         "RASM1005",
-        Domain,
+        Category,
         "Seq accumulator copied per step",
         "`{0}` copies `{1}` on every step. Replace with `{1}.Add({2})`",
         "Collection expression `[.. <seq>, <item>]` appending to a `Seq` fold accumulator or loop local.");
 
     public static readonly DiagnosticDescriptor LiftedApply = Rule(
         "RASM1006",
-        Domain,
+        Category,
         "IO Apply over lifted Fin values",
         "`{0}` over {1} `IO.lift` operands keeps one `Fin` failure. Call `{0}` on the `Fin` values inside one `IO.lift`",
         "`Apply` over a tuple of `IO.lift` calls that each lift a `Fin` value or `Fin` thunk.");
 
     public static readonly DiagnosticDescriptor Narrowed = Rule(
         "RASM1007",
-        Domain,
+        Category,
         "Redundant As",
         "`{0}()` narrows `{1}` to itself. Delete the call",
         "Parameterless narrowing call on a `K<F, A>` conversion that returns the converted value's own type.");
 
     public static readonly DiagnosticDescriptor Passed = Rule(
         "RASM1008",
-        Domain,
+        Category,
         "Match that passes one case through",
         "`{0}` returns the `{1}` value unchanged. Replace with `{2}`",
         "`Match` with one identity handler where a member taking the other handler alone returns the same type.");
 
     public static readonly DiagnosticDescriptor Nullable = Rule(
         "RASM1009",
-        Domain,
+        Category,
         "Option converted to a nullable by hand",
         "`Option` value `{0}` converted to a nullable by hand. Replace with `{1}`",
         "`Option` converted to a nullable through `Match`, a `Case` cast, or an `IsSome` or `IsNone` conditional.");

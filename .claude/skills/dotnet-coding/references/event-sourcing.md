@@ -54,7 +54,7 @@ internal sealed record Snapshot(Status Status, string Code, decimal Balance, dec
 
 ## [04]-[TRANSITIONS]
 
-Transitions after creation are pure functions `Snapshot -> Event -> Snapshot`, and creation is the special case `Created -> Snapshot` with no prior state that can establish initial domain values (a new entry starts active). The transition selects the event case through `Switch` and returns a new snapshot, and one transition function serves both the live occurrence and the replay, a duplicate implementation risks a live state that history cannot reconstruct. Replayed creation events leave an existing snapshot unchanged, and a new case fails every `Switch` to compile until it gains an arm:
+Transitions after creation are pure functions `Snapshot -> Event -> Snapshot`, and creation is the special case `Created -> Snapshot` with no prior state that can establish initial values (a new entry starts active). The transition selects the event case through `Switch` and returns a new snapshot, and one transition function serves both the live occurrence and the replay, a duplicate implementation risks a live state that history cannot reconstruct. Replayed creation events leave an existing snapshot unchanged, and a new case fails every `Switch` to compile until it gains an arm:
 
 ```csharp
 internal static partial class Entry {
@@ -149,4 +149,4 @@ As history grows, replaying it for every query becomes expensive, the query side
 
 ## [08]-[FIT]
 
-Domains decide between event sourcing and valid-time storage. Choose event sourcing when domain events are meaningful business occurrences rather than renamed CRUD operations, events drive more than one consequence, commands and the views users consume have different shapes, and reconstructing how and why an entity evolved is central (an auction, where bids and closure are occurrences and clients submit single actions while consuming item details, bid histories, and purchase lists). Prefer valid-time storage when attributes and their validity intervals are the principal domain concepts (product administration that records creation, retirement, and modification and needs a temporal history of facts).
+Choose event sourcing when events are meaningful business occurrences rather than renamed CRUD operations, events drive more than one consequence, commands and the views users consume have different shapes, and reconstructing how and why an entity evolved is central (an auction, where bids and closure are occurrences and clients submit single actions while consuming item details, bid histories, and purchase lists). Prefer valid-time storage when attributes and their validity intervals are the principal concepts (product administration that records creation, retirement, and modification and needs a temporal history of facts).

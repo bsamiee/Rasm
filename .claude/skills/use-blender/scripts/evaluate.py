@@ -28,7 +28,7 @@ FOLDERS = {
     "BLENDER_USER_SCRIPTS": "scripts",
     "BLENDER_USER_EXTENSIONS": "extensions",
     "BLENDER_USER_DATAFILES": "datafiles",
-    "TMPDIR": "tmp",
+    "TMPDIR": ".",
 }
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ def tree(name: str) -> Result[Path, Failure]:
         folder = ROOT / ".artifacts" / "blender" / "evaluate" / name
         shutil.rmtree(folder, ignore_errors=True)
         for child in FOLDERS.values():
-            (folder / child).mkdir(parents=True)
+            (folder / child).mkdir(parents=True, exist_ok=True)
         return folder
 
     return catch(made, exception=OSError)()

@@ -62,7 +62,7 @@ Names in code, build, and rule files say what the thing is in their language's v
 - Renames go through language tooling and update every reference, test, and file name
 - Prose writes code names in backticks with exact spelling, a tool use as its command (`ruff check`), and tool or product names used as words plain
 - Names, control labels, and text another system resolves or emits stay exact, reports name each coupling
-- Guidance examples, snippets, and comments use placeholder names (`<tool>`, `<dir>`, `Item`) and neutral values outside a domain's own facts
+- Guidance examples, snippets, and comments use placeholder names (`<tool>`, `<dir>`, `Item`) and neutral values
 - Repository, product, and organization names belong in required identifiers, package descriptions, CLI help, README openings, and product contrasts
 
 ## [02]-[REMOVALS]

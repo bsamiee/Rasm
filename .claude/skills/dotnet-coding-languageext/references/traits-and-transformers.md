@@ -1,6 +1,6 @@
 # [TRAITS_AND_TRANSFORMERS]
 
-Trait encoding, transformer stacks, and the domain monads over them, from higher kinds to derivation.
+Trait encoding, transformer stacks, and the wrappers over them, from higher kinds to derivation.
 
 ## [01]-[HIGHER_KINDS]
 
@@ -176,7 +176,7 @@ Running the request computation with `Run(session)` threads the read-only contex
 
 ## [10]-[STATE_AND_WRITER]
 
-`StateT<S, M, A>` wraps `Func<S, K<M, (A Value, S State)>>` and differs from `ReaderT` in its return type. Its `Bind` runs the next computation with the state the previous one returned, and an update propagates through every later operation while `Readable.local` alters an environment only for a nested scope. Stacks combine the concerns the domain needs without a custom type: `StateT` threads the current pool, `OptionT` stops the computation when nothing remains, and `IO` holds randomness and console interaction:
+`StateT<S, M, A>` wraps `Func<S, K<M, (A Value, S State)>>` and differs from `ReaderT` in its return type. Its `Bind` runs the next computation with the state the previous one returned, and an update propagates through every later operation while `Readable.local` alters an environment only for a nested scope. Stacks combine concerns without a custom type: `StateT` threads the current pool, `OptionT` stops the computation when nothing remains, and `IO` holds randomness and console interaction:
 
 ```csharp
 internal sealed record Pool(Seq<Item> Items);
@@ -193,13 +193,13 @@ internal static class Pools {
 }
 ```
 
-`Head` returns `None` for an empty pool, lifting it into `OptionT` stops the computation, and the update runs only when an item exists. `gets(f)` equals mapping `f` over `get`, and a domain-named accessor concentrates knowledge of the state shape. Console operations lift into `IO` and compose in the same query, the `>>` operator expresses `ma.Bind(_ => mb)` when an earlier result is irrelevant, and `when(condition, mb)` keeps a conditional step inside the workflow. Recursive loops over the stack stay stack-safe, `IO` runs them without growing the CLR stack. Removing explicit state arguments hides which operations modify state and lets application-wide state approach a global variable. Keep state queries and updates small and named, partition the domain rules into pure functions over the state, keep I/O separate from the rules, use `Stateful.local` for a temporary context that is restored afterward and a propagating update for a durable change, and hide a deep stack behind a domain type.
+`Head` returns `None` for an empty pool, lifting it into `OptionT` stops the computation, and the update runs only when an item exists. `gets(f)` equals mapping `f` over `get`, and a named accessor concentrates knowledge of the state shape. Console operations lift into `IO` and compose in the same query, the `>>` operator expresses `ma.Bind(_ => mb)` when an earlier result is irrelevant, and `when(condition, mb)` keeps a conditional step inside the workflow. Recursive loops over the stack stay stack-safe, `IO` runs them without growing the CLR stack. Removing explicit state arguments hides which operations modify state and lets application-wide state approach a global variable. Keep state queries and updates small and named, partition the rules into pure functions over the state, keep I/O separate from the rules, use `Stateful.local` for a temporary context that is restored afterward and a propagating update for a durable change, and hide a deep stack behind one type.
 
 `WriterT<W, M, A>` is `StateT` with the threaded value renamed to output and constrained to `Monoid<W>`, and the distinct name declares that the threaded value is accumulated output. Representations that return `(W Output, A Value)` and combine outputs on every `Bind` waste work when either output is empty and rebuild growing immutable outputs on every step. The threaded representation `Func<W, (W Output, A Value)>` passes the accumulated output forward, and `tell` alone combines and needs the `Monoid<W>` constraint, `tell(value) = output => (output.Combine(value), unit)`. `StateT.modify<M, W>(output => output.Combine(value))` and `Stateful.modify` on any `Stateful<M, W>` are the same operation. `RWST<R, W, S, M, A>` implements `MonadT`, `Readable`, `Writable`, and `Stateful`.
 
-## [11]-[DOMAIN_MONADS]
+## [11]-[WRAPPERS]
 
-Application code composes the supplied transformers and hides the stack behind a stable type with a domain-focused API. Workflows read as a sequence of domain operations and do not change when the private representation changes. Without derivation, the wrapper forwards `Map`, `Pure`, `Apply`, `Bind`, the `IO` operations, and the environment operations to the stack, and `Deriving` removes that forwarding: each exposed capability names its deriving trait, and the wrapper supplies `Transform` to unwrap and `CoTransform` to rewrap:
+Application code composes the supplied transformers and hides the stack behind a stable type. Workflows read as a sequence of its operations and do not change when the private representation changes. Without derivation, the wrapper forwards `Map`, `Pure`, `Apply`, `Bind`, the `IO` operations, and the environment operations to the stack, and `Deriving` removes that forwarding: each exposed capability names its deriving trait, and the wrapper supplies `Transform` to unwrap and `CoTransform` to rewrap:
 
 ```csharp
 internal sealed record Settings(int Factor);
@@ -216,4 +216,4 @@ internal static class AppExtensions {
 }
 ```
 
-Domain wrappers expose only the operations meaningful to one layer. A `Db<A>` over `StateT<DbEnv, IO, A>` fixes the database state and exposes connection, transaction, read, and write operations, and a `Service<A>` over `ReaderT<ServiceEnv, IO, A>` fixes a configuration for external calls. Each implements only its domain-specific compromises (converting a stateful database computation to plain `IO` discards the returned state, valid only where the domain accepts it). A higher-level `Api<A>` over `Free<ApiDsl, A>` joins them with DSL cases for a failure, a `Db<A>` action, and a `Service<A>` action. `Api<A>` lifts database work through explicit read-only or read-write operations and service work separately, and transactional work stays distinct from sending an external message. An interpreter runs `Api<A>` and returns `IO<A>`: `Pure` completes, `Bind` continues, a failure becomes failed `IO`, and each case runs its hidden stack with its environment. Nested transformers add lambdas, allocations, and CPU cost. Build from the pieces, hide the stack, and prioritize correctness, and when profiling shows the stack is a bottleneck, replace its private implementation with one custom monad behind the same domain API.
+Wrappers expose only the operations meaningful to one layer. A `Db<A>` over `StateT<DbEnv, IO, A>` fixes the database state and exposes connection, transaction, read, and write operations, and a `Service<A>` over `ReaderT<ServiceEnv, IO, A>` fixes a configuration for external calls. Each implements only its own compromises (converting a stateful database computation to plain `IO` discards the returned state, valid only where that state is unneeded). A higher-level `Api<A>` over `Free<ApiDsl, A>` joins them with DSL cases for a failure, a `Db<A>` action, and a `Service<A>` action. `Api<A>` lifts database work through explicit read-only or read-write operations and service work separately, and transactional work stays distinct from sending an external message. An interpreter runs `Api<A>` and returns `IO<A>`: `Pure` completes, `Bind` continues, a failure becomes failed `IO`, and each case runs its hidden stack with its environment. Nested transformers add lambdas, allocations, and CPU cost. Build from the pieces, hide the stack, and prioritize correctness, and when profiling shows the stack is a bottleneck, replace its private implementation with one custom monad behind the same API.

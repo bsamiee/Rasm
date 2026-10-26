@@ -4,89 +4,55 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
-using Rasm.Analyzers.Rhino;
 
-namespace Rasm.Analyzers.Eto;
+namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class EtoAnalyzer : RasmAnalyzer {
     // --- [RULES]
-    private const string Host = "Eto";
-
-    private const string Native = "Microsoft.macOS";
-
-    public static readonly DiagnosticDescriptor Marshal = Rule(
-        "RASM2006",
-        RhinoAnalyzer.Library,
-        "Single call marshaled to the UI thread",
-        "`{0}` marshals one call to the UI thread. Compose UI-thread calls into one `IO` run through `OnUiThread()`",
-        "Eto `Application`, main `DispatchQueue`, or `NSObject` main-thread call taking a delegate outside `Callbacks`.");
+    private const string Category = "Eto";
 
     public static readonly DiagnosticDescriptor Cached = Rule(
         "RASM2201",
-        Host,
+        Category,
         "Cached system font disposed",
         "`{1}` disposes the font `SystemFonts.{0}` caches for every caller. Read it without a release",
         "`SystemFonts` font reaching `Dispose`, `using`, a `DisposalOps` or `Copies.Owned` acquire, a `DisposalOps` release, `new Disposal<T>`, or a `retain` call, directly or through a local, range variable, or lambda parameter.");
 
     public static readonly DiagnosticDescriptor Framed = Rule(
         "RASM2202",
-        RhinoAnalyzer.Library,
+        Category,
         "Eto container acquired by plain dispose",
         "`{0}` disposes `{1}` with its children attached. Acquire `{1}` through `Containers.Frame`",
         "`Eto.Forms.Container` reaching a plain-dispose `DisposalOps` overload, `new Disposal<T>` with a release that only disposes, or a `retain` call, while the acquiring member attaches a child held before it, or any child to a `StackLayout`.");
 
     public static readonly DiagnosticDescriptor Twice = Rule(
         "RASM2203",
-        RhinoAnalyzer.Library,
+        Category,
         "Retained control disposed on failure",
         "`{0}` disposes `{1}` on failure after `{2}` handed it to its owner. Delete the release",
         "`DisposalOps.OnFailure` release disposing an `Eto.Widget` that a plain-dispose `DisposalOps.Acquire` or a `retain` call handed to its owner earlier on the same path.");
 
     public static readonly DiagnosticDescriptor Escaped = Rule(
         "RASM2204",
-        Native,
+        Category,
         "Native callback outside the Callbacks boundary",
         "Native callback `{0}` runs `{1}` outside the `Callbacks` boundary, and an exception there aborts Rhino. Route it through `Callbacks.Run(<effect>, <site>)`",
         "Body of a delegate handed to an Objective-C binding or `ObjCExtensions.AddMethod`, an `[UnmanagedFunctionPointer]` delegate, or an `[Export]`, `[UnmanagedCallersOnly]`, or `NSObject` override that is more than one `Callbacks` call, or a host member read before the boundary in a `Callbacks` call of such a body or an Eto override.");
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Marshal, Cached, Framed, Twice, Escaped];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Cached, Framed, Twice, Escaped];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
-        INamedTypeSymbol? callbacks = compilation.GetTypeByMetadataName("Rasm.Rhino.Callbacks");
         INamedTypeSymbol? widget = compilation.GetTypeByMetadataName("Eto.Widget");
-        if (callbacks is not null) Marshals(context, callbacks);
         if (Lifetimes.Of(compilation) is not { } lifetimes) return;
         if (compilation.GetTypeByMetadataName("Eto.Drawing.SystemFonts") is { } fonts && compilation.GetTypeByMetadataName("Eto.Drawing.Font") is { } font)
             Fonts(context, lifetimes, fonts, font);
         if (compilation.GetTypeByMetadataName("Eto.Forms.Container") is { } container && compilation.GetTypeByMetadataName("Eto.Forms.Control") is { } control)
             Frames(context, lifetimes, container, control, compilation.GetTypeByMetadataName("Eto.Forms.StackLayout"));
         if (widget is not null && !lifetimes.Failures.IsEmpty) Failures(context, lifetimes, widget);
-        if (callbacks is not null) Natives(context, lifetimes, callbacks, widget);
-    }
-
-    // --- [MARSHALS]
-    private static void Marshals(CompilationStartAnalysisContext context, INamedTypeSymbol callbacks) {
-        Compilation compilation = context.Compilation;
-        INamedTypeSymbol? application = compilation.GetTypeByMetadataName("Eto.Forms.Application");
-        INamedTypeSymbol? queue = compilation.GetTypeByMetadataName("CoreFoundation.DispatchQueue");
-        INamedTypeSymbol? objects = compilation.GetTypeByMetadataName("Foundation.NSObject");
-        INamedTypeSymbol? threads = compilation.GetTypeByMetadataName("Foundation.NSThread");
-        ImmutableArray<ISymbol> mains = Declared(compilation, "P:CoreFoundation.DispatchQueue.MainQueue", "P:Foundation.NSThread.MainThread");
-        bool Main(IOperation? value) => value is IMemberReferenceOperation reference && Among(reference.Member, mains);
-        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference], (operation, analysis) =>
-            operation switch {
-                IInvocationOperation invocation => (invocation.TargetMethod, invocation.Instance, invocation.Arguments),
-                IMethodReferenceOperation reference => (reference.Method, reference.Instance, ImmutableArray<IArgumentOperation>.Empty),
-                _ => default,
-            } is ( { } method, var instance, var arguments) && !Inside<INameOfOperation>(operation) && !Within(analysis.ContainingSymbol, callbacks)
-            && ((Same(method.ContainingType, application) && Delegated(method))
-                || (Same(method.ContainingType, queue) && Delegated(method) && Main(instance))
-                || (objects is not null && Derives(method.ContainingType, objects) && method.Parameters.Any(parameter => Same(parameter.Type, threads)) && arguments.Any(argument => Main(argument.Value))))
-                ? [Diagnostic.Create(Marshal, operation.Syntax.GetLocation(), Label(method))]
-                : []);
+        if (compilation.GetTypeByMetadataName("Rasm.Rhino.Callbacks") is { } callbacks) Natives(context, lifetimes, callbacks, widget);
     }
 
     // --- [FONTS]

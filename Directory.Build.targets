@@ -55,6 +55,14 @@
         <DefaultItemExcludes>$(DefaultItemExcludes);**/Mac/**</DefaultItemExcludes>
     </PropertyGroup>
 
+    <ItemGroup Label="Rhino Windows Host" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' == 'Windows'">
+        <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Rhino Mac Host" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
+        <DefaultItemExcludes>$(DefaultItemExcludes);**/Windows/**</DefaultItemExcludes>
+    </PropertyGroup>
+
     <Target Name="ResolveRhinoInstallation" DependsOnTargets="ResolvePackageAssets" Condition="'$(RhinoHost)' != ''">
         <GetAssemblyIdentity AssemblyFiles="@(ResolvedCompileFileDefinitions->WithMetadataValue('NuGetPackageId', 'RhinoCommon')->WithMetadataValue('Filename', 'RhinoCommon'))">
             <Output TaskParameter="Assemblies" ItemName="_RhinoAssemblyIdentity" />

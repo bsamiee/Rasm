@@ -67,7 +67,7 @@ Before `Read` on a `.cs` file, the wanted view decides:
 |  [38]   | `mcp__roslyn-codelens__find_large_classes`         | "Find classes that need splitting"                                              |
 |  [39]   | `mcp__roslyn-codelens__find_god_objects`           | "Which classes are doing too much?"                                             |
 |  [40]   | `mcp__roslyn-codelens__find_circular_dependencies` | "Are there circular dependencies?"                                              |
-|  [41]   | `mcp__roslyn-codelens__check_architecture`         | "Is anything violating our layering?" / "Does Domain reference Infrastructure?" |
+|  [41]   | `mcp__roslyn-codelens__check_architecture`         | "Is anything violating our layering?" / "Does Api reference Infrastructure?"    |
 |  [42]   | `mcp__roslyn-codelens__get_project_health`         | "How is this project doing?" / "Top hotspots across all dimensions"             |
 |  [43]   | `mcp__roslyn-codelens__get_source_generators`      | "What source generators are active?"                                            |
 |  [44]   | `mcp__roslyn-codelens__get_generated_code`         | "Show generated code"                                                           |
@@ -271,8 +271,8 @@ Tools see explicit `throw` only, implicit run-time exceptions (null dereference,
     - Defaults are 300 lines, 15 members, 10 fields, 5 incoming namespaces, and 5 outgoing namespaces, each configurable
 - `mcp__roslyn-codelens__find_circular_dependencies` — cycles in the project graph or the namespace graph
 - `mcp__roslyn-codelens__check_architecture` — layering rules supplied inline, `scope` selects `namespace` (default) or `project`
-    - `forbid` (`Domain.*` must not depend on `Infrastructure.*`) catches the expected violation
-    - `allowOnly` (`Api.*` can depend only on `Application.*` and `Domain.*`) catches the rest
+    - `forbid` (`Api.*` must not depend on `Infrastructure.*`) catches the expected violation
+    - `allowOnly` (`Api.*` can depend only on `Application.*`) catches the rest
     - Edges come from resolved symbols
     - `allowOnly` evaluates solution-internal, non-generated targets alone, edges to framework namespaces and generator output stay unchecked unless `forbid` names them
     - Self-references are never a violation

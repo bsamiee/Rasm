@@ -15,7 +15,7 @@ Read the supplied evidence, then the dependencies deciding the correction:
 
 Structural search locates candidates, language and package contracts judge the correction. Matching shapes alone establish no redundant type, repeated effect, unused declaration, or interchangeable library call.
 
-- Repeated string spelling establishes no shared domain fact
+- Repeated string spelling establishes no shared fact
 - Library families derive from installed exports and overloads, positional arguments in documented order and keyword arguments by name
 - Every branch's return is known before a fold becomes map or bind
 - Package operations import from their documented submodule
@@ -29,7 +29,7 @@ Rewrites edit only selections where the fix keeps behavior, other forms violatin
 - `<globs>` joins in one brace glob the round language's extensions, `sgconfig.yml` `languageGlobs`, and each host injecting it
 - `<state>` is `before` or `after` under the run's private directory, `<excludes>` the `--globs '!<glob>'` flags of `lint:ast-grep`
 - Rows grouped by `ruleId` count each rule, `comm -3` over both `<state>.keys` files lists gained and lost rows
-- Counts locate unnecessary structure and justify no deletion of a domain invariant or hiding of complexity in another file
+- Counts locate unnecessary structure and justify no deletion of an invariant or hiding of complexity in another file
 - Resolve warnings from scoped checkers before deriving a rule
 
 Scans record a state, `jq` reads its scan lines into keys and per-rule counts:
