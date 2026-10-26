@@ -22,4 +22,4 @@ rule:
         - matches: block
         - follows: {stopBy: end, matches: block}
 message: '`extension` block repeats receiver `$RECEIVER` an earlier block of the class declares'
-note: 'Move the members into the earlier `extension` block over the same receiver, one subsection divider per family'
+note: 'Move its members into the earlier `extension` block of `<receiver>`, one subsection divider per family'

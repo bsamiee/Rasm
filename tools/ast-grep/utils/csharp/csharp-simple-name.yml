@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-simple-name
+language: csharp
+arguments: [name]
+rule:
+    any:
+        - kind: identifier
+          matches: name
+        - kind: generic_name
+          has: {kind: identifier, matches: name}

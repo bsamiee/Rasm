@@ -70,7 +70,7 @@ rule:
         - kind: call_expression
           all:
             - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
-            - has: {field: function, pattern: $RACE, matches: rust-future-select}
+            - has: {field: function, pattern: $RACE, matches: futures-select}
             - has: {field: arguments, has: {matches: deadline-operand}}
 message: '`$RACE$BANG` races one future against `$SLEEP` by hand'
 note: 'Await `tokio::time::timeout(<duration>, <future>)`, or `timeout_at(<deadline>, <future>)` for a deadline, and match `Err(Elapsed)`'

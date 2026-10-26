@@ -8,7 +8,7 @@ utils:
             - has: {field: subject, any: [{matches: sql-operator-expression, pattern: _SUBJECTG}, {pattern: _SUBJECT}]}
             - has: {field: when, any: [{matches: sql-operator-expression, pattern: _CASEG}, {pattern: _CASE}]}
     conditional-call:
-        matches: sql-choice-call
+        matches: sql-iif-call
         has:
             field: arguments
             kind: normal_function_arguments

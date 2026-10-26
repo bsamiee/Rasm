@@ -5,7 +5,7 @@ severity: error
 utils:
     handler-body:
         kind: lambda_literal
-        has: {stopBy: end, matches: swift-task-launch, pattern: $TASK}
+        has: {stopBy: end, matches: swift-unstructured-task, pattern: $TASK}
 rule:
     any:
         - kind: call_expression

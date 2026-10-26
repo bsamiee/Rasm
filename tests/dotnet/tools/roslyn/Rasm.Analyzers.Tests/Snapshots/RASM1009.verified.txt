@@ -1,4 +1,4 @@
-#0 `Option` value `value` converted to a nullable by hand. Replace with `value.ValueUnsafe()`
-#1 `Option` value `value` converted to a nullable by hand. Replace with `value.ValueUnsafe()`
-#2 `Option` value `value` converted to a nullable by hand. Replace with `value.ValueUnsafe()`
-#3 `Option` value `value` converted to a nullable by hand. Replace with `value.Map<int?>(static held => (int?)held).ValueUnsafe()`
+#0 `Option` value `value` converted to nullable by hand, write `value.ValueUnsafe()`
+#1 `Option` value `value` converted to nullable by hand, write `value.ValueUnsafe()`
+#2 `Option` value `value` converted to nullable by hand, write `value.ValueUnsafe()`
+#3 `Option` value `value` converted to nullable by hand, write `value.Map<int?>(static held => (int?)held).ValueUnsafe()`

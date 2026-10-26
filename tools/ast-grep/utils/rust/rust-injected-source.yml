@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-injected-source
+language: rust
+rule:
+    kind: source_file
+    regex: '^[(\[]'

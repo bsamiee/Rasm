@@ -4,7 +4,12 @@ language: tsx
 severity: error
 utils:
     schema:
-        matches: {effect-module: {name: {regex: '\bSchema$'}}}
+        any:
+            - matches: {effect-module: {name: {regex: '\bSchema$'}}}
+            - kind: member_expression
+              has: {field: object, matches: schema}
+            - kind: call_expression
+              has: {field: function, matches: schema}
     reference:
         kind: identifier
         pattern: $NAME
@@ -16,17 +21,13 @@ rule:
     kind: variable_declarator
     all:
         - has: {field: name, kind: identifier, pattern: $NAME}
-        - has:
-            field: value
-            any:
-                - {kind: call_expression, has: {field: function, kind: member_expression, has: {field: object, matches: schema}}}
-                - {kind: member_expression, has: {field: object, matches: schema}}
+        - has: {field: value, kind: 'call_expression, member_expression', matches: schema}
         - inside: {matches: typescript-module-constant}
         - inside:
             kind: program
             stopBy: end
             all:
-                - has: {stopBy: end, matches: owner, has: {kind: class_heritage, has: {stopBy: end, kind: pair, has: {field: value, kind: identifier, pattern: $NAME}}}}
-                - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, matches: owner}}}}
-message: '`$NAME` declares a field schema that `$CLASS` alone reads'
+                - has: {stopBy: end, matches: owner, has: {kind: class_heritage, has: {stopBy: end, kind: pair, pattern: $FIELD, has: {field: value, kind: identifier, pattern: $NAME}}}}
+                - not: {has: {stopBy: end, matches: reference, not: {inside: {kind: pair, pattern: $FIELD}}}}
+message: '`$NAME` declares a schema one field of `$CLASS` alone reads'
 note: 'Declare the schema inline in the class fields and read it as `<Class>.fields.<field>`'

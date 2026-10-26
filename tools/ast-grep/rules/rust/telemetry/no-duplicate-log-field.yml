@@ -6,32 +6,32 @@ utils:
     name-end:
         regex: '^(=|,|\)|\})$'
     repeated-field:
-        matches: rust-log-field-start
+        matches: tracing-field-start
         pattern: $NAME
         any:
             - all:
                 - precedes: {matches: name-end}
-                - precedes: {stopBy: end, matches: rust-log-field-start, pattern: $NAME, precedes: {matches: name-end}}
+                - precedes: {stopBy: end, matches: tracing-field-start, pattern: $NAME, precedes: {matches: name-end}}
             - all:
                 - precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {matches: name-end}}}
-                - precedes: {stopBy: end, matches: rust-log-field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {matches: name-end}}}}
+                - precedes: {stopBy: end, matches: tracing-field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {matches: name-end}}}}
             - all:
                 - precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {matches: name-end}}}}}
-                - precedes: {stopBy: end, matches: rust-log-field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {matches: name-end}}}}}}
+                - precedes: {stopBy: end, matches: tracing-field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {matches: name-end}}}}}}
             - all:
                 - precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $D, precedes: {matches: name-end}}}}}}}
-                - precedes: {stopBy: end, matches: rust-log-field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $D, precedes: {matches: name-end}}}}}}}}
+                - precedes: {stopBy: end, matches: tracing-field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $D, precedes: {matches: name-end}}}}}}}}
             - all:
                 - regex: '^message$'
                 - precedes: {matches: name-end}
-                - inside: {stopBy: {kind: macro_invocation}, matches: rust-event-macro}
-                - precedes: {stopBy: end, matches: rust-event-message}
+                - inside: {stopBy: {kind: macro_invocation}, matches: tracing-event-macro}
+                - precedes: {stopBy: end, matches: tracing-event-message}
 rule:
     any:
-        - matches: rust-log-macro
+        - matches: tracing-macro
           has: {kind: token_tree, has: {stopBy: end, matches: repeated-field}}
         - kind: attribute_item
-          has: {kind: attribute, has: {stopBy: end, matches: rust-instrument-fields, has: {matches: repeated-field}}}
+          has: {kind: attribute, has: {stopBy: end, matches: tracing-instrument-fields, has: {matches: repeated-field}}}
 transform:
     TAIL: {replace: {source: $B, replace: '^(.*)$', by: '.$1'}}
     TAIL2: {replace: {source: $C, replace: '^(.*)$', by: '.$1'}}

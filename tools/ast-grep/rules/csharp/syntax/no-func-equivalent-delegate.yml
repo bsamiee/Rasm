@@ -2,6 +2,10 @@
 id: no-func-equivalent-delegate
 language: csharp
 severity: error
+utils:
+    key-argument:
+        kind: generic_name
+        has: {kind: type_argument_list, has: {kind: identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
 rule:
     kind: delegate_declaration
     all:
@@ -45,13 +49,10 @@ rule:
                         kind: invocation_expression
                         has:
                             field: function
-                            kind: member_access_expression
-                            has:
-                                field: name
-                                kind: generic_name
-                                all:
-                                    - has: {kind: identifier, regex: '^(Add|Find|Supports|Create|CreateShared)$'}
-                                    - has: {kind: type_argument_list, has: {kind: identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
+                            any:
+                                - matches: key-argument
+                                - kind: member_access_expression
+                                  has: {field: name, matches: key-argument}
                 - all:
                     - has: {field: parameters, has: {kind: parameter, nthChild: 4}}
                     - inside:
@@ -69,4 +70,4 @@ rule:
                                     has: {stopBy: end, kind: identifier, pattern: $NAME}
                                     follows: {stopBy: end, kind: *member, has: {stopBy: end, kind: identifier, pattern: $NAME}}
 message: Delegate `$NAME` restates a `Func` or `Action` signature
-note: 'Replace the delegate with the `Func` or `Action` of the same signature at each use'
+note: 'Replace each use with the `Func` or `Action` of its signature'

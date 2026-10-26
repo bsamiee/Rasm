@@ -5,11 +5,11 @@ severity: error
 utils:
     error-name:
         kind: identifier
-        matches: rust-log-field-start
+        matches: tracing-field-start
         pattern: $NAME
         regex: '^(error|err|e|cause|exception)$'
     report-value:
-        matches: rust-log-field-start
+        matches: tracing-field-start
         pattern: $NAME
         not: {regex: '^\{\s*(\w+::)*EXCEPTION_MESSAGE\s*\}$'}
         precedes: {regex: '^=$', precedes: {stopBy: {regex: '^,$'}, kind: identifier, regex: '^Report$', precedes: {regex: '^::$', precedes: {kind: identifier, regex: '^new$'}}}}
@@ -28,13 +28,13 @@ utils:
               inside: {kind: attribute_item, stopBy: end, precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: function_item, has: {field: return_type, regex: '\bResult\b'}}}
 rule:
     any:
-        - matches: rust-log-macro
+        - matches: tracing-macro
           has: {kind: token_tree, has: {stopBy: end, matches: error-field}}
         - kind: attribute_item
           has:
             kind: attribute
             any:
                 - has: {stopBy: end, matches: instrument-option}
-                - has: {stopBy: end, matches: rust-instrument-fields, has: {matches: error-field}}
+                - has: {stopBy: end, matches: tracing-instrument-fields, has: {matches: error-field}}
 message: '`$NAME` records an error outside field `exception.message`'
 note: 'Record `{ EXCEPTION_MESSAGE } = %std::error::Report::new(<error>)` with the `opentelemetry_semantic_conventions::attribute` constant'

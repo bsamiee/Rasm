@@ -9,7 +9,9 @@ utils:
               has:
                 any:
                     - kind: predefined_type
-                      regex: '^(string|number|boolean|bigint|symbol)$'
+                      regex: '^(string|number|boolean|symbol)$'
+                    - kind: type_identifier
+                      regex: '^bigint$'
                     - kind: literal_type
                       has: {kind: 'string, number, true, false'}
                     - kind: array_type

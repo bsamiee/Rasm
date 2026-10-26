@@ -13,6 +13,10 @@ rule:
           all:
             - has: {nthChild: 1, regex: '^String$'}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^(describing|reflecting)$'}}, {has: {field: value, kind: simple_identifier, regex: '^(error|failure)$|Error$'}}]}}}
+        - kind: line_string_literal
+          all:
+            - not: {has: {kind: line_str_text}}
+            - has: {field: interpolation, not: {has: {kind: value_argument_label}}, has: {field: value, kind: simple_identifier, regex: '^(error|failure)$|Error$'}}
         - kind: call_expression
           has:
             kind: call_suffix

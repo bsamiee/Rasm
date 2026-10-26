@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-release-in-failure-handler
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    handler-arguments:
+        kind: argument_list
+        any:
+            - all:
+                - has: {kind: argument, nthChild: {position: 1, ofRule: {kind: argument}}, has: {matches: languageext-release-handler}}
+                - not: {has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}
+            - all:
+                - has: {kind: argument, nthChild: {position: 1, ofRule: {kind: argument}}, matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}
+                - has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: languageext-release-handler}}
+                - not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}
+    caught-release:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Catch|CatchIO|IfFail)(\s*<.+>)?$'}}, {has: {field: expression, pattern: $EFFECT}}]}
+                - has: {field: arguments, matches: handler-arguments}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}
+                - has: {field: arguments, matches: handler-arguments}
+                - inside: {kind: binary_expression, field: right, all: [{has: {field: operator, regex: '^\|$'}}, {has: {field: left, pattern: $EFFECT}}]}
+    unit-value:
+        matches: {csharp-type-name: {name: {regex: '^unit$'}}}
+    release:
+        not:
+            any:
+                - matches: unit-value
+                - pattern: $EFFECT
+                - has: {stopBy: end, pattern: $EFFECT}
+    failed:
+        any:
+            - pattern: $EFFECT.IsFail
+            - pattern: '!$EFFECT.IsSucc'
+    succeeded:
+        any:
+            - pattern: $EFFECT.IsSucc
+            - pattern: '!$EFFECT.IsFail'
+    failure-arm:
+        kind: lambda_expression
+        all:
+            - has: {field: body, pattern: $_, matches: release}
+            - any:
+                - has: {field: parameters, regex: '^\(?\s*_\s*\)?$'}
+                - all:
+                    - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $FAILURE}, {has: {kind: parameter, has: {field: name, pattern: $FAILURE}}}]}
+                    - not: {has: {field: body, any: [{pattern: $FAILURE}, {has: {stopBy: end, pattern: $FAILURE}}]}}
+    discarded:
+        inside: {kind: assignment_expression, has: {field: left, regex: '^_$'}}
+    checked-release:
+        any:
+            - kind: conditional_expression
+              all:
+                - matches: discarded
+                - any:
+                    - all:
+                        - has: {field: condition, matches: succeeded}
+                        - has: {field: consequence, matches: unit-value}
+                        - has: {field: alternative, pattern: $_, matches: release}
+                    - all:
+                        - has: {field: condition, matches: failed}
+                        - has: {field: consequence, pattern: $_, matches: release}
+                        - has: {field: alternative, matches: unit-value}
+            - kind: if_statement
+              all:
+                - has: {field: condition, matches: failed}
+                - not: {has: {field: alternative, pattern: $_}}
+                - has:
+                    field: consequence
+                    matches: release
+                    any:
+                        - kind: expression_statement
+                        - kind: block
+                          all:
+                            - has: {kind: expression_statement}
+                            - not: {has: {pattern: $_, not: {kind: 'expression_statement, comment'}}}
+            - kind: invocation_expression
+              all:
+                - matches: discarded
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match$'}}, {has: {field: expression, pattern: $EFFECT}}]}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}
+                        - any:
+                            - all:
+                                - has: {kind: argument, all: [{has: {field: name, regex: '^Succ$'}}, {has: {kind: lambda_expression, has: {field: body, matches: unit-value}}}]}
+                                - has: {kind: argument, all: [{has: {field: name, regex: '^Fail$'}}, {has: {matches: failure-arm}}]}
+                            - all:
+                                - has: {kind: argument, nthChild: {position: 1, ofRule: {kind: argument}}, not: {has: {field: name, pattern: $_}}, has: {kind: lambda_expression, has: {field: body, matches: unit-value}}}
+                                - has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, not: {has: {field: name, pattern: $_}}, has: {matches: failure-arm}}
+rule:
+    any:
+        - matches: caught-release
+        - matches: checked-release
+    not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
+message: '`$EFFECT` runs a release on failure and keeps its error'
+note: 'Call `DisposalOps.OnFailure(<effect>, <release>)`'

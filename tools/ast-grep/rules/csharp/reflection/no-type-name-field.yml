@@ -68,7 +68,16 @@ utils:
     created-type:
         not: {regex: 'Exception$'}
         pattern: $CREATED
+    failure:
+        any:
+            - inside: {kind: 'throw_expression, throw_statement'}
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside: {kind: invocation_expression, has: {field: function, regex: '(^|\.)\s*(ToFin|ToValidation|ToEither|Fail|fail|guard|guardnot)(\s*<.+>)?$'}}
     creation:
+        not: {matches: failure}
         any:
             - kind: object_creation_expression
               has: {field: type, matches: created-type}
@@ -113,11 +122,7 @@ utils:
                     kind: 'method_declaration, local_function_statement'
                     has: {field: body, has: {stopBy: end, kind: identifier, pattern: $PARAMETER, matches: stored}}
     callee-name:
-        any:
-            - kind: identifier
-              pattern: $CALLEE
-            - kind: generic_name
-              has: {kind: identifier, pattern: $CALLEE}
+        matches: {csharp-simple-name: {name: {pattern: $CALLEE}}}
     callee-parameters:
         kind: parameter_list
         inside:
@@ -188,4 +193,4 @@ rule:
                     field: function
                     inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, all: [{matches: callee-parameters}, {matches: receiver-parameters}, {has: {nthChild: 1, matches: stored-parameter}}]}}
 message: '`$READ` stores a CLR type name in a field of `$CREATED`'
-note: 'Store the `Type` or the value in `<created>` and format the name where a person reads it'
+note: 'Store the `Type` or value in `<created>` and format its name where a person reads it'

@@ -22,4 +22,4 @@ transform:
     TESTS: {replace: {source: $TEST, replace: '(?s)^(.+)$', by: '`$1` tests the error type in place of its code'}}
     DECLARES: {replace: {source: $RECORD, replace: '(?s)^(.+)$', by: '`$1` declares a custom error coded `ValidationFailed`'}}
 message: $TESTS$DECLARES
-note: 'Assign `validationError = new ValidationError(<rule>)` in the hook, convert via `<type>.Validated`, and test `HasCode(ErrorCodes.ValidationFailed)`'
+note: 'Assign `validationError = new ValidationError(<rule>)` in `ValidateFactoryArguments`, test `HasCode(ErrorCodes.ValidationFailed)` after `<type>.Validated`'

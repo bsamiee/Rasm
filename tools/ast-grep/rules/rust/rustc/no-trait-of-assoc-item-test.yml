@@ -6,6 +6,6 @@ files: [tools/dylint/**]
 rule:
     kind: call_expression
     pattern: $CALL
-    matches: rust-trait-of-assoc-test
+    matches: rustc-trait-of-assoc-test
 message: '`$CALL` tests an associated item''s trait as a diagnostic or lang item by hand'
-note: 'Call `<item>.opt_parent(cx)` (`use clippy_utils::res::MaybeDef as _;`) and test the result with `is_diag_item`, `is_lang_item`, or `opt_diag_name`'
+note: 'Test `<item>.opt_parent(cx)` through `is_diag_item`, `is_lang_item`, or `opt_diag_name` (`use clippy_utils::res::MaybeDef as _;`)'

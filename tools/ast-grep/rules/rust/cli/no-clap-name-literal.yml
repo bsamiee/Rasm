@@ -42,5 +42,5 @@ rule:
                                 - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
                                 - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
         - not: {matches: rust-test-scope}
-message: '`$KEY` spells `$NAME` in place of the name clap derives from the item or package'
-note: 'Name the item or package after the literal, delete the key or `long`''s value, with `#[value(rename_all)]` on `ValueEnum`, `#[group(skip)]` on `Args`'
+message: '`$KEY` spells `$NAME`, a name clap derives from the item or package'
+note: 'Rename item or package to the literal and delete key or `long` value, `#[value(rename_all)]` on `ValueEnum` and `#[group(skip)]` on `Args`'

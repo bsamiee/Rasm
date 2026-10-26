@@ -1,167 +1,167 @@
-P:System.DateTime.Now;Read GetLocalNow() from a TimeProvider argument
-P:System.DateTime.UtcNow;Read GetUtcNow() from a TimeProvider argument
-P:System.DateTime.Today;Read GetLocalNow().Date from a TimeProvider argument
-P:System.DateTimeOffset.Now;Read GetLocalNow() from a TimeProvider argument
-P:System.DateTimeOffset.UtcNow;Read GetUtcNow() from a TimeProvider argument
-P:System.Environment.TickCount;Read GetTimestamp() from a TimeProvider argument
-P:System.Environment.TickCount64;Read GetTimestamp() from a TimeProvider argument
-M:System.Diagnostics.Stopwatch.#ctor;Read GetTimestamp() and GetElapsedTime(start) from a TimeProvider argument
-M:System.Diagnostics.Stopwatch.StartNew;Read GetTimestamp() and GetElapsedTime(start) from a TimeProvider argument
-M:System.Diagnostics.Stopwatch.GetTimestamp;Read GetTimestamp() from a TimeProvider argument
-M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64);Read GetElapsedTime(start) from a TimeProvider argument
-P:NodaTime.SystemClock.Instance;Take the clock as a TimeProvider argument
+P:System.DateTime.Now;Read `GetLocalNow()` from a `TimeProvider` argument
+P:System.DateTime.UtcNow;Read `GetUtcNow()` from a `TimeProvider` argument
+P:System.DateTime.Today;Read `GetLocalNow().Date` from a `TimeProvider` argument
+P:System.DateTimeOffset.Now;Read `GetLocalNow()` from a `TimeProvider` argument
+P:System.DateTimeOffset.UtcNow;Read `GetUtcNow()` from a `TimeProvider` argument
+P:System.Environment.TickCount;Read `GetTimestamp()` from a `TimeProvider` argument
+P:System.Environment.TickCount64;Read `GetTimestamp()` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.#ctor;Read `GetTimestamp()` and `GetElapsedTime(start)` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.StartNew;Read `GetTimestamp()` and `GetElapsedTime(start)` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.GetTimestamp;Read `GetTimestamp()` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64);Read `GetElapsedTime(start)` from a `TimeProvider` argument
+P:NodaTime.SystemClock.Instance;Take the clock as a `TimeProvider` argument
 M:System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 M:System.Runtime.Serialization.FormatterServices.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 M:System.Runtime.Serialization.FormatterServices.GetSafeUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 P:System.Reflection.TypeInfo.DeclaredConstructors;Lists non-public constructors, call a declared factory or public constructor
-M:System.Activator.CreateInstance(System.Type,System.Boolean);Reaches non-public constructors, call Activator.CreateInstance(Type) or a declared factory
-M:System.Activator.CreateInstance(System.Type,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo);Reaches non-public constructors, call Activator.CreateInstance(Type, Object[]) or a declared factory
-M:System.Activator.CreateInstance(System.Type,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Reaches non-public constructors, call Activator.CreateInstance(Type, Object[]) or a declared factory
-M:System.Linq.Expressions.Expression.Call(System.Linq.Expressions.Expression,System.String,System.Type[],System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Linq.Expressions.Expression.Call(System.Type,System.String,System.Type[],System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.Type,System.String);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String,System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.Type,System.String);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Linq.Expressions.Expression.PropertyOrField(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a MethodInfo, PropertyInfo, or FieldInfo overload
-M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String);Convert a method group or call CreateDelegate(Type, MethodInfo)
-M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean);Convert a method group or call CreateDelegate(Type, MethodInfo)
-M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean,System.Boolean);Convert a method group or call CreateDelegate(Type, MethodInfo)
-M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String);Convert a method group or call CreateDelegate(Type, MethodInfo)
-M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean);Convert a method group or call CreateDelegate(Type, MethodInfo)
-M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean,System.Boolean);Convert a method group or call CreateDelegate(Type, MethodInfo)
-M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[]);Call the member directly, or through an UnsafeAccessor extern for a non-public one
-M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Globalization.CultureInfo);Call the member directly, or through an UnsafeAccessor extern for a non-public one
-M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Reflection.ParameterModifier[],System.Globalization.CultureInfo,System.String[]);Call the member directly, or through an UnsafeAccessor extern for a non-public one
-M:System.Activator.CreateInstance(System.String,System.String);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.Activator.CreateInstance(System.String,System.String,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.Activator.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.Activator.CreateInstanceFrom(System.String,System.String);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstance(System.String,System.String);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstance(System.String,System.String,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceFrom(System.String,System.String);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
-M:System.Numerics.Vector2.LessThanAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.LessThan(left, right))
-M:System.Numerics.Vector2.LessThanAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.LessThan(left, right))
-M:System.Numerics.Vector2.LessThanOrEqualAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.LessThanOrEqual(left, right))
-M:System.Numerics.Vector2.LessThanOrEqualAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.LessThanOrEqual(left, right))
-M:System.Numerics.Vector2.GreaterThanAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.GreaterThan(left, right))
-M:System.Numerics.Vector2.GreaterThanAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.GreaterThan(left, right))
-M:System.Numerics.Vector2.GreaterThanOrEqualAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.GreaterThanOrEqual(left, right))
-M:System.Numerics.Vector2.GreaterThanOrEqualAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.GreaterThanOrEqual(left, right))
-M:System.Numerics.Vector2.EqualsAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, test left == right
-M:System.Numerics.Vector2.EqualsAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.Equals(left, right))
-M:System.Numerics.Vector3.LessThanAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.LessThan(left, right))
-M:System.Numerics.Vector3.LessThanAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.LessThan(left, right))
-M:System.Numerics.Vector3.LessThanOrEqualAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.LessThanOrEqual(left, right))
-M:System.Numerics.Vector3.LessThanOrEqualAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.LessThanOrEqual(left, right))
-M:System.Numerics.Vector3.GreaterThanAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.GreaterThan(left, right))
-M:System.Numerics.Vector3.GreaterThanAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.GreaterThan(left, right))
-M:System.Numerics.Vector3.GreaterThanOrEqualAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(left, right))
-M:System.Numerics.Vector3.GreaterThanOrEqualAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.GreaterThanOrEqual(left, right))
-M:System.Numerics.Vector3.EqualsAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, test left == right
-M:System.Numerics.Vector3.EqualsAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.Equals(left, right))
-M:Thinktecture.Empty.Action;Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``1(``0);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``2(``0,``1);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``3(``0,``1,``2);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``4(``0,``1,``2,``3);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``5(``0,``1,``2,``3,``4);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``6(``0,``1,``2,``3,``4,``5);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``7(``0,``1,``2,``3,``4,``5,``6);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``8(``0,``1,``2,``3,``4,``5,``6,``7);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``9(``0,``1,``2,``3,``4,``5,``6,``7,``8);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``10(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``11(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``12(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``13(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``14(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``15(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14);Hold absence as Option<Action> the consumer matches
-M:Thinktecture.Empty.Action``16(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14,``15);Hold absence as Option<Action> the consumer matches
-T:Thinktecture.ValidationErrorAttribute;Validate with the default ValidationError and state the violated rule as its message
-T:Thinktecture.ValidationErrorAttribute`1;Validate with the default ValidationError and state the violated rule as its message
-T:Thinktecture.IValidationError`1;Validate with the default ValidationError and state the violated rule as its message
-M:Thinktecture.Empty.Disposable;Hold absence as Option<IDisposable> the consumer matches
-M:Thinktecture.Empty.AsyncDisposable;Hold absence as Option<IAsyncDisposable> the consumer matches
-P:System.Reactive.Disposables.Disposable.Empty;Hold absence as Option<IDisposable> the consumer matches
-M:Rhino.Runtime.CommonObject.ToJSON(Rhino.FileIO.SerializationOptions);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Runtime.CommonObject.FromJSON(System.String);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Runtime.CommonObject.FromJSON(System.Collections.Generic.Dictionary{System.String,System.String});String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Runtime.CommonObject.FromBase64String(System.Int32,System.Int32,System.String);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Geometry.SerializableExtensions.ToEncodedString(System.Runtime.Serialization.ISerializable);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Geometry.SerializableExtensions.FromEncodedString``1(System.String);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Geometry.MeshingParameters.ToEncodedString;String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Geometry.MeshingParameters.FromEncodedString(System.String);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Geometry.SubDDisplayParameters.ToEncodedString;String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.Geometry.SubDDisplayParameters.FromEncodedString(System.String);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.FileIO.DracoCompression.ToBase64String;String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-M:Rhino.FileIO.DracoCompression.DecompressBase64String(System.String);String round trips rebuild the host object on each decode, hold the object in a use scope across every host call
-P:Rhino.Collections.ArchivableDictionary.Item(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value), write through Set(key, value)
-M:Rhino.Collections.ArchivableDictionary.GetString(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetDictionary(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetBytes(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetBool(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetFloat(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetDouble(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetInteger(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetPoint3f(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetPoint3d(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetVector3d(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetGuid(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetPlane(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetEnumValue``1;Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.Collections.ArchivableDictionary.GetEnumValue``1(System.String);Throws on a missing key, read through TryGet<Type>(key, out value) or TryGetValue(key, out value)
-M:Rhino.PersistentSettings.GetChild(System.String);Throws on a missing key, read through TryGetChild(key, out child)
-M:Rhino.PersistentSettings.GetSettingType(System.String);Throws on a missing key, read through TryGetSettingType(key, out type)
-M:Rhino.PersistentSettings.GetSettingIsReadOnly(System.String);Throws on a missing key, read through TryGetSettingIsReadOnly(key, out readOnly)
-M:Rhino.PersistentSettings.GetSettingIsHiddenFromUserInterface(System.String);Throws on a missing key, read through TryGetSettingIsHiddenFromUserInterface(key, out hidden)
-M:Rhino.PersistentSettings.GetSettingIsHiddenFromUserInterface(System.String,System.Collections.Generic.IEnumerable{System.String});Throws on a missing key, read through TryGetSettingIsHiddenFromUserInterface(key, out hidden)
-M:Rhino.PersistentSettings.GetBool(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetByte(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetInteger(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetUnsignedInteger(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetDouble(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetChar(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetString(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetStringDictionary(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetStringList(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetDate(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetColor(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetGuid(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetPoint(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetPoint3d(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetSize(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetRectangle(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.PersistentSettings.GetEnumValue``1(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
-M:Rhino.Display.RhinoViewport.FromId(System.Guid);Returns null for a detail viewport and another document's viewport for a repeated id, match doc.Objects.FindId(id) is DetailViewObject, then doc.Views.Find(id)
-P:Rhino.Display.DisplayPipeline.DpiScale;Reads 1 for a view not on screen, read RhinoEtoApp.MainWindowForDocument(view.Document).LogicalPixelSize
-M:Rhino.Display.DisplayBitmap.Update(System.Drawing.Bitmap);Flips the image vertically while the constructor does not, create new DisplayBitmap(bitmap) per change and dispose the old one
-M:Rhino.Render.PostEffects.PostEffectCollection.PostEffectDataFromId(System.Guid);Answers a missing id with data that throws Exception on first use, find the id among the enumerated PostEffectData rows
-M:Grasshopper2.Framework.PluginServer.FindPluginForObject(Grasshopper2.Doc.IDocumentObject);Returns null for a plug-in's objects until Grasshopper finishes loading it, call GrasshopperPlugins.Owner(obj.GetType())
-M:Grasshopper2.Framework.PluginServer.FindPluginForObject(System.Type);Returns null for a plug-in's objects until Grasshopper finishes loading it, call GrasshopperPlugins.Owner(objectType)
-M:Rhino.RhinoApp.InvokeOnUiThread(System.Delegate,System.Object[]);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
-M:Rhino.RhinoApp.InvokeAndWait(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
-M:Foundation.NSObject.InvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
-M:Foundation.NSObject.InvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
-M:Foundation.NSObject.BeginInvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
-M:Foundation.NSObject.BeginInvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
-M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(System.EventHandler{Foundation.NSNotificationEventArgs});Registers on NSNotificationCenter.DefaultCenter while AppKit posts to the workspace center, call NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)
-M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(Foundation.NSObject,System.EventHandler{Foundation.NSNotificationEventArgs});Registers on NSNotificationCenter.DefaultCenter while AppKit posts to the workspace center, call NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)
-P:AppKit.NSWindow.Animator;Throws RuntimeException on an Eto FloatingForm, write Eto Window.Bounds from an Animated sampled on FrameClocks.Paced ticks
-T:System.Diagnostics.Debug;Log through an ILogger the composition root creates, replace an assertion with a type that excludes the asserted state
-T:System.Diagnostics.Trace;Log through an ILogger the composition root creates
-M:System.Diagnostics.Debugger.Log(System.Int32,System.String,System.String);Log through an ILogger the composition root creates
-T:System.Diagnostics.TraceSource;Log through an ILogger the composition root creates
-M:Microsoft.Extensions.Logging.ILoggerFactory.CreateLogger(System.String);Derive the category from a type, CreateLogger(Type) or CreateLogger<T>() name it
-M:Microsoft.Extensions.Logging.LoggerFactory.CreateLogger(System.String);Derive the category from a type, CreateLogger(Type) or CreateLogger<T>() name it
+M:System.Activator.CreateInstance(System.Type,System.Boolean);Reaches non-public constructors, call `Activator.CreateInstance(Type)` or a declared factory
+M:System.Activator.CreateInstance(System.Type,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo);Reaches non-public constructors, call `Activator.CreateInstance(Type, Object[])` or a declared factory
+M:System.Activator.CreateInstance(System.Type,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Reaches non-public constructors, call `Activator.CreateInstance(Type, Object[])` or a declared factory
+M:System.Linq.Expressions.Expression.Call(System.Linq.Expressions.Expression,System.String,System.Type[],System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Call(System.Type,System.String,System.Type[],System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Field(System.Linq.Expressions.Expression,System.Type,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.String,System.Linq.Expressions.Expression[]);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression,System.Type,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Linq.Expressions.Expression.PropertyOrField(System.Linq.Expressions.Expression,System.String);Name the member through an expression lambda or a `MethodInfo`, `PropertyInfo`, or `FieldInfo` overload
+M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Object,System.String,System.Boolean,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Delegate.CreateDelegate(System.Type,System.Type,System.String,System.Boolean,System.Boolean);Convert a method group or call `CreateDelegate(Type, MethodInfo)`
+M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[]);Call the member directly, or through an `UnsafeAccessor` extern for a non-public one
+M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Globalization.CultureInfo);Call the member directly, or through an `UnsafeAccessor` extern for a non-public one
+M:System.Type.InvokeMember(System.String,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object,System.Object[],System.Reflection.ParameterModifier[],System.Globalization.CultureInfo,System.String[]);Call the member directly, or through an `UnsafeAccessor` extern for a non-public one
+M:System.Activator.CreateInstance(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstance(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstanceFrom(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Activator.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstance(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstance(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstance(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFrom(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through `new`, or call `Activator.CreateInstance(Type)` on a resolved `Type`
+M:System.Numerics.Vector2.LessThanAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AllWhereAllBitsSet(Vector2.LessThan(left, right))`
+M:System.Numerics.Vector2.LessThanAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AnyWhereAllBitsSet(Vector2.LessThan(left, right))`
+M:System.Numerics.Vector2.LessThanOrEqualAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AllWhereAllBitsSet(Vector2.LessThanOrEqual(left, right))`
+M:System.Numerics.Vector2.LessThanOrEqualAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AnyWhereAllBitsSet(Vector2.LessThanOrEqual(left, right))`
+M:System.Numerics.Vector2.GreaterThanAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AllWhereAllBitsSet(Vector2.GreaterThan(left, right))`
+M:System.Numerics.Vector2.GreaterThanAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AnyWhereAllBitsSet(Vector2.GreaterThan(left, right))`
+M:System.Numerics.Vector2.GreaterThanOrEqualAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AllWhereAllBitsSet(Vector2.GreaterThanOrEqual(left, right))`
+M:System.Numerics.Vector2.GreaterThanOrEqualAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AnyWhereAllBitsSet(Vector2.GreaterThanOrEqual(left, right))`
+M:System.Numerics.Vector2.EqualsAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, test `left == right`
+M:System.Numerics.Vector2.EqualsAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call `Vector2.AnyWhereAllBitsSet(Vector2.Equals(left, right))`
+M:System.Numerics.Vector3.LessThanAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AllWhereAllBitsSet(Vector3.LessThan(left, right))`
+M:System.Numerics.Vector3.LessThanAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AnyWhereAllBitsSet(Vector3.LessThan(left, right))`
+M:System.Numerics.Vector3.LessThanOrEqualAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AllWhereAllBitsSet(Vector3.LessThanOrEqual(left, right))`
+M:System.Numerics.Vector3.LessThanOrEqualAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AnyWhereAllBitsSet(Vector3.LessThanOrEqual(left, right))`
+M:System.Numerics.Vector3.GreaterThanAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AllWhereAllBitsSet(Vector3.GreaterThan(left, right))`
+M:System.Numerics.Vector3.GreaterThanAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AnyWhereAllBitsSet(Vector3.GreaterThan(left, right))`
+M:System.Numerics.Vector3.GreaterThanOrEqualAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(left, right))`
+M:System.Numerics.Vector3.GreaterThanOrEqualAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AnyWhereAllBitsSet(Vector3.GreaterThanOrEqual(left, right))`
+M:System.Numerics.Vector3.EqualsAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, test `left == right`
+M:System.Numerics.Vector3.EqualsAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call `Vector3.AnyWhereAllBitsSet(Vector3.Equals(left, right))`
+M:Thinktecture.Empty.Action;Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``1(``0);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``2(``0,``1);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``3(``0,``1,``2);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``4(``0,``1,``2,``3);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``5(``0,``1,``2,``3,``4);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``6(``0,``1,``2,``3,``4,``5);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``7(``0,``1,``2,``3,``4,``5,``6);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``8(``0,``1,``2,``3,``4,``5,``6,``7);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``9(``0,``1,``2,``3,``4,``5,``6,``7,``8);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``10(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``11(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``12(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``13(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``14(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``15(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14);Hold absence as `Option<Action>` the consumer matches
+M:Thinktecture.Empty.Action``16(``0,``1,``2,``3,``4,``5,``6,``7,``8,``9,``10,``11,``12,``13,``14,``15);Hold absence as `Option<Action>` the consumer matches
+T:Thinktecture.ValidationErrorAttribute;Validate with default `ValidationError` and state the violated rule as its message
+T:Thinktecture.ValidationErrorAttribute`1;Validate with default `ValidationError` and state the violated rule as its message
+T:Thinktecture.IValidationError`1;Validate with default `ValidationError` and state the violated rule as its message
+M:Thinktecture.Empty.Disposable;Hold absence as `Option<IDisposable>` the consumer matches
+M:Thinktecture.Empty.AsyncDisposable;Hold absence as `Option<IAsyncDisposable>` the consumer matches
+P:System.Reactive.Disposables.Disposable.Empty;Hold absence as `Option<IDisposable>` the consumer matches
+M:Rhino.Runtime.CommonObject.ToJSON(Rhino.FileIO.SerializationOptions);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Runtime.CommonObject.FromJSON(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Runtime.CommonObject.FromJSON(System.Collections.Generic.Dictionary{System.String,System.String});String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Runtime.CommonObject.FromBase64String(System.Int32,System.Int32,System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Geometry.SerializableExtensions.ToEncodedString(System.Runtime.Serialization.ISerializable);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Geometry.SerializableExtensions.FromEncodedString``1(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Geometry.MeshingParameters.ToEncodedString;String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Geometry.MeshingParameters.FromEncodedString(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Geometry.SubDDisplayParameters.ToEncodedString;String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.Geometry.SubDDisplayParameters.FromEncodedString(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.FileIO.DracoCompression.ToBase64String;String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+M:Rhino.FileIO.DracoCompression.DecompressBase64String(System.String);String round trips rebuild the host object on each decode, hold it in a `use` scope across every host call
+P:Rhino.Collections.ArchivableDictionary.Item(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`, write through `Set(key, value)`
+M:Rhino.Collections.ArchivableDictionary.GetString(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetDictionary(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetBytes(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetBool(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetFloat(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetDouble(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetInteger(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetPoint3f(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetPoint3d(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetVector3d(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetGuid(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetPlane(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetEnumValue``1;Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.Collections.ArchivableDictionary.GetEnumValue``1(System.String);Throws on a missing key, read through `TryGet<Type>(key, out value)` or `TryGetValue(key, out value)`
+M:Rhino.PersistentSettings.GetChild(System.String);Throws on a missing key, read through `TryGetChild(key, out child)`
+M:Rhino.PersistentSettings.GetSettingType(System.String);Throws on a missing key, read through `TryGetSettingType(key, out type)`
+M:Rhino.PersistentSettings.GetSettingIsReadOnly(System.String);Throws on a missing key, read through `TryGetSettingIsReadOnly(key, out readOnly)`
+M:Rhino.PersistentSettings.GetSettingIsHiddenFromUserInterface(System.String);Throws on a missing key, read through `TryGetSettingIsHiddenFromUserInterface(key, out hidden)`
+M:Rhino.PersistentSettings.GetSettingIsHiddenFromUserInterface(System.String,System.Collections.Generic.IEnumerable{System.String});Throws on a missing key, read through `TryGetSettingIsHiddenFromUserInterface(key, out hidden)`
+M:Rhino.PersistentSettings.GetBool(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetByte(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetInteger(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetUnsignedInteger(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetDouble(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetChar(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetString(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetStringDictionary(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetStringList(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetDate(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetColor(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetGuid(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetPoint(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetPoint3d(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetSize(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetRectangle(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.PersistentSettings.GetEnumValue``1(System.String);Throws on a missing key, read through `SettingType.<Kind>.Read(settings, key)`
+M:Rhino.Display.RhinoViewport.FromId(System.Guid);Returns null for a detail viewport and another document's viewport for a repeated id, match `doc.Objects.FindId(id) is DetailViewObject`, then `doc.Views.Find(id)`
+P:Rhino.Display.DisplayPipeline.DpiScale;Reads 1 for a view not on screen, read `RhinoEtoApp.MainWindowForDocument(view.Document).LogicalPixelSize`
+M:Rhino.Display.DisplayBitmap.Update(System.Drawing.Bitmap);Flips images vertically while its constructor does not, create `new DisplayBitmap(bitmap)` per change and dispose the old one
+M:Rhino.Render.PostEffects.PostEffectCollection.PostEffectDataFromId(System.Guid);Answers a missing id with data that throws `Exception` on first use, find the id among enumerated `PostEffectData` rows
+M:Grasshopper2.Framework.PluginServer.FindPluginForObject(Grasshopper2.Doc.IDocumentObject);Returns null for a plug-in's objects until Grasshopper finishes loading it, call `GrasshopperPlugins.Owner(obj.GetType())`
+M:Grasshopper2.Framework.PluginServer.FindPluginForObject(System.Type);Returns null for a plug-in's objects until Grasshopper finishes loading it, call `GrasshopperPlugins.Owner(objectType)`
+M:Rhino.RhinoApp.InvokeOnUiThread(System.Delegate,System.Object[]);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
+M:Rhino.RhinoApp.InvokeAndWait(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
+M:Foundation.NSObject.InvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
+M:Foundation.NSObject.InvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
+M:Foundation.NSObject.BeginInvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
+M:Foundation.NSObject.BeginInvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
+M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(System.EventHandler{Foundation.NSNotificationEventArgs});Registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center, call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`
+M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(Foundation.NSObject,System.EventHandler{Foundation.NSNotificationEventArgs});Registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center, call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`
+P:AppKit.NSWindow.Animator;Throws `RuntimeException` on an Eto `FloatingForm`, write Eto `Window.Bounds` from an `Animated` sampled on `FrameClocks.Paced` ticks
+T:System.Diagnostics.Debug;Log through an `ILogger` the composition root creates, replace an assertion with a type excluding asserted state
+T:System.Diagnostics.Trace;Log through an `ILogger` the composition root creates
+M:System.Diagnostics.Debugger.Log(System.Int32,System.String,System.String);Log through an `ILogger` the composition root creates
+T:System.Diagnostics.TraceSource;Log through an `ILogger` the composition root creates
+M:Microsoft.Extensions.Logging.ILoggerFactory.CreateLogger(System.String);Derive the category from a type, `CreateLogger(Type)` or `CreateLogger<T>()` name it
+M:Microsoft.Extensions.Logging.LoggerFactory.CreateLogger(System.String);Derive the category from a type, `CreateLogger(Type)` or `CreateLogger<T>()` name it

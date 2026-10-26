@@ -3,13 +3,13 @@ id: no-forwarding-function-bash
 language: bash
 severity: error
 utils:
-    arguments: {kind: string, regex: '^"\$(@|[1-9]|\{(@|[1-9])\})"$'}
+    positional-parameter: {kind: string, regex: '^"\$(@|[1-9]|\{(@|[1-9])\})"$'}
     literal:
         any:
             - kind: command_name, word, raw_string
             - kind: string
               not: {has: {kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion'}}
-            - matches: arguments
+            - matches: positional-parameter
 rule:
     kind: function_definition
     not: {has: {field: redirect, pattern: $$_REDIRECT}}
@@ -28,8 +28,8 @@ rule:
                 all:
                     - has: {field: name, regex: '^[A-Za-z0-9_./-]+$'}
                     - not: {matches: bash-program-lookup}
-                    - has: {matches: arguments}
+                    - has: {matches: positional-parameter}
                     - not: {has: {not: {matches: literal}}}
-                    - not: {has: {matches: arguments, follows: {matches: arguments, stopBy: end}}}
+                    - not: {has: {matches: positional-parameter, follows: {matches: positional-parameter, stopBy: end}}}
 message: '`$NAME` forwards its arguments unchanged to `$CALL`'
 note: Call `<command> <words>` at each call site and move each fixed option the tool reads from configuration into its configuration file

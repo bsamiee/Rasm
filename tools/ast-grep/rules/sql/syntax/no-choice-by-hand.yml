@@ -44,7 +44,7 @@ utils:
                     - all: [{has: {field: when, matches: null-test}}, {has: {field: then, pattern: _DEFAULT}}, {has: {field: else, pattern: _VALUE}}]
                     - all: [{has: {field: when, matches: not-null-test}}, {has: {field: then, pattern: _VALUE}}, {has: {field: else, pattern: _DEFAULT}}]
             - all:
-                - matches: sql-choice-call
+                - matches: sql-iif-call
                 - has:
                     field: arguments
                     any:
@@ -60,16 +60,16 @@ utils:
                 - pattern: {context: 'select case _VALUE when _OTHER then _ANYTHEN else _VALUE end', selector: case_expression}
                 - has: {field: then, kind: null_literal}
             - all:
-                - matches: sql-choice-call
+                - matches: sql-iif-call
                 - has: {field: arguments, all: [{has: {nthChild: 3, pattern: _VALUE}}, {has: {nthChild: 2, kind: null_literal}}, {has: {nthChild: 1, matches: equality-test}}]}
     inner-choice:
         any:
             - matches: searched-case
-            - {matches: sql-choice-call, has: {field: arguments, all: [{has: {nthChild: 2, pattern: _ANYTHEN}}, {not: {has: {nthChild: 4}}}]}}
+            - {matches: sql-iif-call, has: {field: arguments, all: [{has: {nthChild: 2, pattern: _ANYTHEN}}, {not: {has: {nthChild: 4}}}]}}
     choice-chain:
         any:
             - {matches: searched-case, has: {field: else, matches: inner-choice}}
-            - {matches: sql-choice-call, has: {field: arguments, all: [{has: {nthChild: 3, matches: inner-choice}}, {not: {has: {nthChild: 4}}}]}}
+            - {matches: sql-iif-call, has: {field: arguments, all: [{has: {nthChild: 3, matches: inner-choice}}, {not: {has: {nthChild: 4}}}]}}
 rule:
     pattern: _NODE
     any:
@@ -111,7 +111,7 @@ rewriters:
       fix: $CASE_ARMS
     - id: call-arms
       rule:
-        matches: sql-choice-call
+        matches: sql-iif-call
         has:
             field: arguments
             all:

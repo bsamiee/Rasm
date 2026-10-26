@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-truncation-in-factory-validation
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    extension-class:
+        matches: {csharp-type-name: {name: {regex: '^StringExtensions$'}}}
+    callee:
+        kind: member_access_expression, conditional_access_expression
+    bounded-range:
+        kind: range_expression
+        regex: '\.\.\s*[^\s^]'
+    length-argument:
+        kind: argument
+        any:
+            - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
+            - has: {field: name, regex: '^length$'}
+    trim-cut:
+        kind: invocation_expression
+        any:
+            - all:
+                - has:
+                    field: function
+                    matches: callee
+                    regex: '\.\s*TrimOrNullify$'
+                    not: {has: {field: expression, matches: extension-class}}
+                - has: {field: arguments, has: {kind: argument}}
+            - all:
+                - has:
+                    field: function
+                    matches: callee
+                    regex: '\.\s*TrimOrNullify$'
+                    has: {field: expression, matches: extension-class}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2}}
+    slice-cut:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: callee, regex: '\.\s*(Substring|AsSpan|AsMemory)$'}
+            - has:
+                field: arguments
+                any:
+                    - has: {matches: length-argument}
+                    - has: {kind: argument, has: {matches: bounded-range}}
+    remove-cut:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: callee, regex: '\.\s*Remove$'}
+            - has: {field: arguments, all: [{has: {kind: argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    take-cut:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: callee, regex: '\.\s*(Take|TakeLast)(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument}}
+    range-cut:
+        kind: element_access_expression
+        has: {field: subscript, has: {kind: argument, has: {matches: bounded-range}}}
+    cut:
+        any:
+            - matches: trim-cut
+            - matches: slice-cut
+            - matches: remove-cut
+            - matches: take-cut
+            - matches: range-cut
+    relay:
+        matches:
+            csharp-file-method-call:
+                declaration:
+                    not: {matches: thinktecture-factory-validation}
+                    has: {stopBy: end, matches: cut}
+rule:
+    kind: invocation_expression, element_access_expression
+    pattern: $CUT
+    all:
+        - inside: {stopBy: end, matches: thinktecture-factory-validation}
+        - any:
+            - matches: cut
+            - matches: relay
+message: '`$CUT` truncates the key inside `ValidateFactoryArguments` and collapses distinct inputs into one value'
+note: 'Assign `validationError` when the key exceeds the length'

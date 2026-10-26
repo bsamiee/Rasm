@@ -10,7 +10,7 @@ utils:
                 field: pattern
                 pattern: $PATTERN
                 regex: '^(?:\^(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[\dA-Fa-f]{2}|\\u(?:[\dA-CEFa-cef][\dA-Fa-f]{3}|[Dd][0-7][\dA-Fa-f]{2}))+|(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[\dA-Fa-f]{2}|\\u(?:[\dA-CEFa-cef][\dA-Fa-f]{3}|[Dd][0-7][\dA-Fa-f]{2}))+\$)$'
-            - has: {field: flags, not: {regex: '[gimy]'}}
+            - not: {has: {field: flags, regex: '[gimy]'}}
     relay:
         kind: lexical_declaration
         all:

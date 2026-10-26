@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nowarn-reset
+language: xml
+severity: error
+files: ['**/*.{props,targets}']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^NoWarn$'}}}
+        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}}}
+        - not: {has: {kind: content, has: {kind: CharData, regex: '^\s*\$\(NoWarn\)\s*;'}}}
+        - has: {kind: content, pattern: _CODES}
+message: '`NoWarn` assigns `$CODES` and drops every code an earlier file or the SDK added'
+note: Open the value with `$(NoWarn);`

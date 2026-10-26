@@ -79,4 +79,4 @@ transform:
     KEYCHAIN: replace($PAGER, replace='^(security|secret-tool)$', by='keyring')
     CRATE: replace($KEYCHAIN, replace='^(ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)$', by='sysinfo')
 message: '`$PROGRAM` runs as a child process for work `$CRATE` does in process'
-note: 'Replace the `Command` with the named crate''s API'
+note: 'Call the crate''s API in place of `Command`'

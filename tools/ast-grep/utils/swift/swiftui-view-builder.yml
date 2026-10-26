@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swiftui-view-builder
+language: swiftlang
+rule:
+    kind: 'property_declaration, function_declaration'
+    regex: '(?s)^[^{]*(@(View|Content|Scene|ToolbarContent|Commands|TabContent|TableColumn|TableRow|ChartContent|AccessibilityRotorContent|SliderTick|WidgetBundle|ControlWidgetConfiguration|ControlWidgetTemplate)Builder\b|\bsome\s+(View|Scene|(Customizable)?ToolbarContent|Commands|TabContent|TableColumnContent|TableRowContent|ChartContent|AccessibilityRotorContent|SliderTickContent|WidgetBundle|WidgetConfiguration|ControlWidgetConfiguration|ControlWidgetTemplate)\b|\bAnyView\b)'

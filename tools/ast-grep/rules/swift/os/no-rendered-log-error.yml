@@ -11,7 +11,7 @@ utils:
                 - has: {nthChild: 1, regex: '^String$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(describing|reflecting)$'}}}}
 rule:
-    matches: swift-log-interpolation
+    matches: os-log-interpolation
     has:
         field: value
         pattern: $RENDER

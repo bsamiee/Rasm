@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-formatted-instrument-field
+language: rust
+severity: error
+utils:
+    rendering-call:
+        kind: identifier
+        any:
+            - all: [{regex: '^(format|format_args)$'}, {precedes: {regex: '^!$'}}]
+            - all:
+                - regex: '^to_string$'
+                - follows: {regex: '^\.$'}
+                - precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^(,|\)|\})$'}}
+            - all:
+                - regex: '^to_string$'
+                - follows: {regex: '^::$'}
+                - precedes: {kind: token_tree, not: {regex: '^\(\s*\)$'}}
+rule:
+    kind: attribute_item
+    has: {kind: attribute, has: {stopBy: end, matches: tracing-instrument-fields, has: {matches: rendering-call, pattern: $FORMAT}}}
+message: '`$FORMAT` renders an `#[instrument]` field value to text before the span records it'
+note: 'Record the value as `<name> = %<value>` for `Display` or `<name> = ?<value>` for `Debug`'

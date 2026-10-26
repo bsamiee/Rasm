@@ -13,6 +13,14 @@ utils:
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_str$'}}
                 - has: {field: arguments, has: {nthChild: 1, kind: string_literal}, not: {has: {nthChild: 2}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^(String|Cow)::(from|Borrowed)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: string_literal}}, {not: {has: {nthChild: 2}}}]}
             - kind: block
               all:
                 - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: literal-text}, {kind: expression_statement, has: {matches: literal-text}}]}
@@ -29,6 +37,13 @@ utils:
             - any:
                 - not: {has: {field: trait, pattern: $_}}
                 - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$|^(((std|core)::)?convert::)?AsRef\s*<\s*str\s*>$'}
+    naming-method:
+        kind: function_item
+        any:
+            - has: {field: name, regex: '^(fmt|as_str|as_ref|name)$'}
+            - all:
+                - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
+                - has: {field: return_type, regex: '^(&\s*(''static\s+)?str|String|Cow\s*<\s*''static\s*,\s*str\s*>)$'}
     error-type:
         matches: {rust-error-type: {name: {pattern: $T}}}
 rule:
@@ -44,7 +59,8 @@ rule:
             kind: function_item
             stopBy: {kind: 'function_item, closure_expression'}
             all:
-                - has: {field: name, regex: '^(fmt|as_str|as_ref|name)$', pattern: $METHOD}
+                - has: {field: name, pattern: $METHOD}
+                - matches: naming-method
                 - not:
                     all:
                         - has: {kind: function_modifiers, regex: '\bconst\b'}

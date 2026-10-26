@@ -23,4 +23,4 @@ rule:
         - has: {field: function, kind: identifier, regex: '^Ok$', matches: {python-imported-name: {module: {regex: '^expression$'}, name: {regex: '^Ok$'}}}}
         - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: refusing}}
 message: '`Ok($CALL)` raises on a host refusal in place of answering `Error`'
-note: 'Call `BlenderEditFault.attempted(<request>, lambda: <call>)`, passing the callee itself for a call with no arguments'
+note: 'Call `BlenderEditFault.attempted(<request>, lambda: <call>)`, or `BlenderEditFault.attempted(<request>, <callee>)` for a call with no arguments'

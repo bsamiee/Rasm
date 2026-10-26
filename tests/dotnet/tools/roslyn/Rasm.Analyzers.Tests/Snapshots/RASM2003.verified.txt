@@ -1,1 +1,1 @@
-#0 `RhinoDoc` read `doc` runs off the UI thread in a `Task.Run` callback. Read it in an `IO` run through `OnUiThread()` and pass the callback values or duplicated geometry
+#0 `RhinoDoc` read `doc` runs off UI thread in a `Task.Run` callback, read it in an `IO` run through `OnUiThread()` and pass callback values or duplicated geometry

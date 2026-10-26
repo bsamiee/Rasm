@@ -1,0 +1,298 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-copy
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/Rasm.Rhino/**']
+utils:
+    source-binding:
+        matches: {csharp-member-read: {member: {kind: identifier}, source: {kind: identifier, regex: '^[a-z_@]', pattern: $SRC}}}
+    any-read:
+        matches: {csharp-member-read: {member: {kind: identifier}, source: {pattern: $SRC}}}
+    file-record:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: record_declaration
+                all:
+                    - has: {field: name, pattern: $TARGET}
+                    - not: {has: {kind: base_list}}
+    record-parameter:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: record_declaration
+                all:
+                    - has: {field: name, pattern: $TARGET}
+                    - has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $NAME}}}
+    argument-read:
+        any:
+            - matches: any-read
+            - kind: member_access_expression
+              has:
+                field: expression
+                kind: member_access_expression
+                all:
+                    - not: {has: {stopBy: end, pattern: $_, not: {kind: 'member_access_expression, identifier'}}}
+                    - has: {stopBy: end, field: expression, kind: identifier, pattern: $SRC}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, any: [{kind: identifier}, {kind: member_access_expression, has: {field: expression, regex: '^[A-Z]'}}]}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, has: {matches: any-read}}}
+    same-name-argument:
+        kind: argument
+        all:
+            - has: {nthChild: {position: 1, reverse: true}, matches: {csharp-member-read: {member: {pattern: $NAME}, source: {pattern: $SRC}}}}
+            - matches: record-parameter
+    same-name-assignment:
+        kind: assignment_expression
+        all:
+            - has: {field: left, kind: identifier, pattern: $NAME}
+            - has: {field: right, matches: {csharp-member-read: {member: {pattern: $NAME}, source: {pattern: $SRC}}}}
+    built-record:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, kind: identifier, pattern: $TARGET}
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, kind: qualified_name, has: {field: name, pattern: $TARGET}}
+                - inside: {stopBy: end, kind: switch_expression_arm, has: {kind: declaration_pattern, has: {field: name, pattern: $SRC}}}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, kind: identifier, pattern: $TARGET}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        any:
+                            - kind: method_declaration
+                              has: {field: returns, kind: identifier, pattern: $TARGET}
+                            - kind: local_function_statement
+                              has: {field: type, kind: identifier, pattern: $TARGET}
+    tuple-source:
+        any:
+            - kind: 'from_clause, variable_declarator'
+              all:
+                - has: {field: name, pattern: $SRC}
+                - has: {stopBy: end, kind: tuple_expression}
+            - kind: variable_declarator
+              all:
+                - has: {field: name, pattern: $SRC}
+                - inside: {kind: variable_declaration, has: {field: type, kind: tuple_type}}
+            - kind: parameter
+              all:
+                - has: {field: name, pattern: $SRC}
+                - has: {field: type, kind: tuple_type}
+    resolution:
+        kind: member_access_expression
+        has: {field: expression, any: [{matches: source-binding}, {matches: resolution}]}
+    target-receiver:
+        kind: identifier
+        regex: '^[a-z_@]'
+        pattern: $TARGET
+        not: {matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^RhinoDoc$'}}}}}}}
+    target-member:
+        kind: member_access_expression
+        has: {field: expression, matches: target-receiver}
+    copy-write:
+        kind: assignment_expression
+        all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: right, matches: source-binding}
+            - has: {field: left, matches: target-member}
+    relay-callback:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, not: {has: {kind: parameter, nthChild: 2}}}]}
+            - has:
+                field: body
+                any:
+                    - {kind: assignment_expression, has: {field: left, matches: target-member}}
+                    - {kind: block, has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
+    relay-body:
+        inside:
+            field: body
+            kind: lambda_expression
+            inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|Do)$'}}}}}
+    relay-write:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Iter|IfSome|Do)$'}}, {has: {field: expression, matches: source-binding}}]}
+            - has: {field: arguments, has: {kind: argument, has: {matches: relay-callback}}}
+    case-write:
+        kind: if_statement
+        all:
+            - has:
+                field: condition
+                kind: is_pattern_expression
+                all:
+                    - has: {field: expression, kind: member_access_expression, all: [{has: {field: name, regex: '^Case$'}}, {has: {field: expression, matches: source-binding}}]}
+                    - has: {field: pattern, kind: declaration_pattern}
+            - has: {field: consequence, any: [{kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, {kind: block, has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, matches: target-member}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
+            - not: {has: {field: alternative, pattern: $_}}
+    hand-completed:
+        kind: block
+        has:
+            kind: expression_statement
+            has:
+                any:
+                    - kind: invocation_expression
+                      any:
+                        - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $TARGET}}
+                        - has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $SRC}}}
+                    - kind: assignment_expression
+                      all: [{has: {field: left, matches: target-member}}, {has: {field: right, matches: resolution}}]
+    bound-source:
+        inside:
+            stopBy: end
+            kind: query_expression
+            has:
+                stopBy: end
+                kind: invocation_expression
+                all:
+                    - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^DisposalOps$'}, member: {regex: '^Change$'}}}}
+                    - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {pattern: $SRC}}}
+                    - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, has: {field: body, kind: assignment_expression, has: {field: left, matches: target-member}}}}}
+    plain-statement:
+        kind: expression_statement
+        has: {matches: copy-write}
+    copy-statement:
+        any:
+            - matches: plain-statement
+            - kind: expression_statement
+              has:
+                any:
+                    - matches: relay-write
+                    - kind: assignment_expression
+                      all: [{has: {field: left, regex: '^_$'}}, {has: {field: right, matches: relay-write}}]
+            - matches: case-write
+    copied-member:
+        kind: assignment_expression
+        all:
+            - has: {field: left, kind: identifier}
+            - has: {field: right, matches: source-binding}
+    record-type:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $TARGET}}
+    host-type:
+        pattern: $TARGET
+        not: {matches: record-type}
+    created-target:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: host-type}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: host-type}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        any:
+                            - {kind: method_declaration, has: {field: returns, matches: host-type}}
+                            - {kind: local_function_statement, has: {field: type, matches: host-type}}
+    function-owner:
+        kind: 'method_declaration, local_function_statement, lambda_expression, constructor_declaration'
+    source-addressed:
+        kind: 'from_clause, variable_declarator'
+        all:
+            - has: {field: name, pattern: $TARGET}
+            - has: {any: [{matches: source-binding}, {matches: resolution}]}
+    tuple-bound:
+        kind: 'from_clause, variable_declarator'
+        all:
+            - has: {field: name, pattern: $SRC}
+            - has: {stopBy: end, kind: tuple_expression}
+    same-type-pair:
+        kind: parameter_list
+        all:
+            - has: {kind: parameter, all: [{has: {field: type, pattern: $SAME}}, {has: {field: name, pattern: $SRC}}]}
+            - has: {kind: parameter, all: [{has: {field: type, pattern: $SAME}}, {has: {field: name, pattern: $TARGET}}]}
+rule:
+    any:
+        - all:
+            - matches: built-record
+            - matches: file-record
+            - any:
+                - has:
+                    kind: argument_list
+                    all:
+                        - has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: source-binding}}
+                        - has: {kind: argument, nthChild: 2}
+                        - not: {has: {kind: argument, not: {has: {nthChild: {position: 1, reverse: true}, matches: argument-read}}}}
+                        - has: {kind: argument, matches: same-name-argument}
+                - all:
+                    - not: {has: {kind: argument_list, has: {kind: argument}}}
+                    - has:
+                        field: initializer
+                        all:
+                            - has: {kind: assignment_expression, has: {field: right, matches: source-binding}}
+                            - has: {kind: assignment_expression, nthChild: 2}
+                            - not: {has: {pattern: $_, not: {kind: assignment_expression, has: {field: right, matches: argument-read}}}}
+                            - has: {matches: same-name-assignment}
+            - not:
+                inside:
+                    stopBy: end
+                    kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, lambda_expression, anonymous_method_expression'
+                    has: {stopBy: end, matches: tuple-source}
+        - kind: 'object_creation_expression, implicit_object_creation_expression'
+          all:
+            - has:
+                kind: initializer_expression
+                has: {matches: copied-member, precedes: {stopBy: end, matches: copied-member}}
+            - not: {has: {kind: initializer_expression, has: {kind: assignment_expression, has: {field: right, any: [{matches: resolution}, {kind: identifier, pattern: $SRC}]}}}}
+            - matches: created-target
+        - kind: assignment_expression
+          all:
+            - has: {field: operator, regex: '^=$'}
+            - has:
+                field: right
+                kind: tuple_expression
+                has: {kind: argument, has: {matches: source-binding}, precedes: {stopBy: end, kind: argument, has: {matches: source-binding}}}
+            - not: {has: {field: right, has: {kind: argument, has: {matches: resolution}}}}
+            - has:
+                field: left
+                kind: tuple_expression
+                all:
+                    - has: {kind: argument, has: {matches: target-member}}
+                    - not: {has: {kind: argument, not: {has: {matches: target-member}}}}
+            - not: {has: {field: left, has: {kind: argument, has: {has: {field: expression, pattern: $SRC}}}}}
+            - not: {matches: relay-body}
+            - not: {inside: {kind: expression_statement, inside: {matches: hand-completed}}}
+        - kind: assignment_expression
+          all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: right, kind: 'identifier, member_access_expression', regex: '^[a-z_@]', pattern: $SRC}
+            - has:
+                field: left
+                kind: tuple_expression
+                all:
+                    - has: {kind: argument, has: {matches: target-member}, precedes: {stopBy: end, kind: argument, has: {matches: target-member}}}
+                    - not: {has: {kind: argument, not: {any: [{has: {matches: target-member}}, {regex: '^_$'}]}}}
+            - not: {matches: relay-body}
+            - not: {inside: {stopBy: end, matches: function-owner, has: {stopBy: end, matches: tuple-bound}}}
+        - kind: 'expression_statement, if_statement'
+          all:
+            - matches: copy-statement
+            - precedes: {stopBy: end, matches: copy-statement}
+            - not: {follows: {stopBy: end, matches: copy-statement}}
+            - any:
+                - matches: plain-statement
+                - precedes: {stopBy: end, matches: plain-statement}
+            - not: {has: {stopBy: end, matches: target-member, has: {field: expression, pattern: $SRC}}}
+            - not: {inside: {matches: hand-completed}}
+            - not:
+                inside:
+                    stopBy: end
+                    matches: function-owner
+                    has: {stopBy: end, any: [{matches: source-addressed}, {matches: same-type-pair}]}
+constraints:
+    SRC: {not: {matches: bound-source}}
+message: '`$TARGET` copies the members of `$SRC`'
+note: 'Declare a `partial` Mapperly mapping, a `void` update under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned host value'

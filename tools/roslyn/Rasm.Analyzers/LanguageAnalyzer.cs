@@ -19,28 +19,28 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         "RASM3001",
         Category,
         "Private member read once",
-        "`{0}` has one read, in `{1}`. Inline `{0}` at that read",
+        "`{0}` has one read, in `{1}`, inline `{0}` at the read",
         "Private constant, `Contains` set, or one-line expression-bodied member with one read in its own type that inlines without losing a word of its name.");
 
     public static readonly DiagnosticDescriptor Covered = Rule(
         "RASM3002",
         Category,
-        "Catch-all arm over a covered enum",
-        "Catch-all arm over `{0}` matches no declared member. Delete the arm",
+        "Catch-all arm over covered enum",
+        "Catch-all arm over `{0}` matches no declared member, delete the arm",
         "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms naming every member.");
 
     public static readonly DiagnosticDescriptor Discarded = Rule(
         "RASM3003",
         Category,
         "Discarded awaitable",
-        "`_ =` discards awaitable `{0}`. Await `{0}` or return it to an awaiting caller",
+        "`_ =` discards awaitable `{0}`, await `{0}` or return it to an awaiting caller",
         "Awaitable value assigned to a discard.");
 
     public static readonly DiagnosticDescriptor Fallback = Rule(
         "RASM3004",
         Category,
-        "Catch-all arm over an enum",
-        "Catch-all arm over `{0}` maps {1} to one result. Replace it with arms naming {1}, joined by `or` per shared result",
+        "Catch-all arm over enum",
+        "Catch-all arm over `{0}` maps {1} to one result, replace it with arms naming {1}, joined by `or` per shared result",
         "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms leaving members unnamed.");
 
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
@@ -48,14 +48,14 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback];
 
     protected override void Start(CompilationStartAnalysisContext context) {
-        Readers(context);
-        if (context.Compilation.GetTypeByMetadataName("System.FlagsAttribute") is { } flags) Enums(context, flags);
+        SystemSymbols symbols = new(context.Compilation);
+        Readers(context, symbols.Sets, symbols.Collections);
+        if (symbols.Flags is { } flags) Enums(context, flags);
         Awaitables(context);
     }
 
     // --- [READERS]
-    private static void Readers(CompilationStartAnalysisContext context) {
-        ImmutableArray<INamedTypeSymbol?> sets = [context.Compilation.GetTypeByMetadataName("System.Collections.Generic.ISet`1"), context.Compilation.GetTypeByMetadataName("System.Collections.Generic.IReadOnlySet`1")];
+    private static void Readers(CompilationStartAnalysisContext context, ImmutableArray<INamedTypeSymbol> sets, ImmutableArray<ISymbol> collections) {
         static bool Candidate(ISymbol symbol) =>
             symbol is { DeclaredAccessibility: Accessibility.Private, IsImplicitlyDeclared: false, ContainingType.IsExtension: false } && symbol.GetAttributes().IsEmpty && symbol switch {
                 IFieldSymbol field => field.IsConst || field is { IsStatic: true, IsReadOnly: true },
@@ -80,7 +80,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 IBlockOperation { Operations: { IsEmpty: false } held } when held[0] is IExpressionStatementOperation { Operation: var value } && held.Skip(1).All(static rest => rest.IsImplicit) => value,
                 _ => null,
             };
-        static ImmutableArray<IOperation> Elements(IOperation value) =>
+        ImmutableArray<IOperation> Elements(IOperation value) =>
             value switch {
                 IConversionOperation { IsImplicit: true } conversion => Elements(conversion.Operand),
                 ICollectionExpressionOperation collection => collection.Elements,
@@ -89,7 +89,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     [.. initializer.Initializers.Select(static added => ((IInvocationOperation)added).Arguments[0].Value)],
                 IInvocationOperation { Instance: null, Arguments: { IsEmpty: false } arguments, TargetMethod: { IsExtensionMethod: true, ContainingNamespace: var space } }
                     when arguments[0].Value is { Syntax.Parent: MemberAccessExpressionSyntax } source && arguments.Skip(1).All(static argument => argument.ArgumentKind is ArgumentKind.DefaultValue)
-                    && space.ToDisplayString() is "System.Linq" or "System.Collections.Frozen" or "System.Collections.Immutable" => Elements(source),
+                    && Among(context.Compilation.GetCompilationNamespace(space), collections) => Elements(source),
                 _ => [],
             };
         bool Listed(IFieldSymbol field, IOperation value) =>
@@ -124,10 +124,10 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             !value.DescendantsAndSelf().Any(static held => held is IInvocationOperation or IObjectCreationOperation or ITypeParameterObjectCreationOperation or IAnonymousObjectCreationOperation
                 or IArrayCreationOperation or ICollectionExpressionOperation or IAssignmentOperation or IIncrementOrDecrementOperation or IAwaitOperation or IAnonymousFunctionOperation
                 or IDelegateCreationOperation or IThrowOperation or IDynamicInvocationOperation);
-        static bool Plain(IOperation value) =>
-            value.Syntax is IdentifierNameSyntax
+        bool Plain(IOperation value) =>
+            value is { Syntax: IdentifierNameSyntax, SemanticModel: { } model }
             && value switch { ILocalReferenceOperation local => local.Local, IParameterReferenceOperation { Parameter.RefKind: RefKind.None } parameter => (ISymbol)parameter.Parameter, _ => null } is { } held
-            && !Uses(held, value).Any(Written);
+            && !References(held, value, new Reading(model, context.CancellationToken)).Any(Written);
         static bool Deferred(SyntaxNode node, SyntaxNode root) =>
             node != root && node.Parent is { } parent && (parent switch {
                 ConditionalExpressionSyntax conditional => conditional.Condition != node,
@@ -145,20 +145,19 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     or SwitchExpressionSyntax or AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax => 1,
                 _ => 0,
             };
-        static int Depth(SyntaxNode node) => node.ChildNodes().Select(Depth).DefaultIfEmpty().Max() + Level(node);
+        static int Depth(SyntaxNode node) => node.DescendantNodesAndSelf().Max(held => held.AncestorsAndSelf().TakeWhile(ancestor => ancestor != node).Sum(Level)) + Level(node);
         static int Nesting(SyntaxNode node) => node.Ancestors().TakeWhile(static held => held is not (MemberDeclarationSyntax or AccessorDeclarationSyntax)).Sum(Level);
         static bool Unsafe(SyntaxNode node) =>
             node.AncestorsAndSelf().Any(static held => held is UnsafeStatementSyntax || (held is MemberDeclarationSyntax member && member.Modifiers.Any(SyntaxKind.UnsafeKeyword)));
-        static IOperation? Initializer(IOperation operation) => operation.Parent switch { null => null, ISymbolInitializerOperation initializer => initializer, var parent => Initializer(parent) };
         static bool Grouped(IOperation reference) =>
-            Initializer(reference) is { } initializer
+            Ancestor<ISymbolInitializerOperation>(reference, static _ => true) is { } initializer
             && initializer.Descendants().OfType<IMethodReferenceOperation>().Select(static group => group.Method.OriginalDefinition).Distinct(SymbolEqualityComparer.Default).Skip(1).Any();
         static ISymbol Enclosing(ISymbol symbol) => symbol is IMethodSymbol { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction } nested ? Enclosing(nested.ContainingSymbol) : symbol;
         static string Named(ISymbol symbol) =>
             symbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } constructor ? constructor.ContainingType.Name : Member(symbol).Name;
         static bool Free(SyntaxNode moved, ImmutableHashSet<string> bound, ImmutableHashSet<string> local) =>
             !Scopes.Referenced(moved).Any(used => !bound.Contains(used.Identifier.ValueText) && local.Contains(used.Identifier.ValueText));
-        static bool Bound(IArgumentOperation argument, ImmutableArray<IdentifierNameSyntax> used, SyntaxNode body) =>
+        bool Bound(IArgumentOperation argument, ImmutableArray<IdentifierNameSyntax> used, SyntaxNode body) =>
             argument is { ArgumentKind: ArgumentKind.Explicit, Parameter: { } parameter, Value: var passed } && passed is not IConversionOperation { IsImplicit: true }
             && (Plain(passed) || (Pure(passed) && used.Where(name => string.Equals(name.Identifier.ValueText, parameter.Name, StringComparison.Ordinal)).ToImmutableArray() switch {
                 { IsEmpty: true } => true,
@@ -172,7 +171,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             ImmutableHashSet<string> passed = [.. arguments.SelectMany(static argument => Scopes.Referenced(argument.Syntax)).Select(static name => name.Identifier.ValueText)];
             return value is not IConversionOperation { IsImplicit: true } && !Targeted(value) && Free(body, names, local)
                 && body.SyntaxTree.GetLineSpan(body.Span, context.CancellationToken) is var lines && lines.StartLinePosition.Line == lines.EndLinePosition.Line
-                && !body.DescendantNodesAndSelf().OfType<InvocationExpressionSyntax>().Any(static call => call.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" })
+                && !value.DescendantsAndSelf().OfType<INameOfOperation>().Any()
                 && !Scopes.Declared(body).Any(name => names.Contains(name) || local.Contains(name) || passed.Contains(name))
                 && nesting + Depth(body) <= 3
                 && arguments.All(argument => Bound(argument, used, body));

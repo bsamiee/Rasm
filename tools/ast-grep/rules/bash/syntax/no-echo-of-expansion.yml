@@ -7,7 +7,7 @@ utils:
     expansion:
         kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
         not: {matches: every-element}
-    data:
+    expanded-argument:
         any:
             - kind: string
               has: {matches: expansion}
@@ -18,19 +18,19 @@ utils:
         kind: word
         regex: '^-[neE]+$'
         not: {follows: {stopBy: end, not: {any: [{kind: command_name}, {matches: echo-word}, {kind: word, regex: '^-[neE]+$'}]}}}
-    lead: {any: [{kind: command_name}, {matches: echo-word}, {matches: option}]}
+    leading-word: {any: [{kind: command_name}, {matches: echo-word}, {matches: option}]}
 rule:
     kind: command
     all:
         - any:
             - has: {field: name, regex: '^echo$'}
             - all: [{has: {field: name, regex: '^(builtin|command)$'}}, {has: {matches: echo-word}}]
-        - has: {matches: data, pattern: $TEXT, not: {follows: {stopBy: end, not: {matches: lead}}}}
+        - has: {matches: expanded-argument, pattern: $TEXT, not: {follows: {stopBy: end, not: {matches: leading-word}}}}
         - not:
             has:
                 not:
                     any:
-                        - matches: lead
+                        - matches: leading-word
                         - kind: raw_string, ansi_c_string, simple_expansion, expansion, command_substitution, arithmetic_expansion
                         - kind: string
                           not: {has: {matches: every-element}}

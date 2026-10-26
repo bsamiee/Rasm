@@ -58,7 +58,7 @@ rule:
         - kind: call_expression
           all:
             - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
-            - has: {field: function, pattern: $RACE, matches: rust-future-select}
+            - has: {field: function, pattern: $RACE, matches: futures-select}
             - has: {field: arguments, has: {matches: cancel-operand}}
 message: '`$RACE$BANG` races one future against `$CANCELLED()` by hand'
 note: 'Await `<token>.run_until_cancelled(<future>)` (`run_until_cancelled_owned` on an owned token) and match `None` as cancellation'

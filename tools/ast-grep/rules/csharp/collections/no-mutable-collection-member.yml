@@ -126,4 +126,4 @@ rule:
             matches: mutable-within
         - not: {any: [{matches: pinned-array}, {matches: confined-array}, {matches: exposed-array}, {inside: {stopBy: end, matches: csharp-json-serializable-record}}]}
 message: 'Member typed `$TYPE` holds a mutable collection'
-note: 'Hold `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, `LanguageExt.HashSet<A>`, or `ReadOnlyMemory<T>` built at the boundary'
+note: 'Hold `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, `LanguageExt.HashSet<A>`, or `ReadOnlyMemory<T>` built at boundary'

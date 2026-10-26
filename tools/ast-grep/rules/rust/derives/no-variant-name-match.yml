@@ -3,49 +3,9 @@ id: no-variant-name-match
 language: rust
 severity: error
 utils:
-    variant-text:
-        any:
-            - kind: string_literal
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-            - kind: call_expression
-              all:
-                - has: {field: function, regex: '^(String|Cow)::(from|Borrowed)$'}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: string_literal}}, {not: {has: {nthChild: 2}}}]}
-            - kind: block
-              all:
-                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: variant-text}
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
-    unit-arm:
-        kind: match_arm
-        all:
-            - has: {field: pattern, kind: match_pattern, regex: '^\w+::\w+\s*(\(\s*(_|\.\.)(\s*,\s*(_|\.\.))*\s*,?\s*\)|\{\s*\.\.\s*\})?$', not: {has: {field: condition, pattern: $_}}}
-            - has: {field: value, matches: variant-text}
-    naming-method:
-        kind: function_item
-        all:
-            - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
-            - has: {field: return_type, regex: '^(&\s*(''static\s+)?str|String|Cow\s*<\s*''static\s*,\s*str\s*>)$'}
-            - not:
-                all:
-                    - has: {kind: function_modifiers, regex: '\bconst\b'}
-                    - inside:
-                        kind: source_file
-                        stopBy: end
-                        has: {stopBy: end, kind: call_expression, matches: rust-const-context, has: {field: function, any: [{kind: field_expression, has: {field: field, pattern: $METHOD}}, {kind: scoped_identifier, has: {field: name, pattern: $METHOD}}]}}
-            - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
-    name-match:
-        kind: match_expression
-        all:
-            - has: {field: value, regex: '^\*?\s*self$'}
-            - has: {field: body, all: [{has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}}, {not: {has: {kind: match_arm, not: {matches: unit-arm}}}}]}
-            - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}, matches: naming-method}
-            - inside: {kind: source_file, stopBy: end, all: [{has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}, {not: {has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $T}}}}}}]}
     constant-arm:
         kind: match_arm
-        has: {field: value, kind: 'integer_literal, float_literal, boolean_literal, char_literal, scoped_identifier, call_expression, unary_expression'}
+        has: {field: value, kind: 'integer_literal, float_literal, boolean_literal, char_literal, scoped_identifier, call_expression, unary_expression', not: {has: {stopBy: end, kind: string_literal}}}
     self-table:
         kind: match_expression
         all:
@@ -59,7 +19,7 @@ rule:
     all:
         - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}}
         - inside: {kind: impl_item, stopBy: end, has: {field: type, pattern: $T}}
-        - any: [{matches: rust-variant-name-match}, {matches: name-match}]
+        - matches: rust-variant-name-match
         - not: {inside: {kind: impl_item, stopBy: end, has: {field: body, has: {matches: constant-table}}}}
 message: '`$METHOD` of `$T` spells one string literal per variant'
 note: 'Derive `strum::IntoStaticStr` with `#[strum(serialize = "<text>")]` or `derive_more::Display` with `#[display("<text>")]` per variant'

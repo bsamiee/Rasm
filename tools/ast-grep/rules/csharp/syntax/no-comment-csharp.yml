@@ -10,4 +10,4 @@ transform:
     FIRST: {replace: {source: $COMMENT, replace: '(?s)^(/\*+)[ \t]*([^\n]*?)\s*\n.*$', by: '$1 $2 */'}}
     TEXT: {replace: {source: $FIRST, replace: '\s+$', by: ''}}
 message: '`$TEXT` is a comment other than a `// --- [<LABEL>]` divider'
-note: 'Move the fact into a name or type and delete the comment'
+note: 'Move the comment''s fact into a name or type and delete it'

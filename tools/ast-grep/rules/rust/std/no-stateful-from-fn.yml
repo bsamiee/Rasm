@@ -17,7 +17,6 @@ rule:
                         stopBy: {kind: closure_expression}
                         kind: 'assignment_expression, compound_assignment_expr'
                         has: {field: left, any: [{kind: identifier, pattern: $STATE}, {kind: field_expression, has: {field: value, kind: identifier, pattern: $STATE}}]}
-        - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $STATE}}}}
-        - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, kind: identifier, pattern: $STATE}}}
+        - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, any: [{kind: identifier, pattern: $STATE}, {has: {stopBy: end, kind: identifier, pattern: $STATE}}]}}}
 message: '`iter::from_fn` closure keeps iteration state in captured `$STATE`'
-note: 'Write `gen move { <loop>; yield <item>; }` (`#![feature(gen_blocks)]`) with the state as a local of the block'
+note: 'Write `gen move { <loop>; yield <item>; }` (`#![feature(gen_blocks)]`) with state as a block local'

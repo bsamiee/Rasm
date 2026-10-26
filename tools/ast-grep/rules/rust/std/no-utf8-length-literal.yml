@@ -41,4 +41,4 @@ transform:
     UTF16_OUT: {replace: {source: $UTF16, replace: '^[\s\S]+$', by: 'char::MAX_LEN_UTF16'}}
 fix: $UTF8_OUT$UTF16_OUT
 message: '`$LEN` restates the longest encoding of one `char`'
-note: 'Write `char::MAX_LEN_UTF8` as the length of an `encode_utf8` buffer and `char::MAX_LEN_UTF16` as the length of an `encode_utf16` buffer'
+note: 'Size an `encode_utf8` buffer by `char::MAX_LEN_UTF8` and an `encode_utf16` buffer by `char::MAX_LEN_UTF16`'

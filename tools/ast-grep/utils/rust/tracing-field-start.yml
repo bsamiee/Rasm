@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: tracing-field-start
+language: rust
+utils:
+    token: {not: {kind: 'line_comment, block_comment'}}
+    field-group:
+        kind: token_tree
+        any:
+            - inside: {matches: tracing-macro}
+            - all: [{regex: '^\{'}, {follows: {stopBy: {matches: token}, regex: '^[(,]$'}}, {inside: {kind: token_tree, inside: {matches: tracing-macro}}}]
+            - matches: tracing-instrument-fields
+rule:
+    all:
+        - any:
+            - kind: 'identifier, self'
+              any:
+                - follows: {stopBy: {matches: token}, regex: '^[(,{]$'}
+                - follows: {regex: '^[?%]$', follows: {stopBy: {matches: token}, regex: '^[(,{]$'}}
+            - kind: 'string_literal, raw_string_literal, token_tree'
+              follows: {stopBy: {matches: token}, regex: '^[(,{]$'}
+              precedes: {stopBy: {matches: token}, regex: '^=$'}
+        - inside: {matches: field-group}
+        - not: {all: [{inside: {stopBy: {kind: macro_invocation}, matches: tracing-event-macro}}, {follows: {stopBy: end, matches: tracing-event-message}}]}

@@ -12,4 +12,4 @@ labels:
     NAME: {style: primary, message: 'Takes at most two arguments'}
     DERIVE: {style: secondary, message: 'Generates a builder'}
 message: '`$DERIVE` generates a builder for `$NAME` with at most two arguments'
-note: 'Delete the builder attribute and call the function with its arguments'
+note: 'Delete the builder attribute and call `<function>(<a>, <b>)`'

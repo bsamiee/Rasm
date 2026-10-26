@@ -5,7 +5,9 @@ severity: error
 rule:
     kind: call_expression
     any:
-        - pattern: '$DATA.base64EncodedString().replacing("+", with: "-")'
-        - pattern: '$DATA.base64EncodedString().replacing("/", with: "_")'
-message: 'Text replacement converts `$DATA.base64EncodedString()` to the URL alphabet'
-note: 'Call `<data>.base64EncodedString(options: .base64URLAlphabet)`, with `.omitPaddingCharacter` for a stripped `=`'
+        - pattern: '$DATA.base64EncodedString().replacing($FROM, with: $_)'
+        - pattern: '$DATA.base64EncodedString().replacingOccurrences(of: $FROM, with: $_)'
+constraints:
+    FROM: {regex: '^"[+/=]"$'}
+message: 'Text replacement converts `$DATA.base64EncodedString()` to the URL alphabet or strips its padding'
+note: 'Pass `.base64URLAlphabet` or `.omitPaddingCharacter` to `<data>.base64EncodedString(options:)`'

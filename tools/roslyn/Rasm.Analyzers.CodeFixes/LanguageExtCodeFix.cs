@@ -14,11 +14,14 @@ namespace Rasm.Analyzers.CodeFixes;
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 [Shared]
 public sealed class LanguageExtCodeFix() : RasmCodeFix(
-    (LanguageExtAnalyzer.Lift, "Delete explicit lift", static _ => true, Unlift),
-    (LanguageExtAnalyzer.RoundTrip, "Delete Validation round trip", static _ => true, Unwrap),
-    (LanguageExtAnalyzer.Spread, "Append with Add", static _ => true, Append),
-    (LanguageExtAnalyzer.LiftedApply, "Apply Fin inside one IO.lift", Lowerable, Lower),
-    (LanguageExtAnalyzer.Narrowed, "Delete narrowing call", static site => site.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax }, Unnarrow)) {
+    (LanguageExtAnalyzer.Lift, static site => LanguageExtAnalyzer.Unlifted(site) is { } value ? FormattableString.Invariant($"Replace `{site}` with `{value}`") : null, Unlift),
+    (LanguageExtAnalyzer.RoundTrip, static site => site.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { } exit ? FormattableString.Invariant($"Delete `{(SyntaxNode?)Called(exit) ?? exit.Expression}()` round trip") : null, Unwrap),
+    (LanguageExtAnalyzer.Spread, static site => site is CollectionExpressionSyntax { Elements: { Count: 2 } elements } && elements[0] is SpreadElementSyntax spread && elements[1] is ExpressionElementSyntax item ? FormattableString.Invariant($"Replace `{site}` with `{spread.Expression}.Add({item})`") : null, Append),
+    (LanguageExtAnalyzer.LiftedApply, Lowered, Lower),
+    (LanguageExtAnalyzer.Narrowed, static site => Called(site) is { } narrowing ? FormattableString.Invariant($"Delete `{narrowing}()`") : null, Unnarrow)) {
+    // --- [CALLS]
+    private static SimpleNameSyntax? Called(SyntaxNode site) => (site.FirstAncestorOrSelf<InvocationExpressionSyntax>()?.Expression as MemberAccessExpressionSyntax)?.Name;
+
     // --- [NARROWINGS]
     private static void Unnarrow(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) =>
         editor.ReplaceNode(site.FirstAncestorOrSelf<InvocationExpressionSyntax>()!, static (current, _) => current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access }
@@ -55,9 +58,11 @@ public sealed class LanguageExtCodeFix() : RasmCodeFix(
 
     private static ExpressionSyntax Unwrapped(ExpressionSyntax expression) => expression is ParenthesizedExpressionSyntax grouped ? Unwrapped(grouped.Expression) : expression;
 
-    private static bool Lowerable(SyntaxNode site) =>
-        site.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { } apply && Lifts(apply) is { IsEmpty: false } lifts
-        && lifts.All(static lift => lift.ArgumentList.Arguments.Count is 1 && lift.ArgumentList.Arguments[0].Expression is not LambdaExpressionSyntax { ExpressionBody: null });
+    private static string? Lowered(SyntaxNode site) =>
+        site.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { Expression: MemberAccessExpressionSyntax access } apply && Lifts(apply) is { IsEmpty: false } lifts
+        && lifts.All(static lift => lift.ArgumentList.Arguments.Count is 1 && lift.ArgumentList.Arguments[0].Expression is not LambdaExpressionSyntax { ExpressionBody: null })
+            ? FormattableString.Invariant($"Call `{access.Name}` inside one `{lifts[0].Expression}`")
+            : null;
 
     private static void Lower(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {
         if (site.FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } apply) return;

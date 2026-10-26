@@ -11,6 +11,9 @@ utils:
             - {kind: char_literal, regex: '^''/''$'}
     path-name:
         regex: '(?i)(^|_)(path|dir|directory|file|root|folder)$'
+        not: {regex: '(?i)(^|_)(url|uri|route|endpoint|request)_'}
+    rooted-format:
+        has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"/'}}
     joined:
         any:
             - matches: rust-interpolating-format
@@ -45,6 +48,9 @@ rule:
           any:
             - inside: {kind: arguments, inside: {matches: path-call}}
             - inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: path-call}}}
+        - matches: joined
+          not: {matches: rooted-format}
+          any:
             - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, matches: path-name}}
             - inside: {kind: assignment_expression, has: {field: left, matches: path-name}}
         - matches: pushed-slash

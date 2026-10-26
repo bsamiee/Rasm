@@ -2,13 +2,16 @@
 id: no-parse-error-sql
 language: sql
 severity: error
+utils:
+    unreported:
+        inside: {kind: ERROR, stopBy: end}
 rule:
     any:
         - kind: ERROR
-          not: {inside: {kind: ERROR, stopBy: end}}
+          not: {matches: unreported}
         - kind: source_file
-          has: {stopBy: end, pattern: __MISSING, regex: '^$', not: {inside: {kind: ERROR, stopBy: end}}}
+          has: {stopBy: end, pattern: __MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Grammar failed to parse the span every other rule skips
-note: Write a form the grammar parses
+message: Grammar failed to parse the span
+note: Write a form tree-sitter-sqlite3 parses

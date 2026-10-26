@@ -8,4 +8,4 @@ rule:
         - has: {kind: visibility_modifier, regex: '^pub$'}
         - has: {field: name, regex: '^_\w', pattern: $NAME}
 message: '`$NAME` marks a public item private by a leading underscore'
-note: 'Remove the underscore and narrow the item to `pub(crate)` or `pub(super)` when the crate alone reads it'
+note: 'Remove the underscore, narrowing an item its crate alone reads to `pub(crate)` or `pub(super)`'

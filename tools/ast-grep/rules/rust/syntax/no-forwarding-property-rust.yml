@@ -88,4 +88,4 @@ rule:
                         - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement}}}}
                 - matches: public-field
 message: 'Method `$NAME` reads or writes field `$F` of `$TYPE` unchanged'
-note: 'Read or assign the field at each use and build the value with a struct literal or `..<base>` update'
+note: 'Read or assign the field at each use and build values with a struct literal or `..<base>` update'

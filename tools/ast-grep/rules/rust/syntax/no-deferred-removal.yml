@@ -18,4 +18,4 @@ rule:
           has: {field: name, regex: '^_\w', pattern: $MARK}
           not: {has: {kind: visibility_modifier, regex: '^pub$'}}
 message: '`$MARK` keeps an item in place of finishing its removal'
-note: 'Delete the item and move each consumer to its replacement in the same change'
+note: 'Delete the item and move each consumer to its replacement in one change'

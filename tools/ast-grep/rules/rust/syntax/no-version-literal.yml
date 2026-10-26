@@ -33,4 +33,4 @@ rule:
             - matches: rust-test-scope
             - matches: rust-macro-argument
 message: '`$VERSION` restates a version the package manifest owns'
-note: 'Read the product version from `env!("CARGO_PKG_VERSION")` and a dependency or protocol version from the `const` its owner declares'
+note: 'Read a product version from `env!("CARGO_PKG_VERSION")` and a dependency or protocol version from the `const` its owner declares'

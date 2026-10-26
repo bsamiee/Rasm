@@ -1,2 +1,2 @@
-#0 `Application.Invoke` marshals one call to the UI thread. Compose UI-thread calls into one `IO` run through `OnUiThread()`
-#1 `Application.AsyncInvoke` marshals one call to the UI thread. Compose UI-thread calls into one `IO` run through `OnUiThread()`
+#0 `Application.Invoke` marshals one call to UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
+#1 `Application.AsyncInvoke` marshals one call to UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`

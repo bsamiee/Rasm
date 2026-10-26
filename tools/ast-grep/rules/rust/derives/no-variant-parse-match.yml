@@ -43,4 +43,4 @@ rule:
                 - inside: {kind: impl_item, stopBy: end, has: {field: type, kind: type_identifier, pattern: $T}}
                 - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
 message: '`match` on `$SUBJECT` decodes text into enum variants through one literal arm per variant'
-note: 'Derive `strum::EnumString` with `#[strum(serialize = "<text>")]` per variant and `#[strum(default)]` on a fallback variant, and call `<text>.parse()`'
+note: 'Derive `strum::EnumString` with `#[strum(serialize = "<text>")]` per variant and `#[strum(default)]` on a fallback, then call `<text>.parse()`'

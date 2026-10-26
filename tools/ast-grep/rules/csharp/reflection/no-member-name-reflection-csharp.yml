@@ -147,4 +147,4 @@ rule:
         - matches: lookup
         - matches: type-by-name
 message: '`$METHOD` looks up a member or type by name `$NAME`'
-note: 'Name the target in code (`typeof`, member access, method group, expression lambda), `[UnsafeAccessor]` or `[UnsafeAccessorType]` when non-public'
+note: 'Name the target (`typeof`, member access, method group, expression lambda), `[UnsafeAccessor]` or `[UnsafeAccessorType]` when non-public'

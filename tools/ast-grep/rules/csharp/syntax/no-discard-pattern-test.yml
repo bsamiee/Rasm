@@ -21,4 +21,4 @@ rule:
         - has: {field: expression, pattern: $VALUE}
         - has: {field: pattern, pattern: $PATTERN, matches: holds-discard-var}
 message: '`$VALUE is $PATTERN` holds a `var _` pattern every value matches'
-note: 'Test the shape the branch reads (`not null`, a type, property, or relational pattern), or delete the test when every value takes the branch'
+note: 'Test the shape its branch reads (`not null`, type, property, or relational pattern), or delete a test every value passes'

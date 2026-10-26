@@ -1,2 +1,2 @@
-#0 `doc.RenderSettings = staged` writes `RhinoDoc.RenderSettings` with no undo record. Write through `RenderSettingsSources.Edit`
-#1 `doc.RenderSettings = staged` writes `RhinoDoc.RenderSettings` with no undo record. Write through `RenderSettingsSources.Edit`
+#0 `doc.RenderSettings = staged` writes `RhinoDoc.RenderSettings` with no undo record, write through `RenderSettingsSources.Edit`
+#1 `doc.RenderSettings = staged` writes `RhinoDoc.RenderSettings` with no undo record, write through `RenderSettingsSources.Edit`

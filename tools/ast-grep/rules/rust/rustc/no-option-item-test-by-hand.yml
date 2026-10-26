@@ -10,7 +10,7 @@ rule:
             - pattern: $X.is_some_and(|$I| $I.$TEST($CX, $NAME))
             - pattern: $X.is_some_and(|&$I| $I.$TEST($CX, $NAME))
         - has: {field: arguments, has: {kind: closure_expression, has: {field: parameters, has: {kind: 'identifier, reference_pattern', pattern: $PARAM}}}}
-        - not: {matches: rust-trait-of-assoc-test}
+        - not: {matches: rustc-trait-of-assoc-test}
 constraints:
     TEST: {regex: '^(is_diag_item|is_lang_item)$'}
 transform:

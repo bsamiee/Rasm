@@ -162,7 +162,7 @@ utils:
             - not: {has: {kind: switch_entry, not: {matches: returning-entry}}}
             - has: {kind: switch_entry, has: {kind: statements, has: {matches: returned-value}}}
             - not: {matches: boolean-switch}
-            - not: {inside: {kind: 'property_declaration, function_declaration', stopBy: {kind: 'property_declaration, function_declaration, lambda_literal'}, matches: swift-view-builder}}
+            - not: {inside: {kind: 'property_declaration, function_declaration', stopBy: {kind: 'property_declaration, function_declaration, lambda_literal'}, matches: swiftui-view-builder}}
     condition-guard:
         kind: guard_statement
         pattern: $GUARD

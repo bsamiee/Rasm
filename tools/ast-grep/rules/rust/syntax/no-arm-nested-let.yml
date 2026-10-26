@@ -60,4 +60,4 @@ labels:
     P: {style: primary, message: 'Arm nesting the `if let`'}
     FALLBACK: {style: secondary, message: 'Catch-all arm the `else` repeats'}
 message: 'Arm `$P` nests `if $COND` with an `else` repeating the catch-all arm'
-note: 'Move the `let` into the arm guard, `<pattern> if let <binding> = <value> => <body>`'
+note: 'Move the `let` into an arm guard, `<pattern> if let <binding> = <value> => <body>`'

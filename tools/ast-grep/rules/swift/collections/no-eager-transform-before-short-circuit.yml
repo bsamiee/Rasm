@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-eager-transform-before-short-circuit
+language: swiftlang
+severity: error
+rule:
+    kind: navigation_expression
+    all:
+        - has: {field: suffix, has: {field: suffix, regex: '^(first|contains|allSatisfy)$', pattern: $STOP}}
+        - has:
+            field: target
+            kind: call_expression
+            all:
+                - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^(map|compactMap|flatMap)$', pattern: $MAP}}}
+                - not: {has: {stopBy: {not: {kind: 'call_expression, navigation_expression'}}, any: [{kind: navigation_suffix, regex: '^\.\s*lazy$'}, {kind: simple_identifier, regex: '^lazy$'}]}}
+message: '`$MAP` transforms every element before `$STOP` short-circuits'
+note: 'Call the transform on `<sequence>.lazy`'

@@ -47,10 +47,10 @@ rule:
           all:
             - has: {field: name, pattern: $NAME}
             - has: {field: body, matches: flag-pair}
-            - not: {matches: rust-serde-record}
+            - not: {matches: serde-record}
 labels:
     NAME: {style: primary, message: 'Holds the flags'}
     FIRST: {style: secondary, message: 'First flag'}
     SECOND: {style: secondary, message: 'Second flag'}
 message: '`$NAME` spreads one choice over `bool`, `&bool`, `Option<bool>`, or `Option<()>` flags'
-note: 'Replace the flags with one enum holding a variant per combination the code handles'
+note: 'Replace the flags with one enum holding a variant per handled combination'

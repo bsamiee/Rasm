@@ -1,1 +1,1 @@
-#0 Item count from `Delete` reaches no `==` or `!=`. Compare it with `ids` count and fail with an error naming `Delete` and both counts
+#0 Item count from `Delete` reaches no `==` or `!=`, compare it with `ids` count and fail with an error naming `Delete` and both counts

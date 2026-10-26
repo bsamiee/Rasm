@@ -3,14 +3,13 @@ id: no-entry-try-insert-by-hand
 language: rust
 severity: error
 utils:
+    error-call:
+        kind: call_expression
+        has: {field: function, kind: identifier, regex: '^Err$'}
     error-value:
         any:
-            - kind: call_expression
-              has: {field: function, kind: identifier, regex: '^Err$'}
-            - kind: block
-              all:
-                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: call_expression, has: {field: function, kind: identifier, regex: '^Err$'}}
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+            - matches: error-call
+            - matches: {rust-single-statement: {first: {matches: error-call}}}
 rule:
     kind: match_expression
     all:

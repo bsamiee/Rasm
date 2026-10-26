@@ -8,6 +8,7 @@ utils:
     global:
         any:
             - {kind: identifier, regex: '^[A-Z]'}
+            - {kind: field_access, regex: '^[a-z][\w.]*\.[A-Z]\w*$'}
             - {kind: field_access, has: {field: object, matches: global}}
             - {kind: method_invocation, has: {field: object, matches: global}}
     removal:
@@ -24,12 +25,13 @@ utils:
                 - has: {kind: modifiers, has: {regex: '^static$'}}
 rule:
     kind: method_invocation
+    has: {field: name, pattern: $METHOD}
     any:
         - all:
-            - has: {field: name, regex: '^(remove|unregister|deregister|unsubscribe|detach)\w*(Listener|Handler|Filter|Observer|Callback|Subscriber|Watcher|Hook)$', pattern: $METHOD}
+            - matches: removal
             - has: {field: arguments, has: {matches: inline}}
         - all:
-            - has: {field: name, regex: '^(add|register|subscribe|attach)\w*(Listener|Handler|Filter|Observer|Callback|Subscriber|Watcher|Hook)$', pattern: $METHOD}
+            - has: {field: name, regex: '^(add|register|subscribe|attach)\w*(Listener|Handler|Filter|Observer|Callback|Subscriber|Watcher|Hook)$'}
             - has: {field: object, matches: global}
             - has: {field: arguments, has: {kind: 'lambda_expression, method_reference, object_creation_expression, identifier, field_access', not: {regex: '(^|\.)[A-Z][A-Z0-9_]*$'}, pattern: $HANDLER}}
             - inside: {stopBy: end, kind: 'method_declaration, constructor_declaration, lambda_expression'}

@@ -276,4 +276,4 @@ rule:
             - matches: file-record
             - has: {kind: with_initializer, matches: member-value}
 message: '`$TYPE` receives sentinel `$SENTINEL` for a value its path lacks'
-note: 'Type the member `Option<T>`, or build a case of the type holding only the facts its path has'
+note: 'Type the member `Option<T>`, or build a case holding only facts its path has'

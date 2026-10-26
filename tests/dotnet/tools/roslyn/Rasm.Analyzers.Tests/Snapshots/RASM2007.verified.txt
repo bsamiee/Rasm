@@ -1,2 +1,2 @@
-#0 `staged.SetDisplayModeOverride(description, viewport)` returns false after storing the override. Discard the result with `_ =`
-#1 `staged.SetDisplayModeOverride(description)` returns false after storing the override. Discard the result with `_ =`
+#0 `staged.SetDisplayModeOverride(description, viewport)` returns false after storing the override, discard its result with `_ =`
+#1 `staged.SetDisplayModeOverride(description)` returns false after storing the override, discard its result with `_ =`

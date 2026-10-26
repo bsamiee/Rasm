@@ -58,7 +58,7 @@ rule:
                     - any:
                         - precedes: {stopBy: end, matches: lone-control, pattern: 'if $C { $$$_ }'}
                         - follows: {stopBy: end, matches: lone-control, pattern: 'if $C { $$$_ }'}
-    inside: {matches: swift-view-builder, stopBy: end}
+    inside: {matches: swiftui-view-builder, stopBy: end}
 rewriters:
     - id: spinner-on-true
       rule:

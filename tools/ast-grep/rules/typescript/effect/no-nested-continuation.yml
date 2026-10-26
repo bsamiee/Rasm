@@ -6,7 +6,7 @@ utils:
     continuation:
         kind: call_expression
         all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(andThen|catch|catchIf|catchTag|flatMap|map|matchEffect|orElse|tap|tapError)$'}}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(andThen|catch|catchIf|catchTag|flatMap|map|matchEffect|tap|tapError)$'}}}}
             - has: {field: arguments, has: {kind: arrow_function, pattern: $_}}
 rule:
     pattern: $CALL

@@ -10,4 +10,4 @@ rule:
         - not: {matches: {rust-attributed: {attribute: {regex: '^#\[\s*(serde\b|repr\b|derive\s*\([^)]*\b(ValueEnum|EnumString)\b)'}}}}
         - not: {has: {field: body, has: {kind: attribute_item, regex: '^#\[\s*serde\b'}}}
 message: '`$NAME` declares one variant'
-note: 'Declare the variant''s payload as a struct named for the variant, moving a thiserror variant''s `#[error(..)]` onto the struct'
+note: 'Declare a struct named for the variant holding its payload and its thiserror `#[error(..)]` attribute'

@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis.Simplification;
 namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, string Title, Func<SyntaxNode, bool> Fixable, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken> Edit)[] fixes) : CodeFixProvider {
+public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<SyntaxNode, string?> Title, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken> Edit)[] fixes) : CodeFixProvider {
     public sealed override ImmutableArray<string> FixableDiagnosticIds { get; } = [.. fixes.Select(static fix => fix.Rule.Id)];
 
     public sealed override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -18,7 +18,7 @@ public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, string Titl
     public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context) {
         if (await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false) is not { } root) return;
         foreach (Diagnostic diagnostic in context.Diagnostics)
-            if (fixes.First(fix => string.Equals(fix.Rule.Id, diagnostic.Id, StringComparison.Ordinal)) is var (_, title, fixable, edit) && fixable(Site(root, diagnostic.Location)))
+            if (fixes.First(fix => string.Equals(fix.Rule.Id, diagnostic.Id, StringComparison.Ordinal)) is var (_, titled, edit) && titled(Site(root, diagnostic.Location)) is { } title)
                 context.RegisterCodeFix(CodeAction.Create(title, token => FixedAsync(context.Document, diagnostic, edit, token), diagnostic.Id), diagnostic);
     }
 

@@ -1,4 +1,4 @@
-#0 Catch-all arm over `Mode` maps `Mode.Second`, `Mode.Third` to one result. Replace it with arms naming `Mode.Second`, `Mode.Third`, joined by `or` per shared result
-#1 Catch-all arm over `Mode` maps `Mode.Third` to one result. Replace it with arms naming `Mode.Third`, joined by `or` per shared result
-#2 Catch-all arm over `Mode` maps `Mode.Second`, `Mode.Third` to one result. Replace it with arms naming `Mode.Second`, `Mode.Third`, joined by `or` per shared result
-#3 Catch-all arm over `Mode` maps `Mode.Third` to one result. Replace it with arms naming `Mode.Third`, joined by `or` per shared result
+#0 Catch-all arm over `Mode` maps `Mode.Second`, `Mode.Third` to one result, replace it with arms naming `Mode.Second`, `Mode.Third`, joined by `or` per shared result
+#1 Catch-all arm over `Mode` maps `Mode.Third` to one result, replace it with arms naming `Mode.Third`, joined by `or` per shared result
+#2 Catch-all arm over `Mode` maps `Mode.Second`, `Mode.Third` to one result, replace it with arms naming `Mode.Second`, `Mode.Third`, joined by `or` per shared result
+#3 Catch-all arm over `Mode` maps `Mode.Third` to one result, replace it with arms naming `Mode.Third`, joined by `or` per shared result

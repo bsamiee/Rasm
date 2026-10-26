@@ -3,10 +3,8 @@ id: no-bool-to-result-by-hand
 language: rust
 severity: error
 utils:
-    primary:
-        kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
     compound:
-        not: {any: [{matches: primary}, {kind: 'let_condition, let_chain'}]}
+        not: {any: [{matches: rust-postfix-expression}, {kind: 'let_condition, let_chain'}]}
     unit-ok:
         matches: {rust-single-statement: {first: {pattern: Ok(())}}}
     error-arm:
@@ -28,11 +26,11 @@ utils:
             - not: {inside: {kind: else_clause}}
             - not: {matches: rust-const-context}
             - any:
-                - all: [{matches: ok-first}, {has: {field: condition, matches: primary, pattern: $P}}]
+                - all: [{matches: ok-first}, {has: {field: condition, matches: rust-postfix-expression, pattern: $P}}]
                 - all: [{matches: ok-first}, {has: {field: condition, matches: compound, pattern: $Q}}]
-                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: primary, pattern: $P}}}]
+                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: rust-postfix-expression, pattern: $P}}}]
                 - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: compound, pattern: $Q}}}]
-                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: primary, pattern: $NP}}]
+                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: rust-postfix-expression, pattern: $NP}}]
                 - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: compound, pattern: $NQ}}]
     unit-option:
         kind: call_expression

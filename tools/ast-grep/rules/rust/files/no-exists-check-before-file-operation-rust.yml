@@ -107,4 +107,4 @@ rule:
             - matches: guarded-statement
             - inside: {stopBy: {kind: 'block, function_item, closure_expression'}, matches: guarded-statement}
 message: '`$SITE` runs after a test that `$PATH` exists'
-note: 'Run the operation without the test and match `io::ErrorKind::NotFound` on its error, `AlreadyExists` for `create_dir` and `create_new`'
+note: 'Delete the existence test and match `io::ErrorKind::NotFound` on operation error, `AlreadyExists` for `create_dir` and `create_new`'

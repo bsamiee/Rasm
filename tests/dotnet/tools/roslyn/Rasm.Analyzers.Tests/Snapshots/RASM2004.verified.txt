@@ -1,2 +1,2 @@
-#0 `RhinoDoc.ActiveDoc` read where `Document` holds a `RhinoDoc`. Replace with `Document`
-#1 `RhinoDoc.ActiveDoc` read where `doc` holds a `RhinoDoc`. Replace with `doc`
+#0 `RhinoDoc.ActiveDoc` read where `Document` holds a `RhinoDoc`, write `Document`
+#1 `RhinoDoc.ActiveDoc` read where `doc` holds a `RhinoDoc`, write `doc`

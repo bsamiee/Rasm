@@ -11,7 +11,7 @@ utils:
                 kind: class_declaration
                 stopBy: end
                 all:
-                    - has: {kind: modifiers, has: {kind: attribute, regex: '^@Observable$'}}
+                    - has: {kind: modifiers, has: {kind: attribute, regex: '^@(Observation\.)?Observable$'}}
                     - has: {field: name, pattern: $T}
     built:
         all:

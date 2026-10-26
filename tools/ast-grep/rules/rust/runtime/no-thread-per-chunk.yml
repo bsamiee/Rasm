@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-thread-per-chunk
+language: rust
+severity: error
+utils:
+    chunking:
+        regex: '\.(r?chunks(_exact)?(_mut)?|step_by)\s*\('
+    scope-call:
+        kind: call_expression
+        has: {field: function, regex: '^((::)?(std|crossbeam(_utils)?|rayon)::)?(thread::)?(scope|in_place_scope)$'}
+    scope-handle:
+        inside:
+            kind: closure_expression
+            stopBy: end
+            all:
+                - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $S}}
+                - inside: {kind: arguments, inside: {matches: scope-call}}
+    per-chunk:
+        any:
+            - inside:
+                kind: for_expression
+                stopBy: {kind: 'function_item, closure_expression'}
+                has: {field: value, matches: chunking, pattern: $CHUNKS}
+            - inside:
+                kind: closure_expression
+                stopBy: {kind: function_item}
+                inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: chunking, pattern: $CHUNKS}}}}
+rule:
+    kind: call_expression
+    pattern: $SPAWN
+    all:
+        - any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^spawn$'}}, {has: {field: value, kind: identifier, pattern: $S}}]}
+                - matches: scope-handle
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^spawn_scoped$'}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $S}}
+                - matches: scope-handle
+            - has: {field: function, regex: '^((::)?std::)?(thread::)?spawn$|^((::)?tokio::)?(task::)?spawn_blocking$'}
+        - matches: per-chunk
+message: '`$SPAWN` starts one thread per chunk of `$CHUNKS`'
+labels:
+    SPAWN: {style: primary, message: 'Spawns one thread per chunk'}
+    CHUNKS: {style: secondary, message: 'Splits work into chunks'}
+note: 'Call rayon `<slice>.par_chunks(<n>)` (`par_chunks_mut`, `par_chunks_exact`) with `.for_each(<work>)` or `.map(<work>).collect()`'

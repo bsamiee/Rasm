@@ -24,4 +24,4 @@ rule:
         - has: {field: left, matches: size}
         - has: {field: right, matches: size}
 message: '`$RATIO` counts elements as a ratio of type sizes'
-note: 'Read the declared count (`Vector128<T>.Count`, `Vector<T>.Count`), a `MemoryMarshal.Cast` span''s `Length`, or the lane count (`4` for `Vector4`)'
+note: 'Read the declared count (`Vector128<T>.Count`, `Vector<T>.Count`), a `MemoryMarshal.Cast` span''s `Length`, or lane count (`4` for `Vector4`)'

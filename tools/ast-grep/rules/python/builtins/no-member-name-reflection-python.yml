@@ -6,7 +6,7 @@ utils:
     member-name:
         any:
             - matches: python-identifier-string
-            - matches: python-relayed-identifier-string
+            - matches: python-identifier-string-variable
     relayed-callee:
         any:
             - kind: attribute
@@ -31,7 +31,7 @@ utils:
                     - all: [{has: {field: function, matches: reader}}, {not: {has: {field: arguments, has: {nthChild: 3}}}}]
                     - has: {field: function, matches: writer}
                     - has: {field: function, matches: object-dunder}
-                - has: {field: arguments, has: {nthChild: 2, matches: python-relayed-identifier-string}}
+                - has: {field: arguments, has: {nthChild: 2, matches: python-identifier-string-variable}}
             - all:
                 - has: {field: arguments, has: {nthChild: 2, matches: python-identifier-string}}
                 - any:
@@ -53,7 +53,7 @@ utils:
             - inside: {kind: module, stopBy: end, regex: '\bgetmembers'}
             - has: {field: value, matches: inspect-member-mapping}
             - has: {field: subscript, matches: member-name}
-            - not: {matches: python-key-catch}
+            - not: {matches: python-handled-key-error}
     coerced-operand:
         nthChild: 1
         inside:

@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-undo-record-call
+language: csharp
+severity: error
+files: ['**/rhino/**']
+rule:
+    kind: member_access_expression
+    pattern: $CALL
+    all:
+        - has: {field: name, regex: '^(BeginUndoRecord|EndUndoRecord)$'}
+        - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
+        - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Commits$'}}}
+message: '`$CALL` opens or closes a document undo record'
+note: 'Pass the document edit as `body` of `Commits.Commit(<doc>, <name>, <redraw>, <body>)`'

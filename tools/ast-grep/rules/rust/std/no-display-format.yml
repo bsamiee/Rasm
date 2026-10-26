@@ -36,6 +36,7 @@ utils:
             - has: {field: value, matches: literal-format}
 rule:
     pattern: $SITE
+    not: {inside: {kind: assignment_expression, field: right, inside: {kind: 'tuple_expression, parenthesized_expression', inside: {kind: expression_statement, inside: {kind: source_file}}}}}
     any:
         - matches: owning-copy
         - matches: borrowed-literal

@@ -131,4 +131,4 @@ labels:
 transform:
     DERIVE: replace($TRAIT, replace='^.*::', by='')
 message: '`$DERIVE` for `$T` restates the derive over every field'
-note: 'Derive the trait on the type, or `#[derive_where::derive_where(<trait>)]` where a type parameter lacks the bound, and delete the impl'
+note: 'Delete the impl and derive its trait, through `#[derive_where::derive_where(<trait>)]` where a type parameter lacks its bound'

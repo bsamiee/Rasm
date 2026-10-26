@@ -1,7 +1,7 @@
-#0 `Apply` round-trips `Fin` through `Validation`. Delete each `ToValidation()` and the closing `ToFin()`
-#1 `Traverse` round-trips `Fin` through `Validation`. Delete each `ToValidation()` and the closing `ToFin()`
-#2 `Apply` round-trips `Fin` through `Validation`. Delete each `ToValidation()` and the closing `ToFin()`
-#3 `ToValidation` round-trips `Fin` through `Validation`. Delete each `ToValidation()` and the closing `ToFin()`
-#4 `ToValidation` round-trips `Fin` through `Validation`. Delete each `ToValidation()` and the closing `ToFin()`
-#5 `Traverse` round-trips `Fin` through `Validation`. Delete each `ToValidation()` and the closing `ToFin()`
-#6 `Apply` round-trips `Fin` through `Validation`. Delete each `ToValidation()` and the closing `ToFin()`
+#0 `Apply` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
+#1 `Traverse` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
+#2 `Apply` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
+#3 `ToValidation` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
+#4 `ToValidation` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
+#5 `Traverse` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
+#6 `Apply` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`

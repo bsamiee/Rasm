@@ -150,7 +150,6 @@ rule:
                     pattern: $CONDITIONS
                     all:
                         - matches: boolean-test
-                        - has: {regex: '^,$'}
                         - has: {matches: reads-item}
                         - has: {matches: continue-body}
         - matches: plain-loop
@@ -182,7 +181,6 @@ rule:
                         pattern: $CONDITIONS
                         all:
                             - matches: boolean-test
-                            - has: {regex: '^,$'}
                             - not: {has: {regex: '^else$'}}
                             - has: {not: {kind: statements}, matches: reads-item}
                             - has: {kind: statements, pattern: $BODY}

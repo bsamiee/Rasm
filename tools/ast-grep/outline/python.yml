@@ -107,7 +107,7 @@ rule:
     inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition, field: body}}}
 name: $NAME
 ---
-id: python-decorated-class-class
+id: python-decorated-class-nested-class
 language: python
 role: member
 symbolType: class

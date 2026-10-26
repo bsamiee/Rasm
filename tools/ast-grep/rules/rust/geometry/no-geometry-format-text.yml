@@ -7,6 +7,6 @@ rule:
     pattern: $TEXT
     all:
         - matches: rust-geometry-format-text
-        - not: {inside: {kind: source_file, stopBy: end, regex: '^[(\[]'}}
+        - not: {inside: {stopBy: end, matches: rust-injected-source}}
 message: '`$TEXT` spells geometry interchange text by hand'
 note: 'Read and write the shape through its format crate (`geojson`, `geozero` for WKT, `kurbo::BezPath::to_svg`, `stl_io`, `tobj`, `ply_rs_bw`)'

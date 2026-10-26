@@ -38,21 +38,14 @@ utils:
             - kind: member_access_expression
               has: {field: expression, matches: static-root}
     parameter-root:
-        any:
-            - kind: identifier
-              not: {not: {matches: parameter-name}}
-            - kind: member_access_expression
-              has: {field: expression, matches: parameter-root}
+        kind: identifier
+        not: {not: {matches: parameter-name}}
     root:
         any:
             - matches: static-root
             - matches: parameter-root
     callee-name:
-        any:
-            - kind: identifier
-              pattern: $CALLEE
-            - kind: generic_name
-              has: {kind: identifier, pattern: $CALLEE}
+        matches: {csharp-simple-name: {name: {pattern: $CALLEE}}}
     parameter-argument:
         kind: argument
         not: {has: {kind: modifier}}

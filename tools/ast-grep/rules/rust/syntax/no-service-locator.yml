@@ -16,4 +16,4 @@ rule:
             - has: {field: type_arguments, has: {nthChild: 1, regex: '^((std::)?any::)?TypeId$'}}
             - has: {field: type_arguments, has: {nthChild: 2, has: {stopBy: end, kind: dynamic_type, regex: '\bAny\b'}}}
 message: '`$NAME$LOCATOR` supplies a dependency through a lazy global or a type-keyed lookup'
-note: 'Build the value once in `main` and pass it as an argument or a field of the state the handlers receive'
+note: 'Build the value once in `main` and pass it as an argument or a field of handler state'

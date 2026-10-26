@@ -3,8 +3,6 @@ id: no-result-by-guard-rust
 language: rust
 severity: error
 utils:
-    primary:
-        kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
     valued-return:
         kind: return_expression
         has: {pattern: $_}
@@ -161,16 +159,16 @@ rule:
                         - has: {matches: plain-condition}
                         - not: {matches: rust-const-context}
                         - any:
-                            - has: {kind: if_expression, has: {field: condition, matches: primary, pattern: $THEN_PRIMARY}}
-                            - has: {kind: if_expression, has: {field: condition, not: {matches: primary}, pattern: $THEN_COMPOUND}}
+                            - has: {kind: if_expression, has: {field: condition, matches: rust-postfix-expression, pattern: $THEN_PRIMARY}}
+                            - has: {kind: if_expression, has: {field: condition, not: {matches: rust-postfix-expression}, pattern: $THEN_COMPOUND}}
                     - all:
                         - has: {matches: none-early}
                         - precedes: {matches: tail, pattern: 'Some($X)', not: {regex: '\n'}}
                         - has: {matches: plain-condition}
                         - not: {matches: rust-const-context}
                         - any:
-                            - has: {kind: if_expression, has: {field: condition, matches: primary, pattern: $UNLESS_PRIMARY}}
-                            - has: {kind: if_expression, has: {field: condition, not: {matches: primary}, pattern: $UNLESS_COMPOUND}}
+                            - has: {kind: if_expression, has: {field: condition, matches: rust-postfix-expression, pattern: $UNLESS_PRIMARY}}
+                            - has: {kind: if_expression, has: {field: condition, not: {matches: rust-postfix-expression}, pattern: $UNLESS_COMPOUND}}
                     - all:
                         - has: {matches: value-early}
                         - precedes: {matches: tail, pattern: $LAST, not: {regex: '\n'}}

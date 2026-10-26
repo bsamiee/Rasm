@@ -6,30 +6,28 @@ utils:
     run-body:
         kind: lambda_literal
         inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess\.)?run$'}}
+    byte-copy:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, regex: '\.withUnsafeBytes$', has: {stopBy: end, kind: simple_identifier, pattern: $CHUNK}}
+            - has: {stopBy: end, kind: call_expression, regex: '\.append\(contentsOf:'}
     collect:
         kind: for_statement
         all:
             - has: {field: collection, regex: '\.standard(Output|Error)$'}
-            - has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $BUFFER}}
+            - has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $CHUNK}}
             - has:
                 kind: statements
                 all:
                     - not: {has: {nthChild: 2}}
-                    - has:
-                        nthChild: 1
-                        has:
-                            stopBy: end
-                            kind: call_expression
-                            all:
-                                - has: {nthChild: 1, regex: '\.withUnsafeBytes$', has: {stopBy: end, kind: simple_identifier, pattern: $BUFFER}}
-                                - has: {stopBy: end, kind: call_expression, regex: '\.append\(contentsOf:'}
+                    - has: {nthChild: 1, any: [{matches: byte-copy}, {has: {stopBy: end, matches: byte-copy}}]}
     sole:
         kind: statements
         not: {has: {nthChild: 2}}
 rule:
     pattern: $SITE
     any:
-        - matches: swift-output-discarding-loop
+        - matches: subprocess-output-discarding-loop
           inside:
             matches: run-body
             stopBy: end
@@ -38,13 +36,13 @@ rule:
                 has:
                     nthChild: 1
                     any:
-                        - matches: swift-output-discarding-loop
+                        - matches: subprocess-output-discarding-loop
                         - has:
                             stopBy: {kind: lambda_literal}
                             kind: call_expression
                             all:
                                 - has: {nthChild: 1, regex: '^Result$'}
-                                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: swift-output-discarding-loop}}}}
+                                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: subprocess-output-discarding-loop}}}}
         - matches: collect
           inside: {matches: run-body, stopBy: end}
 transform:

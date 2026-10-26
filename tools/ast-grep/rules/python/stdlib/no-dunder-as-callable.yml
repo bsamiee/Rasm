@@ -44,5 +44,5 @@ transform:
     QUALIFIED: {replace: {source: $MODULE, replace: '^(.+)$', by: '$1.'}}
     FUNCTION: {replace: {source: $BUILTIN, replace: '^__(\w+)__$', by: '$1'}}
 fix: $FUNCTION$QUALIFIED$OPERATOR$UNBOUND
-message: '`$DUNDER` reads a dunder method as a callable, bypassing builtin dispatch and reflected operands'
+message: 'Dunder method `$DUNDER` read as a callable skips builtin dispatch and reflected operands'
 note: 'Use protocol builtins (`len`, `iter`), `math.<name>`, or `operator.<name>` with a typed result (`index`, `getitem`), else an operator lambda'

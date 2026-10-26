@@ -104,12 +104,12 @@ utils:
 rule:
     any:
         - kind: ERROR
-          inside: {kind: source_file, stopBy: end, not: {regex: '^[(\[]'}}
+          inside: {kind: source_file, stopBy: end, not: {matches: rust-injected-source}}
           not: {matches: unreported}
         - kind: source_file
-          not: {regex: '^[(\[]'}
+          not: {matches: rust-injected-source}
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: 'Grammar failed to parse the span'
-note: 'Rewrite the span in a form the grammar parses, calling a macro named for a primitive type by path (`<crate>::str![..]`)'
+note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`)'

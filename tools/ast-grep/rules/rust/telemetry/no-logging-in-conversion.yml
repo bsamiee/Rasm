@@ -29,4 +29,4 @@ rule:
                           regex: '^use\s+(crate|self|super)\b'
                           has: {stopBy: end, kind: identifier, pattern: $LOG}
 message: '`$LOG` emits telemetry inside an `impl $TRAIT`'
-note: 'Delete the event or span and log at the boundary that calls the trait method'
+note: 'Delete the event or span and log at each boundary calling `<method>`'

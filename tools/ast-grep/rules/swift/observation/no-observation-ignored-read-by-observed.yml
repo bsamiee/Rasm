@@ -3,7 +3,7 @@ id: no-observation-ignored-read-by-observed
 language: swiftlang
 severity: error
 utils:
-    ignored: {kind: attribute, regex: '^@ObservationIgnored$'}
+    ignored: {kind: attribute, regex: '^@(Observation\.)?ObservationIgnored$'}
     named:
         has:
             field: name
@@ -39,7 +39,7 @@ rule:
                 has:
                     any:
                         - kind: property_behavior_modifier
-                        - {kind: attribute, has: {kind: user_type, regex: '^[A-Z]', not: {regex: '^(ObservationIgnored|\w*Actor)$'}}}
+                        - {kind: attribute, has: {kind: user_type, regex: '^[A-Z]', not: {regex: '^((Observation\.)?ObservationIgnored|\w*Actor)$'}}}
         - inside:
             kind: class_body
             inside:
@@ -55,7 +55,7 @@ rule:
                             - matches: named
                             - has: {field: body, has: {matches: reader}}
 transform:
-    TRACKED: {replace: {source: $DECL, replace: '@ObservationIgnored\s+', by: ''}}
+    TRACKED: {replace: {source: $DECL, replace: '@(Observation\.)?ObservationIgnored\s+', by: ''}}
 fix: $TRACKED
 message: '`@ObservationIgnored` hides changes to `$NAME` from observers of a computed member that reads it'
 note: 'Delete `@ObservationIgnored`'

@@ -39,4 +39,4 @@ rule:
                 - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, pattern: $GROWN}}}
                 - not: {has: {stopBy: end, matches: shrink}}
 message: '`$GROWN` grows each pass of a loop with no exit and no removal'
-note: 'Drain the buffer per pass with `std::mem::take(&mut <buffer>)`, cap a `VecDeque` with `pop_front` past a limit, or build it inside the loop body'
+note: 'Drain the buffer per pass with `std::mem::take(&mut <buffer>)`, cap a `VecDeque` with `pop_front` past a limit, or build it inside each pass'

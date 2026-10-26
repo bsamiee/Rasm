@@ -10,7 +10,7 @@ rule:
     pattern: $ATTRIBUTE
     any:
         - kind: 'attribute_item, inner_attribute_item'
-          not: {inside: {kind: source_file, stopBy: end, regex: '^[(\[]'}}
+          not: {inside: {stopBy: end, matches: rust-injected-source}}
           has:
             kind: attribute
             any:
@@ -22,4 +22,4 @@ rule:
           regex: '^\[\s*((allow|expect)\s*\(|automatically_derived\s*\]|cfg_attr\s*\([\s\S]*,\s*(allow|expect|automatically_derived)\b)'
           follows: {regex: '^(#|!)$'}
 message: '`$ATTRIBUTE` silences lints in place of fixing the code they report'
-note: 'Fix or delete the code the lint reports, and replace an `#[automatically_derived]` hand impl with its `#[derive]`'
+note: 'Fix or delete reported code, and replace an `#[automatically_derived]` hand impl with its `#[derive]`'

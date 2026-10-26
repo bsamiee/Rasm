@@ -64,12 +64,9 @@ utils:
         has:
             field: function
             any:
-                - kind: identifier
-                  pattern: $METHOD
-                - kind: generic_name
-                  has: {kind: identifier, pattern: $METHOD}
+                - matches: {csharp-simple-name: {name: {pattern: $METHOD}}}
                 - kind: member_access_expression
-                  has: {field: name, any: [{kind: identifier, pattern: $METHOD}, {kind: generic_name, has: {kind: identifier, pattern: $METHOD}}]}
+                  has: {field: name, matches: {csharp-simple-name: {name: {pattern: $METHOD}}}}
     passed:
         kind: argument
         all:

@@ -52,7 +52,7 @@ rule:
             any:
                 - has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW}
                 - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW, regex: '^[A-Z]'}}
-        - inside: {matches: swift-view-builder, stopBy: end}
+        - inside: {matches: swiftui-view-builder, stopBy: end}
         - pattern: $BRANCH
 rewriters:
     - id: string-argument

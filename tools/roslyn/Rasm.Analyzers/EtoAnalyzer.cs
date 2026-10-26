@@ -17,42 +17,40 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         "RASM2201",
         Category,
         "Cached system font disposed",
-        "`{1}` disposes the font `SystemFonts.{0}` caches for every caller. Read it without a release",
-        "`SystemFonts` font reaching `Dispose`, `using`, a `DisposalOps` or `Copies.Owned` acquire, a `DisposalOps` release, `new Disposal<T>`, or a `retain` call, directly or through a local, range variable, or lambda parameter.");
+        "`{1}` disposes font `SystemFonts.{0}` caches for every caller, read it without a release",
+        "`SystemFonts` font reaching `Dispose`, `using`, `DisposalOps` or `Copies.Owned` acquire, `DisposalOps` release, `new Disposal<T>`, or `retain` call, directly or through a local, range variable, or lambda parameter.");
 
     public static readonly DiagnosticDescriptor Framed = Rule(
         "RASM2202",
         Category,
         "Eto container acquired by plain dispose",
-        "`{0}` disposes `{1}` with its children attached. Acquire `{1}` through `Containers.Frame`",
-        "`Eto.Forms.Container` reaching a plain-dispose `DisposalOps` overload, `new Disposal<T>` with a release that only disposes, or a `retain` call, while the acquiring member attaches a child held before it, or any child to a `StackLayout`.");
+        "`{0}` disposes `{1}` with its children attached, acquire `{1}` through `Containers.Frame`",
+        "`Eto.Forms.Container` reaching a plain-dispose `DisposalOps` overload, `new Disposal<T>` with a release that only disposes, or `retain` call, while its acquiring member attaches a child held before it, or any child to a `StackLayout`.");
 
     public static readonly DiagnosticDescriptor Twice = Rule(
         "RASM2203",
         Category,
         "Retained control disposed on failure",
-        "`{0}` disposes `{1}` on failure after `{2}` handed it to its owner. Delete the release",
-        "`DisposalOps.OnFailure` release disposing an `Eto.Widget` that a plain-dispose `DisposalOps.Acquire` or a `retain` call handed to its owner earlier on the same path.");
+        "`{0}` disposes `{1}` on failure after `{2}` handed it to its owner, delete the release",
+        "`DisposalOps.OnFailure` release disposing an `Eto.Widget` a plain-dispose `DisposalOps.Acquire` or `retain` call handed to its owner earlier on the same path.");
 
     public static readonly DiagnosticDescriptor Escaped = Rule(
         "RASM2204",
         Category,
-        "Native callback outside the Callbacks boundary",
-        "Native callback `{0}` runs `{1}` outside the `Callbacks` boundary, and an exception there aborts Rhino. Route it through `Callbacks.Run(<effect>, <site>)`",
+        "Native callback outside Callbacks boundary",
+        "Native callback `{0}` runs `{1}` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `Callbacks.Run(<effect>, <site>)`",
         "Body of a delegate handed to an Objective-C binding or `ObjCExtensions.AddMethod`, an `[UnmanagedFunctionPointer]` delegate, or an `[Export]`, `[UnmanagedCallersOnly]`, or `NSObject` override that is more than one `Callbacks` call, or a host member read before the boundary in a `Callbacks` call of such a body or an Eto override.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Cached, Framed, Twice, Escaped];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
-        INamedTypeSymbol? widget = compilation.GetTypeByMetadataName("Eto.Widget");
-        if (Lifetimes.Of(compilation) is not { } lifetimes) return;
-        if (compilation.GetTypeByMetadataName("Eto.Drawing.SystemFonts") is { } fonts && compilation.GetTypeByMetadataName("Eto.Drawing.Font") is { } font)
-            Fonts(context, lifetimes, fonts, font);
-        if (compilation.GetTypeByMetadataName("Eto.Forms.Container") is { } container && compilation.GetTypeByMetadataName("Eto.Forms.Control") is { } control)
-            Frames(context, lifetimes, container, control, compilation.GetTypeByMetadataName("Eto.Forms.StackLayout"));
-        if (widget is not null && !lifetimes.Failures.IsEmpty) Failures(context, lifetimes, widget);
-        if (compilation.GetTypeByMetadataName("Rasm.Rhino.Callbacks") is { } callbacks) Natives(context, lifetimes, callbacks, widget);
+        (SystemSymbols system, EtoSymbols eto, RasmRhinoSymbols rasm) = (new(compilation), new(compilation), new(compilation));
+        if (Lifetimes.Of(system, rasm, new LanguageExtSymbols(compilation)) is not { } lifetimes) return;
+        if (eto is { SystemFonts: { } fonts, Font: { } font }) Fonts(context, lifetimes, fonts, font);
+        if (eto is { Container: { } container, Control: { } control }) Frames(context, lifetimes, container, control, eto.StackLayout);
+        if (eto.Widget is { } widget && !lifetimes.Failures.IsEmpty) Failures(context, lifetimes, widget);
+        if (rasm.Callbacks is { } callbacks) Natives(context, lifetimes, system, eto, new MacSymbols(compilation), rasm, callbacks);
     }
 
     // --- [FONTS]
@@ -201,15 +199,9 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     }
 
     // --- [NATIVES]
-    private static void Natives(CompilationStartAnalysisContext context, Lifetimes lifetimes, INamedTypeSymbol callbacks, INamedTypeSymbol? widget) {
-        Compilation compilation = context.Compilation;
-        INamedTypeSymbol? register = compilation.GetTypeByMetadataName("Foundation.RegisterAttribute");
-        INamedTypeSymbol? export = compilation.GetTypeByMetadataName("Foundation.ExportAttribute");
-        INamedTypeSymbol? pointer = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedFunctionPointerAttribute");
-        INamedTypeSymbol? callers = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute");
-        ImmutableArray<IMethodSymbol> boundaries = Members(callbacks, "Run", "Answer", "Succeeded", "Started");
-        ImmutableArray<IMethodSymbol> producers = Members(callbacks, "Handler", "Synchronous");
-        ImmutableArray<IMethodSymbol> adders = Members(compilation.GetTypeByMetadataName("Eto.Mac.ObjCExtensions"), "AddMethod");
+    private static void Natives(CompilationStartAnalysisContext context, Lifetimes lifetimes, SystemSymbols system, EtoSymbols eto, MacSymbols mac, RasmRhinoSymbols rasm, INamedTypeSymbol callbacks) {
+        (INamedTypeSymbol? register, INamedTypeSymbol? export, INamedTypeSymbol? pointer, INamedTypeSymbol? callers, INamedTypeSymbol? widget) = (mac.Register, mac.Export, system.FunctionPointer, system.CallersOnly, eto.Widget);
+        (ImmutableArray<IMethodSymbol> boundaries, ImmutableArray<IMethodSymbol> producers, ImmutableArray<IMethodSymbol> adders) = (rasm.Boundaries, rasm.Producers, eto.AddMethod);
         bool Wrapper(INamedTypeSymbol type) =>
             Marked(type, register) is { } data
             && ((data.ConstructorArguments.Length > 1 && data.ConstructorArguments[1].Value is true) || data.NamedArguments.Any(static named => named.Value.Value is true && string.Equals(named.Key, "IsWrapper", StringComparison.Ordinal)));

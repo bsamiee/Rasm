@@ -16,4 +16,4 @@ rule:
                 field: type_parameters
                 not: {all: [{kind: type_item}, {not: {inside: {kind: declaration_list}}}]}
 message: '`$PARAM$BOUNDS` bounds `$PARAM` inside its generic parameter list'
-note: 'Move the bound into the `where` clause, `where <parameter>: <bound>`'
+note: 'Move the bound into a `where` clause, `where <parameter>: <bound>`'

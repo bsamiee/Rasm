@@ -100,7 +100,7 @@ transform:
     WITHOUT_WITH_CLAUSE: rewrite($DECLARATION, rewriters=[with-clause])
     TRIMMED: {replace: {source: $WITHOUT_WITH_CLAUSE, replace: '^\s+', by: ''}}
     JOINED: {replace: {source: $TRIMMED, replace: '\s+', by: ' '}}
-    SIGNATURE: {replace: {source: $JOINED, replace: '(?i)^(insert (?:or \w+ )?into [\w."]+(?: ?\([^)]*\))?|replace into [\w."]+(?: ?\([^)]*\))?|update (?:or \w+ )?[\w."]+|delete from [\w."]+|(?:drop|alter) \w+ (?:if exists )?[\w."]+)[\s\S]*$', by: '$1'}}
+    SIGNATURE: {replace: {source: $JOINED, replace: '(?i)^(insert (?:or \w+ )?into [\w."]+(?: ?\([^)]*\))?|replace into [\w."]+(?: ?\([^)]*\))?|update (?:or \w+ )?[\w."]+|delete from [\w."]+|select [\s\S]*?\bfrom [\w."]+|(?:drop|alter) \w+ (?:if exists )?[\w."]+)[\s\S]*$', by: '$1'}}
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -119,7 +119,7 @@ rewriters:
       fix: ''
 transform:
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    WITHOUT_PARENTHESES: {replace: {source: $HEADER, replace: '\s*\(\s*\)\s*$', by: ''}}
-    SIGNATURE: {replace: {source: $WITHOUT_PARENTHESES, replace: '\s+', by: ' '}}
+    WITHOUT_BODY: {replace: {source: $HEADER, replace: '(?i)\s*\bas\b(?:\s+(?:not\s+)?materialized)?\s*\(\s*\)\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $WITHOUT_BODY, replace: '\s+', by: ' '}}
 name: $NAME
 signature: $SIGNATURE

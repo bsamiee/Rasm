@@ -28,4 +28,4 @@ rule:
             matches: reader
             follows: {stopBy: end, has: {stopBy: end, matches: parse-call}}
 message: '`$PARSE` repeats a parse an earlier declaration of the file runs'
-note: 'Parse the text once into a value object or smart enum at its owner and read the parsed value at every other site'
+note: 'Parse the text once at its owner into a value object or smart enum and read it at every other site'

@@ -94,4 +94,4 @@ rule:
                 - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: declared}}}
                 - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: drain}}}
 message: '`$GROWN` grows each pass of a loop with no exit and no removal'
-note: 'Bound the collection, drain it per pass, or build it inside the loop body'
+note: 'Bound the collection, drain it per pass, or build it inside each pass'

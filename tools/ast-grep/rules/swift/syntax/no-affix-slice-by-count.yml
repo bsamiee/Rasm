@@ -5,10 +5,19 @@ severity: error
 utils:
     count-difference:
         has: {kind: call_suffix, has: {stopBy: end, kind: additive_expression, has: {field: lhs, pattern: $R.count}}}
+    affix-argument:
+        kind: call_suffix
+        has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, pattern: $AFFIX}}}
     prefix-test:
-        any: [{pattern: $R.hasPrefix($AFFIX)}, {pattern: '$R.starts(with: $AFFIX)'}]
+        kind: call_expression
+        all:
+            - any: [{pattern: $R.hasPrefix($_)}, {pattern: '$R.starts(with: $_)'}]
+            - has: {matches: affix-argument}
     suffix-test:
-        pattern: $R.hasSuffix($AFFIX)
+        kind: call_expression
+        all:
+            - pattern: $R.hasSuffix($_)
+            - has: {matches: affix-argument}
     prefix-tested:
         any: [{matches: prefix-test}, {has: {stopBy: end, matches: prefix-test}}]
     suffix-tested:

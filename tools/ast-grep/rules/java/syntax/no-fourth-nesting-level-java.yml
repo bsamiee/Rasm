@@ -3,7 +3,7 @@ id: no-fourth-nesting-level-java
 language: java
 severity: error
 utils:
-    scope: {any: [{matches: java-control-flow}, {kind: lambda_expression}, {matches: java-declaration-scope}]}
+    scope: {any: [{matches: java-control-flow}, {matches: java-function-boundary}]}
     conditioned:
         any:
             - inside: {kind: 'if_statement, while_statement, do_statement, for_statement, switch_expression, ternary_expression', field: condition, stopBy: &scope {matches: scope}}

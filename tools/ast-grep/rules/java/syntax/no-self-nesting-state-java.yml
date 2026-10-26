@@ -10,21 +10,24 @@ utils:
     factory:
         kind: method_invocation
         all:
-            - has: {field: name, regex: '^(of|asList|copyOf|ofNullable)$'}
+            - has: {field: name, regex: '^(of|asList|ofNullable)$'}
             - has: {field: object, regex: '^(List|Set|Map|Stream|Arrays|Optional|ImmutableList|ImmutableSet)$'}
-    wrapped:
+            - has: {field: arguments, has: {kind: identifier, pattern: $PRIOR}}
+    nested:
         any:
-            - {kind: identifier, pattern: $PRIOR}
-            - {matches: factory, has: {field: arguments, has: {kind: identifier, pattern: $PRIOR}}}
+            - matches: factory
             - {kind: array_creation_expression, has: {field: value, has: {kind: identifier, pattern: $PRIOR}}}
     wrap:
-        kind: object_creation_expression
-        all:
-            - not: {has: {kind: class_body}}
-            - has: {field: arguments, has: {matches: wrapped}}
-            - any:
-                - has: {field: arguments, has: {nthChild: 2}}
-                - has: {field: type, not: {kind: generic_type}}
+        any:
+            - matches: factory
+            - kind: object_creation_expression
+              all:
+                - not: {has: {kind: class_body}}
+                - any:
+                    - has: {field: arguments, has: {matches: nested}}
+                    - all:
+                        - has: {field: arguments, has: {kind: identifier, pattern: $PRIOR}}
+                        - any: [{has: {field: arguments, has: {nthChild: 2}}}, {has: {field: type, not: {kind: generic_type}}}]
     compared:
         kind: method_invocation
         any:

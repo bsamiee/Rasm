@@ -4,7 +4,7 @@ language: swiftlang
 severity: error
 rule:
     all:
-        - matches: swift-task-launch
+        - matches: swift-unstructured-task
         - has: {nthChild: 1, pattern: $TASK}
         - inside:
             kind: lambda_literal

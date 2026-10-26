@@ -15,23 +15,22 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
         "RASM1201",
         Category,
         "Log message defined by hand",
-        "`LoggerMessage.{0}` defines a log message by hand. Declare a `partial void` method under `[LoggerMessage]`",
+        "`LoggerMessage.{0}` defines a log message by hand, declare a `partial void` method under `[LoggerMessage]`",
         "`LoggerMessage.Define` call outside generated code.");
 
     public static readonly DiagnosticDescriptor Called = Rule(
         "RASM1202",
         Category,
         "Logger called by hand",
-        "`ILogger.{0}` called with hand-written state. Replace with {1}",
+        "`ILogger.{0}` called with hand-written state, declare {1}",
         "`ILogger.Log` or `ILogger.BeginScope` call outside generated code and types implementing `ILogger`.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Defined, Called];
 
     protected override void Start(CompilationStartAnalysisContext context) {
-        if (Members(context.Compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessage"), "Define") is { IsEmpty: false } defines)
-            Definitions(context, defines);
-        if (context.Compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger") is { } logger)
-            Calls(context, logger);
+        LoggingSymbols symbols = new(context.Compilation);
+        if (symbols.Define is { IsEmpty: false } defines) Definitions(context, defines);
+        if (symbols.Logger is { } logger) Calls(context, logger, symbols.Calls);
     }
 
     // --- [DEFINITIONS]
@@ -40,8 +39,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
             Among(invocation.TargetMethod, defines) ? [Diagnostic.Create(Defined, Named(invocation), invocation.TargetMethod.Name)] : []);
 
     // --- [CALLS]
-    private static void Calls(CompilationStartAnalysisContext context, INamedTypeSymbol logger) {
-        ImmutableArray<IMethodSymbol> members = Members(logger, "Log", "BeginScope");
+    private static void Calls(CompilationStartAnalysisContext context, INamedTypeSymbol logger, ImmutableArray<IMethodSymbol> members) {
         bool Logs(IMethodSymbol method) => members.Any(member => Implements(method, member));
         bool Forwards(ISymbol? symbol) =>
             symbol is not null && ((symbol is INamedTypeSymbol type && type.AllInterfaces.Any(face => Same(face, logger))) || Forwards(symbol.ContainingSymbol));
@@ -51,7 +49,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
                     Called,
                     Named(invocation),
                     invocation.TargetMethod.Name,
-                    invocation.TargetMethod.ReturnsVoid ? "a `partial void` method under `[LoggerMessage]`" : "a `LoggerMessage.DefineScope` delegate held in a static field")]
+                    invocation.TargetMethod.ReturnsVoid ? "a `partial void` method under `[LoggerMessage]`" : "a `LoggerMessage.DefineScope` delegate in a static field")]
                 : []);
     }
 }

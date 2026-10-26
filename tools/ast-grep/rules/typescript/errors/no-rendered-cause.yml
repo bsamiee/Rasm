@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rendered-cause
+language: tsx
+severity: error
+utils:
+    failure-callback:
+        kind: arrow_function, function_expression
+        any:
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^(catch|onFailure)$'}}
+            - inside:
+                kind: pair
+                field: value
+                inside:
+                    kind: object
+                    inside:
+                        kind: arguments
+                        inside:
+                            kind: call_expression
+                            has: {field: function, kind: member_expression, has: {field: property, regex: '^(catchTags|catchReasons)$'}}
+            - inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    has:
+                        field: function
+                        kind: member_expression
+                        has: {field: property, regex: '^(mapError|catch|catchCause|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons|catchDefect|tapError|tapCause|tapErrorTag)$'}
+    named-parameter:
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $CAUSE}
+            - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $CAUSE}}}
+    cause-parameter:
+        all:
+            - matches: failure-callback
+            - matches: named-parameter
+    relayed-failure:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: identifier, pattern: $RELAY}
+            - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ARG}}
+            - inside:
+                stopBy: end
+                matches: failure-callback
+                any:
+                    - has: {field: parameter, kind: identifier, pattern: $ARG}
+                    - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ARG}}}
+    rendering-function:
+        all:
+            - matches: named-parameter
+            - has: {field: body, any: [{matches: rendering}, {has: {stopBy: end, matches: rendering}}]}
+    relay-declaration:
+        any:
+            - {kind: function_declaration, has: {field: name, pattern: $RELAY}, matches: rendering-function}
+            - kind: lexical_declaration
+              has:
+                kind: variable_declarator
+                all:
+                    - has: {field: name, pattern: $RELAY}
+                    - has: {field: value, kind: 'arrow_function, function_expression', matches: rendering-function}
+            - {kind: export_statement, has: {matches: relay-declaration}}
+    rendering:
+        any:
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    any:
+                        - {kind: identifier, regex: '^String$', matches: typescript-global-reference}
+                        - kind: member_expression
+                          all:
+                            - has: {field: property, regex: '^stringify$'}
+                            - has: {field: object, regex: '^JSON$', matches: typescript-global-reference}
+                        - kind: member_expression
+                          all:
+                            - has: {field: property, regex: '^toStringUnknown$'}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bInspectable$'}}}}
+                        - kind: member_expression
+                          all:
+                            - has: {field: property, regex: '^(format|formatJson)$'}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bFormatter$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $CAUSE}}
+            - kind: member_expression
+              all:
+                - has: {field: object, kind: identifier, pattern: $CAUSE}
+                - has: {field: property, regex: '^(message|stack|toString)$'}
+              not:
+                all:
+                    - has: {field: property, regex: '^stack$'}
+                    - inside: {stopBy: end, kind: statement_block, has: {stopBy: end, kind: assignment_expression, has: {field: left, pattern: Error.prepareStackTrace}}}
+            - kind: template_substitution
+              has: {kind: identifier, pattern: $CAUSE}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\+$'}
+                - has: {kind: identifier, pattern: $CAUSE}
+                - has: {kind: 'string, template_string'}
+    protocol-error-fields:
+        kind: object
+        inside:
+            kind: arguments
+            inside:
+                any:
+                    - {kind: new_expression, has: {field: 'constructor', matches: typescript-package-reference}}
+                    - kind: call_expression
+                      has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: typescript-package-reference}}]}
+    text-content-fields:
+        kind: object
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^make$'}
+                        - has:
+                            field: object
+                            any:
+                                - kind: member_expression
+                                  all:
+                                    - has: {field: property, regex: '^TextContent$'}
+                                    - has: {field: object, matches: {effect-module: {name: {regex: '\bMcpSchema$'}}}}
+                                - matches: {typescript-import-reference: {source: {regex: '^effect/ai/McpSchema$'}, exported: {regex: '^TextContent$'}}}
+    protocol-field:
+        any:
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^message$'}, inside: {matches: protocol-error-fields}}
+            - {kind: shorthand_property_identifier, regex: '^message$', inside: {matches: protocol-error-fields}}
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^text$'}, inside: {matches: text-content-fields}}
+    cause-module:
+        matches: {effect-module: {name: {regex: '\bCause$'}}}
+    built-cause:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: cause-module}}, {has: {field: property, regex: '^(pretty|prettyErrors)$'}}]}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    kind: call_expression
+                    has: {field: function, kind: member_expression, all: [{has: {field: object, matches: cause-module}}, {has: {field: property, regex: '^(fail|die)$'}}]}
+rule:
+    any:
+        - pattern: $TEXT
+          all:
+            - matches: rendering
+            - inside: {stopBy: end, matches: cause-parameter}
+            - not: {matches: protocol-field}
+        - matches: relayed-failure
+          pattern: $TEXT
+          inside: {stopBy: end, kind: 'statement_block, program', has: {matches: relay-declaration}}
+        - kind: shorthand_property_identifier_pattern
+          regex: '^(message|stack)$'
+          pattern: $TEXT
+          inside:
+            kind: object_pattern
+            inside:
+                kind: required_parameter
+                inside:
+                    kind: formal_parameters
+                    inside:
+                        matches: failure-callback
+                        has:
+                            field: body
+                            any:
+                                - {kind: identifier, pattern: $TEXT}
+                                - has: {stopBy: end, kind: 'identifier, shorthand_property_identifier', pattern: $TEXT, not: {matches: protocol-field}}
+        - matches: built-cause
+          pattern: $TEXT
+message: '`$TEXT` renders a typed failure to text'
+note: 'Keep the error as failure value up to its boundary, where a protocol field reads `<error>.message` and `Cause.pretty` renders a cause'

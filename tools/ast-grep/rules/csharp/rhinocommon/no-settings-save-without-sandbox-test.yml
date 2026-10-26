@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-settings-save-without-sandbox-test
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/Rasm.Grasshopper/**']
+utils:
+    sandbox:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^SandBox$'}
+                - has: {field: expression, regex: '^((global::)?Grasshopper2\.)?Settings$'}
+            - kind: parenthesized_expression
+              has: {matches: sandbox}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\|\|$'}
+                - has: {matches: sandbox}
+    link:
+        any:
+            - kind: parenthesized_expression
+            - kind: binary_expression
+              has: {field: operator, regex: '^(&&|\|\|)$'}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - has: {field: right, kind: boolean_literal, regex: '^true$'}
+            - kind: is_pattern_expression
+              has: {field: pattern, regex: '^true\b'}
+    disjunct:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\|\|$'}
+            - has: {matches: sandbox}
+    guarded:
+        any:
+            - inside: {stopBy: {not: {matches: link}}, matches: disjunct}
+            - has: {field: function, kind: conditional_access_expression, has: {field: condition, matches: disjunct}}
+    discarded:
+        any:
+            - inside: {kind: expression_statement}
+            - inside: {kind: assignment_expression, field: right, all: [{has: {field: left, regex: '^_$'}}, {has: {field: operator, regex: '^=$'}}]}
+    named:
+        inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}
+    relayed:
+        inside:
+            kind: variable_declarator
+            all:
+                - has: {field: name, pattern: $LOCAL}
+                - inside:
+                    stopBy: {kind: 'block, switch_section'}
+                    kind: block, switch_section
+                    not:
+                        has:
+                            stopBy: end
+                            kind: identifier
+                            pattern: $LOCAL
+                            all:
+                                - not: {inside: {kind: variable_declarator, field: name}}
+                                - not: {any: [{matches: guarded}, {matches: named}]}
+rule:
+    any:
+        - kind: invocation_expression
+          pattern: $SAVE
+          all:
+            - has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      has: {field: name, regex: '^TrySaveSettingsToFile$'}
+                    - kind: conditional_access_expression
+                      has: {kind: member_binding_expression, has: {field: name, regex: '^TrySaveSettingsToFile$'}}
+            - not:
+                any:
+                    - matches: discarded
+                    - matches: guarded
+                    - matches: relayed
+        - kind: member_access_expression
+          pattern: $SAVE
+          all:
+            - has: {field: name, regex: '^TrySaveSettingsToFile$'}
+            - not:
+                any:
+                    - inside: {kind: invocation_expression, field: function}
+                    - matches: named
+message: '`$SAVE` takes the `false` every save under `Settings.SandBox` returns as failure'
+note: 'Read the result as `Settings.SandBox || <file>.TrySaveSettingsToFile()`'

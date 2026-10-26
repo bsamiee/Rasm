@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-never-none-pointer-test
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+utils:
+    context:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: context}
+            - matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^context$'}}}
+            - matches: {python-typed-parameter: {type: {has: {matches: {python-member-use: {module: {regex: '^bpy\.types$'}, name: {regex: '^Context$'}}}}}}}
+    member:
+        kind: attribute
+        any:
+            - all:
+                - has: {field: attribute, regex: '^preferences$'}
+                - has: {field: object, matches: context}
+            - has: {field: attribute, regex: '^(view_settings|display_settings|active_layer_collection|original|from_node|to_node|from_socket|to_socket)$'}
+            - all:
+                - has: {field: attribute, regex: '^(user|addon)$'}
+                - has: {field: object, kind: attribute, has: {field: attribute, regex: '^keyconfigs$'}}
+    member-value:
+        any:
+            - matches: member
+            - kind: parenthesized_expression
+              has: {matches: member-value}
+            - kind: conditional_expression
+              all:
+                - has: {nthChild: 1, matches: member-value}
+                - has: {nthChild: {position: 1, reverse: true}, matches: member-value}
+    tested:
+        any:
+            - matches: member-value
+            - kind: named_expression
+              has: {field: value, matches: member-value}
+            - kind: parenthesized_expression
+              has: {matches: tested}
+            - kind: identifier
+              matches: {python-assigned-name: {value: {matches: member}}}
+    none-value:
+        any:
+            - kind: none
+            - kind: parenthesized_expression
+              has: {matches: none-value}
+    none-pattern:
+        any:
+            - kind: none
+            - kind: case_pattern, union_pattern, as_pattern
+              has: {matches: none-pattern}
+            - kind: tuple_pattern
+              all:
+                - not: {has: {pattern: $$_COMMA, regex: '^,$'}}
+                - has: {matches: none-pattern}
+    truth-position:
+        any:
+            - inside: {kind: parenthesized_expression, matches: truth-position}
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+            - all: [{inside: {kind: assert_statement}}, {nthChild: 1}]
+            - all: [{inside: {kind: conditional_expression}}, {nthChild: 2}]
+            - inside: {kind: if_clause}
+            - inside: {kind: not_operator, field: argument}
+            - inside: {kind: boolean_operator, field: left}
+            - inside: {kind: boolean_operator, field: right, matches: truth-position}
+    optional-wrap:
+        any:
+            - kind: parenthesized_expression
+              has: {matches: optional-wrap}
+            - matches: {python-member-use: {module: {regex: '^expression(\.core)?\.option$'}, name: {regex: '^of_(obj|optional)$'}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^of_(obj|optional)$'}
+                - has: {field: object, matches: {python-member-use: {module: {regex: '^expression(\.core)?(\.option)?$'}, name: {regex: '^(Option|option)$'}}}}
+    test-call:
+        regex: '(^|\.)(bool|of_obj|of_optional)\)?$'
+        any: [{matches: optional-wrap}, {matches: {python-builtin-name: {name: {regex: '^bool$'}}}}]
+rule:
+    any:
+        - kind: comparison_operator
+          all:
+            - has: {matches: none-value}
+            - has:
+                matches: tested
+                pattern: $TESTED
+                any:
+                    - precedes:
+                        regex: '^(is|is\s+not|==|!=)$'
+                        stopBy: {not: {kind: comment}}
+                        precedes: {matches: none-value, stopBy: {not: {kind: comment}}}
+                    - follows:
+                        regex: '^(is|is\s+not|==|!=)$'
+                        stopBy: {not: {kind: comment}}
+                        follows: {matches: none-value, stopBy: {not: {kind: comment}}}
+        - all:
+            - inside: {kind: 'if_statement, elif_clause, while_statement, assert_statement, conditional_expression, if_clause, not_operator, boolean_operator, match_statement, argument_list, keyword_argument'}
+            - any:
+                - matches: truth-position
+                - inside: {kind: match_statement, field: subject, has: {field: body, has: {kind: case_clause, has: {matches: none-pattern}}}}
+                - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                  inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: test-call}}}
+                - inside:
+                    kind: keyword_argument
+                    field: value
+                    has: {field: name, regex: '^value$'}
+                    inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: test-call}}}
+            - matches: tested
+            - pattern: $TESTED
+message: 'Absence test reads `$TESTED`, a pointer Blender never sets to `None`'
+note: 'Read `<member>` without the test, with `# type: ignore[union-attr]  # ty: ignore[unresolved-attribute]` where a stub types it optional'

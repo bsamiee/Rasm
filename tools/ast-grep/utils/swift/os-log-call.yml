@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: os-log-call
+language: swiftlang
+rule:
+    kind: call_expression
+    any:
+        - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(trace|debug|info|notice|warning|error|critical|fault|emitEvent|beginInterval|beginAnimationInterval|endInterval|withIntervalSignpost)$'}}
+        - all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.log$'}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: 1, kind: value_argument, any: [{not: {has: {field: name, regex: '.'}}}, {has: {field: name, regex: '^level$'}}]}}}

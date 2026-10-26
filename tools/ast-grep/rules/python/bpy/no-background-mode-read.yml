@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-background-mode-read
+language: python
+severity: error
+files:
+    - libs/python/blender/bpy/**
+    - apps/blender/**
+utils:
+    app-module:
+        matches: {python-submodule: {parent: {regex: '^bpy$'}, child: {regex: '^app$'}}}
+    app-import:
+        kind: import_from_statement
+        has: {field: module_name, regex: '^bpy\.app$'}
+    getattr-function:
+        matches: {python-builtin-name: {name: {regex: '^getattr$'}}}
+    argv:
+        any:
+            - matches: {python-member-use: {module: {regex: '^sys$'}, name: {regex: '^(argv|orig_argv)$'}}}
+            - kind: subscript
+              has: {field: value, matches: argv}
+    owner:
+        kind: function_definition
+        has: {field: name, regex: '^deferred$'}
+        inside: {kind: class_definition, stopBy: end, has: {field: name, regex: '^Reports$'}}
+rule:
+    pattern: $READ
+    any:
+        - kind: attribute
+          all:
+            - has: {field: attribute, regex: '^background$'}
+            - has: {field: object, matches: app-module}
+        - kind: dotted_name
+          regex: '^background$'
+          any:
+            - inside: {kind: import_from_statement, matches: app-import}
+            - inside: {kind: aliased_import, field: name, inside: {kind: import_from_statement, matches: app-import}}
+        - kind: identifier
+          all:
+            - inside: {kind: 'if_statement, elif_clause, while_statement, conditional_expression, boolean_operator, not_operator, comparison_operator, match_statement, assert_statement'}
+            - inside: {kind: module, stopBy: end, regex: 'bpy\.app import'}
+            - matches: {python-imported-name: {module: {regex: '^bpy\.app$'}, name: {regex: '^background$'}}}
+        - kind: call
+          all:
+            - has: {field: function, regex: 'getattr$', matches: getattr-function}
+            - has:
+                field: arguments
+                kind: argument_list
+                all:
+                    - has: {nthChild: 2, kind: string, regex: '^["'']background["'']$'}
+                    - has: {nthChild: 1, matches: app-module}
+        - kind: comparison_operator
+          all:
+            - has: {kind: string, regex: '^["''](-b|--background)["'']$'}
+            - has: {field: operators, pattern: $$_TEST, regex: '^((not\s+)?in|==|!=)$'}
+            - has: {matches: argv}
+    not: {inside: {matches: owner, stopBy: end}}
+message: '`$READ` reads background mode outside `Reports.deferred`'
+note: 'Route main-thread writes through `Reports.deferred` and register timers, draw handlers, modal operators, and keymaps unconditionally'

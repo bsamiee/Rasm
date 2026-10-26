@@ -1,10 +1,10 @@
-#0 `Fin.Fail<int>(Error.New("negative"))` restates the implicit conversion of `Error.New("negative")` to `Fin<int>`. Replace with `Error.New("negative")`
-#1 `Fin.Fail<int>(Error.New("none"))` restates the implicit conversion of `Error.New("none")` to `Fin<int>`. Replace with `Error.New("none")`
-#2 `Success<Error, Unit>(unit)` restates the implicit conversion of `unit` to `Validation<Error, Unit>`. Replace with `unit`
-#3 `(Fin<int>)count` restates the implicit conversion of `count` to `Fin<int>`. Replace with `count`
-#4 `Fin.Fail<int>(Error.New("refused"))` restates the implicit conversion of `Error.New("refused")` to `Fin<int>`. Replace with `Error.New("refused")`
-#5 `Fin.Fail<int>(Error.New("refused"))` restates the implicit conversion of `Error.New("refused")` to `Fin<int>`. Replace with `Error.New("refused")`
-#6 `Fin.Succ(count)` restates the implicit conversion of `count` to `Fin<int>`. Replace with `count`
-#7 `Fin.Fail<Option<int>>(Error.New("cancelled"))` restates the implicit conversion of `Error.New("cancelled")` to `Fin<Option<int>>`. Replace with `Error.New("cancelled")`
-#8 `Fin.Succ(pinned)` restates the implicit conversion of `pinned` to `Fin<int>`. Replace with `pinned`
-#9 `Fin.Fail<int>(error + fault)` restates the implicit conversion of `error + fault` to `Fin<int>`. Replace with `error + fault`
+#0 `Fin.Fail<int>(Error.New("negative"))` restates implicit conversion of `Error.New("negative")` to `Fin<int>`, write `Error.New("negative")`
+#1 `Fin.Fail<int>(Error.New("none"))` restates implicit conversion of `Error.New("none")` to `Fin<int>`, write `Error.New("none")`
+#2 `Success<Error, Unit>(unit)` restates implicit conversion of `unit` to `Validation<Error, Unit>`, write `unit`
+#3 `(Fin<int>)count` restates implicit conversion of `count` to `Fin<int>`, write `count`
+#4 `Fin.Fail<int>(Error.New("refused"))` restates implicit conversion of `Error.New("refused")` to `Fin<int>`, write `Error.New("refused")`
+#5 `Fin.Fail<int>(Error.New("refused"))` restates implicit conversion of `Error.New("refused")` to `Fin<int>`, write `Error.New("refused")`
+#6 `Fin.Succ(count)` restates implicit conversion of `count` to `Fin<int>`, write `count`
+#7 `Fin.Fail<Option<int>>(Error.New("cancelled"))` restates implicit conversion of `Error.New("cancelled")` to `Fin<Option<int>>`, write `Error.New("cancelled")`
+#8 `Fin.Succ(pinned)` restates implicit conversion of `pinned` to `Fin<int>`, write `pinned`
+#9 `Fin.Fail<int>(error + fault)` restates implicit conversion of `error + fault` to `Fin<int>`, write `error + fault`

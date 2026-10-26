@@ -17,11 +17,20 @@ utils:
         any:
             - pattern: '{ [$_] }'
             - pattern: '{ $_ in [$_] }'
-    transform-call:
+    shorthand-identity:
+        kind: lambda_literal
+        all:
+            - not: {has: {field: type, kind: lambda_function_type}}
+            - has:
+                kind: statements
+                all:
+                    - not: {has: {nthChild: 2}}
+                    - has: {nthChild: 1, kind: array_literal, not: {has: {nthChild: 2}}, has: {nthChild: 1, kind: simple_identifier, regex: '^\$0$'}}
+    mapped:
         kind: call_expression
         all:
             - has: {kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, regex: '^\.(map|flatMap)$'}}]}
-            - has: {kind: call_suffix, not: {has: {kind: value_arguments}}, has: {kind: lambda_literal, pattern: $LAMBDA, matches: one-element}}
+            - has: {kind: call_suffix, not: {has: {kind: value_arguments}}}
 rule:
     any:
         - kind: nil_coalescing_expression
@@ -30,11 +39,10 @@ rule:
             - has:
                 field: value
                 any:
-                    - pattern: '$X.map { [$0] }'
-                    - pattern: '$X.flatMap { [$0] }'
+                    - {matches: mapped, has: {kind: call_suffix, has: {matches: shorthand-identity}}}
                     - pattern: '$X.map { $V in [$V] }'
                     - pattern: '$X.flatMap { $V in [$V] }'
-                    - matches: transform-call
+                    - {matches: mapped, has: {kind: call_suffix, has: {kind: lambda_literal, pattern: $LAMBDA, matches: one-element}}}
         - kind: switch_statement
           all:
             - matches: value-position

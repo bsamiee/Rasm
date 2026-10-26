@@ -1,7 +1,7 @@
-#0 `Retries` has one read, in `Run`. Inline `Retries` at that read
-#1 `Prefix` has one read, in `Tagged`. Inline `Prefix` at that read
-#3 `Known` has one read, in `Unsupported`. Inline `Known` at that read
-#4 `Separators` has one read, in `Split`. Inline `Separators` at that read
-#5 `Doubled` has one read, in `Twofold`. Inline `Doubled` at that read
-#6 `Area` has one read, in `Size`. Inline `Area` at that read
-#7 `Moved` has one read, in `Shifted`. Inline `Moved` at that read
+#0 `Retries` has one read, in `Run`, inline `Retries` at the read
+#1 `Prefix` has one read, in `Tagged`, inline `Prefix` at the read
+#3 `Known` has one read, in `Unsupported`, inline `Known` at the read
+#4 `Separators` has one read, in `Split`, inline `Separators` at the read
+#5 `Doubled` has one read, in `Twofold`, inline `Doubled` at the read
+#6 `Area` has one read, in `Size`, inline `Area` at the read
+#7 `Moved` has one read, in `Shifted`, inline `Moved` at the read

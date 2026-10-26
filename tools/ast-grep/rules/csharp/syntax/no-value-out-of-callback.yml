@@ -42,7 +42,11 @@ utils:
               has: {field: left, kind: element_access_expression, has: {field: expression, pattern: $CELL, matches: collection-local}}
     combinator:
         kind: invocation_expression
-        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc|IfFail|IfNone|Do|ForEach|Traverse|TraverseM|Map|Select|Bind|SelectMany|Filter|Where|Choose|Fold|Match|Switch)(\s*<.+>)?$'}}
+        any:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Switch(\s*<.+>)?$'}}
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc|IfFail|IfNone|Do|ForEach|Traverse|TraverseM|Map|Select|Bind|SelectMany|Filter|Where|Choose|Fold|Match)(\s*<.+>)?$'}}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 3}}}
     combinator-callback:
         kind: 'lambda_expression, anonymous_method_expression'
         inside: {kind: argument, inside: {kind: argument_list, inside: {matches: combinator}}}
@@ -165,4 +169,4 @@ rule:
             - regex: '^\w+\s*='
             - inside: {kind: variable_declaration, inside: {kind: local_declaration_statement, matches: overwritten}}
 message: '`$CELL` passes a value out of a callback through a write outside its result'
-note: 'Return the value from the callback and read it from the `Fin<R>` or tuple the call taking the callback returns'
+note: 'Return the value from its callback and read it from `Fin<R>` or a tuple its call returns'

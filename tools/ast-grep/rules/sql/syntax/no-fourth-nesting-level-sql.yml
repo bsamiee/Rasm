@@ -21,8 +21,8 @@ utils:
         any:
             - kind: case_expression
               not: {inside: {kind: case_expression, field: else, stopBy: {not: {kind: parenthesized_expression}}}}
-            - matches: sql-choice-call
-              not: {all: [{nthChild: 3}, {inside: {kind: normal_function_arguments, inside: {matches: sql-choice-call}}}]}
+            - matches: sql-iif-call
+              not: {all: [{nthChild: 3}, {inside: {kind: normal_function_arguments, inside: {matches: sql-iif-call}}}]}
     scope: {kind: 'select_statement, select_clause, cte_definition'}
     boundary: {any: [{matches: choice}, {matches: scope}]}
 rule:

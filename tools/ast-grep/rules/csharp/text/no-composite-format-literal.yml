@@ -49,7 +49,7 @@ rule:
                     - has: {kind: argument, nthChild: 2, matches: format-argument}
         - matches: writer-call
 message: '`$CALLEE` fills the constant composite format `$FORMAT` by position'
-note: 'Write an interpolated string `$"..."`, inside `string.Create(<provider>, $"...")` or `Append(<provider>, $"...")` where a format provider applies'
+note: 'Write an interpolated string `$"..."`, inside `string.Create(<provider>, $"...")` or `Append(<provider>, $"...")` when a provider applies'
 labels:
     FORMAT:
         style: secondary

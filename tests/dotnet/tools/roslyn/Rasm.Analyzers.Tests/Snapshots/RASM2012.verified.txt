@@ -1,4 +1,4 @@
-#0 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy that no release reaches. Acquire it through `DisposalOps.Found`
-#1 `viewport.DisplayMode` returns an owned `DisplayModeDescription` copy that no release reaches. Acquire it through `DisposalOps.Found`
-#3 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy that no release reaches. Acquire it through `DisposalOps.Found`
-#2 `DisplayModeDescription.FindByName(name)` returns an owned `DisplayModeDescription` copy that no release reaches. Acquire it through `DisposalOps.Found`
+#0 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`
+#1 `viewport.DisplayMode` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`
+#3 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`
+#2 `DisplayModeDescription.FindByName(name)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`

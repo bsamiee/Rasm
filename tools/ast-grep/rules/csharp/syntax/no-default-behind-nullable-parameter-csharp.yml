@@ -113,7 +113,7 @@ utils:
     relayed:
         kind: invocation_expression
         all:
-            - has: {field: function, any: [{kind: identifier, pattern: $HELPER}, {kind: generic_name, has: {kind: identifier, pattern: $HELPER}}]}
+            - has: {field: function, matches: {csharp-simple-name: {name: {pattern: $HELPER}}}}
             - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: read}}}
             - inside:
                 stopBy: end
@@ -141,4 +141,4 @@ rule:
                         - has: {kind: explicit_interface_specifier}
                 has: {field: body, has: {stopBy: end, any: [{matches: resolution}, {matches: relayed}], all: [{matches: unshadowed}]}}
 message: 'Parameter `$PARAMETER` defaults to null and the body resolves null to `$DEFAULT`'
-note: 'Set the default in the signature when constant, else take `Option<T>` resolved with `IfNone` or declare one overload per case'
+note: 'Set a constant default in the signature, else take `Option<T>` resolved with `IfNone` or declare one overload per case'

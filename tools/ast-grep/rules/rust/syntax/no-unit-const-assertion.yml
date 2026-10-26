@@ -10,4 +10,4 @@ rule:
             - has: {field: pattern, kind: tuple_pattern, regex: '^\(\s*\)$'}
             - has: {field: pattern, pattern: $$_P, regex: '^_$'}
 message: '`let` reads `$PATH` to force its compile-time evaluation'
-note: 'Write the assertion in place as `const { assert!(<condition>, "<invariant>") };` and delete the unit associated constant'
+note: 'Assert in place with `const { assert!(<condition>, "<invariant>") };` and delete the unit associated constant'

@@ -6,7 +6,7 @@ utils:
     attribute-name:
         any:
             - {matches: python-identifier-string, not: {regex: '__call__|COMPAT_ENGINES'}}
-            - matches: python-relayed-identifier-string
+            - matches: python-identifier-string-variable
     default-callee:
         kind: 'identifier, attribute'
         matches: {builtins-attribute-function: {name: {regex: '^getattr(_static)?$'}}}
@@ -69,7 +69,7 @@ rule:
             - inside: {kind: module, stopBy: end, regex: '\bgetmembers'}
             - has: {field: value, matches: inspect-member-mapping}
             - has: {field: subscript, matches: attribute-name}
-            - matches: python-key-catch
+            - matches: python-handled-key-error
         - kind: comparison_operator
           all:
             - has: {field: operators, regex: '^(not\s+)?in$'}

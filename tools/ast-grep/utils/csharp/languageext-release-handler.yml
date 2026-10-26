@@ -4,6 +4,8 @@ language: csharp
 utils:
     error-type:
         matches: {csharp-type-name: {name: {regex: '^Error$'}}}
+    relay-name:
+        matches: {csharp-simple-name: {name: {pattern: $RELAY}}}
     fail:
         regex: '^((global::)?(LanguageExt\.)?IO\.fail\s*<.+>|((global::)?(LanguageExt\.)?Prelude\.)?(error\s*<|fail\s*<\s*(global::)?(LanguageExt\.Common\.)?Error\s*,)\s*(global::)?(LanguageExt\.)?IO\s*,.+>)$'
     combined:
@@ -69,7 +71,7 @@ utils:
                 - has: {kind: select_clause}
             - kind: invocation_expression
               all:
-                - has: {field: function, any: [{kind: identifier, pattern: $RELAY}, {kind: generic_name, has: {kind: identifier, nthChild: 1, pattern: $RELAY}}]}
+                - has: {field: function, matches: relay-name}
                 - has: {field: arguments, has: {kind: argument, has: {pattern: $ERROR}}}
                 - inside:
                     stopBy: end

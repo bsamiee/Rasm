@@ -76,4 +76,4 @@ rule:
                     - inside: {stopBy: {kind: 'function_item, impl_item, trait_item'}, not: {kind: 'function_item, impl_item, trait_item'}, matches: earlier-negated}
                     - inside: {stopBy: {kind: function_item}, kind: function_item, matches: method, all: [{matches: earlier-negated}]}
 message: '`$LITERAL` repeats an earlier literal of its function, impl, or trait, or a `const` or `static` value'
-note: 'Bind the value once in a `let` or `const` and read it at each use, or read the owning or library constant (`u16::MAX`)'
+note: 'Bind the value once in a `let` or `const` and read it at each use, or read its owning or library constant (`u16::MAX`)'

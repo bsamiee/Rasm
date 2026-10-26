@@ -15,10 +15,18 @@ utils:
             has:
                 kind: value_arguments
                 has: {kind: value_argument, nthChild: 1, has: {field: value, matches: subject-path}}
+    existence-member:
+        kind: navigation_expression
+        has: {field: suffix, has: {field: suffix, regex: '^(fileExists|isExecutableFile)$'}}
     existence:
         kind: call_expression
         all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^(fileExists|isExecutableFile)$'}}}
+            - has:
+                nthChild: 1
+                any:
+                    - matches: existence-member
+                    - kind: prefix_expression
+                      all: [{has: {field: operation, regex: '^!$'}}, {has: {field: target, matches: existence-member}}]
             - matches: first-argument
     exists-check:
         any:

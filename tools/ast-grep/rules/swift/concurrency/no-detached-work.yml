@@ -16,7 +16,7 @@ rule:
         - has: {nthChild: 1, pattern: $WORK}
         - any:
             - all:
-                - matches: swift-task-launch
+                - matches: swift-unstructured-task
                 - has: {nthChild: 1, regex: '\.(detached|immediateDetached)$'}
             - has:
                 nthChild: 1

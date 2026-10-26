@@ -43,4 +43,4 @@ rule:
             - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(concat|join)$'}}, {has: {field: value, kind: array_expression, has: {nthChild: 1, matches: sql-text}}}]}
             - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: sql-text}}]}
 message: '`$SQL` interpolates values into SQL text'
-note: 'Bind each value through `sqlx::query!` for a fixed statement, `sea_query` for a varying one, or `sqlx::QueryBuilder::push_bind` for a value list'
+note: 'Bind each value through `sqlx::query!` for a fixed statement, `sea_query` for a varying one, `sqlx::QueryBuilder::push_bind` for a value list'

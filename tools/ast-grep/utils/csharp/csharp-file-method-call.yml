@@ -4,17 +4,9 @@ language: csharp
 arguments: [declaration]
 utils:
     method-name:
-        any:
-            - kind: identifier
-              pattern: $METHOD
-            - kind: generic_name
-              has: {kind: identifier, pattern: $METHOD}
+        matches: {csharp-simple-name: {name: {pattern: $METHOD}}}
     type-name:
-        any:
-            - kind: identifier
-              pattern: $TYPE
-            - kind: generic_name
-              has: {kind: identifier, pattern: $TYPE}
+        matches: {csharp-simple-name: {name: {pattern: $TYPE}}}
     type-declaration:
         kind: class_declaration, struct_declaration, record_declaration, interface_declaration
     member:

@@ -81,4 +81,4 @@ labels:
     CALL: {style: primary, message: Repeated call}
     FIRST: {style: secondary, message: Earlier call with the same inputs}
 message: '`$CALL` repeats an earlier call with the same inputs in one member'
-note: 'Bind the call once to a local or query `let` before its first use and read the name at each use'
+note: 'Bind the call to a local or query `let` before its first use and read it at each use'

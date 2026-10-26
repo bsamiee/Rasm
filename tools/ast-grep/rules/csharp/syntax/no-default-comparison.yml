@@ -89,4 +89,4 @@ rule:
                 - all: [{has: {field: left, matches: generic-operand}}, {has: {field: right, matches: default-value}}]
                 - all: [{has: {field: left, matches: default-value}}, {has: {field: right, matches: generic-operand}}]
 message: '`$COMPARISON` reads the `default` of a type parameter as absence'
-note: 'Return absence from the producer as `Option<A>` and match `None` in place of the `default` test'
+note: 'Return absence from the producer as `Option<A>` and match `None` in place of a `default` test'

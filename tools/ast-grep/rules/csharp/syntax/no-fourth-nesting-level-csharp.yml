@@ -6,9 +6,16 @@ utils:
     declaration:
         kind: method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration
     closure: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}
+    binding:
+        kind: switch_expression
+        all:
+            - has: {kind: switch_expression_arm, has: {kind: declaration_pattern, nthChild: 1, has: {field: type, kind: implicit_type}}, not: {has: {kind: when_clause}}}
+            - not: {has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm}}}}
     control:
         any:
-            - kind: for_statement, foreach_statement, while_statement, do_statement, switch_statement, switch_expression
+            - kind: for_statement, foreach_statement, while_statement, do_statement, switch_statement
+            - kind: switch_expression
+              not: {matches: binding}
             - kind: if_statement
               not: {inside: {kind: if_statement, field: alternative}}
             - kind: conditional_expression
@@ -22,8 +29,8 @@ utils:
             - inside: {kind: foreach_statement, field: right, stopBy: *scope}
             - inside: {kind: switch_statement, field: value, stopBy: *scope}
             - nthChild: 1
-              inside: {kind: switch_expression}
-            - inside: {nthChild: 1, inside: {kind: switch_expression}, stopBy: *scope}
+              inside: {matches: control, kind: switch_expression}
+            - inside: {nthChild: 1, inside: {matches: control, kind: switch_expression}, stopBy: *scope}
     nested-body:
         any:
             - has: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}

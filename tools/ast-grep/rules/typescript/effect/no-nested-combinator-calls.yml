@@ -89,6 +89,6 @@ transform:
     PIPED: {replace: {source: $STEPS, replace: '(?s)^(.+)$', by: 'pipe($1)'}}
 fix: $PIPED$KEPT
 message: '`$OUTER` wraps data-first module calls four deep'
-note: 'Write `pipe(<value>, <step>, <step>, <step>)` to list the steps in evaluation order'
+note: 'Write `pipe(<value>, <step>, <step>, <step>)`'
 labels:
     CALL: {style: primary}

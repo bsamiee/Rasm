@@ -1,7 +1,7 @@
-#0 `DisposalOps.Acquire` disposes `StackLayout` with its children attached. Acquire `StackLayout` through `Containers.Frame`
-#1 `DisposalOps.Acquire` disposes `Splitter` with its children attached. Acquire `Splitter` through `Containers.Frame`
-#2 `DisposalOps.Acquire` disposes `TabPage` with its children attached. Acquire `TabPage` through `Containers.Frame`
-#3 `DisposalOps.Within` disposes `Panel` with its children attached. Acquire `Panel` through `Containers.Frame`
-#4 `Retained.Retain` disposes `Scrollable` with its children attached. Acquire `Scrollable` through `Containers.Frame`
-#5 `new Disposal` disposes `Panel` with its children attached. Acquire `Panel` through `Containers.Frame`
-#6 `DisposalOps.Acquire` disposes `Scrollable` with its children attached. Acquire `Scrollable` through `Containers.Frame`
+#0 `DisposalOps.Acquire` disposes `StackLayout` with its children attached, acquire `StackLayout` through `Containers.Frame`
+#1 `DisposalOps.Acquire` disposes `Splitter` with its children attached, acquire `Splitter` through `Containers.Frame`
+#2 `DisposalOps.Acquire` disposes `TabPage` with its children attached, acquire `TabPage` through `Containers.Frame`
+#3 `DisposalOps.Within` disposes `Panel` with its children attached, acquire `Panel` through `Containers.Frame`
+#4 `Retained.Retain` disposes `Scrollable` with its children attached, acquire `Scrollable` through `Containers.Frame`
+#5 `new Disposal` disposes `Panel` with its children attached, acquire `Panel` through `Containers.Frame`
+#6 `DisposalOps.Acquire` disposes `Scrollable` with its children attached, acquire `Scrollable` through `Containers.Frame`

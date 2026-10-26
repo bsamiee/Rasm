@@ -7,4 +7,4 @@ rule:
     pattern: $RENDER
     matches: rust-template-replace
 message: '`$RENDER` fills template placeholders through string replacement'
-note: 'Render through `minijinja::Environment::render_str(<template>, minijinja::context! { .. })`, or register the template once with `add_template`'
+note: 'Render through `minijinja::Environment::render_str(<template>, minijinja::context! { .. })`, a reused template through `add_template`'

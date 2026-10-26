@@ -22,7 +22,7 @@ rule:
             - has: {field: type, regex: '^char$'}
         - kind: call_expression
           all:
-            - has: {field: function, regex: '^((::)?(std|core)::)?(char::)?(char::)?(from_u32|from_u32_unchecked)$|^((::)?(std|core)::(primitive::)?)?char::from$'}
+            - has: {field: function, regex: '^((::)?(std|core)::(primitive::)?)?(char::)?from_u32(_unchecked)?$|^((::)?(std|core)::(primitive::)?)?char::from$'}
             - has: {field: arguments, has: {nthChild: 1, matches: escape-code}}
 message: '`$ESCAPE` spells an ANSI escape character by hand'
-note: 'Write an `anstyle::Style` as `{style}<text>{style:#}` to `anstream`, move or erase through `crossterm`, strip through `anstream::adapter::strip_str`'
+note: 'Write `{style}<text>{style:#}` of `anstyle::Style` to `anstream`, move or erase with `crossterm`, strip with `anstream::adapter::strip_str`'

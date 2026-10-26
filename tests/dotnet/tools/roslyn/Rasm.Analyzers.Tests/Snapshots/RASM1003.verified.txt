@@ -1,5 +1,5 @@
-#0 Narrowing `error` to `Expected` misses errors inside `ManyErrors`. Call `error.IsType<Expected>()`, or bind fields through `error.Filter<Expected>().Head is Expected <name>`
-#1 `error.GetType()` misses errors inside `ManyErrors`. Call `error.IsType<<case>>()`, or bind fields through `error.Filter<<case>>().Head is <case> <name>`
-#2 Narrowing `error` to `Expected` misses errors inside `ManyErrors`. Call `error.IsType<Expected>()`, or bind fields through `error.Filter<Expected>().Head is Expected <name>`
-#3 Narrowing `error` to `Expected` misses errors inside `ManyErrors`. Call `error.IsType<Expected>()`, or bind fields through `error.Filter<Expected>().Head is Expected <name>`
-#4 Narrowing `error` to `Expected` misses errors inside `ManyErrors`. Call `error.IsType<Expected>()`, or bind fields through `error.Filter<Expected>().Head is Expected <name>`
+#0 Narrowing `error` to `Expected` misses errors inside `ManyErrors`, call `error.IsType<Expected>()` or bind fields through `error.Filter<Expected>().Head is Expected <name>`
+#1 `error.GetType()` misses errors inside `ManyErrors`, call `error.IsType<<case>>()` or bind fields through `error.Filter<<case>>().Head is <case> <name>`
+#2 Narrowing `error` to `Expected` misses errors inside `ManyErrors`, call `error.IsType<Expected>()` or bind fields through `error.Filter<Expected>().Head is Expected <name>`
+#3 Narrowing `error` to `Expected` misses errors inside `ManyErrors`, call `error.IsType<Expected>()` or bind fields through `error.Filter<Expected>().Head is Expected <name>`
+#4 Narrowing `error` to `Expected` misses errors inside `ManyErrors`, call `error.IsType<Expected>()` or bind fields through `error.Filter<Expected>().Head is Expected <name>`

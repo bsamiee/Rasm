@@ -45,4 +45,4 @@ rule:
                 - has: {field: function, regex: '(^|\.)CreateInterpolatedCurve$'}
                 - has: {field: arguments, all: [{has: {nthChild: 4, matches: unset-argument}}, {has: {nthChild: 5, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 6}}}]}
 message: '`$UNSET` restates the host default of `$MEMBER`'
-note: 'Call the `<member>` overload without `Unset` arguments, from the `None` arm of `<option>.Match` for an optional value, and `SetRoadlikeUpDirection` from the `Some` arm alone'
+note: 'Call `<member>` without `Unset` arguments in `<option>.Match` arm `None`, `SetRoadlikeUpDirection` in arm `Some` alone'

@@ -15,44 +15,35 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         "RASM1101",
         Category,
         "Catch-all arm over smart enum or union",
-        "Catch-all arm over `{0}` hides unhandled cases. Call generated `Switch` or `Map` with one argument per case",
+        "Catch-all arm over `{0}` hides unhandled cases, call generated `Switch` or `Map` with one argument per case",
         "Catch-all arm in a `switch` over a Thinktecture union or smart enum with other arms naming a case.");
 
     public static readonly DiagnosticDescriptor Validation = Rule(
         "RASM1102",
         Category,
         "Thinktecture validation outside Validated",
-        "`{0}` validates outside `Validated` and returns no `Fin`. Call `{1}`",
+        "`{0}` validates outside `Validated` and returns no `Fin`, call `{1}`",
         "Thinktecture `Validate` or `TryCreate` call outside a validation hook, object factory, or `ValidationResults`.");
 
     public static readonly DiagnosticDescriptor Conversion = Rule(
         "RASM1103",
         Category,
         "ValidationError converted to Error by hand",
-        "`{0}` converts a `ValidationError` message to an `Error` by hand. Call `ValidationResults.ToFin({1}, <value>)`",
+        "`{0}` converts a `ValidationError` message to an `Error` by hand, call `ValidationResults.ToFin({1}, <value>)`",
         "`ValidationError.Message` passed to an `Error` factory or constructor outside `ValidationResults`.");
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [CatchAll, Validation, Conversion];
 
     protected override void Start(CompilationStartAnalysisContext context) {
-        Compilation compilation = context.Compilation;
-        INamedTypeSymbol? results = compilation.GetTypeByMetadataName("Thinktecture.ValidationResults");
-        CatchAlls(context);
-        if (compilation.GetTypeByMetadataName("Thinktecture.IObjectFactory`3") is { } factory
-            && compilation.GetTypeByMetadataName("Thinktecture.ValidationError") is { } invalid)
-            Validations(context, factory, invalid, results);
-        if (compilation.GetTypeByMetadataName("LanguageExt.Common.Error") is { } error)
-            Conversions(context, error, results);
+        ThinktectureSymbols symbols = new(context.Compilation);
+        if (symbols is { UnionAttributeBase: { } adHoc, SmartEnumAttribute1: { } keyed }) CatchAlls(context, symbols.Marks, adHoc, keyed);
+        if (symbols is { ObjectFactory: { } factory, ValidationError: { } invalid, Validate: { } validate })
+            Validations(context, factory, invalid, validate, symbols.SmartEnum, symbols.ValidationResults);
+        if (new LanguageExtSymbols(context.Compilation).Error is { } error && symbols.Message is { } message) Conversions(context, error, message, symbols.ValidationResults);
     }
 
     // --- [CATCH_ALLS]
-    private static void CatchAlls(CompilationStartAnalysisContext context) {
-        Compilation compilation = context.Compilation;
-        if (compilation.GetTypeByMetadataName("Thinktecture.UnionAttributeBase") is not { } adHoc
-            || compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute`1") is not { } keyed) return;
-        ImmutableArray<INamedTypeSymbol> marks = [
-            .. new[] { adHoc, keyed, compilation.GetTypeByMetadataName("Thinktecture.UnionAttribute"), compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute") }.OfType<INamedTypeSymbol>(),
-        ];
+    private static void CatchAlls(CompilationStartAnalysisContext context, ImmutableArray<INamedTypeSymbol> marks, INamedTypeSymbol adHoc, INamedTypeSymbol keyed) {
         AttributeData? Mark(ITypeSymbol? type) => type?.GetAttributes().FirstOrDefault(data => marks.Any(mark => Derives(data.AttributeClass, mark)));
         static string Key(AttributeData mark) => mark.NamedArguments.Where(static named => named.Key is "KeyMemberName").Select(static named => named.Value.Value).OfType<string>().FirstOrDefault() ?? "Key";
         INamedTypeSymbol? Marked(ITypeSymbol? type) =>
@@ -87,9 +78,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [VALIDATIONS]
-    private static void Validations(CompilationStartAnalysisContext context, INamedTypeSymbol factory, INamedTypeSymbol invalid, INamedTypeSymbol? results) {
-        if (Declared(context.Compilation, "M:Thinktecture.IObjectFactory`3.Validate(`1,System.IFormatProvider,`0@)").FirstOrDefault() is not { } validate) return;
-        INamedTypeSymbol? items = context.Compilation.GetTypeByMetadataName("Thinktecture.ISmartEnum`3");
+    private static void Validations(CompilationStartAnalysisContext context, INamedTypeSymbol factory, INamedTypeSymbol invalid, ISymbol validate, INamedTypeSymbol? items, INamedTypeSymbol? results) {
         IEnumerable<INamedTypeSymbol> Factories(INamedTypeSymbol owner) =>
             owner.AllInterfaces.Where(face => Same(face, factory) && Same(face.TypeArguments[0], owner) && Same(face.TypeArguments[2], invalid));
         bool Implements(IMethodSymbol method, INamedTypeSymbol owner, IEnumerable<INamedTypeSymbol> faces, Func<ISymbol, bool> wanted) =>
@@ -116,12 +105,10 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [CONVERSIONS]
-    private static void Conversions(CompilationStartAnalysisContext context, INamedTypeSymbol error, INamedTypeSymbol? results) {
-        if (Declared(context.Compilation, "P:Thinktecture.ValidationError.Message").FirstOrDefault() is not { } message) return;
+    private static void Conversions(CompilationStartAnalysisContext context, INamedTypeSymbol error, ISymbol message, INamedTypeSymbol? results) =>
         Report<IPropertyReferenceOperation>(context, [OperationKind.PropertyReference], (reference, analysis) =>
             reference is { Instance: { } source } && Same(reference.Property, message) && !Within(analysis.ContainingSymbol, results)
             && Consumer(reference) is IArgumentOperation { Parent: IInvocationOperation or IObjectCreationOperation } argument && argument.Parent is { } site && Derives(site.Type, error)
                 ? [Diagnostic.Create(Conversion, site.Syntax.GetLocation(), site.Syntax, source.Syntax)]
                 : []);
-    }
 }

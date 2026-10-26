@@ -10,7 +10,7 @@ utils:
             - all:
                 - has: {field: name, regex: '^(command|builtin)$'}
                 - has: {kind: word, nthChild: 2, regex: '^(?:\S*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
-    shellcheck-owned:
+    line-output-substitution:
         kind: command_substitution
         all:
             - follows: {regex: '^in$'}
@@ -30,7 +30,7 @@ rule:
     follows: {stopBy: end, regex: '^in$'}
     not:
         any:
-            - matches: shellcheck-owned
+            - matches: line-output-substitution
             - inside: {matches: bash-sh-program, stopBy: end}
 message: '`for` word-splits and glob-expands `$SUB`'
 note: 'Hold the items in an array, `mapfile -t <items> < <(<command>)` for command output, and loop over `"${<items>[@]}"`'

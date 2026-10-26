@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: rust-instrument-fields
-language: rust
-rule:
-    kind: token_tree
-    follows: {kind: identifier, regex: '^fields$'}
-    inside: {kind: token_tree, follows: {regex: '^(::)?(tracing::)?instrument$'}, inside: {kind: attribute, stopBy: end}}

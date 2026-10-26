@@ -17,79 +17,72 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         "RASM1001",
         Category,
         "Explicit result lift",
-        "`{0}` restates the implicit conversion of `{1}` to `{2}`. Replace with `{1}`",
-        "`Fin` or `Validation` factory call, case construction, or arm cast that an implicit conversion replaces with the same overloads and arm types.");
+        "`{0}` restates implicit conversion of `{1}` to `{2}`, write `{1}`",
+        "`Fin` or `Validation` factory call, case construction, or arm cast an implicit conversion replaces with same overloads and arm types.");
 
     public static readonly DiagnosticDescriptor TypeTest = Rule(
         "RASM1003",
         Category,
         "Type test on Error",
-        "{0} misses errors inside `ManyErrors`. Call `{1}.IsType<{2}>()`, or bind fields through `{1}.Filter<{2}>().Head is {2} <name>`",
+        "{0} misses errors inside `ManyErrors`, call `{1}.IsType<{2}>()` or bind fields through `{1}.Filter<{2}>().Head is {2} <name>`",
         "Cast, type test, switch arm, or `GetType()` call on an `Error` value that can hold `ManyErrors`.");
 
     public static readonly DiagnosticDescriptor RoundTrip = Rule(
         "RASM1004",
         Category,
         "Fin round trip through Validation",
-        "`{0}` round-trips `Fin` through `Validation`. Delete each `{1}()` and the closing `{2}()`",
+        "`{0}` round-trips `Fin` through `Validation`, delete each `{1}()` and the closing `{2}()`",
         "Parameterless `Validation` to `Fin` call over `Fin` operands converted to `Validation`, directly or through `Apply` or `Traverse`.");
 
     public static readonly DiagnosticDescriptor Spread = Rule(
         "RASM1005",
         Category,
         "Seq accumulator copied per step",
-        "`{0}` copies `{1}` on every step. Replace with `{1}.Add({2})`",
+        "`{0}` copies `{1}` on every step, write `{1}.Add({2})`",
         "Collection expression `[.. <seq>, <item>]` appending to a `Seq` fold accumulator or loop local.");
 
     public static readonly DiagnosticDescriptor LiftedApply = Rule(
         "RASM1006",
         Category,
         "IO Apply over lifted Fin values",
-        "`{0}` over {1} `IO.lift` operands keeps one `Fin` failure. Call `{0}` on the `Fin` values inside one `IO.lift`",
-        "`Apply` over a tuple of `IO.lift` calls that each lift a `Fin` value or `Fin` thunk.");
+        "`{0}` over {1} `IO.lift` operands keeps one `Fin` failure, call `{0}` on `Fin` values inside one `IO.lift`",
+        "`Apply` over a tuple of `IO.lift` calls each lifting a `Fin` value or `Fin` thunk.");
 
     public static readonly DiagnosticDescriptor Narrowed = Rule(
         "RASM1007",
         Category,
         "Redundant As",
-        "`{0}()` narrows `{1}` to itself. Delete the call",
-        "Parameterless narrowing call on a `K<F, A>` conversion that returns the converted value's own type.");
+        "`{0}()` narrows `{1}` to itself, delete the call",
+        "Parameterless narrowing call on a `K<F, A>` conversion returning the converted value's own type.");
 
     public static readonly DiagnosticDescriptor Passed = Rule(
         "RASM1008",
         Category,
-        "Match that passes one case through",
-        "`{0}` returns the `{1}` value unchanged. Replace with `{2}`",
-        "`Match` with one identity handler where a member taking the other handler alone returns the same type.");
+        "Match passing one case through",
+        "`{0}` returns `{1}` value unchanged, write `{2}`",
+        "`Match` with one identity handler where a member taking the other handler alone returns `Match` result type.");
 
     public static readonly DiagnosticDescriptor Nullable = Rule(
         "RASM1009",
         Category,
-        "Option converted to a nullable by hand",
-        "`Option` value `{0}` converted to a nullable by hand. Replace with `{1}`",
-        "`Option` converted to a nullable through `Match`, a `Case` cast, or an `IsSome` or `IsNone` conditional.");
+        "Option converted to nullable by hand",
+        "`Option` value `{0}` converted to nullable by hand, write `{1}`",
+        "`Option` converted to nullable through `Match`, `Case` cast, or `IsSome` or `IsNone` conditional.");
 
     private static readonly SymbolDisplayFormat Shown = SymbolDisplayFormat.MinimallyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, LiftedApply, Narrowed, Passed, Nullable];
 
     protected override void Start(CompilationStartAnalysisContext context) {
-        Compilation compilation = context.Compilation;
-        if (compilation.GetTypeByMetadataName("LanguageExt.Fin`1") is not { } fin
-            || compilation.GetTypeByMetadataName("LanguageExt.Validation`2") is not { } validation
-            || compilation.GetTypeByMetadataName("LanguageExt.Common.Error") is not { } error
-            || compilation.GetTypeByMetadataName("LanguageExt.Common.ManyErrors") is not { } many
-            || compilation.GetTypeByMetadataName("LanguageExt.IO") is not { } io
-            || compilation.GetTypeByMetadataName("LanguageExt.Seq`1") is not { } seq
-            || compilation.GetTypeByMetadataName("LanguageExt.Traits.K`2") is not { } kind
-            || compilation.GetTypeByMetadataName("LanguageExt.Option`1") is not { } option) return;
-        Lifts(context, fin, validation);
-        TypeTests(context, error, many);
+        LanguageExtSymbols symbols = new(context.Compilation);
+        if (symbols is not { Fin: { } fin, Validation: { } validation, Error: { } error, ManyErrors: { } many, IO: { } io, Seq: { } seq, K: { } kind, Option: { } option }) return;
+        Lifts(context, symbols.Factories, fin, validation);
+        TypeTests(context, symbols.Leaves, error, many);
         RoundTrips(context, fin, validation, kind);
         Spreads(context, seq);
         LiftedApplies(context, io, fin);
         Narrowings(context, kind);
-        Matches(context, fin, option);
+        Matches(context, symbols, fin, option);
     }
 
     // --- [LIFTS]
@@ -101,19 +94,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
             _ => null,
         };
 
-    private static void Lifts(CompilationStartAnalysisContext context, INamedTypeSymbol fin, INamedTypeSymbol validation) {
-        ImmutableArray<ISymbol> factories = Declared(
-            context.Compilation,
-            "M:LanguageExt.Fin.Succ``1(``0)",
-            "M:LanguageExt.Fin.Fail``1(LanguageExt.Common.Error)",
-            "M:LanguageExt.Validation.Success``2(``1)",
-            "M:LanguageExt.Validation.Fail``2(``0)",
-            "M:LanguageExt.Prelude.FinSucc``1(``0)",
-            "M:LanguageExt.Prelude.FinFail``1(LanguageExt.Common.Error)",
-            "M:LanguageExt.Prelude.Pure``1(``0)",
-            "M:LanguageExt.Prelude.Fail``1(``0)",
-            "M:LanguageExt.Prelude.Success``2(``1)",
-            "M:LanguageExt.Prelude.Fail``2(``0)");
+    private static void Lifts(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> factories, INamedTypeSymbol fin, INamedTypeSymbol validation) {
         ImmutableArray<INamedTypeSymbol> cases = [
             .. fin.GetTypeMembers().Where(nested => Derives(nested, fin)),
             .. validation.GetTypeMembers().Where(nested => Derives(nested, validation)),
@@ -183,13 +164,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [TYPE_TESTS]
-    private static void TypeTests(CompilationStartAnalysisContext context, INamedTypeSymbol error, INamedTypeSymbol many) {
-        ImmutableArray<ISymbol> leaves = Declared(
-            context.Compilation,
-            "P:LanguageExt.Common.Error.Head",
-            "M:LanguageExt.Common.Error.AsIterable",
-            "M:LanguageExt.Common.Error.FoldM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})",
-            "M:LanguageExt.Common.Error.ForAllM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})");
+    private static void TypeTests(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> leaves, INamedTypeSymbol error, INamedTypeSymbol many) {
         ISymbol? runtime = context.Compilation.GetSpecialType(SpecialType.System_Object).GetMembers(nameof(GetType)).FirstOrDefault();
         bool Typed(IOperation value) => Same(value.Type, error);
         bool Case(ITypeSymbol? type) => !Same(type, error) && !Derives(type, many) && Derives(type, error);
@@ -302,11 +277,8 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 : []);
 
     // --- [MATCHES]
-    private static void Matches(CompilationStartAnalysisContext context, INamedTypeSymbol fin, INamedTypeSymbol option) {
-        ISymbol? identity = Declared(context.Compilation, "M:LanguageExt.Prelude.identity``1(``0)").FirstOrDefault();
-        ISymbol? matched = Declared(context.Compilation, "P:LanguageExt.Option`1.Case").FirstOrDefault();
-        ISymbol? some = Declared(context.Compilation, "P:LanguageExt.Option`1.IsSome").FirstOrDefault();
-        ISymbol? none = Declared(context.Compilation, "P:LanguageExt.Option`1.IsNone").FirstOrDefault();
+    private static void Matches(CompilationStartAnalysisContext context, LanguageExtSymbols symbols, INamedTypeSymbol fin, INamedTypeSymbol option) {
+        (ISymbol? identity, ISymbol? matched, ISymbol? some, ISymbol? none) = (symbols.Identity, symbols.Case, symbols.IsSome, symbols.IsNone);
         ITypeSymbol? Identity(IOperation value) =>
             Stripped(value) switch {
                 IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters: { Length: 1 } parameters, Body.Operations: { Length: 1 } body } }

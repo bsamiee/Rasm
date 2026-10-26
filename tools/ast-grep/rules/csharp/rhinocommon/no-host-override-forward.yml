@@ -13,7 +13,7 @@ utils:
     object-declaration:
         all:
             - matches: held-declaration
-            - has: {field: type, any: [{kind: identifier, pattern: $OWNER}, {kind: generic_name, has: {kind: identifier, pattern: $OWNER}}]}
+            - has: {field: type, matches: {csharp-simple-name: {name: {pattern: $OWNER}}}}
             - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: 'class_declaration, record_declaration', has: {field: name, pattern: $OWNER}}}
     record-declaration:
         all:

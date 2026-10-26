@@ -28,6 +28,6 @@ rule:
                     - not: {has: {kind: 'word, string, raw_string, concatenation, simple_expansion, expansion', not: {regex: '^(-[a-zA-Z]+|/dev/stdin)$'}}}
         - all:
             - has: {field: name, pattern: $NAME, regex: '^trap$'}
-            - has: {matches: expanded-word, nthChild: 2}
+            - has: {matches: expanded-word, not: {kind: string}, nthChild: 2}
 message: '`$NAME` parses expanded data as shell code'
 note: 'Run `"${<command>[@]}"`, pass values after `bash -c ''<script>'' _`, and single-quote trap handlers (`trap ''<command> "$<value>"'' <signal>`)'

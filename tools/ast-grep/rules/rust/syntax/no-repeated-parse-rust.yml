@@ -41,4 +41,4 @@ rule:
         - not: {matches: parse-stream}
         - not: {matches: rust-test-scope}
 message: '`$SECOND` parses `$INPUT` again after an earlier parse in the block'
-note: 'Parse the input once at the boundary into its domain type and pass the domain value'
+note: 'Parse input once at its boundary into a domain type and pass the parsed value'

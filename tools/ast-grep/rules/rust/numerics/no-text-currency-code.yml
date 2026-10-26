@@ -32,4 +32,4 @@ rule:
                 - has: {field: return_type, matches: text-type}
                 - not: {matches: rust-trait-or-extern-function}
 message: '`$DECLARATION` holds an ISO 4217 currency code as text'
-note: 'Type the code as `iso_currency::Currency`, parsed at the boundary through `Currency::from_code`, `FromStr`, or its serde impls'
+note: 'Type the code as `iso_currency::Currency`, parsed at its boundary through `Currency::from_code`, `FromStr`, or serde'

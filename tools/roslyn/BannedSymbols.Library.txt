@@ -1,2 +1,2 @@
-P:System.TimeProvider.System;Take the clock as a TimeProvider argument, the app composition root names TimeProvider.System
-T:System.Console;Log through an ILogger the composition root creates, the app composes its console sink
+P:System.TimeProvider.System;Take the clock as a `TimeProvider` argument, app composition root names `TimeProvider.System`
+T:System.Console;Log through an `ILogger` the composition root creates, app composes its console sink

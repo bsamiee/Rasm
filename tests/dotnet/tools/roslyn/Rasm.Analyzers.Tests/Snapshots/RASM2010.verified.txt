@@ -1,2 +1,2 @@
-#0 `RealizingPage.PageControl` reaches `new Panel`, and Rhino calls `PageControl` on panel close for every page and disposes the result. Return the held control and realize it in `OnActivate(true)`
-#1 `DirectPage.PageControl` reaches `new Panel`, and Rhino calls `PageControl` on panel close for every page and disposes the result. Return the held control and realize it in `OnActivate(true)`
+#0 `RealizingPage.PageControl` reaches `new Panel` and Rhino disposes its result on panel close for every page, return the held control and realize it in `OnActivate(true)`
+#1 `DirectPage.PageControl` reaches `new Panel` and Rhino disposes its result on panel close for every page, return the held control and realize it in `OnActivate(true)`

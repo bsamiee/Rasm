@@ -1,1 +1,1 @@
-#0 Command `RunScriptWithoutStyle` calls `RhinoApp.RunScript` without `Style.ScriptRunner`. Add `Style.ScriptRunner` to `[CommandStyle]` on `RunScriptWithoutStyle`
+#0 Command `RunScriptWithoutStyle` calls `RhinoApp.RunScript` without `Style.ScriptRunner`, add `Style.ScriptRunner` to `[CommandStyle]` on `RunScriptWithoutStyle`

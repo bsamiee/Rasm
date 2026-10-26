@@ -4,7 +4,7 @@ language: swiftlang
 severity: error
 utils:
     log-message:
-        matches: swift-log-call
+        matches: os-log-call
         any:
             - pattern: $_L.$_V($MSG)
             - pattern: '$_L.log(level: $_E, $MSG)'

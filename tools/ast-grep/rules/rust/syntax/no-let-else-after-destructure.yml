@@ -67,4 +67,4 @@ labels:
     PATTERN: {style: primary, message: 'Binds the field'}
     NEXT: {style: secondary, message: 'Refutes the field'}
 message: '`$FIELD` binds in `$PATTERN` and the next `let`-`else` refutes it'
-note: 'Refute the field inside the destructuring pattern, `let <struct> { <field>: Some(<field>), .. } = <value> else { .. };`'
+note: 'Refute the field inside its destructuring pattern, `let <struct> { <field>: Some(<field>), .. } = <value> else { .. };`'

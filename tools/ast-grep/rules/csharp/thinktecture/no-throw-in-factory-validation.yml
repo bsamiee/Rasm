@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throw-in-factory-validation
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    throw-callee:
+        kind: member_access_expression
+        has: {field: name, regex: '^Throw(If[A-Za-z]*)?(<.+>)?$'}
+    error-factory:
+        kind: invocation_expression
+        all:
+            - has: {field: function, has: {field: name, regex: '^Create$'}}
+            - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^validationError$'}}
+    relay:
+        matches:
+            csharp-file-method-call:
+                declaration:
+                    not: {matches: thinktecture-factory-validation}
+                    has:
+                        stopBy: end
+                        any:
+                            - kind: throw_statement, throw_expression
+                            - kind: invocation_expression
+                              has:
+                                field: function
+                                any:
+                                    - matches: throw-callee
+                                    - matches: csharp-throwing-factory
+                                      not: {has: {field: name, regex: '^Create(<.+>)?$'}}
+    string-method:
+        regex: '^(Trim|TrimStart|TrimEnd|TrimOrNullify|ToUpper|ToUpperInvariant|ToLower|ToLowerInvariant|Normalize|Replace|ReplaceLineEndings|Substring|Remove|Insert|PadLeft|PadRight)$'
+    key-path:
+        any:
+            - kind: identifier
+              pattern: $KEY
+              inside:
+                stopBy: end
+                matches: thinktecture-factory-validation
+                has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $KEY}}, {has: {field: type, regex: '^string\??$'}}]}}
+            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: key-path}}}}
+            - kind: identifier
+              pattern: $LOCAL
+              inside:
+                stopBy: end
+                follows:
+                    stopBy: end
+                    any:
+                        - matches: bound-key
+                        - has: {stopBy: end, matches: bound-key}
+            - kind: invocation_expression
+              has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      all:
+                        - has: {field: expression, matches: key-path}
+                        - has: {field: name, matches: string-method}
+                    - kind: conditional_access_expression
+                      all:
+                        - has: {field: condition, matches: key-path}
+                        - has: {kind: member_binding_expression, has: {field: name, matches: string-method}}
+            - kind: postfix_unary_expression, parenthesized_expression
+              has: {matches: key-path}
+    bound-key:
+        kind: is_pattern_expression
+        all:
+            - has: {field: expression, matches: key-path}
+            - has: {field: pattern, has: {field: name, pattern: $LOCAL}}
+rule:
+    kind: throw_statement, throw_expression, invocation_expression, cast_expression
+    pattern: $THROW
+    all:
+        - inside: {stopBy: end, matches: thinktecture-factory-validation}
+        - any:
+            - kind: throw_statement, throw_expression
+            - kind: invocation_expression
+              has:
+                field: function
+                any:
+                    - matches: throw-callee
+                    - matches: csharp-throwing-factory
+              not: {matches: error-factory}
+            - matches: relay
+            - kind: cast_expression
+              all:
+                - has: {field: type, kind: 'identifier, generic_name, qualified_name'}
+                - has: {field: value, matches: key-path}
+            - kind: cast_expression
+              has:
+                field: value
+                kind: invocation_expression
+                has: {field: function, regex: '(^|\.)From(<.+>)?$'}
+message: "`$THROW` throws inside `ValidateFactoryArguments`"
+note: 'Validate nested values through their non-throwing `Validate`, then assign `validationError` and return'

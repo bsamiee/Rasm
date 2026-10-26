@@ -31,7 +31,7 @@ rule:
     inside:
         stopBy: end
         any:
-            - matches: swift-view-builder
+            - matches: swiftui-view-builder
             - matches: rendering-type
             - matches: rendered-text
     not: {inside: {stopBy: end, matches: timeline-schedule}}

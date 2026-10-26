@@ -34,5 +34,5 @@ rule:
           all:
             - inside: {matches: control, stopBy: {matches: swift-declaration-scope}}
             - not: {matches: conditioned}
-            - not: {inside: {matches: swift-view-builder, stopBy: {kind: 'property_declaration, function_declaration'}}}
+            - not: {inside: {matches: swiftui-view-builder, stopBy: {kind: 'property_declaration, function_declaration'}}}
             - matches: nested-body

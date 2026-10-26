@@ -32,7 +32,7 @@ rule:
             stopBy: {kind: class_declaration}
             kind: class_declaration
             all:
-                - has: {kind: class_body, has: {matches: swift-view-builder}}
+                - has: {kind: class_body, has: {matches: swiftui-view-builder}}
                 - has: {stopBy: {kind: class_declaration}, matches: timeline, pattern: $FIRST}
         - not:
             any:

@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-code-by-hand
+language: rust
+severity: error
+utils:
+    error-type:
+        regex: '^((rmcp::)?(model::)?)?(ErrorData|McpError)$'
+    error-alias:
+        kind: 'identifier, type_identifier'
+        pattern: $ALIAS
+        inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: type_item, all: [{has: {field: name, pattern: $ALIAS}}, {has: {field: type, matches: error-type}}]}}
+    error-owner:
+        any: [{matches: error-type}, {matches: error-alias}]
+    named-code:
+        kind: scoped_identifier
+        all:
+            - has: {field: path, regex: '^((rmcp::)?(model::)?)?ErrorCode$'}
+            - has: {field: name, regex: '^(RESOURCE_NOT_FOUND|HEADER_MISMATCH|PARSE_ERROR|INVALID_REQUEST|INVALID_PARAMS|INTERNAL_ERROR)$'}
+    code-literal:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((rmcp::)?(model::)?)?ErrorCode$'}
+            - has: {field: arguments, has: {kind: unary_expression, regex: '^-\s*\(?\s*32_?(002|02[0-2]|60[0-3]|700)(_?i32)?\s*\)?$'}}
+    constructor-literal:
+        matches: code-literal
+        has: {field: arguments, regex: '32_?(002|020|60[023]|700)'}
+    code:
+        any: [{matches: named-code}, {matches: constructor-literal}]
+    relayed-code:
+        kind: identifier
+        pattern: $CODE
+        any:
+            - inside: {kind: block, stopBy: {kind: 'function_item, closure_expression'}, has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $CODE}}, {has: {field: value, matches: code}}]}}
+            - inside: {kind: 'source_file, declaration_list', stopBy: end, has: {kind: 'const_item, static_item', all: [{has: {field: name, pattern: $CODE}}, {has: {field: value, matches: code}}]}}
+    constructor:
+        kind: call_expression
+        has: {field: function, kind: scoped_identifier, all: [{has: {field: name, regex: '^new$'}}, {has: {field: path, matches: error-owner}}]}
+    constructor-call:
+        kind: call_expression
+        all:
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: code}, {matches: relayed-code}]}}
+            - matches: constructor
+    code-field:
+        any:
+            - kind: field_initializer
+              all: [{has: {field: field, regex: '^code$'}}, {has: {field: value, any: [{matches: code}, {matches: relayed-code}]}}]
+            - kind: shorthand_field_initializer
+              regex: '^code$'
+              has: {matches: relayed-code}
+    literal-struct:
+        kind: struct_expression
+        all:
+            - has: {field: body, has: {matches: code-field}}
+            - not: {has: {field: body, has: {kind: base_field_initializer}}}
+            - has: {field: name, matches: error-owner}
+    message-field:
+        any:
+            - kind: field_initializer
+              all: [{has: {field: field, regex: '^message$'}}, {has: {field: value, pattern: $MESSAGE}}]
+            - kind: shorthand_field_initializer
+              regex: '^message$'
+              pattern: $MESSAGE
+    data-field:
+        any:
+            - kind: field_initializer
+              all: [{has: {field: field, regex: '^data$'}}, {has: {field: value, pattern: $DATA}}]
+            - kind: shorthand_field_initializer
+              regex: '^data$'
+              pattern: $DATA
+rule:
+    pattern: $SITE
+    any:
+        - matches: constructor-call
+        - matches: literal-struct
+        - matches: code-literal
+          not:
+            any:
+                - all: [{nthChild: 1}, {matches: constructor-literal}, {inside: {kind: arguments, inside: {matches: constructor}}}]
+                - inside: {kind: field_initializer, field: value, inside: {kind: field_initializer_list, inside: {matches: literal-struct}}}
+rewriters:
+    - id: call-form
+      rule:
+        kind: call_expression
+        pattern: $TYPE::new($CODE, $MESSAGE, $DATA)
+        has: {field: arguments, has: {nthChild: 1, matches: code}}
+      transform: &code-name
+        STRIPPED: replace($CODE, replace='^.*::', by='')
+        NAMED: replace($STRIPPED, replace='^\w*\(.*$', by='')
+        DIGITS: replace($CODE, replace='i32|[^0-9]', by='')
+        M1: replace($DIGITS, replace='^32002$', by='RESOURCE_NOT_FOUND')
+        M2: replace($M1, replace='^32020$', by='HEADER_MISMATCH')
+        M3: replace($M2, replace='^32021$', by='MISSING_REQUIRED_CLIENT_CAPABILITY')
+        M4: replace($M3, replace='^32022$', by='UNSUPPORTED_PROTOCOL_VERSION')
+        M5: replace($M4, replace='^32600$', by='INVALID_REQUEST')
+        M6: replace($M5, replace='^32601$', by='METHOD_NOT_FOUND')
+        M7: replace($M6, replace='^32602$', by='INVALID_PARAMS')
+        M8: replace($M7, replace='^32603$', by='INTERNAL_ERROR')
+        MAPPED: replace($M8, replace='^32700$', by='PARSE_ERROR')
+        NAMED_CTOR: convert($NAMED, toCase=lowerCase)
+        MAPPED_CTOR: convert($MAPPED, toCase=lowerCase)
+      fix: $TYPE::$NAMED_CTOR$MAPPED_CTOR($MESSAGE, $DATA)
+    - id: struct-form
+      rule:
+        kind: struct_expression
+        all:
+            - has: {field: name, pattern: $TYPE}
+            - has: {field: body, has: {kind: field_initializer, all: [{has: {field: field, regex: '^code$'}}, {has: {field: value, pattern: $CODE, matches: code}}]}}
+            - has: {field: body, has: {matches: message-field}}
+            - has: {field: body, has: {matches: data-field}}
+      transform: *code-name
+      fix: $TYPE::$NAMED_CTOR$MAPPED_CTOR($MESSAGE, $DATA)
+    - id: literal-form
+      rule:
+        matches: code-literal
+        pattern: $CODE
+        has: {field: function, pattern: $TYPE}
+      transform: *code-name
+      fix: $TYPE::$MAPPED
+transform:
+    FIXED: rewrite($SITE, rewriters=[call-form, struct-form, literal-form])
+    HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+fix: $FIXED
+message: '`$HEAD` restates an error code rmcp names'
+note: 'Call the `ErrorData` constructor named for its code (`ErrorData::invalid_params`), or name its `ErrorCode` constant'

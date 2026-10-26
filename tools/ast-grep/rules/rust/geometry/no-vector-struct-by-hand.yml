@@ -41,6 +41,6 @@ rule:
             - all:
                 - has: {field: name, regex: '(?i)^(point|vec|vector|coord|position|direction|normal|velocity)[234]?d?[fi]?$'}
                 - has: {field: body, matches: positional-fields}
-        - not: {matches: rust-serde-record}
+        - not: {matches: serde-record}
 message: '`$NAME` declares a vector type by hand'
 note: 'Replace the struct with `glam` in graphics, `nalgebra::SVector` in geometry, `geo_types::Coord` in geospatial code, `kurbo::Vec2` for curves'

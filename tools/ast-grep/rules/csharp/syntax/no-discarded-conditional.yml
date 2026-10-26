@@ -30,4 +30,4 @@ rule:
             - has: {field: arguments, has: {kind: argument, has: {matches: branching}}}
             - matches: statement-position
 message: '`$DISCARD` discards the value of a branch chosen for its effect'
-note: 'Write an `if` or `switch` statement with arms that run the effects, or consume the value where a branch produces one'
+note: 'Write an `if` or `switch` statement with arms running each effect, or consume the value a branch produces'

@@ -14,7 +14,7 @@ namespace Rasm.Analyzers.CodeFixes;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 [Shared]
-public sealed class LanguageCodeFix() : RasmCodeFix((LanguageAnalyzer.Covered, "Delete catch-all arm", static site => site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is not null, Delete)) {
+public sealed class LanguageCodeFix() : RasmCodeFix((LanguageAnalyzer.Covered, static site => site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { } arm ? FormattableString.Invariant($"Delete `{arm}`") : null, Delete)) {
     private static void Delete(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {
         if (site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { Parent: SwitchExpressionSyntax dispatch } arm)
             editor.ReplaceNode(dispatch, dispatch.WithArms(dispatch.Arms.Remove(arm)).WithAdditionalAnnotations(Formatter.Annotation));
@@ -29,12 +29,15 @@ public sealed class SingleReaderCodeFix : CodeFixProvider {
     public override FixAllProvider GetFixAllProvider() =>
         FixAllProvider.Create(static (context, document, diagnostics) => InlinedAsync(document, diagnostics, context.CancellationToken));
 
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) {
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context) {
+        if (await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false) is not { } root) return;
         foreach (Diagnostic diagnostic in context.Diagnostics)
             context.RegisterCodeFix(
-                CodeAction.Create("Inline at its read", async token => await InlinedAsync(context.Document, [diagnostic], token).ConfigureAwait(false) ?? context.Document, nameof(SingleReaderCodeFix)),
+                CodeAction.Create(
+                    $"Inline `{root.FindToken(diagnostic.Location.SourceSpan.Start).ValueText}`",
+                    async token => await InlinedAsync(context.Document, [diagnostic], token).ConfigureAwait(false) ?? context.Document,
+                    nameof(SingleReaderCodeFix)),
                 diagnostic);
-        return Task.CompletedTask;
     }
 
     private static async Task<Document?> InlinedAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellation) {

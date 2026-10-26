@@ -12,16 +12,6 @@ utils:
             - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
     two-parameter-callback:
         not: {all: [{kind: 'arrow_function, function_expression'}, {has: {field: parameters, has: {nthChild: 3}}}]}
-    native-mapped:
-        kind: call_expression
-        all:
-            - has:
-                field: function
-                kind: member_expression
-                all:
-                    - has: {field: property, regex: '^map$'}
-                    - has: {field: object, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}
-            - has: {field: arguments, not: {has: {nthChild: 2}}}
     module-mapped:
         kind: call_expression
         all:
@@ -34,11 +24,7 @@ rule:
     any:
         - all:
             - has: {field: function, matches: all-member, pattern: $ALL}
-            - has:
-                field: arguments
-                any:
-                    - has: {nthChild: 1, matches: module-mapped}
-                    - all: [{has: {nthChild: 1, matches: native-mapped}}, {has: {nthChild: 2, not: {matches: traversal-options}}}]
+            - has: {field: arguments, has: {nthChild: 1, matches: module-mapped}}
             - any:
                 - pattern: $FIXABLE
                   all:

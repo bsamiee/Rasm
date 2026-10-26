@@ -4,7 +4,7 @@ language: swiftlang
 severity: error
 rule:
     pattern: $VALUE
-    matches: swift-log-interpolation
+    matches: os-log-interpolation
     not:
         precedes:
             stopBy: {any: [{kind: 'line_str_text, multi_line_str_text'}, {kind: interpolated_expression, not: {has: {kind: value_argument_label}}}]}

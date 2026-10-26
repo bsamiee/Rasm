@@ -19,7 +19,7 @@ utils:
             - has: {field: arguments, not: {has: {pattern: $_}}}
             - not: {inside: {kind: field_expression, field: value, has: {field: field, regex: '^(is_terminal|as_raw_fd|as_fd|as_raw_handle|as_handle)$'}}}
             - not: {matches: handed-over}
-            - not: {inside: {kind: source_file, stopBy: end, regex: '^[(\[]'}}
+            - not: {inside: {stopBy: end, matches: rust-injected-source}}
     stream-token:
         kind: identifier
         regex: '^(stdout|stderr)$'

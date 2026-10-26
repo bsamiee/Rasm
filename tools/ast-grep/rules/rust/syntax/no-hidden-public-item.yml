@@ -37,4 +37,4 @@ rule:
                 - has: {field: name, pattern: $NAME}
                 - has: {field: argument, pattern: $NAME}
 message: '`$ATTRIBUTE` hides `$NAME` from the API it belongs to'
-note: 'Narrow the item to `pub(crate)` or `pub(super)` when the crate alone reads it, else delete the attribute'
+note: 'Narrow an item its crate alone reads to `pub(crate)` or `pub(super)`, else delete the attribute'

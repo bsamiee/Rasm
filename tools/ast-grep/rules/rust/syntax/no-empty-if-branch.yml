@@ -5,13 +5,11 @@ severity: error
 utils:
     comment:
         kind: 'line_comment, block_comment'
-    primary:
-        kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
     negation:
         kind: unary_expression
         regex: '^!'
     compound:
-        not: {any: [{matches: primary}, {matches: negation}, {kind: 'let_condition, let_chain'}]}
+        not: {any: [{matches: rust-postfix-expression}, {matches: negation}, {kind: 'let_condition, let_chain'}]}
     empty-then:
         kind: block
         not: {has: {pattern: $_, not: {matches: comment}}}
@@ -31,7 +29,7 @@ rule:
         - has: {field: condition, pattern: $COND}
         - has: {field: alternative, kind: else_clause}
         - any:
-            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: primary, pattern: $P}}, {has: {field: alternative, matches: else-block}}]
+            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: rust-postfix-expression, pattern: $P}}, {has: {field: alternative, matches: else-block}}]
             - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: negation, pattern: $N}}, {has: {field: alternative, matches: else-block}}]
             - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, kind: binary_expression, pattern: $EQUAL == $OTHER}}, {has: {field: alternative, matches: else-block}}]
             - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, kind: binary_expression, pattern: $UNEQUAL != $SAME}}, {has: {field: alternative, matches: else-block}}]
@@ -49,4 +47,4 @@ transform:
     GROUPED: {replace: {source: $Q, replace: '^([\s\S]+)$', by: 'if !($1) '}}
 fix: $NEGATED$STRIPPED$UNEQUAL_OPEN$EQUAL$UNEQUAL_OPERATOR$OTHER$UNEQUAL_CLOSE$EQUAL_OPEN$UNEQUAL$EQUAL_OPERATOR$SAME$EQUAL_CLOSE$GROUPED$BLOCK$UNFIXED
 message: '`if $COND` holds an empty branch beside its `else`'
-note: 'Move the `else` body under the negated condition, a `let` test as `let <pattern> = <value> else { .. };` when `else` diverges, else `!matches!(..)`'
+note: 'Move the `else` body under a negated condition, a `let` test as `let <pattern> = <value> else { .. };` when `else` diverges, else `!matches!(..)`'

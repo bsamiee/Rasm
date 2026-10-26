@@ -12,4 +12,4 @@ rule:
             - pattern: $S.Union([$S.Array($X), $X])
 fix: $S.ArrayEnsure($X)
 message: '`$UNION` decodes one `$X` or an array of `$X` into a union each reader normalizes'
-note: 'Call `Schema.ArrayEnsure(<schema>)` to decode one element or an array to an array'
+note: 'Call `Schema.ArrayEnsure(<schema>)`'

@@ -10,14 +10,8 @@ utils:
     throwing-helper:
         kind: 'method_declaration, local_function_statement'
         has: {field: body, has: {stopBy: *function, matches: unreachable}}
-    helper-name:
-        any:
-            - kind: identifier
-              pattern: $HELPER
-            - kind: generic_name
-              has: {kind: identifier, nthChild: 1, pattern: $HELPER}
     helper-group:
-        matches: helper-name
+        matches: {csharp-simple-name: {name: {pattern: $HELPER}}}
         inside:
             stopBy: end
             kind: compilation_unit
@@ -46,4 +40,4 @@ rule:
                 kind: invocation_expression
                 has: {field: function, pattern: $CALL, matches: arm-call}
 message: 'Arm of `$CALL` throws `UnreachableException` for a case its value admits'
-note: 'Narrow the value to a union or request type holding only the cases the call handles'
+note: 'Narrow the value to a union or request type holding only cases its call handles'

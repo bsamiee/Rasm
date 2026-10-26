@@ -58,8 +58,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
     protected static void Report<T>(CompilationStartAnalysisContext context, ImmutableArray<OperationKind> kinds, DiagnosticDescriptor rule, Func<T, OperationAnalysisContext, bool> found) where T : IOperation =>
         Report<T>(context, kinds, (operation, analysis) => found(operation, analysis) ? [Diagnostic.Create(rule, operation.Syntax.GetLocation(), operation.Syntax)] : []);
 
-    protected static void Writes(CompilationStartAnalysisContext context, string property, DiagnosticDescriptor rule, Func<IAssignmentOperation, OperationAnalysisContext, bool> wrong) {
-        if (Declared(context.Compilation, property).FirstOrDefault() is not { } written) return;
+    protected static void Writes(CompilationStartAnalysisContext context, ISymbol? written, DiagnosticDescriptor rule, Func<IAssignmentOperation, OperationAnalysisContext, bool> wrong) {
+        if (written is null) return;
         Report<IAssignmentOperation>(context, [OperationKind.SimpleAssignment, OperationKind.CompoundAssignment, OperationKind.CoalesceAssignment], rule, (assignment, analysis) =>
             assignment.Target is IPropertyReferenceOperation reference && Same(reference.Property, written) && wrong(assignment, analysis));
     }
@@ -81,7 +81,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
     protected static bool Among<T>(ISymbol? symbol, ImmutableArray<T> members) where T : class, ISymbol => members.Any(member => Same(symbol, member));
 
-    protected static bool Within(ISymbol? symbol, INamedTypeSymbol? owner) =>
+    protected static bool Within(ISymbol? symbol, ISymbol? owner) =>
         symbol is not null && owner is not null && (Same(symbol, owner) || Within(symbol.ContainingSymbol, owner));
 
     protected static bool Derives(ITypeSymbol? type, INamedTypeSymbol root) =>
@@ -144,9 +144,6 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
             _ => null,
         };
 
-    protected static IEnumerable<IOperation> Uses(ISymbol symbol, IOperation within) =>
-        Root(within).Descendants().Where(reference => Same(reference switch { ILocalReferenceOperation local => local.Local, IParameterReferenceOperation parameter => parameter.Parameter, _ => null }, symbol));
-
     private protected static IEnumerable<IOperation> Declarations(ISymbol symbol, Reading reading) =>
         symbol.DeclaringSyntaxReferences.Where(declared => declared.SyntaxTree == reading.Model.SyntaxTree)
             .Select(declared => reading.Model.GetOperation(declared.GetSyntax(reading.Token), reading.Token)).OfType<IOperation>();
@@ -206,23 +203,283 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public CancellationToken Token { get; } = token;
     }
 
+    // --- [PACKAGES]
+    private protected sealed class SystemSymbols(Compilation compilation) {
+        public IMethodSymbol? Dispose { get; } =
+            compilation.GetSpecialType(SpecialType.System_IDisposable).GetMembers(WellKnownMemberNames.DisposeMethodName).OfType<IMethodSymbol>().FirstOrDefault();
+
+        public INamedTypeSymbol? Action { get; } = compilation.GetTypeByMetadataName("System.Action`1");
+
+        public INamedTypeSymbol? Thunk { get; } = compilation.GetTypeByMetadataName("System.Func`1");
+
+        public INamedTypeSymbol? Flags { get; } = compilation.GetTypeByMetadataName("System.FlagsAttribute");
+
+        public ImmutableArray<INamedTypeSymbol> Sets { get; } =
+            [.. new[] { "System.Collections.Generic.ISet`1", "System.Collections.Generic.IReadOnlySet`1" }.Select(compilation.GetTypeByMetadataName).OfType<INamedTypeSymbol>()];
+
+        public ImmutableArray<ISymbol> Collections { get; } = Declared(compilation, "N:System.Linq", "N:System.Collections.Frozen", "N:System.Collections.Immutable");
+
+        public ISymbol? IsMacOS { get; } = Declared(compilation, "M:System.OperatingSystem.IsMacOS").FirstOrDefault();
+
+        public ImmutableArray<IMethodSymbol> CommandLine { get; } = Members(compilation.GetTypeByMetadataName("System.Environment"), "GetCommandLineArgs");
+
+        public ImmutableArray<INamedTypeSymbol> Schedulers { get; } = [
+            .. new[] {
+                "System.Threading.Tasks.Parallel", "System.Threading.ThreadPool", "System.Threading.Thread", "System.Threading.Tasks.TaskFactory", "System.Threading.Tasks.TaskFactory`1",
+                "System.Threading.Tasks.Task",
+            }.Select(compilation.GetTypeByMetadataName).OfType<INamedTypeSymbol>(),
+        ];
+
+        public INamedTypeSymbol? FunctionPointer { get; } = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedFunctionPointerAttribute");
+
+        public INamedTypeSymbol? CallersOnly { get; } = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute");
+    }
+
+    private protected sealed class LanguageExtSymbols(Compilation compilation) {
+        public INamedTypeSymbol? Fin { get; } = compilation.GetTypeByMetadataName("LanguageExt.Fin`1");
+
+        public INamedTypeSymbol? Validation { get; } = compilation.GetTypeByMetadataName("LanguageExt.Validation`2");
+
+        public INamedTypeSymbol? Error { get; } = compilation.GetTypeByMetadataName("LanguageExt.Common.Error");
+
+        public INamedTypeSymbol? ManyErrors { get; } = compilation.GetTypeByMetadataName("LanguageExt.Common.ManyErrors");
+
+        public INamedTypeSymbol? IO { get; } = compilation.GetTypeByMetadataName("LanguageExt.IO");
+
+        public INamedTypeSymbol? IO1 { get; } = compilation.GetTypeByMetadataName("LanguageExt.IO`1");
+
+        public INamedTypeSymbol? Seq { get; } = compilation.GetTypeByMetadataName("LanguageExt.Seq`1");
+
+        public INamedTypeSymbol? K { get; } = compilation.GetTypeByMetadataName("LanguageExt.Traits.K`2");
+
+        public INamedTypeSymbol? Option { get; } = compilation.GetTypeByMetadataName("LanguageExt.Option`1");
+
+        public ImmutableArray<IMethodSymbol> Lifts => Members(IO, "lift", "pure");
+
+        public ImmutableArray<IMethodSymbol> Optional { get; } = Members(compilation.GetTypeByMetadataName("LanguageExt.Prelude"), "Optional");
+
+        public ImmutableArray<ISymbol> Factories { get; } = Declared(
+            compilation,
+            "M:LanguageExt.Fin.Succ``1(``0)",
+            "M:LanguageExt.Fin.Fail``1(LanguageExt.Common.Error)",
+            "M:LanguageExt.Validation.Success``2(``1)",
+            "M:LanguageExt.Validation.Fail``2(``0)",
+            "M:LanguageExt.Prelude.FinSucc``1(``0)",
+            "M:LanguageExt.Prelude.FinFail``1(LanguageExt.Common.Error)",
+            "M:LanguageExt.Prelude.Pure``1(``0)",
+            "M:LanguageExt.Prelude.Fail``1(``0)",
+            "M:LanguageExt.Prelude.Success``2(``1)",
+            "M:LanguageExt.Prelude.Fail``2(``0)");
+
+        public ImmutableArray<ISymbol> Leaves { get; } = Declared(
+            compilation,
+            "P:LanguageExt.Common.Error.Head",
+            "M:LanguageExt.Common.Error.AsIterable",
+            "M:LanguageExt.Common.Error.FoldM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})",
+            "M:LanguageExt.Common.Error.ForAllM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})");
+
+        public ISymbol? Identity { get; } = Declared(compilation, "M:LanguageExt.Prelude.identity``1(``0)").FirstOrDefault();
+
+        public ISymbol? Case { get; } = Declared(compilation, "P:LanguageExt.Option`1.Case").FirstOrDefault();
+
+        public ISymbol? IsSome { get; } = Declared(compilation, "P:LanguageExt.Option`1.IsSome").FirstOrDefault();
+
+        public ISymbol? IsNone { get; } = Declared(compilation, "P:LanguageExt.Option`1.IsNone").FirstOrDefault();
+    }
+
+    private protected sealed class ThinktectureSymbols(Compilation compilation) {
+        public INamedTypeSymbol? ValidationResults { get; } = compilation.GetTypeByMetadataName("Thinktecture.ValidationResults");
+
+        public INamedTypeSymbol? ValidationError { get; } = compilation.GetTypeByMetadataName("Thinktecture.ValidationError");
+
+        public INamedTypeSymbol? ObjectFactory { get; } = compilation.GetTypeByMetadataName("Thinktecture.IObjectFactory`3");
+
+        public INamedTypeSymbol? SmartEnum { get; } = compilation.GetTypeByMetadataName("Thinktecture.ISmartEnum`3");
+
+        public INamedTypeSymbol? UnionAttributeBase { get; } = compilation.GetTypeByMetadataName("Thinktecture.UnionAttributeBase");
+
+        public INamedTypeSymbol? SmartEnumAttribute1 { get; } = compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute`1");
+
+        public INamedTypeSymbol? UnionAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.UnionAttribute");
+
+        public INamedTypeSymbol? SmartEnumAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute");
+
+        public ImmutableArray<INamedTypeSymbol> Marks => [.. new[] { UnionAttributeBase, SmartEnumAttribute1, UnionAttribute, SmartEnumAttribute }.OfType<INamedTypeSymbol>()];
+
+        public ISymbol? Validate { get; } = Declared(compilation, "M:Thinktecture.IObjectFactory`3.Validate(`1,System.IFormatProvider,`0@)").FirstOrDefault();
+
+        public ISymbol? Message { get; } = Declared(compilation, "P:Thinktecture.ValidationError.Message").FirstOrDefault();
+    }
+
+    private protected sealed class LoggingSymbols(Compilation compilation) {
+        public ImmutableArray<IMethodSymbol> Define { get; } = Members(compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessage"), "Define");
+
+        public INamedTypeSymbol? Logger { get; } = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
+
+        public ImmutableArray<IMethodSymbol> Calls => Members(Logger, "Log", "BeginScope");
+    }
+
+    private protected sealed class RhinoCommonSymbols(Compilation compilation) {
+        private static readonly ImmutableArray<(string Owner, string Member)> Counts = [
+            ("Rhino.DocObjects.Tables.ObjectTable", "Delete"),
+            ("Rhino.DocObjects.Tables.ObjectTable", "DeleteGrips"),
+            ("Rhino.DocObjects.Tables.LayerTable", "Delete"),
+            ("Rhino.DocObjects.Tables.HatchPatternTable", "Delete"),
+            ("Rhino.DocObjects.Tables.MarkupTable", "Delete"),
+            ("Rhino.DocObjects.Tables.SectionStyleTable", "Delete"),
+            ("Rhino.FileIO.File3dmObjectTable", "Delete"),
+            ("Rhino.Geometry.Collections.MeshFaceList", "DeleteFaces"),
+            ("Rhino.Geometry.Collections.MeshNgonList", "RemoveNgons"),
+            ("Rhino.Geometry.PointCloud", "RemoveRange"),
+            ("Rhino.DocObjects.HatchPattern", "SetHatchLines"),
+            ("Rhino.DocObjects.Worksession", "Attach"),
+        ];
+
+        public INamedTypeSymbol? Document { get; } = compilation.GetTypeByMetadataName("Rhino.RhinoDoc");
+
+        public ISymbol? ActiveDoc { get; } = Declared(compilation, "P:Rhino.RhinoDoc.ActiveDoc").FirstOrDefault();
+
+        public ISymbol? RenderSettings { get; } = Declared(compilation, "P:Rhino.RhinoDoc.RenderSettings").FirstOrDefault();
+
+        public ImmutableArray<IMethodSymbol> Counted { get; } = [.. Counts.SelectMany(row => Members(compilation.GetTypeByMetadataName(row.Owner), row.Member))];
+
+        public INamedTypeSymbol? Command { get; } = compilation.GetTypeByMetadataName("Rhino.Commands.Command");
+
+        public INamedTypeSymbol? CommandStyle { get; } = compilation.GetTypeByMetadataName("Rhino.Commands.CommandStyleAttribute");
+
+        public ISymbol? ScriptRunner { get; } = Declared(compilation, "F:Rhino.Commands.Style.ScriptRunner").FirstOrDefault();
+
+        public ImmutableArray<ISymbol> RunScript { get; } = Declared(
+            compilation,
+            "M:Rhino.RhinoApp.RunScript(System.String,System.Boolean)",
+            "M:Rhino.RhinoApp.RunScript(System.String,System.String,System.Boolean)",
+            "M:Rhino.RhinoApp.RunScript(System.UInt32,System.String,System.Boolean)",
+            "M:Rhino.RhinoApp.RunScript(System.UInt32,System.String,System.String,System.Boolean)");
+
+        public ImmutableArray<ISymbol> SetDisplayModeOverride { get; } = Declared(
+            compilation,
+            "M:Rhino.DocObjects.ObjectAttributes.SetDisplayModeOverride(Rhino.Display.DisplayModeDescription)",
+            "M:Rhino.DocObjects.ObjectAttributes.SetDisplayModeOverride(Rhino.Display.DisplayModeDescription,System.Guid)");
+
+        public ImmutableArray<IMethodSymbol> RestoreWithAspectRatio { get; } = Members(compilation.GetTypeByMetadataName("Rhino.DocObjects.Tables.NamedViewTable"), "RestoreWithAspectRatio");
+
+        public ISymbol? GrayscaleDib { get; } = Declared(compilation, "M:Rhino.Display.ZBufferCapture.GrayscaleDib").FirstOrDefault();
+
+        public INamedTypeSymbol? ObjectPropertiesPage { get; } = compilation.GetTypeByMetadataName("Rhino.UI.ObjectPropertiesPage");
+
+        public ISymbol? PageControl { get; } = Declared(compilation, "P:Rhino.UI.ObjectPropertiesPage.PageControl").FirstOrDefault();
+
+        public INamedTypeSymbol? DisplayModeDescription { get; } = compilation.GetTypeByMetadataName("Rhino.Display.DisplayModeDescription");
+
+        public ImmutableArray<ISymbol> OwnedModes { get; } = Declared(
+            compilation,
+            "M:Rhino.Display.DisplayModeDescription.GetDisplayMode(System.Guid)",
+            "M:Rhino.Display.DisplayModeDescription.FindByName(System.String)",
+            "P:Rhino.Display.RhinoViewport.DisplayMode");
+
+        public INamedTypeSymbol? PersistentSettings { get; } = compilation.GetTypeByMetadataName("Rhino.PersistentSettings");
+
+        public ImmutableArray<ISymbol> Redraws { get; } = Declared(
+            compilation,
+            "M:Rhino.DocObjects.Tables.ViewTable.Redraw",
+            "M:Rhino.DocObjects.Tables.ViewTable.Redraw(System.Boolean)",
+            "M:Rhino.DocObjects.Tables.ViewTable.EnableRedraw(System.Boolean,System.Boolean,System.Boolean)",
+            "M:Rhino.Display.RhinoView.Redraw",
+            "P:Rhino.DocObjects.Tables.ViewTable.RedrawEnabled");
+
+        public ImmutableArray<ISymbol> Duplicates { get; } = Declared(compilation, "M:Rhino.Geometry.GeometryBase.Duplicate", "M:Rhino.Geometry.GeometryBase.DuplicateShallow");
+
+        public ISymbol? Floating { get; } = Declared(compilation, "P:Rhino.Display.RhinoView.Floating").FirstOrDefault();
+
+        public ISymbol? ConduitEnabled { get; } = Declared(compilation, "P:Rhino.Display.DisplayConduit.Enabled").FirstOrDefault();
+    }
+
+    private protected sealed class EtoSymbols(Compilation compilation) {
+        public INamedTypeSymbol? Application { get; } = compilation.GetTypeByMetadataName("Eto.Forms.Application");
+
+        public INamedTypeSymbol? Widget { get; } = compilation.GetTypeByMetadataName("Eto.Widget");
+
+        public INamedTypeSymbol? Control { get; } = compilation.GetTypeByMetadataName("Eto.Forms.Control");
+
+        public INamedTypeSymbol? Container { get; } = compilation.GetTypeByMetadataName("Eto.Forms.Container");
+
+        public INamedTypeSymbol? StackLayout { get; } = compilation.GetTypeByMetadataName("Eto.Forms.StackLayout");
+
+        public INamedTypeSymbol? SystemFonts { get; } = compilation.GetTypeByMetadataName("Eto.Drawing.SystemFonts");
+
+        public INamedTypeSymbol? Font { get; } = compilation.GetTypeByMetadataName("Eto.Drawing.Font");
+
+        public ImmutableArray<IMethodSymbol> AddMethod { get; } = Members(compilation.GetTypeByMetadataName("Eto.Mac.ObjCExtensions"), "AddMethod");
+    }
+
+    private protected sealed class MacSymbols(Compilation compilation) {
+        public INamedTypeSymbol? DispatchQueue { get; } = compilation.GetTypeByMetadataName("CoreFoundation.DispatchQueue");
+
+        public INamedTypeSymbol? NSObject { get; } = compilation.GetTypeByMetadataName("Foundation.NSObject");
+
+        public INamedTypeSymbol? NSThread { get; } = compilation.GetTypeByMetadataName("Foundation.NSThread");
+
+        public ImmutableArray<ISymbol> Mains { get; } = Declared(compilation, "P:CoreFoundation.DispatchQueue.MainQueue", "P:Foundation.NSThread.MainThread");
+
+        public INamedTypeSymbol? Register { get; } = compilation.GetTypeByMetadataName("Foundation.RegisterAttribute");
+
+        public INamedTypeSymbol? Export { get; } = compilation.GetTypeByMetadataName("Foundation.ExportAttribute");
+    }
+
+    private protected sealed class RasmRhinoSymbols(Compilation compilation) {
+        public INamedTypeSymbol? DisposalOps { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.DisposalOps");
+
+        public INamedTypeSymbol? Copies { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Modeling.Copies");
+
+        public ImmutableArray<IMethodSymbol> Acquire => Members(DisposalOps, "Acquire", "Within");
+
+        public ImmutableArray<IMethodSymbol> Found => Members(DisposalOps, "Found");
+
+        public ImmutableArray<IMethodSymbol> Owned => Members(Copies, "Owned");
+
+        public ImmutableArray<IMethodSymbol> Release => Members(DisposalOps, "Release", "Present");
+
+        public ImmutableArray<IMethodSymbol> OnFailure => Members(DisposalOps, "OnFailure");
+
+        public ImmutableArray<IMethodSymbol> Disposal { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Disposal`1")?.InstanceConstructors ?? [];
+
+        public ImmutableArray<IMethodSymbol> Retain { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Retained`1"), "Retain");
+
+        public ImmutableArray<IMethodSymbol> UnlessFound { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Refused"), "UnlessFound");
+
+        public INamedTypeSymbol? Callbacks { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Callbacks");
+
+        public ImmutableArray<IMethodSymbol> Boundaries => Members(Callbacks, "Run", "Answer", "Succeeded", "Started");
+
+        public ImmutableArray<IMethodSymbol> Producers => Members(Callbacks, "Handler", "Synchronous");
+
+        public INamedTypeSymbol? Conduits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Display.Conduits");
+
+        public INamedTypeSymbol? RenderSettingsSources { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Render.Settings.RenderSettingsSources");
+
+        public INamedTypeSymbol? Commits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Document.Commits");
+
+        public INamedTypeSymbol? SettingType { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Persistence.Settings.SettingType");
+
+        public INamedTypeSymbol? SettingType1 { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Persistence.Settings.SettingType`1");
+
+        public ISymbol? UI { get; } = Declared(compilation, "N:Rasm.Rhino.UI").FirstOrDefault();
+    }
+
     // --- [LIFETIMES]
     private protected sealed class Lifetimes {
-        private Lifetimes(Compilation compilation, IMethodSymbol dispose, INamedTypeSymbol action) {
-            INamedTypeSymbol? scopes = compilation.GetTypeByMetadataName("Rasm.Rhino.DisposalOps");
-            INamedTypeSymbol? io = compilation.GetTypeByMetadataName("LanguageExt.IO`1");
-            INamedTypeSymbol? thunk = compilation.GetTypeByMetadataName("System.Func`1");
+        private Lifetimes(SystemSymbols system, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt, IMethodSymbol dispose, INamedTypeSymbol action) {
             bool Acquiring(IMethodSymbol method) =>
                 method.TypeParameters.Length > 0 && method.Parameters.Length > 0
                 && method.Parameters[0].Type is INamedTypeSymbol { TypeArguments.Length: 1 } holder
-                && (Same(holder, io) || Same(holder, thunk)) && SymbolEqualityComparer.Default.Equals(holder.TypeArguments[0], method.TypeParameters[0]);
+                && (Same(holder, languageExt.IO1) || Same(holder, system.Thunk)) && SymbolEqualityComparer.Default.Equals(holder.TypeArguments[0], method.TypeParameters[0]);
             (Dispose, Action) = (dispose, action);
-            Acquires = [.. Members(scopes, "Acquire", "Within", "Found").Concat(Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Modeling.Copies"), "Owned")).Where(Acquiring)];
-            Releases = Members(scopes, "Release", "Present");
-            Failures = Members(scopes, "OnFailure");
-            Holders = compilation.GetTypeByMetadataName("Rasm.Rhino.Disposal`1")?.InstanceConstructors ?? [];
-            Retains = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Retained`1"), "Retain");
-            Lifts = Members(compilation.GetTypeByMetadataName("LanguageExt.IO"), "lift", "pure");
+            Acquires = [.. rasm.Acquire.Concat(rasm.Found).Concat(rasm.Owned).Where(Acquiring)];
+            Releases = rasm.Release;
+            Failures = rasm.OnFailure;
+            Holders = rasm.Disposal;
+            Retains = rasm.Retain;
+            Lifts = languageExt.Lifts;
         }
 
         public IMethodSymbol Dispose { get; }
@@ -241,10 +498,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public ImmutableArray<IMethodSymbol> Lifts { get; }
 
-        public static Lifetimes? Of(Compilation compilation) =>
-            Declared(compilation, "M:System.IDisposable.Dispose").FirstOrDefault() is IMethodSymbol dispose && compilation.GetTypeByMetadataName("System.Action`1") is { } action
-                ? new Lifetimes(compilation, dispose, action)
-                : null;
+        public static Lifetimes? Of(SystemSymbols system, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt) =>
+            system is { Dispose: { } dispose, Action: { } action } ? new Lifetimes(system, rasm, languageExt, dispose, action) : null;
 
         public bool Plain(IMethodSymbol method) =>
             method.TypeParameters.Length > 0 && method.TypeParameters[0].ConstraintTypes.Any(constraint => Same(constraint, Dispose.ContainingType));
