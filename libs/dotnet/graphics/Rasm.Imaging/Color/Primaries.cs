@@ -67,6 +67,8 @@ public sealed partial class Gamut : ICaptioned {
 
     public (double X, double Y, double Z) Luminance => Luminances(this);
 
+    public YbrConfiguration Ybr => new(Luminance.X, Luminance.Z, Configuration.Ybr.RangeY, Configuration.Ybr.RangeC, Caption);
+
     public ((double X, double Y, double Z) Red, (double X, double Y, double Z) Green, (double X, double Y, double Z) Blue) XyzColumns => ToXyz switch {
         var matrix => ((matrix[0, 0], matrix[1, 0], matrix[2, 0]), (matrix[0, 1], matrix[1, 1], matrix[2, 1]), (matrix[0, 2], matrix[1, 2], matrix[2, 2])),
     };
@@ -82,6 +84,16 @@ public sealed partial class Gamut : ICaptioned {
 
     public static Matrix<double> Between(Configuration from, Configuration to) =>
         Columns(basis => new Unicolour(from, ColourSpace.RgbLinear, basis).ConvertToConfiguration(to).RgbLinear.Tuple);
+
+    public static Matrix<double> ToYpbpr(YbrConfiguration ybr) =>
+        new Configuration(ybrConfig: ybr) switch {
+            var configuration => Columns(basis => new Unicolour(configuration, ColourSpace.Rgb, basis).Ypbpr.Tuple),
+        };
+
+    public static Matrix<double> FromYpbpr(YbrConfiguration ybr) =>
+        new Configuration(ybrConfig: ybr) switch {
+            var configuration => Columns(basis => new Unicolour(configuration, ColourSpace.Ypbpr, basis).Rgb.Tuple),
+        };
 
     public static Matrix<double> Columns(Func<(double, double, double), (double, double, double)> column) =>
         (column((1d, 0d, 0d)), column((0d, 1d, 0d)), column((0d, 0d, 1d))) switch {

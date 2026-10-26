@@ -1,9 +1,9 @@
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Modeling;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
-using Rhino.PlugIns;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 using NativeQueue = Rhino.Render.ChangeQueue;
@@ -81,19 +81,19 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
     private readonly QueuePolicy policy;
     private readonly Option<IO<Unit>> wake;
 
-    private DefinedChangeFeed(PlugIn plugIn, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake)
-        : base(plugIn.Id, document.RuntimeSerialNumber, view, attributes.ValueUnsafe(), policy.RespectDisplayAttributes, policy.NotifyChanges) =>
-        (sink, this.policy, this.wake) = (IPlugInSink.Of(plugIn), policy, wake);
+    private DefinedChangeFeed(IPlugInViews owner, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake)
+        : base(owner.PlugIn.Id, document.RuntimeSerialNumber, view, attributes.ValueUnsafe(), policy.RespectDisplayAttributes, policy.NotifyChanges) =>
+        (sink, this.policy, this.wake) = (owner, policy, wake);
 
-    private DefinedChangeFeed(PlugIn plugIn, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake)
-        : base(plugIn.Id, preview) =>
-        (sink, this.policy, this.wake) = (IPlugInSink.Of(plugIn), policy, wake);
+    private DefinedChangeFeed(IPlugInViews owner, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake)
+        : base(owner.PlugIn.Id, preview) =>
+        (sink, this.policy, this.wake) = (owner, policy, wake);
 
-    public static IO<DefinedChangeFeed> Of(PlugIn plugIn, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(plugIn, document, view, attributes, policy, wake)), retain);
+    public static IO<DefinedChangeFeed> Of(IPlugInViews owner, RhinoDoc document, ViewInfo view, Option<DisplayPipelineAttributes> attributes, QueuePolicy policy, Option<IO<Unit>> wake, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(owner, document, view, attributes, policy, wake)), retain);
 
-    public static IO<DefinedChangeFeed> Of(PlugIn plugIn, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(plugIn, preview, policy, wake)), retain);
+    public static IO<DefinedChangeFeed> Of(IPlugInViews owner, CreatePreviewEventArgs preview, QueuePolicy policy, Option<IO<Unit>> wake, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(IO.lift(() => new DefinedChangeFeed(owner, preview, policy, wake)), retain);
 
     // --- [FEED]
     private readonly Ref<Option<SceneFeed>> feed = Ref(Some(SceneFeed.Empty));

@@ -23,7 +23,7 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
     private readonly Atom<Content<Unit>> work = Atom<Content<Unit>>(new Content<Unit>.Empty("Effect has not run"));
 
     protected JobEffect() =>
-        opened = new(held => DisposalOps.Release(held).IfFail(error => IO.lift(() => IPlugInSink.Of(this).Report(error, typeof(TResource), nameof(IDisposable.Dispose)))));
+        opened = new(held => DisposalOps.Release(held).IfFail(error => IO.lift(() => Owner.Report(error, typeof(TResource), nameof(IDisposable.Dispose)))));
 
     private IO<Unit> Opening =>
         IO.lift(() => opened.Held.Exists(static held => held.IsEmpty)).Bind(absent => when(absent,
@@ -40,7 +40,7 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
     public sealed override Guid[] RequiredChannels => EffectPipeline.Ids(TResource.Channels(Held.Current));
 
     public sealed override bool Execute(PostEffectPipeline pipeline, Rectangle rect) =>
-        CallbackSite.Of(this) switch {
+        CallbackSite.Of(Owner, this) switch {
             var site => Callbacks.Succeeded(
                 from started in RenderRuns.Started(pipeline)
                 from extent in IO.lift(EffectPipeline.Extent(pipeline.Dimensions()))

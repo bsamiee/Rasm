@@ -28,7 +28,7 @@ public abstract partial record ContentScope {
 
 public sealed record ContentMenuRow(
     string Caption,
-    IGlyph Icon,
+    Rasm.UI.GlyphSource Icon,
     ContentScope Scope,
     LanguageExt.HashSet<RenderContentMenu.Context> Contexts,
     RenderContentMenu.SeparatorStyle Separator,
@@ -46,9 +46,21 @@ public static class ViewRegistration {
 
     // --- [PANELS]
     public static readonly Func<IPlugInViews, Action<IDisposable>, IO<Unit>> RegisterPanels =
-        static (plugIn, _) => Each<View.Panel>(plugIn, row => Hosted(row.Identity, () => Panels.RegisterPanel(
-            plugIn.PlugIn, row.Identity, RowText.Localize(row.Caption, plugIn).Local,
-            row.Icon.Map(static glyph => glyph.Assets.Assembly).ValueUnsafe(), row.Icon.Map(static glyph => glyph.Key).ValueUnsafe(), row.Kind.IfNone(PanelType.PerDoc))));
+        static (plugIn, _) => Each<View.Panel>(plugIn, row => (Caption: RowText.Localize(row.Caption, plugIn).Local, Kind: row.Kind.IfNone(PanelType.PerDoc)) switch {
+            var face => row.Icon.Match(
+                Some: glyph => glyph.Switch(
+                    (PlugIn: plugIn, Row: row, Face: face, Glyph: glyph),
+                    tinted: static (at, _) => Drawn(at.PlugIn, at.Row, at.Glyph, at.Face.Caption, at.Face.Kind),
+                    paired: static (at, art) => Hosted(at.Row.Identity, () => Panels.RegisterPanel(at.PlugIn.PlugIn, at.Row.Identity, at.Face.Caption, art.Assembly, art.Light, at.Face.Kind)),
+                    picture: static (at, _) => Drawn(at.PlugIn, at.Row, at.Glyph, at.Face.Caption, at.Face.Kind)),
+                None: () => Hosted(row.Identity, () => Panels.RegisterPanel(plugIn.PlugIn, row.Identity, face.Caption, iconAssembly: null, iconResourceId: null, face.Kind))),
+        });
+
+    private static IO<Unit> Drawn(IPlugInViews plugIn, View.Panel row, Rasm.UI.GlyphSource glyph, string caption, PanelType kind) =>
+        from pixels in IconSlot.PanelTab.Pixels
+        from icon in Icons.DrawingIcon(glyph, pixels)
+        from registered in Hosted(row.Identity, () => Panels.RegisterPanel(plugIn.PlugIn, row.Identity, caption, icon, kind))
+        select registered;
 
     // --- [PAGES]
     public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, ICollection<OptionsDialogPage> pages) =>
@@ -61,13 +73,13 @@ public static class ViewRegistration {
         Tree(plugIn, row, static held => held.SubPages, Some(document));
 
     public static IO<Unit> ObjectPropertiesPages(IPlugInViews plugIn, ObjectPropertiesPageCollection collection) =>
-        Each<View.PropertiesPage>(plugIn, row => IO.lift(() => (DefinedPropertiesPage)Activator.CreateInstance(row.Identity)!).Bind(page => IO.lift(() => collection.Add(page))));
+        Each<View.PropertiesPage>(plugIn, row => IO.lift(() => (DefinedPropertiesPage)Activator.CreateInstance(row.Identity, plugIn)!).Bind(page => IO.lift(() => collection.Add(page))));
 
     private static IO<Option<OptionsDialogPage>> Tree<TCase>(IPlugInViews plugIn, TCase row, Func<TCase, Seq<TCase>> subPages, Option<RhinoDoc> document) where TCase : View =>
         from scope in RowScope.Open(plugIn, document, new CommitMode.Immediate())
         from shown in RowRules.Holds(row.Visible, scope)
         from page in shown
-            ? from built in IO.lift(() => (DefinedOptionsPage)Activator.CreateInstance(row.Identity)!)
+            ? from built in IO.lift(() => (DefinedOptionsPage)Activator.CreateInstance(row.Identity, plugIn)!)
               from _ in document.TraverseM(built.ForDocument).As()
               from children in subPages(row).TraverseM(sub => Tree(plugIn, sub, subPages, document)).As()
               from __ in IO.lift(() => built.Children.AddRange(children.Somes()))
@@ -101,7 +113,7 @@ public static class ViewRegistration {
         static (plugIn, retain) => EventKind.OnAddCustomUISections.Inline(
             args => Each<View.Section>(plugIn, row => when(
                 row.Identity.IsSubclassOf(typeof(DefinedContentSection)),
-                DisposalOps.Acquire(IO.lift(() => (DefinedContentSection)Activator.CreateInstance(row.Identity)!), args.ExpandableContentUI.AddSection).Map(unit)).As()),
+                DisposalOps.Acquire(IO.lift(() => (DefinedContentSection)Activator.CreateInstance(row.Identity, plugIn)!), args.ExpandableContentUI.AddSection).Map(unit)).As()),
             plugIn, retain);
 
     public static EntryKey FieldKey(RenderContent content, string field) =>

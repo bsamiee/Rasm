@@ -11,7 +11,9 @@ using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Presets;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
+using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI.Imaging;
 using Rhino.UI.Controls;
 using UnitsNet;
 using UnitsNet.Units;
@@ -39,6 +41,7 @@ internal static class LooksSection {
     public static readonly Func<EtoPostEffectCollapsibleSection, IO<Option<ScopeFrames>>, View.Section> Row = static (section, _) => new() {
         Identity = typeof(LooksSection),
         Caption = "Looks",
+        Actions = [ListRows.Arrangement(BrowserMode.Grid)],
         Children = [PresetBinding.Browser(new EffectSource.Section(section), EntryKey.TypeOwner(typeof(LooksSection).GUID), Stock)],
     };
 

@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Display;
@@ -47,11 +48,11 @@ internal sealed class ExecutionControl(Func<Guid, IO<bool>> ready, IPlugInSink s
         Callbacks.Answer(pep_id, ready, static () => false, site);
 }
 
-internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
+internal sealed class AsyncContext(IPlugInViews sink) : AsyncRenderContext {
     private readonly CancellationTokenSource cancellation = new();
     private readonly Retained<IDisposable> scenes = new(DisposalOps.Release);
 
-    public IPlugInSink Sink { get; } = sink;
+    public IPlugInViews Sink { get; } = sink;
 
     public IO<bool> Start(RenderWindow window, Func<Action<IDisposable>, IO<RenderWork>> open, LocalizeStringPair caption) =>
         DisposalOps.OnFailure(
@@ -156,7 +157,7 @@ internal sealed class BatchPipeline : RenderPipeline {
             size)).As()
         from ___ in RenderWindows.AddRequested(window)
         from world in DisposalOps.Within<IDisposable, SceneBatch>(owned =>
-            from queue in DefinedChangeFeed.Of(PlugIn, document, view, None, QueuePolicy.Render, None, owned)
+            from queue in DefinedChangeFeed.Of(context.Sink, document, view, None, QueuePolicy.Render, None, owned)
             from ____ in queue.World
             from taken in queue.Take(retain)
             select taken, DisposalOps.Release)
@@ -165,9 +166,9 @@ internal sealed class BatchPipeline : RenderPipeline {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Batches {
-    public static IO<Unit> Render(RhinoDoc doc, RunMode mode, PlugIn plugIn, RenderEngine engine, RenderStart start) =>
-        DisposalOps.Within<BatchPipeline, Unit>(retain => DisposalOps.Acquire(IO.lift(() => new AsyncContext((IPlugInSink)plugIn)).Bind(context => DisposalOps.OnFailure(
-            IO.lift(() => new BatchPipeline(doc, mode, plugIn, engine, start, context)), IO.lift(context.Dispose))), retain)
+    public static IO<Unit> Render(RhinoDoc doc, RunMode mode, IPlugInViews plugIn, RenderEngine engine, RenderStart start) =>
+        DisposalOps.Within<BatchPipeline, Unit>(retain => DisposalOps.Acquire(IO.lift(() => new AsyncContext(plugIn)).Bind(context => DisposalOps.OnFailure(
+            IO.lift(() => new BatchPipeline(doc, mode, plugIn.PlugIn, engine, start, context)), IO.lift(context.Dispose))), retain)
             .Bind(pipeline => IO.lift(() => start.Switch(
                 pipeline,
                 full: static (session, _) => Answered(session.Render(), nameof(RenderPipeline.Render)),

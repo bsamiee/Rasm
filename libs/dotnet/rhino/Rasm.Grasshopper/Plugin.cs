@@ -5,7 +5,9 @@ using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.UI.Icon;
 using Rasm.Grasshopper.Components;
+using Rasm.Grasshopper.UI.Surfaces;
 using Rasm.Rhino;
+using Rasm.Rhino.Display;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Effects;
@@ -45,6 +47,10 @@ public static class GrasshopperPlugins {
     public static CallbackSite Site(IDocumentObject constructed, [CallerMemberName] string member = "") =>
         new(Owner(constructed.GetType()), constructed.GetType(), member);
 
+    // --- [ACQUISITIONS]
+    public static Func<IGrasshopperPlugin, Action<IDisposable>, IO<Unit>> DisplayModes(DisplayModeSpec spec) =>
+        (plugin, retain) => Rhino.Display.DisplayModes.Declared(plugin.Plugin.Id, plugin.Plugin.Assembly, spec, plugin, retain);
+
     // --- [LIFECYCLE]
     public static void Register(IGrasshopperPlugin plugin) => Owners.AddOrUpdate(plugin.Plugin.Assembly, plugin);
 
@@ -76,6 +82,7 @@ public static class GrasshopperPlugins {
                  from opened in plugin.Session.Open(plugin, [
                      static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain),
                      (owner, retain) => PreviewTiles.Open(owner, definition.Clock, None, retain).Bind(tiles => PreviewTiles.Current.Publish(owner, tiles)),
+                     (owner, _) => Guest.Opened(owner, definition.Clock),
                      .. definition.Acquisitions])
                  select unit)
                 .Catch(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Bind(_ => IO.fail<Unit>(error)))

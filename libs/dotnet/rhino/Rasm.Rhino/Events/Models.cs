@@ -1,34 +1,38 @@
-using Rasm.Rhino.Events;
 using Rhino;
 
-namespace Rasm.Rhino.UI.Rows;
+namespace Rasm.Rhino.Events;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class LiveModel<TState> where TState : notnull {
     // --- [STATE]
-    private readonly Atom<(TState Value, int Shown, bool Stale)> state;
+    private readonly Atom<(TState Before, TState After)> published;
+    private readonly Atom<(int Shown, bool Stale)> visibility;
 
-    internal LiveModel(TState initial) => state = Atom((Value: initial, Shown: 0, Stale: false));
+    internal LiveModel(TState initial) =>
+        (published, visibility) = (Atom((Before: initial, After: initial)), Atom((Shown: 0, Stale: false)));
 
-    public TState Value => state.Value.Value;
+    public TState Value => published.Value.After;
+
+    public HostEvent<(TState Before, TState After)> Changed => Subscriptions.Changed(published);
 
     // --- [VISIBILITY]
     internal IO<Unit> Show(IO<TState> read, Action<IDisposable> retain) =>
         from shown in DisposalOps.Acquire(
-            IO.lift(() => state.Swap(static held => held with { Shown = held.Shown + 1 })),
+            IO.lift(() => visibility.Swap(static held => held with { Shown = held.Shown + 1 })),
             _ => IO.lift(Hide), retain)
         from fresh in when(shown.Stale, read.Bind(Publish)).As()
         select fresh;
 
-    internal void Hide() => _ = state.Swap(static held => held with { Shown = held.Shown - 1 });
+    internal void Hide() => _ = visibility.Swap(static held => held with { Shown = held.Shown - 1 });
 
     internal IO<Unit> Refresh(IO<TState> read) =>
-        state.SwapMaybeIO(static held => held.Stale ? None : Some(held with { Stale = true }))
+        visibility.SwapMaybeIO(static held => held.Stale ? None : Some(held with { Stale = true }))
             .Bind(held => when(held.Shown > 0, read.Bind(Publish)).As());
 
     private IO<Unit> Publish(TState next) =>
-        state.SwapMaybeIO(held => !held.Stale && EqualityComparer<TState>.Default.Equals(held.Value, next) ? None : Some(held with { Value = next, Stale = false }))
-            .Map(unit);
+        from fresh in visibility.SwapIO(static held => held with { Stale = false })
+        from changed in published.SwapMaybeIO(held => EqualityComparer<TState>.Default.Equals(held.After, next) ? None : Some((Before: held.After, After: next)))
+        select unit;
 }
 
 public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<RhinoDoc, IO<TState>> read) where TState : notnull {
@@ -46,6 +50,10 @@ public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<R
             None: () => Registered(doc))
         from shown in live.Show(read(doc), retain)
         select live;
+
+    public HostEvent<(TState Before, TState After)> Changed(RhinoDoc doc) =>
+        new(typeof(ReadModel<TState>), nameof(Changed), (deliver, site, retain) =>
+            Watch(doc, retain).Bind(live => live.Changed.Attach(deliver, site, retain)));
 
     private IO<LiveModel<TState>> Registered(RhinoDoc doc) =>
         read(doc).Bind(initial => IO.lift(() => doc.RuntimeData.GetValue(this, _ => new LiveModel<TState>(initial))));

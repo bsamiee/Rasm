@@ -251,7 +251,7 @@ public static class StillWriter {
             .. sample.Predictor.Map(static predictor => (TiffTag.PREDICTOR, new object[] { predictor })).ToSeq(),
             .. (alpha ? Some((TiffTag.EXTRASAMPLES, new object[] { 1, Unassociated })) : None).ToSeq(),
             (TiffTag.ORIENTATION, [Orientation.TOPLEFT]),
-            .. encoding.Bind(held => ColorTags.Icc(held, metadata.Created)).Map(static bytes => (TiffTag.ICCPROFILE, new object[] { bytes.Length, bytes })).ToSeq(),
+            .. encoding.Bind(held => held.Profile(metadata.Created)).Map(static bytes => (TiffTag.ICCPROFILE, new object[] { bytes.Length, bytes })).ToSeq(),
             .. metadata.Tiff(),
             .. extra,
             (TiffTag.ROWSPERSTRIP, [open.DefaultStripSize(0)]),

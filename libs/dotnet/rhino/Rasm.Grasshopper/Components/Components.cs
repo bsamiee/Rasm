@@ -15,7 +15,6 @@ using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Geometry.Intersect;
 using UnitSystem = Rhino.UnitSystem;
@@ -30,7 +29,7 @@ public interface IComponentDefinition<TSelf> where TSelf : ModularComponent {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ComponentRow<TSelf>(
     Nomen Face,
-    Option<IGlyph> Glyph,
+    Option<Rasm.UI.GlyphSource> Glyph,
     Seq<ParameterRow> Inputs,
     Seq<ParameterRow> Outputs,
     Seq<Guid> SupportedPins,
@@ -45,7 +44,7 @@ public sealed record ComponentRow<TSelf>(
 
     // --- [DECLARE]
     public static ComponentRow<TSelf> Of<TRecord>(
-        Nomen face, Option<IGlyph> glyph, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
+        Nomen face, Option<Rasm.UI.GlyphSource> glyph, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
         Seq<Guid> supportedPins, TRecord fallback, Func<TSelf, IDataAccess, TRecord, IO<Unit>> solve)
         where TRecord : notnull =>
         new(face, glyph, [.. inputs, .. fields.Map(static field => field.Input)], outputs, supportedPins,

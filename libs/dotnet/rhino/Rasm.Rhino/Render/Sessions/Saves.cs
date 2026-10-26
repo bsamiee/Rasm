@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -242,21 +241,7 @@ public static class Saves {
 
     // --- [FRAMES]
     private static IO<PixelFrame> Dib(RenderWindow window) =>
-        DisposalOps.Found(window.GetBitmap, nameof(RenderWindow.GetBitmap), static bitmap =>
-            from extent in IO.lift(() => EffectPipeline.Extent(bitmap.Size))
-            from frame in DisposalOps.Within(
-                () => bitmap.LockBits(new Rectangle(System.Drawing.Point.Empty, bitmap.Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb),
-                data => IO.lift(() => new PixelFrame(System.Drawing.Point.Empty, extent, extent, block => {
-                    byte[] line = new byte[4 * extent.Width];
-                    Span<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
-                    for (int y = 0; y < extent.Height; y++) {
-                        Marshal.Copy(data.Scan0 + (y * data.Stride), line, 0, line.Length);
-                        for (int x = 0; x < extent.Width; x++)
-                            pixels[(y * extent.Width) + x] = new Vector4(line[(4 * x) + 2], line[(4 * x) + 1], line[4 * x], line[(4 * x) + 3]) / byte.MaxValue;
-                    }
-                })),
-                data => IO.lift(() => bitmap.UnlockBits(data)))
-            select frame);
+        DisposalOps.Found(window.GetBitmap, nameof(RenderWindow.GetBitmap), EffectPipeline.Frame);
 
     private static IO<PixelFrame> Read(RenderWindow window, RenderWindow.StandardChannels channel, Func<PixelFrame, Fin<PixelFrame>> place) =>
         RenderWindows.Read(window, channel).Bind(read => IO.lift(place(read)));

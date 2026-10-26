@@ -9,6 +9,8 @@ using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
+using Rasm.UI.Imaging;
 using Rhino.UI.Controls;
 using UnitsNet;
 using UnitsNet.Units;
@@ -25,7 +27,6 @@ internal static class ScopesSection {
                 "Chart of stage input formed for display",
                 owner,
                 scope => PlugInSettings.Record<ScopeState>(((IPlugInViews)scope.Sink).Settings.Child(owner), Applied.Live),
-                None,
                 RowRules.Always),
         };
 
@@ -37,7 +38,7 @@ internal static class ScopesSection {
 }
 
 [Guid("2F07A9A9-F8A2-4B52-86EE-73085EAF6A1F")]
-public sealed class CompareSection() : DefinedSection(Row) {
+public sealed class CompareSection(IPlugInViews owner) : DefinedSection(Row, owner) {
     // --- [SETTINGS]
     public static readonly ComparisonSettingRows Settings = new(
         PsnrAdvisory: new(ValueKey.Numeric("ComparePsnrAdvisory", "PSNR advisory", "PSNR in decibels below which compared renders grade advisory", BarLevel.PsnrAdvisory,
@@ -57,7 +58,7 @@ public sealed class CompareSection() : DefinedSection(Row) {
     // --- [PANEL]
     public static readonly FramePicker Picker = new(Some(ScopesSection.Scope.Source));
 
-    private static readonly RowSource<bool> Difference = RowSource.Opaque(nameof(RenderingComparison), nameof(Difference), @default: false).Source;
+    private static readonly (RowSource<bool> Source, RowField<bool> Field) Difference = RowSource.Opaque(nameof(RenderingComparison), nameof(Difference), @default: false);
 
     public static readonly View.Section Row = new() {
         Identity = typeof(CompareSection),
@@ -66,17 +67,14 @@ public sealed class CompareSection() : DefinedSection(Row) {
             PreviewRows.Frame(
                 "Frame",
                 "Newest rendering wiped against compared rendering",
-                new FramePane(static scope => RenderingComparison.Sample(scope, scope.Read(Difference)), [], [
-                    new CommandRow.Check(new CommandFace("comparison-difference", "Difference", "Tints frame where compared rendering differs from newest rendering", None, None), None,
-                        static scope => scope.Read(Difference), static (scope, on) => scope.Store(Difference).Put(Some(on)).Map(unit)),
-                ], Picker, None, "Newest rendering appears here"),
+                new FramePane(static scope => RenderingComparison.Sample(scope, scope.Read(Difference.Source)), [], Framed, Picker, "Newest rendering appears here"),
                 RowRules.Always),
             TextRows.Readout("Measure", "PSNR and NRMSE against newest rendering, graded by comparison settings",
                 new ReadoutSource<Option<(FrameComparison Measured, Verdict Verdict)>>.Scoped(static scope => RenderingComparison.Graded(scope, Settings)),
                 static graded => graded.Match(Some: Measured, None: static () => ""),
                 RowRules.Always),
-            SectionRows.Pushed(new CommandRow.Run(
-                new CommandFace("comparison-export", "Export displayed frame", "Write displayed callback or history frame to output targets", None, None), None, RenderingComparison.Export)),
+            SectionRows.Pushed(new Command<RowRule, Invoke>.Run(
+                new CommandFace("comparison-export", "Export displayed frame", Some("Write displayed callback or history frame to output targets"), None), None, new Invoke.Effect(RenderingComparison.Export))),
             ListRows.List("Render Settings", "Compared rendering's saved render settings against current document values", new ListRow<SettingsRow, EntryKey>(
                     IterableNE.create<ListColumn<SettingsRow>>(
                         new ListColumn<SettingsRow>.Label(Some("Setting"), static row => row.Setting, None, None),
@@ -89,6 +87,29 @@ public sealed class CompareSection() : DefinedSection(Row) {
         ],
     };
 
+    private static Seq<Seq<Command<RowRule, Invoke>>> Framed(FrameCommands frame) => [
+        [
+            CommandRows.Toggle(new CommandFace("comparison-difference", "Difference", Some("Tints frame where compared rendering differs from newest rendering"), None), None,
+                RowRule.When(Difference.Source, static on => on, Difference.Field.Parameter), static (scope, on) => scope.Store(Difference.Source).Put(Some(on)).Map(unit)),
+        ],
+        [
+            new Command<RowRule, Invoke>.Menu(new CommandFace("frame-compare-modes", "Compare modes", None, None), None, [
+                [
+                    new Command<RowRule, Invoke>.Choice(new CommandFace("frame-compare-mode", "Compare mode", None, None), None, toSeq(Rasm.UI.Imaging.CompareMode.Items).Map(mode => frame.Mode(mode).Faced(
+                        new CommandFace($"frame-{mode.Key}", ((ICaptioned)mode).Caption, None,
+                            Some(mode.Map(verticalWipe: DarkroomGlyphs.VerticalWipe, horizontalWipe: DarkroomGlyphs.HorizontalWipe, sideBySide: DarkroomGlyphs.SideBySide))),
+                        Some(mode.Map(verticalWipe: Eto.Forms.Keys.Shift | Eto.Forms.Keys.Y, horizontalWipe: Eto.Forms.Keys.W, sideBySide: Eto.Forms.Keys.Y))))),
+                ],
+                [frame.Swap.Faced(new CommandFace("frame-invert-wipe", "Invert wipe", None, Some(DarkroomGlyphs.Flip)), Some(Eto.Forms.Keys.Alt | Eto.Forms.Keys.W))],
+            ]) { Primary = frame.Compare.Faced(new CommandFace("frame-compare", "Compare", None, None), Some(Eto.Forms.Keys.Backslash)) },
+            frame.Swap.Faced(new CommandFace("frame-swap", "Swap", None, Some(DarkroomGlyphs.Swap)), Some(Eto.Forms.Keys.Enter)),
+        ],
+        [
+            frame.Fit.Faced(new CommandFace("frame-fit", "Fit", None, Some(DarkroomGlyphs.Fit)), None),
+            frame.ActualSize.Faced(new CommandFace("frame-actual-size", "Actual Size", None, Some(DarkroomGlyphs.ActualSize)), None),
+        ],
+    ];
+
     private static string Measured((FrameComparison Measured, Verdict Verdict) graded) =>
         RowText.Localize("{0}, {1}, {2}", arguments: [
             RowText.Localize("PSNR {0:F1} dB", arguments: [graded.Measured.Psnr]).Local,
@@ -98,7 +119,7 @@ public sealed class CompareSection() : DefinedSection(Row) {
 }
 
 [Guid("F9092DA1-C8A1-4935-A3D8-0E800F9EDC45")]
-public sealed class HistorySection() : DefinedSection(Row) {
+public sealed class HistorySection(IPlugInViews owner) : DefinedSection(Row, owner) {
     // --- [SETTINGS]
     public static readonly HistorySettingRows Settings = new(
         Capacity: new(ValueKey.Numeric("HistorySteps", "Undo steps", "Edits per section for undo, redo, and restore, 0 disables history", HistoryLimits.Default.Capacity,
@@ -118,6 +139,7 @@ public sealed class HistorySection() : DefinedSection(Row) {
         Identity = typeof(HistorySection),
         Caption = "Render History",
         Store = Some(RenderHistory.Store),
+        Actions = [ListRows.Arrangement(BrowserMode.List), SectionCommands.Values([RenderHistory.Browser]), SectionCommands.Reset],
         Children = [RenderHistory.Browser],
     };
 }

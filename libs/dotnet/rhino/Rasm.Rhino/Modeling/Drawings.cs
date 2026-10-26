@@ -42,18 +42,15 @@ public static partial class Drawings {
 
     // --- [HIDDEN_LINE]
     public static IO<LineDrawing> Draw(
-        ProjectionFrame frame, BoundingBox bounds, Seq<Plane> clips, Tolerances tolerances, Func<HiddenLineDrawingParameters, Fin<Unit>> subjects,
+        Tolerances tolerances, ProjectionFrame frame, BoundingBox bounds, Func<HiddenLineDrawingParameters, Fin<Unit>> subjects,
         bool multipleThreads, bool rejoin, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         DisposalOps.Acquire(outputs =>
-            from unique in IO.lift(() => Callbacks.Unique(clips, identity, nameof(HiddenLineDrawingParameters.AddClippingPlane)))
-            let parameters = new HiddenLineDrawingParameters { AbsoluteTolerance = tolerances.Absolute }
-            from configured in IO.lift(() => {
-                _ = unique.Iter(parameters.AddClippingPlane);
-                return subjects(parameters);
-            })
+            from parameters in IO.lift(() => new HiddenLineDrawingParameters { AbsoluteTolerance = tolerances.Absolute })
+            from configured in IO.lift(() => subjects(parameters))
             from projected in DisposalOps.Within<IDisposable, Unit>(temporary => Projected(frame, bounds, parameters, temporary), DisposalOps.Release)
             from drawn in DisposalOps.Within<IDisposable, LineDrawing>(
-                temporary => Computed(parameters, multipleThreads, progress, temporary).Bind(drawing => Drawn(drawing, rejoin, outputs)),
+                temporary => Copies.Acquire(nameof(HiddenLineDrawing.Compute), token => Answer.One(HiddenLineDrawing.Compute(parameters, multipleThreads, progress.ValueUnsafe(), token)), temporary)
+                    .Bind(drawing => Drawn(drawing, rejoin, outputs)),
                 DisposalOps.Release)
             select drawn,
             retain);
@@ -66,14 +63,6 @@ public static partial class Drawings {
         from bounded in IO.lift(() => Refused.Unless(camera.SetFrustumNearFar(bounds), nameof(ViewportInfo.SetFrustumNearFar)))
         from viewed in IO.lift(() => parameters.SetViewport(camera))
         select viewed;
-
-    private static IO<HiddenLineDrawing> Computed(HiddenLineDrawingParameters parameters, bool multipleThreads, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
-        from token in cancelToken
-        from drawing in Copies.Owned(
-            () => HiddenLineDrawing.Compute(parameters, multipleThreads, progress.ValueUnsafe(), token),
-            answer => Optional(answer).ToFin(token.IsCancellationRequested ? Errors.Cancelled : new Refused(nameof(HiddenLineDrawing.Compute), Refused.Absent)),
-            static answer => DisposalOps.Release(answer), retain)
-        select drawing;
 
     private static IO<LineDrawing> Drawn(HiddenLineDrawing drawing, bool rejoin, Action<IDisposable> retain) =>
         from rejoined in when(rejoin, IO.lift(drawing.RejoinCompatibleVisible)).As()
@@ -108,26 +97,16 @@ public static partial class Drawings {
         Optional(source).Bind(static found => Optional(found.Tag));
 
     // --- [SILHOUETTES]
-    public static IO<Seq<Silhouette>> Silhouettes(GeometryBase subject, SilhouetteType silhouetteType, SilhouetteFrame frame, Seq<Plane> clips, Tolerances tolerances, Action<IDisposable> retain) =>
-        Acquired(
-            token => frame.Switch(
-                (Subject: subject, Type: silhouetteType, Clips: clips, Tolerances: tolerances, Token: token),
-                point3d: static (state, eye) => Silhouette.Compute(state.Subject, state.Type, eye, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token),
-                vector3d: static (state, direction) => Silhouette.Compute(state.Subject, state.Type, direction, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token),
-                viewportInfo: static (state, viewport) => Silhouette.Compute(state.Subject, state.Type, viewport, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token)),
-            nameof(Silhouette.Compute), retain);
+    public static IO<Seq<Silhouette>> Silhouettes(Tolerances tolerances, GeometryBase subject, SilhouetteType silhouetteType, SilhouetteFrame frame, Seq<Plane> clips, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Silhouette.Compute), token => Answer.Rows(frame.Switch(
+            (Subject: subject, Type: silhouetteType, Clips: clips, Tolerances: tolerances, Token: token),
+            point3d: static (state, eye) => Silhouette.Compute(state.Subject, state.Type, eye, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token),
+            vector3d: static (state, direction) => Silhouette.Compute(state.Subject, state.Type, direction, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token),
+            viewportInfo: static (state, viewport) => Silhouette.Compute(state.Subject, state.Type, viewport, state.Tolerances.Absolute, state.Tolerances.Angle, state.Clips, state.Token)),
+            static row => Optional<IDisposable>(row.Curve)), retain);
 
-    public static IO<Seq<Silhouette>> DraftCurves(GeometryBase subject, double draftAngle, Vector3d pullDirection, Tolerances tolerances, Action<IDisposable> retain) =>
-        Acquired(
-            token => Silhouette.ComputeDraftCurve(subject, draftAngle, pullDirection, tolerances.Absolute, tolerances.Angle, token),
-            nameof(Silhouette.ComputeDraftCurve), retain);
-
-    private static IO<Seq<Silhouette>> Acquired(Func<CancellationToken, Silhouette[]> compute, string member, Action<IDisposable> retain) =>
-        from token in cancelToken
-        from pairs in Copies.Acquire(
-            () => compute(token) switch {
-                var rows => ((Curve?[]?)[.. rows.Select(static row => row.Curve)], rows),
-            },
-            member, retain)
-        select pairs.Map(static pair => pair.Row).Strict();
+    public static IO<Seq<Silhouette>> DraftCurves(Tolerances tolerances, GeometryBase subject, double draftAngle, Vector3d pullDirection, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Silhouette.ComputeDraftCurve), token => Answer.Rows(
+            Silhouette.ComputeDraftCurve(subject, draftAngle, pullDirection, tolerances.Absolute, tolerances.Angle, token),
+            static row => Optional<IDisposable>(row.Curve)), retain);
 }

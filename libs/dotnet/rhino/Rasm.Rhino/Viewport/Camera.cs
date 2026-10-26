@@ -1,3 +1,4 @@
+using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -30,20 +31,34 @@ public abstract partial record CameraLens {
     public sealed record TwoPoint(CameraAngle Angle, Vector3d Up) : CameraLens;
 }
 
-public sealed record CameraPose(Plane Frame, Point3d Target, CameraLens Lens);
+public sealed record CameraPose(Plane Frame, Point3d Target, CameraLens Lens) {
+    public bool Matches(CameraPose other, Tolerances tolerances) =>
+        tolerances.Matches(Frame, other.Frame)
+        && Target.DistanceTo(other.Target) <= tolerances.Absolute
+        && Lens.Switch(
+            (Other: other.Lens, Tolerances: tolerances),
+            parallel: static (at, lens) => at.Other is CameraLens.Parallel held && Math.Abs((double)lens.Extent - (double)held.Extent) <= at.Tolerances.Absolute,
+            perspective: static (at, lens) => at.Other is CameraLens.Perspective held && Math.Abs((double)lens.Angle - (double)held.Angle) <= at.Tolerances.Angle,
+            twoPoint: static (at, lens) => at.Other is CameraLens.TwoPoint held
+                && Math.Abs((double)lens.Angle - (double)held.Angle) <= at.Tolerances.Angle
+                && Vector3d.VectorAngle(lens.Up, held.Up) <= at.Tolerances.Angle);
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Cameras {
     // --- [POSE]
-    public static IO<CameraPose> Read(RhinoViewport viewport) =>
+    public static IO<CameraPose> Read(ViewportInfo camera) =>
         IO.lift(() => (
-                Refused.Unless(viewport.GetCameraFrame(out Plane read), read, nameof(RhinoViewport.GetCameraFrame)),
-                viewport.IsParallelProjection
-                    ? Refused.Unless(viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out _, out _), Math.Min(Math.Max(right, -left), Math.Max(top, -bottom)), nameof(RhinoViewport.GetFrustum))
+                Refused.Unless(camera.GetCameraFrame(out Point3d location, out Vector3d x, out Vector3d y, out _), new Plane(location, x, y), nameof(ViewportInfo.GetCameraFrame)),
+                camera.IsParallelProjection
+                    ? Refused.Unless(camera.GetFrustum(out double left, out double right, out double bottom, out double top, out _, out _), Math.Min(Math.Max(right, -left), Math.Max(top, -bottom)), nameof(ViewportInfo.GetFrustum))
                         .Bind(ParallelExtent.Validated).Map<CameraLens>(static extent => extent)
-                    : CameraAngle.Validated(viewport.CameraAngle)
-                        .Map<CameraLens>(angle => viewport.IsTwoPointPerspectiveProjection ? new CameraLens.TwoPoint(angle, viewport.CameraUp) : angle))
-            .Apply((frame, lens) => new CameraPose(frame, viewport.CameraTarget, lens)).As());
+                    : CameraAngle.Validated(camera.CameraAngle)
+                        .Map<CameraLens>(angle => camera.IsTwoPointPerspectiveProjection ? new CameraLens.TwoPoint(angle, camera.CameraUp) : angle))
+            .Apply((frame, lens) => new CameraPose(frame, camera.TargetPoint, lens)).As());
+
+    public static IO<CameraPose> Read(RhinoViewport viewport) =>
+        DisposalOps.Within(() => new ViewportInfo(viewport), Read);
 
     public static Fin<Unit> Write(RhinoViewport viewport, CameraPose pose) {
         using ViewportInfo copy = new(viewport);
@@ -79,7 +94,8 @@ public static class Cameras {
             DisposalOps.Within(() => new ViewportInfo(viewport), camera => edit(camera).Bind(_ => IO.lift(() => Applied(viewport, camera))))
                 .Bind(_ => DisposalOps.Within(IO.pure(held), _ => body, _ => IO.lift(() => Applied(viewport, held)))));
 
-    internal static Fin<Unit> Applied(RhinoViewport viewport, ViewportInfo camera) =>
-        Refused.Unless(viewport.SetViewProjection(camera, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection))
+    private static Fin<Unit> Applied(RhinoViewport viewport, ViewportInfo camera) =>
+        Refused.Unless(!viewport.LockedProjection, nameof(RhinoViewport.LockedProjection))
+            .Bind(_ => Refused.Unless(viewport.SetViewProjection(camera, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection)))
             .Map(fun((Unit _) => viewport.SetCameraTarget(camera.TargetPoint, updateCameraLocation: false)));
 }

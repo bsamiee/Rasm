@@ -5,8 +5,6 @@ using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Doc.Attributes;
 using Grasshopper2.Eto.Drawing;
-using Grasshopper2.Extensions;
-using Grasshopper2.Parameters;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Primitives;
@@ -14,24 +12,22 @@ using Grasshopper2.UI.Skinning;
 using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
 using Rasm.Grasshopper.UI;
+using Rasm.Grasshopper.UI.Surfaces;
 using Rasm.Rhino;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Drawing;
-using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Surfaces;
+using SkiaSharp;
 
 namespace Rasm.Grasshopper.Components;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReading, PlotCanvas, RectangleF, IO<Unit>> Paint) {
+public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReading, Rasm.UI.Node> View) {
     public Padding ResizeEdges { get; init; } = new(ResizableAttributes<Component>.EdgeSize);
     public Option<Action<PlotAttributes<TReading>>> Configure { get; init; }
 
     public static Fin<PlotBody<TReading>> Of(
-        (float Minimum, float Ideal, float Maximum) width, (float Minimum, float Ideal, float Maximum) height,
-        Func<TReading, PlotCanvas, RectangleF, IO<Unit>> paint) =>
+        (float Minimum, float Ideal, float Maximum) width, (float Minimum, float Ideal, float Maximum) height, Func<TReading, Rasm.UI.Node> view) =>
         (Axis(width), Axis(height))
-            .Apply((wide, high) => new PlotBody<TReading>(wide, high, paint)).As();
+            .Apply((wide, high) => new PlotBody<TReading>(wide, high, view)).As();
 
     private static Fin<Extent> Axis((float Minimum, float Ideal, float Maximum) axis) =>
         (CanvasLength.Validated(axis.Minimum),
@@ -43,56 +39,62 @@ public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReadi
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAttributes, ICursorAwareAttributes {
+public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAttributes, ICursorAwareAttributes, IDisposable {
     // --- [STATE]
     private const string SizeKey = "Attr.Size";
-    private const float Rim = 2f * (StandardLayout.IconPadding + Plots.Inset);
+    private const float Rim = 2f * StandardLayout.IconPadding;
     private readonly ModularComponent component;
     private readonly IPlugInSink sink;
-    private readonly Option<(PlotBody<TReading> Body, Atom<Option<TReading>> Reading)> plot;
+    private readonly PlotBody<TReading> body;
+    private readonly Atom<Option<TReading>> reading;
+    private readonly object modular;
+    private readonly Guest guest;
     private readonly Ref<Option<Either<Resizing, IDisposable>>> track = Ref(Option<Either<Resizing, IDisposable>>.None);
-    private Option<(ComponentControl Control, Func<(SizeF Size, float Scale)> Surface)> hosted;
+    private Option<TReading> read;
+    private Option<Rasm.UI.Node> view;
     private SlabF silhouette;
 
     public Option<Func<PointF, ObjectSolutionState, IO<object>>> Tooltip { get; init; }
     public Option<Func<PointF, IO<Option<Cursor>>>> Cursor { get; init; }
 
-    public PlotAttributes(ModularComponent owner, IPlugInSink sink, PlotBody<TReading> body, Atom<Option<TReading>> reading) : this(owner, sink) {
-        plot = Some((body, reading));
-        _ = body.Configure.Iter(configure => configure(this));
-    }
-
-    public PlotAttributes(ModularComponent owner, IPlugInSink sink) : base(owner) {
-        (component, this.sink) = (owner, sink);
-        Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored), nameof(Responses.MouseDown));
+    public PlotAttributes(ModularComponent owner, IPlugInSink sink, PlotBody<TReading> body, Atom<Option<TReading>> reading) : base(owner) {
+        (component, this.sink, this.body, this.reading) = (owner, sink, body, reading);
+        modular = ModularAttributes.Create(owner);
+        guest = new Guest(sink, IO.lift(Owner.OnDisplayChanged));
+        Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => (args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored))
+            .Bind(resized => Or(resized, Guided(args, static (local, clicks) => Some(HostInput.Pressed(local, clicks))))), nameof(Responses.MouseDown));
+        Responder.MouseDoubleClickHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => Some(HostInput.Pressed(local, clicks))), nameof(Responses.MouseDoubleClick));
         Responder.MouseDragHook += Reply<ResponseMouseArgs>(args => Sizing(current => IO.lift(() => {
             current.Frame.Continue(args.ContentLocation);
             ((IResizableAttributes)this).Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
             Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
-        }).Map(Response.Handled)), nameof(Responses.MouseDrag));
-        Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored), nameof(Responses.MouseUp));
+        }).Map(Response.Handled)).Bind(resized => Or(resized, Guided(args, static (local, clicks) => Some(HostInput.Moved(local, clicks))))), nameof(Responses.MouseDrag));
+        Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => (args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored))
+            .Bind(resized => Or(resized, Guided(args, HostInput.Released))), nameof(Responses.MouseUp));
+        Responder.MouseWheelHook += Reply<ResponseMouseArgs>(args => Guided(args, static (local, _) => Some(HostInput.Wheeled(local))), nameof(Responses.MouseWheel));
+        Responder.MouseOverHook += Observe<ResponseMouseArgs>(args => Guided(args, static (local, clicks) => Some(HostInput.Moved(local, clicks))).Map(unit), nameof(Responses.MouseOver));
+        Responder.MouseLeaveHook += () => Callbacks.Started(guest.Receive(new Rasm.UI.Input.Hover(None)), Site(nameof(Responses.MouseLeave)));
         Responder.KeyDownHook += Reply<KeyEventArgs>(args => (args.Key, args.Modifiers) switch {
-            (Keys.Escape, _) => track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: static () => IO.pure(Response.Ignored))),
+            (Keys.Escape, _) => track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: () => guest.Keyed(args))),
             (Keys.S, Keys.None) => Sizing(_ => IO.lift(() => {
                 Grasshopper2.Settings.CanvasSnapToObjects.Value = !Grasshopper2.Settings.CanvasSnapToObjects.Value;
                 args.Handled = true;
-            }).Bind(static _ => SnapSession.End(Editor.Instance.Canvas)).Map(Response.Handled)),
-            _ => IO.pure(Response.Ignored),
+            }).Bind(static _ => SnapSession.End(Editor.Instance.Canvas)).Map(Response.Handled)).Bind(resized => Or(resized, guest.Keyed(args))),
+            _ => guest.Keyed(args),
         }, nameof(Responses.KeyDown));
-        Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled, Site(nameof(Responses.LostFocus))).Invoke;
+        Responder.TextInputHook += Reply<TextInputEventArgs>(args => guest.Receive(new Rasm.UI.Input.Perform(new Rasm.UI.Act.Insert(args.Text), new Rasm.UI.Target.Focused())), nameof(Responses.TextInput));
+        Responder.GotFocus += Callbacks.Handler<EventArgs>(_ => guest.Rehost(Rasm.UI.Visibility.Active), Site(nameof(Responses.GotFocus))).Invoke;
+        Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled.Bind(__ => guest.Rehost(Rasm.UI.Visibility.Shown)), Site(nameof(Responses.LostFocus))).Invoke;
+        _ = body.Configure.Iter(configure => configure(this));
     }
 
     // --- [LAYOUT]
     SizeF IResizableAttributes.Size {
         get {
-            SizeF held = Owner.CustomValues.Get(SizeKey, plot.Match(
-                Some: static body => new SizeF(body.Body.Width.Ideal, body.Body.Height.Ideal),
-                None: static () => new SizeF(StandardLayout.LargeObjectWidth, StandardLayout.LargeObjectHeight)));
-            SizeF shown = plot.IsNone
-                ? hosted.Bind(control => control.Control.PreferredHeight(held.Width + (2f * Plots.Inset)))
-                    .Map(height => new SizeF(held.Width, height - (2f * Plots.Inset))).IfNone(held)
-                : held;
-            return SizeF.Max(Minimum, SizeF.Min(shown, Maximum));
+            SizeF held = Owner.CustomValues.Get(SizeKey, new SizeF(body.Width.Ideal, body.Height.Ideal));
+            SizeF preferred = guest.Preferred(new SKSize(held.Width, held.Height)).Map(static size => new SizeF(size.Width, size.Height)).IfNone(held);
+            (bool wide, bool high) = Stretched;
+            return SizeF.Max(Minimum, SizeF.Min(new SizeF(wide ? held.Width : preferred.Width, high ? held.Height : preferred.Height), Maximum));
         }
         set {
             SizeF held = SizeF.Max(Minimum, SizeF.Min(Size.Round(value), Maximum));
@@ -125,7 +127,6 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     protected override void LayoutBounds(Shape shape) {
         base.LayoutBounds(shape);
         silhouette = new SlabF(Bounds, shape.Thickness, shape.Corners);
-        Callbacks.Run(hosted.Match(Some: static held => held.Control.SurfaceChanged, None: static () => IO.pure(unit)), Site());
     }
 
     protected override void PivotMoved(PointF oldPivot, PointF newPivot) {
@@ -135,12 +136,14 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     public override bool IsCoincident(PointF point) => silhouette.Contains(point);
 
-    private SizeF Minimum => SizeF.Max(plot.Match(Some: static held => new SizeF(held.Body.Width.Minimum, held.Body.Height.Minimum),
-        None: static () => new SizeF(CanvasLength.MinValue, CanvasLength.MinValue)),
+    private (bool Wide, bool High) Stretched => view.Map(static node => (Stretches(node.Width), Stretches(node.Height))).IfNone((true, true));
+
+    private static bool Stretches(Option<Rasm.UI.Sizing> sizing) => sizing.Exists(static held => held is Rasm.UI.Sizing.Grow or Rasm.UI.Sizing.Percent);
+
+    private SizeF Minimum => SizeF.Max(new SizeF(body.Width.Minimum, body.Height.Minimum),
         new SizeF(0f, (StandardLayout.ParameterMinHeight * int.Max(component.ModularInputs.VisibleCount, component.ModularOutputs.VisibleCount)) - Rim));
 
-    private SizeF Maximum => SizeF.Max(Minimum, plot.Match(Some: static held => new SizeF(held.Body.Width.Maximum, held.Body.Height.Maximum),
-        None: static () => new SizeF(CanvasLength.MaxValue, CanvasLength.MaxValue)));
+    private SizeF Maximum => SizeF.Max(Minimum, new SizeF(body.Width.Maximum, body.Height.Maximum));
 
     private PaddingF Margins => new(CentralBox.Left - Bounds.Left, CentralBox.Top - Bounds.Top, Bounds.Right - CentralBox.Right, Bounds.Bottom - CentralBox.Bottom);
 
@@ -150,10 +153,10 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             SizeF surround = margins.Size + new SizeF(Rim, Rim);
             SizeF minimum = Minimum + surround;
             SizeF maximum = Maximum + surround;
-            Padding edges = plot.Match(Some: static held => held.Body.ResizeEdges, None: static () => new Padding(ResizableAttributes<Component>.EdgeSize));
+            (bool wide, bool high) = Stretched;
+            Padding edges = body.ResizeEdges;
             return (minimum, maximum, FrameLimits.ResizeBands(minimum, maximum,
-                plot.IsNone && hosted.Bind(control => control.Control.PreferredHeight(ContentBox.Width)).IsSome
-                    ? new Padding(edges.Left, 0, edges.Right, 0) : edges), margins);
+                new Padding(wide ? edges.Left : 0, high ? edges.Top : 0, wide ? edges.Right : 0, high ? edges.Bottom : 0)), margins);
         }
     }
 
@@ -164,132 +167,41 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     }
 
     protected override void DrawContent(Context context, Skin skin, Capsule capsule, Shade shade) =>
-        Callbacks.Run(CanvasPainting.Plotted(context, skin.Shape.FontWord, Responder.HasFocus, canvas =>
-            from well in Plots.Well(canvas, ContentBox)
-            from figure in Figure(canvas, ContentBox)
-            from edge in IO.lift(() => context.Graphics.DrawRectangle(shade.Edge, ContentBox))
-            select unit), Site());
+        Callbacks.Run(
+            from before in IO.lift(() => ((IResizableAttributes)this).Size)
+            from current in reading.ValueIO
+            from viewed in IO.lift(() => Viewed(current))
+            from painted in viewed.Traverse(shown =>
+                from device in IO.lift(() => Guest.Device(context))
+                from drawn in guest.Paint(context.Graphics, device, ContentBox, Responder.HasFocus ? Rasm.UI.Visibility.Active : Rasm.UI.Visibility.Shown, shown)
+                select unit).As()
+            from refit in IO.lift(() => Refit(before))
+            select unit, Site());
+
+    private Option<Rasm.UI.Node> Viewed(Option<TReading> current) {
+        if (current.Equals(read)) return view;
+        read = current;
+        view = current.Map(body.View);
+        return view;
+    }
+
+    private Unit Refit(SizeF before) {
+        if (((IResizableAttributes)this).Size == before) return unit;
+        InvalidateLayout();
+        Owner.OnLayoutChanged();
+        return unit;
+    }
 
     protected override void DrawForeground(Context context, Skin skin, Capsule capsule, Shade shade) {
-        Callbacks.Run(DisposalOps.Within(
-            () => capsule.Slab.ApexPath,
-            path => IO.lift(() => context.Graphics.SetClip(path)).Bind(_ => IO.lift(() =>
-                (from side in Sides from parameter in side.Parameters select (side.Side, Parameter: parameter)).Iter(held => {
-                    if (!ModularList.ResolveColour(held.Parameter, out Color color))
-                        return;
-
-                    const float width = 3f;
-                    RectangleF bounds = held.Parameter.Attributes.Bounds;
-                    context.Graphics.FillRectangle(color, new RectangleF(held.Side is PlugSide.Input ? bounds.Left : bounds.Right - width, bounds.Top, width, bounds.Height));
-                }))),
-            path => Callbacks.Each(Seq(IO.lift(context.Graphics.ResetClip), IO.lift(path.Dispose))).Map(unit)), Site());
+        Callbacks.Run(IO.lift(() => {
+            ModularAttributes.ColourInputCategories(modular, context, capsule, component.ModularInputs);
+            ModularAttributes.ColourOutputCategories(modular, context, capsule, component.ModularOutputs);
+        }), Site());
         base.DrawForeground(context, skin, capsule, shade);
     }
 
     protected override void DrawForegroundDecorations(Context context, Skin skin, Capsule capsule, Shade shade) =>
-        Callbacks.Run(IO.lift(() => {
-            Seq<(PlugSide Side, RectangleF Bounds)> separators = Sides.Bind(static side => side.Parameters.Zip(side.Parameters.Tail).Choose(pair => {
-                _ = ModularList.ResolveCategory(pair.First, out string before);
-                _ = ModularList.ResolveCategory(pair.Second, out string after);
-                return string.Equals(before, after, StringComparison.Ordinal) ? None : Some((side.Side, pair.Second.Attributes.Bounds));
-            }));
-            _ = separators.Iter(separator => {
-                const float radius = 4f;
-                const float halfPixel = 0.5f;
-                const float gap = 1f;
-                RectangleF bounds = separator.Bounds;
-                float direction = separator.Side is PlugSide.Input ? 1f : -1f;
-                float outer = (separator.Side is PlugSide.Input ? bounds.Left : bounds.Right) + (direction * halfPixel);
-                float inner = outer + (direction * radius);
-                float top = bounds.Top - gap;
-                float bottom = bounds.Top + gap;
-                using GraphicsPath path = new();
-                path.AddArc(new PointF(outer, top - radius), new PointF(inner, top), new SizeF(0f, 1f));
-                path.AddArc(new PointF(inner, top), new PointF(inner, bottom), new SizeF(direction, 0f));
-                path.AddArc(new PointF(inner, bottom), new PointF(outer, bottom + radius), new SizeF(-direction, 0f));
-                context.Graphics.FillPath(shade.Edge, path);
-            });
-        }), Site());
-
-    private Seq<(PlugSide Side, Seq<IParameter> Parameters)> Sides => Seq(
-        (PlugSide.Input, toSeq(component.ModularInputs.VisibleParameters)),
-        (PlugSide.Output, toSeq(component.ModularOutputs.VisibleParameters)));
-
-    private IO<Unit> Figure(PlotCanvas canvas, RectangleF well) =>
-        hosted.Match(
-            Some: control => DisposalOps.Within(() => {
-                canvas.Graphics.SaveTransform();
-                return canvas.Graphics;
-            }, graphics => IO.lift(() => graphics.TranslateTransform(well.Location)).Bind(_ => control.Control.Render(canvas, well.Size, interactive: true)),
-                static graphics => IO.lift(graphics.RestoreTransform)),
-            None: () => plot.Match(Some: held => held.Reading.ValueIO.Bind(value => value.Match(
-                Some: shown => held.Body.Paint(shown, canvas, well), None: static () => IO.pure(unit))), None: static () => IO.pure(unit)));
-
-    // --- [HOSTING]
-    public IO<Unit> Bind(RowScope scope, Seq<ControlRow> rows, Seq<EntryKey> keys, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from grid in RowGrid.Realize(rows, rows.Filter(row => row.Keys.Exists(key => keys.Exists(key.Equals))), scope.Hosted(Editor.Instance.Canvas), owned)
-            from bound in grid.Plot(keys).Traverse(control => Bind(control, owned)).As()
-            select unit, retain);
-
-    public IO<Unit> Bind(ComponentControl control, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(keep => {
-            Canvas canvas = Editor.Instance.Canvas;
-            float Scale() => canvas.ParentWindow.LogicalPixelSize * canvas.Projection.Zoom;
-            IO<Response> Mouse(ResponseMouseArgs args, Func<SizeF, float, MouseEventArgs, IO<Unit>> act) =>
-                from local in IO.lift(() => new MouseEventArgs(args.Buttons, args.Modifiers, new PointF(args.ContentLocation.X - ContentBox.X, args.ContentLocation.Y - ContentBox.Y),
-                    args.Delta, args.Pressure, args.UnderlyingEtoEventArgs.IsDirectionInverted))
-                from acted in act(ContentBox.Size, Scale(), local)
-                from answered in IO.lift(() => {
-                    args.Handled |= local.Handled;
-                    return control.Captured ? Response.Capture : local.Handled ? Response.Handled : Response.Ignored;
-                })
-                select answered;
-            Option<(ComponentControl Control, Func<(SizeF Size, float Scale)> Surface)> prior = hosted;
-            Func<(SizeF Size, float Scale)> surface = () => (ContentBox.Size, Scale());
-            IO<Unit> cancel = IO.lift(() => ContentBox.Size).Bind(size => control.Cancel(size, Scale()));
-            Func<ResponseMouseArgs, Response> press = Reply<ResponseMouseArgs>(args =>
-                DisposalOps.OnFailure(Mouse(args, control.Press).Bind(reply => reply is Response.Capture
-                    ? Capture(owned => DisposalOps.Acquire(IO.pure(unit), _ => cancel, owned))
-                    : IO.pure(reply)), cancel));
-            Func<ResponseMouseArgs, Response> drag = Reply<ResponseMouseArgs>(args => Mouse(args, control.Move));
-            Func<ResponseMouseArgs, Response> up = Reply<ResponseMouseArgs>(args =>
-                from captured in IO.lift(() => control.Captured)
-                from reply in Mouse(args, control.Release)
-                from released in captured ? Released : IO.pure(reply)
-                select released);
-            Func<ResponseMouseArgs, Response> twice = Reply<ResponseMouseArgs>(args => Mouse(args, control.DoubleClick));
-            Func<ResponseMouseArgs, Response> wheel = Reply<ResponseMouseArgs>(args => Mouse(args, control.Scroll));
-            Action<ResponseMouseArgs> over = Observe<ResponseMouseArgs>(args => Mouse(args, control.Move).Map(unit));
-            System.Action leave = () => Callbacks.Started(DisposalOps.OnFailure(control.Leave(ContentBox.Size, Scale()), Cancelled), Site());
-            Func<KeyEventArgs, Response> key = Reply<KeyEventArgs>(args => control.Key(ContentBox.Size, Scale(), args)
-                .Map(_ => control.Captured ? Response.Capture : args.Handled ? Response.Handled : Response.Ignored));
-            EventHandler redraw = (_, _) => Owner.OnDisplayChanged();
-            EventHandler preferred = (_, _) => { InvalidateLayout(); Owner.OnLayoutChanged(); };
-            return from initial in IO.lift(() => Layout(Skin.Current.Shape))
-                   from borrowed in control.Hosted(canvas, surface, keep)
-                   from down in Subscriptions.Attach(add => Responder.MouseDownHook += add, remove => Responder.MouseDownHook -= remove, press, keep)
-                   from moved in Subscriptions.Attach(add => Responder.MouseDragHook += add, remove => Responder.MouseDragHook -= remove, drag, keep)
-                   from raised in Subscriptions.Attach(add => Responder.MouseUpHook += add, remove => Responder.MouseUpHook -= remove, up, keep)
-                   from doubled in Subscriptions.Attach(add => Responder.MouseDoubleClickHook += add, remove => Responder.MouseDoubleClickHook -= remove, twice, keep)
-                   from scrolled in Subscriptions.Attach(add => Responder.MouseWheelHook += add, remove => Responder.MouseWheelHook -= remove, wheel, keep)
-                   from hovered in Subscriptions.Attach(add => Responder.MouseOverHook += add, remove => Responder.MouseOverHook -= remove, over, keep)
-                   from left in Subscriptions.Attach(add => Responder.MouseLeaveHook += add, remove => Responder.MouseLeaveHook -= remove, leave, keep)
-                   from keyed in Subscriptions.Attach(add => Responder.KeyDownHook += add, remove => Responder.KeyDownHook -= remove, key, keep)
-                   from invalidated in Subscriptions.Attach(add => control.Redraw += add, remove => control.Redraw -= remove, redraw, keep)
-                   from fitted in Subscriptions.Attach(add => control.PreferredSizeChanged += add, remove => control.PreferredSizeChanged -= remove, preferred, keep)
-                   from bound in DisposalOps.Acquire(IO.pure(control), released => IO.lift(() => {
-                       bool current = hosted.Exists(bound => ReferenceEquals(bound.Surface, surface));
-                       hosted = hosted.Filter(_ => !current);
-                       return current;
-                   }).Bind(current => (current ? Callbacks.Each(Seq(Cancelled, released.Leave(ContentBox.Size, Scale()))).Map(unit) : cancel).Uninterruptible()), keep)
-                   from arranged in DisposalOps.OnFailure(IO.lift(() => {
-                       hosted = Some((control, surface));
-                       InvalidateLayout();
-                       Layout(Skin.Current.Shape);
-                   }), IO.lift(() => { hosted = prior; InvalidateLayout(); }))
-                   select unit;
-        }, retain);
+        Callbacks.Run(IO.lift(() => ModularAttributes.DrawForegroundDecorations(modular, context, skin, capsule, shade)), Site());
 
     // --- [INTERACTION]
     public Func<TArgs, Response> Reply<TArgs>(Func<TArgs, IO<Response>> respond, [CallerMemberName] string member = "") =>
@@ -306,6 +218,12 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         })).Map(Response.Capture);
 
     public IO<Response> Released => Cancelled.Map(Response.Release);
+
+    private IO<Response> Guided(ResponseMouseArgs args, Func<MouseEventArgs, int, Option<Rasm.UI.Input>> convert) =>
+        IO.lift(() => HostInput.Clicks.Map(clicks => convert(Guest.Local(args, ContentBox.TopLeft), clicks)))
+            .Bind(input => input.Match(Some: guest.Receive, None: static () => IO.pure(Response.Ignored)));
+
+    private static IO<Response> Or(Response resized, IO<Response> guided) => resized is Response.Ignored ? guided : IO.pure(resized);
 
     private CallbackSite Site([CallerMemberName] string member = "") => new(sink, typeof(PlotAttributes<TReading>), member);
 
@@ -362,13 +280,38 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             return Optional(new ResizingFrame(Bounds, frame.Minimum, frame.Maximum).CursorAt(point, frame.Bands));
         }).Bind(native => native.Match(
             Some: static cursor => IO.pure(Some(cursor)),
-            None: () => hosted.Filter(_ => ContentBox.Contains(point)).Match(Some: static control => IO.pure(Optional(control.Control.Cursor)),
+            None: () => guest.Cursor.Filter(_ => ContentBox.Contains(point)).Match(
+                Some: static drawn => IO.lift(() => drawn).Map(static cursor => Some(cursor)),
                 None: () => Cursor.Match(Some: custom => IO.pure(point).Bind(custom), None: static () => IO.pure(Option<Cursor>.None)))))
         .Map(static cursor => cursor.ValueUnsafe()), static () => null, Site(nameof(ICursorAwareAttributes.CursorAt)));
 
     protected override object? TooltipDetails(PointF point, ObjectSolutionState state) => Callbacks.Answer(
         Tooltip.Map(custom => IO.pure(point).Bind(location => custom(location, state)).Map(Some)),
-        () => hosted.IsSome || plot.Exists(static held => held.Reading.Value.IsSome)
-            ? Some<object>(CanvasChrome.Painter(Editor.Instance.Canvas, Site(nameof(TooltipDetails)), Figure)) : Optional(base.TooltipDetails(point, state)),
+        () => guest.Help.Map(static help => (object)help)
+              | view.Map(shown => (object)Guest.TooltipPainter(sink, shown, Site(nameof(TooltipDetails))))
+              | Optional(base.TooltipDetails(point, state)),
         static () => None, Site()).ValueUnsafe();
+
+    public void Dispose() {
+        throw new NotImplementedException();
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+internal static class ModularAttributes {
+    // --- [HOST]
+    private const string Host = "Grasshopper2.Doc.Attributes.ModularComponentAttributes, Grasshopper2";
+
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    [return: UnsafeAccessorType(Host)]
+    internal static extern object Create(ModularComponent component);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = nameof(ColourInputCategories))]
+    internal static extern void ColourInputCategories([UnsafeAccessorType(Host)] object attributes, Context context, Capsule capsule, ModularList input);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = nameof(ColourOutputCategories))]
+    internal static extern void ColourOutputCategories([UnsafeAccessorType(Host)] object attributes, Context context, Capsule capsule, ModularList output);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = nameof(DrawForegroundDecorations))]
+    internal static extern void DrawForegroundDecorations([UnsafeAccessorType(Host)] object attributes, Context context, Skin skin, Capsule capsule, Shade shade);
 }

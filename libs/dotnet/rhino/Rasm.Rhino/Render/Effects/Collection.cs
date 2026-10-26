@@ -124,7 +124,10 @@ public static class EffectRegistry {
     private static IO<A> Stored<TEffect, A>(EffectSource source, Func<Func<string, IO<Option<string>>>, IO<A>> read) where TEffect : PostEffect =>
         source.Switch(
             read,
-            document: static (body, held) => RenderSettingsSources.Read(held.Doc, scope => Entry(scope.Settings, typeof(TEffect).GUID, data => body(name => Stored(data, name)))),
+            document: static (body, held) => RenderSettingsSources.Read(held.Doc, scope => Within(scope.Settings, (_, entries) =>
+                entries.Find(static data => data.Id == typeof(TEffect).GUID).Match(
+                    Some: data => body(name => Stored(data, name)),
+                    None: () => body(static _ => IO.pure(Option<string>.None))))),
             section: static (body, held) => Hosted(held.Host)
                 .Bind(static effects => IO.lift(effects.Find(static effect => effect.Id == typeof(TEffect).GUID).ToFin(new NotFound("post effect", $"{typeof(TEffect).GUID}"))))
                 .Bind(effect => body(name => Parameter(effect, name))));

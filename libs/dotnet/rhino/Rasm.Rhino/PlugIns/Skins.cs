@@ -49,12 +49,12 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
     protected sealed override System.Drawing.Bitmap? MainRhinoIcon =>
         Callbacks.Answer(
             (HostUtils.RunningOnWindows
-                ? Icons.PlugInImage(this, static (assets, name) => assets.SystemDrawing.Bitmaps.Get(name, new System.Drawing.Size(256, 256)))
+                ? Icons.PlugInImage(this).Bind(static glyph => glyph.Traverse(static art => Icons.Raster(art, new System.Drawing.Size(256, 256))).As())
                 : IO.pure(Option<System.Drawing.Bitmap>.None)).Map(static bitmap => bitmap.ValueUnsafe()),
             static () => null,
             CallbackSite.Of(this));
 
-    private IO<Option<Icon>> Mark => Icons.PlugInImage(this, static (assets, name) => assets.Eto.Icons.Get(name, new Size(128, 128)));
+    private IO<Option<Icon>> Mark => Icons.PlugInImage(this).Bind(static glyph => glyph.Traverse(static art => Icons.Frames(art, new Size(128, 128))).As());
 
     // --- [LOAD]
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>

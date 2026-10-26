@@ -66,8 +66,8 @@ public static class Instances {
               from id in IO.lift(() => Conversions.Required(doc.Objects.AddInstanceObject(definition.Index, piece.Xform * nested.InstanceXform, piece.Attributes), nameof(ObjectTable.AddInstanceObject)))
               select id
             : DisposalOps.Within<IDisposable, Guid>(retain =>
-               from copy in Copies.Acquire(piece.Piece.DuplicateGeometry, nameof(RhinoObject.DuplicateGeometry), retain)
-               from moved in Transformations.Transformed(copy, piece.Xform)
+               from copy in Copies.Acquire(nameof(RhinoObject.DuplicateGeometry), _ => Answer.One(piece.Piece.DuplicateGeometry()), retain)
+               from moved in Transformations.Transformed(copy, piece.Xform, retain)
                from id in TableOps.Add(doc, new GeometryPair(moved, Some(piece.Attributes)), None, reference: false)
                select id, DisposalOps.Release))
         .MapFail(error => Error.Many(error.FoldM(cause => Seq(cause is Refused refused ? new Refused(refused.Member, refused.Reason, index) : cause)).As()));

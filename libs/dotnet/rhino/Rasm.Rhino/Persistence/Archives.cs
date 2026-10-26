@@ -1,6 +1,8 @@
 using QuikGraph;
+using Rasm.Imaging.Files;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
+using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Riok.Mapperly.Abstractions;
@@ -11,8 +13,11 @@ namespace Rasm.Rhino.Persistence;
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ArchiveSource {
     public sealed record Located(string Path, File3dm.TableTypeFilter Tables, File3dm.ObjectTypeFilter Objects) : ArchiveSource {
+        internal override IO<string> Existing() =>
+            IO.lift(() => Exchange.ExistingPath(Path));
+
         internal override IO<ArchiveRead> Open() =>
-            from path in IO.lift(() => Exchange.ExistingPath(Path))
+            from path in Existing()
             from read in IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(path, Tables, Objects, out string log) is { } model
                 ? new ArchiveRead(model, Conversions.Present(log))
                 : new FileRefused(path, $"failed {nameof(File3dm.ReadWithLog)}. {log}"))
@@ -20,9 +25,14 @@ public abstract partial record ArchiveSource {
     }
 
     public sealed record Buffered(Arr<byte> Bytes) : ArchiveSource {
+        internal override IO<string> Existing() =>
+            IO.fail<string>(Error.New("buffered archive names no file"));
+
         internal override IO<ArchiveRead> Open() =>
             IO.lift(() => Refused.UnlessFound(File3dm.FromByteArray([.. Bytes]), nameof(File3dm.FromByteArray)).Map(static model => new ArchiveRead(model, None)));
     }
+
+    internal abstract IO<string> Existing();
 
     internal abstract IO<ArchiveRead> Open();
 }
@@ -121,6 +131,11 @@ public static partial class Archives {
             read.Vertices.Map(static vertex => vertex.Identity).ToBidirectionalGraph(vertex => outEdges[vertex], allowParallelEdges: true).ToArrayBidirectionalGraph(),
             resolved.Lefts, read.Sources);
 
+    public static IO<Transform> Scaling(File3dm archive, RhinoDoc doc) =>
+        IO.lift(() => LengthUnit.Scale(archive.Settings.ModelUnits, doc.ModelUnits) switch {
+            var scale => Refused.UnlessValid(RhinoMath.IsValidDouble(scale) && scale > 0d, Transform.Scale(Point3d.Origin, scale), nameof(LengthUnit.Scale)),
+        });
+
     public static IO<Seq<ObjectFinding>> Verify(File3dm archive) =>
         IO.lift(() => Conversions.Rows(archive.Objects).Choose(static item => item.Geometry switch {
             null => Some(new ObjectFinding(item.Id, None)),
@@ -148,9 +163,7 @@ public static partial class Archives {
         from saved in IO.lift(() => Callbacks.Each(rows, static row => row.File.SaveToFile(row.Path), nameof(File3dmEmbeddedFile.SaveToFile)))
         select rows.Map(static row => row.Path);
 
-    public static IO<StepOutcome> Persist(File3dm archive, string path, File3dmWriteOptions options) =>
-        from qualified in IO.lift(() => Exchange.QualifiedPath(path))
-        from outcome in StepOutcome.Land(qualified, target => IO.lift(() =>
-            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new FileRefused(target, $"failed {nameof(File3dm.WriteWithLog)}. {log}")))
-        select outcome;
+    public static IO<StepOutcome> Persist(File3dm archive, OutputPath path, File3dmWriteOptions options) =>
+        StepOutcome.Land(path, target => IO.lift(() =>
+            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new FileRefused(target, $"failed {nameof(File3dm.WriteWithLog)}. {log}")));
 }

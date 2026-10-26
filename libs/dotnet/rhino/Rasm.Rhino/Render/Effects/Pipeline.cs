@@ -6,13 +6,15 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using Rasm.Imaging.Tone;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Sessions;
-using Rasm.Rhino.Render.UI;
+using Rasm.UI.Imaging;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
+using SkiaSharp;
 using UUIDNext;
 
 namespace Rasm.Rhino.Render.Effects;
@@ -32,6 +34,8 @@ public sealed record RenderRun(
     public static RenderRun Empty { get; } = new(None, None, None, None, None, None, None, None, [], [], None, None);
 
     public Option<HashMap<RenderWindow.StandardChannels, PixelFrame>> Channels { get; init; }
+
+    public bool Rendering { get; init; }
 
     public RenderRun Tapped(PostEffectType stage, PixelFrame input, Transfer signal, PixelFrame formed, Option<Func<PassContext, Option<PixelPass>>> pass, bool dither, Seq<Guid> native, Fin<PixelFrame> output) =>
         stage switch {
@@ -61,9 +65,10 @@ public static class RenderRuns {
     internal static IO<Unit> Started(PostEffectPipeline pipeline) =>
         DisposalOps.Within(() => Optional(pipeline.GetChannelForRead(captureChannel)),
             found => found.Match(
-                Some: static _ => IO.pure(unit),
+                Some: _ => when(!Find(pipeline.RenderingId).Exists(run => run.Rendering == pipeline.IsRendering),
+                    IO.lift(() => Fill(pipeline.RenderingId, run => run with { Rendering = pipeline.IsRendering })).Map(static _ => unit)).As(),
                 None: () =>
-                    from reset in IO.lift(() => Fill(pipeline.RenderingId, static run => run with {
+                    from reset in IO.lift(() => Fill(pipeline.RenderingId, run => run with {
                         Formation = None,
                         Scene = None,
                         Channels = None,
@@ -71,6 +76,7 @@ public static class RenderRuns {
                         NativeLate = [],
                         Output = None,
                         Formed = None,
+                        Rendering = pipeline.IsRendering,
                     }))
                     from committed in DisposalOps.Found(() => pipeline.GetChannelForWrite(captureChannel), nameof(PostEffectPipeline.GetChannelForWrite), static channel => IO.lift(channel.Commit))
                     select unit),
@@ -85,9 +91,14 @@ public static class RenderRuns {
     public static Option<(Guid Rendering, RenderRun Run)> Rendered =>
         runs.Value.Head.Filter(static latest => latest.Run.Formed.IsSome);
 
-    public static FrameSide Formed { get; } = new(
-        new FrameFeed(EffectPipeline.Display.Encoding.Transfer, Some(EffectPipeline.Display.Peak), Eto.Drawing.ImageInterpolation.High),
-        RowText.Localize("After").Local);
+    public static bool Rendering => runs.Value.Head.Exists(static latest => latest.Run.Rendering);
+
+    public static HostEvent<Unit> Changed { get; } =
+        Subscriptions.Host<AtomChangedEvent<Seq<(Guid Rendering, RenderRun Run)>>, Seq<(Guid Rendering, RenderRun Run)>>(
+                typeof(RenderRuns), static handler => runs.Change += handler, static handler => runs.Change -= handler, static handler => held => handler(sender: null, held))
+            .Choose(static _ => Some(unit));
+
+    public static FrameSide Formed { get; } = new(EffectPipeline.Display, RowText.Localize("After").Local);
 
     // --- [FRAMING]
     public static IO<RenderRun> Framing(RhinoDoc doc, ViewInfo view, PixelExtent extent, Option<TimeSpan> time, Func<Error, IO<Unit>> report) =>
@@ -190,6 +201,19 @@ public static class EffectPipeline {
 
     public static Fin<PixelExtent> Extent(Size size) =>
         PixelExtent.Validated(size.Width, size.Height);
+
+    public static IO<PixelFrame> Frame(Bitmap bitmap) =>
+        from extent in IO.lift(() => Extent(bitmap.Size))
+        from frame in DisposalOps.Within(
+            () => bitmap.LockBits(new Rectangle(System.Drawing.Point.Empty, bitmap.Size), System.Drawing.Imaging.ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb),
+            data => IO.lift(() => {
+                PixelFrame frame = new(System.Drawing.Point.Empty, extent, extent);
+                SKImageInfo target = new(extent.Width, extent.Height, SKColorType.RgbaF32, SKAlphaType.Unpremul);
+                using SKPixmap source = new(target.WithColorType(SKColorType.Bgra8888), data.Scan0, data.Stride);
+                return Refused.Unless(source.ReadPixels(target, frame.Address, target.RowBytes), frame, nameof(SKPixmap.ReadPixels));
+            }),
+            data => IO.lift(() => bitmap.UnlockBits(data)))
+        select frame;
 
     internal static IO<Unit> Put(RenderWindow.Channel cpu, PixelFrame frame) =>
         IO.lift(() => {

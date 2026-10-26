@@ -52,13 +52,13 @@ public abstract partial record Arrangement {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Details {
     // --- [READS]
-    public static IO<Seq<DetailSnapshot>> Read(RhinoDoc doc, RhinoPageView page) =>
-        IO.lift(() => Callbacks.Each(toSeq(page.GetDetailViews()), (detail, _) =>
-            Refused.UnlessFound(detail.DetailGeometry, nameof(DetailViewObject.DetailGeometry)).Bind(geometry => Snapshot(doc, detail, geometry))));
+    public static IO<Seq<DetailSnapshot>> Read(RhinoPageView page) =>
+        IO.lift(() => Callbacks.Each(toSeq(page.GetDetailViews()), static (detail, _) =>
+            Refused.UnlessFound(detail.DetailGeometry, nameof(DetailViewObject.DetailGeometry)).Bind(geometry => Snapshot(detail, geometry))));
 
-    private static Fin<DetailSnapshot> Snapshot(RhinoDoc doc, DetailViewObject detail, DetailView geometry) =>
-        Callbacks.Found(detail.TryGetModelLength(1d, out double length), length).Filter(_ => geometry.IsParallelProjection)
-            .Traverse(found => DrawingScale.Validated(Quantities.From(1d, doc.PageUnits) / Quantities.From(found, doc.ModelUnits))).As()
+    private static Fin<DetailSnapshot> Snapshot(DetailViewObject detail, DetailView geometry) =>
+        Callbacks.Found(geometry.PageToModelRatio > 0d, geometry.PageToModelRatio)
+            .Traverse(static ratio => DrawingScale.Validated(ratio)).As()
             .Map(scale => new DetailSnapshot(detail.Id, Conversions.Present(detail.DescriptiveTitle), geometry.GetBoundingBox(accurate: true),
                 (Conversions.Present(detail.WorldToPageTransform), Conversions.Present(detail.PageToWorldTransform)).Apply(ValueTuple.Create).As(),
                 new DetailState(Conversions.Present(detail.Attributes.Name), scale, geometry.IsProjectionLocked, detail.IsActive)));
@@ -69,7 +69,7 @@ public static class Details {
 
     public static IO<Unit> Write(RhinoDoc doc, Guid detailId, DetailState wanted) =>
         from found in ObjectTarget.Resolve<DetailViewObject, DetailView>(doc, detailId)
-        from held in IO.lift(() => Snapshot(doc, found.Object, found.Geometry))
+        from held in IO.lift(() => Snapshot(found.Object, found.Geometry))
         let change = wanted.Except(held.State)
         from scaled in change.Scale.Traverse(scale => IO.lift(() => Refused.Unless(found.Geometry.SetScale(
             Quantities.As(scale.ToModel(Quantities.From(1d, doc.PageUnits)), doc.ModelUnits), doc.ModelUnits, 1d, doc.PageUnits), nameof(DetailView.SetScale)))).As()

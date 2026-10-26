@@ -78,8 +78,8 @@ public sealed record FileMetadata(SoftwareName Software, DateTimeOffset Created,
         metadata.HorizontalResolution = Density;
         metadata.VerticalResolution = Density;
         metadata.ExifProfile = exif;
-        _ = encoding.Bind(encoded => ColorTags.Icc(encoded, Created)).Iter(bytes => metadata.IccProfile = new IccProfile(bytes));
-        _ = encoding.Bind(ColorTags.Cicp).Iter(cicp => metadata.CicpProfile = cicp);
+        _ = encoding.Bind(encoded => encoded.Profile(Created)).Iter(bytes => metadata.IccProfile = new IccProfile(bytes));
+        _ = encoding.Bind(static encoded => encoded.Cicp).Iter(cicp => metadata.CicpProfile = cicp);
         metadata.GetPngMetadata().TextData = [.. Fields.ToSeq().Map(static field => new PngTextData((string)field.Key, (string)field.Value, "", ""))];
     }
 

@@ -1,4 +1,5 @@
 using Rasm.Drafting;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
@@ -179,9 +180,9 @@ public sealed record CustomUndo(string Description, IO<Unit> Undo, IO<Unit> Redo
 
 public sealed record TableSpec<TSpec>(Seq<(string Name, TSpec Spec)> Rows, bool Exclusive);
 
-public sealed record TableUpsert<T, TSpec>(string Name, Option<T> Existing, TSpec Spec) where T : ModelComponent;
+public sealed record TableUpsert<T, TSpec>(string Name, Option<T> Existing, TSpec Spec);
 
-public sealed record TablePlan<T, TSpec>(Seq<TableUpsert<T, TSpec>> Upserts, Seq<T> Prunes) where T : ModelComponent;
+public sealed record TablePlan<T, TSpec>(Seq<TableUpsert<T, TSpec>> Upserts, Seq<T> Prunes);
 
 // --- [TABLES] --------------------------------------------------------------------------
 public static class TableKinds {
@@ -223,6 +224,13 @@ public static class TableKinds {
         static (doc, row) => doc.SectionStyles.Add(row),
         static (doc, row, index) => doc.SectionStyles.Modify(row, index, quiet: true),
         static doc => doc.SectionStyles.GetUnusedSectionStyleName());
+
+    public static TableKind<Markup> Markups { get; } = new(
+        static doc => doc.Markups,
+        static live => new Markup(live),
+        static (doc, row) => doc.Markups.Add(row),
+        static (doc, row, index) => doc.Markups.Modify(row, index, quiet: true),
+        static doc => doc.Markups.GetUnusedMarkupName());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -266,13 +274,15 @@ public static class TableOps {
         select modified;
 
     public static Fin<TablePlan<T, TSpec>> Plan<T, TSpec>(Seq<T> rows, TableSpec<TSpec> spec) where T : ModelComponent =>
-        from names in Fin.Succ(Names<T>())
-        from named in Callbacks.Unique(spec.Rows, static row => row.Name, nameof(ModelComponent.Name), names)
-        let held = rows.ToLookup(static row => row.Name, names)
+        Plan(rows, spec, static row => row.Name, Names<T>());
+
+    public static Fin<TablePlan<T, TSpec>> Plan<T, TSpec>(Seq<T> rows, TableSpec<TSpec> spec, Func<T, string> name, IEqualityComparer<string> names) =>
+        from named in Callbacks.Unique(spec.Rows, static row => row.Name, nameof(TableUpsert<,>.Name), names)
+        let held = rows.ToLookup(name, names)
         let wanted = named.ToLookup(static row => row.Name, names)
         select new TablePlan<T, TSpec>(
             named.Map(row => new TableUpsert<T, TSpec>(row.Name, toSeq(held[row.Name]).Head, row.Spec)).Strict(),
-            spec.Exclusive ? rows.Filter(row => !wanted.Contains(row.Name)).Strict() : Seq<T>());
+            spec.Exclusive ? rows.Filter(row => !wanted.Contains(name(row))).Strict() : Seq<T>());
 
     public static IO<Seq<(string Name, int Index)>> Upsert<T, TSpec>(RhinoDoc doc, TableKind<T> kind, Seq<TableUpsert<T, TSpec>> upserts, Func<T, TSpec, IO<Unit>> write, Func<T, T, IO<bool>> unchanged)
         where T : ModelComponent, new() =>
@@ -382,4 +392,63 @@ public static class TableOps {
                 None: () => document.ClearUndoRecords(clear.PurgeDeleted))),
             clearRedo: static (document, _) => IO.lift(document.ClearRedoRecords)))
         select stepped;
+}
+
+internal static class Markups {
+    // --- [ROWS]
+    internal static IO<Seq<NamedEntry>> Entries(RhinoDoc doc) =>
+        TableOps.Rows(doc.Markups).Map(static rows => rows.Map(Entry));
+
+    internal static IO<Seq<Guid>> Members(RhinoDoc doc, NamedEntry entry) =>
+        Found(doc, entry.Name).Map(index => Conversions.Rows(doc.Markups.GetObjectIds(index)));
+
+    internal static IO<Option<NamedEntry>> Current(RhinoDoc doc, ViewportTarget target) =>
+        from shown in Viewports.With(doc, target, row => IO.lift(() => Optional(doc.Views.ActiveView).Exists(view => view.ActiveViewportID == row.Viewport.Id)))
+        from active in IO.lift(() => Conversions.Present(doc.Markups.ActiveIndex).Bind(index => Optional(doc.Markups.FindIndex(index))).Map(Entry))
+        select active.Filter(_ => shown);
+
+    internal static IO<NamedWrite> Rename(RhinoDoc doc, NamedEntry entry, StateName name) =>
+        from index in Found(doc, entry.Name)
+        from renamed in Named(doc, index, name)
+        select (NamedWrite)new NamedWrite.Recorded();
+
+    internal static IO<NamedWrite> Delete(RhinoDoc doc, NamedEntry entry) =>
+        Found(doc, entry.Name).Bind(index => Deleted(doc, index)).Map(static _ => (NamedWrite)new NamedWrite.Recorded());
+
+    // --- [STATES]
+    internal static IO<NamedWrite> Save(RhinoDoc doc, NamedState.Markup state) =>
+        from ended in Ended(doc)
+        from prior in IO.lift(() => Conversions.Present(doc.Markups.Find(state.Name)))
+        from cleared in prior.Traverse(index => Deleted(doc, index)).As()
+        from index in Viewports.With(doc, state.Source, row => IO.lift(() => Conversions.Required(
+            doc.Markups.Create(row.View, state.Geometry.Map(static pair => pair.Geometry), state.Geometry.Map(static pair => pair.Attributes.ValueUnsafe())),
+            nameof(MarkupTable.Create))))
+        from named in Named(doc, index, state.Name)
+        select (NamedWrite)new NamedWrite.Recorded();
+
+    internal static IO<NamedWrite> Restore(RhinoDoc doc, NamedRestore.Markup target) =>
+        from index in Found(doc, target.Name)
+        from held in Hold(doc)
+        from viewed in DisposalOps.OnFailure(IO.lift(() => Refused.Unless(doc.Markups.View(index), nameof(MarkupTable.View))), NamedWrite.Settled([held]))
+        select held;
+
+    // --- [HOLD]
+    internal static IO<NamedWrite> Hold(RhinoDoc doc) =>
+        NamedViews.Hold(doc, None).Map(held => (NamedWrite)new NamedWrite.Compensated(Ended(doc).Bind(_ => NamedWrite.Reverted([held])), NamedWrite.Released([held])));
+
+    // --- [HOST]
+    private static IO<int> Found(RhinoDoc doc, string name) =>
+        IO.lift(() => Conversions.Present(doc.Markups.Find(name)).ToFin(new NotFound(nameof(NamedTable.Markups), name)));
+
+    private static IO<Unit> Named(RhinoDoc doc, int index, StateName name) =>
+        TableOps.ModifyRow(doc, TableKinds.Markups, new ComponentRef<Markup>.ByIndex(index), staged => TableOps.Named(staged, Some((string)name)));
+
+    private static IO<Unit> Deleted(RhinoDoc doc, int index) =>
+        IO.lift(() => Refused.Unless(doc.Markups.Delete(index, quiet: true), nameof(MarkupTable.Delete)));
+
+    private static IO<Unit> Ended(RhinoDoc doc) =>
+        IO.lift(() => doc.MarkupMode is MarkupMode.None ? unit : Refused.Unless(doc.Markups.Cancel(), nameof(MarkupTable.Cancel)));
+
+    private static NamedEntry Entry(Markup row) =>
+        new(NamedTable.Markups, row.Name, Conversions.Present(row.Id));
 }

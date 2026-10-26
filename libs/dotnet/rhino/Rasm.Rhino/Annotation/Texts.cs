@@ -93,12 +93,13 @@ public static class Texts {
             (Doc: doc, Style: style, Overrides: overrides, Retain: retain),
             note: static (state, note) => Dimensions.Create(
                 state.Doc, state.Style, state.Overrides,
-                parent => TextEntity.CreateWithRichText(note.RichText, note.Plane, parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians),
-                nameof(TextEntity.CreateWithRichText), state.Retain),
+                (parent, held) => Copies.Acquire(nameof(TextEntity.CreateWithRichText), _ =>
+                    Answer.One<AnnotationBase>(TextEntity.CreateWithRichText(note.RichText, note.Plane, parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians)), held),
+                state.Retain),
             callout: static (state, callout) => Dimensions.Create(
                 state.Doc, state.Style, state.Overrides,
-                parent => Leader.CreateWithRichText(callout.RichText, callout.Plane, parent, [.. callout.Points]),
-                nameof(Leader.CreateWithRichText), state.Retain));
+                (parent, held) => Copies.Acquire(nameof(Leader.CreateWithRichText), _ => Answer.One<AnnotationBase>(Leader.CreateWithRichText(callout.RichText, callout.Plane, parent, [.. callout.Points])), held),
+                state.Retain));
 
     // --- [EDITS]
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<Func<AnnotationBase, IO<Unit>>> edits, Option<double> wrapWidth) =>
@@ -165,10 +166,10 @@ public static class Texts {
 
     // --- [PIECES]
     public static IO<T> TextPieces<T>(TextEntity text, Func<Seq<Curve>, IO<T>> body) =>
-        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(() => text.Explode(), nameof(TextEntity.Explode), held).Bind(body), DisposalOps.Release);
+        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(nameof(TextEntity.Explode), _ => Answer.Many(text.Explode()), held).Bind(body), DisposalOps.Release);
 
     public static IO<T> LeaderPieces<T>(Leader leader, Func<Seq<GeometryBase>, IO<T>> body) =>
-        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(() => leader.Explode(), nameof(Leader.Explode), held).Bind(body), DisposalOps.Release);
+        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(nameof(Leader.Explode), _ => Answer.Many(leader.Explode()), held).Bind(body), DisposalOps.Release);
 
     public static IO<T> LeaderCurve<T>(Leader leader, Func<NurbsCurve, IO<T>> body) =>
         from curve in IO.lift(() => Refused.UnlessFound(leader.Curve, nameof(Leader.Curve)))

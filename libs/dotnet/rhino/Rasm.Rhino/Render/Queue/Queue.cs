@@ -15,7 +15,7 @@ using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Inputs;
+using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
@@ -172,7 +172,7 @@ public sealed record QueueContext(
     Func<RhinoDoc, IO<BindingGroup>> Bindings,
     Option<RenderHistory> History,
     Atom<QueueEstimate> Estimate,
-    TrayRow Tray,
+    Rasm.UI.Command<RowRule, Invoke>.Menu Tray,
     Func<QueueEvent, IO<Unit>> Notify,
     string JobCommand,
     string FarmScript,
@@ -342,7 +342,8 @@ public static class Queues {
         from heard in atomIO(Heard.Empty)
         from dock in Notifications.Acquire(retain).OnUiThread()
         from listened in Listened(context, render, heard).TraverseM(acquire => acquire(retain)).As().OnUiThread()
-        from tray in Notifications.Tray(context.Tray, context.Sink, retain).OnUiThread()
+        from scope in RowScope.Open(context.Sink, Some(doc), new CommitMode.Immediate())
+        from tray in Notifications.Tray(context.Tray, scope, retain).OnUiThread()
         from ran in Mailed(new RunScope(context, doc, queue, held, dock, heard), sampled)
         select ran, static owned => DisposalOps.Release(owned).OnUiThread());
 
@@ -490,7 +491,7 @@ public static class Queues {
         IPlugInViews sink,
         Func<RhinoDoc, IO<BindingGroup>> bindings,
         Option<RenderHistory> history,
-        TrayRow tray,
+        Rasm.UI.Command<RowRule, Invoke>.Menu tray,
         NoticeOptions notices,
         string jobCommand,
         string farmScript,
@@ -508,8 +509,11 @@ public static class Queues {
             from named in IO.lift((Named<QueueJobCommand>(commands), Named<QueueFarmJobCommand>(commands))
                 .Apply(static (job, farm) => (Job: job, Farm: $"_-{farm}")).As())
             from context in Acquire(record, settings.Settings(sink.Settings), sink, history.Bindings, Some(history),
-                new TrayRow(reveal.Caption, icon, [[new MenuEntry.Listed(reveal.Caption, IO.pure(Seq<MenuPick>(
-                    new MenuPick.Item(reveal.Caption, Marked: false, Showing.Open(reveal)))))]]),
+                new Rasm.UI.Command<RowRule, Invoke>.Run(new Rasm.UI.CommandFace("render-queue-reveal", reveal.Caption, None, None), None, new Invoke.Effect(_ => Showing.Open(reveal))) switch {
+                    var revealed => new Rasm.UI.Command<RowRule, Invoke>.Menu(new Rasm.UI.CommandFace(reveal.Caption, reveal.Caption, None, Some(icon)), None, [[revealed]]) {
+                        Primary = revealed,
+                    },
+                },
                 new NoticeOptions(settings.Notices(sink.Settings), Some(icon), Some(reveal)),
                 named.Job, named.Farm, acquired)
             from filled in QueueContext.Current.Publish(sink, context)

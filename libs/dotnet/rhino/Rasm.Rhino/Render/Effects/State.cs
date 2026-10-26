@@ -2,6 +2,7 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
+using Rasm.UI.Imaging;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
 

@@ -261,27 +261,21 @@ class Look(msgspec.Struct, frozen=True, kw_only=True):
         return msgspec.json.decode(self.within[role], type=type(self))
 
 
-class Sizes(msgspec.Struct, frozen=True, kw_only=True, rename="kebab", forbid_unknown_fields=True):
-    """Shared metrics of one role in points, font size as a factor of the widget font."""
+class Sizes(msgspec.Struct, frozen=True, kw_only=True, rename="kebab"):
+    """Shared metrics of one role Blender draws, in points, font size as a factor of the widget font."""
 
-    extent: float
-    reach: float
     inset: float
-    gap: float
     radius: float
     stroke: float
-    icon: float
     font_size: float
-    spacing: float
-    slop: float
 
 
 class Shipped(msgspec.Struct, frozen=True, kw_only=True):
-    """Native looks, metric defaults, and regular metrics of the appearance file Rasm.UI embeds, each look decoded where read."""
+    """Appearances, metric defaults, and densities of the file Rasm.UI embeds, Blender drawing the native looks at regular density, each look decoded where read."""
 
-    native: dict[str, msgspec.Raw]
+    appearances: dict[str, dict[str, msgspec.Raw]]
     defaults: dict[str, float]
-    regular: dict[str, dict[str, float]]
+    densities: dict[str, dict[str, dict[str, float]]]
 
     @classmethod
     @functools.cache
@@ -291,11 +285,11 @@ class Shipped(msgspec.Struct, frozen=True, kw_only=True):
 
     def look(self, role: str) -> Look:
         """Decodes a native role's look, refusing host and data inks."""
-        return msgspec.json.decode(self.native[role], type=Look)
+        return msgspec.json.decode(self.appearances["native"][role], type=Look)
 
     def sizes(self, role: str) -> Sizes:
         """Returns a role's regular metrics over the file's defaults."""
-        return msgspec.convert(self.defaults | self.regular.get(role, {}), type=Sizes)
+        return msgspec.convert(self.defaults | self.densities["regular"].get(role, {}), type=Sizes)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

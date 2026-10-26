@@ -1,7 +1,6 @@
 using System.Drawing;
-using System.Drawing.Imaging;
 using Rasm.Drafting;
-using Rasm.Rhino.Document.Files;
+using Rasm.Imaging.Files;
 using Rasm.Rhino.Modeling;
 using Rhino;
 using Rhino.Display;
@@ -11,9 +10,9 @@ namespace Rasm.Rhino.Viewport.Printing;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record CaptureSubject {
-    public sealed record View(Size Media, Dpi Dpi) : CaptureSubject;
+    public sealed record View(Size Media, PixelDensity Density) : CaptureSubject;
 
-    public sealed record Page(Dpi Dpi) : CaptureSubject;
+    public sealed record Page(PixelDensity Density) : CaptureSubject;
 }
 
 [Union]
@@ -38,41 +37,36 @@ public abstract partial record CaptureScale {
 public abstract partial record MediaLayout {
     public sealed record Crop(Rectangle CropRectangle) : MediaLayout;
 
-    public sealed record Margins(PrinterMargins Millimeters) : MediaLayout;
+    public sealed record Margins(PrinterMargins Inset) : MediaLayout;
 
     public sealed record Maximize() : MediaLayout;
+
+    public sealed record MatchViewport() : MediaLayout;
 }
 
-public sealed record MediaOffset(ViewCaptureSettings.AnchorLocation Anchor, bool FromMargin, double X, double Y);
+public sealed record MediaOffset(ViewCaptureSettings.AnchorLocation Anchor, bool FromMargin, Length X, Length Y);
 
-public sealed record CaptureRequest(
-    CaptureSubject Subject, CaptureArea Area, Option<CaptureScale> Scale, Option<MediaLayout> Layout, bool MatchViewportAspect, Option<MediaOffset> Offset,
-    Func<ViewCaptureSettings, Fin<Unit>> Options);
-
-[SmartEnum]
-public sealed partial class RasterEncoding {
-    public static readonly RasterEncoding Png = new(ImageFormat.Png, FileExtension.Create(".png"));
-    public static readonly RasterEncoding Jpeg = new(ImageFormat.Jpeg, FileExtension.Create(".jpg"));
-    public static readonly RasterEncoding Tiff = new(ImageFormat.Tiff, FileExtension.Create(".tif"));
-
-    public ImageFormat Format { get; }
-
-    public FileExtension Extension { get; }
-}
+public sealed record CaptureRequest(CaptureArea Area, Option<CaptureScale> Scale, Seq<MediaLayout> Layout, Option<MediaOffset> Offset, Func<ViewCaptureSettings, Fin<Unit>> Options);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewCaptures {
     // --- [SETTINGS]
-    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureRequest request, Action<IDisposable> retain) =>
+    public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureSubject subject, CaptureRequest request, Action<IDisposable> retain) =>
         Valid(
-            () => request.Subject.Switch(
+            () => subject.Switch(
                 row,
-                view: static (target, view) => new ViewCaptureSettings(target.View, view.Media, view.Dpi),
-                page: static (target, page) => Conversions.Cast<RhinoPageView>(target.View).Map(pageView => new ViewCaptureSettings(pageView, page.Dpi))),
+                view: static (target, view) => Framed(target, new ViewCaptureSettings(target.View, view.Media, view.Density)),
+                page: static (target, page) => Conversions.Cast<RhinoPageView>(target.View).Map(pageView => new ViewCaptureSettings(pageView, page.Density))),
             Some((ViewCaptureSettings settings) => Configured(row, settings, request)), retain);
 
     public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels, Action<IDisposable> retain) =>
         Valid(() => Refused.UnlessFound(basis.CreatePreviewSettings(pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)), None, retain);
+
+    private static ViewCaptureSettings Framed(ViewportRef row, ViewCaptureSettings settings) {
+        if (row.Viewport.ViewportType is ViewportType.DetailViewport || row.Viewport.ParentView is null)
+            settings.SetViewport(row.Viewport);
+        return settings;
+    }
 
     private static IO<ViewCaptureSettings> Valid(Func<Fin<ViewCaptureSettings>> create, Option<Func<ViewCaptureSettings, IO<Unit>>> configure, Action<IDisposable> retain) =>
         Copies.Owned(create,
@@ -85,8 +79,8 @@ public static class ViewCaptures {
 
     private static IO<Unit> Configured(ViewportRef row, ViewCaptureSettings settings, CaptureRequest request) =>
         from framed in IO.lift(() => {
-            settings.Document = row.View.Document;
-            settings.SetViewport(row.Viewport);
+            if (row.Viewport.ParentView is null)
+                settings.Document = row.View.Document;
             request.Area.Switch(
                 settings,
                 fullView: static (target, _) => target.ViewArea = ViewCaptureSettings.ViewAreaMapping.View,
@@ -94,16 +88,19 @@ public static class ViewCaptures {
                 screenWindow: static (target, window) => { target.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window; target.SetWindowRect(window.First, window.Second); },
                 worldWindow: static (target, window) => { target.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window; target.SetWindowRect(window.First, window.Second); });
         })
-        from laid in request.Layout.Traverse(layout => layout.Switch(
+        from laid in request.Layout.TraverseM(layout => layout.Switch(
             settings,
             crop: static (target, crop) => IO.lift(() => target.SetLayout(target.MediaSize, crop.CropRectangle)),
             margins: static (target, margins) => IO.lift(() => Refused.Unless(
-                target.SetMargins(UnitSystem.Millimeters, margins.Millimeters.Left, margins.Millimeters.Top, margins.Millimeters.Right, margins.Millimeters.Bottom),
+                target.SetMargins(UnitSystem.Millimeters, Millimeters(margins.Inset.Left), Millimeters(margins.Inset.Top), Millimeters(margins.Inset.Right), Millimeters(margins.Inset.Bottom)),
                 nameof(ViewCaptureSettings.SetMargins))),
-            maximize: static (target, _) => IO.lift(target.MaximizePrintableArea))).As()
-        from matched in when(request.MatchViewportAspect, IO.lift(() => Refused.Unless(settings.MatchViewportAspectRatio(), nameof(ViewCaptureSettings.MatchViewportAspectRatio)))).As()
+            maximize: static (target, _) => IO.lift(target.MaximizePrintableArea),
+            matchViewport: static (target, _) => IO.lift(() => Refused.Unless(target.MatchViewportAspectRatio(), nameof(ViewCaptureSettings.MatchViewportAspectRatio))))).As()
         from placed in IO.lift(() => {
-            _ = request.Offset.Iter(offset => { settings.OffsetAnchor = offset.Anchor; settings.SetOffset(UnitSystem.Millimeters, offset.FromMargin, offset.X, offset.Y); });
+            _ = request.Offset.Iter(offset => {
+                settings.OffsetAnchor = offset.Anchor;
+                settings.SetOffset(UnitSystem.Millimeters, offset.FromMargin, Millimeters(offset.X), Millimeters(offset.Y));
+            });
             _ = request.Scale.Iter(scale => scale.Switch(
                 settings,
                 toValue: static (target, value) => target.SetModelScaleToValue(UnitsNet.QuantityValue.Inverse(value.Scale).ToDouble()),
@@ -112,12 +109,5 @@ public static class ViewCaptures {
         from edited in IO.lift(() => request.Options(settings))
         select edited;
 
-    // --- [RASTERS]
-    public static IO<Bitmap> CaptureToBitmap(RhinoView view, Func<ViewCapture, Fin<Unit>> edit, Action<IDisposable> retain) =>
-        from capture in IO.lift(static () => new ViewCapture())
-        from edited in IO.lift(() => edit(capture))
-        from bitmap in Copies.Owned(() => capture.CaptureToBitmap(view),
-                static bitmap => Refused.UnlessFound(bitmap, nameof(ViewCapture.CaptureToBitmap)),
-                static bitmap => DisposalOps.Release(bitmap), retain)
-        select bitmap;
+    private static double Millimeters(Length length) => length.Millimeters.ToDouble();
 }

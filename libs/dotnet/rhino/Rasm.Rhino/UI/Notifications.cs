@@ -1,15 +1,12 @@
 using System.Globalization;
 using Eto.Forms;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Inputs;
+using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rasm.UI;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.UI;
-
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record TrayRow(string Caption, IGlyph Glyph, Seq<Seq<MenuEntry>> Menu);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
@@ -51,14 +48,17 @@ public static class Notifications {
         Callbacks.Each(Seq(IO.lift(static () => Taskbar.SetProgress(TaskbarProgressState.None)), IO.lift(() => { app.BadgeLabel = ""; }))).Run();
 
     // --- [TRAY]
-    public static IO<Unit> Tray(TrayRow row, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Unit> Tray(Command<RowRule, Invoke>.Menu menu, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(acquired =>
             from tray in DisposalOps.Acquire(IO.lift(static () => new TrayIndicator()), acquired)
-            from themed in Icons.Themed(sink, row.Glyph, IconSlot.Small, HostTheme.Changed, icon => tray.Image = icon, acquired)
-            from menu in ChoiceRows.Menu(row.Menu, Seq<IO<Unit>>(), None, sink, acquired)
-            from assigned in IO.lift(() => tray.Menu = menu)
+            from themed in menu.Face.Glyph.Traverse(glyph => Icons.Themed(scope.Sink, glyph, IconSlot.Small, HostTheme.Changed, icon => tray.Image = icon, acquired)).As()
+            from popup in CommandRows.Menu(menu.Groups, scope, acquired)
+            from assigned in IO.lift(() => tray.Menu = popup.Menu)
+            from activated in menu.Primary.Traverse(primary => CommandRows.Press(primary, scope, acquired).Bind(press => Subscriptions.Attach(
+                h => tray.Activated += h, h => tray.Activated -= h,
+                Callbacks.Handler<EventArgs>(_ => press, new CallbackSite(scope.Sink, typeof(TrayIndicator), nameof(TrayIndicator.Activated))), acquired))).As()
             from shown in IO.lift(tray.Show)
-            from titled in IO.lift(() => tray.Title = RowText.Localize(row.Caption, sink).Local)
+            from titled in IO.lift(() => tray.Title = RowText.Localize(menu.Face.Caption, scope.Sink).Local)
             select unit, retain);
 
     // --- [BANNERS]

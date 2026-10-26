@@ -6,7 +6,7 @@ using Rasm.Rhino.UI.Rows;
 namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public sealed class OutputPage() : DefinedOptionsPage(Row) {
+public sealed class OutputPage(IPlugInViews owner) : DefinedOptionsPage(Row, owner) {
     public static readonly View.DocumentPage Row = new() {
         Identity = typeof(OutputPage),
         Caption = "Render Output",
@@ -16,7 +16,7 @@ public sealed class OutputPage() : DefinedOptionsPage(Row) {
     };
 }
 
-public sealed class DarkroomPage() : DefinedOptionsPage(Row) {
+public sealed class DarkroomPage(IPlugInViews owner) : DefinedOptionsPage(Row, owner) {
     public static readonly View.OptionsPage Row = new() {
         Identity = typeof(DarkroomPage),
         Caption = "Darkroom",

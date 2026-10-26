@@ -1,3 +1,5 @@
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Custom;
@@ -85,13 +87,14 @@ internal sealed class DefinedGripObject : CustomGripObject {
 public abstract class DefinedObjectGrips : CustomObjectGrips {
     // --- [STATE]
     private readonly GripControl control;
+    private readonly IPlugInViews owner;
     private readonly Seq<DefinedGripObject> grips;
 
     protected DefinedObjectGrips(GripControl control, IterableNE<GripPoint> points) : base(control.Switch(
         freePoints: static dragLine => dragLine ? ObjectGripsType.Custom : ObjectGripsType.CustomNoDragLine,
         curveControlPoint: static _ => ObjectGripsType.CurveControlPoint,
         surfaceControlPoint: static _ => ObjectGripsType.SurfaceControlPoint)) {
-        this.control = control;
+        (this.control, owner) = (control, HostedTypes.Owner(GetType()));
         grips = DisposalOps.OnFailure(
             toSeq(points).TraverseM(point => DisposalOps.Acquire(IO.lift(() => new DefinedGripObject(point)), AddGrip)).As(),
             IO.lift(Dispose)).Run();
@@ -105,7 +108,7 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
             IO.lift(() => Rebuild(grips.Map(static grip => grip.Point with { Location = grip.CurrentLocation, Weight = Conversions.Present(grip.Weight) }).Strict()))
                 .Map(static GeometryBase? (geometry) => geometry).Uninterruptible(),
             static () => null,
-            CallbackSite.Of(this));
+            CallbackSite.Of(owner, this));
 
     protected sealed override NurbsCurve? NurbsCurve() =>
         control.Switch(freePoints: static NurbsCurve? (_) => null, curveControlPoint: static curve => curve, surfaceControlPoint: static _ => null);

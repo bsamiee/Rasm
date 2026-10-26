@@ -1,5 +1,8 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using Rhino.DocObjects;
+using Rhino.Runtime;
 
 namespace Rasm.Rhino;
 
@@ -11,6 +14,13 @@ internal enum ExecutionState : uint {
     DisplayRequired = 1u << 1,
     Continuous = 1u << 31,
 }
+
+// --- [MODELS] --------------------------------------------------------------------------
+[StructLayout(LayoutKind.Sequential)]
+internal readonly record struct MethodDescription(nint Name, nint Types);
+
+[StructLayout(LayoutKind.Sequential)]
+internal readonly record struct DisplayMaterialRef(Guid ViewportId, Guid DisplayMaterialId);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class SafeNativeMethods {
@@ -78,6 +88,11 @@ internal static partial class SafeNativeMethods {
     [LibraryImport(ObjectiveCLibrary)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [SupportedOSPlatform("macos")]
+    internal static partial MethodDescription protocol_getMethodDescription(nint protocol, nint selector, [MarshalAs(UnmanagedType.I1)] bool required, [MarshalAs(UnmanagedType.I1)] bool instance);
+
+    [LibraryImport(ObjectiveCLibrary)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    [SupportedOSPlatform("macos")]
     internal static partial nint method_getImplementation(nint method);
 
     [LibraryImport(ObjectiveCLibrary)]
@@ -89,4 +104,49 @@ internal static partial class SafeNativeMethods {
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     [SupportedOSPlatform("macos")]
     internal static partial nint object_getClass(nint instance);
+
+    // --- [OPENNURBS]
+    private static readonly nint OpenNurbs = OperatingSystem.IsWindows() ? NativeLibrary.Load("opennurbs") : NativeLibrary.GetMainProgramHandle();
+
+    private static readonly unsafe delegate* unmanaged<nint, DisplayMaterialRef*, DisplayMaterialRef*, byte> FindDisplayMaterialRefExport =
+        (delegate* unmanaged<nint, DisplayMaterialRef*, DisplayMaterialRef*, byte>)Export(
+            "?FindDisplayMaterialRef@ON_3dmObjectAttributes@@QEBA_NAEBVON_DisplayMaterialRef@@PEAV2@@Z",
+            "_ZNK22ON_3dmObjectAttributes22FindDisplayMaterialRefERK21ON_DisplayMaterialRefPS0_");
+
+    private static readonly unsafe delegate* unmanaged<nint, DisplayMaterialRef, byte> AddDisplayMaterialRefExport =
+        (delegate* unmanaged<nint, DisplayMaterialRef, byte>)Export(
+            "?AddDisplayMaterialRef@ON_3dmObjectAttributes@@QEAA_NVON_DisplayMaterialRef@@@Z",
+            "_ZN22ON_3dmObjectAttributes21AddDisplayMaterialRefE21ON_DisplayMaterialRef");
+
+    private static readonly unsafe delegate* unmanaged<nint, Guid, Guid, byte> RemoveDisplayMaterialRefExport =
+        (delegate* unmanaged<nint, Guid, Guid, byte>)Export(
+            "?RemoveDisplayMaterialRef@ON_3dmObjectAttributes@@QEAA_NUON_UUID_struct@@0@Z",
+            "_ZN22ON_3dmObjectAttributes24RemoveDisplayMaterialRefE14ON_UUID_structS0_");
+
+    private static nint Export(string microsoft, string itanium) => NativeLibrary.GetExport(OpenNurbs, OperatingSystem.IsWindows() ? microsoft : itanium);
+
+    internal static unsafe Option<DisplayMaterialRef> FindDisplayMaterialRef(ObjectAttributes attributes, DisplayMaterialRef search) {
+        DisplayMaterialRef found = default;
+        bool held = FindDisplayMaterialRefExport(ConstPointer(attributes), &search, &found) is not 0;
+        GC.KeepAlive(attributes);
+        return Callbacks.Found(held, found);
+    }
+
+    internal static unsafe bool AddDisplayMaterialRef(ObjectAttributes attributes, DisplayMaterialRef displayMaterial) {
+        bool added = AddDisplayMaterialRefExport(NonConstPointer(attributes), displayMaterial) is not 0;
+        GC.KeepAlive(attributes);
+        return added;
+    }
+
+    internal static unsafe bool RemoveDisplayMaterialRef(ObjectAttributes attributes, Guid viewportId, Guid displayMaterialId) {
+        bool removed = RemoveDisplayMaterialRefExport(NonConstPointer(attributes), viewportId, displayMaterialId) is not 0;
+        GC.KeepAlive(attributes);
+        return removed;
+    }
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "ConstPointer")]
+    private static extern nint ConstPointer(CommonObject target);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "NonConstPointer")]
+    private static extern nint NonConstPointer(ObjectAttributes target);
 }

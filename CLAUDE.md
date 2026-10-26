@@ -72,7 +72,7 @@
 
 [DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
 - ALWAYS call the owning type or package directly, a function between them stands only for a boundary conversion or steps every caller repeats
-- ALWAYS name the real type, an alias renaming a declared type exists only to resolve a name collision between referenced namespaces
+- ALWAYS import each name under its declared name, NEVER alias an import, a naming conflict is fixed at the root level in project code no aliasing/indirection
 - ALWAYS reach a dependency through the function or runtime that supplies it, a service locator or a layer forwarding a call unchanged is a defect
 
 [DERIVATION]: Values derive from the declaration or host API that states them

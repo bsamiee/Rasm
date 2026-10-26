@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Rhino;
 using Rhino.Collections;
@@ -41,6 +42,9 @@ public static class Exchange {
     public static Fin<string> ExistingPath(string path) => QualifiedPath(path).Bind(static qualified => File.Exists(qualified) ? Fin.Succ(qualified) : new FileRefused(qualified, "names no file"));
 
     public static Fin<string> ExistingFolder(string path) => QualifiedPath(path).Bind(static qualified => Directory.Exists(qualified) ? Fin.Succ(qualified) : new FileRefused(qualified, "names no folder"));
+
+    public static Fin<DirectoryInfo> Installed(Assembly assembly) =>
+        Optional(Path.GetDirectoryName(assembly.Location)).ToFin(new FileRefused(assembly.Location, "names no folder")).Bind(ExistingFolder).Map(static folder => new DirectoryInfo(folder));
 
     // --- [READS]
     public static IO<Committed<Unit>> Import(RhinoDoc doc, string path, RedrawPolicy redraw, Option<ArchivableDictionary> options) =>

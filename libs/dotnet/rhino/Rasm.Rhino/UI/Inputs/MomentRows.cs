@@ -65,10 +65,9 @@ public static class MomentRows {
     public static ControlRow Clock(string caption, string help, ClockZone zone, ReadoutSource<OffsetDateTime> moment, RowRules rules) =>
         new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
             DisposalOps.Acquire(owned =>
-            from command in IO.lift(static () => new Command())
-            from live in TextRows.Live(moment, (_, keep) => ButtonRows.Push(command, None, scope.Sink, keep), (held, at) => Shown(held, zone, at), scope, owned)
-            from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,
-                Callbacks.Handler<EventArgs>(_ => Cycled(zone.Format), new CallbackSite(scope.Sink, typeof(Command), nameof(Command.Executed))), owned)
+            from live in TextRows.Live(moment, static (_, keep) => DisposalOps.Acquire(IO.lift(static () => new Button()), keep), (held, at) => Shown(held, zone, at), scope, owned)
+            from clicked in Subscriptions.Attach(h => live.Click += h, h => live.Click -= h,
+                Callbacks.Handler<EventArgs>(_ => Cycled(zone.Format), new CallbackSite(scope.Sink, typeof(Button), nameof(Button.Click))), owned)
             select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None), retain),
             caption, help, rules);
 
@@ -95,7 +94,7 @@ public static class MomentRows {
             scope, site, owned)
         select new RowCells(
             picker, None, None, None, [], [], new RowHelp(Some((pattern.Format(TValue.MinValue.ToValue()), pattern.Format(TValue.MaxValue.ToValue()))), None),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(picker, [], [], scope.Sink))), retain);
+            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(picker, [], []))), retain);
 
     private static IO<Unit> Answered<TValue>(
         RowEdit<Option<TValue>> edit, RowSource<Option<TValue>> source, DateTimePicker picker, Func<Option<TValue>, LocalDateTime, Fin<Option<TValue>>> merged, RowScope scope) =>
@@ -132,7 +131,7 @@ public static class MomentRows {
             new RowHelp(
                 Some((pattern.Format(limits.Min), pattern.Format(limits.Max))),
                 Some(read(source.Default)).Map(dates => RowText.Localize("{0} – {1}", arguments: [pattern.Format(dates.Start), pattern.Format(dates.End)]).Local)),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Labelled([], [], scope.Sink))), retain);
+            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Labelled([], []))), retain);
 
     private static IO<Unit> Routed<TRecord>(
         RowEdit<TRecord> edit, RowSource<TRecord> source, Func<TRecord, DateInterval, Fin<TRecord>> write, DateTimePicker start, DateTimePicker end,

@@ -41,20 +41,32 @@ public sealed record PageTarget(string EnglishTitle, PageDialog Dialog) {
     public static PageTarget Of(View.DocumentPage row) => new(row.Caption, PageDialog.DocumentProperties);
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PanelAction {
+    public static readonly PanelAction Show = new("Show", static (panel, _) => Showing.Open(panel));
+    public static readonly PanelAction Hide = new("Hide", static (panel, doc) => Showing.Close(panel, doc));
+    public static readonly PanelAction Toggle = new("Toggle", static (panel, doc) => Showing.Toggle(panel, doc));
+
+    [UseDelegateFromConstructor]
+    public partial IO<Unit> Apply(View.Panel panel, RhinoDoc doc);
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Showing {
     // --- [WINDOWS]
-    public static IO<TWindow> Show<TWindow>(RhinoDoc doc) where TWindow : DefinedWindow, new() =>
+    public static IO<TWindow> Show<TWindow>(IPlugInViews owner, RhinoDoc doc, Func<IPlugInViews, TWindow> create) where TWindow : DefinedWindow =>
         IO.lift(() => toSeq(EtoExtensions.WindowsFromDocument<TWindow>(doc)).Head).Bind(open => open.Match(
             Some: static found => IO.lift(found.BringToFront).Map(found),
             None: () => DisposalOps.Acquire(owned =>
-                from window in DisposalOps.Acquire(IO.lift(static () => new TWindow()), owned)
+                from window in DisposalOps.Acquire(IO.lift(() => create(owner)), owned)
                 from prepared in Opened(window, doc)
                 select window, (window, _) => window.Show(doc))));
 
     private static IO<Unit> Opened<TWindow>(TWindow window, RhinoDoc doc) where TWindow : DefinedWindow =>
-        from owner in IO.lift(() => Conversions.Cast<IPlugInViews>(IPlugInSink.Of(window)))
         from main in Appearance.InitialMainWindowPosition()
+        let owner = window.Views
         from frame in DisposalOps.Acquire(IO.lift(static () => new ViewHost()), window.Owned.Retain)
         from body in DisposalOps.Acquire(ViewBody.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None), frame.Owned.Retain)
         from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Small, HostTheme.In(window), frames => window.Icon = frames, window.Owned.Retain)).As()
@@ -68,7 +80,7 @@ public static class Showing {
             window.LocalizeAndRestore(window.Row.Identity);
         })
         from edges in ViewOps.WhileLoaded(window, keep => DisposalOps.Acquire(body.Shown(visible: true), _ => body.Shown(visible: false), keep),
-            CallbackSite.Of(window, nameof(window.LoadComplete)), window.Owned.Retain)
+            CallbackSite.Of(owner, window, nameof(window.LoadComplete)), window.Owned.Retain)
         select unit;
 
     // --- [DIALOGS]
@@ -219,5 +231,11 @@ public static class Showing {
 public sealed class PanelCommand(IPlugInSink sink, Guid id, View.Panel panel) : HostCommand(sink, id, RhinoGet.StringToCommandOptionName(panel.Caption), None) {
     protected override Option<HelpTopic> Help => panel.Help;
 
-    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) => Showing.Toggle(panel, doc);
+    protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
+        (mode is RunMode.Scripted
+            ? Getters.Choice(doc, new GetterRequest<GetOption, PanelAction>(panel.Caption, site) {
+                Options = toSeq(PanelAction.Items).Map(static action => OptionSpec.Plain(action.Key, None, hidden: false, _ => IO.pure(action))),
+            })
+            : IO.pure(PanelAction.Toggle))
+        .Bind(action => action.Apply(panel, doc));
 }

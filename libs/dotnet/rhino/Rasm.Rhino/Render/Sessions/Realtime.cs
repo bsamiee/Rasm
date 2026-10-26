@@ -1,5 +1,6 @@
 using System.Drawing;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Display;
@@ -33,10 +34,10 @@ public sealed record RealtimeStart(RealtimeTarget Target, RhinoDoc Document, Vie
 public sealed record RealtimeSession(
     RealtimeTarget Target, IDisposable Scene, Instant Started, PassCount Pass, Option<PassCount> Limit,
     Option<uint> Frame, Option<string> Status, Option<Instant> PausedAt, bool Locked) {
-    public static RealtimeSession Of(RealtimeTarget target, IDisposable scene, Instant now) =>
-        new(target, scene, now, PassCount.Zero, None, None, None, None, Locked: false);
+    public static RealtimeSession Of(RealtimeTarget target, IDisposable scene, Instant now, Option<PassCount> limit) =>
+        new(target, scene, now, PassCount.Zero, limit, None, None, None, Locked: false);
 
-    public bool Completed => !Locked && Frame.IsSome && (Target.ForCapture || Limit.Exists(limit => Pass >= limit));
+    public bool Completed => !Locked && Frame.IsSome && Limit.Match(Some: limit => Pass >= limit, None: () => Target.ForCapture);
 
     public Option<Fin<ProgressFraction>> Progress =>
         Limit.Map(limit => Pass >= limit ? ProgressFraction.MaxValue : ProgressFraction.Validated((float)Pass / limit));
@@ -121,7 +122,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     private readonly Atom<Option<DisplayPipelineAttributes>> attributes = Atom(Option<DisplayPipelineAttributes>.None);
     private readonly IPlugInViews views;
 
-    protected DefinedRealtimeEngine() => views = IPlugInViews.Of(this);
+    protected DefinedRealtimeEngine() => views = HostedTypes.Owner(typeof(TEngine));
 
     // --- [ROWS]
     protected abstract IO<Unit> Start(RealtimeStart start);
@@ -140,7 +141,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
     // --- [LIFECYCLE]
     public sealed override void PostConstruct() =>
-        Callbacks.Run(IO.lift(Subscribe), CallbackSite.Of(this));
+        Callbacks.Run(IO.lift(Subscribe), CallbackSite.Of(views, this));
 
     public sealed override void CreateWorld(RhinoDoc doc, ViewInfo viewInfo, DisplayPipelineAttributes displayPipelineAttributes) =>
         _ = attributes.Swap(_ => Some(displayPipelineAttributes));
@@ -148,7 +149,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     public sealed override bool StartRenderer(int w, int h, RhinoDoc doc, ViewInfo view, ViewportInfo viewportInfo, bool forCapture, RenderWindow renderWindow) =>
         Callbacks.Succeeded(
             Started(w, h, doc, view, viewportInfo, forCapture, renderWindow),
-            CallbackSite.Of(this));
+            CallbackSite.Of(views, this));
 
     public sealed override bool OnRenderSizeChanged(int width, int height) =>
         Callbacks.Succeeded(
@@ -156,10 +157,10 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
             from resize in Resize
             select IO.lift(PixelExtent.Validated(width, height)).Bind(extent => Resized(session.Target with { Extent = extent }, resize)),
             () => base.OnRenderSizeChanged(width, height),
-            CallbackSite.Of(this));
+            CallbackSite.Of(views, this));
 
     public sealed override void ShutdownRenderer() =>
-        Callbacks.Run(DisposalOps.Within(static () => unit, _ => Stop(), _ => Closed), CallbackSite.Of(this));
+        Callbacks.Run(DisposalOps.Within(static () => unit, _ => Stop(), _ => Closed), CallbackSite.Of(views, this));
 
     public sealed override void GetRenderSize(out int width, out int height) =>
         (width, height) = Session.Map(static session => (session.Target.Extent.Width, session.Target.Extent.Height)).IfNone((0, 0));
@@ -167,9 +168,9 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
     private void Subscribe() {
         SetUseDrawOpenGl(IRealtimeProduct.DrawsOpenGl);
         _ = toSeq(HudControl.Items).Iter(Attach);
-        MaxPassesChanged += Callbacks.Handler<HudMaxPassesChangedEventArgs>(args => Edited(args.MaxPasses), CallbackSite.Of(this, nameof(MaxPassesChanged)));
-        _ = Framebuffer.Iter(draw => OnInitFramebuffer += Callbacks.Handler<InitFramebufferEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(this, nameof(OnInitFramebuffer))));
-        _ = Middleground.Iter(draw => OnDrawMiddleground += Callbacks.Handler<DrawMiddlegroundEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(this, nameof(OnDrawMiddleground))));
+        MaxPassesChanged += Callbacks.Handler<HudMaxPassesChangedEventArgs>(args => Edited(args.MaxPasses), CallbackSite.Of(views, this, nameof(MaxPassesChanged)));
+        _ = Framebuffer.Iter(draw => OnInitFramebuffer += Callbacks.Handler<InitFramebufferEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(views, this, nameof(OnInitFramebuffer))));
+        _ = Middleground.Iter(draw => OnDrawMiddleground += Callbacks.Handler<DrawMiddlegroundEventArgs>(args => draw(args.Pipeline), CallbackSite.Of(views, this, nameof(OnDrawMiddleground))));
     }
 
     private IO<Unit> Started(int width, int height, RhinoDoc doc, ViewInfo view, ViewportInfo viewport, bool forCapture, RenderWindow window) =>
@@ -181,11 +182,13 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
                 from sized in IO.lift(() => target.Window.SetSize(new Size(target.Extent.Width, target.Extent.Height)))
                 from added in RenderWindows.AddRequested(target.Window)
                 from now in IO.lift(views.Clock.GetCurrentInstant)
-                from queue in DefinedChangeFeed.Of(views.PlugIn, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake, owned)
-                select (Queue: queue, Now: now, Target: target), (created, lease) => {
+                from passes in IO.lift(() => MaxPasses)
+                from limit in IO.lift(Callbacks.Found(target.ForCapture && passes > 0, passes).Traverse(PassCount.Validated).As())
+                from queue in DefinedChangeFeed.Of(views, doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake, owned)
+                select (Queue: queue, Now: now, Target: target, Limit: limit), (created, lease) => {
                     Option<RealtimeSession> prior = atomic(() => {
                         Option<RealtimeSession> held = sessions.Value;
-                        sessions.Value = Some(RealtimeSession.Of(created.Target, lease, created.Now));
+                        sessions.Value = Some(RealtimeSession.Of(created.Target, lease, created.Now, created.Limit));
                         return held;
                     });
                     return DisposalOps.Release(prior.Map(static session => session.Scene).ToSeq());
@@ -224,7 +227,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
             Session.Bind(static session => session.Progress).Map(static progress => IO.lift(progress.Map(static fraction => (double)fraction))),
             base.CaptureProgress,
             base.CaptureProgress,
-            CallbackSite.Of(this));
+            CallbackSite.Of(views, this));
 
     // --- [HUD]
     public sealed override string HudProductName() => RowText.Localize(TEngine.Product, views).Local;
@@ -264,7 +267,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
                 from acted in act.TraverseM(Swapped).As()
                 from delivered in Delivered(new HudEvent.Clicked(control, gesture))
                 select unit,
-            CallbackSite.Of(this, nameof(Hud))).Invoke;
+            CallbackSite.Of(views, this, nameof(Hud))).Invoke;
 
     private IO<Unit> Edited(int maxPasses) =>
         from limit in IO.lift(PassCount.Validated(maxPasses))
@@ -297,7 +300,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
 public abstract class DefinedRealtimeEngineInfo<TEngine> : RealtimeDisplayModeClassInfo
     where TEngine : DefinedRealtimeEngine<TEngine>, IRealtimeProduct, new() {
-    public sealed override string Name => RowText.Localize(TEngine.Product, IPlugInSink.Of(this)).Local;
+    public sealed override string Name => RowText.Localize(TEngine.Product, HostedTypes.Owner(typeof(TEngine))).Local;
     public sealed override Guid GUID => RealtimeDisplayModeType.GUID;
     public sealed override bool DrawOpenGl => IRealtimeProduct.DrawsOpenGl;
     public sealed override Type RealtimeDisplayModeType => typeof(TEngine);

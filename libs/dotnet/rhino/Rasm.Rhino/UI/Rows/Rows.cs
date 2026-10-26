@@ -246,6 +246,9 @@ public sealed class RowScope {
 
     public RowScope Hosted(Control host) => new(Sink, Document, Settings, mode, History, Locks, listeners, Some(host), visibility);
 
+    public RowScope Separated(bool visible) =>
+        new(Sink, Document, Settings, mode, History, Locks, listeners, Host, Atom((Visible: visible, Listeners: LanguageExt.HashSet<Func<bool, IO<Unit>>>.Empty)));
+
     public IO<CommitMode> Mode => mode.ValueIO;
 
     // --- [VISIBILITY]

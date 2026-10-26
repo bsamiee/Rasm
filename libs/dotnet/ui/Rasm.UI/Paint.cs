@@ -8,7 +8,7 @@ using Wacton.Unicolour;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record Context(Option<PlotFrame> Plot, SKMatrix Device, SKColorF Ground, Seq<(Interaction Interaction, float Weight)> Washes) {
+internal sealed record Context(Option<PlotFrame> Plot, SKMatrix Device, Seq<(Interaction Interaction, float Weight)> Washes) {
     public Context Keyed => this with { Device = Device with { TransX = Fractional(Device.TransX), TransY = Fractional(Device.TransY) } };
 
     public float Scale => Device.MapRadius(1f);
@@ -23,16 +23,8 @@ internal sealed record Context(Option<PlotFrame> Plot, SKMatrix Device, SKColorF
 internal sealed record PlacedImage(SKImage Image, SKRect Source, SKMatrix Local) {
     private static readonly SKSamplingOptions Sampling = new(SKFilterMode.Linear);
 
-    public static Option<PlacedImage> Recorded(SKRect local, SKMatrix device, Action<SKCanvas> record) {
-        using SKPictureRecorder recorder = new();
-        record(recorder.BeginRecording(local));
-        using SKPicture drawn = recorder.EndRecording();
-        SKRectI pixels = SKRectI.Ceiling(device.MapRect(local), outwards: true);
-        return Optional(SKImage.FromPicture(drawn, pixels.Size, device.PostConcat(SKMatrix.CreateTranslation(-pixels.Left, -pixels.Top))))
-            .Map(image => new PlacedImage(image, SKRect.Create(pixels.Width, pixels.Height), device.Invert().PreConcat(SKMatrix.CreateTranslation(pixels.Left, pixels.Top))));
-    }
-
-    public Option<PlacedImage> Shadowed(Seq<(Shadow Shadow, SKColorF Color)> stack, float scale) {
+    public Option<PlacedImage> Shadowed(Seq<(Shadow Shadow, SKColorF Color)> stack) {
+        float scale = 1f / Local.MapRadius(1f);
         Seq<SKImageFilter> drops = stack.Map(cast => Dropped(cast.Shadow, (SKColor)cast.Color, scale)).Strict();
         using SKImageFilter merged = SKImageFilter.CreateMerge([.. drops]);
         _ = drops.Iter(static drop => drop.Dispose());
@@ -61,13 +53,18 @@ public sealed class PaintCache : IDisposable {
     private readonly SkiaModel model;
     private readonly SkiaSvgAssetLoader loader;
     private readonly Entries<Seq<Key>, Context, SKPicture> subtrees = new(ReferenceEquals, static picture => picture.Dispose());
-    private readonly Entries<Seq<Key>, Unit, Seq<(SKColor Ink, SKTextBlob Blob)>> blobs = new(ReferenceEquals, Released);
+    private readonly Entries<Seq<Key>, Unit, Seq<(Topten.RichTextKit.IStyle Style, SKTextBlob Blob)>> blobs = new(ReferenceEquals, Released);
+    private readonly Entries<Seq<Key>, Seq<Filter>, Option<SKImageFilter>> filters = new(Content, Released);
     private readonly Entries<(Seq<Key> Path, Role Role), (SKRect Shape, float Scale, float Radius, Seq<(Shadow Shadow, SKColorF Color)> Stack), Option<PlacedImage>> casts = new(Content, Released);
     private readonly Entries<(Seq<Key> Path, SKRuntimeEffect Effect), (HashMap<string, Option<SKColorF>> Inks, SKSize Size, float Scale), Option<PlacedImage>> fills = new(Content, Released);
+    private readonly SKImageInfo target;
+    private readonly SKSurfaceProperties raster;
+    private readonly float density;
     private Option<Scene> retained;
     private HashMap<(Assembly Assembly, string Resource), SKPicture> art;
 
-    public PaintCache(SKSurfaceProperties raster) {
+    public PaintCache(SKImageInfo target, SKSurfaceProperties raster, float density = 1f) {
+        (this.target, this.raster, this.density) = (target, raster, density);
         model = new SkiaModel(new SKSvgSettings());
         loader = new SkiaSvgAssetLoader(model);
         Raster = new Topten.RichTextKit.TextPaintOptions {
@@ -87,22 +84,38 @@ public sealed class PaintCache : IDisposable {
             return recorder.EndRecording();
         });
 
-    internal Seq<(SKColor Ink, SKTextBlob Blob)> Blobs(Laid.Text laid, Typeset.Featured set) =>
-        blobs.Kept(laid.Path, laid, unit, () => toSeq(set.Runs.GroupBy(static run => run.Style.TextColor)).Choose(runs => Built(runs.Key, toSeq(runs))).Strict());
+    internal Seq<(Topten.RichTextKit.IStyle Style, SKTextBlob Blob)> Blobs(Laid.Text laid, Typeset.Featured set) =>
+        blobs.Kept(laid.Path, laid, unit, () => toSeq(set.Runs.GroupBy(static run => run.Style)).Choose(runs => Built(runs.Key, toSeq(runs))).Strict());
 
-    private Option<(SKColor Ink, SKTextBlob Blob)> Built(SKColor ink, Seq<Glyphs> runs) {
+    private Option<(Topten.RichTextKit.IStyle Style, SKTextBlob Blob)> Built(Topten.RichTextKit.IStyle style, Seq<Glyphs> runs) {
         using SKTextBlobBuilder builder = new();
         _ = runs.Iter(run => {
             using SKFont font = new(run.Typeface, run.Style.FontSize) { Edging = Raster.Edging, Subpixel = Raster.SubpixelPositioning, Hinting = Raster.Hinting };
             builder.AddPositionedRun(run.Ids.AsSpan(), font, run.Points.AsSpan());
         });
-        return Optional(builder.Build()).Map(blob => (Ink: ink, Blob: blob));
+        return Optional(builder.Build()).Map(blob => (Style: style, Blob: blob));
     }
 
+    internal Option<SKImageFilter> Filtered(Laid laid, Seq<Filter> chain) => filters.Kept(laid.Path, laid, chain, () => Filter.Chained(chain));
+
     // --- [RASTER]
+    internal Option<PlacedImage> Rastered(SKRect local, SKMatrix device, Action<SKCanvas> record) {
+        using SKPictureRecorder recorder = new();
+        record(recorder.BeginRecording(local));
+        using SKPicture drawn = recorder.EndRecording();
+        SKMatrix grid = device.PostConcat(SKMatrix.CreateScale(density, density));
+        SKRectI pixels = SKRectI.Ceiling(grid.MapRect(local), outwards: true);
+        using SKSurface? surface = SKSurface.Create(target.WithSize(pixels.Width, pixels.Height), raster);
+        return Optional(surface).Map(held => {
+            held.Canvas.SetMatrix(grid.PostConcat(SKMatrix.CreateTranslation(-pixels.Left, -pixels.Top)));
+            held.Canvas.DrawPicture(drawn);
+            return new PlacedImage(held.Snapshot(), SKRect.Create(pixels.Width, pixels.Height), grid.Invert().PreConcat(SKMatrix.CreateTranslation(pixels.Left, pixels.Top)));
+        });
+    }
+
     internal void Casts(SKCanvas canvas, Laid laid, Style style, Context context, SKRect shape, float radius, Seq<(Shadow Shadow, SKColorF Color)> stack) =>
         _ = casts.Kept((laid.Path, style.Role), laid, (context.Keyed.Device.MapRect(shape), context.Scale, radius, stack), () =>
-            PlacedImage.Recorded(SKRect.Inflate(shape, style.Overhang, style.Overhang), context.Keyed.Device, recording => {
+            Rastered(SKRect.Inflate(shape, style.Overhang, style.Overhang), context.Keyed.Device, recording => {
                 using SKRoundRect outline = new(shape, radius, radius);
                 recording.ClipRoundRect(outline, SKClipOperation.Difference, antialias: true);
                 _ = stack.Iter(cast => {
@@ -119,7 +132,7 @@ public sealed class PaintCache : IDisposable {
         drawn.Timed
             ? Some(Shader(drawn, inks, frame, clock))
             : fills.Kept((laid.Path, drawn.Effect), laid, (inks, frame.Size, context.Scale), () =>
-                PlacedImage.Recorded(SKRect.Create(frame.Size), SKMatrix.CreateScale(context.Scale, context.Scale), recording => {
+                Rastered(SKRect.Create(frame.Size), SKMatrix.CreateScale(context.Scale, context.Scale), recording => {
                     using SKShader shader = Shader(drawn, inks, SKRect.Create(frame.Size), clock);
                     using SKPaint paint = new() { Shader = shader };
                     recording.DrawRect(SKRect.Create(frame.Size), paint);
@@ -135,7 +148,7 @@ public sealed class PaintCache : IDisposable {
     }
 
     // --- [GLYPH]
-    internal void Glyph(SKCanvas canvas, GlyphSource source, SKColorF ground, Pen pen, SKColorF tint, SKRect content) {
+    internal void Glyph(SKCanvas canvas, GlyphSource source, Ground ground, Pen pen, SKColorF tint, SKRect content) {
         (SKPicture picture, bool tinted) = source.Shown(ground, Recorded);
         SKRect cull = picture.CullRect;
         SKRect fitted = ImageFit.Contain.Fitted(content, cull.Size);
@@ -165,6 +178,7 @@ public sealed class PaintCache : IDisposable {
         blobs.Retain(scene);
         casts.Retain(scene);
         fills.Retain(scene);
+        filters.Retain(scene);
         art = Released(art, (key, _) => shown.Contains(key), static picture => picture.Dispose());
     }
 
@@ -173,12 +187,15 @@ public sealed class PaintCache : IDisposable {
         blobs.Clear();
         casts.Clear();
         fills.Clear();
+        filters.Clear();
         art = Released(art, static (_, _) => false, static picture => picture.Dispose());
     }
 
     private static bool Content(Laid held, Laid laid) => true;
 
-    private static void Released(Seq<(SKColor Ink, SKTextBlob Blob)> built) => _ = built.Iter(static run => run.Blob.Dispose());
+    private static void Released(Seq<(Topten.RichTextKit.IStyle Style, SKTextBlob Blob)> built) => _ = built.Iter(static run => run.Blob.Dispose());
+
+    private static void Released(Option<SKImageFilter> chain) => _ = chain.Iter(static held => held.Dispose());
 
     private static void Released(Option<PlacedImage> placed) => _ = placed.Iter(static held => held.Image.Dispose());
 
@@ -229,7 +246,7 @@ public static class Painter {
         using SKAutoCanvasRestore restore = new(canvas);
         canvas.ClipRegion(damage);
         canvas.Clear(SKColors.Transparent);
-        Context root = new(None, canvas.TotalMatrix, theme.Ground.Fill, []);
+        Context root = new(None, canvas.TotalMatrix, []);
         Draw(canvas, pass, scene.Layout, root, scene.Layout.Frame.Location);
         _ = washes.Filter(static (key, _) => key.Interaction == Interaction.Focused).Iter((key, weight) => scene.Ring(key.Path).Iter(ring => Ringed(canvas, pass, root, ring, weight)));
     }
@@ -247,17 +264,17 @@ public static class Painter {
 
     private static void Self(SKCanvas canvas, Pass pass, Laid laid, Context context) {
         SKRect local = SKRect.Create(laid.Frame.Size);
-        float alpha = (laid.Style.Veiled && !laid.Cascade.Enclosing.Veiled ? pass.Theme.Veil : 1f) * laid.Node.Alpha;
         using SKAutoCanvasRestore restore = new(canvas, doSave: false);
-        if (alpha < 1f) Layer(canvas, laid.LocalReach, alpha);
+        Option<SKImageFilter> filter = laid.Node.Role.IsSome && !laid.Style.Filters.IsEmpty ? pass.Cache.Filtered(laid, laid.Style.Filters) : None;
+        if (laid.Alpha < 1f || filter.IsSome) Layer(canvas, laid.LocalReach, laid.Alpha, filter);
         bool filled = laid.Node.Role.IsSome && laid.Node.Surfaced && Surface(canvas, pass, laid, context, local);
-        Context grounded = context with { Ground = Ground(pass.Theme, laid).IfNone(context.Ground) };
-        Context inner = grounded with { Plot = Layouts.Plotted(laid) | context.Plot };
-        if (laid.Node.Role.IsSome && !filled) _ = Shadows(pass.Theme, laid.Style).Iter(stack => Cast(canvas, laid, context, stack, Inside));
+        Ground under = Styles.Grounded(laid.Cascade, laid.Style, laid.Node);
+        Context inner = context with { Plot = Layouts.Plotted(laid) | context.Plot };
+        if (laid.Node.Role.IsSome && !filled) _ = Shadows(pass.Theme, laid.Style).Iter(stack => Cast(canvas, pass.Cache, laid, context, stack, Inside));
         Inside(canvas);
 
         void Inside(SKCanvas target) {
-            Content(target, pass, laid, grounded, laid.ContentBox);
+            Content(target, pass, laid, context, under, laid.ContentBox);
             _ = laid.Children.Iter(child => {
                 using SKAutoCanvasRestore clipped = new(target);
                 if (laid.Node.Clips(child.Node)) target.ClipRect(local, antialias: true);
@@ -272,19 +289,18 @@ public static class Painter {
             var own => own,
         };
 
-    private static void Layer(SKCanvas canvas, SKRect bounds, float alpha) {
+    private static void Layer(SKCanvas canvas, SKRect bounds, float alpha, Option<SKImageFilter> filter) {
         using SKPaint veil = new() { ColorF = new SKColorF(0f, 0f, 0f, alpha) };
+        _ = filter.Iter(held => veil.ImageFilter = held);
         _ = canvas.SaveLayer(bounds, veil);
     }
 
-    private static Option<SKColorF> Ground(Theme theme, Laid laid) => laid.Node.Role.IsSome ? Solid(theme, laid.Style).Filter(static color => color.Alpha >= 1f) : None;
-
     private static Option<SKColorF> Solid(Theme theme, Style style) => style.Solid.Bind(ink => theme.Color(ink, style, None, None));
 
-    private static void Cast(SKCanvas canvas, Laid laid, Context context, Seq<(Shadow Shadow, SKColorF Color)> stack, Action<SKCanvas> content) =>
-        _ = PlacedImage.Recorded(laid.LocalReach, context.Keyed.Device, content).Iter(source => {
+    private static void Cast(SKCanvas canvas, PaintCache cache, Laid laid, Context context, Seq<(Shadow Shadow, SKColorF Color)> stack, Action<SKCanvas> content) =>
+        _ = cache.Rastered(laid.LocalReach, context.Keyed.Device, content).Iter(source => {
             using SKImage drawn = source.Image;
-            _ = source.Shadowed(stack, context.Scale).Iter(cast => {
+            _ = source.Shadowed(stack).Iter(cast => {
                 using SKImage shown = cast.Image;
                 cast.Draw(canvas);
             });
@@ -297,10 +313,12 @@ public static class Painter {
         };
 
     // --- [COLOR]
-    private static Option<SKColorF> Inked(Theme theme, Style style, Seq<(Interaction Interaction, float Weight)> washes, Ink ink, Option<Series> series) =>
+    private static readonly HashMap<Interaction, Ink> Untargeted = [];
+
+    private static Option<SKColorF> Inked(Theme theme, Style style, Seq<(Interaction Interaction, float Weight)> washes, HashMap<Interaction, Ink> targets, Ink ink, Option<Series> series) =>
         washes.Fold(theme.Color(ink, style, None, series), (rest, wash) =>
             from start in rest
-            select theme.Color(ink, style, Some(wash.Interaction), series)
+            select (theme.Color(ink, style, Some(wash.Interaction), series) | targets.Find(wash.Interaction).Bind(target => theme.Color(target, style, None, series)))
                 .Map(end => start.ToUnicolour().Mix(end.ToUnicolour(), ColourSpace.Oklab, wash.Weight).MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF())
                 .IfNone(start));
 
@@ -319,13 +337,9 @@ public static class Painter {
             using SKPaint owned = held.Paint;
             canvas.DrawRoundRect(shape, owned);
         }));
-        _ = context.Washes.Filter(wash => style.Fills.ForAll(fill => Inks(fill).ForAll(ink => pass.Theme.Color(ink, style, Some(wash.Interaction), None).IsNone)))
-            .Choose(wash => style.Look.Washes.Find(wash.Interaction).Bind(ink => pass.Theme.Color(ink, style, None, None)).Map(color => color.WithAlpha(color.Alpha * wash.Weight)))
-            .Iter(color => {
-                using SKPaint paint = Colored(color);
-                canvas.DrawRoundRect(shape, paint);
-            });
-        _ = style.Strokes.Iter(stroke => Inked(pass.Theme, style, context.Washes, stroke.Ink, None).Iter(color => {
+        Ground under = laid.Cascade.Ground;
+        bool bounding = laid.Node.Part.IsSome && Solid(pass.Theme, style).ForAll(fill => Styles.Ratio(fill, under.Under) < pass.Theme.Contrast.Graphic);
+        _ = style.Strokes.Iter(stroke => Inked(pass.Theme, style, context.Washes, Untargeted, stroke.Ink, None).Map(color => bounding ? Styles.Legible(style, under, color, pass.Theme.Contrast.Graphic) : color).Iter(color => {
             using SKPaint edge = new() { IsAntialias = true, ColorF = color, Style = SKPaintStyle.Stroke, StrokeWidth = style.Metrics[Metric.Stroke] };
             using SKRoundRect inset = new(shape);
             inset.Deflate(edge.StrokeWidth / 2f, edge.StrokeWidth / 2f);
@@ -349,22 +363,14 @@ public static class Painter {
     private static Option<SKPaint> Filled(Pass pass, Laid laid, Context context, Option<Series> series, SKRect frame, Material material) =>
         material.Switch(
             (Pass: pass, Laid: laid, laid.Style, Context: context, Series: series, Frame: frame),
-            solid: static (held, solid) => Inked(held.Pass.Theme, held.Style, held.Context.Washes, solid.Ink, held.Series).Map(Colored),
-            gradient: static (held, gradient) => gradient.Stops.Traverse(stop => Inked(held.Pass.Theme, held.Style, held.Context.Washes, stop.Ink, held.Series)).As()
+            solid: static (held, solid) => Inked(held.Pass.Theme, held.Style, held.Context.Washes, held.Style.Look.Washes, solid.Ink, held.Series).Map(Colored),
+            gradient: static (held, gradient) => gradient.Stops.Traverse(stop => Inked(held.Pass.Theme, held.Style, held.Context.Washes, held.Style.Look.Washes, stop.Ink, held.Series)).As()
                 .Map(colors => Shaded(Gradient(held.Frame, gradient, colors))),
             drawn: static (held, drawn) => held.Pass.Cache.Drawn(
-                    held.Laid, drawn, drawn.Inks.Map(ink => Inked(held.Pass.Theme, held.Style, held.Context.Washes, ink, None)), held.Frame, held.Context, held.Pass.Clock)
+                    held.Laid, drawn, drawn.Inks.Map(ink => Inked(held.Pass.Theme, held.Style, held.Context.Washes, held.Style.Look.Washes, ink, None)), held.Frame, held.Context, held.Pass.Clock)
                 .Map(Shaded),
             backdrop: static (_, _) => Some(new SKPaint { IsAntialias = true, BlendMode = SKBlendMode.Clear }),
-            blurred: static (held, blurred) => Inked(held.Pass.Theme, held.Style, held.Context.Washes, blurred.Tint, held.Series).Map(Colored));
-
-    private static Seq<Ink> Inks(Material material) =>
-        material.Switch(
-            solid: static solid => Seq(solid.Ink),
-            gradient: static gradient => gradient.Stops.Map(static stop => stop.Ink),
-            drawn: static drawn => toSeq(drawn.Inks.Values),
-            backdrop: static _ => Seq<Ink>(),
-            blurred: static blurred => Seq(blurred.Tint));
+            blurred: static (held, blurred) => Inked(held.Pass.Theme, held.Style, held.Context.Washes, held.Style.Look.Washes, blurred.Tint, held.Series).Map(Colored));
 
     private static SKPaint Shaded(SKShader shader) {
         using SKShader owned = shader;
@@ -372,7 +378,7 @@ public static class Painter {
     }
 
     private static SKShader Gradient(SKRect frame, Material.Gradient gradient, Seq<SKColorF> colors) {
-        (float sin, float cos) = MathF.SinCos(gradient.Angle * MathF.PI / 180f);
+        (float sin, float cos) = MathF.SinCos(float.DegreesToRadians(gradient.Angle));
         float reach = (MathF.Abs(cos * frame.Width) + MathF.Abs(sin * frame.Height)) / 2f;
         SKPoint center = new(frame.MidX, frame.MidY);
         return SKShader.CreateLinearGradient(
@@ -388,7 +394,7 @@ public static class Painter {
     private static void Ringed(SKCanvas canvas, Pass pass, Context root, (Laid Laid, SKRect Frame, SKRect Clip, Style Style) ring, float weight) {
         using SKAutoCanvasRestore restore = new(canvas);
         canvas.ClipRect(ring.Clip, antialias: true);
-        if (weight < 1f) Layer(canvas, SKRect.Inflate(ring.Frame, ring.Style.Overhang, ring.Style.Overhang), weight);
+        if (weight < 1f) Layer(canvas, SKRect.Inflate(ring.Frame, ring.Style.Overhang, ring.Style.Overhang), weight, None);
         canvas.Translate(ring.Frame.Left, ring.Frame.Top);
         _ = Shadows(pass.Theme, ring.Style).Iter(stack => pass.Cache.Casts(
             canvas, ring.Laid, ring.Style, root.Within(ring.Frame.Location), SKRect.Create(ring.Frame.Size),
@@ -396,26 +402,27 @@ public static class Painter {
     }
 
     // --- [CONTENT]
-    private static void Content(SKCanvas canvas, Pass pass, Laid laid, Context context, SKRect content) =>
+    private static void Content(SKCanvas canvas, Pass pass, Laid laid, Context context, Ground under, SKRect content) =>
         laid.Switch(
-            (Canvas: canvas, Pass: pass, Context: context, Content: content),
-            box: static (held, box) => Contained(held.Canvas, held.Pass, box, held.Context, held.Content),
-            text: static (held, text) => Texted(held.Canvas, held.Pass, text, held.Context, held.Content));
+            (Canvas: canvas, Pass: pass, Context: context, Under: under, Content: content),
+            box: static (held, box) => Contained(held.Canvas, held.Pass, box, held.Context, held.Under, held.Content),
+            text: static (held, text) => Texted(held.Canvas, held.Pass, text, held.Context, held.Under, held.Content));
 
-    private static void Contained(SKCanvas canvas, Pass pass, Laid.Box laid, Context context, SKRect content) =>
+    private static void Contained(SKCanvas canvas, Pass pass, Laid.Box laid, Context context, Ground under, SKRect content) =>
         laid.Node.SwitchPartially(
-            (Canvas: canvas, Pass: pass, Laid: laid, Context: context, Content: content),
+            (Canvas: canvas, Pass: pass, Laid: laid, Context: context, Under: under, Content: content),
             mark: static (held, mark) => held.Context.Plot.Iter(plot => Marked(held.Canvas, held.Pass, held.Laid, held.Context, mark, plot)),
-            glyph: static (held, glyph) => Inked(held.Pass.Theme, held.Laid.Style, held.Context.Washes, held.Laid.Style.Text, None)
-                .Iter(tint => held.Pass.Cache.Glyph(held.Canvas, glyph.Art, held.Context.Ground, held.Context.Pen(held.Laid.Style), tint, held.Content)),
+            glyph: static (held, glyph) => Inked(held.Pass.Theme, held.Laid.Style, held.Context.Washes, Untargeted, held.Laid.Style.Text, None)
+                .Map(tint => Styles.Legible(held.Laid.Style, held.Under, tint, held.Pass.Theme.Contrast.Graphic))
+                .Iter(tint => held.Pass.Cache.Glyph(held.Canvas, glyph.Art, held.Under, held.Context.Pen(held.Laid.Style), tint, held.Content)),
             image: static (held, image) => Pictured(held.Canvas, held.Pass.Theme, held.Laid.Style, held.Context, image, held.Content),
             slot: static (held, _) => {
                 using SKPaint clear = new() { BlendMode = SKBlendMode.Clear };
                 held.Canvas.DrawRect(SKRect.Create(held.Laid.Frame.Size), clear);
             });
 
-    private static void Texted(SKCanvas canvas, Pass pass, Laid.Text laid, Context context, SKRect content) =>
-        _ = Inked(pass.Theme, laid.Style, context.Washes, laid.Style.Text, None).Iter(ink => pass.Editing.Filter(held => held.Path == laid.Path).Match(
+    private static void Texted(SKCanvas canvas, Pass pass, Laid.Text laid, Context context, Ground under, SKRect content) =>
+        _ = Inked(pass.Theme, laid.Style, context.Washes, Untargeted, laid.Style.Text, None).Map(ink => Styles.Legible(laid.Style, under, ink, pass.Theme.Contrast.Text)).Iter(ink => pass.Editing.Filter(held => held.Path == laid.Path).Match(
             Some: held => held.Editor.Paint(canvas, laid, content, pass.Cache.Raster,
                 (SKColor)Solid(pass.Theme, Styles.Resolve(laid.Cascade, Role.Selection, laid.Style.Conditions)).IfNone(SKColorF.Empty), (SKColor)ink, pass.Active ? laid.Style.Metrics[Metric.Stroke] : 0f),
             None: () => Typesetting.Paint(canvas, pass.Cache, laid, (SKColor)ink)));
@@ -424,7 +431,7 @@ public static class Painter {
         SKRect target = image.Fit.Fitted(content, new SKSize(image.Source.Width, image.Source.Height));
         SKRect device = context.Device.MapRect(target);
         using SKPaint paint = new() { IsAntialias = true, BlendMode = style.Blend };
-        _ = (image.Source.IsAlphaOnly ? (style.Strokes.Head.Map(static stroke => stroke.Ink) | style.Solid).Bind(ink => Inked(theme, style, context.Washes, ink, image.Series)) : None)
+        _ = (image.Source.IsAlphaOnly ? (style.Strokes.Head.Map(static stroke => stroke.Ink) | style.Solid).Bind(ink => Inked(theme, style, context.Washes, Untargeted, ink, image.Series)) : None)
             .Iter(color => paint.ColorF = color);
         using SKAutoCanvasRestore restore = new(canvas);
         canvas.ClipRect(content, antialias: true);
@@ -443,7 +450,7 @@ public static class Painter {
                 canvas.DrawPath(interior, owned);
             })));
         }
-        Seq<(Stroke Stroke, SKColorF Color)> edges = style.Strokes.Choose(stroke => Inked(pass.Theme, style, context.Washes, stroke.Ink, mark.Series).Map(color => (Stroke: stroke, Color: color)));
+        Seq<(Stroke Stroke, SKColorF Color)> edges = style.Strokes.Choose(stroke => Inked(pass.Theme, style, context.Washes, Untargeted, stroke.Ink, mark.Series).Map(color => (Stroke: stroke, Color: color)));
         if (!edges.IsEmpty) {
             using SKPath edge = Figure.Traced(builder => mark.Figure.Edges(builder, frame, pen));
             _ = edges.Iter(held => {

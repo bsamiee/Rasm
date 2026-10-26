@@ -3,7 +3,9 @@ using LanguageExt.ClassInstances;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Viewport;
 using Rhino;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
 using Rhino.Render;
@@ -248,10 +250,29 @@ public static partial class AttributeEdits {
                    select written;
 
     // --- [OVERRIDES]
-    public static IO<Unit> DisplayModeOverride(ObjectAttributes staged, Guid viewport, Option<Guid> mode) =>
+    public static Func<RhinoDoc, ObjectAttributes, IO<Unit>> DisplayModeOverride(Option<ViewportTarget> viewport, Option<Guid> mode) =>
+        (doc, staged) => Slot(doc, viewport).Bind(slot => DisplayModeOverride(staged, slot, mode));
+
+    internal static IO<Unit> DisplayModeOverride(ObjectAttributes staged, Guid slot, Option<Guid> mode) =>
         mode.Match(
-            Some: id => DisplayModes.With(id, description => IO.lift(() => { _ = staged.SetDisplayModeOverride(description, viewport); })),
-            None: () => IO.lift(() => staged.RemoveDisplayModeOverride(viewport)));
+            Some: id => DisplayModes.With(id, description =>
+                from allowed in IO.lift(() => Assignable(description))
+                from written in IO.lift(() => { _ = staged.SetDisplayModeOverride(description, slot); })
+                select written),
+            None: () => slot == Guid.Empty
+                ? IO.lift(() => AllViewportsRemoved(staged, Guid.NewGuid()))
+                : IO.lift(() => staged.RemoveDisplayModeOverride(slot)));
+
+    private static void AllViewportsRemoved(ObjectAttributes staged, Guid key) {
+        _ = SafeNativeMethods.AddDisplayMaterialRef(staged, new DisplayMaterialRef(Guid.Empty, key));
+        _ = SafeNativeMethods.RemoveDisplayMaterialRef(staged, Guid.Empty, key);
+    }
+
+    internal static IO<Guid> Slot(RhinoDoc doc, Option<ViewportTarget> viewport) =>
+        viewport.Match(Some: target => Viewports.With(doc, target, static row => IO.pure(row.Viewport.Id)), None: static () => IO.pure(Guid.Empty));
+
+    internal static Fin<Unit> Assignable(DisplayModeDescription mode) =>
+        Refused.Unless(mode.AllowObjectAssignment, nameof(DisplayModeDescription.AllowObjectAssignment));
 
     public static IO<Unit> ActiveInViewport(ObjectAttributes staged, RowsEdit<Guid, Guid> edit, bool active) =>
         IO.lift(() => edit.Switch(
@@ -340,6 +361,11 @@ public static class AttributeOps {
             PlotWeight.FromHost(attributes.ComputedPlotWeight(doc, viewport)),
             Conversions.Present(attributes.GetDisplayModeOverride(viewport)),
             Callbacks.Found(attributes.HasActiveInViewportOverride(viewport, out bool active), active)));
+
+    internal static Option<Guid> DisplayMaterialRef(ObjectAttributes attributes, Guid viewport) =>
+        SafeNativeMethods.FindDisplayMaterialRef(attributes, new DisplayMaterialRef(viewport, Guid.Empty))
+            .Filter(found => found.ViewportId == viewport)
+            .Map(static found => found.DisplayMaterialId);
 
     public static IO<T> WithComputedSectionStyle<T>(ObjectAttributes attributes, RhinoDoc doc, ObjectAttributes sectioner, bool computeColors, Guid viewport, Func<SectionStyle, IO<T>> body) =>
         DisposalOps.Found(() => attributes.ComputedSectionStyle(doc, sectioner, computeColors, viewport), nameof(ObjectAttributes.ComputedSectionStyle), body);

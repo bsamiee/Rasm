@@ -61,12 +61,12 @@ public abstract partial record DimensionDisplayGeometry {
 public static partial class Dimensions {
     // --- [CREATION]
     public static IO<T> Create<T>(
-        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Func<DimensionStyle, T?> create, string member,
+        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Func<DimensionStyle, Action<IDisposable>, IO<T>> create,
         Action<T, IDisposable> retain)
         where T : AnnotationBase =>
         DisposalOps.Acquire(held =>
             from parent in DimensionStyles.Resolve(doc, style)
-            from dimension in Copies.Acquire(() => create(parent), member, held)
+            from dimension in create(parent, held)
             from overridden in overrides.Traverse(edit => DimensionStyles.SetOverride(doc, dimension, edit)).As()
             select dimension, retain);
 
@@ -148,5 +148,5 @@ public static partial class Dimensions {
 
     // --- [PIECES]
     public static IO<T> Explode<T>(Dimension dimension, Func<Seq<GeometryBase>, IO<T>> body) =>
-        DisposalOps.Within((Action<IDisposable> held) => Copies.AcquireNonEmpty(dimension.Explode, nameof(Dimension.Explode), held).Bind(body), DisposalOps.Release);
+        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(nameof(Dimension.Explode), _ => Answer.NonEmpty(dimension.Explode()), held).Bind(body), DisposalOps.Release);
 }

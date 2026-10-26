@@ -5,6 +5,8 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.Commands;
+using Rhino.Display;
+using Rhino.DocObjects;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
 using Wacton.Unicolour;
@@ -218,6 +220,26 @@ public static class Conversions {
 
     [UserMapping]
     public static double Degrees(NorthAngle north) => north;
+
+    // --- [MATERIALS]
+    private static readonly Seq<TextureType> Slotted = [TextureType.Bitmap, TextureType.Emap, TextureType.Transparency];
+
+    public static Fin<Unit> CopyFrom(DisplayAttributeMaterial slot, Material material) =>
+        Rows(material.GetTextures()) switch {
+            var textures => Callbacks.Each(
+                textures.Filter(static texture => !Slotted.Exists(type => type == texture.TextureType)),
+                static (texture, _) => (Fin<Unit>)new Refused($"{nameof(TextureType)} {texture.TextureType}", Refused.Declined))
+                .Bind(_ => Copied(slot, material, textures)),
+        };
+
+    private static Fin<Unit> Copied(DisplayAttributeMaterial slot, Material material, Seq<Texture> textures) {
+        MaterialMapper.Update(material, slot);
+        return Callbacks.Each(Slotted, (type, _) => textures.Find(texture => texture.TextureType == type).Match(
+            Some: texture => Refused.Unless(slot.SetTexture(texture, type), nameof(DisplayAttributeMaterial.SetTexture)),
+            None: () => Optional(slot.GetTexture(type)).Match(
+                Some: _ => Refused.Unless(slot.RemoveTexture(type), nameof(DisplayAttributeMaterial.RemoveTexture)),
+                None: static () => unit))).Map(static _ => unit);
+    }
 }
 
 internal static class Patches {
@@ -241,4 +263,18 @@ internal static class Patches {
 
     [UserMapping(Default = true)]
     public static Plane Patched(Option<Plane> value, [MappingTargetOriginalValue] Plane original) => value.IfNone(original);
+}
+
+[Mapper]
+internal static partial class MaterialMapper {
+    // --- [UPDATES]
+    [MapProperty(nameof(Material.DiffuseColor), nameof(DisplayAttributeMaterial.Diffuse))]
+    [MapProperty(nameof(Material.EmissionColor), nameof(DisplayAttributeMaterial.Emission))]
+    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.FlatShaded), Justification = "Mode shading setting a material lacks")]
+    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.OverrideObjectColor), Justification = "Mode override a material lacks")]
+    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.OverrideObjectTransparency), Justification = "Mode override a material lacks")]
+    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.OverrideObjectReflectivity), Justification = "Mode override a material lacks")]
+    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.Luminosity), Justification = "Mode lighting setting a material lacks")]
+    [MapperIgnoreTarget(nameof(DisplayAttributeMaterial.ShineIntensity), Justification = "Mode lighting setting a material lacks")]
+    internal static partial void Update(Material material, DisplayAttributeMaterial slot);
 }

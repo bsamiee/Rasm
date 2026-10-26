@@ -313,19 +313,19 @@ public static class TargetRows {
                 Listed,
                 Picked) {
             Pair = Some((
-                new CommandRow.Run(new CommandFace("output-target-add", "Add Target", "Add target to each save", None, None), None, static scope =>
+                new Rasm.UI.Command<RowRule, Invoke>.Run(new Rasm.UI.CommandFace("output-target-add", "Add Target", Some("Add target to each save"), None), None, new Invoke.Effect(static scope =>
                     from doc in scope.DocumentIO
                     from book in Book(doc)
                     from written in Write(doc, book with { Targets = book.Targets.Add(OutputTarget.Default), Current = Some(book.Targets.Count) })
-                    select written),
-                new CommandRow.Run(new CommandFace("output-target-remove", "Remove Targets", "Remove selected targets", None, None),
-                    Some(RowRule.When(Picked.Source, static picked => !picked.IsEmpty)), static scope =>
+                    select written)),
+                new Rasm.UI.Command<RowRule, Invoke>.Run(new Rasm.UI.CommandFace("output-target-remove", "Remove Targets", Some("Remove selected targets"), None),
+                    Some(RowRule.When(Picked.Source, static picked => !picked.IsEmpty)), new Invoke.Effect(static scope =>
                         from doc in scope.DocumentIO
                         from picked in scope.Read(Picked.Source)
                         from book in Book(doc)
                         let kept = toSeq(book.Targets.Where((_, index) => !picked.Contains(index)))
                         from written in Write(doc, book with { Targets = kept, Current = kept.IsEmpty ? None : Some(0) })
-                        select written))),
+                        select written)))),
         },
             RowRules.Always),
         .. SectionRows.Of(Chosen, toSeq(TargetParameter.Items), None, Rules),

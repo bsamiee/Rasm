@@ -1,11 +1,46 @@
 using Rasm.Rhino.Document.Units;
+using CurvatureAnalysisSettingsState = Rhino.ApplicationSettings.CurvatureAnalysisSettingsState;
 
 namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
+[Union<BrepFace, Surface>(SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class SurfaceTarget;
+
 public sealed record SurfaceJet(Point3d Point, Vector3d Normal, Seq<Seq<Vector3d>> Orders) {
     public Option<Vector3d> Partial(int du, int dv) =>
         du >= 0 && dv >= 0 && du <= Orders.Count - dv && du + dv is > 0 and var order ? Orders[order - 1].At(dv) : None;
+}
+
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
+public abstract partial record CurvatureSource {
+    public sealed record OnSurface(Surface Surface, Seq<Point2d> At) : CurvatureSource;
+
+    public sealed record OnFace(BrepFace Face, Seq<Point2d> At) : CurvatureSource;
+
+    public sealed record OnSubD(SubD SubD, Seq<SubDComponentParameter> At, SubD.ExtraordinaryVertexCurvature Extraordinary) : CurvatureSource;
+
+    public sealed record OnMesh(Mesh Mesh) : CurvatureSource;
+
+    public IO<Seq<Option<SurfaceCurvature>>> Sample(Tolerances tolerances, Action<IDisposable> retain) =>
+        Switch(
+            (Tolerances: tolerances, Retain: retain),
+            onSurface: static (at, of) => IO.lift(() => of.At.Traverse(uv => SurfaceEvaluation.InDomain(of.Surface, uv, nameof(Surface.CurvatureAt))).As())
+                .Bind(points => Copies.Acquire(nameof(Surface.CurvatureAt), _ => Answer.Sparse(points.Map(uv => Regular(of.Surface, uv))), at.Retain)),
+            onFace: static (at, of) => Copies.Acquire(nameof(BrepFace.CurvatureAt), _ => Answer.Sparse(of.At.Map(uv =>
+                of.Face.IsPointOnFace(uv.X, uv.Y, at.Tolerances.Absolute) is PointFaceRelation.Exterior ? null : Regular(of.Face, uv))), at.Retain),
+            onSubD: static (at, of) => Copies.Acquire(nameof(SubD.EvaluateCurvature), _ => Answer.Sparse(of.At.Map(parameter =>
+                of.SubD.EvaluateCurvature(parameter, of.Extraordinary, out SurfaceCurvature curvature) ? curvature : null)), at.Retain),
+            onMesh: static (at, of) => IO.lift(() => of.Mesh.HasPrincipalCurvatures).Bind(held => held
+                ? Copies.Acquire(nameof(Mesh.PrincipalCurvatures), _ => Answer.Sparse(of.Mesh.PrincipalCurvatures), at.Retain)
+                : Copies.Acquire(nameof(Mesh.ComputeCurvatureApproximation), _ =>
+                    of.Mesh.ComputeCurvatureApproximation((int)CurvatureStyle.GaussianCurvature, out double[] gaussian)
+                    && of.Mesh.ComputeCurvatureApproximation((int)CurvatureStyle.MeanCurvature, out double[] mean)
+                        ? Answer.Sparse(gaussian.Zip(mean, static (k, h) => double.IsNaN(k) || double.IsNaN(h) ? null : SurfaceCurvature.CreateFromGaussianAndMeanCurvatures(k, -h)))
+                        : Answer.Accepted(accepted: false).Map(static _ => Seq<Option<SurfaceCurvature>>()), at.Retain)));
+
+    private static SurfaceCurvature? Regular(Surface surface, Point2d uv) =>
+        surface.IsAtSingularity(uv.X, uv.Y, exact: false) ? null : surface.CurvatureAt(uv.X, uv.Y);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -24,32 +59,35 @@ public static class SurfaceEvaluation {
             .As())
         select jet;
 
-    public static IO<SurfaceCurvature> Curvature(Surface surface, Point2d uv, Action<IDisposable> retain) =>
-        from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)))
-        from sampled in IO.lift(Fin<Point2d> () => surface.IsAtSingularity(at.X, at.Y, exact: false) ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Surface.CurvatureAt)} point lies at singularity") : at)
-        from curvature in Copies.Owned(
-            () => surface.CurvatureAt(sampled.X, sampled.Y),
-            static answer => Refused.UnlessFound(answer, nameof(Surface.CurvatureAt)).Bind(static value => Refused.UnlessValid(value.IsSet, value, nameof(Surface.CurvatureAt))),
-            static answer => DisposalOps.Release(answer), retain)
-        select curvature;
+    // --- [PROXIMITY]
+    public static IO<Option<Point2d>> ClosestPoint(SurfaceTarget target, Point3d test, Option<SearchDistance> within) =>
+        IO.lift(() => target.Switch(
+            (Test: test, Within: within),
+            brepFace: static (at, face) => face.ClosestPointOnFace(at.Test, out double u, out double v, at.Within.Match(static distance => (double)distance, 0d))
+                ? Some(new Point2d(u, v))
+                : at.Within.IsSome ? Option<Point2d>.None : Fin.Fail<Option<Point2d>>(new Refused(nameof(BrepFace.ClosestPointOnFace), Refused.Declined)),
+            surface: static (at, surface) => surface.ClosestPoint(at.Test, out double u, out double v)
+                ? at.Within.Match(
+                    Some: distance => surface.PointAt(u, v).DistanceTo(at.Test) <= distance ? Some(new Point2d(u, v)) : Option<Point2d>.None,
+                    None: () => Some(new Point2d(u, v)))
+                : new Refused(nameof(Surface.ClosestPoint), Refused.Declined)));
 
     // --- [CURVES]
-    public static IO<Seq<Curve>> IsoCurves(BrepFace face, SurfaceDirection constant, double parameter, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            () => Conversions.Within(face.Domain((int)constant), parameter, nameof(BrepFace.TrimAwareIsoCurve)).Map(at => face.TrimAwareIsoCurve(Varying(constant), at)),
-            nameof(BrepFace.TrimAwareIsoCurve), retain);
+    public static IO<Seq<Curve>> IsoCurves(SurfaceTarget target, SurfaceDirection constant, double parameter, Action<IDisposable> retain) =>
+        target.Switch(
+            (Constant: constant, Parameter: parameter, Retain: retain),
+            brepFace: static (at, face) => IO.lift(() => Conversions.Within(face.Domain((int)at.Constant), at.Parameter, nameof(BrepFace.TrimAwareIsoCurve)))
+                .Bind(t => Copies.Acquire(nameof(BrepFace.TrimAwareIsoCurve), _ => Answer.Many(face.TrimAwareIsoCurve(Varying(at.Constant), t)), at.Retain)),
+            surface: static (at, surface) => IO.lift(() => Conversions.Within(surface.Domain((int)at.Constant), at.Parameter, nameof(Surface.IsoCurve)))
+                .Bind(t => Copies.Acquire(nameof(Surface.IsoCurve), _ => Answer.One(surface.IsoCurve(Varying(at.Constant), t)).Map(static curve => Seq(curve)), at.Retain)));
 
-    public static IO<Seq<Curve>> IsoCurves(Surface surface, SurfaceDirection constant, double parameter, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            () => Conversions.Within(surface.Domain((int)constant), parameter, nameof(Surface.IsoCurve)).Map(at => surface.IsoCurve(Varying(constant), at)),
-            nameof(Surface.IsoCurve), retain).Map(static curve => Seq(curve));
+    public static IO<Curve> ShortPath(Tolerances tolerances, Surface surface, Point2d start, Point2d end, Action<IDisposable> retain) =>
+        IO.lift(() => (InDomain(surface, start, nameof(Surface.ShortPath)), InDomain(surface, end, nameof(Surface.ShortPath))).Apply(static (origin, target) => (Origin: origin, Target: target)).As())
+            .Bind(span => Copies.Acquire(nameof(Surface.ShortPath), _ => Answer.One(surface.ShortPath(span.Origin, span.Target, tolerances.Absolute)), retain));
 
-    public static IO<Curve> ShortPath(Surface surface, Point2d start, Point2d end, Tolerances tolerances, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            () => (InDomain(surface, start, nameof(Surface.ShortPath)), InDomain(surface, end, nameof(Surface.ShortPath)))
-                .Apply((origin, target) => surface.ShortPath(origin, target, tolerances.Absolute))
-                .As(),
-            nameof(Surface.ShortPath), retain);
+    // --- [ANALYSIS]
+    public static IO<Seq<Mesh>> CurvatureAnalysisMesh(Brep brep, CurvatureAnalysisSettingsState state, MeshingParameters meshingParameters, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Brep.CreateCurvatureAnalysisMesh), _ => Answer.Many(Brep.CreateCurvatureAnalysisMesh(brep, state, meshingParameters)), retain);
 
     // --- [SCANS]
     public static IO<Seq<double>> Discontinuities(Surface surface, SurfaceDirection direction, Continuity continuity, double cosAngleTolerance, double curvatureTolerance) =>
@@ -59,7 +97,7 @@ public static class SurfaceEvaluation {
             .Strict());
 
     // --- [DOMAIN]
-    private static Fin<Point2d> InDomain(Surface surface, Point2d uv, string member) =>
+    internal static Fin<Point2d> InDomain(Surface surface, Point2d uv, string member) =>
         (Conversions.Within(surface.Domain((int)SurfaceDirection.U), uv.X, member), Conversions.Within(surface.Domain((int)SurfaceDirection.V), uv.Y, member))
             .Apply(static (u, v) => new Point2d(u, v))
             .As();

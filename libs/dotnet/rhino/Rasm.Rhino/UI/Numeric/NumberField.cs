@@ -9,6 +9,8 @@ using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.Rhino.UI.Surfaces;
+using Rasm.UI.Styling;
 using Rhino;
 using Rhino.Input;
 using UnitsNet;
@@ -16,7 +18,7 @@ using UnitsNet;
 namespace Rasm.Rhino.UI.Numeric;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-internal delegate float PointerTravel();
+internal delegate Fin<float> PointerTravel(PointF at, PointF last);
 
 // --- [MODELS] --------------------------------------------------------------------------
 public abstract class NumberText<TKey> where TKey : notnull {
@@ -105,12 +107,12 @@ internal abstract partial record FieldState<TValue> where TValue : notnull {
     public sealed record Resting(Option<TValue> Shown) : FieldState<TValue>;
     public sealed record Pressed(TValue Shown, PointF At) : FieldState<TValue>;
     public sealed record Scrubbing(TValue Shown, float Travel, PointF Last, Option<TValue> Moved) : FieldState<TValue>;
-    public sealed record Editing(Option<TValue> Shown, Option<TValue> Typed) : FieldState<TValue>;
+    public sealed record Editing(Option<TValue> Shown, Option<TValue> Typed, bool Faulted) : FieldState<TValue>;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class NumberField : TextBox {
-    public static string HandlerStyle { get; } = ComponentControl.StyleName(typeof(NumberField));
+    public static string HandlerStyle { get; } = $"{typeof(NumberField).Assembly.GetName().Name}.{nameof(NumberField)}";
 
     protected NumberField(IPlugInSink sink) {
         Sink = sink;
@@ -126,23 +128,32 @@ public abstract class NumberField : TextBox {
 
     protected IO<Unit> Ended => IO.lift(() => ScrubEnded?.Invoke(this, EventArgs.Empty));
 
-    protected static float Travel(MouseEventArgs move, PointF last) =>
-        Optional(Platform.Instance.Find<PointerTravel>()).Match(Some: static create => create()(), None: () => move.Location.X - last.X);
+    protected static Fin<float> Travel(PointF at, PointF last) =>
+        Refused.UnlessFound(Platform.Instance.Find<PointerTravel>(), nameof(PointerTravel)).Bind(row => row()(at, last));
 }
 
 public sealed class NumberField<TValue, TKey> : NumberField
     where TValue : notnull
     where TKey : notnull, IComparable<TKey> {
     // --- [STATE]
+    private sealed record Styled(Color Text, Color Faulted, float Fine, float Slop) {
+        public Color Ink(FieldState<TValue> state) =>
+            state.SwitchPartially(this, @default: static (held, _) => held.Text, editing: static (held, editing) => editing.Faulted ? held.Faulted : held.Text);
+    }
+
     private const float Inset = 5f;
     private NumberText<TKey> text;
     private readonly Func<TKey, Fin<TValue>> create;
     private readonly Func<TValue, TKey> key;
     private readonly (TKey Low, TKey High) bounds;
     private FieldState<TValue> state = new FieldState<TValue>.Resting(None);
+    private Option<Styled> styled;
+    private Option<IDisposable> listening;
 
-    public NumberField(NumberText<TKey> text, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, IPlugInSink sink) : base(sink) =>
+    public NumberField(NumberText<TKey> text, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, IPlugInSink sink) : base(sink) {
         (this.text, this.create, this.key, this.bounds, PlaceholderText, TextAlignment, Cursor) = (text, create, key, bounds, text.Shown(None), TextAlignment.Right, Cursors.VerticalSplit);
+        Run(ViewOps.WhileLoaded(this, Listened, new CallbackSite(sink, typeof(NumberField<TValue, TKey>), nameof(ViewOps.WhileLoaded)), lease => listening = Some(lease)));
+    }
 
     public event EventHandler<EditEventArgs<TValue>>? Edited;
 
@@ -175,12 +186,13 @@ public sealed class NumberField<TValue, TKey> : NumberField
 
     private IO<Unit> Become(FieldState<TValue> next, Option<string> written) =>
         IO.lift(() => {
-            (state, TextColor, Cursor) = (next, PaintSlot.EntryText.Read(), next.MapPartially(@default: Cursors.VerticalSplit, editing: Cursors.IBeam));
+            (state, Cursor) = (next, next.MapPartially(@default: Cursors.VerticalSplit, editing: Cursors.IBeam));
+            _ = styled.Iter(held => TextColor = held.Ink(next));
             _ = written.Iter(shown => Text = shown);
         });
 
     private IO<Unit> Entered(Option<TValue> shown) =>
-        Become(new FieldState<TValue>.Editing(shown, None), Some(Entering(shown))).Bind(_ => IO.lift(SelectAll));
+        Become(new FieldState<TValue>.Editing(shown, None, Faulted: false), Some(Entering(shown))).Bind(_ => IO.lift(SelectAll));
 
     private IO<Unit> Pressing(TValue shown, MouseEventArgs e) =>
         from claimed in IO.lift(() => { e.Handled = true; })
@@ -211,7 +223,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
             resting: static (s, resting) => resting.Shown.Bind(shown => s.Field.Stepped(shown, s.Steps, s.Modifiers).ToOption()).Map(stepped =>
                 s.Field.Become(new FieldState<TValue>.Resting(Some(stepped)), Some(s.Field.Showing(Some(stepped)))).Bind(_ => s.Field.Raised(new Edit<TValue>.Step(stepped)))),
             editing: static (s, editing) => (editing.Typed | editing.Shown).Bind(shown => s.Field.Stepped(shown, s.Steps, s.Modifiers).ToOption()).Map(stepped =>
-                from typed in s.Field.Become(editing with { Typed = Some(stepped) }, Some(s.Field.Entering(Some(stepped))))
+                from typed in s.Field.Become(editing with { Typed = Some(stepped), Faulted = false }, Some(s.Field.Entering(Some(stepped))))
                 from selected in IO.lift(s.Field.SelectAll)
                 from raised in s.Field.Raised(new Edit<TValue>.Step(stepped))
                 select raised));
@@ -223,13 +235,16 @@ public sealed class NumberField<TValue, TKey> : NumberField
 
     private IO<Unit> Typed(FieldState<TValue>.Editing editing, string entry) =>
         text.Read(entry)
-            .Bind(raw => create(raw).Match(Succ: value => Accepted(editing, value), Fail: _ => Marked(PaintSlot.InvalidText)))
-            .Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => Marked(PaintSlot.InvalidText));
+            .Bind(raw => create(raw).Match(Succ: value => Accepted(editing, value), Fail: _ => Faulted(editing)))
+            .Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => Faulted(editing));
 
-    private Fin<TValue> Stepped(TValue shown, double steps, Keys modifiers) =>
-        create(Clamped(ComponentControl.Snaps(modifiers)
+    private Fin<TValue> Stepped(TValue shown, double steps, Keys keys) =>
+        from held in styled.ToFin(new Refused(nameof(Restyled), Refused.Absent))
+        let modifiers = HostInput.Modifiers(keys)
+        from value in create(Clamped(modifiers.Contains(Rasm.UI.Modifier.Shift)
             ? text.Snapped(key(shown), steps)
-            : text.Moved(key(shown), steps * ComponentControl.Scale(modifiers))));
+            : text.Moved(key(shown), modifiers.Contains(Rasm.UI.Modifier.Common) ? steps * held.Fine : steps)))
+        select value;
 
     private TKey Clamped(TKey key) =>
         key.CompareTo(bounds.Low) < 0 ? bounds.Low
@@ -237,15 +252,40 @@ public sealed class NumberField<TValue, TKey> : NumberField
         : key;
 
     private IO<Unit> Accepted(FieldState<TValue>.Editing editing, TValue value) =>
-        Become(editing with { Typed = Some(value) }, None).Bind(_ => Raised(new Edit<TValue>.Preview(value)));
+        Become(editing with { Typed = Some(value), Faulted = false }, None).Bind(_ => Raised(new Edit<TValue>.Preview(value)));
 
-    private IO<Unit> Marked(PaintSlot slot) => IO.lift(() => { TextColor = slot.Read(); });
+    private IO<Unit> Faulted(FieldState<TValue>.Editing editing) => Become(editing with { Faulted = true }, None);
 
     private IO<Unit> Committed(Option<TValue> value) => Raised(value.Map<Edit<TValue>>(static held => new Edit<TValue>.Commit(held)));
 
     private IO<Unit> Raised(Option<Edit<TValue>> edit) => IO.lift(() => edit.Iter(held => Edited?.Invoke(this, new EditEventArgs<TValue>(held))));
 
     private static IO<Unit> Claimed(Action claim, IO<Unit> effect) => IO.lift(claim).Bind(_ => effect);
+
+    // --- [STYLE]
+    private IO<Unit> Listened(Action<IDisposable> retain) =>
+        from restyled in Restyled
+        from changed in HostTheme.Changed.Inline(_ => Restyled, Sink, retain)
+        select unit;
+
+    private IO<Unit> Restyled =>
+        from host in SceneView.Shipping.Of(Sink)
+        from compact in IO.lift(() => HostTheme.Compact(this))
+        from stated in IO.lift(() => HostTheme.Stated(host.Shipped, compact))
+        from cascade in IO.lift(() => Styles.Root(HostTheme.Projected(compact), stated))
+        from ink in IO.lift(() => Inked(cascade.Theme, Styles.Resolve(cascade, Role.Field, [])))
+        from faulted in IO.lift(() => Inked(cascade.Theme, Styles.Resolve(cascade, Role.Field, [Condition.Faulted])))
+        let metrics = Styles.Resolve(cascade, Role.Handle, []).Metrics
+        from applied in IO.lift(() => {
+            Styled held = new(ink, faulted, metrics[Metric.Fine], metrics[Metric.Slop]);
+            (styled, TextColor) = (Some(held), held.Ink(state));
+        })
+        select unit;
+
+    private static Fin<Color> Inked(Rasm.UI.Styling.Theme theme, Rasm.UI.Styling.Style style) =>
+        theme.Color(style.Text, style, None, None)
+            .Map(static ink => new Color(ink.Red, ink.Green, ink.Blue, ink.Alpha))
+            .ToFin(new Refused(nameof(Rasm.UI.Styling.Theme.Color), Refused.Absent));
 
     // --- [INPUT]
     protected override void OnMouseDown(MouseEventArgs e) {
@@ -265,10 +305,14 @@ public sealed class NumberField<TValue, TKey> : NumberField
             (Field: this, Args: e),
             @default: static (_, _) => IO.pure(unit),
             pressed: static (s, pressed) => when(
-                PointF.Distance(pressed.At, s.Args.Location) > ComponentControl.DragThreshold,
-                s.Field.Become(new FieldState<TValue>.Scrubbing(pressed.Shown, Travel(s.Args, pressed.At), s.Args.Location, None), None).Bind(_ => s.Field.Started)).As(),
+                s.Field.styled.Exists(held => PointF.Distance(pressed.At, s.Args.Location) > held.Slop),
+                from travel in IO.lift(() => Travel(s.Args.Location, pressed.At))
+                from scrubbed in s.Field.Become(new FieldState<TValue>.Scrubbing(pressed.Shown, travel, s.Args.Location, None), None)
+                from started in s.Field.Started
+                select unit).As(),
             scrubbing: static (s, scrubbing) =>
-                from travel in IO.pure(scrubbing.Travel + Travel(s.Args, scrubbing.Last))
+                from delta in IO.lift(() => Travel(s.Args.Location, scrubbing.Last))
+                let travel = scrubbing.Travel + delta
                 let moved = s.Field.Stepped(scrubbing.Shown, float.Truncate(travel), s.Args.Modifiers).ToOption().Filter(value => scrubbing.Moved != Some(value))
                 from shown in s.Field.Become(scrubbing with { Travel = travel, Last = s.Args.Location, Moved = moved | scrubbing.Moved }, moved.Map(value => s.Field.Showing(Some(value))))
                 from raised in s.Field.Raised(moved.Map<Edit<TValue>>(static value => new Edit<TValue>.Preview(value)))
@@ -305,7 +349,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
                 Keys.Up => Claimed(() => s.Args.Handled = true, s.Field.Stepping(editing, 1, s.Args.Modifiers).IfNone(IO.pure(unit))),
                 Keys.Down => Claimed(() => s.Args.Handled = true, s.Field.Stepping(editing, -1, s.Args.Modifiers).IfNone(IO.pure(unit))),
                 Keys.Enter => Claimed(() => s.Args.Handled = true,
-                    s.Field.Become(new FieldState<TValue>.Editing(editing.Typed | editing.Shown, None), None).Bind(_ => s.Field.Committed(editing.Typed))),
+                    s.Field.Become(editing with { Shown = editing.Typed | editing.Shown, Typed = None }, None).Bind(_ => s.Field.Committed(editing.Typed))),
                 Keys.Escape => Claimed(() => s.Args.Handled = true,
                     s.Field.Become(editing with { Typed = None }, None).Bind(_ => s.Field.Raised(new Edit<TValue>.Cancel()))),
                 _ => IO.pure(unit),
@@ -347,6 +391,14 @@ public sealed class NumberField<TValue, TKey> : NumberField
     protected override void OnUnLoad(EventArgs e) {
         Run(Interrupted);
         base.OnUnLoad(e);
+    }
+
+    protected override void Dispose(bool disposing) {
+        try {
+            if (disposing) _ = listening.Iter(static lease => lease.Dispose());
+        } finally {
+            base.Dispose(disposing);
+        }
     }
 
     private void Run(IO<Unit> effect, [CallerMemberName] string member = "") =>

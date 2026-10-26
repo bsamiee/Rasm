@@ -1,5 +1,3 @@
-using Eto.Drawing;
-using Eto.Forms;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
@@ -10,8 +8,7 @@ using Rasm.Rhino.Render.Presets;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Drawing;
-using Rasm.Rhino.UI.Styling;
+using SkiaSharp;
 using UnitsNet;
 
 namespace Rasm.Rhino.Render.Effects;
@@ -69,7 +66,7 @@ public sealed class PreviewTiles {
     private readonly Derivations derivations;
     private readonly IPlugInSink owner;
     private readonly TimeProvider clock;
-    private readonly Ref<Seq<Raster>> rasters = Ref(Seq<Raster>());
+    private event EventHandler<EventArgs>? landed;
 
     private PreviewTiles(IPlugInSink owner, TimeProvider clock, Derivations derivations) =>
         (this.owner, this.clock, this.derivations) = (owner, clock, derivations);
@@ -87,7 +84,6 @@ public sealed class PreviewTiles {
         DisposalOps.Acquire(owned =>
             from derivations in DisposalOps.Acquire(IO.lift(static () => new Derivations()), owned)
             from tiles in IO.lift(() => new PreviewTiles(owner, clock, derivations))
-            from images in DisposalOps.Acquire(IO.pure(tiles), static held => held.Emptied, owned)
             from watched in limits.TraverseM(source =>
                 from initial in source.Read.Bind(tiles.Limit)
                 from saved in source.Changed.Choose(static _ => Some((unit, unit)))
@@ -104,21 +100,19 @@ public sealed class PreviewTiles {
             extent => request.Bind(asked => asked.Match(
                 Some: wanted => Asked(wanted, extent, TileRank.Current).Map(static found => found.Map(static pixels => pixels.Frame)),
                 None: static () => IO.pure(Option<PixelFrame>.None))),
-            TransferCurve.Srgb,
-            file);
+            EffectPipeline.Display,
+            file,
+            Landed);
 
     internal IO<(PixelFrame Frame, PixelFrame Proxy)> Formed(TileRequest request, PixelExtent extent, TileRank rank) =>
         Monad.recur(unit, _ => Asked(request, extent, rank).Bind(static found => found.Match(
             Some: static tile => IO.pure(Next.Done<Unit, (PixelFrame Frame, PixelFrame Proxy)>(tile)),
             None: static () => IO.yieldFor(Tick.ToTimeSpan()).Map(static _ => Next.Loop<Unit, (PixelFrame Frame, PixelFrame Proxy)>(unit))))).As();
 
-    public IO<Disposal<Thumbnail>> Thumbnail(Control view, TileRequest request, Size size, Action<Disposal<Thumbnail>> retain) =>
-        DisposalOps.Acquire(owned =>
-            from device in HostTheme.Device(size)
-            from extent in IO.lift(() => PixelExtent.Validated(device.Width, device.Height))
-            from tile in Formed(request, extent, TileRank.Visible)
-            from pixels in FrameView.Raster(view, tile.Frame, TransferCurve.Srgb, owned)
-            select new Disposal<Thumbnail>(new Thumbnail.Raster(pixels), Rhino.UI.Drawing.Thumbnail.Release), (thumbnail, _) => retain(thumbnail));
+    public IO<SKImage> Thumbnail(TileRequest request, PixelExtent extent, float headroom) =>
+        from tile in Formed(request, extent, TileRank.Visible)
+        from image in PreviewRows.Image(tile.Frame, EffectPipeline.Display.Encoding.Transfer, EffectPipeline.Display, headroom)
+        select image;
 
     public IO<Unit> Refresh =>
         from now in IO.lift(clock.GetTimestamp)
@@ -127,44 +121,11 @@ public sealed class PreviewTiles {
 
     public long Bytes => held.Value.Bytes;
 
-    public IO<Option<Unit>> Paint(object source, Option<Control> view, PixelFrame frame, PixelExtent extent, Transfer encoding, Action<Bitmap> draw) =>
-        from now in IO.lift(clock.GetTimestamp)
-        let key = (Source: source, View: view, Frame: frame, Extent: frame.Size.Fitted(extent), Encoding: encoding)
-        from pixels in IO.lift(() => rasters.Value.Find(row => row.Key == key)).Bind(found => found.Match(
-            Some: static row => IO.pure(Some(row.Pixels)),
-            None: () => Requested(Rastered(key, now))))
-        from painted in pixels.Traverse(bitmap => IO.lift(() => {
-            _ = atomic(() => rasters.Swap(rows => rows.Map(row => row.Key == key ? row with { Drawn = now } : row)));
-            draw(bitmap);
-        })).As()
-        from released in IO.lift(() => {
-            int excess = held.Value.Tiles.Count - bounds.Value.Capacity;
-            return atomic(() => {
-                Seq<Raster> prior = rasters.Value;
-                Seq<Bitmap> gone = toSeq(prior.Filter(row => !Recent(now)(row.Drawn)).AsIterable()
-                    .OrderBy(static row => row.Drawn).Take(prior.Count + excess)
-                    .Select(static row => row.Pixels));
-                rasters.Value = prior.Filter(row => !gone.Exists(removed => ReferenceEquals(row.Pixels, removed)));
-                return gone;
-            });
-        }).Bind(DisposalOps.Release).Uninterruptible()
-        select painted;
+    public HostEvent<Unit> Landed =>
+        Subscriptions.Host<EventArgs>(typeof(PreviewTiles), handler => landed += handler, handler => landed -= handler).Choose(static _ => Some(unit));
 
-    private IO<Bitmap> Rastered((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Transfer Encoding) key, long now) {
-        Action<Bitmap> kept = bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))));
-        return from reduced in IO.lift(() => key.Frame.Downscaled(key.Extent))
-               from image in key.View.Match(
-                   Some: control => FrameView.Raster(control, reduced, key.Encoding, kept),
-                   None: () => DisposalOps.Acquire(IO.lift(() => ImagePlots.Pixels(reduced.Size, key.Encoding.Displayed(reduced))), kept))
-               select image;
-    }
-
-    private IO<Unit> Emptied =>
-        atomicIO(() => {
-            Seq<Raster> prior = rasters.Value;
-            rasters.Value = [];
-            return prior.Map(static row => row.Pixels);
-        }).Bind(DisposalOps.Release).OnUiThread().Uninterruptible();
+    public IO<Option<SKImage>> Image(PixelFrame frame, PixelExtent extent, Transfer encoding, float headroom) =>
+        Requested(IO.lift(() => frame.Downscaled(frame.Size.Fitted(extent))).Bind(reduced => PreviewRows.Image(reduced, encoding, EffectPipeline.Display, headroom)));
 
     private IO<Option<(PixelFrame Frame, PixelFrame Proxy)>> Asked(TileRequest request, PixelExtent asked, TileRank rank) =>
         from now in IO.lift(clock.GetTimestamp)
@@ -179,7 +140,7 @@ public sealed class PreviewTiles {
          from _ in Monad.recur(unit, _ => Step).As()
          from limits in bounds.ValueIO
          from now in IO.lift(clock.GetTimestamp)
-         from __ in held.SwapIO(state => state.Evicted(limits.Capacity - rasters.Value.Count, Recent(now)))
+         from __ in held.SwapIO(state => state.Evicted(limits.Capacity, Recent(now)))
          select unit)
         .Catch(static error => !error.Is(Errors.Cancelled), Reported);
 
@@ -232,6 +193,7 @@ public sealed class PreviewTiles {
     private IO<Unit> Keep(Pending running, Fin<PixelFrame> result) =>
         from now in IO.lift(clock.GetTimestamp)
         from _ in held.SwapIO(state => state.Landed(running, result, now))
+        from raised in IO.lift(() => landed?.Invoke(this, EventArgs.Empty))
         select unit;
 
     private IO<Unit> Reported(Error error) => IO.lift(() => owner.Report(error, typeof(PreviewTiles), nameof(Register)));
@@ -239,8 +201,6 @@ public sealed class PreviewTiles {
     private Func<long, bool> Recent(long now) => at => clock.GetElapsedTime(at, now).ToDuration() < Tick * 2;
 
     // --- [LEDGER]
-    private sealed record Raster((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Transfer Encoding) Key, Bitmap Pixels, long Drawn);
-
     private sealed record Pending(ContentKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
         public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => !rank.Viewed || recent(at));
 

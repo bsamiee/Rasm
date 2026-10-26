@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper2;
@@ -10,9 +11,9 @@ using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.Sparkles;
+using Rasm.Grasshopper.UI.Surfaces;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Drawing;
 using Rhino;
 using Rhino.Geometry.Intersect;
 
@@ -62,9 +63,6 @@ public sealed partial class RouteSegment {
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class RoutedWire(PointF source, PointF target, IterableNE<RouteSegment> segments) : WireShape(source, target) {
     // --- [GEOMETRY]
-    protected const float Stub = 60f;
-    protected const float Flat = 3f;
-
     public IterableNE<RouteSegment> Segments { get; } = segments;
 
     public override RectangleF Bounds => Segments.Tail.Fold(static (box, segment) => RectangleF.Union(box, segment.Bounds), Segments.Head.Bounds);
@@ -101,22 +99,10 @@ public abstract class RoutedWire(PointF source, PointF target, IterableNE<RouteS
         };
 }
 
-public sealed class LinearWire(PointF source, PointF target) : RoutedWire(source, target, Lines(source, target));
-
-public sealed class BiArcWire(PointF source, PointF target) : RoutedWire(source, target, Course(source, target)) {
-    private static IterableNE<RouteSegment> Course(PointF source, PointF target) {
-        LineF chord = new(source + new SizeF(Stub, 0f), target - new SizeF(Stub, 0f));
-        float end = Math.Min(Stub / chord.Length, 0.5f);
-        PointF first = chord.PointAt(end);
-        PointF last = chord.PointAt(1f - end);
-        return Math.Abs(target.Y - source.Y) < Math.Max(Flat, 0.01f * Math.Abs(target.X - source.X)) ? Lines(source, target)
-            : IterableNE.create(ArcF.CreateTangent(source, first, chord.Start),
-                (end < 0.5f ? Seq<RouteSegment>(new LineF(first, last)) : Seq<RouteSegment>())
-                    .Add(ArcF.CreateTangent(target, last, chord.End).Reverse()));
-    }
-}
-
 public sealed class OrthogonalWire(PointF source, PointF target) : RoutedWire(source, target, Course(source, target)) {
+    private const float Stub = 60f;
+    private const float Flat = 3f;
+
     private static IterableNE<RouteSegment> Course(PointF source, PointF target) {
         float vertical = Math.Abs(target.Y - source.Y);
         return target.X >= source.X
@@ -130,29 +116,42 @@ public sealed class OrthogonalWire(PointF source, PointF target) : RoutedWire(so
 }
 
 internal sealed class CanvasSparkle(
-    FlexControl control, Grasshopper2.UI.Animation.Duration duration, Motion motion, bool attachedToContent,
-    Func<PlotCanvas, double, IO<Unit>> marks, CallbackSite site) : ISparkle {
+    FlexControl control, Grasshopper2.UI.Animation.Duration duration, Motion motion, bool attachedToContent, Func<double, Rasm.UI.Node> view, CallbackSite site) : ISparkle, IDisposable {
     private readonly Animated<double> progress = Animators.Unfinished(0.0, 1.0, duration, motion);
+    private readonly Guest guest = new(site.Sink, IO.lift(control.ScheduleRedraw));
 
     public bool Sparkling { get => field && progress.State is not Grasshopper2.UI.Animation.State.Finished; private set; } = true;
 
     public void Draw(ControlGraphics graphics) => Sparkling = Callbacks.Answer(
         from at in IO.lift(() => control.Animate(progress))
-        from drawn in unless(progress.State is Grasshopper2.UI.Animation.State.Finished,
-            CanvasPainting.Plotted(control, graphics, attachedToContent, Skin.Current.Shape.FontWord, plot => marks(plot, at))).As()
-        select true,
-        static () => false,
+        from finished in IO.lift(() => progress.State is Grasshopper2.UI.Animation.State.Finished)
+        from drawn in finished ? IO.lift(guest.Dispose) : CanvasPainting.Painted(guest, control, graphics, attachedToContent, view(at))
+        select !finished,
+        Released,
         site);
+
+    private bool Released() {
+        guest.Dispose();
+        return false;
+    }
+
+    public void Dispose() {
+        throw new NotImplementedException();
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CanvasPainting {
     // --- [PHASES]
-    public static IO<Unit> Overlay<TArgs>(HostEvent<TArgs> phase, Func<PlotCanvas, TArgs, IO<Unit>> marks, IPlugInSink sink, Action<IDisposable> retain) where TArgs : CanvasPaintEventArgs =>
-        phase.Inline(args => Plotted(args.Canvas, args.Graphics, content: true, args.Skin.Shape.FontWord, plot => marks(plot, args)), sink, retain);
+    public static IO<Unit> Overlay<TArgs>(HostEvent<TArgs> phase, Func<TArgs, Rasm.UI.Node> view, IPlugInSink sink, Action<IDisposable> retain) where TArgs : CanvasPaintEventArgs =>
+        from guest in DisposalOps.Acquire(IO.lift(() => new Guest(sink, Redrawn)), retain)
+        from painted in phase.Inline(args => Painted(guest, args.Canvas, args.Graphics, content: true, view(args)), sink, retain)
+        select unit;
 
-    public static IO<Unit> Overlay(FlexControl control, Func<PlotCanvas, ControlDrawEventArgs, IO<Unit>> marks, IPlugInSink sink, Action<IDisposable> retain) =>
-        GrasshopperEvents.FlexControlDraw(control).Inline(args => Plotted(control, args.Graphics, content: false, Skin.Current.Shape.FontWord, plot => marks(plot, args)), sink, retain);
+    public static IO<Unit> Overlay(FlexControl control, Func<ControlDrawEventArgs, Rasm.UI.Node> view, IPlugInSink sink, Action<IDisposable> retain) =>
+        from guest in DisposalOps.Acquire(IO.lift(() => new Guest(sink, IO.lift(control.ScheduleRedraw))), retain)
+        from painted in GrasshopperEvents.FlexControlDraw(control).Inline(args => Painted(guest, control, args.Graphics, content: false, view(args)), sink, retain)
+        select unit;
 
     public static IO<Unit> Background(Canvas canvas, Func<CanvasSkin, CanvasSkin> paper, IPlugInSink sink, Action<IDisposable> retain) =>
         GrasshopperEvents.BeforePaintBackground(canvas).Inline(args =>
@@ -162,54 +161,61 @@ public static class CanvasPainting {
                     args.OverrideDefaultPainting();
                 }))).As()), sink, retain);
 
-    internal static IO<Unit> Plotted(FlexControl control, ControlGraphics graphics, bool content, Font font, Func<PlotCanvas, IO<Unit>> marks) =>
-        DisposalOps.Within(graphics.ProjectionState, _ => PlotCanvas.Of(content ? graphics.Content : graphics.Control,
-            Density(graphics.AssociatedControl).IfNone(graphics.ScreenScale) * (content ? graphics.Zoom : 1f),
-            font, enabled: true, focused: control.HasFocus).Bind(marks));
-
-    internal static IO<Unit> Plotted(Context context, Font font, bool focused, Func<PlotCanvas, IO<Unit>> marks) =>
-        DisposalOps.Within(() => {
-            context.Graphics.SaveTransform();
-            return context.Graphics;
-        }, graphics => PlotCanvas.Of(graphics, Scale(context), font, enabled: true, focused).Bind(marks), static graphics => IO.lift(graphics.RestoreTransform));
-
-    internal static float Scale(Context context) => context.Zoom * Density(context.Control).IfNone(1f);
-
-    internal static Option<float> Density(object? control) =>
-        Optional(control as Control).Bind(static host => Optional(host.ParentWindow)).Map(static window => window.LogicalPixelSize);
+    internal static IO<Unit> Painted(Guest guest, IFlexControl control, ControlGraphics graphics, bool content, Rasm.UI.Node view) =>
+        DisposalOps.Within(graphics.ProjectionState, _ => (content ? graphics.Content : graphics.Control) switch {
+            var target =>
+                from device in IO.lift(() => Guest.Device(target, Optional(graphics.AssociatedControl as Control)))
+                from painted in guest.Paint(target, device, content ? control.VisibleFrame : control.InnerBounds, Rasm.UI.Visibility.Shown, view)
+                select unit,
+        });
 
     // --- [SPARKLES]
     public static IO<Unit> Spark(
-        FlexControl control, Grasshopper2.UI.Animation.Duration duration, Motion motion, bool attachedToContent,
-        Func<PlotCanvas, double, IO<Unit>> marks, IPlugInSink sink) =>
-        IO.lift(() => new CanvasSparkle(control, duration, motion, attachedToContent, marks, new CallbackSite(sink, typeof(CanvasSparkle), nameof(ISparkle.Draw))))
+        FlexControl control, Grasshopper2.UI.Animation.Duration duration, Motion motion, bool attachedToContent, Func<double, Rasm.UI.Node> view, IPlugInSink sink) =>
+        IO.lift(() => new CanvasSparkle(control, duration, motion, attachedToContent, view, new CallbackSite(sink, typeof(CanvasSparkle), nameof(ISparkle.Draw))))
             .Bind(sparkle => IO.lift(() => control.AddSparkle(sparkle)));
 
     // --- [WIRES]
+    private const string LinearShape = "Grasshopper2.UI.Canvas.WireShapeLinear, Grasshopper2";
+    private const string BiArcShape = "Grasshopper2.UI.Canvas.WireShapeBiArc, Grasshopper2";
+
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    [return: UnsafeAccessorType(LinearShape)]
+    private static extern object WireShapeLinear(PointF source, PointF target);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    [return: UnsafeAccessorType(BiArcShape)]
+    private static extern object WireShapeBiArc(PointF source, PointF target);
+
+    public static Type Linear => WireShapeLinear(PointF.Empty, PointF.Empty).GetType();
+
+    public static Type BiArc => WireShapeBiArc(PointF.Empty, PointF.Empty).GetType();
+
     private static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));
 
-    public static IO<Unit> Route<TShape>(Action<IDisposable> retain) where TShape : WireShape =>
+    public static IO<Unit> Route(Type shape, Action<IDisposable> retain) =>
         from free in IO.lift(static Fin<Unit> () => WireShape.ShapeType is { } held ? Error.New($"{nameof(WireShape.ShapeType)} already holds {held}") : unit)
-        from routed in DisposalOps.Acquire(IO.lift(static () => WireShape.ShapeType = typeof(TShape)),
+        from routed in DisposalOps.Acquire(IO.lift(() => WireShape.ShapeType = shape),
             static held => IO.lift(() => {
                 if (WireShape.ShapeType == held) WireShape.ShapeType = null;
             }).Bind(static _ => Redrawn), retain)
         from redrawn in Redrawn
         select unit;
 
-    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, MarkColor color, IPlugInSink sink, Action<IDisposable> retain) =>
-        Overlay(GrasshopperEvents.BeforePaintWires(canvas), (plot, args) =>
-            IO.lift(() => Optional(args.Canvas.Document).ToSeq().Bind(document => wires().Choose(ends => Ends(document, ends))))
-                .Bind(found => found.TraverseM(wire => Halo(plot, args.Skin.Wires, color, wire)).As())
-                .Map(unit), sink, retain);
+    public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, Color color, float reach, IPlugInSink sink, Action<IDisposable> retain) =>
+        GrasshopperEvents.BeforePaintWires(canvas).Inline(args =>
+            DisposalOps.Within(args.Graphics.ProjectionState, _ =>
+                IO.lift(() => Optional(args.Canvas.Document).ToSeq().Bind(document => wires().Choose(ends => Ends(document, ends))))
+                    .Bind(found => found.TraverseM(wire => Halo(args.Graphics.Content, args.Skin.Wires, color, reach, wire)).As())
+                    .Map(unit)), sink, retain);
 
     private static Option<(IParameter Source, IParameter Target)> Ends(Document document, WireEnds ends) =>
         from source in Optional(document.Objects.FindParameter(ends.Source))
         from target in Optional(document.Objects.FindParameter(ends.Target))
         select (source, target);
 
-    private static IO<Unit> Halo(PlotCanvas plot, WiresSkin skin, MarkColor color, (IParameter Source, IParameter Target) wire) =>
-        from width in IO.lift(() => (float)(skin[WiresSkin.ResolveKind(wire.Source, wire.Target)].Outer.Width + 4f))
-        from drawn in DisposalOps.Within(() => new Pen(Plots.Resolve(plot, new MarkStyle.Stroke(color, 1f, width)), width) { LineCap = PenLineCap.Round }, pen => IO.lift(() => WireShape.Create((IParameterAttributes)wire.Source.Attributes, (IParameterAttributes)wire.Target.Attributes).Draw(plot.Graphics, pen)))
-        select unit;
+    private static IO<Unit> Halo(Graphics graphics, WiresSkin skin, Color color, float reach, (IParameter Source, IParameter Target) wire) =>
+        DisposalOps.Within(
+            () => new Pen(color, (float)skin[WiresSkin.ResolveKind(wire.Source, wire.Target)].Outer.Width + reach) { LineCap = PenLineCap.Round },
+            pen => IO.lift(() => WireShape.Create((IParameterAttributes)wire.Source.Attributes, (IParameterAttributes)wire.Target.Attributes).Draw(graphics, pen)));
 }

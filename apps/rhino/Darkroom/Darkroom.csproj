@@ -28,6 +28,7 @@
         <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging.Filters/Rasm.Imaging.Filters.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
         <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/ui/Rasm.UI.Imaging/Rasm.UI.Imaging.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">

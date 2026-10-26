@@ -267,9 +267,7 @@ public abstract partial record Coverage {
     public sealed record Clipped(ClipLevels Levels, ClipEnd End) : Coverage {
         public override void Weights(ReadOnlySpan<Vector4> row, long column, long line, Span<float> weights) {
             for (int x = 0; x < row.Length; x++)
-                weights[x] = row[x].W > 0f
-                    && ((End.Above && float.Max(row[x].X, float.Max(row[x].Y, row[x].Z)) >= Levels.High)
-                        || (End.Below && float.Min(row[x].X, float.Min(row[x].Y, row[x].Z)) < Levels.Low)) ? 1f : 0f;
+                weights[x] = row[x].W > 0f && End.Clips(row[x], Levels) ? 1f : 0f;
         }
     }
 }

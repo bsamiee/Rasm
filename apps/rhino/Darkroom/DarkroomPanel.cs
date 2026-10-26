@@ -1,16 +1,21 @@
 using System.Runtime.InteropServices;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino;
 
 namespace Darkroom;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-internal sealed partial class DarkroomGlyph : IGlyph {
-    public static readonly DarkroomGlyph Mark = new("mark-16.svg");
+internal static class DarkroomGlyphs {
+    public static readonly GlyphSource Mark = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "mark-16.svg");
+    public static readonly GlyphSource VerticalWipe = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "vertical-wipe.svg");
+    public static readonly GlyphSource HorizontalWipe = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "horizontal-wipe.svg");
+    public static readonly GlyphSource SideBySide = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "side-by-side.svg");
+    public static readonly GlyphSource Swap = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "swap.svg");
+    public static readonly GlyphSource Flip = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "flip.svg");
+    public static readonly GlyphSource Fit = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "fit.svg");
+    public static readonly GlyphSource ActualSize = Icons.Embedded(typeof(DarkroomGlyphs).Assembly, "actual-size.svg");
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -19,7 +24,7 @@ public sealed class DarkroomPanel(RhinoDoc? document) : DefinedPanel(document, R
     public static readonly View.Panel Row = new() {
         Identity = typeof(DarkroomPanel),
         Caption = "Darkroom",
-        Icon = Some<IGlyph>(DarkroomGlyph.Mark),
+        Icon = Some(DarkroomGlyphs.Mark),
         Children = [new HolderRow.Stacked([HistorySection.Row, CompareSection.Row, RenderQueueSection.Row])],
     };
 }

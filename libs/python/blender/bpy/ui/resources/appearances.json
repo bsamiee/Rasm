@@ -1,191 +1,205 @@
 {
-    "native": {
-        "rail": { "fills": [ { "kind": "solid", "ink": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [ { "y": 1, "blur": 3, "ink": "#00000059" } ] },
-        "popover": { "fills": [ { "kind": "solid", "ink": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [ { "y": 1, "blur": 3, "ink": "#00000059" } ] },
-        "toast": { "fills": [ { "kind": "solid", "ink": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [ { "y": 2, "blur": 6, "ink": "#00000059" } ] },
-        "hud-capsule": { "fills": [ { "kind": "solid", "ink": "panel.fill/0.9" } ], "strokes": [], "text": "panel.text", "shadows": [ { "y": 0.5, "blur": 1, "ink": "#00000059" } ] },
-        "section-header": { "fills": [], "strokes": [], "text": "panel.text", "weight": "semi-bold" },
-        "readout": {
-            "fills": [ { "kind": "solid", "ink": "panel.fill/0.85" } ],
-            "strokes": [],
-            "text": "panel.text",
-            "features": [ "tnum" ],
-            "when": { "faulted": { "text": "#FF0000FF" } }
-        },
-        "field": { "when": { "modified": { "text": "selection.fill", "weight": "semi-bold" }, "faulted": { "text": "#FF0000FF" } } },
-        "list-row": { "when": { "modified": { "text": "selection.fill", "weight": "semi-bold" } } },
-        "track": {
-            "fills": [],
-            "strokes": [ { "ink": "panel.text/0.2" } ],
-            "text": "panel.text",
-            "when": {
-                "busy": {
-                    "fills": [
-                        {
-                            "kind": "drawn",
-                            "effect": "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 sweep; half4 main(float2 p) { float head = fract(time * 0.8) * 1.6 - 0.3; half a = half(1.0 - smoothstep(0.0, 0.15, abs(p.x / max(size.x, 1.0) - head))); half4 c = mix(base, sweep, a); return half4(c.rgb * c.a, c.a); }",
-                            "inks": { "base": "panel.text/0.12", "sweep": "selection.fill" }
-                        }
-                    ]
+    "appearances": {
+        "native": {
+            "rail": { "fills": [ { "kind": "solid", "ink": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [ { "kind": "drop", "y": 1, "blur": 3, "ink": "#00000059" } ] },
+            "popover": { "fills": [ { "kind": "solid", "ink": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [ { "kind": "drop", "y": 1, "blur": 3, "ink": "#00000059" } ] },
+            "toast": { "fills": [ { "kind": "solid", "ink": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [ { "kind": "drop", "y": 2, "blur": 6, "ink": "#00000059" } ], "motion": "ease-out 200ms" },
+            "hud-capsule": { "fills": [ { "kind": "solid", "ink": "panel.fill/0.9" } ], "strokes": [], "text": "panel.text", "shadows": [ { "kind": "drop", "y": 0.5, "blur": 1, "ink": "#00000059" } ] },
+            "section-header": { "fills": [], "strokes": [], "text": "panel.text", "face": { "weight": "semi-bold" } },
+            "readout": {
+                "fills": [ { "kind": "solid", "ink": "panel.fill/0.85" } ],
+                "strokes": [],
+                "text": "panel.text",
+                "face": { "features": [ "tnum" ] },
+                "when": { "warning": { "text": "var(window.text:warning, oklch(0.77 0.17 64))" }, "faulted": { "text": "var(window.text:faulted, oklch(0.63 0.24 29))" } }
+            },
+            "button": {
+                "when": {
+                    "default": { "fills": [ { "kind": "solid", "ink": "var(fill:default, var(accent.fill, oklch(0.62 0.19 264)))" } ], "text": "var(text:default, color-contrast(var(accent.fill, oklch(0.62 0.19 264)) vs window.text, window.fill))" },
+                    "destructive": { "text": "var(window.text:faulted, oklch(0.63 0.24 29))" }
+                }
+            },
+            "field": { "when": { "modified": { "text": "selection.fill", "face": { "weight": "semi-bold" } }, "warning": { "text": "var(window.text:warning, oklch(0.77 0.17 64))" }, "faulted": { "text": "var(window.text:faulted, oklch(0.63 0.24 29))" } } },
+            "list-row": { "when": { "modified": { "text": "selection.fill", "face": { "weight": "semi-bold" } } } },
+            "track": {
+                "fills": [],
+                "strokes": [ { "ink": "panel.text/0.2" } ],
+                "text": "panel.text",
+                "when": {
+                    "busy": {
+                        "fills": [
+                            {
+                                "kind": "drawn",
+                                "effect": "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 sweep; half4 main(float2 p) { float head = fract(time * 0.8) * 1.6 - 0.3; half a = half(1.0 - smoothstep(0.0, 0.15, abs(p.x / max(size.x, 1.0) - head))); half4 c = mix(base, sweep, a); return half4(c.rgb * c.a, c.a); }",
+                                "inks": { "base": "panel.text/0.12", "sweep": "selection.fill" }
+                            }
+                        ]
+                    }
+                }
+            },
+            "span": { "fills": [ { "kind": "solid", "ink": "toolbar.fill" } ], "strokes": [], "text": "panel.text" },
+            "knob": { "fills": [ { "kind": "solid", "ink": "selection.fill" } ], "strokes": [ { "ink": "panel.text/0.6" } ], "text": "panel.text" },
+            "puck": { "fills": [ { "kind": "solid", "ink": "selection.fill" } ], "strokes": [ { "ink": "panel.text/0.6" } ], "text": "panel.text" },
+            "ring": { "fills": [], "strokes": [ { "ink": "panel.text" } ], "text": "panel.text" },
+            "needle": { "fills": [], "strokes": [ { "ink": "panel.text" } ], "text": "panel.text" },
+            "veil": {
+                "fills": [],
+                "strokes": [],
+                "when": {
+                    "busy": {
+                        "fills": [
+                            {
+                                "kind": "drawn",
+                                "effect": "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 glint; half4 main(float2 p) { float head = fract(time * 0.5) * 1.6 - 0.3; float x = (p.x + 0.5 * p.y) / max(size.x + 0.5 * size.y, 1.0); half a = half(1.0 - smoothstep(0.0, 0.2, abs(x - head))); half4 c = mix(base, glint, a); return half4(c.rgb * c.a, c.a); }",
+                                "inks": { "base": "panel.fill/0.5", "glint": "panel.fill/0.2" }
+                            }
+                        ]
+                    }
+                }
+            },
+            "label": {
+                "when": {
+                    "modified": { "text": "selection.fill", "face": { "weight": "semi-bold" } },
+                    "warning": { "fills": [], "strokes": [], "text": "var(window.text:warning, oklch(0.77 0.17 64))" },
+                    "faulted": { "fills": [], "strokes": [], "text": "var(window.text:faulted, oklch(0.63 0.24 29))" }
+                }
+            },
+            "stop": {
+                "fills": [ { "kind": "solid", "ink": "panel.fill" } ],
+                "strokes": [ { "ink": "panel.text" } ],
+                "text": "panel.text",
+                "when": { "selected": { "fills": [ { "kind": "solid", "ink": "panel.text" } ], "text": "panel.fill" } }
+            },
+            "handle": {
+                "fills": [ { "kind": "solid", "ink": "list-row.fill" } ],
+                "strokes": [ { "ink": "panel.text" } ],
+                "text": "panel.text",
+                "washes": { "hover": "color-mix(in srgb, list-row.fill, panel.text 16%)", "pressed": "color-mix(in srgb, list-row.fill, panel.text 24%)" },
+                "motion": "ease-out 120ms",
+                "when": { "modified": { "fills": [ { "kind": "solid", "ink": "selection.fill" } ] } }
+            },
+            "focus-ring": { "fills": [], "strokes": [], "shadows": [ { "kind": "drop", "blur": 0, "spread": 3, "ink": "focus-ring.edge" } ], "motion": "ease-out 120ms" },
+            "checker": {
+                "fills": [
+                    {
+                        "kind": "drawn",
+                        "effect": "uniform float2 size; layout(color) uniform half4 light; layout(color) uniform half4 dark; half4 main(float2 p) { float2 cell = floor(p / 10.0); half4 c = mod(cell.x + cell.y, 2.0) < 1.0 ? light : dark; return half4(c.rgb * c.a, c.a); }",
+                        "inks": { "light": "#FFFFFFFF", "dark": "#A9A9A9FF" }
+                    }
+                ],
+                "strokes": []
+            },
+            "overlay-caption": { "fills": [], "strokes": [], "text": "#FFFFFFFF", "shadows": [ { "kind": "drop", "x": 1, "y": 1, "blur": 0, "ink": "#00000080" } ] },
+            "clip-over": { "fills": [ { "kind": "solid", "ink": "#FF0000FF" } ], "strokes": [] },
+            "clip-under": { "fills": [ { "kind": "solid", "ink": "#0000FFFF" } ], "strokes": [] },
+            "difference": { "fills": [ { "kind": "solid", "ink": "#FF0000FF" } ], "strokes": [] },
+            "series": { "palette": [ "#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442", "#999999" ] },
+            "well": {
+                "fills": [ { "kind": "solid", "ink": "#000000FF" } ],
+                "strokes": [ { "ink": "#00000080" } ],
+                "text": "#FFFFFFB3",
+                "within": {
+                    "ground": { "fills": [], "strokes": [], "text": "#FFFFFFB3" },
+                    "surface": { "fills": [ { "kind": "solid", "ink": "#292929FF" } ], "strokes": [], "text": "#FFFFFFB3" },
+                    "field": { "fills": [ { "kind": "solid", "ink": "#292929FF" } ], "strokes": [ { "ink": "#FFFFFF33" } ], "text": "#FFFFFFB3" },
+                    "handle": {
+                        "fills": [ { "kind": "solid", "ink": "#000000FF" } ],
+                        "strokes": [ { "ink": "#FFFFFFBF" } ],
+                        "text": "#FFFFFFB3",
+                        "washes": { "hover": "color-mix(in srgb, #000000FF, #FFFFFF 16%)", "pressed": "color-mix(in srgb, #000000FF, #FFFFFF 24%)" },
+                        "motion": "ease-out 120ms"
+                    },
+                    "knob": { "fills": [ { "kind": "solid", "ink": "#FFFFFFFF" } ], "strokes": [ { "ink": "#00000099" } ], "text": "#FFFFFFB3" },
+                    "puck": { "fills": [ { "kind": "solid", "ink": "#FFFFFFFF" } ], "strokes": [ { "ink": "#00000099" } ], "text": "#FFFFFFB3" },
+                    "grid": { "fills": [], "strokes": [ { "ink": "#FFFFFF33" } ], "when": { "increase-contrast": { "strokes": [ { "ink": "#FFFFFF66" } ] } } },
+                    "grid-fine": { "fills": [], "strokes": [ { "ink": "#FFFFFF14" } ], "when": { "increase-contrast": { "strokes": [ { "ink": "#FFFFFF33" } ] } } },
+                    "major": { "fills": [], "strokes": [ { "ink": "#FFFFFF80" } ] },
+                    "trace": { "fills": [ { "kind": "solid", "ink": "#FFFFFF40" } ], "strokes": [ { "ink": "#FFFFFFBF" } ], "blend": "plus" },
+                    "series": {
+                        "fills": [ { "kind": "solid", "ink": "data/0.75" } ],
+                        "strokes": [ { "ink": "data" } ],
+                        "blend": "plus",
+                        "when": { "differentiate-without-color": { "strokes": [ { "ink": "data", "dash": [ [ 4, 2, 1, 2 ], [], [ 4, 2 ], [ 1, 2 ] ] } ] } }
+                    },
+                    "guide": { "fills": [], "strokes": [ { "ink": "#FF660033" } ] },
+                    "highlight": { "fills": [], "strokes": [ { "ink": "#FFFFFF1F" } ] },
+                    "selection": { "fills": [ { "kind": "solid", "ink": "#FFFFFF63" } ], "strokes": [] },
+                    "label": { "fills": [], "strokes": [], "text": "#FFFFFFB3", "face": { "features": [ "tnum" ] } }
                 }
             }
         },
-        "span": { "fills": [ { "kind": "solid", "ink": "toolbar.fill" } ], "strokes": [], "text": "panel.text" },
-        "knob": { "fills": [ { "kind": "solid", "ink": "selection.fill" } ], "strokes": [ { "ink": "panel.text/0.6" } ], "text": "panel.text" },
-        "puck": { "fills": [ { "kind": "solid", "ink": "selection.fill" } ], "strokes": [ { "ink": "panel.text/0.6" } ], "text": "panel.text" },
-        "ring": { "fills": [], "strokes": [ { "ink": "panel.text" } ], "text": "panel.text" },
-        "needle": { "fills": [], "strokes": [ { "ink": "panel.text" } ], "text": "panel.text" },
-        "veil": {
-            "fills": [],
-            "strokes": [],
-            "when": {
-                "busy": {
-                    "fills": [
-                        {
-                            "kind": "drawn",
-                            "effect": "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 glint; half4 main(float2 p) { float head = fract(time * 0.5) * 1.6 - 0.3; float x = (p.x + 0.5 * p.y) / max(size.x + 0.5 * size.y, 1.0); half a = half(1.0 - smoothstep(0.0, 0.2, abs(x - head))); half4 c = mix(base, glint, a); return half4(c.rgb * c.a, c.a); }",
-                            "inks": { "base": "panel.fill/0.5", "glint": "panel.fill/0.2" }
-                        }
-                    ]
-                }
+        "glass": {
+            "panel": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [] },
+            "toolbar": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [] },
+            "rail": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [] },
+            "popover": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [] },
+            "toast": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [], "motion": "ease-out 200ms" },
+            "hud-capsule": { "fills": [ { "kind": "backdrop", "glass": "clear", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [] }
+        },
+        "drawn": {
+            "panel": {
+                "fills": [
+                    {
+                        "kind": "drawn",
+                        "effect": "uniform float2 size; layout(color) uniform half4 base; layout(color) uniform half4 glow; half4 main(float2 p) { float2 uv = p / size; float halo = 1.0 - smoothstep(0.0, 1.1, distance(uv, float2(0.15, -0.2))); float grain = fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453) - 0.5; half3 rgb = mix(base.rgb, glow.rgb, half(halo) * glow.a) + half3(grain * 0.012); return half4(rgb * base.a, base.a); }",
+                        "inks": { "base": "panel.fill", "glow": "focus-ring.text/0.35" }
+                    }
+                ],
+                "strokes": [ { "ink": "panel.text/0.08" } ]
+            },
+            "toolbar": {
+                "fills": [ { "kind": "gradient", "stops": [ { "ink": "toolbar.fill", "at": 0 }, { "ink": "panel.fill", "at": 1 } ], "angle": 90 } ],
+                "strokes": [ { "ink": "panel.text/0.08" } ],
+                "shadows": [ { "kind": "drop", "y": 0.5, "blur": 1, "ink": "#00000040" } ]
             }
         },
-        "label": { "when": { "modified": { "text": "selection.fill", "weight": "semi-bold" }, "faulted": { "fills": [], "strokes": [], "text": "#FF0000FF" } } },
-        "stop": {
-            "fills": [ { "kind": "solid", "ink": "panel.fill" } ],
-            "strokes": [ { "ink": "panel.text" } ],
-            "text": "panel.text",
-            "when": { "selected": { "fills": [ { "kind": "solid", "ink": "panel.text" } ], "text": "panel.fill" } }
-        },
-        "handle": {
-            "fills": [ { "kind": "solid", "ink": "list-row.fill" } ],
-            "strokes": [ { "ink": "panel.text" } ],
-            "text": "panel.text",
-            "washes": { "hover": "panel.text/0.16", "pressed": "panel.text/0.24" },
-            "motion": "ease-out 120ms",
-            "when": { "modified": { "fills": [ { "kind": "solid", "ink": "selection.fill" } ] } }
-        },
-        "focus-ring": { "fills": [], "strokes": [], "shadows": [ { "blur": 0, "spread": 3, "ink": "focus-ring.edge" } ], "motion": "ease-out 120ms" },
-        "checker": {
-            "fills": [
-                {
-                    "kind": "drawn",
-                    "effect": "uniform float2 size; layout(color) uniform half4 light; layout(color) uniform half4 dark; half4 main(float2 p) { float2 cell = floor(p / 10.0); half4 c = mod(cell.x + cell.y, 2.0) < 1.0 ? light : dark; return half4(c.rgb * c.a, c.a); }",
-                    "inks": { "light": "#FFFFFFFF", "dark": "#A9A9A9FF" }
-                }
-            ],
-            "strokes": []
-        },
-        "overlay-caption": { "fills": [], "strokes": [], "text": "#FFFFFFFF", "shadows": [ { "x": 1, "y": 1, "blur": 0, "ink": "#00000080" } ] },
-        "clip-over": { "fills": [ { "kind": "solid", "ink": "#FF0000FF" } ], "strokes": [] },
-        "clip-under": { "fills": [ { "kind": "solid", "ink": "#0000FFFF" } ], "strokes": [] },
-        "well": {
-            "fills": [ { "kind": "solid", "ink": "#000000FF" } ],
-            "strokes": [ { "ink": "#00000080" } ],
-            "text": "#FFFFFFB3",
-            "within": {
-                "ground": { "fills": [], "strokes": [], "text": "#FFFFFFB3" },
-                "surface": { "fills": [ { "kind": "solid", "ink": "#292929FF" } ], "strokes": [], "text": "#FFFFFFB3" },
-                "field": { "fills": [ { "kind": "solid", "ink": "#292929FF" } ], "strokes": [ { "ink": "#FFFFFF33" } ], "text": "#FFFFFFB3" },
-                "handle": {
-                    "fills": [ { "kind": "solid", "ink": "#000000FF" } ],
-                    "strokes": [ { "ink": "#FFFFFFBF" } ],
-                    "text": "#FFFFFFB3",
-                    "washes": { "hover": "#FFFFFF29", "pressed": "#FFFFFF3D" },
-                    "motion": "ease-out 120ms"
-                },
-                "knob": { "fills": [ { "kind": "solid", "ink": "#FFFFFFFF" } ], "strokes": [ { "ink": "#00000099" } ], "text": "#FFFFFFB3" },
-                "puck": { "fills": [ { "kind": "solid", "ink": "#FFFFFFFF" } ], "strokes": [ { "ink": "#00000099" } ], "text": "#FFFFFFB3" },
-                "grid": { "fills": [], "strokes": [ { "ink": "#FFFFFF33" } ], "when": { "increase-contrast": { "strokes": [ { "ink": "#FFFFFF66" } ] } } },
-                "grid-fine": { "fills": [], "strokes": [ { "ink": "#FFFFFF14" } ], "when": { "increase-contrast": { "strokes": [ { "ink": "#FFFFFF33" } ] } } },
-                "major": { "fills": [], "strokes": [ { "ink": "#FFFFFF80" } ] },
-                "trace": { "fills": [ { "kind": "solid", "ink": "#FFFFFF40" } ], "strokes": [ { "ink": "#FFFFFFBF" } ], "blend": "plus" },
-                "series": {
-                    "fills": [ { "kind": "solid", "ink": "data/0.75" } ],
-                    "strokes": [ { "ink": "data" } ],
-                    "blend": "plus",
-                    "when": { "differentiate-without-color": { "strokes": [ { "ink": "data", "dash": [ [ 4, 2, 1, 2 ], [], [ 4, 2 ], [ 1, 2 ] ] } ] } }
-                },
-                "guide": { "fills": [], "strokes": [ { "ink": "#FF660033" } ] },
-                "highlight": { "fills": [], "strokes": [ { "ink": "#FFFFFF1F" } ] },
-                "selection": { "fills": [ { "kind": "solid", "ink": "#FFFFFF63" } ], "strokes": [] },
-                "label": { "fills": [], "strokes": [], "text": "#FFFFFFB3", "features": [ "tnum" ] }
-            }
+        "capsule": {
+            "button": { "strokes": [] },
+            "tab": { "strokes": [] },
+            "field": { "strokes": [] }
         }
     },
-    "glass": {
-        "panel": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [] },
-        "toolbar": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [] },
-        "rail": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [] },
-        "popover": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [] },
-        "toast": { "fills": [ { "kind": "backdrop", "glass": "regular", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [] },
-        "hud-capsule": { "fills": [ { "kind": "backdrop", "glass": "clear", "fallback": "panel.fill" } ], "strokes": [], "text": "panel.text", "shadows": [] }
-    },
-    "drawn": {
-        "panel": {
-            "fills": [
-                {
-                    "kind": "drawn",
-                    "effect": "uniform float2 size; layout(color) uniform half4 base; layout(color) uniform half4 glow; half4 main(float2 p) { float2 uv = p / size; float halo = 1.0 - smoothstep(0.0, 1.1, distance(uv, float2(0.15, -0.2))); float grain = fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453) - 0.5; half3 rgb = mix(base.rgb, glow.rgb, half(halo) * glow.a) + half3(grain * 0.012); return half4(rgb * base.a, base.a); }",
-                    "inks": { "base": "panel.fill", "glow": "focus-ring.text/0.35" }
-                }
-            ],
-            "strokes": [ { "ink": "panel.text/0.08" } ]
+    "defaults": { "extent": 0, "reach": 0, "inset": 0, "gap": 0, "radius": 0, "smoothing": 0, "stroke": 1, "icon": 16, "font-size": 1, "spacing": 32, "slop": 3, "fine": 0.1, "notch": 1.2, "edge-fade": 0 },
+    "densities": {
+        "regular": {
+            "panel": { "inset": 8, "gap": 6 },
+            "toolbar": { "extent": 28, "inset": 4, "gap": 2, "radius": 6 },
+            "rail": { "inset": 4, "gap": 4, "radius": 10 },
+            "popover": { "inset": 8, "gap": 4, "radius": 10 },
+            "toast": { "inset": 8, "gap": 6, "radius": 10 },
+            "hud-capsule": { "extent": 24, "inset": 6, "gap": 4, "radius": 12 },
+            "button": { "extent": 22, "inset": 4, "radius": 5 },
+            "tab": { "extent": 22, "inset": 4, "radius": 5 },
+            "field": { "extent": 22, "inset": 4, "radius": 4, "slop": 0 },
+            "list-row": { "extent": 20, "inset": 4 },
+            "item": { "inset": 4, "gap": 4, "radius": 5 },
+            "section-header": { "extent": 24, "inset": 4 },
+            "readout": { "inset": 4, "radius": 4 },
+            "divider": { "extent": 1 },
+            "scrollbar": { "extent": 4, "radius": 2 },
+            "handle": { "extent": 8, "reach": 6 },
+            "knob": { "extent": 12, "reach": 6 },
+            "needle": { "stroke": 2, "reach": 6 },
+            "puck": { "extent": 10, "reach": 6 },
+            "stop": { "extent": 10, "reach": 6 },
+            "ring": { "extent": 12, "reach": 6 },
+            "track": { "extent": 4, "radius": 2 },
+            "span": { "reach": 4, "radius": 2 },
+            "guide": { "reach": 4 },
+            "major": { "reach": 4 },
+            "well": { "extent": 18, "reach": 6, "inset": 7.2, "gap": 4, "radius": 3 },
+            "trace": { "stroke": 1.5 },
+            "series": { "stroke": 1.5 },
+            "label": { "font-size": 0.73 }
         },
-        "toolbar": {
-            "fills": [ { "kind": "gradient", "stops": [ { "ink": "toolbar.fill", "at": 0 }, { "ink": "panel.fill", "at": 1 } ], "angle": 90 } ],
-            "strokes": [ { "ink": "panel.text/0.08" } ],
-            "shadows": [ { "y": 0.5, "blur": 1, "ink": "#00000040" } ]
+        "compact": {
+            "panel": { "inset": 4, "gap": 4 },
+            "toolbar": { "extent": 22 },
+            "button": { "extent": 18, "inset": 3 },
+            "tab": { "extent": 18, "inset": 3 },
+            "field": { "extent": 18, "inset": 3 },
+            "list-row": { "extent": 17 },
+            "section-header": { "extent": 20 }
         }
-    },
-    "capsule": {
-        "button": { "strokes": [] },
-        "tab": { "strokes": [] },
-        "field": { "strokes": [] }
-    },
-    "defaults": { "extent": 0, "reach": 0, "inset": 0, "gap": 0, "radius": 0, "stroke": 1, "icon": 16, "font-size": 1, "spacing": 32, "slop": 3, "fine": 0.1, "notch": 1.2 },
-    "regular": {
-        "panel": { "inset": 8, "gap": 6 },
-        "toolbar": { "extent": 28, "inset": 4, "gap": 2, "radius": 6 },
-        "rail": { "inset": 4, "gap": 4, "radius": 10 },
-        "popover": { "inset": 8, "gap": 4, "radius": 10 },
-        "toast": { "inset": 8, "gap": 6, "radius": 10 },
-        "hud-capsule": { "extent": 24, "inset": 6, "gap": 4, "radius": 12 },
-        "button": { "extent": 22, "inset": 4, "radius": 5 },
-        "button-primary": { "extent": 22, "inset": 4, "radius": 5 },
-        "button-danger": { "extent": 22, "inset": 4, "radius": 5 },
-        "tab": { "extent": 22, "inset": 4, "radius": 5 },
-        "field": { "extent": 22, "inset": 4, "radius": 4, "slop": 0 },
-        "list-row": { "extent": 20, "inset": 4 },
-        "item": { "inset": 4, "gap": 4, "radius": 5 },
-        "section-header": { "extent": 24, "inset": 4 },
-        "readout": { "inset": 4, "radius": 4 },
-        "divider": { "extent": 1 },
-        "scrollbar": { "extent": 4, "radius": 2 },
-        "handle": { "extent": 8, "reach": 6 },
-        "knob": { "extent": 12, "reach": 6 },
-        "needle": { "stroke": 2, "reach": 6 },
-        "puck": { "extent": 10, "reach": 6 },
-        "stop": { "extent": 10, "reach": 6 },
-        "ring": { "extent": 12, "reach": 6 },
-        "track": { "extent": 4, "radius": 2 },
-        "span": { "reach": 4, "radius": 2 },
-        "guide": { "reach": 4 },
-        "major": { "reach": 4 },
-        "well": { "extent": 18, "reach": 6, "inset": 7.2, "gap": 4, "radius": 3 },
-        "trace": { "stroke": 1.5 },
-        "series": { "stroke": 1.5 },
-        "label": { "font-size": 0.73 }
-    },
-    "compact": {
-        "panel": { "inset": 4, "gap": 4 },
-        "toolbar": { "extent": 22 },
-        "button": { "extent": 18, "inset": 3 },
-        "button-primary": { "extent": 18, "inset": 3 },
-        "button-danger": { "extent": 18, "inset": 3 },
-        "tab": { "extent": 18, "inset": 3 },
-        "field": { "extent": 18, "inset": 3 },
-        "list-row": { "extent": 17 },
-        "section-header": { "extent": 20 }
     }
 }

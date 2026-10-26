@@ -153,7 +153,7 @@ internal static class ArchPrompts {
     private static IO<StageStep<ArchStage, Seq<Guid>>> Finish(RhinoDoc doc, Func<Action<IDisposable>, IO<Seq<Curve>>> build, Tolerances tolerances) =>
         TableOps.Place(doc, retain =>
                 from built in build(retain)
-                from joined in CurveConstruction.JoinCurves(built, tolerances, preserveDirection: true, simpleJoin: false, retain)
+                from joined in CurveConstruction.JoinCurves(tolerances, built, preserveDirection: true, simpleJoin: false, retain)
                 select joined.Map(static row => (Row: new GeometryPair(row.Value, None), History: Option<HistoryRecord>.None)), reference: false)
             .Map<StageStep<ArchStage, Seq<Guid>>>(static ids => new StageStep<ArchStage, Seq<Guid>>.Done(ids))
             .Catch(Rejected, Retry);

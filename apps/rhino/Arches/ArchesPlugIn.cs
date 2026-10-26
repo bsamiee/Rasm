@@ -6,6 +6,7 @@ using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino.Commands;
 using Rhino.PlugIns;
 
@@ -14,8 +15,6 @@ using Rhino.PlugIns;
 namespace Arches;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record ArchGlyph(string Key) : IGlyph;
-
 internal sealed record ArchFamily(Guid Id, string Command, string Caption, string Prompt, string Tooltip, IterableNE<ArchChoice> Choices) : IRuiSource {
     // --- [FAMILIES]
     public static readonly Seq<Seq<ArchFamily>> Clusters = [
@@ -69,29 +68,27 @@ internal sealed record ArchFamily(Guid Id, string Command, string Caption, strin
     ];
 
     public static RuiFile Rui { get; } = new(
-        [new ToolbarRow("Arches", new ArchGlyph("GothicArch_Equilateral.svg"), Clusters.Map(static cluster => cluster.Map(static family => family.Button))
-            .Reduce(static (left, right) => left.Add(new ToolbarItemRow.Separator()) + right))],
+        [new ToolbarRow(new CommandFace("Arches", "Arches", None, Some<GlyphSource>(Icons.Embedded(typeof(ArchFamily).Assembly, "GothicArch_Equilateral.svg"))),
+            Clusters.Map(static cluster => cluster.Map(static family => family.Menu)))],
         []);
 
     // --- [COMMANDS]
     public Func<IPlugInSink, Command> Registered => sink => new ArchCommand(sink, Id, Command, Prompt, Choices);
 
     // --- [TOOLBAR]
-    private ArchGlyph Glyph(ArchChoice choice) => new($"{Command}_{choice.Option}.svg");
+    private CommandFace Face => new(Command, Caption, Tooltip, Some<GlyphSource>(Glyph(Choices.Head)));
 
-    private Macro Macro(Seq<ScriptStep> steps, string caption, string tooltip, ArchChoice shown) =>
-        new(new CommandFace(Command, caption, tooltip, Some<IGlyph>(Glyph(shown)), None), steps);
+    private Command<RowRule, Macro> Menu =>
+        new Command<RowRule, Macro>.Menu(Face, None, [toSeq(Choices).Map(choice =>
+            (Command<RowRule, Macro>)Run(new CommandFace(choice.Option, choice.Label, choice.Tooltip, Some<GlyphSource>(Glyph(choice))), Some<ScriptStep>(new ScriptStep.Pick(choice.Option))))]) {
+            Primary = Some(Run(Face, None)),
+        };
 
-    private Macro FromMidpoint(Seq<ScriptStep> steps, string caption, string tooltip, ArchChoice shown) =>
-        Macro(steps.Add(new ScriptStep.Assign(ArchPrompts.BothSides, LabelPair.NoYes.On)), $"{caption}, From Midpoint", $"{tooltip}, from the span midpoint", shown);
+    private GlyphSource.Paired Glyph(ArchChoice choice) => Icons.Embedded(typeof(ArchFamily).Assembly, $"{Command}_{choice.Option}.svg");
 
-    private ToolbarItemRow Button =>
-        new ToolbarItemRow.Button(Macro([], Caption, Tooltip, Choices.Head)) {
-            Right = Some(FromMidpoint([new ScriptStep.Pause()], Caption, Tooltip, Choices.Head)),
-            Flyout = Some(new Flyout(new ToolbarRow(Caption, Glyph(Choices.Head), toSeq(Choices).Map(choice => (ToolbarItemRow)new ToolbarItemRow.Button(
-                Macro([new ScriptStep.Pick(choice.Option)], $"{Caption}: {choice.Label}", choice.Tooltip, choice)) {
-                Right = Some(FromMidpoint([new ScriptStep.Pick(choice.Option)], $"{Caption}: {choice.Label}", choice.Tooltip, choice)),
-            })), FlyoutStyle.Normal)),
+    private Command<RowRule, Macro>.Run Run(CommandFace face, Option<ScriptStep> pick) =>
+        new(face, None, new Macro(Command, pick.ToSeq())) {
+            Alternate = Some(new Macro(Command, [pick.IfNone(new ScriptStep.Pause()), new ScriptStep.Assign(ArchPrompts.BothSides, LabelPair.NoYes.On)])),
         };
 }
 

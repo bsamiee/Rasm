@@ -13,26 +13,44 @@ public readonly partial struct RefinementLevel : System.Numerics.IMinMaxValue<Re
         validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
-[Union<Brep, FaceSelection>(T2Name = "Mesh", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class QuadSource {
-    public sealed record FaceSelection(Mesh Mesh, Seq<int> FaceBlocks);
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
+public abstract partial record Refinement {
+    public sealed record CatmullClark : Refinement;
+
+    public sealed record Loop(LoopFormula Formula) : Refinement;
 }
+
+[Union<Brep, Mesh, Seq<Mesh>>(T3Name = "Blocks", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class QuadSource;
 
 [Union<Seq<Mesh>, PointCloud, Meshable, Mesh>(T1Name = "Meshes", T2Name = "Cloud", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ShrinkWrapSource {
     public sealed record Meshable(Seq<GeometryBase> Items, MeshingParameters Meshing);
 }
 
-[Union<Convex, Seq<Point3d>, PointCloud>(T2Name = "Points", T3Name = "Cloud", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class HullSource {
-    public sealed record Convex(Seq<Point3d> Points, Tolerances Tolerances);
+[Union(MapMethods = SwitchMapMethodsGeneration.None)]
+public abstract partial record HullSource {
+    public sealed record Tolerant(Seq<Point3d> Points) : HullSource;
+
+    public sealed record Quick(Seq<Point3d> Points) : HullSource;
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record PatchBoundary {
-    public sealed record Outline(Polyline Boundary, Option<Surface> Pullback) : PatchBoundary;
+public abstract partial record PatchOuter {
+    public sealed record Outline(Polyline Boundary, Option<Surface> Pullback) : PatchOuter;
 
-    public sealed record Perimeter(Surface Surface, bool Trimback, int Divisions) : PatchBoundary;
+    public sealed record Perimeter(Surface Surface, bool Trimback, int Divisions) : PatchOuter;
+}
+
+[ComplexValueObject(SkipToString = true)]
+public sealed partial class PatchBoundary {
+    public PatchOuter Outer { get; }
+    public Seq<Curve> Holes { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref PatchOuter outer, ref Seq<Curve> holes) =>
+        validationError = outer.Switch(outline: static of => of.Boundary.IsClosed, perimeter: static _ => true) && holes.ForAll(static hole => hole.IsClosed)
+            ? null
+            : new ValidationError("mesh patch needs a closed outer polyline and closed inner boundaries");
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -41,61 +59,59 @@ public static class MeshConstruction {
     public static IO<Mesh> QuadRemesh(QuadSource source, QuadRemeshParameters parameters, Seq<Curve> guides, Option<IProgress<int>> progress, Action<IDisposable> retain) =>
         source.Switch(
             (Parameters: parameters, Guides: guides, Progress: progress.ValueUnsafe(), Retain: retain),
-            brep: static (state, brep) => Copies.Acquire(
-                token => Mesh.QuadRemeshBrep(brep, state.Parameters, state.Guides, state.Progress, token), nameof(Mesh.QuadRemeshBrep), state.Retain),
-            mesh: static (state, of) => Copies.Acquire(
-                token => of.Mesh.QuadRemesh(of.FaceBlocks, state.Parameters, state.Guides, state.Progress, token), nameof(Mesh.QuadRemesh), state.Retain));
+            brep: static (state, brep) => Copies.Acquire(nameof(Mesh.QuadRemeshBrep), token =>
+                Answer.One(Mesh.QuadRemeshBrep(brep, state.Parameters, state.Guides, state.Progress, token)), state.Retain),
+            mesh: static (state, mesh) => Copies.Acquire(nameof(Mesh.QuadRemesh), token =>
+                Answer.One(mesh.QuadRemesh(Seq<int>(), state.Parameters, state.Guides, state.Progress, token)), state.Retain),
+            blocks: static (state, parts) => Copies.Acquire(nameof(Mesh.QuadRemesh), token => {
+                using Mesh joined = new();
+                joined.Append(parts);
+                return Answer.One(joined.QuadRemesh(parts.Scan(0, static (faces, part) => faces + part.Faces.Count), state.Parameters, state.Guides, state.Progress, token));
+            }, state.Retain));
 
     public static IO<Mesh> ShrinkWrap(ShrinkWrapSource source, ShrinkWrapParameters parameters, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            token => source.Switch(
-                (Parameters: parameters, Token: token),
-                meshes: static (state, meshes) => Mesh.ShrinkWrap(meshes, state.Parameters, state.Token),
-                cloud: static (state, cloud) => Mesh.ShrinkWrap(cloud, state.Parameters, state.Token),
-                meshable: static (state, of) => Mesh.ShrinkWrap(of.Items, state.Parameters, of.Meshing, state.Token),
-                mesh: static (state, mesh) => mesh.ShrinkWrap(state.Parameters, state.Token)),
-            nameof(Mesh.ShrinkWrap), retain);
+        Copies.Acquire(nameof(Mesh.ShrinkWrap), token => Answer.One(source.Switch(
+            (Parameters: parameters, Token: token),
+            meshes: static (state, meshes) => Mesh.ShrinkWrap(meshes, state.Parameters, state.Token),
+            cloud: static (state, cloud) => Mesh.ShrinkWrap(cloud, state.Parameters, state.Token),
+            meshable: static (state, of) => Mesh.ShrinkWrap(of.Items, state.Parameters, of.Meshing, state.Token),
+            mesh: static (state, mesh) => mesh.ShrinkWrap(state.Parameters, state.Token))), retain);
 
-    public static IO<(Mesh Mesh, Seq<Seq<int>> Facets)> CreateHull(HullSource source, Action<IDisposable> retain) =>
-        Copies.Owned(
-            () => source.Switch<(Mesh? Mesh, IEnumerable<int[]>? Facets, string Member)>(
-                convex: static of => (Mesh.CreateConvexHull3D(of.Points, out int[][] facets, of.Tolerances.Absolute, of.Tolerances.Angle), facets, nameof(Mesh.CreateConvexHull3D)),
-                points: static points => (Mesh.CreateQuickHull3D(points, out List<int[]> facets), facets, nameof(Mesh.CreateQuickHull3D)),
-                cloud: static cloud => (Mesh.CreateQuickHull3D(cloud, out List<int[]> facets), facets, nameof(Mesh.CreateQuickHull3D))),
-            static answer => Measurements.Valid(answer.Mesh, answer.Member)
-                .Map(mesh => (mesh, Conversions.Rows(answer.Facets).Map(static facet => toSeq(facet)).Strict())),
-            static answer => DisposalOps.Release(answer.Mesh),
-            retain);
+    public static IO<(Mesh Hull, Seq<Seq<int>> Facets)> Hull(Tolerances tolerances, HullSource source, Action<IDisposable> retain) =>
+        source.Switch(
+            (Tolerances: tolerances, Retain: retain),
+            tolerant: static (at, of) => Copies.Acquire(nameof(Mesh.CreateConvexHull3D), _ =>
+                Answer.One(Mesh.CreateConvexHull3D(of.Points, out int[][] facets, at.Tolerances.Absolute, at.Tolerances.Angle))
+                    .Map(hull => (Hull: hull, Facets: Facets(facets))), at.Retain),
+            quick: static (at, of) => Copies.Acquire(nameof(Mesh.CreateQuickHull3D), _ =>
+                Answer.One(Mesh.CreateQuickHull3D(of.Points, out List<int[]> facets))
+                    .Map(hull => (Hull: hull, Facets: Facets(facets))), at.Retain));
 
-    public static IO<Mesh> CreatePatch(PatchBoundary boundary, Seq<Curve> innerBoundaries, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints, Tolerances tolerances, Action<IDisposable> retain) =>
-        from boundaries in IO.lift(() => Callbacks.Each(innerBoundaries, static curve => curve.IsClosed, nameof(Mesh.CreatePatch)))
-        let patch = boundary.Switch(
+    public static IO<Mesh> CreatePatch(Tolerances tolerances, PatchBoundary boundary, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Mesh.CreatePatch), _ => boundary.Outer.Switch(
             outline: static of => (Boundary: Some(of.Boundary), Surface: of.Pullback, Trimback: false, Divisions: 0),
-            perimeter: static of => (Boundary: Option<Polyline>.None, Surface: Some(of.Surface), of.Trimback, of.Divisions))
-        from mesh in Copies.Acquire(
-            () => Mesh.CreatePatch(patch.Boundary.ValueUnsafe(), tolerances.Angle, patch.Surface.ValueUnsafe(), innerBoundaries, innerBothSides, innerPoints, patch.Trimback, patch.Divisions),
-            nameof(Mesh.CreatePatch), retain)
-        select mesh;
+            perimeter: static of => (Boundary: Option<Polyline>.None, Surface: Some(of.Surface), of.Trimback, of.Divisions)) switch {
+                var patch => Answer.One(Mesh.CreatePatch(patch.Boundary.ValueUnsafe(), tolerances.Angle, patch.Surface.ValueUnsafe(), boundary.Holes, innerBothSides, innerPoints, patch.Trimback, patch.Divisions)),
+            }, retain);
 
     // --- [REBUILT]
-    public static IO<Option<Seq<Option<Mesh>>>> CreateFromIterativeCleanup(Seq<Mesh> meshes, Tolerances tolerances, Action<IDisposable> retain) =>
-        Copies.Owned(
-            () => Optional(Mesh.CreateFromIterativeCleanup(meshes, tolerances.Absolute)),
-            static products => products.Traverse(static rows => Measurements.Valid(toSeq(rows).Map(Optional), nameof(Mesh.CreateFromIterativeCleanup))).As(),
-            static products => DisposalOps.Release(products.ToSeq().Bind(static rows => Conversions.Rows(rows))), retain);
+    public static IO<Seq<Option<Mesh>>> CreateFromIterativeCleanup(Tolerances tolerances, Seq<Mesh> meshes, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Mesh.CreateFromIterativeCleanup), _ =>
+            Answer.Sparse(Mesh.CreateFromIterativeCleanup(meshes, tolerances.Absolute) ?? new Mesh?[meshes.Count]), retain);
 
     public static IO<Mesh> CreateFromFilteredFaceList(Mesh mesh, Seq<int> faces, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            () => Copies.Within(mesh, ComponentIndexType.MeshFace, faces)
-                .Map(held => Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, mesh.Faces.Count)).Map(toHashSet(held).Contains))),
-            nameof(Mesh.CreateFromFilteredFaceList), retain);
+        IO.lift(() => Copies.Within(mesh, ComponentIndexType.MeshFace, faces)).Bind(held => Copies.Acquire(nameof(Mesh.CreateFromFilteredFaceList), _ =>
+            Answer.One(Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, mesh.Faces.Count)).Map(toHashSet(held).Contains))), retain));
 
-    public static IO<Mesh> Refine(Mesh mesh, Option<LoopFormula> loop, RefinementLevel level, CreaseEdges nakedEdgeMode, Action<IDisposable> retain) =>
-        loop.Match(
-            Some: formula => Copies.Acquire(
-                token => Mesh.CreateRefinedLoopMesh(mesh, formula, new RefinementSettings { Level = level, NakedEdgeMode = nakedEdgeMode, ContinueRequest = token }),
-                nameof(Mesh.CreateRefinedLoopMesh), retain),
-            None: () => Copies.Acquire(
-                token => Mesh.CreateRefinedCatmullClarkMesh(mesh, new RefinementSettings { Level = level, NakedEdgeMode = nakedEdgeMode, ContinueRequest = token }),
-                nameof(Mesh.CreateRefinedCatmullClarkMesh), retain));
+    public static IO<Mesh> Refine(Mesh mesh, Refinement refinement, RefinementLevel level, CreaseEdges nakedEdgeMode, Action<IDisposable> retain) =>
+        refinement.Switch(
+            (Mesh: mesh, Level: level, NakedEdgeMode: nakedEdgeMode, Retain: retain),
+            catmullClark: static (at, _) => Copies.Acquire(nameof(Mesh.CreateRefinedCatmullClarkMesh), token =>
+                Answer.One(Mesh.CreateRefinedCatmullClarkMesh(at.Mesh, new RefinementSettings { Level = at.Level, NakedEdgeMode = at.NakedEdgeMode, ContinueRequest = token })), at.Retain),
+            loop: static (at, of) => Copies.Acquire(nameof(Mesh.CreateRefinedLoopMesh), token =>
+                Answer.One(Mesh.CreateRefinedLoopMesh(at.Mesh, of.Formula, new RefinementSettings { Level = at.Level, NakedEdgeMode = at.NakedEdgeMode, ContinueRequest = token })), at.Retain));
+
+    // --- [FACETS]
+    private static Seq<Seq<int>> Facets(IEnumerable<int[]?>? facets) =>
+        Conversions.Rows(facets).Map(static facet => toSeq(facet)).Strict();
 }

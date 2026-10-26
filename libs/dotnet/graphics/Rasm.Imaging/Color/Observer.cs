@@ -15,6 +15,8 @@ public static class StandardObserver {
             })];
     });
 
+    public static Arr<Vector2> Locus { get; } = Rows.Value.Map(static row => new Vector2(row.Xyz.X, row.Xyz.Y) / (row.Xyz.X + row.Xyz.Y + row.Xyz.Z));
+
     public static Arr<(float Wavelength, Vector3 Matching)> Matching(Gamut working) {
         Matrix<double> matrix = working.FromXyz;
         return Rows.Value.Map(row => matrix.Multiply(new DenseVector([row.Xyz.X, row.Xyz.Y, row.Xyz.Z])) switch {

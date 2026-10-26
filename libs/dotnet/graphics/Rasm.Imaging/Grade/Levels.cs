@@ -19,6 +19,17 @@ public sealed record Levels(SignedMagnitude Black, Exposure White) : IStateRecor
                 },
             };
 
+    public float Level(LevelsParameter parameter) => parameter.Map(black: Black, white: Black + White.Scale);
+
+    public Fin<Levels> Leveled(LevelsParameter parameter, float level) =>
+        parameter.Switch(
+            (Levels: this, Level: level),
+            black: static held =>
+                (SignedMagnitude.Validated(held.Level), Exposure.Validated(float.Log2(held.Levels.Level(LevelsParameter.White) - held.Level)))
+                    .Apply(static (black, white) => new Levels(black, white))
+                    .As(),
+            white: static held => Exposure.Validated(float.Log2(held.Level - held.Levels.Black)).Map(white => held.Levels with { White = white }));
+
     public static Fin<Levels> Auto(PixelFrame frame, Gamut gamut) =>
         LuminanceSamples.Gather(frame, gamut.Luminance).Bind(static samples =>
             (SignedMagnitude.Validated((float)samples.Minimum), Exposure.Validated((float)double.Log2(samples.FrameWhite - samples.Minimum)))

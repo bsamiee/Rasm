@@ -8,6 +8,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Streaming" />
+        <PackageReference Include="NodaTime" />
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
 
@@ -24,6 +26,10 @@
         <PackageReference Include="Kiwi" />
     </ItemGroup>
 
+    <ItemGroup Label="Desktop UI">
+        <PackageReference Include="SkiaSharp" />
+    </ItemGroup>
+
     <ItemGroup Label="Application Hosting">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
@@ -31,6 +37,7 @@
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
+        <ProjectReference Include="../../ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">

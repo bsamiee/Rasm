@@ -4,6 +4,8 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
+using Rhino.Resources;
 using Rhino.Runtime;
 using Rhino.UI.Controls;
 
@@ -38,7 +40,7 @@ public sealed record RowLine(Option<string> Caption, Control Value, Option<Contr
 
 public sealed record RowCells(
     Control Value, Option<Control> Gate, Option<Control> Pick, Option<FieldFit> Field, Seq<RowLine> Heads, Seq<RowLine> Lines, RowHelp Help, IO<Unit> Show,
-    Option<RowEdit> Edit, Option<Func<Seq<Seq<Command>>, IO<Unit>, Action<IDisposable>, IO<ContextMenu>>> Menu) {
+    Option<RowEdit> Edit, Option<Func<Seq<Seq<Command<RowRule, Invoke>>>, IO<Unit>, RowScope, Action<IDisposable>, IO<ContextMenu>>> Menu) {
     public IO<bool> NestedEditing { get; init; } = IO.pure(value: false);
     public Option<ComponentControl> Plot { get; init; }
     public Option<Func<bool, IO<Unit>>> Availability { get; init; }
@@ -75,7 +77,7 @@ public sealed class RowGrid : Drawable {
             from placed in rows.Map(static (row, at) => (Row: row, At: at)).TraverseM(row => Placed(row.At, row.Row, scope, acquired.Retain)).As()
             from metrics in Measured(column, placed, scope.Sink)
             from stack in Containers.Frame(() => new StackLayout {
-                Orientation = Orientation.Vertical,
+                Orientation = Eto.Forms.Orientation.Vertical,
                 Spacing = metrics.Spacing.Height,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,
             }, acquired.Retain)
@@ -97,7 +99,7 @@ public sealed class RowGrid : Drawable {
                 from held in cells.Realize(scope, retain)
                 let help = row.Help.Map(text => held.Help.Text(text, scope.Sink))
                 from tipped in held.Value is ComponentControl plot ? plot.Describe(help) : IO.lift(() => { held.Value.ToolTip = help.ValueUnsafe(); })
-                from first in (from keys in row.Keys.AsIterableNE() from source in row.Bound from edit in held.Edit select Trailed(source, keys, edit, scope, retain)).Traverse(static trailed => trailed).As()
+                from first in (from keys in row.Keys.AsIterableNE() from source in row.Bound from edit in held.Edit select Trailed(source, keys, edit, row.Rules.Enabled, scope, retain)).Traverse(static trailed => trailed).As()
                 let caption = Some(RowText.Localize(row.Caption, scope.Sink).Local).Filter(_ => cells.Shape.Labeled && (!cells.Shape.Spans || held.Heads.IsEmpty))
                 let heads = held.Heads.Map((line, index) => Headed(line, scope.Sink, first.Filter(_ => index is 0)))
                 let lines = cells.Shape.Spans
@@ -125,31 +127,23 @@ public sealed class RowGrid : Drawable {
         from placed in IO.lift(() => host.Content = content.ValueUnsafe())
         select new GridLine(spec, host);
 
-    private static IO<RowTrail> Trailed(RowSource source, IterableNE<EntryKey> keys, RowEdit edit, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<RowTrail> Trailed(RowSource source, IterableNE<EntryKey> keys, RowEdit edit, Option<RowRule> enabled, RowScope scope, Action<IDisposable> retain) =>
         from bound in IO.lift(() => new BindingGroup(Seq(source.Values(scope))))
-        from restore in IO.lift(static () => new Command { MenuText = RowText.Localize("Reset").Local })
-        from copy in IO.lift(static () => new Command { MenuText = RowText.Localize("Copy").Local })
-        from paste in IO.lift(static () => new Command { MenuText = RowText.Localize("Paste").Local })
-        let padlock = scope.Locks.Map(static _ => new CheckCommand { MenuText = RowText.Localize("Lock").Local })
-        from held in (Seq((Command: restore, Run: edit.Reset), (Command: copy, Run: Transfer.Copy(bound, Some(keys), scope)), (Command: paste, Run: Transfer.Paste(bound, Some(keys), scope).Map(unit)))
-                .Map(row => Subscriptions.Host<EventArgs>(typeof(Command), h => row.Command.Executed += h, h => row.Command.Executed -= h, nameof(Command.Executed)).Inline(_ => row.Run, scope.Sink, retain))
-            + padlock.ToSeq().Map(command => Subscriptions.Host<EventArgs>(typeof(CheckCommand), h => command.Executed += h, h => command.Executed -= h, nameof(CheckCommand.Executed))
-                .Inline(_ => scope.Lock(toSeq(keys), command.Checked), scope.Sink, retain)))
-            .TraverseM(static attached => attached).As()
-        from reset in Pinned(GlyphRole.Reset, restore.MenuText, retain)
-        from commanded in DisposalOps.Change(() => reset.Command, value => reset.Command = value, restore, retain)
-        from shackle in padlock.Traverse(command =>
-            from button in Pinned(GlyphRole.LockOpen, command.MenuText, retain)
-            from clicked in Subscriptions.Host<EventArgs>(typeof(ImageButton), h => button.Click += h, h => button.Click -= h, nameof(ImageButton.Click))
-                .Inline(_ => scope.Lock(toSeq(keys), !command.Checked), scope.Sink, retain)
-            select button).As()
-        select new RowTrail(keys, restore, copy, paste, padlock, reset, shackle);
-
-    private static IO<ImageButton> Pinned(IGlyph glyph, string toolTip, Action<IDisposable> retain) =>
-        from icon in Icons.Frames(glyph, IconSlot.PanelButton)
-        from button in DisposalOps.Acquire(IO.lift(() => new ImageButton { Image = icon, ToolTip = toolTip, MaskImageWithBackgroundColorWhenDisabled = true }), retain)
-        from sized in IO.lift(() => { button.Size = button.Size; })
-        select button;
+        let reads = toSeq(keys)
+        let restore = new Command<RowRule, Invoke>.Run(
+            new CommandFace("row-reset", "Reset", None, Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg))),
+            CommandRows.Gate(enabled, Some(new RowRule(reads, [], _ => edit.Modified))), new Invoke.Effect(_ => edit.Reset))
+        let copy = new Command<RowRule, Invoke>.Run(new CommandFace("row-copy", "Copy", None, None), enabled, new Invoke.Effect(_ => Transfer.Copy(bound, Some(keys), scope)))
+        let paste = new Command<RowRule, Invoke>.Run(
+            new CommandFace("row-paste", "Paste", None, None),
+            CommandRows.Gate(enabled, Some(new RowRule([], [], static _ => IO.lift(static () => Clipboard.Instance.ContainsText)))),
+            new Invoke.Effect(_ => Transfer.Paste(bound, Some(keys), scope).Map(unit)))
+        let padlock = scope.Locks.Map(_ => CommandRows.Toggle(
+            new CommandFace("row-lock", "Lock", None, Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.Svg_LockSmallClosedSvg))),
+            enabled, new RowRule(reads, [], held => held.Locked.Map(locked => reads.ForAll(locked.Contains))), (held, locked) => held.Lock(reads, locked)))
+        from reset in CommandRows.Button(restore, IconSlot.PanelButton, scope, retain)
+        from shackle in padlock.Traverse(toggle => CommandRows.Button(toggle, IconSlot.PanelButton, scope, retain)).As()
+        select new RowTrail(keys, [[restore, .. padlock.ToSeq()], [copy, paste]], reset.Control, shackle.Map(static held => held.Control));
 
     // --- [FORM]
     private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink) =>
@@ -167,8 +161,8 @@ public sealed class RowGrid : Drawable {
             Values: Widest(lines.Filter(static line => line.Columned).Choose(static line => line.Value)),
             Gate: Widest(lines.Choose(static line => line.Gate)),
             Pick: Widest(lines.Choose(static line => line.Pick)),
-            Reset: Widest(lines.Choose(static line => line.Trail.Map(static Control (trail) => trail.Reset))),
-            Lock: Widest(lines.Choose(static line => line.Trail.Bind(static trail => trail.Shackle).Map(static Control (button) => button)))))
+            Reset: Widest(lines.Choose(static line => line.Trail.Map(static trail => trail.Reset))),
+            Lock: Widest(lines.Choose(static line => line.Trail.Bind(static trail => trail.Shackle)))))
         from aligned in IO.lift(() => {
             _ = lines.Choose(static line => line.Gate).Iter(gate => gate.Width = (int)MathF.Ceiling(widths.Gate.IfNone(0f)));
             _ = lines.Choose(static line => line.Pick).Iter(pick => pick.Width = (int)MathF.Ceiling(widths.Pick.IfNone(0f)));
@@ -227,7 +221,7 @@ public sealed class RowGrid : Drawable {
             Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink, acquired.Retain),
             Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, acquired.Retain))
         + places.Choose(place => place.Cells.Bind(static cells => cells.Menu).Map(attach =>
-            attach(place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)), acquired.Retain)
+            attach(place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command<RowRule, Invoke>>>()), Refreshed(Seq(place)), scope, acquired.Retain)
                 .Bind(menu => marks.SwapIO(held => held with { Menus = held.Menus.AddOrUpdate(place.At, menu) })).Map(unit)))
         + places.Bind(static place => place.Sources).Distinct().Map(Watched);
 
@@ -252,25 +246,10 @@ public sealed class RowGrid : Drawable {
         from enabled in RowRules.Holds(place.Row.Rules.Enabled, scope)
         from shown in RowRules.Holds(place.Row.Rules.Visible, scope)
         from modified in place.Cells.Bind(static cells => cells.Edit).Match(Some: static edit => edit.Modified, None: static () => IO.pure(value: false))
-        from locked in place.Trail.Match(Some: trail => scope.Locked.Map(held => trail.Keys.ForAll(held.Contains)), None: static () => IO.pure(value: false))
-        from painted in Activated(place, enabled, modified, locked)
+        from activated in IO.lift(() => place.Lines.Bind(static line => line.Spec.Controls).Iter(control => control.Enabled = enabled))
         from available in place.Cells.Bind(static cells => cells.Availability).Traverse(changed => changed(shown && enabled)).As()
         from showed in place.Cells.Match(Some: static cells => cells.Show, None: static () => IO.pure(unit))
         select (shown, new RowPaint(enabled, modified));
-
-    private static IO<Unit> Activated(RowPlace place, bool enabled, bool modified, bool locked) =>
-        from controls in IO.lift(() => place.Lines.Bind(static line => line.Spec.Controls).Iter(control => control.Enabled = enabled))
-        from trails in place.Trail.Traverse(trail =>
-            from reset in Icons.Frames(GlyphRole.Reset, IconSlot.PanelButton)
-            from shackle in Icons.Frames(locked ? GlyphRole.LockClosed : GlyphRole.LockOpen, IconSlot.PanelButton)
-            from set in IO.lift(() => {
-                (trail.Restore.Enabled, trail.Copy.Enabled, trail.Paste.Enabled) = (enabled && modified, enabled, enabled && Clipboard.Instance.ContainsText);
-                trail.Reset.Image = enabled && modified ? reset : null;
-                _ = trail.Lock.Iter(command => (command.Enabled, command.Checked) = (enabled, locked));
-                _ = trail.Shackle.Iter(button => (button.Enabled, button.Image) = (enabled, shackle));
-            })
-            select unit).As()
-        select unit;
 
     // --- [PAINT]
     protected override void OnPaint(PaintEventArgs e) {
@@ -343,10 +322,8 @@ public sealed class RowGrid : Drawable {
 
     private sealed record GridLine(LineSpec Spec, Panel Host);
 
-    private sealed record RowTrail(IterableNE<EntryKey> Keys, Command Restore, Command Copy, Command Paste, Option<CheckCommand> Lock, ImageButton Reset, Option<ImageButton> Shackle) {
-        public Seq<Seq<Command>> Groups => [[Restore, .. Lock.ToSeq()], [Copy, Paste]];
-
-        public Seq<ImageButton> Buttons => Reset.Cons(Shackle.ToSeq());
+    private sealed record RowTrail(IterableNE<EntryKey> Keys, Seq<Seq<Command<RowRule, Invoke>>> Groups, Control Reset, Option<Control> Shackle) {
+        public Seq<Control> Buttons => Reset.Cons(Shackle.ToSeq());
     }
 
     private sealed record RowPlace(int At, ControlRow Row, Option<RowCells> Cells, Option<string> Caption, Seq<GridLine> Lines, Option<RowTrail> Trail) {

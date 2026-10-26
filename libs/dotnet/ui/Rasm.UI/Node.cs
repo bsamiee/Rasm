@@ -41,12 +41,12 @@ public sealed partial class ImageRendering {
 public abstract partial record GlyphSource {
     internal abstract Seq<(Assembly Assembly, string Resource)> Resources { get; }
 
-    internal abstract (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded);
+    internal abstract (SKPicture Art, bool Tinted) Shown(Ground ground, Func<Assembly, string, SKPicture> recorded);
 
     public sealed record Tinted(Assembly Assembly, string Resource) : GlyphSource {
         internal override Seq<(Assembly Assembly, string Resource)> Resources => [(Assembly, Resource)];
 
-        internal override (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded) => (recorded(Assembly, Resource), true);
+        internal override (SKPicture Art, bool Tinted) Shown(Ground ground, Func<Assembly, string, SKPicture> recorded) => (recorded(Assembly, Resource), true);
     }
 
     public sealed record Paired(Assembly Assembly, string Light, string Dark) : GlyphSource {
@@ -55,14 +55,14 @@ public abstract partial record GlyphSource {
 
         internal override Seq<(Assembly Assembly, string Resource)> Resources => [(Assembly, Light), (Assembly, Dark)];
 
-        internal override (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded) =>
-            (recorded(Assembly, ground.ToUnicolour() switch { var under => under.Contrast(White) > under.Contrast(Black) ? Dark : Light }), false);
+        internal override (SKPicture Art, bool Tinted) Shown(Ground ground, Func<Assembly, string, SKPicture> recorded) =>
+            (recorded(Assembly, ground.Under.ToUnicolour() switch { var under => under.Contrast(White) > under.Contrast(Black) ? Dark : Light }), false);
     }
 
     public sealed record Picture(SKPicture Art) : GlyphSource {
         internal override Seq<(Assembly Assembly, string Resource)> Resources => [];
 
-        internal override (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded) => (Art, true);
+        internal override (SKPicture Art, bool Tinted) Shown(Ground ground, Func<Assembly, string, SKPicture> recorded) => (Art, true);
     }
 }
 
@@ -194,8 +194,7 @@ public abstract partial record Node {
     public sealed record Slot : Node;
 
     public sealed record Styled(Node Content) : Node {
-        public HashMap<Role, Look> Appearance { get; init; }
-        public HashMap<Role, HashMap<Metric, float>> Metrics { get; init; }
+        public Skin Skin { get; init; } = Skin.Empty;
         public Fraction Opacity { get; init; } = Fraction.MaxValue;
     }
 }

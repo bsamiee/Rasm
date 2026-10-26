@@ -2,7 +2,6 @@ using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino.UI.Controls;
@@ -86,7 +85,7 @@ public abstract partial record ContainerRow {
 
     public sealed record Disclosure(string Caption, bool Expanded, IterableNE<Child> Body) : ContainerRow;
 
-    public sealed record Tiles(IterableNE<CommandRow> Cells) : ContainerRow;
+    public sealed record Tiles(IterableNE<Rasm.UI.Command<RowRule, Invoke>> Cells) : ContainerRow;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -129,13 +128,16 @@ public static class Containers {
         from control in DisposalOps.Acquire(IO.lift(static () => new TabControl()), retain)
         from pages in toSeq(tabs.Pages).TraverseM(page =>
             from tab in DisposalOps.Acquire(IO.lift(static () => new TabPage()), retain)
-            from body in ViewOps.Realize(owner, toSeq(page.Body), scope, retain)
+            let paged = scope.Separated(visible: false)
+            from body in ViewOps.Realize(owner, toSeq(page.Body), paged, retain)
             from seated in IO.lift(() => { tab.Text = RowText.Localize(page.Caption, scope.Sink).Local; tab.Content = body; control.Pages.Add(tab); })
-            select unit).As()
+            from sections in paged.OnVisibility(visible => SectionHolder.Shown(body, visible), retain)
+            select (Tab: tab, Scope: paged)).As()
+        let shown = scope.Visibility.Bind(visible => Callbacks.Each(pages.Map(page => page.Scope.Shown(visible && ReferenceEquals(page.Tab, control.SelectedPage))))).Map(static _ => unit)
+        from enclosing in scope.OnVisibility(_ => shown, retain)
         from selected in Subscriptions.Attach(
             handler => control.SelectedIndexChanged += handler, handler => control.SelectedIndexChanged -= handler,
-            Callbacks.Handler<EventArgs>(_ => scope.Visibility.Bind(visible => SectionHolder.Shown(control, visible)),
-                new CallbackSite(scope.Sink, typeof(TabControl), nameof(TabControl.SelectedIndexChanged))), retain)
+            Callbacks.Handler<EventArgs>(_ => shown, new CallbackSite(scope.Sink, typeof(TabControl), nameof(TabControl.SelectedIndexChanged))), retain)
         select (Control)control;
 
     // --- [DISCLOSURES]
@@ -145,24 +147,10 @@ public static class Containers {
     // --- [TILES]
     private static IO<Control> Tiles(ContainerRow.Tiles tiles, RowScope scope, Action<IDisposable> retain) =>
         from row in DisposalOps.Acquire(IO.lift(static () => new TopRowButtonLayout()), retain)
-        from cells in toSeq(tiles.Cells).TraverseM(command => Tile(command, scope, retain)).As()
-        let refresh = Callbacks.Each(cells.Map(static cell => cell.Refresh)).Map(unit)
-        from signals in toSeq(tiles.Cells).Bind(static command => command.Enabled.ToSeq()).Bind(static rule => rule.Sources).Distinct()
-            .TraverseM(source => source.Signals(scope)).As()
-        from heard in scope.Listen(_ => refresh, retain)
-        from attached in signals.Flatten().TraverseM(signal => signal.Inline(_ => refresh, scope.Sink, retain)).As()
+        from cells in toSeq(tiles.Cells).TraverseM(command => CommandRows.Button(command, IconSlot.PanelButton, scope, retain)).As()
         from configured in IO.lift(() => {
             row.ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow);
-            _ = cells.Bind(static cell => cell.Buttons).Iter(row.Items.Add);
+            _ = cells.Iter(cell => row.Items.Add(cell.Control));
         })
-        from shown in refresh
         select (Control)row;
-
-    private static IO<(Seq<ImageButton> Buttons, IO<Unit> Refresh)> Tile(CommandRow command, RowScope scope, Action<IDisposable> retain) =>
-        from realized in command.Commands(scope, retain)
-        from buttons in realized.Commands.TraverseM(cell =>
-            from glyph in IO.lift(cell.Face.Glyph.ToFin(new Refused(nameof(CommandFace.Glyph), Refused.Absent)))
-            from button in ButtonRows.Image(cell.Command, glyph, IconSlot.PanelButton, scope.Sink, retain)
-            select button).As()
-        select (buttons, realized.Refresh);
 }

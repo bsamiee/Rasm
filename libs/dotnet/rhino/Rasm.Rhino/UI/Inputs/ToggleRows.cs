@@ -1,7 +1,5 @@
 using Eto.Forms;
-using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Rhino.UI.Inputs;
 
@@ -10,19 +8,6 @@ public static class ToggleRows {
     // --- [CHECK_BOXES]
     public static ControlRow Check<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, bool> lens, RowRules rules) where TRecord : notnull =>
         ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Boxed(source, field, lens, scope, retain), rules);
-
-    // --- [GLYPH_TOGGLES]
-    public static IO<ToggleButton> Command(CheckCommand command, Option<IGlyph> glyph, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-        from button in DisposalOps.Acquire(IO.lift(static () => new ToggleButton()), owned)
-        from faced in IO.lift(() => { (button.Text, button.ToolTip, button.Checked) = (glyph.Map(static _ => "").IfNone(command.ToolBarText), command.ToolTip, command.Checked); })
-        from bound in DisposalOps.Change(() => button.Command, value => button.Command = value, command, owned)
-        from themed in glyph.Traverse(shown => Icons.Themed(sink, shown, slot, HostTheme.In(button), icon => button.Image = icon, owned)).As()
-        from projected in Subscriptions.Attach(h => command.CheckedChanged += h, h => command.CheckedChanged -= h,
-            Callbacks.Handler<EventArgs>(_ => IO.lift(() => { button.Checked = command.Checked; }), new CallbackSite(sink, typeof(CheckCommand), nameof(CheckCommand.CheckedChanged))), owned)
-        from changed in Subscriptions.Attach(h => button.CheckedChanged += h, h => button.CheckedChanged -= h,
-            Callbacks.Handler<EventArgs>(_ => IO.lift(() => { command.Checked = button.Checked; }), new CallbackSite(sink, typeof(ToggleButton), nameof(ToggleButton.CheckedChanged))), owned)
-        select button, retain);
 
     // --- [REALIZE]
     private static IO<RowCells> Boxed<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, bool> lens, RowScope scope, Action<IDisposable> retain) where TRecord : notnull =>
@@ -36,7 +21,7 @@ public static class ToggleRows {
             scope, site, owned)
         select new RowCells(
             box, None, None, None, [], [], new RowHelp(None, None), bound.Shown, Some<RowEdit>(bound),
-            Some(ChoiceRows.Context(box, [], [], scope.Sink))), retain);
+            Some(ChoiceRows.Context(box, [], []))), retain);
 
     private static IO<Unit> Ticked<TRecord>(RowEdit<TRecord> edit, CheckBox box, RowSource<TRecord> source, Lens<TRecord, bool> lens, RowScope scope) where TRecord : notnull =>
         from ticked in IO.lift(() => Optional(box.Checked))

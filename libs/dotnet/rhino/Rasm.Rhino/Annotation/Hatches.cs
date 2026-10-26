@@ -72,18 +72,16 @@ public static class Hatches {
             from hatches in form.Switch(
                 (row.Index, Fill: fill, Retain: held),
                 loops: static (state, loops) =>
-                    Copies.Acquire(() => Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale), nameof(Hatch.Create), state.Retain)
-                        .Map(static hatch => Seq(hatch)),
+                    Copies.Acquire(nameof(Hatch.Create), _ => Answer.One(Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale)).Map(static hatch => Seq(hatch)), state.Retain),
                 boundaries: static (state, boundaries) =>
-                    Copies.AcquireNonEmpty(() => Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute), nameof(Hatch.Create), state.Retain),
+                    Copies.Acquire(nameof(Hatch.Create), _ => Answer.NonEmpty(Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute)), state.Retain),
                 onFace: static (state, face) =>
-                    Copies.Acquire(() => Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint), nameof(Hatch.CreateFromBrep), state.Retain)
-                        .Map(static hatch => Seq(hatch)))
+                    Copies.Acquire(nameof(Hatch.CreateFromBrep), _ => Answer.One(Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint)).Map(static hatch => Seq(hatch)), state.Retain))
             select hatches, retain);
 
     // --- [EDITS]
     public static IO<Unit> Revise(RhinoDoc doc, Guid id, Seq<HatchEdit> edits) =>
-        RhinoObjects.ReplaceGeometry(doc, id, (Hatch copy) => edits.TraverseM(edit => edit.Apply(doc, copy)).As().Map(unit));
+        RhinoObjects.ReplaceGeometry(doc, id, (Hatch target, Action<IDisposable> _) => edits.TraverseM(edit => edit.Apply(doc, target)).As().Map(_ => (target, unit)));
 
     // --- [READS]
     public static IO<HatchState> State(Hatch hatch) =>
@@ -92,10 +90,8 @@ public static class Hatches {
 
     // --- [DISPLAY]
     public static IO<T> Display<T>(Hatch hatch, HatchPattern pattern, double patternScale, Func<HatchDisplay, IO<T>> body) =>
-        DisposalOps.Within(() => {
+        DisposalOps.Within((Action<IDisposable> held) => Copies.Acquire(nameof(Hatch.CreateDisplayGeometry), _ => {
             hatch.CreateDisplayGeometry(pattern, patternScale, out Curve[] bounds, out Line[] lines, out Brep solid);
-            return (Bounds: bounds, Lines: lines, Solid: solid);
-        },
-            display => IO.lift(() => new HatchDisplay(Conversions.Rows(display.Bounds), Conversions.Rows(display.Lines), Optional(display.Solid))).Bind(body),
-            static display => DisposalOps.Release<GeometryBase?>([.. Conversions.Rows(display.Bounds), display.Solid]));
+            return (Answer.Many(bounds), Answer.Optional(solid)).Apply((kept, fill) => new HatchDisplay(kept, Conversions.Rows(lines), fill)).As();
+        }, held).Bind(body), DisposalOps.Release);
 }

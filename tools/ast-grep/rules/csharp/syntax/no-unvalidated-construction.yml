@@ -41,6 +41,14 @@ rule:
           all:
             - has: {field: name, pattern: $CALLEE}
             - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^UnsafeAccessorType(Attribute)?$'}}}}}}}
+            - not:
+                all:
+                    - has: {field: returns, pattern: $COPIED}
+                    - has:
+                        field: parameters
+                        all:
+                            - has: {kind: parameter, nthChild: {position: 1, ofRule: {kind: parameter}}, has: {field: type, pattern: $COPIED}}
+                            - not: {has: {kind: parameter, nthChild: {position: 2, ofRule: {kind: parameter}}}}
             - has:
                 kind: attribute_list
                 has:

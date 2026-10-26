@@ -1,3 +1,4 @@
+using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Events;
@@ -120,7 +121,7 @@ public static class Viewports {
                     .Map(row => row.In(serial).Choose(static args => Some(args.View.ActiveViewportID)))
                 + Seq(
                     EventKind.ViewportProjectionChanged.In(serial).Choose(static args => Some(args.Viewport.Id)),
-                    EventKind.DisplayModeChanged.In(serial).Choose(static args => Optional(args.Viewport).Map(static port => port.Id)),
+                    EventKind.DisplayModeChanged.In(serial).Choose(DisplayModes.Switched),
                     EventKind.PageViewSpaceChange.In(serial).Choose(static args => Conversions.Present(args.NewActiveDetailId) || Optional(args.PageView).Map(static page => page.MainViewport.Id)),
                     EventKind.PageViewPropertiesChange.In(serial).Choose(static args => Optional(args.PageView).Map(static page => page.MainViewport.Id))),
         });

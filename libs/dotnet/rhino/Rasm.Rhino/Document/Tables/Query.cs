@@ -18,6 +18,8 @@ public abstract partial record ObjectTarget {
 
     public sealed record Window(ViewportTarget Viewport, Seq<Point3d> Region, bool Inside, bool Crossing, ObjectType Filter) : ObjectTarget;
 
+    public sealed record Named(NamedEntry Entry) : ObjectTarget;
+
     public IO<Seq<RhinoObject>> Objects(RhinoDoc document) =>
         Switch(
             document,
@@ -27,15 +29,17 @@ public abstract partial record ObjectTarget {
             bounded: static (doc, bounded) => IO.lift(() =>
                 Conversions.Rows(doc.Objects.GetObjectList(bounded.Settings)).Filter(found => RhinoObject.GetTightBoundingBox([found], out BoundingBox box) && bounded.Predicate(box)).Strict()),
             window: static (doc, window) => Viewports.With(doc, window.Viewport, row => DisposalOps.Within(
-                () => Conversions.Rows(doc.Objects.GetSelectedObjects(includeLights: true, includeGrips: false)).Map(static found => (Object: found, Persistent: found.IsSelected(checkSubObjects: false) is 2)).Strict(),
+                Selection(doc),
                 selected =>
                     from cleared in IO.lift(() => selected.Iter(static held => held.Object.Select(@on: false)))
                     from picked in IO.lift(() => Conversions.Rows(window.Crossing
                         ? doc.Objects.FindByCrossingWindowRegion(row.Viewport, window.Region, window.Inside, window.Filter)
                         : doc.Objects.FindByWindowRegion(row.Viewport, window.Region, window.Inside, window.Filter)))
                     select picked,
-                static selected => IO.lift(() => selected.Iter(static held =>
-                    held.Object.Select(on: true, syncHighlight: true, persistentSelect: held.Persistent, ignoreGripsState: true, ignoreLayerLocking: true, ignoreLayerVisibility: true))))));
+                Reselected)),
+            named: static (doc, named) => named.Entry.Table.Members.Match(
+                Some: members => members(doc, named.Entry).Bind(ids => IO.lift(() => Located(ids, doc.Objects.FindId, nameof(ObjectTable.FindId)))),
+                None: () => IO.fail<Seq<RhinoObject>>(Error.New($"{named.Entry.Table} rows hold no objects"))));
 
     public static IO<(TObject Object, TGeometry Geometry)> Resolve<TObject, TGeometry>(RhinoDoc document, Guid id) where TObject : RhinoObject where TGeometry : GeometryBase =>
         IO.lift(() =>
@@ -44,6 +48,14 @@ public abstract partial record ObjectTarget {
             from geometry in Refused.UnlessFound(typed.Geometry, nameof(RhinoObject.Geometry))
             from shaped in Conversions.Cast<TGeometry>(geometry)
             select (typed, shaped));
+
+    internal static IO<Seq<(RhinoObject Object, bool Persistent)>> Selection(RhinoDoc document) =>
+        IO.lift(() => Conversions.Rows(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: false))
+            .Map(static found => (Object: found, Persistent: found.IsSelected(checkSubObjects: false) is 2)).Strict());
+
+    internal static IO<Unit> Reselected(Seq<(RhinoObject Object, bool Persistent)> selected) =>
+        IO.lift(() => selected.Iter(static held =>
+            held.Object.Select(on: true, syncHighlight: true, persistentSelect: held.Persistent, ignoreGripsState: true, ignoreLayerLocking: true, ignoreLayerVisibility: true)));
 
     private static Fin<Seq<RhinoObject>> Located<TKey>(Seq<TKey> keys, Func<TKey, RhinoObject?> find, string member) =>
         Callbacks.Each(keys, Fin<RhinoObject> (key, index) => find(key) is { } found ? found : new Refused(member, Refused.Declined, index));

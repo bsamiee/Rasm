@@ -8,8 +8,9 @@ using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI.Imaging;
+using Rasm.UI.Styling;
 using Rhino;
 using Rhino.Render.PostEffects;
 
@@ -68,6 +69,7 @@ public sealed class RenderingComparison : IDisposable {
     private readonly RenderHistory history;
     private readonly IPlugInSink sink;
     private event EventHandler<EventArgs>? SelectionChanged;
+    private event EventHandler<EventArgs>? FramesChanged;
 
     private RenderingComparison(RenderHistory history, IPlugInSink sink) => (this.history, this.sink) = (history, sink);
 
@@ -77,14 +79,15 @@ public sealed class RenderingComparison : IDisposable {
         private readonly Lock lifetime = new();
         private readonly Disposal<Lazy<IDisposable>> started;
 
-        public Measurement(object owner, PixelFrame reference, PixelFrame test, IPlugInSink sink, TaskScheduler scheduler) {
+        public Measurement(object owner, PixelFrame reference, PixelFrame test, IPlugInSink sink, TaskScheduler scheduler, IO<Unit> measured) {
             Owner = owner;
             Test = test;
             started = new(
                 new(() => new Disposal<ForkIO<Unit>>(
                     IO.liftAsync(environment => Task.Factory.StartNew(() => FrameComparison.Of(reference, test), environment.Token, TaskCreationOptions.None, scheduler))
                         .Bind(IO.lift)
-                        .Bind(measured => Result.SwapIO(_ => Some(measured)))
+                        .Bind(result => Result.SwapIO(_ => Some(result)))
+                        .Bind(_ => measured)
                         .Map(unit)
                         .Catch(error => IO.lift(() => sink.Report(error, typeof(RenderingComparison), nameof(Measure))))
                         .As().Fork().Run(),
@@ -112,6 +115,8 @@ public sealed class RenderingComparison : IDisposable {
     private sealed record Preview(TileRequest Request, Option<Fin<(PixelFrame Frame, PixelFrame Scene)>> Frame, Option<IDisposable> Work);
 
     // --- [ACQUISITION]
+    public static readonly Role Difference = Role.Create("difference");
+
     public static PlugInSlot<RenderingComparison> Current { get; } = new();
 
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register(RenderHistory history) =>
@@ -145,13 +150,18 @@ public sealed class RenderingComparison : IDisposable {
                 None: static () => IO.pure(Seq<SettingsRow>()))
         select rows;
 
+    private IO<Unit> Shifted => IO.lift(() => FramesChanged?.Invoke(this, EventArgs.Empty));
+
+    private HostEvent<Unit> Framed =>
+        Subscriptions.Host<EventArgs>(typeof(RenderingComparison), handler => FramesChanged += handler, handler => FramesChanged -= handler, nameof(Sample)).Choose(static _ => Some(unit));
+
     private HostEvent<Unit> Changed =>
         Subscriptions.Host<EventArgs>(typeof(RenderingComparison), handler => SelectionChanged += handler, handler => SelectionChanged -= handler, nameof(Held)).Choose(static _ => Some(unit));
 
     // --- [WRITES]
     public IO<Unit> Choose(CompareSide side, string caption) =>
         from request in EffectRegistry.Kinds.Of(sink).Map(side.Request)
-        let next = new Chosen(side, new FrameSide(Output(request), caption), request, None, None, None)
+        let next = new Chosen(side, new FrameSide(EffectPipeline.Display, caption), request, None, None, None)
         from current in Updated(state => state.Filter(chosen => chosen.Side == side) | Some(next))
         from graded in when(current.Exists(chosen => ReferenceEquals(chosen, next)),
             DisposalOps.Fork(Grade(request), lease => Updated(state => state.Map(chosen => ReferenceEquals(chosen.Request, request) ? chosen with { Work = Some(lease) } : chosen))
@@ -165,13 +175,14 @@ public sealed class RenderingComparison : IDisposable {
             Option<Chosen> before = held.Value;
             Option<Chosen> after = change(before);
             held.Value = after;
-            return (Current: after, SelectionChanged: before.Map(static chosen => chosen.Side) != after.Map(static chosen => chosen.Side),
+            return (Current: after, SelectionChanged: before.Map(static chosen => chosen.Side) != after.Map(static chosen => chosen.Side), Shifted: !before.Equals(after),
                 Released: before.Bind(static chosen => chosen.Measurement).Map<IDisposable>(static measurement => measurement.Work)
                     .Filter(work => !after.Bind(static chosen => chosen.Measurement).Exists(measurement => ReferenceEquals(measurement.Work, work))).ToSeq()
                     + before.Bind(static chosen => chosen.Work).Filter(work => !after.Bind(static chosen => chosen.Work).Exists(kept => ReferenceEquals(kept, work))).ToSeq());
         })
          from released in DisposalOps.Release(changed.Released)
          from raised in when(changed.SelectionChanged, IO.lift(() => SelectionChanged?.Invoke(this, EventArgs.Empty))).As()
+         from shifted in when(changed.Shifted, Shifted).As()
          select changed.Current).Uninterruptible();
 
     // --- [GRADES]
@@ -187,35 +198,33 @@ public sealed class RenderingComparison : IDisposable {
         from formed in EffectPipeline.Form(scene, request.Set, request.Chain, derivations)
         select (formed, scene);
 
-    private static FrameFeed Output(TileRequest request) =>
-        request.Chain.Exists(static kind => kind.Stage is PostEffectType.ToneMapping)
-            ? RenderRuns.Formed.Feed
-            : RenderRuns.Formed.Feed with { Encoding = TransferCurve.Linear, Peak = None };
+    private static Imaging.Color.Transfer Output(TileRequest request) =>
+        request.Chain.Exists(static kind => kind.Stage is PostEffectType.ToneMapping) ? EffectPipeline.Display.Encoding.Transfer : TransferCurve.Linear;
 
     // --- [MEASURES]
     private IO<Option<FrameComparison>> Measure =>
         held.ValueIO.Map(static current => current.Bind(static chosen => chosen.Measurement).Bind(static measurement => measurement.Result));
 
-    private IO<(Option<FrameShown> Reference, Seq<FrameMask> Masks)> Sampled(object owner, Option<PixelFrame> frame, bool differenceShown) =>
+    private IO<(Option<FramePixels> Reference, Seq<FrameMask> Masks)> Sampled(object owner, Option<PixelFrame> frame, bool differenceShown) =>
         from current in Updated(state => state.Map(chosen => chosen.Frame.Match(
             Some: reference => chosen with {
                 Measurement = frame.Map(test => {
                     Measurement work = chosen.Measurement.Map(static measurement => measurement.Work)
                         .Filter(prior => ReferenceEquals(prior.Owner, owner) && ReferenceEquals(prior.Test, test))
-                        .IfNone(() => new Measurement(owner, reference, test, sink, measurements.ExclusiveScheduler));
+                        .IfNone(() => new Measurement(owner, reference, test, sink, measurements.ExclusiveScheduler, Shifted));
                     return (Work: work, Result: work.Result.Value);
                 }),
             },
             None: () => chosen)))
         from started in current.Bind(static chosen => chosen.Measurement).Map(static measurement => measurement.Work.Start).IfNone(IO.pure(unit))
-        select (current.Map(static chosen => new FrameShown(chosen.View, chosen.Frame)),
+        select (current.Map(static chosen => new FramePixels(chosen.View, chosen.Frame, Output(chosen.Request))),
             current.Bind(static chosen => chosen.Measurement).Bind(static measurement => measurement.Result).Filter(_ => differenceShown)
                 .Map(static measured => new FrameMask(
                     new Coverage.Matte(MatteChannel.Lightness, measured.Difference, EffectPipeline.Display.Encoding.Gamut, Inverted: false),
-                    new MarkStyle.Fill(TraceChannel.Red.Mark, 1f))).ToSeq());
+                    Difference)).ToSeq());
 
     // --- [PREVIEW]
-    private IO<(FrameShown Current, Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>> Source)> Live =>
+    private IO<(FramePixels Current, Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>> Source)> Live =>
         from shown in previewed.ValueIO
         from read in (from preview in shown from formed in preview.Frame select (Preview: preview, Formed: formed)).Match(
             Some: pending => pending.Formed.Match(
@@ -229,10 +238,10 @@ public sealed class RenderingComparison : IDisposable {
                     Source: captured.Map(Left<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>)))
         select read;
 
-    private static IO<FrameShown> Rendered => IO.lift(static () => Shown(RenderRuns.Rendered.Bind(static held => held.Run.Formed), None));
+    private static IO<FramePixels> Rendered => IO.lift(static () => Shown(RenderRuns.Rendered.Bind(static held => held.Run.Formed), None));
 
-    private static FrameShown Shown(Option<PixelFrame> formed, Option<TileRequest> request) =>
-        new(RenderRuns.Formed with { Feed = request.Map(Output).IfNone(RenderRuns.Formed.Feed) }, formed);
+    private static FramePixels Shown(Option<PixelFrame> formed, Option<TileRequest> request) =>
+        new(RenderRuns.Formed, formed, request.Map(Output).IfNone(EffectPipeline.Display.Encoding.Transfer));
 
     public IO<Unit> Previewed(TileRequest request, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
@@ -248,6 +257,7 @@ public sealed class RenderingComparison : IDisposable {
             return (Current: after, Released: before.Bind(static shown => shown.Work));
         })
                        from released in DisposalOps.Release(changed.Released.ToSeq())
+                       from shifted in Shifted
                        select changed.Current).Uninterruptible()
         from formed in shown.Match(
             Some: preview => DisposalOps.Fork(PreviewTiles.Current.Of(sink)
@@ -261,22 +271,22 @@ public sealed class RenderingComparison : IDisposable {
         select formed;
 
     private IO<Unit> Landed(Preview asked, Fin<(PixelFrame Frame, PixelFrame Scene)> formed) =>
-        atomicIO(() => previewed.Swap(state => state.Map(preview => ReferenceEquals(preview.Request, asked.Request) ? preview with { Frame = Some(formed) } : preview))).Map(unit);
+        atomicIO(() => previewed.Swap(state => state.Map(preview => ReferenceEquals(preview.Request, asked.Request) ? preview with { Frame = Some(formed) } : preview))).Bind(_ => Shifted);
 
     private IO<Unit> Withdrawn(TileRequest request) =>
         atomicIO(() => {
             Option<Preview> prior = previewed.Value;
             previewed.Value = prior.Filter(preview => !ReferenceEquals(preview.Request, request));
             return prior.Filter(preview => ReferenceEquals(preview.Request, request)).Bind(static preview => preview.Work);
-        }).Bind(static work => DisposalOps.Release(work.ToSeq())).Uninterruptible();
+        }).Bind(work => DisposalOps.Release(work.ToSeq()).Bind(_ => Shifted)).Uninterruptible();
 
-    private IO<FrameShown> Dropped(Preview failed, Error error) =>
-        Withdrawn(failed.Request).Bind(_ => IO.fail<FrameShown>(error));
+    private IO<FramePixels> Dropped(Preview failed, Error error) =>
+        Withdrawn(failed.Request).Bind(_ => IO.fail<FramePixels>(error));
 
     // --- [ROWS]
     public static IO<Unit> Export(RowScope scope) =>
         from comparison in Current.Of(scope.Sink)
-        from source in comparison.displayed.ValueIO.Bind(static held => IO.lift(held.ToFin(new Refused(nameof(FrameShown.Frame), Refused.Absent))))
+        from source in comparison.displayed.ValueIO.Bind(static held => IO.lift(held.ToFin(new Refused(nameof(FramePixels.Frame), Refused.Absent))))
         from document in scope.DocumentIO
         from written in Saves.Write(document, scope.Sink, source)
         select unit;
@@ -290,7 +300,8 @@ public sealed class RenderingComparison : IDisposable {
                 from sampled in comparison.Sampled(owner, live.Current.Frame, shown)
                 from retained in comparison.displayed.SwapIO(_ => live.Source)
                 select (live.Current, sampled.Reference, sampled.Masks),
-                Rendered.Map(static current => (current, Reference: Option<FrameShown>.None, Masks: Seq<FrameMask>()))),
+                Rendered.Map(static current => (current, Reference: Option<FramePixels>.None, Masks: Seq<FrameMask>()))),
+            Seq(RenderRuns.Changed, Reframed(scope)),
             Compared(scope, comparison => comparison.Updated(state => state.Map(chosen =>
                 chosen.Measurement.Exists(measurement => ReferenceEquals(measurement.Work.Owner, owner)) ? chosen with { Measurement = None } : chosen)).Map(unit), IO.pure(unit)));
     }
@@ -305,6 +316,12 @@ public sealed class RenderingComparison : IDisposable {
 
     private static IO<A> Compared<A>(RowScope scope, Func<RenderingComparison, IO<A>> read, IO<A> absent) =>
         (Current.Of(scope.Sink).Map(static comparison => Some(comparison)) | IO.pure(Option<RenderingComparison>.None)).Bind(cell => cell.Match(Some: read, None: () => absent));
+
+    private static HostEvent<Unit> Reframed(RowScope scope) =>
+        new(typeof(RenderingComparison), nameof(Sample), (deliver, site, retain) =>
+            from framed in Compared(scope, static comparison => IO.pure(Seq(comparison.Framed)), IO.pure(Seq<HostEvent<Unit>>()))
+            from attached in DisposalOps.Acquire(keep => framed.TraverseM(raise => raise.Attach(deliver, site, keep)).As(), retain)
+            select unit);
 
     private static HostEvent<Unit> Marked(RowScope scope) =>
         new(typeof(RenderingComparison), nameof(Items), (deliver, site, retain) =>

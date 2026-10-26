@@ -165,7 +165,6 @@ Products reach a person through separate levels:
 - Tests sit under `tests/<language>/` at their source path without the language folder, Playwright suites in `tests/typescript/e2e-<app>/`
 - Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path
 - .NET build takes Rhino hosts from the `rhino/` path folder
-- `Grasshopper2` package references add Grasshopper 2 global usings
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files are the language manifests and markers Nx plugins read, never `project.json`
 - `Workspace.slnx` lists every project `.csproj`

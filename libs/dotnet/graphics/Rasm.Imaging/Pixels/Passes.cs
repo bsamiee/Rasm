@@ -293,7 +293,6 @@ public sealed partial class RampInterpolation : ICaptioned {
 [ObjectFactory<string>]
 public sealed partial class Ramp : IConvertible<string> {
     private static readonly Func<(Ramp Ramp, Gamut Gamut), RampTable> Tables = memo(static ((Ramp Ramp, Gamut Gamut) key) => {
-        const int texels = 256;
         Seq<RampStop> stops = key.Ramp.Stops;
         RampInterpolation interpolation = key.Ramp.Interpolation;
         if (interpolation.Space is ColourSpace.RgbLinear)
@@ -302,13 +301,13 @@ public sealed partial class Ramp : IConvertible<string> {
             new Unicolour(key.Gamut.Configuration, ColourSpace.RgbLinear, stop.Color.X, stop.Color.Y, stop.Color.Z, stop.Color.W).ConvertToConfiguration(Configuration.Default));
         Vector4[] samples =
             [.. from pair in entered.Zip(entered.Tail)
-             from i in toSeq(Range(0, texels + 1))
-             let mixed = pair.First.Mix(pair.Second, interpolation.Space, interpolation.Weight(i / (double)texels)).ConvertToConfiguration(key.Gamut.Configuration)
+             from i in toSeq(Range(0, RampTable.Texels + 1))
+             let mixed = pair.First.Mix(pair.Second, interpolation.Space, interpolation.Weight(i / (double)RampTable.Texels)).ConvertToConfiguration(key.Gamut.Configuration)
              select new Vector4((float)mixed.RgbLinear.R, (float)mixed.RgbLinear.G, (float)mixed.RgbLinear.B, (float)mixed.Alpha.A)];
         return new RampTable(stops, (stop, t) => {
-            double position = t * texels;
-            int at = int.Min((int)position, texels - 1);
-            int offset = (stop * (texels + 1)) + at;
+            double position = t * RampTable.Texels;
+            int at = int.Min((int)position, RampTable.Texels - 1);
+            int offset = (stop * (RampTable.Texels + 1)) + at;
             return Vector4.Lerp(samples[offset], samples[offset + 1], (float)(position - at));
         });
     });
@@ -343,6 +342,8 @@ public sealed partial class Ramp : IConvertible<string> {
 }
 
 public sealed class RampTable {
+    public const int Texels = 256;
+
     private readonly Seq<RampStop> stops;
     private readonly Func<int, double, Vector4> segment;
 

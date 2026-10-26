@@ -1,26 +1,44 @@
-using System.Numerics;
-using System.Runtime.CompilerServices;
 using AppKit;
 using CoreAnimation;
 using CoreGraphics;
 using Eto.Drawing;
 using Eto.Forms;
-using Eto.Mac.Drawing;
 using Eto.Mac.Forms;
-using Foundation;
-using Rasm.Imaging.Color;
-using Rasm.Imaging.Pixels;
 
 namespace Rasm.Rhino.UI.Mac;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class DrawnRasters {
-    internal static IO<Bitmap> Raster(Control view, PixelFrame frame, Transfer encoding, Action<Bitmap> retain) =>
-        from host in IO.lift(() => Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
-        from layer in IO.lift(() => Refused.UnlessFound(host.Layer, nameof(NSView.Layer)))
-        let samples = Samples(frame, encoding)
-        from bitmap in Drawn(samples.Frame, samples.Space, layer, retain)
-        select bitmap;
+    internal static Fin<Unit> Present(Control view, Graphics graphics, SkiaSharp.SKImage frame, RectangleF destination) =>
+        (from host in Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView))
+         from layer in Refused.UnlessFound(host.Layer, nameof(NSView.Layer))
+         from context in Conversions.Cast<CGContext>(graphics.ControlObject)
+         from pixels in Refused.UnlessFound(frame.PeekPixels(), nameof(SkiaSharp.SKImage.PeekPixels))
+         from space in Refused.UnlessFound(CGColorSpace.CreateWithName(CGColorSpaceNames.ExtendedLinearSrgb), nameof(CGColorSpace.CreateWithName))
+         select (Layer: layer, Context: context, Pixels: pixels, Space: space))
+        .MapFail(error => {
+            frame.Dispose();
+            return error;
+        })
+        .Map(held => {
+            using SkiaSharp.SKPixmap pixmap = held.Pixels;
+            using CGColorSpace space = held.Space;
+            using CGDataProvider provider = new(pixmap.GetPixels(), pixmap.BytesSize, _ => frame.Dispose());
+            using CGImage image = new(pixmap.Width, pixmap.Height, 16, 64, pixmap.RowBytes, space,
+                CGBitmapFlags.PremultipliedLast | CGBitmapFlags.FloatComponents | CGBitmapFlags.ByteOrder16Little, provider, decode: null, shouldInterpolate: false, CGColorRenderingIntent.Default);
+            held.Layer.ContentsFormat = CAContentsFormat.Rgba16Float;
+            if (OperatingSystem.IsMacOSVersionAtLeast(26)) {
+                held.Layer.ContentsHeadroom = image.CalculatedContentHeadroom;
+                held.Layer.PreferredDynamicRange = CADynamicRange.High;
+            } else
+                held.Layer.WantsExtendedDynamicRangeContent = true;
+            held.Context.SaveState();
+            held.Context.TranslateCTM(destination.X, destination.Y + destination.Height);
+            held.Context.ScaleCTM(1, -1);
+            held.Context.DrawImage(new CGRect(0, 0, destination.Width, destination.Height), image);
+            held.Context.RestoreState();
+            return unit;
+        });
 
     internal static IO<float> Headroom(Control view) =>
         IO.lift(() =>
@@ -28,44 +46,4 @@ internal static class DrawnRasters {
             from window in Refused.UnlessFound(host.Window, nameof(NSView.Window))
             from screen in Refused.UnlessFound(window.Screen, nameof(NSWindow.Screen))
             select (float)screen.MaximumExtendedDynamicRangeColorComponentValue);
-
-    private static (PixelFrame Frame, NSString Space) Samples(PixelFrame frame, Transfer encoding) =>
-        encoding.Switch(
-                standard: static transfer => transfer.Curve.Map<Option<NSString>>(
-                    linear: CGColorSpaceNames.ExtendedLinearSrgb,
-                    srgb: CGColorSpaceNames.ExtendedSrgb,
-                    pq: None,
-                    hlg: None,
-                    acesCct: None,
-                    acesCc: None),
-                gamma: static _ => None,
-                camera: static _ => None)
-            .Match(
-                Some: space => (frame, space),
-                None: () => (encoding.Light(frame), CGColorSpaceNames.ExtendedLinearSrgb));
-
-    private static IO<Bitmap> Drawn(PixelFrame frame, NSString name, CALayer layer, Action<Bitmap> retain) =>
-        DisposalOps.Acquire(owned =>
-            DisposalOps.Within<IDisposable, Bitmap>(temporary =>
-                from space in DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(CGColorSpace.CreateWithName(name), nameof(CGColorSpace.CreateWithName))), temporary)
-                from provider in DisposalOps.Acquire(IO.lift(() => new CGDataProvider(frame.Address, frame.Block.Length * sizeof(float), _ => GC.KeepAlive(frame))), temporary)
-                let pixel = Unsafe.SizeOf<Vector4>()
-                from image in DisposalOps.Acquire(IO.lift(() => new CGImage(
-                    frame.Size.Width, frame.Size.Height, sizeof(float) * 8, pixel * 8, frame.Size.Width * pixel, space,
-                    CGBitmapFlags.Last | CGBitmapFlags.FloatComponents | CGBitmapFlags.ByteOrder32Little,
-                    provider, decode: null, shouldInterpolate: true, CGColorRenderingIntent.Default)), temporary)
-                from enabled in IO.lift(() => {
-                    if (OperatingSystem.IsMacOSVersionAtLeast(26)) {
-                        layer.ContentsHeadroom = image.CalculatedContentHeadroom;
-                        layer.PreferredDynamicRange = CADynamicRange.High;
-                    } else
-                        layer.WantsExtendedDynamicRangeContent = true;
-                })
-                from drawing in DisposalOps.Acquire(IO.lift(() => {
-                    NSImage native = new(image, new CGSize(frame.Size.Width, frame.Size.Height));
-                    return (Image: native, Ownership: new Disposal<NSImage>(native, static held => held.Dispose()));
-                }), static held => held.Ownership, temporary)
-                from bitmap in DisposalOps.Acquire(IO.lift(() => new Bitmap(new BitmapHandler(drawing.Image))), owned)
-                from adopted in IO.lift(drawing.Ownership.Relinquish)
-                select bitmap, DisposalOps.Release), (bitmap, _) => retain(bitmap));
 }

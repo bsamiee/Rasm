@@ -5,7 +5,11 @@ using Eto.Forms;
 using Microsoft.Win32;
 using Rasm.Rhino.Events;
 using Rasm.UI.Styling;
+using Rhino.ApplicationSettings;
+using Rhino.Resources;
 using Rhino.UI;
+using Rhino.UI.Theme;
+using SkiaSharp;
 
 namespace Rasm.Rhino.UI.Styling;
 
@@ -14,6 +18,8 @@ public interface IThemeHandler {
     public LanguageExt.HashSet<Condition> Conditions { get; }
 
     public Color Faulted { get; }
+
+    public Color Warning { get; }
 
     public HostEvent<EventArgs> Changed { get; }
 
@@ -26,12 +32,10 @@ public sealed partial class PaintSlot {
     public static readonly PaintSlot Text = new(static () => ThemeSettings.Content.Text.Enabled);
     public static readonly PaintSlot TextDisabled = new(static () => ThemeSettings.Content.Text.Disabled);
     public static readonly PaintSlot TextSecondary = new(static () => ThemeSettings.Content.Text.Secondary);
-    public static readonly PaintSlot EntryText = new(static () => ThemeSettings.Content.Entry.Enabled.Text);
     public static readonly PaintSlot EntryBorder = new(static () => ThemeSettings.Content.Entry.Enabled.Border);
     public static readonly PaintSlot EntryBackground = new(static () => ThemeSettings.Content.Entry.Enabled.Background);
     public static readonly PaintSlot ListText = new(static () => ThemeSettings.Content.List.Enabled.Text);
     public static readonly PaintSlot ListBackground = new(static () => ThemeSettings.Content.List.Enabled.Background);
-    public static readonly PaintSlot InvalidText = new(static () => Colors.Red);
     public static readonly PaintSlot Background = new(static () => ThemeSettings.Content.Background);
     public static readonly PaintSlot Highlight = new(static () => ThemeSettings.Content.Highlight);
     public static readonly PaintSlot HighlightHover = new(static () => ThemeSettings.Content.HighlightHover);
@@ -70,9 +74,90 @@ public static class HostTheme {
     // --- [CONDITIONS]
     public static LanguageExt.HashSet<Condition> Conditions => Handler.Match(Some: static handler => handler.Conditions, None: static () => []);
 
+    // --- [PROJECTION]
+    private static readonly Role Tab = Role.Create("tab");
+    internal static readonly Role ListRow = Role.Create("list-row");
+
+    public static bool Compact(Control control) =>
+        toSeq(control.Parents).Exists(static parent => Optional(parent.Style).Exists(static style => style.Split(' ').Contains(Panels.EtoPanelStyleName, StringComparer.Ordinal)));
+
+    public static Rasm.UI.Styling.Theme Projected(bool compact) =>
+        Rasm.UI.Styling.Theme.Create(toHashMap(Chrome), Conditions, new TextFace { Family = EtoFonts.NormalFont.FamilyName }, (compact ? EtoFonts.SmallFont : EtoFonts.NormalFont).Size);
+
+    public static Fin<Shipped> Stated(Shipped shipped, bool compact) =>
+        (Regular: shipped.Densities[Density.Regular], Compact: shipped.Densities.Find(Density.Compact).IfNone([])) switch {
+            var held => ValidationResults.ToFin(Shipped.Validate(
+                shipped.Appearances,
+                shipped.Defaults.AddOrUpdate(Metric.Notch, (float)ViewSettings.ZoomScale),
+                shipped.Densities.AddOrUpdate(Density.Regular, Layered(compact ? Layered(held.Regular, held.Compact) : held.Regular, Scrollbar)),
+                out Shipped? stated), stated),
+        };
+
+    private static HashMap<Role, HashMap<Metric, float>> Scrollbar =>
+        toHashMap(Seq((Role.Scrollbar, toHashMap(Seq((Metric.Extent, (float)ThemeSettings.Content.Scrollbar.Size), (Metric.Radius, (float)ThemeSettings.Content.Scrollbar.Radius))))));
+
+    private static Seq<(Token Token, SKColorF Ink)> Chrome =>
+        Seq(
+            Element(Defaulted(Role.Button, ThemeSettings.Content.Button), Channels),
+            Element(Checked(Tab, ThemeSettings.Content.Tab), Channels),
+            Element(Plain(Role.Field, ThemeSettings.Content.Entry), Channels),
+            Element(Checked(ListRow, ThemeSettings.Content.List).Add((ThemeSettings.Content.List.Focus, Shaped(ListRow, None, Interaction.Focused))), Channels),
+            Element(Plain(Role.Scrollbar, ThemeSettings.Content.Scrollbar), static state => [(Channel.Fill, state.Thumb), (Channel.Edge, state.Border)]),
+            Seq<(Token Token, Color Ink)>(
+                    (new Token(Role.Window, Channel.Fill), ThemeSettings.Content.Background),
+                    (new Token(Role.Window, Channel.Text), ThemeSettings.Content.Text.Enabled),
+                    (new Token(Role.Window, Channel.Text) { Condition = Condition.Disabled }, ThemeSettings.Content.Text.Disabled),
+                    (new Token(Role.Panel, Channel.Fill), ThemeSettings.Content.Background),
+                    (new Token(Role.Panel, Channel.Text), ThemeSettings.Content.Text.Enabled),
+                    (new Token(Role.Panel, Channel.Text) { Condition = Condition.Disabled }, ThemeSettings.Content.Text.Disabled),
+                    (new Token(Role.Accent, Channel.Fill), SystemColors.Highlight),
+                    (new Token(Role.Label, Channel.Text), ThemeSettings.Content.Text.Enabled),
+                    (new Token(Role.Label, Channel.Text) { Condition = Condition.Disabled }, ThemeSettings.Content.Text.Disabled),
+                    (new Token(Role.Divider, Channel.Fill), ThemeSettings.Content.Divider),
+                    (new Token(Role.Divider, Channel.Edge), ThemeSettings.Content.Divider),
+                    (new Token(Role.Selection, Channel.Fill), SystemColors.Highlight),
+                    (new Token(Role.Selection, Channel.Text), SystemColors.HighlightText),
+                    (new Token(Role.FocusRing, Channel.Edge), SystemColors.Highlight),
+                    (new Token(Role.Toolbar, Channel.Fill), ThemeSettings.Frame.Background),
+                    (new Token(Role.Toolbar, Channel.Edge), ThemeSettings.Frame.Edge),
+                    (new Token(Role.Toolbar, Channel.Text), ThemeSettings.Frame.Text.Enabled),
+                    (new Token(Role.Toolbar, Channel.Text) { Condition = Condition.Disabled }, ThemeSettings.Frame.Text.Disabled))
+                .Concat(Handler.ToSeq().Bind(static handler => Seq<(Token Token, Color Ink)>(
+                    (new Token(Role.Window, Channel.Text) { Condition = Condition.Faulted }, handler.Faulted),
+                    (new Token(Role.Window, Channel.Text) { Condition = Condition.Warning }, handler.Warning))))
+                .Map(static row => (row.Token, Ink: Colored(row.Ink))))
+        .Bind(static rows => rows);
+
+    private static Seq<(Token Token, SKColorF Ink)> Element<TState>(Seq<(TState State, Func<Channel, Token> Token)> states, Func<TState, Seq<(Channel Channel, Color Ink)>> channels) =>
+        from held in states
+        from channel in channels(held.State)
+        select (held.Token(channel.Channel), Colored(channel.Ink));
+
+    private static Func<Channel, Token> Shaped(Role role, Option<Condition> condition, Option<Interaction> interaction) =>
+        channel => new Token(role, channel) { Condition = condition, Interaction = interaction };
+
+    private static Seq<(TState State, Func<Channel, Token> Token)> Plain<TState>(Role role, ThemeElement<TState> element) where TState : ThemeStateBase, new() =>
+        [(element.Enabled, Shaped(role, None, None)), (element.EnabledHover, Shaped(role, None, Interaction.Hover)), (element.EnabledPressed, Shaped(role, None, Interaction.Pressed)),
+         (element.Disabled, Shaped(role, Condition.Disabled, None))];
+
+    private static Seq<(TState State, Func<Channel, Token> Token)> Checked<TState>(Role role, CheckedThemeElement<TState> element) where TState : CheckedThemeState, new() =>
+        Plain(role, element) + [(element.Checked, Shaped(role, Condition.Selected, None)), (element.CheckedHover, Shaped(role, Condition.Selected, Interaction.Hover)),
+                                (element.CheckedPressed, Shaped(role, Condition.Selected, Interaction.Pressed))];
+
+    private static Seq<(ButtonThemeState State, Func<Channel, Token> Token)> Defaulted(Role role, ButtonThemeElement element) =>
+        Checked(role, element) + [(element.Default, Shaped(role, Condition.Default, None)), (element.DefaultHover, Shaped(role, Condition.Default, Interaction.Hover)),
+                                  (element.DefaultPressed, Shaped(role, Condition.Default, Interaction.Pressed))];
+
+    private static Seq<(Channel Channel, Color Ink)> Channels(ThemeState state) => [(Channel.Edge, state.Border), (Channel.Fill, state.Background), (Channel.Text, state.Text)];
+
+    private static HashMap<Role, HashMap<Metric, float>> Layered(HashMap<Role, HashMap<Metric, float>> under, HashMap<Role, HashMap<Metric, float>> over) =>
+        under.Union(over, Merge: static (_, below, above) => below.Union(above, Merge: static (_, _, held) => held));
+
+    private static SKColorF Colored(Color color) => new(color.R, color.G, color.B, color.A);
+
     // --- [CHANGE]
     public static readonly HostEvent<Unit> Changed =
-        Subscriptions.Host(typeof(HostTheme), static () => EventKind.ThemeChanged.Cons(Handler.Map(static handler => handler.Changed).ToSeq())
+        Subscriptions.Host(typeof(HostTheme), static () => Seq(EventKind.ThemeChanged, EventKind.AppSettingsChanged).Concat(Handler.Map(static handler => handler.Changed).ToSeq())
             .Concat(OperatingSystem.IsWindows()
                 ? Seq(DisplayChangesOnWindows())
                 : []))

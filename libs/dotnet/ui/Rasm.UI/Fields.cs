@@ -20,7 +20,7 @@ public sealed record FieldRow(Key Key, Seq<Span> Caption, Node Value) {
 
     public static Node Drawn(Seq<FieldRow> rows) =>
         new Node.Choice(Orientation.Horizontal, [
-            new Node.Grid(new Tracks.Explicit([Sizing.Fit.Content, Grown]), rows.Map(static row => Seq<Node>(row.Captioned, row.Valued))),
+            new Node.Grid(new Tracks.Explicit([Sizing.Fit.Content, Grown]), rows.Map(static row => Seq(row.Captioned, row.Valued))),
             new Node.Grid(new Tracks.Explicit([Grown]), rows.Bind(static row => Seq(Seq<Node>(row.Captioned), Seq(row.Valued)))),
         ]);
 }

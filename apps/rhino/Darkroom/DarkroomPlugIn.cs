@@ -1,5 +1,6 @@
 using Darkroom.Effects;
 using Rasm.Imaging.Filters.Optics;
+using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Presets;
@@ -8,6 +9,7 @@ using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino.PlugIns;
 
 [assembly: RuiFile<Darkroom.DarkroomPlugIn>]
@@ -35,17 +37,16 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
         CompareSection.Picker.Published,
         Framing.Extent.Attach,
         TargetRows.Shown.Attach,
+        NamedEntry.Catalog.Attach,
         RenderHistory.Register(HistorySection.Row, static history => [RenderingComparison.Register(history), .. RenderSnapshots.Clients(history)]),
         PreviewTiles.Register(Some(LooksSection.Settings), static _ => []),
         Queues.Register(RenderQueueSection.Settings, DarkroomPanel.Row),
     ],
 }), IRuiSource {
-    private static readonly CommandFace ExportLut = new("DarkroomExportLut", "Export LUT...", "Bake the formation and grade chain into a 3D LUT file", None, None);
-    private static readonly CommandFace ExportStMap = new("DarkroomExportStMap", "Export ST Map...", "Write the lens distortion of the active view as an ST map", None, None);
+    private static readonly CommandFace ExportLut = new("DarkroomExportLut", "Export LUT...", "Bake the formation and grade chain into a 3D LUT file", None);
+    private static readonly CommandFace ExportStMap = new("DarkroomExportStMap", "Export ST Map...", "Write the lens distortion of the active view as an ST map", None);
 
     public static RuiFile Rui { get; } = new([], [new MenuExtension(["Render", "Render Properties..."], [
-        new MenuItemRow.Separator(),
-        new MenuItemRow.Run(new Macro(ExportLut, [])),
-        new MenuItemRow.Run(new Macro(ExportStMap, [])),
+        Seq(ExportLut, ExportStMap).Map(static face => (Command<RowRule, Macro>)new Command<RowRule, Macro>.Run(face, None, new Macro(face.Name, []))),
     ])]);
 }

@@ -12,7 +12,7 @@ Choose retrieval by source location and required evidence.
 - Coverage: missing search results leave a claim unresolved
 - Selection: stop when source passages resolve the question
 - Composition: use another index for missing evidence
-- Output: pass `--json` for structured responses
+- Output: pass `--json` for structured responses, kept outputs are placed in `.artifacts/search/`
 - Failure: `failed_results` records extraction failures, not page absence
 - Syntax: read complete source passages when code, table cells, or surrounding qualifications decide a claim
 
@@ -138,12 +138,12 @@ curl -fsSL '<pdf-url>' | python -c \
     "import sys, pymupdf; print(*(f'{p} {t}' for _, t, p in pymupdf.open(stream=sys.stdin.buffer.read(), filetype='pdf').get_toc()), sep='\n')" | rg -- '<heading>'
 
 # Local PDF for rendered page inspection
-curl -fsSL -o '<pdf>' '<pdf-url>'
+curl -fsSL --create-dirs -o '.artifacts/search/<name>.pdf' '<pdf-url>'
 ```
 
 ```text
 # Rendered pages from a downloaded PDF, up to 20 pages per call
-Read {"file_path": "<pdf>", "pages": "<page>-<page>"}
+Read {"file_path": ".artifacts/search/<name>.pdf", "pages": "<page>-<page>"}
 ```
 
 ## [03]-[RESEARCH]
@@ -157,7 +157,7 @@ Use Tavily `mini` for focused research and `pro` for broad synthesis. Schema `pr
 tvly research run '<scope>' --model mini --no-wait --json
 
 # Schema for findings with supporting URLs
-cat > '<schema.json>' <<'JSON'
+cat > '.artifacts/search/<schema>.json' <<'JSON'
 {
     "properties": {
         "claims": {
@@ -177,7 +177,7 @@ cat > '<schema.json>' <<'JSON'
 JSON
 
 # Structured report with claim and source fields defined in the schema
-tvly research run '<scope>' --model mini --output-schema '<schema.json>' --no-wait --json
+tvly research run '<scope>' --model mini --output-schema '.artifacts/search/<schema>.json' --no-wait --json
 
 # Collect by request_id after independent reading
 tvly research status '<request_id>' --json

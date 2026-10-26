@@ -1304,7 +1304,7 @@ def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
         name
         for node in tree.nodes
         if "paired_output" in node.bl_rna.properties
-        for end in (node.path_resolve("paired_output"),)
+        for end in (node.paired_output,)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         if isinstance(end, bpy.types.Node)
         for name in inside(node.name, end.name)
     )

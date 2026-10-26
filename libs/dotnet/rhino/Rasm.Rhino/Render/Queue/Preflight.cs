@@ -1,8 +1,8 @@
 using System.Globalization;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Objects;
-using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Settings;
 using Rhino;
 using Rhino.Commands;
@@ -121,7 +121,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
                 (DocumentStatistics.Read(doc).Try(),
                  Links.Closure(doc.RuntimeSerialNumber).Try(),
                  Links.Style(doc).Read.Try(),
-                 NamedSnapshots.Names(doc).Map(names => rendered.Map((entry, index) => Entered(doc, names, entry.Entry, index, entry.Frame)).Flatten().Strict()).Try(),
+                 NamedEntry.Read(doc).Map(entries => rendered.Map((entry, index) => Entered(doc, entries, entry.Entry, index, entry.Frame)).Flatten().Strict()).Try(),
                  RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels).Try(),
                  (reach.Local ? QueueProgress.Observed(context).Map(static observed => Some(observed.State)) : IO.pure(Option<RunState>.None)).Try(),
                  IO.lift(Host.Read).Try(),
@@ -132,8 +132,8 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
         };
 
     // --- [READS]
-    private static Seq<PreflightFinding> Entered(RhinoDoc doc, Seq<string> snapshots, QueueEntry<Unit> entry, int index, Fin<OverscanFrame> rendered) =>
-        (Held(doc, snapshots, entry.Source) ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.SourceViewMissing(index, entry.Source.RenderSource)))
+    private static Seq<PreflightFinding> Entered(RhinoDoc doc, Seq<NamedEntry> entries, QueueEntry<Unit> entry, int index, Fin<OverscanFrame> rendered) =>
+        (Held(doc, entries, entry.Source) ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.SourceViewMissing(index, entry.Source.RenderSource)))
         + (entry.Overscan == Overscan.Off || entry.Source.RenderSource is RenderSettings.RenderingSources.ActiveViewport
             ? Seq<PreflightFinding>()
             : Seq<PreflightFinding>(new PreflightFinding.OverscanSourceRefused(index, entry.Source.RenderSource)))
@@ -142,14 +142,12 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
             .Fails
             .Map<PreflightFinding>(error => new PreflightFinding.EntryRefused(index, error));
 
-    private static bool Held(RhinoDoc doc, Seq<string> snapshots, RenderSourceState source) =>
+    private static bool Held(RhinoDoc doc, Seq<NamedEntry> entries, RenderSourceState source) =>
         source.RenderSource switch {
             RenderSettings.RenderingSources.ActiveViewport => doc.Views.ActiveView is not null,
             RenderSettings.RenderingSources.SpecificViewport => source.SpecificViewport.Exists(name => doc.Views.Find(name, compareCase: false) is not null),
-            RenderSettings.RenderingSources.NamedView => source.NamedView.Exists(name => Conversions.Present(doc.NamedViews.FindByName(name)).IsSome),
-            RenderSettings.RenderingSources.SnapShot => source.Snapshot
-                .Bind(static name => SnapshotName.Validated(name).ToOption())
-                .Exists(wanted => snapshots.Exists(held => wanted == held)),
+            RenderSettings.RenderingSources.NamedView => source.NamedView.Exists(name => NamedTable.Views.Find(entries, name).IsSome),
+            RenderSettings.RenderingSources.SnapShot => source.Snapshot.Exists(name => NamedTable.Snapshots.Find(entries, name).IsSome),
         };
 
     private static IO<Disk> Measured(RhinoDoc doc, QueuePlan plan, Reach reach) =>

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Grade.Curves;
@@ -17,6 +18,8 @@ using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.UI.Styling;
+using Rasm.UI.Imaging;
 using Rhino;
 using Rhino.Render.PostEffects;
 using Rhino.UI;
@@ -45,8 +48,8 @@ public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSect
     private readonly IPlugInViews views;
     private readonly SectionLifetime lifetime;
 
-    public DefinedEffectSection(PostEffect effect, Func<EtoPostEffectCollapsibleSection, View.Section> build, Option<Atom<StageFrame>> watched) {
-        (views, row) = (IPlugInViews.Of(effect), build(this));
+    public DefinedEffectSection(IPlugInViews owner, PostEffect effect, Func<EtoPostEffectCollapsibleSection, View.Section> build, Option<Atom<StageFrame>> watched) {
+        (views, row) = (owner, build(this));
         (stage, id, Caption) = (effect.PostEffectType, row.Identity.GUID, RowText.Localize(row.Caption, views));
         lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true, retain =>
             from watching in watched.Traverse(input => StageFrame.Watch(input, retain)).As()
@@ -84,7 +87,7 @@ public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSect
 
     bool ICollapsibleSection2.ShowHeaderButton(int index, bool bShow) => false;
 
-    void ICollapsibleSection3.UpdateView(uint flags) => Callbacks.Run(lifetime.Reread, new CallbackSite(views, typeof(DefinedEffectSection<TEffect>), nameof(ICollapsibleSection3.UpdateView)));
+    void ICollapsibleSection3.UpdateView(uint flags) => Callbacks.Run(lifetime.Reread, CallbackSite.Of(views, this, nameof(ICollapsibleSection3.UpdateView)));
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
@@ -108,12 +111,12 @@ public static class SectionRows {
 
     // --- [EFFECTS]
     public static Func<EtoPostEffectCollapsibleSection, View.Section> Stage<TState, TParameter>(
-        PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<StageFrame> input)
+        IPlugInViews owner, PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<StageFrame> input)
         where TState : IPixelStage<TState>
         where TParameter : class, IStateParameter<TState> =>
         section => Row(effect, state, looks, section, source =>
             Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over stage input",
-                FramePicker.Current.Find(IPlugInViews.Of(effect)).Bind(picker => IO.lift(() => input.Value.Input.Map(held => new StageInput(IO.pure(Some(held.Frame)), held.Context, picker)))),
+                FramePicker.Current.Find(owner).Bind(picker => IO.lift(() => input.Value.Input.Map(held => new StageInput(IO.pure(Some(held.Frame)), held.Context, picker)))),
                 [Subscriptions.Changed(input, nameof(input.Change)).Choose(static _ => Some(unit))],
                 stage => Blocks(source, stage), RowRules.Always)) + Amount(state, section));
 
@@ -131,14 +134,20 @@ public static class SectionRows {
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
         RowSource.Fields(state.Owner, TState.Parameters, _ => IO.pure(Seq(Store(state, section))), Some(state.Default.Record)) switch {
-            var source => new View.Section {
-                Identity = effect.GetType(),
-                Caption = effect.LocalName,
-                Store = Some<ViewStore>(new ViewStore.ApplicationStores()),
-                Presets = Some(Presets(source, looks,
-                    scope => new BindingGroup(Seq(source.Values(scope)) + state.Default.Amount.ToSeq().Map(factory =>
-                        ValueBinding.Key(state.Owner, EffectStates.AmountKey(factory), Mixed(state, section, factory)))))),
-                Children = [.. rows(source)],
+            var source => rows(source) switch {
+                var children => new View.Section {
+                    Identity = effect.GetType(),
+                    Caption = effect.LocalName,
+                    Store = Some<ViewStore>(new ViewStore.ApplicationStores()),
+                    Actions = [
+                        SectionCommands.Presets(Presets(source, looks,
+                            scope => new BindingGroup(Seq(source.Values(scope)) + state.Default.Amount.ToSeq().Map(factory =>
+                                ValueBinding.Key(state.Owner, EffectStates.AmountKey(factory), Mixed(state, section, factory)))))),
+                        SectionCommands.Values(children),
+                        SectionCommands.Reset,
+                    ],
+                    Children = [.. children],
+                },
             },
         };
 
@@ -163,18 +172,20 @@ public static class SectionRows {
             var pass =>
                 from formed in IO.lift(() => pass.IsSome ? input.Copy() : input)
                 from ran in pass.Traverse(staged => IO.lift(() => staged.Run(formed, new Progress<int>()))).As()
-                let displayed = stage is not PostEffectType.Early
                 select new ScopeFrames(
                     formed,
-                    displayed ? context.Display.Encoding.Gamut : context.Working,
-                    stage is PostEffectType.ToneMapping ? context.Display.Encoding.Transfer : context.Signal,
-                    context.Depth.Levels.Filter(_ => displayed).Map(static levels => (float)levels.MaxCode),
-                    context.Depth.Levels.Filter(_ => displayed).Map(static levels => levels.Clipping),
-                    Some((input, context.Working))),
+                    stage switch {
+                        PostEffectType.Early => new ColorEncoding(context.Working, context.Signal, Nits.ReferenceWhite),
+                        PostEffectType.ToneMapping => context.Display.Encoding,
+                        PostEffectType.Late => context.Display.Encoding with { Transfer = context.Signal },
+                    },
+                    context.Depth.Levels.Filter(_ => stage is not PostEffectType.Early),
+                    context.Working,
+                    Some(input)),
         };
 
     // --- [LOOKS]
-    public static Func<RowScope, IO<Seq<MenuPick>>> Presets<TState, TParameter>(
+    public static Func<RowScope, IO<Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>>>> Presets<TState, TParameter>(
         RowSource<TState> source, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Func<RowScope, BindingGroup> bindings)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
@@ -385,16 +396,13 @@ public static class SectionRows {
             from mailbox in Subscriptions.Idle<Unit, Fin<ExposureState>>(metered => metered.Find(unit).Match(
                     Some: answer => IO.lift(answer).Bind(exposed => Committed(scope, exposure, exposed, [ExposureParameter.Exposure])),
                     None: static () => IO.pure(unit)))(new CallbackSite(scope.Sink, typeof(ExposureState), nameof(ExposureState.Metered)), retain)
-            from command in IO.lift(static () => new Eto.Forms.Command {
-                MenuText = RowText.Localize("Meter").Local, ToolBarText = RowText.Localize("Meter").Local,
-                ToolTip = RowText.Localize("Write exposure placing trimmed mean luminance at middle gray").Local,
-            })
-            let show = stage.Match(Some: static input => input.Read, None: static () => IO.pure(Option<PixelFrame>.None))
-                .Bind(available => IO.lift(() => command.Enabled = available.IsSome)).Map(unit)
-            let site = new CallbackSite(scope.Sink, typeof(Eto.Forms.Command), nameof(Eto.Forms.Command.Executed))
-            from executed in Subscriptions.Attach(handler => command.Executed += handler, handler => command.Executed -= handler, Callbacks.Handler<System.EventArgs>(_ => Metered(scope, exposure, stage, mailbox, retain), site), retain)
-            from button in ButtonRows.Push(command, None, scope.Sink, retain)
-            select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), show, None, None),
+            from button in CommandRows.Button(
+                new Rasm.UI.Command<RowRule, Invoke>.Run(
+                    new Rasm.UI.CommandFace("exposure-meter", "Meter", Some("Write exposure placing trimmed mean luminance at middle gray"), None),
+                    new RowRule([], [], _ => stage.Match(Some: static input => input.Read.Map(static frame => frame.IsSome), None: static () => IO.pure(value: false))),
+                    new Invoke.Effect(_ => Metered(scope, exposure, stage, mailbox, retain))),
+                IconSlot.PanelButton, scope, retain)
+            select new RowCells(button.Control, None, None, None, [], [], new RowHelp(None, None), button.Refresh, None, None),
             "Exposure meter", "Meters stage input once and writes exposure", RowRules.Always);
 
     private static IO<Unit> Metered(
@@ -409,10 +417,10 @@ public static class SectionRows {
 
     // --- [CDL_FILES]
     private static ControlRow Opened(RowSource<CdlState> cdl) =>
-        Pushed(new CommandRow.Run(
-            new CommandFace("cdl-open", "Open CDL...", "Read correction from ASC .cc, .ccc, or .cdl file", None, None),
+        Pushed(new Rasm.UI.Command<RowRule, Invoke>.Run(
+            new Rasm.UI.CommandFace("cdl-open", "Open CDL...", Some("Read correction from ASC .cc, .ccc, or .cdl file"), None),
             None,
-            scope => (
+            new Invoke.Effect(scope => (
                 from paths in HostDialogs.ShowOpenDialog(new OpenFileDialog {
                     Title = RowText.Localize("Open CDL").Local,
                     Filter = HostDialogs.Filter([(RowText.Localize("ASC color corrections").Local, Corrections.Bind(static row => row.Extensions)), .. Corrections]),
@@ -427,13 +435,13 @@ public static class SectionRows {
                     ? HostDialogs.ShowListBox(RowText.Localize("Open CDL"), RowText.Localize("Correction to open"), corrections, None)
                     : IO.pure(corrections.Head.Value)
                 from written in Committed(scope, cdl, picked, cdl.Fields)
-                select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))));
+                select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit)))));
 
     private static ControlRow Saved(RowSource<CdlState> cdl) =>
-        Pushed(new CommandRow.Run(
-            new CommandFace("cdl-save", "Save CDL...", "Write correction as ASC .cc, .ccc, or .cdl file", None, None),
+        Pushed(new Rasm.UI.Command<RowRule, Invoke>.Run(
+            new Rasm.UI.CommandFace("cdl-save", "Save CDL...", Some("Write correction as ASC .cc, .ccc, or .cdl file"), None),
             None,
-            scope => (
+            new Invoke.Effect(scope => (
                 from held in scope.Read(cdl)
                 from chosen in HostDialogs.ShowSaveDialog(new SaveFileDialog {
                     Title = RowText.Localize("Save CDL").Local, Filter = HostDialogs.Filter(Corrections), DefaultExt = CdlFormat.Correction.Extension,
@@ -441,17 +449,16 @@ public static class SectionRows {
                 from target in IO.lift((CdlFormat.Validated(Path.GetExtension(chosen)), OutputPath.Validated(chosen))
                     .Apply(static (format, path) => (Format: format, Path: path)).As())
                 from written in FilePublication.Write(target.Path, CdlState.Write(held, None, target.Format))
-                select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))));
+                select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit)))));
 
     private static Seq<(string Description, Seq<string> Extensions)> Corrections =>
         toSeq(CdlFormat.Items).Map<(string Description, Seq<string> Extensions)>(static format => (
             RowText.Localize(format.Map(correction: "ASC color correction", collection: "ASC color correction collection", decisionList: "ASC color decision list")).Local,
             [format.Extension]));
 
-    public static ControlRow Pushed(CommandRow.Run run) =>
+    public static ControlRow Pushed(Rasm.UI.Command<RowRule, Invoke>.Run run) =>
         new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
-            from realized in run.Realize(scope, retain)
-            from button in ButtonRows.Push(realized.Commands, None, scope.Sink, retain)
-            select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), realized.Refresh, None, None),
-            run.Face.Caption, run.Face.Help, new RowRules(run.Enabled, None));
+            from button in CommandRows.Button(run, IconSlot.PanelButton, scope, retain)
+            select new RowCells(button.Control, None, None, None, [], [], new RowHelp(None, None), button.Refresh, None, None),
+            run.Face.Caption, run.Face.Help.IfNone(run.Face.Caption), new RowRules(run.Enabled, None));
 }

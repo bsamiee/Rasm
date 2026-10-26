@@ -7,7 +7,6 @@ using Grasshopper2.UI.Icon;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Grasshopper.Parameters;
 
@@ -59,7 +58,7 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
     private static IO<IParameter> Coded(IParameter parameter, ParameterFace face, IPlugInSink sink) =>
         IO.lift(() => parameter.UserName = RowText.Localize(face.Code, sink)).Map(parameter);
 
-    internal ParameterRow Presented(IGlyph glyph) =>
+    internal ParameterRow Presented(Rasm.UI.GlyphSource glyph) =>
         this with {
             Attach = Attach.Add((parameter, sink) =>
                 from icon in CanvasIcons.Vector(sink, glyph)
@@ -102,7 +101,7 @@ public sealed class DataParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
 public static class ParameterField {
     // --- [DECLARE]
     public static ParameterField<TRecord> Of<TRecord>(
-        StateParameter<TRecord> kind, ParameterFace face, IGlyph glyph, Access access, Requirement requirement, Option<TRecord> initial)
+        StateParameter<TRecord> kind, ParameterFace face, Rasm.UI.GlyphSource glyph, Access access, Requirement requirement, Option<TRecord> initial)
         where TRecord : notnull =>
         kind.Accept(new Crossing<TRecord>(face, glyph, initial, requirement, access));
 
@@ -127,7 +126,7 @@ public static class ParameterField {
             .Map(static sets => fun((TRecord seed) => sets.Fold(seed, static (record, set) => set(record))));
 
     internal sealed class Crossing<TRecord>(
-        ParameterFace face, IGlyph glyph, Option<TRecord> initial, Requirement requirement, Access access)
+        ParameterFace face, Rasm.UI.GlyphSource glyph, Option<TRecord> initial, Requirement requirement, Access access)
         : IStateParameterVisitor<TRecord, ParameterField<TRecord>> where TRecord : notnull {
 
         public ParameterField<TRecord> Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, NumericDomain<TValue, TKey> domain)

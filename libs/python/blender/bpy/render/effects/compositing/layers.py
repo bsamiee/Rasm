@@ -25,7 +25,7 @@ from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import committed, Mark, Ownership, Saved
 from blender.bpy.data.ids.store import IdName, named, vacant
 from blender.bpy.data.rna.conditions import Condition, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, root_in, rooted, written
+from blender.bpy.data.rna.descriptors import Descriptor, root_in, rooted, subclass, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
 from blender.bpy.extension.events.subscriptions import Subscription
@@ -309,7 +309,8 @@ class LayerStacking[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
                 lambda graphs: accumulated(inputs(self.identity, entry, part.keys, type(part.value), graphs, baseline=baseline.map(lambda _: part.value)) for part in parts)
             )
             toggles = accumulated(
-                Ok(held) if baseline.is_some() else entry_input(self.identity, entry, item_key(*keys)).map(lambda owner: bool(owner.path_resolve("value"))) for keys, _, held in gates
+                Ok(held) if baseline.is_some() else entry_input(self.identity, entry, item_key(*keys)).map(lambda owner: bool(owner.value))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                for keys, _, held in gates
             )
             return paired(values, toggles).map(
                 lambda read: functools.reduce(
@@ -576,7 +577,7 @@ class LayerStacking[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     def noded(self, call: Call[NodeKind]) -> BlenderResult[Outcome]:
         """Adds a source node layer of the called class."""
-        return node_kind(call.record.node).bind(lambda kind: self.added_node(call.context, kind, Ok)).map(lambda _: Done())
+        return subclass(bpy.types.Node, call.record.node).bind(lambda kind: self.added_node(call.context, kind, Ok)).map(lambda _: Done())
 
     def nesting(self, call: Call[Switched]) -> BlenderResult[Outcome]:
         """Adds another stack as source."""
@@ -706,7 +707,7 @@ class LayerStacking[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             ),
             active=Member(root=bpy.types.Screen, path=f"{self.view.name}.active", reach=Some(lambda context: Option.of_optional(context.screen))),
             columns=tuple(Property(target=Member(root=type(layer), path=name), text="") for name in ("visible", "solo", "matte.enabled")),
-            enabled=Some(lambda context, item: self.selected(context).map(lambda held: any(shown.key == item.path_resolve("key") for shown, _ in held.record.composited()))),
+            enabled=Some(lambda context, item: self.selected(context).map(lambda held: any(shown.key == item.key for shown, _ in held.record.composited()))),  # ty: ignore[unresolved-attribute]
             sort_reverse=True,
             side=(
                 Pulldown(menu=self.stacks.adding.key, text="", icon=Some("ADD")),
@@ -954,15 +955,6 @@ def nested_tree[E: Effect](identity: Identity, tree: bpy.types.NodeTree, layer: 
             return Nothing
 
 
-def node_kind(identifier: str) -> BlenderResult[type[bpy.types.Node]]:
-    """Returns the node class `bpy.types` names by identifier."""
-    match getattr(bpy.types, identifier, None):
-        case type() as kind if issubclass(kind, bpy.types.Node):
-            return Ok(kind)
-        case _:
-            return Error((BlenderAbsentFault(owner="bpy.types", key=identifier),))
-
-
 # --- [EDITS]
 
 
@@ -1083,7 +1075,7 @@ def sourced(key: Key, source: RenderPass | NodeSource | Recombined, scene: bpy.t
         case Recombined(layer=name):
             return Ok(Expr(kind=bpy.types.CompositorNodeRLayers, members=(("scene", IdName.of(scene)), ("layer", name)), label=Some(f"{key}_render")))
         case NodeSource(node=identifier):
-            return node_kind(identifier).map(lambda kind: Expr(kind=kind, label=Some(f"{key}_source")))
+            return subclass(bpy.types.Node, identifier).map(lambda kind: Expr(kind=kind, label=Some(f"{key}_source")))
 
 
 def unit[E: Effect](layer: Layer[Source, E], below: End, base: End, planning: Planning[E], *, mixes: bool) -> BlenderResult[Built]:
@@ -1457,7 +1449,6 @@ __all__ = [
     "edited",
     "layer_conditions",
     "nested_tree",
-    "node_kind",
     "planned",
     "sourced",
     "stacked_by",

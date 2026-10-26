@@ -9,6 +9,7 @@ using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rasm.UI;
+using Rhino.Resources;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
@@ -153,8 +154,8 @@ public static class TextRows {
             Callbacks.Handler<EventArgs>(_ => IO.lift(entry.Read).Bind(committed), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.LostFocus))), owned)
         from picked in browse.Traverse(asked => Browsed(new LocalizeStringPair(field.Caption, RowText.Localize(field.Caption, scope.Sink).Local), asked, entry.Field, committed, scope, owned)).As()
         select new RowCells(
-            entry.Shown, None, picked.Map(static held => (Eto.Forms.Control)held), None, [], [], new RowHelp(None, Conversions.Present(text(source.Default))),
-            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(entry.Shown, [], [], scope.Sink))), retain);
+            entry.Shown, None, picked, None, [], [], new RowHelp(None, Conversions.Present(text(source.Default))),
+            bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(entry.Shown, [], []))), retain);
 
     private static IO<Unit> Previewed<TRecord>(RowEdit<TRecord> edit, Func<TRecord, string, IO<TRecord>> cross, RowSource<TRecord> source, Entry entry, RowScope scope)
         where TRecord : notnull =>
@@ -214,20 +215,19 @@ public static class TextRows {
             .Traverse(answer => IO.lift(() => args.Handled = true).Bind(_ => answer)).As()
             .Map(unit);
 
-    private static IO<Eto.Forms.Button> Browsed(
+    private static IO<Eto.Forms.Control> Browsed(
         LocalizeStringPair title, (FileAction Action, Seq<FileTypeRow> Types) browse, Eto.Forms.TextControl box, Func<string, IO<Unit>> commit, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-        from command in IO.lift(static () => new Eto.Forms.Command())
-        from faced in IO.lift(() => command.ToolTip = RowText.Localize("Browse").Local)
-        from picked in ButtonRows.Push(command, Some<IGlyph>(GlyphRole.Load), scope.Sink, owned)
-        from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,
-            Callbacks.Handler<EventArgs>(_ =>
-                from current in IO.lift(() => box.Text)
-                from path in Asked(browse, title, current, scope)
-                from committed in path.Match(Some: commit, None: static () => IO.pure(unit))
-                select committed, new CallbackSite(scope.Sink, typeof(Eto.Forms.Command), nameof(Eto.Forms.Command.Executed))), owned)
+        from picked in CommandRows.Button(
+            new Command<RowRule, Invoke>.Run(new CommandFace("text-browse", "Browse", None, Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.OpenSvg))), None,
+                new Invoke.Effect(held =>
+                    from current in IO.lift(() => box.Text)
+                    from path in Asked(browse, title, current, held)
+                    from committed in path.Match(Some: commit, None: static () => IO.pure(unit))
+                    select committed)),
+            IconSlot.Small, scope, owned)
         from dropped in Transfer.Drops(box, browse.Types, commit, scope.Sink, owned)
-        select picked, retain);
+        select picked.Control, retain);
 
     private static IO<Option<string>> Asked((FileAction Action, Seq<FileTypeRow> Types) browse, LocalizeStringPair title, string current, RowScope scope) =>
         HostDialogs.Filter(browse.Types.Map(static row => (row.Description, row.Extensions))) switch {

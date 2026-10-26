@@ -12,7 +12,7 @@ namespace Rasm.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record TextStyle(Topten.RichTextKit.Style Style, SKTypeface Typeface, Seq<Feature> Features);
 
-public sealed record Glyphs(IStyle Style, SKTypeface Typeface, Arr<ushort> Ids, Arr<SKPoint> Points);
+public sealed record Glyphs(IStyle Style, SKTypeface Typeface, Arr<ushort> Ids, Arr<SKPoint> Points, SKPoint Origin, float Advance);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Typeset {
@@ -224,22 +224,42 @@ public sealed class Editor : ITextDocumentView {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Typesetting {
     // --- [RESOLVE]
-    private static readonly Func<(string Family, float Size, SKFontStyleWeight Weight, SKColor Ink, Seq<Feature> Features), TextStyle> Faces =
-        memo<(string Family, float Size, SKFontStyleWeight Weight, SKColor Ink, Seq<Feature> Features), TextStyle>(Faced);
+    private static readonly Topten.RichTextKit.Style Plain = new();
 
-    public static TextStyle Resolve(Theme theme, Styling.Style style) =>
-        Faces((theme.FontFamily, theme.FontSize * style.Metrics[Metric.FontSize], style.Weight, theme.Color(style.Text, style, None, None).Map(static ink => (SKColor)ink).IfNone(SKColors.Transparent), style.Features));
+    private static readonly Func<(TextFace Face, float Size, SKColor Ink, SKColor Halo), TextStyle> Faces = memo<(TextFace Face, float Size, SKColor Ink, SKColor Halo), TextStyle>(Faced);
 
-    private static TextStyle Faced((string Family, float Size, SKFontStyleWeight Weight, SKColor Ink, Seq<Feature> Features) face) {
-        Topten.RichTextKit.Style resolved = new() { FontFamily = face.Family, FontSize = face.Size, FontWeight = (int)face.Weight, TextColor = face.Ink };
+    public static TextStyle Resolve(Cascade within, Styling.Style style) =>
+        within.Theme.Face.Combine(style.Face) switch {
+            var face => Faces((face, within.Theme.FontSize * style.Metrics[Metric.FontSize],
+                within.Theme.Color(style.Text, style, None, None).Map(ink => (SKColor)Styles.Legible(style, within.Ground, ink, within.Theme.Contrast.Text)).IfNone(SKColors.Transparent),
+                face.Halo.Bind(halo => within.Theme.Color(halo.Ink, style, None, None)).Map(static halo => (SKColor)halo).IfNone(Plain.HaloColor))),
+        };
+
+    private static TextStyle Faced((TextFace Face, float Size, SKColor Ink, SKColor Halo) held) {
+        Topten.RichTextKit.Style resolved = new() {
+            FontFamily = held.Face.Family.IfNone(Plain.FontFamily),
+            FontSize = held.Size,
+            FontWeight = held.Face.Weight.Map(static weight => (int)weight).IfNone(Plain.FontWeight),
+            FontWidth = held.Face.Width.IfNone(Plain.FontWidth),
+            FontItalic = held.Face.Italic.IfNone(Plain.FontItalic),
+            LetterSpacing = held.Face.LetterSpacing.IfNone(Plain.LetterSpacing),
+            LineHeight = held.Face.LineHeight.IfNone(Plain.LineHeight),
+            Underline = held.Face.Underline.IfNone(Plain.Underline),
+            StrikeThrough = held.Face.StrikeThrough.IfNone(Plain.StrikeThrough),
+            FontVariant = held.Face.Variant.IfNone(Plain.FontVariant),
+            TextColor = held.Ink,
+            HaloColor = held.Halo,
+            HaloWidth = held.Face.Halo.Map(static halo => halo.Width).IfNone(Plain.HaloWidth),
+            HaloBlur = held.Face.Halo.Map(static halo => halo.Blur).IfNone(Plain.HaloBlur),
+        };
         resolved.Seal();
-        return new TextStyle(resolved, FontMapper.Default.TypefaceFromStyle(resolved, ignoreFontVariants: false), face.Features);
+        return new TextStyle(resolved, FontMapper.Default.TypefaceFromStyle(resolved, ignoreFontVariants: false), held.Face.Features.IfNone([]));
     }
 
     private static TextStyle Spanned(Cascade within, TextStyle face, Span span) =>
         span.Role.IsNone && span.Conditions.IsEmpty
             ? face
-            : Resolve(within.Theme, Styles.Resolve(within, span.Role.IfNone(within.Enclosing.Role), span.Conditions.Union(within.Enclosing.Conditions)));
+            : Resolve(within, Styles.Resolve(within, span.Role.IfNone(within.Enclosing.Role), span.Conditions.Union(within.Enclosing.Conditions)));
 
     // --- [SET]
     public static Typeset Set(Node.Text text, Cascade within, TextStyle face, float width) =>
@@ -331,7 +351,7 @@ public static class Typesetting {
             from line in reshaped
             from placed in line.Runs.Zip(line.Runs.Scan(lean * (reference - line.Advance), static (x, run) => x + run.Advance))
             let origin = new SKPoint(placed.Second, line.Line.YCoord + line.Line.BaseLine)
-            select new Glyphs(placed.First.Run.Style, placed.First.Run.Typeface, placed.First.Ids, [.. placed.First.Offsets.Map(at => at + origin)]);
+            select new Glyphs(placed.First.Run.Style, placed.First.Run.Typeface, placed.First.Ids, [.. placed.First.Offsets.Map(at => at + origin)], origin, placed.First.Advance);
         return new Typeset.Featured(lines, runs, advance, reference, runs.Fold(SKRect.Empty, static (ink, run) => Union(ink, Ink(run))), clipped);
     }
 
@@ -348,10 +368,54 @@ public static class Typesetting {
         laid.Typeset.Switch(
             (Canvas: canvas, Cache: cache, Laid: laid, Ink: ink, Resting: laid.TextStyle.Style.TextColor),
             block: static (held, block) => (held.Ink == held.Resting ? block.Lines : Reinked(block.Lines, held.Resting, held.Ink)).Paint(held.Canvas, held.Laid.Origin, held.Cache.Raster),
-            featured: static (held, featured) => held.Cache.Blobs(held.Laid, featured).Iter(run => {
-                using SKPaint paint = new() { Color = run.Ink == held.Resting ? held.Ink : run.Ink, IsAntialias = true };
-                held.Canvas.DrawText(run.Blob, held.Laid.Origin.X, held.Laid.Origin.Y, paint);
-            }));
+            featured: static (held, featured) => held.Cache.Blobs(held.Laid, featured).Iter(run => Lettered(
+                held.Canvas, run.Style, run.Blob, featured.Runs.Filter(glyphs => ReferenceEquals(glyphs.Style, run.Style)), held.Laid.Origin,
+                run.Style.TextColor == held.Resting ? held.Ink : run.Style.TextColor)));
+
+    private static void Lettered(SKCanvas canvas, IStyle style, SKTextBlob blob, Seq<Glyphs> runs, SKPoint origin, SKColor ink) {
+        Seq<(SKPoint From, SKPoint To, float Width)> rules = runs.Bind(run => Ruled(style, run, blob)).Strict();
+        using SKAutoCanvasRestore restore = new(canvas);
+        canvas.Translate(origin.X, origin.Y);
+        if (style.HaloColor != SKColor.Empty) {
+            using SKMaskFilter? blur = style.HaloBlur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, style.HaloBlur) : null;
+            using SKPaint halo = new() {
+                Color = style.HaloColor, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = style.HaloWidth, StrokeCap = SKStrokeCap.Round, StrokeJoin = SKStrokeJoin.Round, MaskFilter = blur,
+            };
+            _ = rules.Iter(rule => {
+                halo.StrokeWidth = rule.Width + style.HaloWidth;
+                canvas.DrawLine(rule.From, rule.To, halo);
+            });
+            halo.StrokeWidth = style.HaloWidth;
+            canvas.DrawText(blob, 0f, 0f, halo);
+        }
+        using SKPaint fill = new() { Color = ink, IsAntialias = true };
+        canvas.DrawText(blob, 0f, 0f, fill);
+        _ = rules.Iter(rule => {
+            fill.StrokeWidth = rule.Width;
+            canvas.DrawLine(rule.From, rule.To, fill);
+        });
+    }
+
+    private static Seq<(SKPoint From, SKPoint To, float Width)> Ruled(IStyle style, Glyphs run, SKTextBlob blob) {
+        using SKFont font = new(run.Typeface, style.FontSize);
+        SKFontMetrics metrics = font.Metrics;
+        (float start, float end) = (run.Origin.X, run.Origin.X + run.Advance);
+        float under = float.Max(run.Origin.Y + metrics.UnderlinePosition.GetValueOrDefault(), run.Origin.Y + 1f);
+        float thickness = float.Max(metrics.UnderlineThickness ?? 1f, 1f);
+        Seq<(float From, float To)> spans = style.Underline switch {
+            UnderlineStyle.None => [],
+            UnderlineStyle.Gapped => toSeq(blob.GetIntercepts(under - (thickness / 2f), under + thickness).Chunk(2))
+                .Fold((Seq: Seq<(float From, float To)>(), At: start), (held, gap) => (gap[0] - thickness) switch {
+                    var stop => (stop > held.At && held.At < end ? held.Seq.Add((held.At, float.Min(stop, end))) : held.Seq, float.Max(held.At, gap[1] + thickness)),
+                }) switch { var held => held.At < end ? held.Seq.Add((held.At, end)) : held.Seq, },
+            _ => [(start, end)],
+        };
+        Seq<(SKPoint From, SKPoint To, float Width)> underlined = spans.Map(span => (new SKPoint(span.From, under), new SKPoint(span.To, under), style.Underline is UnderlineStyle.ImeTargetConverted ? thickness * 2f : thickness));
+        float struck = run.Origin.Y + metrics.StrikeoutPosition.GetValueOrDefault();
+        return style.StrikeThrough is StrikeThroughStyle.None
+            ? underlined
+            : underlined.Add((new SKPoint(start, struck), new SKPoint(end, struck), float.Max(metrics.StrikeoutThickness ?? 1f, 1f)));
+    }
 
     private static TextBlock Reinked(TextBlock block, SKColor rest, SKColor ink) {
         TextBlock inked = block.Copy(0, block.Length);

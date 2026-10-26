@@ -84,6 +84,33 @@ public sealed record RangeBand(AxisFraction Center, AxisFraction Width, AxisFrac
         };
 }
 
+[SmartEnum]
+public sealed partial class RangeHandle {
+    public static readonly RangeHandle Band = new(None,
+        static band => band.Center,
+        static (band, at) => (at, band.Width, band.Softness));
+    public static readonly RangeHandle LowerSoftness = new(None,
+        static band => band.Center - (band.Width / 2f) - band.Softness,
+        static (band, at) => (band.Center, band.Width, band.Center - (band.Width / 2f) - at));
+    public static readonly RangeHandle UpperSoftness = new(None,
+        static band => band.Center + (band.Width / 2f) + band.Softness,
+        static (band, at) => (band.Center, band.Width, at - band.Center - (band.Width / 2f)));
+    public static readonly RangeHandle LowerEdge = new(Some(LowerSoftness),
+        static band => band.Center - (band.Width / 2f),
+        static (band, at) => (band.Center + (band.Width / 2f)) switch { var upper => ((at + upper) / 2f, upper - at, band.Softness) });
+    public static readonly RangeHandle UpperEdge = new(Some(UpperSoftness),
+        static band => band.Center + (band.Width / 2f),
+        static (band, at) => (band.Center - (band.Width / 2f)) switch { var lower => ((lower + at) / 2f, at - lower, band.Softness) });
+
+    public Option<RangeHandle> Alternate { get; }
+
+    [UseDelegateFromConstructor]
+    public partial float Position(RangeBand band);
+
+    [UseDelegateFromConstructor]
+    internal partial (float Center, float Width, float Softness) Placed(RangeBand band, float position);
+}
+
 public sealed record HueRange(RangeBand Hue, RangeBand Saturation, RangeBand Luma) : IStateRecord<HueRange, HueRangeParameter> {
     public static HueRange Default { get; } = new RangeBand(AxisFraction.Half, AxisFraction.MaxValue, AxisFraction.MinValue) switch { var open => new HueRange(open, open, open) };
 
@@ -142,6 +169,15 @@ public sealed partial class RangeAxis {
         Input.Axis.Span switch { var (low, high) => Write(hsy, low + (coordinate * (high - low))) };
 
     public float Membership(RangeBand band, Hsy hsy) => band.Membership(Distance(Coordinate(hsy), band.Center));
+
+    public Fin<HueRange> Moved(HueRange range, RangeHandle handle, float position) =>
+        handle.Placed(Band.Get(range), position) switch {
+            var (center, width, softness) => (
+                    AxisFraction.Validated(Input.Axis.Periodic ? center - float.Floor(center) : center),
+                    AxisFraction.Validated(width),
+                    AxisFraction.Validated(softness))
+                .Apply((c, w, s) => Band.Set(new RangeBand(c, w, s), range)).As(),
+        };
 }
 
 [SmartEnum<string>]

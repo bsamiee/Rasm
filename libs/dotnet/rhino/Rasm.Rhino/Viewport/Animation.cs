@@ -2,6 +2,7 @@ using System.Globalization;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rhino;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
 
@@ -17,9 +18,8 @@ public readonly partial struct FrameCount {
 [SmartEnum]
 public sealed partial class AnimationQuality {
     public static readonly AnimationQuality Draft = new("preview", renderFull: false, renderPreview: false);
-    public static readonly AnimationQuality Recorded = new("full", renderFull: false, renderPreview: false);
-    public static readonly AnimationQuality RenderedPreview = new("full", renderFull: false, renderPreview: true);
-    public static readonly AnimationQuality Rendered = new("full", renderFull: true, renderPreview: false);
+    public static readonly AnimationQuality RenderedPreview = new("RenderPreview", renderFull: false, renderPreview: true);
+    public static readonly AnimationQuality Rendered = new("RenderFull", renderFull: true, renderPreview: false);
 
     internal string CaptureMethod { get; }
 
@@ -37,7 +37,11 @@ public abstract partial record AnimationPath {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnimationKind {
-    public sealed record Turntable() : AnimationKind;
+    public sealed record Turntable(Seq<Point3d> Camera, Seq<Point3d> Target) : AnimationKind {
+        public static Turntable Orbit(RhinoViewport viewport, FrameCount frames) =>
+            new(toSeq(Enumerable.Range(0, frames)).Map(frame => Transform.Rotation(frame * Math.Tau / (int)frames, Vector3d.ZAxis, viewport.CameraTarget) * viewport.CameraLocation).Strict(),
+                toSeq(Enumerable.Repeat(viewport.CameraTarget, frames)));
+    }
 
     public sealed record CameraAndTarget(AnimationPath Camera, AnimationPath Target) : AnimationKind;
 
@@ -77,18 +81,24 @@ public static partial class Animations {
         DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() =>
             Kind(copy).Bind(found => found.Traverse(kind => Sequence(copy, kind).Map(sequence => ToRecord(copy, sequence))).As())));
 
-    public static IO<Committed<Unit>> Write(RhinoDoc doc, AnimationSequence sequence) =>
-        Commits.Commit(doc, nameof(RhinoDoc.AnimationProperties), new RedrawPolicy.Silent(), DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => {
+    public static IO<Unit> Write(RhinoDoc doc, AnimationSequence sequence) =>
+        DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => {
             Update(sequence, copy);
             _ = sequence.Output.IfSome(output => Update(output, copy));
             Update(sequence.Kind, copy);
             Update(sequence.Quality, copy);
             doc.AnimationProperties = copy;
+        }));
+
+    internal static IO<Unit> Reassigned(RhinoDoc doc, HashMap<Guid, Guid> moves) =>
+        DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => moves.Find(copy.DisplayMode).Iter(target => {
+            copy.DisplayMode = target;
+            doc.AnimationProperties = copy;
         })));
 
     private static Fin<Option<AnimationKind>> Kind(AnimationProperties copy) =>
         copy.CaptureType switch {
-            AnimationProperties.CaptureTypes.Turntable => Some<AnimationKind>(new AnimationKind.Turntable()),
+            AnimationProperties.CaptureTypes.Turntable => Some<AnimationKind>(new AnimationKind.Turntable(toSeq(copy.CameraPoints), toSeq(copy.TargetPoints))),
             AnimationProperties.CaptureTypes.Path => Some<AnimationKind>(new AnimationKind.CameraAndTarget(Traced(copy.CameraPathId, copy.CameraPoints), Traced(copy.TargetPathId, copy.TargetPoints))),
             AnimationProperties.CaptureTypes.Flythrough => Some<AnimationKind>(new AnimationKind.Flythrough(Traced(copy.CameraPathId, copy.CameraPoints))),
             _ => SunWindow.Read(copy).Bind(window => window.Traverse(held =>
@@ -100,13 +110,13 @@ public static partial class Animations {
     private static Fin<AnimationSequence> Sequence(AnimationProperties copy, AnimationKind kind) =>
         (FrameCount.Validated(copy.FrameCount),
          Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As(),
-         Quality((copy.CaptureMethod, copy.RenderFull, copy.RenderPreview)))
+         Quality((copy.RenderFull, copy.RenderPreview)))
             .Apply((frames, output, quality) => new AnimationSequence(kind, frames, copy.ViewportName, Conversions.Present(copy.DisplayMode), output, quality))
             .As();
 
-    private static Fin<AnimationQuality> Quality((string Method, bool Full, bool Preview) held) =>
-        toSeq(AnimationQuality.Items).Find(quality => (quality.CaptureMethod, quality.RenderFull, quality.RenderPreview) == held)
-            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"animation capture {held.Method} with full {held.Full} and preview {held.Preview} is no quality"));
+    private static Fin<AnimationQuality> Quality((bool Full, bool Preview) held) =>
+        toSeq(AnimationQuality.Items).Find(quality => (quality.RenderFull, quality.RenderPreview) == held)
+            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"animation capture with full {held.Full} and preview {held.Preview} is no quality"));
 
     private static AnimationPath Traced(Guid curve, Point3d[] points) =>
         Conversions.Present(curve).Match<AnimationPath>(Some: static id => new AnimationPath.FromCurve(id), None: () => new AnimationPath.FromPoints(toSeq(points)));
@@ -117,7 +127,11 @@ public static partial class Animations {
     private static void Update(AnimationKind kind, AnimationProperties properties) =>
         kind.Switch(
             properties,
-            turntable: static (target, _) => target.CaptureType = AnimationProperties.CaptureTypes.Turntable,
+            turntable: static (target, orbit) => {
+                target.CaptureType = AnimationProperties.CaptureTypes.Turntable;
+                (target.CameraPathId, target.CameraPoints) = (Guid.Empty, [.. orbit.Camera]);
+                (target.TargetPathId, target.TargetPoints) = (Guid.Empty, [.. orbit.Target]);
+            },
             cameraAndTarget: static (target, paths) => {
                 target.CaptureType = AnimationProperties.CaptureTypes.Path;
                 (target.CameraPathId, target.CameraPoints) = Stored(paths.Camera);

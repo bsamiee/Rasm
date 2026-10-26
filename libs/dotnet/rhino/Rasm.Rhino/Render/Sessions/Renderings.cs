@@ -388,10 +388,10 @@ public sealed class RenderHistory {
             new BrowserRow<Rendering, string>(
                 Key: static rendering => rendering.FileName,
                 Label: Label,
-                Tile: static (scope, view, rendering, size, retain) =>
+                Tile: static (scope, rendering, extent) =>
                     from tiles in PreviewTiles.Current.Of(scope.Sink)
                     from kinds in EffectRegistry.Kinds.Of(scope.Sink)
-                    from thumbnail in tiles.Thumbnail(view, TileRequest.Recorded(rendering, kinds), size, retain)
+                    from thumbnail in tiles.Thumbnail(TileRequest.Recorded(rendering, kinds), extent, headroom: 1f)
                     select thumbnail,
                 Items: static scope => new ValueStore<Seq<Rendering>>(
                     Current.Of(scope.Sink).Bind(static history => history.Renderings).Map(static renderings => Some(renderings)),
@@ -466,15 +466,12 @@ public sealed class RenderHistory {
     private static Func<RowScope, IO<Unit>> Headed(IO<Seq<Rendering>> selection, Func<RowScope, Rendering, IO<Unit>> act) =>
         scope => selection.Bind(chosen => chosen.Head.Traverse(rendering => act(scope, rendering)).As()).Map(unit);
 
-    private static CommandRow.Run Restoring(IO<Seq<Rendering>> selection, RenderingPart part) =>
+    private static Rasm.UI.Command<RowRule, Invoke>.Run Restoring(IO<Seq<Rendering>> selection, RenderingPart part) =>
         part.Map(settings: RowText.Localize("Render Settings").Local, grading: RowText.Localize("Grading").Local) switch {
-            var caption => new CommandRow.Run(
-                new CommandFace(
-                    part.Map(settings: "history-restore-settings", grading: "history-restore-grading"),
-                    RowText.Localize("Restore {0}", arguments: [caption]).Local,
-                    RowText.Localize("Write selected rendering's {0} into document as one commit", arguments: [caption]).Local,
-                    None, None),
-                None,
+            var caption => Command(
+                part.Map(settings: "history-restore-settings", grading: "history-restore-grading"),
+                RowText.Localize("Restore {0}", arguments: [caption]).Local,
+                RowText.Localize("Write selected rendering's {0} into document as one commit", arguments: [caption]).Local,
                 Headed(selection, (scope, rendering) =>
                     from doc in scope.DocumentIO
                     from history in Current.Of(scope.Sink)
@@ -482,6 +479,6 @@ public sealed class RenderHistory {
                     select unit)),
         };
 
-    private static CommandRow.Run Command(string name, string caption, string help, Func<RowScope, IO<Unit>> execute) =>
-        new(new CommandFace(name, caption, help, None, None), None, execute);
+    private static Rasm.UI.Command<RowRule, Invoke>.Run Command(string name, string caption, string help, Func<RowScope, IO<Unit>> execute) =>
+        new(new Rasm.UI.CommandFace(name, caption, Some(help), None), None, new Invoke.Effect(execute));
 }

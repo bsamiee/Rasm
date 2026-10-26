@@ -13,6 +13,7 @@ public enum KeyDomain {
     QueueEntry = 4,
     RenderMeshes = 5,
     Tile = 6,
+    FrameMark = 7,
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

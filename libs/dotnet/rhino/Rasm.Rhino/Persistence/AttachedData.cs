@@ -1,3 +1,5 @@
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino.Collections;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
@@ -6,8 +8,16 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Persistence;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public abstract class DefinedUserData<TState>(uint typeCode, DictionaryCodec<TState> codec, Option<Func<TState, Transform, TState>> transformed) : UserData
-    where TState : notnull {
+public abstract class DefinedUserData<TState> : UserData where TState : notnull {
+    // --- [STATE]
+    private readonly uint typeCode;
+    private readonly DictionaryCodec<TState> codec;
+    private readonly Option<Func<TState, Transform, TState>> transformed;
+    private readonly IPlugInViews owner;
+
+    protected DefinedUserData(uint typeCode, DictionaryCodec<TState> codec, Option<Func<TState, Transform, TState>> transformed) =>
+        (this.typeCode, this.codec, this.transformed, owner) = (typeCode, codec, transformed, HostedTypes.Owner(GetType()));
+
     public Option<TState> State { get; private set; }
 
     internal Option<ArchivableDictionary> Newer { get; private set; }
@@ -22,7 +32,7 @@ public abstract class DefinedUserData<TState>(uint typeCode, DictionaryCodec<TSt
     protected sealed override bool Write(BinaryArchiveWriter archive) =>
         Callbacks.Succeeded(
             Newer.Map(raw => AttachedData.Write(archive, typeCode, raw)) | State.Map(held => AttachedData.Write(archive, typeCode, codec, held)),
-            static () => false, CallbackSite.Of(this));
+            static () => false, CallbackSite.Of(owner, this));
 
     protected sealed override bool Read(BinaryArchiveReader archive) =>
         Callbacks.Answer(
@@ -34,7 +44,7 @@ public abstract class DefinedUserData<TState>(uint typeCode, DictionaryCodec<TSt
                     newer: static newer => (Option<TState>.None, Some(newer.Raw)));
             })
             select true,
-            static () => false, CallbackSite.Of(this));
+            static () => false, CallbackSite.Of(owner, this));
 
     protected sealed override void OnTransform(Transform transform) {
         base.OnTransform(transform);

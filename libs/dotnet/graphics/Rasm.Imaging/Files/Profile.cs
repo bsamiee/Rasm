@@ -9,7 +9,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Files;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class ColorTags {
+public static class ColorTags {
     internal static readonly Seq<(Transfer Transfer, CicpTransferCharacteristics Code, Nits White)> Transfers = [
         (TransferCurve.Linear, CicpTransferCharacteristics.Linear, Nits.ReferenceWhite),
         (TransferCurve.Srgb, CicpTransferCharacteristics.Iec61966_2_1, Nits.ReferenceWhite),
@@ -26,30 +26,32 @@ internal static class ColorTags {
 
     private static readonly Configuration Pcs = new(xyzConfig: new XyzConfiguration(new WhitePoint(0.9642, 1.0, 0.8249)));
 
-    internal static Option<CicpProfile> Cicp(ColorEncoding encoding) =>
-        (Primaries.Find(row => row.Gamut == encoding.Gamut).Map(static row => row.Code), Transfers.Find(row => row.Transfer == encoding.Transfer).Map(static row => row.Code))
-            .Apply(static (primaries, transfer) => new CicpProfile {
-                ColorPrimaries = primaries, TransferCharacteristics = transfer, MatrixCoefficients = CicpMatrixCoefficients.Identity, FullRange = true,
-            })
-            .As();
+    extension(ColorEncoding encoding) {
+        public Option<CicpProfile> Cicp =>
+            (Primaries.Find(row => row.Gamut == encoding.Gamut).Map(static row => row.Code), Transfers.Find(row => row.Transfer == encoding.Transfer).Map(static row => row.Code))
+                .Apply(static (primaries, transfer) => new CicpProfile {
+                    ColorPrimaries = primaries, TransferCharacteristics = transfer, MatrixCoefficients = CicpMatrixCoefficients.Identity, FullRange = true,
+                })
+                .As();
 
-    internal static Option<byte[]> Icc(ColorEncoding encoding, DateTimeOffset created) =>
-        encoding.Transfer.Switch(
-            standard: static transfer => transfer.Curve.Map(
-                linear: Some((Function: 0, Parameters: Seq(1d))),
-                srgb: Some((Function: 3, Parameters: (1d / 1.055) switch { var gain => Seq(2.4, gain, 1d - gain, 1d / 12.92, 0.04045) })),
-                pq: None,
-                hlg: None,
-                acesCct: None,
-                acesCc: None),
-            gamma: static transfer => Some((Function: 0, Parameters: Seq<double>(transfer.Exponent))),
-            camera: static _ => Option<(int Function, Seq<double> Parameters)>.None)
-        .Map(curve => Profile(encoding, curve, created));
+        public Option<byte[]> Profile(DateTimeOffset created) =>
+            encoding.Transfer.Switch(
+                standard: static transfer => transfer.Curve.Map(
+                    linear: Some((Function: 0, Parameters: Seq(1d))),
+                    srgb: Some((Function: 3, Parameters: (1d / 1.055) switch { var gain => Seq(2.4, gain, 1d - gain, 1d / 12.92, 0.04045) })),
+                    pq: None,
+                    hlg: None,
+                    acesCct: None,
+                    acesCc: None),
+                gamma: static transfer => Some((Function: 0, Parameters: Seq<double>(transfer.Exponent))),
+                camera: static _ => Option<(int Function, Seq<double> Parameters)>.None)
+            .Map(curve => Written(encoding, curve, created));
+    }
 
     internal static ushort ExifColorSpace(ColorEncoding encoding) =>
         encoding.Gamut == Gamut.StandardRgb && encoding.Transfer == TransferCurve.Srgb ? (ushort)1 : ushort.MaxValue;
 
-    private static byte[] Profile(ColorEncoding encoding, (int Function, Seq<double> Parameters) curve, DateTimeOffset created) {
+    private static byte[] Written(ColorEncoding encoding, (int Function, Seq<double> Parameters) curve, DateTimeOffset created) {
         const int HeaderBytes = 128;
         static uint Fixed(double value) => unchecked((uint)(int)double.Round(value * 65536d, MidpointRounding.ToEven));
         static byte[] Words(Seq<uint> words) {

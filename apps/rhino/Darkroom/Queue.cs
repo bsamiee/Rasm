@@ -4,8 +4,8 @@ using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
@@ -15,8 +15,8 @@ using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
+using Rasm.UI;
 using Rhino;
-using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.Render;
 using UnitsNet;
@@ -26,7 +26,7 @@ namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [Guid("5241D43D-4825-41EC-B908-468DFF1FF424")]
-public sealed class RenderQueueSection() : DefinedSection(Row) {
+public sealed class RenderQueueSection(IPlugInViews owner) : DefinedSection(Row, owner) {
     // --- [SETTINGS]
     public static readonly QueueSettingRows Settings = new(
         Retries: new(ValueKey.Numeric("QueueRetries", "Retries", "Rhino restarts to resume crashed queue", QueueSettings.Default.Retries,
@@ -184,17 +184,16 @@ public sealed class RenderQueueSection() : DefinedSection(Row) {
                         from cleared in scope.Store(Picked.Source).Put(Some(LanguageExt.HashSet<int>.Empty))
                         select unit))),
                 Commands = _ => [
-                    Command("render-queue-add-named-views", "Add Named Views", "Queue every named view", None, static scope => Added(scope, static doc =>
-                        IO.lift(() => doc.NamedViews).Bind(static table => toSeq(Enumerable.Range(0, table.Count)).TraverseM(index =>
-                            DisposalOps.Found(() => table[index], nameof(NamedViewTable), static view => IO.pure(Placement.Named(view)))).As()))),
+                    Command("render-queue-add-named-views", "Add Named Views", "Queue every named view", None,
+                        static scope => Added(scope, static doc => NamedTable.Views.Entries(doc).Map(static entries => entries.Map(static entry => Placement.Named(entry.Name))))),
                     Command("render-queue-add-snapshots", "Add Snapshots", "Queue every snapshot", None,
-                        static scope => Added(scope, static doc => NamedSnapshots.Names(doc).Map(static names => names.Map(Placement.Snapshot)))),
+                        static scope => Added(scope, static doc => NamedTable.Snapshots.Entries(doc).Map(static entries => entries.Map(static entry => Placement.Snapshot(entry.Name))))),
                     Command("render-queue-add-study", "Add Sun Study", "Queue sun study, one frame per moment", None, static scope => Added(scope, static doc =>
                         DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() => SunWindow.Read(copy)))
                             .Bind(static study => IO.lift(study.ToFin(new Refused(nameof(RhinoDoc.AnimationProperties), Refused.Absent))))
                             .Map(static window => Seq(Placement.Active with { Sun = Some(window) })))),
-                    new CommandRow.Check(new CommandFace("render-queue-clay", "Clay", "Render entries added next with every object in clay", None, None), None,
-                        static scope => scope.Read(Clayed.Source), static (scope, on) => scope.Store(Clayed.Source).Put(Some(on)).Map(unit)),
+                    CommandRows.Toggle(new CommandFace("render-queue-clay", "Clay", Some("Render entries added next with every object in clay"), None), None,
+                        RowRule.When(Clayed.Source, static on => on, Clayed.Field.Parameter), static (scope, on) => scope.Store(Clayed.Source).Put(Some(on)).Map(unit)),
                     Command("render-queue-check", "Check", "Check queue for refusals and cautions", None, static scope =>
                         from doc in scope.DocumentIO
                         from context in QueueContext.Current.Of(scope.Sink)
@@ -219,7 +218,7 @@ public sealed class RenderQueueSection() : DefinedSection(Row) {
             },
                 RowRules.Always),
             new ControlRow.Group("Run", ran),
-            TextRows.Progress("Progress", "Frames rendered of queue total", new ReadoutSource<Rasm.UI.Content<Unit>>.Scoped(static scope =>
+            TextRows.Progress("Progress", "Frames rendered of queue total", new ReadoutSource<Content<Unit>>.Scoped(static scope =>
                 QueueContext.Current.Of(scope.Sink).Bind(static context => context.Estimate.ValueIO).Map(static estimate => estimate.Work)), ran),
             TextRows.Readout("State", "Queue record state", new ReadoutSource<(RunState State, DateTimeZone Zone)>.Scoped(static scope =>
                 from current in scope.Read(Observed.Source)
@@ -256,7 +255,7 @@ public sealed class RenderQueueSection() : DefinedSection(Row) {
     private sealed record Placement(RenderSourceState Source, Option<SunWindow> Sun) {
         public static Placement Active { get; } = new(new RenderSourceState(RenderSettings.RenderingSources.ActiveViewport, None, None, None), None);
 
-        public static Placement Named(ViewInfo view) => Active with { Source = new RenderSourceState(RenderSettings.RenderingSources.NamedView, None, Some(view.Name), None) };
+        public static Placement Named(string name) => Active with { Source = new RenderSourceState(RenderSettings.RenderingSources.NamedView, None, Some(name), None) };
 
         public static Placement Snapshot(string name) => Active with { Source = new RenderSourceState(RenderSettings.RenderingSources.SnapShot, None, None, Some(name)) };
 
@@ -265,8 +264,8 @@ public sealed class RenderQueueSection() : DefinedSection(Row) {
                 .Map(frames => new QueuedEntry(Renders: true, clay, Source, frames, extent, Overscan.Off, None, Sun));
     }
 
-    private static CommandRow.Run Command(string name, string caption, string help, Option<RowRule> rule, Func<RowScope, IO<Unit>> execute) =>
-        new(new CommandFace(name, caption, help, None, None), rule, execute);
+    private static Command<RowRule, Invoke>.Run Command(string name, string caption, string help, Option<RowRule> rule, Func<RowScope, IO<Unit>> execute) =>
+        new(new CommandFace(name, caption, Some(help), None), rule, new Invoke.Effect(execute));
 
     private static IO<Unit> Added(RowScope scope, Func<RhinoDoc, IO<Seq<Placement>>> read) =>
         from doc in scope.DocumentIO

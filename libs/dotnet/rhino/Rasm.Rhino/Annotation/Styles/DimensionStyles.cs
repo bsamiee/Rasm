@@ -118,11 +118,11 @@ public static class DimensionStyles {
         select effective;
 
     public static IO<Unit> Edit<T>(RhinoDoc doc, Guid id, Func<T, IO<Unit>> edit) where T : AnnotationBase =>
-        RhinoObjects.ReplaceGeometry(doc, id, (T copy) =>
-            from parent in Parent(doc, copy)
-            from bound in IO.lift(() => { copy.ParentDimensionStyle = parent; })
-            from edited in edit(copy)
-            select edited);
+        RhinoObjects.ReplaceGeometry(doc, id, (T target, Action<IDisposable> _) =>
+            from parent in Parent(doc, target)
+            from bound in IO.lift(() => { target.ParentDimensionStyle = parent; })
+            from edited in edit(target)
+            select (target, edited));
 
     // --- [READS]
     public static IO<DimensionStyleRow> Row(RhinoDoc doc, DimensionStyle style) =>

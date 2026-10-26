@@ -3,9 +3,7 @@ using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
-using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -31,8 +29,6 @@ public interface IPlugInViews : IPlugInSink {
     public IO<HistoryLimits> Limits { get; }
 
     public SettingsNode Settings { get; }
-
-    public static new IPlugInViews Of(object constructed) => (IPlugInViews)PlugIn.Find(constructed.GetType().Assembly);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -42,7 +38,7 @@ public interface IPlugInViews : IPlugInSink {
 public sealed partial class HelpTopic {
     public IO<Unit> Show => IO.lift(() => Refused.Unless(RhinoHelp.Show(_value), nameof(RhinoHelp.Show)));
 
-    public static Option<HelpTopic> Of(Option<HelpTopic> row, object constructed) => row || IPlugInViews.Of(constructed).Help;
+    public static Option<HelpTopic> Of(Option<HelpTopic> row, IPlugInViews owner) => row || owner.Help;
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed
@@ -88,7 +84,7 @@ public abstract partial record PageSubject {
 public abstract partial record View {
     public required Type Identity { get; init; }
     public required string Caption { get; init; }
-    public Option<IGlyph> Icon { get; init; }
+    public Option<Rasm.UI.GlyphSource> Icon { get; init; }
     public Option<HelpTopic> Help { get; init; }
     public Option<RowRule> Enabled { get; init; }
     public Option<RowRule> Visible { get; init; }
@@ -111,7 +107,7 @@ public abstract partial record View {
     }
 
     public sealed record Section : View {
-        public Option<Func<RowScope, IO<Seq<MenuPick>>>> Presets { get; init; }
+        public Seq<Rasm.UI.Command<RowRule, Invoke>> Actions { get; init; }
     }
 
     public sealed record OptionsPage : View {

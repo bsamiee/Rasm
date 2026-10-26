@@ -7,6 +7,7 @@ using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Grade.Curves;
 using Rasm.Imaging.Tone;
 
 namespace Rasm.Imaging.Pixels;
@@ -20,14 +21,28 @@ internal interface IRowFold {
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ClipLevels(float Low, float High);
 
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[SmartEnum]
 public sealed partial class ClipEnd {
-    public static readonly ClipEnd Low = new(below: true, above: false);
-    public static readonly ClipEnd High = new(below: false, above: true);
-    public static readonly ClipEnd Both = new(below: true, above: true);
+    public static readonly ClipEnd Low = new(static (pixel, levels) => float.Min(pixel.X, float.Min(pixel.Y, pixel.Z)) < levels.Low);
+    public static readonly ClipEnd High = new(static (pixel, levels) => float.Max(pixel.X, float.Max(pixel.Y, pixel.Z)) >= levels.High);
 
-    public bool Below { get; }
-    public bool Above { get; }
+    [UseDelegateFromConstructor]
+    public partial bool Clips(Vector4 pixel, ClipLevels levels);
+}
+
+[SmartEnum]
+public sealed partial class TracePlane {
+    public static readonly TracePlane Luma = new(CurveChannel.Master, Option<Lens<Vector3, float>>.None, static traces => traces.Luma);
+    public static readonly TracePlane Red = new(CurveChannel.Red, Some(Lens<Vector3, float>.New(static rgb => rgb.X, static x => rgb => rgb with { X = x })), static traces => traces.Red);
+    public static readonly TracePlane Green = new(CurveChannel.Green, Some(Lens<Vector3, float>.New(static rgb => rgb.Y, static y => rgb => rgb with { Y = y })), static traces => traces.Green);
+    public static readonly TracePlane Blue = new(CurveChannel.Blue, Some(Lens<Vector3, float>.New(static rgb => rgb.Z, static z => rgb => rgb with { Z = z })), static traces => traces.Blue);
+
+    public CurveChannel Curve { get; }
+    public Option<Lens<Vector3, float>> Lane { get; }
+    public Vector3 Color => Lane.Map(static lane => lane.Set(1f, Vector3.Zero)).IfNone(Vector3.One);
+
+    [UseDelegateFromConstructor]
+    public partial BinGrid Bins(Traces traces);
 }
 
 [ComplexValueObject]
@@ -39,14 +54,6 @@ public readonly partial struct BinRange {
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int first, ref int last) =>
         validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"Bin range [{first}, {last}] must ascend within [0, {HistogramAxis.Bins - 1}]"));
-}
-
-[SmartEnum<int>]
-public sealed partial class ChromaZoom {
-    public static readonly ChromaZoom Normal = new(1);
-    public static readonly ChromaZoom Doubled = new(2);
-
-    public float Reach => 0.5f / Key;
 }
 
 [SmartEnum<int>]
@@ -98,20 +105,6 @@ public readonly record struct Clips(Channels<int> Low, Channels<int> High) {
         };
 }
 
-public readonly record struct ChromaAxes((double X, double Y, double Z) Weights) {
-    public Matrix<double> Forward => Matrix<double>.Build.DenseOfRowMajor(3, 3, [
-        Weights.X, -Weights.X / (2d * (1d - Weights.Z)), 0.5d,
-        Weights.Y, -Weights.Y / (2d * (1d - Weights.Z)), -Weights.Y / (2d * (1d - Weights.X)),
-        Weights.Z, 0.5d, -Weights.Z / (2d * (1d - Weights.X)),
-    ]);
-
-    public Matrix<double> Inverse => Matrix<double>.Build.DenseOfRowMajor(3, 3, [
-        1d, 1d, 1d,
-        0d, -2d * Weights.Z * (1d - Weights.Z) / Weights.Y, 2d * (1d - Weights.Z),
-        2d * (1d - Weights.X), -2d * Weights.X * (1d - Weights.X) / Weights.Y, 0d,
-    ]);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScopeRequest {
     private ScopeRequest(Gamut gamut) => Gamut = gamut;
@@ -120,13 +113,14 @@ public abstract partial record ScopeRequest {
 
     public abstract ScopeReading Read(PixelFrame frame);
 
-    public sealed record Histogram(Gamut Gamut, Option<ClipLevels> Clipping) : ScopeRequest(Gamut) {
+    public sealed record Histogram(Gamut Gamut, Option<ClipLevels> Clipping, Option<(PixelFrame Frame, Gamut Gamut)> Input) : ScopeRequest(Gamut) {
         public override ScopeReading.Histogram Read(PixelFrame frame) =>
             BandFold.Run(frame, new HistogramFold(Gamut.Luminance, Clipping)) switch {
                 var counts => new ScopeReading.Histogram(
                     this,
                     Traces.Of(counts, HistogramAxis.Bins, 1),
-                    Clipping.Map(_ => Clips.Of(counts.AsSpan(4 * HistogramAxis.Bins)))),
+                    Clipping.Map(_ => Clips.Of(counts.AsSpan(4 * HistogramAxis.Bins))),
+                    Input.Map(static input => Traces.Of(BandFold.Run(input.Frame, new HistogramFold(input.Gamut.Luminance, None)), HistogramAxis.Bins, 1))),
             };
     }
 
@@ -139,11 +133,13 @@ public abstract partial record ScopeRequest {
             };
     }
 
-    public sealed record Vectorscope(Gamut Gamut, PixelExtent Plot, ChromaZoom Zoom) : ScopeRequest(Gamut) {
+    public sealed record Vectorscope(Gamut Gamut, PixelExtent Plot, PositiveMagnitude Magnification) : ScopeRequest(Gamut) {
+        public float Reach => 0.5f / Magnification;
+
         public override ScopeReading.Vectorscope Read(PixelFrame frame) =>
             new(
                 this,
-                new BinGrid(Plot.Width, Plot.Height, BandFold.Run(frame, new VectorscopeFold(new ChromaAxes(Gamut.Luminance).Forward.Transpose(), Zoom.Reach, Plot.Width, Plot.Height))));
+                new BinGrid(Plot.Width, Plot.Height, BandFold.Run(frame, new VectorscopeFold(Gamut.ToYpbpr(Gamut.Ybr), Reach, Plot.Width, Plot.Height))));
     }
 
     public sealed record Chromaticity(Gamut Gamut, Transfer Encoding, PixelExtent Plot) : ScopeRequest(Gamut) {
@@ -156,7 +152,13 @@ public abstract partial record ScopeRequest {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScopeReading {
-    public sealed record Histogram(ScopeRequest.Histogram Request, Traces Bins, Option<Clips> Clipped) : ScopeReading;
+    public sealed record Histogram(ScopeRequest.Histogram Request, Traces Bins, Option<Clips> Clipped, Option<Traces> Input) : ScopeReading {
+        public Option<double> Below(int bin) =>
+            (TensorPrimitives.Sum(Bins.Luma.Row(0)[..(bin + 1)]), TensorPrimitives.Sum(Bins.Luma.Row(0))) switch {
+                (_, 0) => None,
+                var (below, covered) => Some((double)below / covered),
+            };
+    }
     public sealed record Waveform(ScopeRequest.Waveform Request, Traces Bins) : ScopeReading;
     public sealed record Vectorscope(ScopeRequest.Vectorscope Request, BinGrid Bins) : ScopeReading;
     public sealed record Chromaticity(ScopeRequest.Chromaticity Request, BinGrid Bins) : ScopeReading;
@@ -168,6 +170,8 @@ public static class HistogramAxis {
     public const int TopStop = 4;
 
     public const int Bins = (StopBins * (TopStop + 1)) + 1;
+
+    public static Seq<float> Ticks { get; } = toSeq(Range(1, 4)).Map(static quarter => quarter / 4f) + toSeq(Range(1, TopStop)).Map(static stop => float.Exp2(stop));
 
     public static int Bin(double value) =>
         value switch {

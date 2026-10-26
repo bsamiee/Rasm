@@ -1,90 +1,46 @@
+using System.Numerics;
 using Eto.Drawing;
 using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
+using Rasm.UI.Styling;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Rhino.Runtime;
 using Rhino.UI;
+using SkiaSharp;
 
 namespace Rasm.Rhino.UI.Drawing;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Thumbnail {
-    public abstract IO<Unit> Paint(PlotCanvas canvas, RectangleF bounds, MarkColor ink);
-
-    public abstract Option<Image> Drag { get; }
+    public Node Drawn(Role ink) =>
+        Switch(
+            ink,
+            raster: static (_, raster) => (Node)new Node.Image(raster.Pixels) { Fit = ImageFit.Contain },
+            linework: static (role, linework) => Plotted(linework.Extent, role,
+                linework.Dashes.Map(static points => (Figure)new Figure.Polygon(points))
+                + linework.CurveShapes.Filter(static points => points.Count > 1).Map(static points => (Figure)new Figure.Polyline(points))
+                + linework.TextSurfaceShapes.Filter(static points => points.Count > 1).Map(static points => (Figure)new Figure.Polygon(points))),
+            hatching: static (role, hatching) => Plotted(hatching.Extent, role, hatching.Lines.IsEmpty
+                ? [new Figure.Region(None, None)]
+                : hatching.Lines.Map(static line => (Figure)new Figure.Rule(new Vector2((float)line.FromX, (float)-line.FromY), new Vector2((float)line.ToX, (float)-line.ToY)))));
 
     public static void Release(Thumbnail thumbnail) =>
         thumbnail.Switch(raster: static raster => raster.Pixels.Dispose(), linework: static _ => { }, hatching: static _ => { });
 
-    private static IO<Unit> Placed(PlotCanvas canvas, RectangleF bounds, Size extent, IO<Unit> draw) =>
-        DisposalOps.Within(canvas.Graphics.SaveTransformState, _ => IO.lift(() => {
-            canvas.Graphics.TranslateTransform(bounds.Location);
-            canvas.Graphics.ScaleTransform(bounds.Width / extent.Width, bounds.Height / extent.Height);
-        }).Bind(_ => draw));
+    private static Node.Plot Plotted(Size extent, Role ink, Seq<Figure> figures) =>
+        new(
+            new Rasm.UI.PlotPlane.Cartesian(new Rasm.UI.Axis.Linear(Rasm.UI.AxisRange.Create(0f, extent.Width)), new Rasm.UI.Axis.Linear(Rasm.UI.AxisRange.Create(extent.Height, 0f))),
+            figures.Map(figure => (Node)new Node.Mark(figure) { Role = ink }));
 
-    public sealed record Raster(Bitmap Pixels) : Thumbnail {
-        public override Option<Image> Drag => Some<Image>(Pixels);
+    public sealed record Raster(SKImage Pixels) : Thumbnail;
 
-        public override IO<Unit> Paint(PlotCanvas canvas, RectangleF bounds, MarkColor ink) =>
-            IO.lift(() => {
-                canvas.Graphics.ImageInterpolation = ImageInterpolation.High;
-                canvas.Graphics.DrawImage(Pixels, bounds);
-            });
-    }
+    public sealed record Linework(Seq<Seq<Vector2>> Dashes, Seq<Seq<Vector2>> CurveShapes, Seq<Seq<Vector2>> TextSurfaceShapes, Size Extent) : Thumbnail;
 
-    public sealed record Linework(Seq<Seq<PointF>> Dashes, Seq<Seq<PointF>> CurveShapes, Seq<Seq<PointF>> TextSurfaceShapes, Size Extent) : Thumbnail {
-        public override Option<Image> Drag => None;
-
-        public override IO<Unit> Paint(PlotCanvas canvas, RectangleF bounds, MarkColor ink) =>
-            Placed(canvas, bounds, Extent,
-                from color in IO.lift(() => Plots.Resolve(canvas, new MarkStyle.Fill(ink, 1f)))
-                from dashes in DisposalOps.Within(
-                    () => canvas.Graphics.AntiAlias,
-                    smoothed => IO.lift(() => {
-                        canvas.Graphics.AntiAlias = smoothed && !HostUtils.RunningOnOSX;
-                        _ = Dashes.Iter(points => canvas.Graphics.FillPolygon(color, [.. points]));
-                    }),
-                    smoothed => IO.lift(() => { canvas.Graphics.AntiAlias = smoothed; }))
-                from curves in IO.lift(() => CurveShapes.Filter(static points => points.Count > 1).Iter(points => canvas.Graphics.DrawLines(color, points)))
-                from text in DisposalOps.Within(static () => new GraphicsPath { FillMode = FillMode.Alternate }, glyphs => IO.lift(() => {
-                    _ = TextSurfaceShapes.Filter(static points => points.Count > 1).Iter(points => {
-                        glyphs.AddLines(points);
-                        glyphs.CloseFigure();
-                    });
-                    canvas.Graphics.FillPath(color, glyphs);
-                }))
-                select unit);
-    }
-
-    public sealed record Hatching(Seq<Line> Lines, Size Extent) : Thumbnail {
-        public override Option<Image> Drag => None;
-
-        public override IO<Unit> Paint(PlotCanvas canvas, RectangleF bounds, MarkColor ink) =>
-            Placed(canvas, bounds, Extent, IO.lift(() => {
-                Color color = Plots.Resolve(canvas, new MarkStyle.Fill(ink, 1f));
-                if (Lines.IsEmpty)
-                    canvas.Graphics.FillRectangle(color, 0f, 0f, Extent.Width, Extent.Height);
-                else
-                    _ = Lines.Iter(line => canvas.Graphics.DrawLine(color, (float)line.FromX, (float)-line.FromY, (float)line.ToX, (float)-line.ToY));
-            }));
-    }
-}
-
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class Checkerboard {
-    public static readonly Checkerboard Content = new(Colors.Snow, Colors.LightGrey, static bounds => bounds.Height / 4f);
-    public static readonly Checkerboard Frame = new(Colors.White, Colors.DarkGray, static _ => 10f);
-
-    public Color Light { get; }
-    public Color Dark { get; }
-
-    [UseDelegateFromConstructor]
-    public partial float Square(RectangleF bounds);
+    public sealed record Hatching(Seq<Line> Lines, Size Extent) : Thumbnail;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -114,10 +70,9 @@ public sealed class DefinitionThumbnails : IDisposable {
     public void Dispose() => attached.Dispose();
 
     // --- [READS]
-    public IO<Thumbnail.Raster> Definition(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size extent) =>
+    public IO<Thumbnail.Raster> Definition(RhinoDoc doc, ComponentRef<InstanceDefinition> address, PreviewMethod method, Size extent, float scale) =>
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
-        from pixels in HostTheme.Device(extent)
-        let key = new Key(doc.RuntimeSerialNumber, definition.Index, method, pixels)
+        let key = new Key(doc.RuntimeSerialNumber, definition.Index, method, Thumbnails.Pixels(extent, scale))
         from cache in IO.lift(() => held.Value.ToFin(Errors.Cancelled))
         from raster in cache.Find(key).Match(Some: static found => IO.pure(found), None: () => Rendered(doc, address, key))
         select raster;
@@ -164,22 +119,26 @@ public sealed class DefinitionThumbnails : IDisposable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Thumbnails {
     // --- [RASTERS]
-    public static IO<Disposal<Thumbnail>> Meshes(RhinoDoc doc, Seq<(Mesh Mesh, Option<System.Drawing.Color> Color)> meshes, Size extent, Action<Disposal<Thumbnail>> retain) =>
+    public static IO<Disposal<Thumbnail>> Meshes(
+        RhinoDoc doc, Seq<(Mesh Mesh, Option<System.Drawing.Color> Color)> meshes, Size extent, float scale, Action<Disposal<Thumbnail>> retain) =>
         from fallback in TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes => IO.lift(() => attributes.DrawColor(doc)))
-        from pixels in HostTheme.Device(extent)
         from raster in Lent(() => Refused.UnlessFound(
-            DrawingUtilities.CreateMeshPreviewImage(doc, meshes.Map(static pair => pair.Mesh), meshes.Map(pair => pair.Color.IfNone(fallback)), pixels),
+            DrawingUtilities.CreateMeshPreviewImage(doc, meshes.Map(static pair => pair.Mesh), meshes.Map(pair => pair.Color.IfNone(fallback)), Pixels(extent, scale)),
             nameof(DrawingUtilities.CreateMeshPreviewImage)).ThrowIfFail(), retain)
         select raster;
 
-    public static IO<Disposal<Thumbnail>> Style(RhinoDoc doc, ComponentRef<DimensionStyle> address, Size extent, bool transparent, Action<Disposal<Thumbnail>> retain) =>
+    public static IO<Disposal<Thumbnail>> Style(RhinoDoc doc, ComponentRef<DimensionStyle> address, Size extent, float scale, bool transparent, Action<Disposal<Thumbnail>> retain) =>
         from style in TableOps.Find(doc.DimStyles, address, includeDeleted: false)
-        from pixels in HostTheme.Device(extent)
+        let pixels = Pixels(extent, scale)
         from raster in Lent(() => Refused.UnlessFound(style.CreatePreviewBitmap(pixels.Width, pixels.Height, transparent), nameof(DimensionStyle.CreatePreviewBitmap)).ThrowIfFail(), retain)
         select raster;
 
+    internal static System.Drawing.Size Pixels(Size extent, float scale) => new((int)MathF.Ceiling(extent.Width * scale), (int)MathF.Ceiling(extent.Height * scale));
+
     internal static IO<Thumbnail.Raster> Owned(System.Drawing.Bitmap lent, Func<Thumbnail.Raster, IO<Unit>> publish) =>
-        DisposalOps.Acquire(acquired => DisposalOps.Within(() => lent.ToEto(), shown => DisposalOps.Acquire(IO.lift(() => new Thumbnail.Raster(new Bitmap(shown))), static raster => raster.Pixels, acquired)),
+        DisposalOps.Acquire(acquired => DisposalOps.Within(() => lent.ToEto(), shown => DisposalOps.Acquire(
+                IO.lift(() => Refused.UnlessFound(SKImage.FromEncodedData(shown.ToByteArray(ImageFormat.Png)), nameof(SKImage.FromEncodedData)).Map(static image => new Thumbnail.Raster(image))),
+                static raster => raster.Pixels, acquired)),
             (raster, _) => publish(raster));
 
     private static IO<Disposal<Thumbnail>> Lent(Func<System.Drawing.Bitmap> render, Action<Disposal<Thumbnail>> retain) =>
@@ -219,20 +178,8 @@ public static class Thumbnails {
             },
             nameof(Linetype.SetSegment)));
 
-    private static Seq<Seq<PointF>> Channel(Curve curve, Linetype linetype, Size extent, double scale, int kind) =>
+    private static Seq<Seq<Vector2>> Channel(Curve curve, Linetype linetype, Size extent, double scale, int kind) =>
         toSeq(DrawingUtilities.CreateLinetypePreviewGeometryEx(curve, linetype, extent.Width, extent.Height, scale, kind))
-            .Map(static run => toSeq(run).Map(static point => new PointF(point.X, point.Y)).Strict())
+            .Map(static run => toSeq(run).Map(static point => new Vector2(point.X, point.Y)).Strict())
             .Strict();
-
-    // --- [CHECKER]
-    public static IO<Unit> Checker(PlotCanvas canvas, RectangleF bounds, Checkerboard board) =>
-        IO.lift(() => {
-            float square = board.Square(bounds);
-            canvas.Graphics.FillRectangle(board.Light, bounds);
-            _ = (from column in toSeq(Range(0, (int)MathF.Ceiling(bounds.Width / square)))
-                 from row in toSeq(Range(0, (int)MathF.Ceiling(bounds.Height / square)))
-                 where (column + row) % 2 is 1
-                 select RectangleF.Intersect(new RectangleF(bounds.X + (column * square), bounds.Y + (row * square), square, square), bounds))
-                .Iter(cell => canvas.Graphics.FillRectangle(board.Dark, cell));
-        });
 }

@@ -1,4 +1,3 @@
-using System.Numerics;
 using PeterO.Numbers;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document.Tables;
@@ -6,7 +5,6 @@ using Rhino;
 using Rhino.Geometry.Intersect;
 using Rhino.UI;
 using UnitsNet;
-using UnitSystem = Rhino.UnitSystem;
 
 namespace Rasm.Rhino.Document.Units;
 
@@ -42,6 +40,12 @@ public sealed partial class Tolerances {
             else
                 (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians) = (value.Absolute, value.Relative, value.Angle);
         }), this, site);
+
+    // --- [COMPARISON]
+    public bool Matches(Plane left, Plane right) =>
+        left.Origin.DistanceTo(right.Origin) <= Absolute
+        && Vector3d.VectorAngle(left.XAxis, right.XAxis) <= Angle
+        && Vector3d.VectorAngle(left.YAxis, right.YAxis) <= Angle;
 }
 
 [ComplexValueObject]
@@ -78,7 +82,7 @@ public sealed partial class DistanceDisplay {
     public Length Resolution(LengthUnit spaceUnit) =>
         Mode switch {
             DistanceDisplayMode.Decimal => Quantities.From(double.Exp10(-Precision), spaceUnit),
-            DistanceDisplayMode.Fractional or DistanceDisplayMode.FeetInches => Length.FromInches(QuantityValue.FromTerms(BigInteger.One, BigInteger.One << Precision)),
+            DistanceDisplayMode.Fractional or DistanceDisplayMode.FeetInches => Length.FromInches(QuantityValue.FromTerms(1, 1L << Precision)),
         };
 
     public string Format(Length length, LengthUnit spaceUnit, bool appendUnitSystemName) =>
@@ -96,13 +100,9 @@ public static class Quantities {
     public static double As(Length length, LengthUnit spaceUnit) =>
         (length.Meters * LengthUnit.Scale(LengthUnit.Meters, spaceUnit)).ToDouble();
 
-    public static Option<UnitSystem> System(UnitsNet.Units.LengthUnit lengthUnit) =>
-        toSeq(Enum.GetValues<UnitSystem>()).Filter(static system => system is not (UnitSystem.None or UnitSystem.CustomUnits or UnitSystem.Unset))
-            .Find(system => RhinoMath.UnitScale(system, UnitSystem.Meters) == Length.From(1, lengthUnit).Meters.ToDouble());
-
     // --- [SCALARS]
     public static ScalarDisplay Scalar<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds)
-        where TKey : struct, INumber<TKey> {
+        where TKey : struct, System.Numerics.INumber<TKey> {
         Option<(UnitInfo From, UnitInfo To)> units = presentation.Unit.Map(static keyUnit => (keyUnit, Quantity.GetUnitInfo(keyUnit.Value switch {
             UnitsNet.Units.AngleUnit => UnitsNet.Units.AngleUnit.Degree,
             UnitsNet.Units.RatioUnit.DecimalFraction => UnitsNet.Units.RatioUnit.Percent,

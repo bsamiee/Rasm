@@ -2,6 +2,7 @@ using System.Globalization;
 using Rasm.Rhino.Modeling;
 using Rasm.Rhino.UI;
 using Rhino;
+using Rhino.Commands;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
@@ -135,21 +136,17 @@ public static class Meshing {
 
     // --- [BATCH]
     public static IO<MeshBatch> MeshObjects(Seq<RhinoObject> rhinoObjects, MeshingParameters parameters, MeshRun run, Action<IDisposable> retain) =>
-        Copies.Owned(
-            () => run.Switch(
-                (Objects: rhinoObjects, Parameters: parameters),
-                unattended: static (state, unattended) => (
-                    Result: RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread),
-                    Meshes: meshes, Attributes: attributes, Interface: MeshInterface.NoInterface),
-                styled: static (state, styled) => {
-                    int style = styled.Interface.Key;
-                    return (
-                        Result: RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes),
-                        Meshes: meshes, Attributes: attributes, Interface: MeshInterface.Validated(style));
-                }),
-            static made => from accepted in Conversions.FromResult(made.Result, nameof(RhinoObject.MeshObjects))
-                           from closed in made.Interface
-                           from meshes in Measurements.Valid(toSeq<Mesh?>(made.Meshes), nameof(RhinoObject.MeshObjects))
-                           select new MeshBatch(meshes.Zip(Conversions.Rows(made.Attributes)), closed),
-            static made => DisposalOps.Release(Conversions.Rows<IDisposable>(made.Meshes) + Conversions.Rows<IDisposable>(made.Attributes)), retain);
+        from made in Copies.Acquire(nameof(RhinoObject.MeshObjects), _ => run.Switch(
+            (Objects: rhinoObjects, Parameters: parameters),
+            unattended: static (state, unattended) => Batched(
+                RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread), meshes, attributes, MeshInterface.NoInterface.Key),
+            styled: static (state, styled) => {
+                int style = styled.Interface.Key;
+                return Batched(RhinoObject.MeshObjects(state.Objects, ref state.Parameters, ref style, styled.Xform, out Mesh[] meshes, out ObjectAttributes[] attributes), meshes, attributes, style);
+            }), retain)
+        from closed in IO.lift(MeshInterface.Validated(made.Style))
+        select new MeshBatch(made.Rows, closed);
+
+    private static Answer<(Seq<(Mesh Mesh, ObjectAttributes Attributes)> Rows, int Style)> Batched(Result result, Mesh[]? meshes, ObjectAttributes[]? attributes, int style) =>
+        (Answer.Ended(result), Answer.Many(meshes), Answer.Many(attributes)).Apply((_, kept, rows) => (Rows: kept.Zip(rows), Style: style)).As();
 }

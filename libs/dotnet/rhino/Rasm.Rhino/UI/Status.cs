@@ -1,5 +1,4 @@
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Styling;
 using Rasm.UI;
 using Rhino;
 using Rhino.Runtime.Notifications;
@@ -10,7 +9,7 @@ using NativeNotificationCenter = Rhino.Runtime.Notifications.NotificationCenter;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record Notice(string Title, string Description, Option<string> Message, Notification.Severity Severity, Option<IGlyph> Glyph, Option<View.Panel> Reveal);
+public sealed record Notice(string Title, string Description, Option<string> Message, Notification.Severity Severity, Option<GlyphSource> Glyph, Option<View.Panel> Reveal);
 
 public sealed record NoticeReplies(Option<string> Confirm, Option<string> Alternate, Option<string> Cancel, Func<ButtonType, IO<Unit>> Clicked);
 

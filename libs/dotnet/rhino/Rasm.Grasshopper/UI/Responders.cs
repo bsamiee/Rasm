@@ -9,7 +9,6 @@ using Grasshopper2.UI.Flex;
 using Grasshopper2.Undo;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 
 namespace Rasm.Grasshopper.UI;
@@ -157,7 +156,7 @@ public sealed class FrameResponder : Responses, IResponsive {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Responders {
     // --- [MENUS]
-    public static IO<Unit> Menu(FlexControl control, Seq<Seq<CommandRow>> groups, RowScope scope, Action<IDisposable> retain) =>
+    public static IO<Unit> Menu(FlexControl control, Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>> groups, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
             from menus in IO.lift(static () => Ref(Some(HashMap<ContextMenu, IDisposable>())))
             from live in DisposalOps.Acquire(IO.pure(menus), static held => atomicIO(() => Taken(held)).Bind(DisposalOps.Release).Uninterruptible(), keep)
@@ -170,20 +169,17 @@ public static class Responders {
         return taken.ToSeq().Bind(static map => toSeq(map.Values));
     }
 
-    private static IO<Unit> Populated(PopulateContextMenuEventArgs args, Seq<Seq<CommandRow>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
+    private static IO<Unit> Populated(PopulateContextMenuEventArgs args, Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
         IO.lift(() => args.Control is not Canvas canvas
             || (args.IsMenu && canvas.ResolvePick(
                 canvas.Map(args.MouseEvent.Location, CoordinateSystem.Control, CoordinateSystem.Content),
                 includeGrips: false, includeForeground: true, includeBackground: true, includeWires: true, recursive: true).Kind is Pick.None))
             .Bind(joins => when(joins, Filled(args.Menu, groups, scope, menus)).As());
 
-    private static IO<Unit> Filled(ContextMenu host, Seq<Seq<CommandRow>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
+    private static IO<Unit> Filled(ContextMenu host, Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
         DisposalOps.Acquire(keep =>
             from site in IO.pure(new CallbackSite(scope.Sink, typeof(ContextMenu), nameof(ContextMenu.Closed)))
-            from realized in groups.TraverseM(@group => @group.TraverseM(command => command.Commands(scope, keep)).As()).As()
-            let menu = CommandRow.Menu(realized)
-            from filled in ChoiceRows.Populate(host,
-                menu.Groups.Map(static @group => @group.Map<MenuEntry>(static command => new MenuEntry.Item(command))), Seq(menu.Refresh), None, scope.Sink, keep)
+            from filled in CommandRows.Fill(host.Items, groups, scope, keep)
             from closed in Subscriptions.Attach(
                 handler => host.Closed += handler, handler => host.Closed -= handler,
                 Callbacks.Handler<EventArgs>(_ => atomicIO(() => {

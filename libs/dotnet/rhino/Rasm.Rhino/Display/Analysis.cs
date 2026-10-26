@@ -3,6 +3,8 @@ using System.Runtime.CompilerServices;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence.Settings;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Display;
@@ -34,8 +36,6 @@ public abstract partial record AnalysisDefinition {
     public Option<Func<RhinoObject, bool>> Supports { get; init; }
     public Option<IO<bool>> ShowIsoCurves { get; init; }
     public Option<Func<bool, IO<Unit>>> UserInterface { get; init; }
-    public Option<Func<RhinoObject, DisplayPipeline, IO<Unit>>> DrawObject { get; init; }
-    public Option<Func<RhinoObject, GeometryBase, DisplayPipeline, IO<Unit>>> DrawGeometry { get; init; }
 
     // --- [STYLES]
     public sealed record FalseColor(LocalizeStringPair Name, Func<RhinoObject, int, Mesh, int, double> Measure, IO<FalseColorScale> Scale) : AnalysisDefinition(Name) {
@@ -52,7 +52,10 @@ public abstract partial record AnalysisDefinition {
     }
 
     public sealed record Texture(LocalizeStringPair Name, Func<RhinoObject, Seq<ModeEdit>> SetUp) : AnalysisDefinition(Name);
-    public sealed record Wireframe(LocalizeStringPair Name) : AnalysisDefinition(Name);
+    public sealed record Wireframe(LocalizeStringPair Name) : AnalysisDefinition(Name) {
+        public Option<Func<RhinoObject, DisplayPipeline, IO<Unit>>> DrawObject { get; init; }
+        public Option<Func<RhinoObject, GeometryBase, DisplayPipeline, IO<Unit>>> DrawGeometry { get; init; }
+    }
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -80,17 +83,23 @@ public sealed partial class CurvatureFit {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : VisualAnalysisMode {
+public abstract class DefinedAnalysisMode : VisualAnalysisMode {
+    // --- [STATE]
+    private readonly AnalysisDefinition definition;
+    private readonly IPlugInViews owner;
+
+    protected DefinedAnalysisMode(AnalysisDefinition definition) => (this.definition, owner) = (definition, HostedTypes.Owner(GetType()));
+
     // --- [DEFINITION]
     public sealed override string Name => definition.Name.Local;
     public sealed override AnalysisStyle Style => definition.Map(falseColor: AnalysisStyle.FalseColor, texture: AnalysisStyle.Texture, wireframe: AnalysisStyle.Wireframe);
-    public sealed override bool ShowIsoCurves => Callbacks.Answer(definition.ShowIsoCurves, () => base.ShowIsoCurves, static () => false, CallbackSite.Of(this));
+    public sealed override bool ShowIsoCurves => Callbacks.Answer(definition.ShowIsoCurves, () => base.ShowIsoCurves, static () => false, CallbackSite.Of(owner, this));
 
     public sealed override void EnableUserInterface(bool on) =>
-        Callbacks.Run(definition.UserInterface.Map(show => IO.pure(on).Bind(show)), CallbackSite.Of(this));
+        Callbacks.Run(definition.UserInterface.Map(show => IO.pure(on).Bind(show)), CallbackSite.Of(owner, this));
 
     public sealed override bool ObjectSupportsAnalysisMode(RhinoObject obj) =>
-        Callbacks.Answer(definition.Supports.Map(supports => IO.lift(() => supports(obj))), () => base.ObjectSupportsAnalysisMode(obj), static () => false, CallbackSite.Of(this));
+        Callbacks.Answer(definition.Supports.Map(supports => IO.lift(() => supports(obj))), () => base.ObjectSupportsAnalysisMode(obj), static () => false, CallbackSite.Of(owner, this));
 
     // --- [APPEARANCE]
     protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
@@ -100,7 +109,7 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
                 falseColor: static (input, _) => IO.lift(() => { input.Attributes.ShadeVertexColors = true; }),
                 texture: static (input, texture) => IO.lift(() => texture.SetUp(input.Object).Traverse(edit => edit.Write(input.Attributes)).As()).Map(static _ => unit),
                 wireframe: static (_, _) => IO.pure(unit))),
-            CallbackSite.Of(this));
+            CallbackSite.Of(owner, this));
 
     protected sealed override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
         Callbacks.Run(
@@ -109,12 +118,18 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
                 falseColor: static (input, color) => color.Paint(input.Object, input.Meshes),
                 texture: static (_, _) => IO.pure(unit),
                 wireframe: static (_, _) => IO.pure(unit))),
-            CallbackSite.Of(this));
+            CallbackSite.Of(owner, this));
 
     // --- [DRAWING]
+    private Option<AnalysisDefinition.Wireframe> Wires =>
+        definition.Switch(
+            falseColor: static _ => Option<AnalysisDefinition.Wireframe>.None,
+            texture: static _ => Option<AnalysisDefinition.Wireframe>.None,
+            wireframe: static wires => Some(wires));
+
     protected sealed override void DrawCurveObject(CurveObject curve, DisplayPipeline pipeline) =>
-        definition.DrawObject.Match(
-            Some: draw => Callbacks.Run(IO.pure(curve).Bind(held => draw(held, pipeline)), CallbackSite.Of(this)),
+        Wires.Bind(static wires => wires.DrawObject).Match(
+            Some: draw => Callbacks.Run(IO.pure(curve).Bind(held => draw(held, pipeline)), CallbackSite.Of(owner, this)),
             None: () => base.DrawCurveObject(curve, pipeline));
 
     protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) => Drawn(brep, pipeline);
@@ -136,10 +151,10 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
     protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) => Drawn(obj, surface, pipeline);
 
     private void Drawn(RhinoObject obj, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
-        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(obj).Bind(held => draw(held, pipeline))), CallbackSite.Of(this, member));
+        Callbacks.Run(Wires.Bind(static wires => wires.DrawObject).Map(draw => IO.pure(obj).Bind(held => draw(held, pipeline))), CallbackSite.Of(owner, this, member));
 
     private void Drawn(RhinoObject obj, GeometryBase geometry, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
-        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(geometry).Bind(held => draw(obj, held, pipeline))), CallbackSite.Of(this, member));
+        Callbacks.Run(Wires.Bind(static wires => wires.DrawGeometry).Map(draw => IO.pure(geometry).Bind(held => draw(obj, held, pipeline))), CallbackSite.Of(owner, this, member));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

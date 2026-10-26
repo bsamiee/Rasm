@@ -1,13 +1,17 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Microsoft.VisualStudio.Threading;
+using Rhino.Runtime;
 
 namespace Rasm.Rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CallbackSite(IPlugInSink Sink, Type Owner, string Member) {
-    public static CallbackSite Of(object constructed, [CallerMemberName] string member = "") =>
-        new(IPlugInSink.Of(constructed), constructed.GetType(), member);
+    public static CallbackSite Of<TSink>(TSink sink, [CallerMemberName] string member = "") where TSink : IPlugInSink =>
+        new(sink, sink.GetType(), member);
+
+    public static CallbackSite Of(IPlugInSink sink, object owner, [CallerMemberName] string member = "") =>
+        new(sink, owner.GetType(), member);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -30,7 +34,7 @@ public static class Callbacks {
 
     public static T Answer<T>(Fin<T> answer, Func<T> failed, CallbackSite site) =>
         answer.IfFail(error => {
-            site.Sink.Report(error, site.Owner, site.Member);
+            _ = Report(error, site);
             return failed();
         });
 
@@ -38,7 +42,7 @@ public static class Callbacks {
         Answer(IO.pure(args).Bind(effect), failed, site);
 
     public static T Answer<T>(Option<IO<T>> effect, Func<T> absent, Func<T> failed, CallbackSite site) =>
-        effect.Match(Some: run => Answer(run, failed, site), None: absent);
+        effect.Match(Some: run => Answer(run, failed, site), None: () => Answer(Try.lift(absent).Run(), failed, site));
 
     public static bool Succeeded<T>(IO<T> effect, CallbackSite site) =>
         Answer(effect.Map(value: true), static () => false, site);
@@ -47,19 +51,24 @@ public static class Callbacks {
         Answer(answer.Map(static _ => true), static () => false, site);
 
     public static bool Succeeded<T>(Option<IO<T>> effect, Func<bool> absent, CallbackSite site) =>
-        effect.Match(Some: run => Succeeded(run, site), None: absent);
+        Answer(effect.Map(static run => run.Map(value: true)), absent, static () => false, site);
 
     public static void Run<T>(IO<T> effect, CallbackSite site) =>
         Run(Settled(effect, CancellationToken.None), site);
 
     public static void Run<T>(Fin<T> answer, CallbackSite site) =>
-        answer.IfFail(error => site.Sink.Report(error, site.Owner, site.Member));
+        answer.IfFail(error => Report(error, site));
 
     public static void Run<T>(Option<IO<T>> effect, CallbackSite site) =>
         effect.Iter(run => Run(run, site));
 
     public static void Started<T>(IO<T> effect, CallbackSite site) =>
-        Started(effect.Map(unit).IfFail(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member))));
+        Started(effect.Map(unit).IfFail(error => IO.lift(() => Report(error, site))));
+
+    private static Unit Report(Error error, CallbackSite site) =>
+        Try.lift(fun(() => site.Sink.Report(error, site.Owner, site.Member)))
+            .Run()
+            .IfFail(fault => HostUtils.ExceptionReport($"{site.Owner.FullName}.{site.Member}", (error + fault).ToException()));
 
     internal static void Started(IO<Unit> effect) =>
         Pending.Add(Threading.Factory.RunAsync(() => effect.RunAsync(CancellationToken.None).AsTask()));

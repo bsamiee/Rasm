@@ -1,6 +1,5 @@
 using System.Globalization;
 using Rhino;
-using Rhino.PlugIns;
 using Rhino.Runtime;
 using Rhino.UI;
 
@@ -9,8 +8,6 @@ namespace Rasm.Rhino;
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IPlugInSink {
     public void Report(Error error, Type owner, string member);
-
-    public static IPlugInSink Of(object constructed) => constructed as IPlugInSink ?? (IPlugInSink)PlugIn.Find(constructed.GetType().Assembly);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

@@ -108,25 +108,25 @@ public static class RhinoObjects {
         IO.lift(() => Callbacks.Each(components, component => o.HighlightSubObject(component, highlight) == highlight, nameof(RhinoObject.HighlightSubObject)));
 
     // --- [CUTS]
-    public static IO<Seq<Cut>> CreateCuts(RhinoObject o, Plane plane, string name, Option<double> thickness, Tolerances tolerances, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Seq<Cut>> CreateCuts(Tolerances tolerances, RhinoObject o, Plane plane, string name, Option<double> thickness, IPlugInSink sink, Action<IDisposable> retain) =>
         from localized in IO.lift(() => RowText.Localize(name, sink).Local)
-        from answer in Copies.Owned(
-            () => thickness.Match(
-                Some: value => (Results: o.CreateSlices(plane, localized, value, tolerances.Absolute, out ObjectAttributes[] rows), Rows: rows, Member: nameof(RhinoObject.CreateSlices)),
-                None: () => (Results: o.CreateSections(plane, localized, tolerances.Absolute, out ObjectAttributes[] rows), Rows: rows, Member: nameof(RhinoObject.CreateSections))),
-            static made => Measurements.Valid(toSeq<GeometryBase?>(made.Results), made.Member)
-                .Map(kept => kept.Zip(toSeq(made.Rows), static (geometry, attributes) => new Cut(geometry, attributes))),
-            static made => DisposalOps.Release(Conversions.Rows<IDisposable>([.. made.Results, .. made.Rows])), retain)
-        select answer;
+        from cuts in thickness.Match(
+            Some: value => Copies.Acquire(nameof(RhinoObject.CreateSlices), _ => Cuts(o.CreateSlices(plane, localized, value, tolerances.Absolute, out ObjectAttributes[] rows), rows), retain),
+            None: () => Copies.Acquire(nameof(RhinoObject.CreateSections), _ => Cuts(o.CreateSections(plane, localized, tolerances.Absolute, out ObjectAttributes[] rows), rows), retain))
+        select cuts;
+
+    private static Answer<Seq<Cut>> Cuts(GeometryBase[]? results, ObjectAttributes[]? rows) =>
+        (Answer.Many(results), Answer.Many(rows)).Apply(static (kept, attributes) => kept.Zip(attributes, static (geometry, row) => new Cut(geometry, row))).As();
 
     // --- [REPLACEMENT]
-    public static IO<TResult> ReplaceGeometry<T, TResult>(RhinoDoc doc, Guid id, Func<T, IO<TResult>> edit) where T : GeometryBase =>
+    public static IO<TResult> ReplaceGeometry<T, TResult>(RhinoDoc doc, Guid id, Func<T, Action<IDisposable>, IO<(T Geometry, TResult Result)>> edit) where T : GeometryBase =>
         from resolved in ObjectTarget.Resolve<RhinoObject, T>(doc, id)
-        from result in DisposalOps.Within(
-            (Action<IDisposable> held) => from copy in Copies.DuplicateShallow(resolved.Geometry, held)
-                                          from edited in IO.pure(copy).Bind(edit)
-                                          from landed in TableOps.Apply(doc, new TableOp.Replace(id, copy, IgnoreModes: false))
-                                          select edited,
-            DisposalOps.Release)
+        from result in DisposalOps.Within(() => new ObjRef(resolved.Object), reference => DisposalOps.Within(
+            (Action<IDisposable> held) => from target in Copies.Acquire(nameof(ObjRef.Geometry), _ => Answer.One(reference.Geometry() as T), held)
+                                          from privated in IO.lift(target.EnsurePrivateCopy)
+                                          from edited in edit(target, held)
+                                          from landed in TableOps.Apply(doc, new TableOp.Replace(id, edited.Geometry, IgnoreModes: false))
+                                          select edited.Result,
+            DisposalOps.Release))
         select result;
 }

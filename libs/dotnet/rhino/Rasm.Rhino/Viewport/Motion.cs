@@ -1,53 +1,38 @@
 using Eto.Forms;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Events;
 using Rasm.Rhino.Modeling;
+using Rasm.Rhino.UI.Styling;
 using Rasm.UI;
+using Rasm.UI.Styling;
 using Rhino;
 
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class FrameTick {
-    public static readonly FrameTick Next = new();
-    public static readonly FrameTick Final = new();
-}
+public sealed record CameraMove(ViewportSet Viewports, CameraPose To, TimingCurve Curve, RedrawPolicy Redraw);
 
-public sealed record CameraMove(ViewportSet Viewports, CameraPose From, CameraPose To, TimingCurve Curve, RedrawPolicy Redraw);
-
-internal sealed record Leg(CameraPose From, CameraPose To, Duration Start);
+internal sealed record Leg(ViewportRef Row, CameraPose From, CameraPose Shown, uint Written, TimingCurve Curve);
 
 [Union]
 internal abstract partial record Phase {
     internal sealed record Running(IDisposable Source) : Phase;
 
-    internal sealed record Paused(Duration Since) : Phase;
+    internal sealed record Paused : Phase;
 
     internal sealed record Stopped : Phase;
 }
 
-internal sealed record Course(Leg Leg, CameraPose Shown, Duration Excluded, Phase Phase, TimingCurve Curve) {
-    public Duration Motion(Duration elapsed) =>
-        Phase.Switch(
-            elapsed,
-            running: static (at, _) => at,
-            paused: static (_, paused) => paused.Since,
-            stopped: static (at, _) => at)
-        - Excluded;
+internal sealed record Course(Seq<Leg> Legs, CameraPose To, Duration Start, Duration Clock, Option<Duration> Last, Phase Phase) {
+    public Course Ticked(Duration tick) =>
+        this with { Clock = Last.Match(Some: last => Clock + (tick - last), None: () => Clock), Last = tick };
 
-    public Option<Reduced<double>> Sample(FrameTick tick, Duration elapsed) =>
-        Phase.Map(
-            running: Some(tick.Map(next: Curve.Sample(Motion(elapsed) - Leg.Start), final: TimingCurve.End)),
-            paused: Option<Reduced<double>>.None,
-            stopped: Option<Reduced<double>>.None);
-
-    public Course Resumed(Phase.Paused paused, Duration elapsed, IDisposable source) =>
-        this with { Excluded = Excluded + (elapsed - paused.Since), Phase = new Phase.Running(source) };
-
-    public Course Retargeted(CameraPose goal, Duration elapsed) =>
-        (At: Motion(elapsed), Was: Span(Leg.From, Leg.To), Now: Span(Shown, goal)) switch {
-            var held => this with { Leg = new Leg(Shown, goal, held.At), Curve = Curve.From(held.Now > 0d ? Curve.Velocity(held.At - Leg.Start) * held.Was / held.Now : 0d) },
+    public Course Retargeted(CameraPose goal) =>
+        this with {
+            To = goal,
+            Start = Clock,
+            Legs = Legs.Map(leg => (Was: Span(leg.From, To), Now: Span(leg.Shown, goal)) switch {
+                var span => leg with { From = leg.Shown, Curve = leg.Curve.From(span.Now > 0d ? leg.Curve.Velocity(Clock - Start) * span.Was / span.Now : 0d) },
+            }).Strict(),
         };
 
     private static double Span(CameraPose from, CameraPose to) => from.Frame.Origin.DistanceTo(to.Frame.Origin) + from.Target.DistanceTo(to.Target);
@@ -56,10 +41,9 @@ internal sealed record Course(Leg Leg, CameraPose Shown, Duration Excluded, Phas
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed record Pacing(
     RhinoDoc Document,
-    CameraMove Move,
-    Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Frames,
-    IO<Duration> Elapsed,
-    Conduit<FrameTick, FrameTick> Ticks,
+    RedrawPolicy Redraw,
+    Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Frames,
+    Conduit<Duration, Duration> Ticks,
     Atom<Course> Course) {
     public IO<Unit> Halt() =>
         Course.ValueIO.Bind(held => held.Phase.Switch(
@@ -84,8 +68,7 @@ public sealed class MotionHandle {
         pacing.Course.ValueIO.Bind(held => held.Phase.Switch(
             pacing,
             running: static (state, running) =>
-                from elapsed in state.Elapsed
-                from swapped in state.Course.SwapIO(course => course with { Phase = new Phase.Paused(elapsed) })
+                from swapped in state.Course.SwapIO(static course => course with { Phase = new Phase.Paused(), Last = None })
                 from released in IO.lift(running.Source.Dispose)
                 select released,
             paused: static (_, _) => IO.pure(unit),
@@ -95,21 +78,15 @@ public sealed class MotionHandle {
         pacing.Course.ValueIO.Bind(held => held.Phase.Switch(
             pacing,
             running: static (_, _) => IO.pure(unit),
-            paused: static (state, paused) => DisposalOps.Acquire(owned =>
-                from attached in state.Frames(state.Ticks.Sink, owned)
-                from elapsed in state.Elapsed
-                select elapsed,
-                (elapsed, source) => {
-                    _ = state.Course.Swap(course => course.Resumed(paused, elapsed, source));
-                    return IO.pure(unit);
-                }).Map(unit),
-            stopped: static (_, _) => IO.fail<Unit>(Error.New("motion ended"))));
+            paused: static (state, _) => DisposalOps.Acquire(
+                owned => state.Frames(state.Ticks.Sink, owned),
+                (_, source) => state.Course.SwapIO(course => course with { Phase = new Phase.Running(source), Last = None }).Map(unit)),
+            stopped: static (_, _) => IO.fail<Unit>(Errors.Cancelled)));
 
     public IO<Unit> Retarget(CameraPose goal) =>
         from held in pacing.Course.ValueIO
-        from live in held.Phase.Map(running: IO.pure(unit), paused: IO.pure(unit), stopped: IO.fail<Unit>(Error.New("motion ended")))
-        from elapsed in pacing.Elapsed
-        from moved in pacing.Course.SwapIO(course => course.Retargeted(goal, elapsed))
+        from live in held.Phase.Map(running: IO.pure(unit), paused: IO.pure(unit), stopped: IO.fail<Unit>(Errors.Cancelled))
+        from moved in pacing.Course.SwapIO(course => course.Retargeted(goal))
         select unit;
 
     public IO<Unit> Stop() => pacing.Halt();
@@ -118,21 +95,11 @@ public sealed class MotionHandle {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Motions {
     // --- [SOURCES]
-    public static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Idle { get; } = Turns(FrameTick.Next);
-
-    public static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Final { get; } = Turns(FrameTick.Final);
-
-    public static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Timer(MotionSpan period) =>
+    public static Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> Timer(MotionSpan period, TimeProvider time) =>
         (ticks, retain) => Copies.Owned(
-            () => new UITimer((_, _) => ticks.Post(FrameTick.Next).Run()) { Interval = ((Duration)period).TotalSeconds },
+            () => new UITimer((_, _) => ticks.Post(Duration.FromSeconds(time.GetTimestamp() / (double)time.TimestampFrequency)).Run()) { Interval = ((Duration)period).TotalSeconds },
             static timer => IO.lift(timer.Start),
             static timer => Callbacks.Each(Seq(IO.lift(timer.Stop), IO.lift(timer.Dispose))).Map(unit), retain);
-
-    private static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Turns(FrameTick tick) =>
-        (ticks, retain) => Subscriptions.Attach<EventHandler>(
-            static handler => RhinoApp.Idle += handler,
-            static handler => RhinoApp.Idle -= handler,
-            (_, _) => ticks.Post(tick).Run(), retain);
 
     // --- [POSES]
     public static Fin<CameraPose> Interpolated(CameraPose from, CameraPose to, double progress) =>
@@ -140,12 +107,16 @@ public static class Motions {
                 Quaternion.Slerp(Quaternion.Rotation(Plane.WorldXY, from.Frame), Quaternion.Rotation(Plane.WorldXY, to.Frame), progress).GetRotation(out Plane turned),
                 turned,
                 nameof(Quaternion.GetRotation)),
+            Local(from),
+            Local(to),
             Lens(from.Lens, to.Lens, progress))
-        .Apply((rotated, lens) => new CameraPose(
-            new Plane(new Line(from.Frame.Origin, to.Frame.Origin).PointAt(progress), rotated.XAxis, rotated.YAxis),
-            new Line(from.Target, to.Target).PointAt(progress),
-            lens))
+        .Apply((rotated, near, far, lens) => new Plane(new Line(from.Target, to.Target).PointAt(progress), rotated.XAxis, rotated.YAxis) switch {
+            var aimed => new CameraPose(new Plane(new Line(near, far).PointAt(progress) switch { var at => aimed.PointAt(at.X, at.Y, at.Z) }, rotated.XAxis, rotated.YAxis), aimed.Origin, lens),
+        })
         .As();
+
+    private static Fin<Point3d> Local(CameraPose pose) =>
+        Refused.Unless(new Plane(pose.Target, pose.Frame.XAxis, pose.Frame.YAxis).RemapToPlaneSpace(pose.Frame.Origin, out Point3d local), local, nameof(Plane.RemapToPlaneSpace));
 
     private static Fin<CameraLens> Lens(CameraLens from, CameraLens to, double progress) =>
         to.Switch(
@@ -167,14 +138,15 @@ public static class Motions {
                     .Map<CameraLens>(angle => new CameraLens.TwoPoint(angle, goal.Up))));
 
     // --- [DRIVE]
-    public static IO<MotionHandle> Drive(RhinoDoc document, CameraMove move, Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> frames, TimeProvider time, IPlugInSink sink,
+    public static IO<MotionHandle> Drive(RhinoDoc document, CameraMove move, Func<Sink<Duration>, Action<IDisposable>, IO<Unit>> frames, IPlugInSink sink,
         Action<MotionHandle, IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-        from ticks in Copies.Owned(static () => Conduit.make(Buffer<FrameTick>.New), static open => Fin.Succ(open), static open => open.Complete(), owned)
-        from start in IO.lift(time.GetTimestamp)
+        from rows in Viewports.Resolve(document, move.Viewports, owned)
+        from curve in IO.lift(() => HostTheme.Conditions.Contains(Condition.ReduceMotion) ? new TimingCurve.Instant() : move.Curve)
+        from legs in rows.TraverseM(row => Cameras.Read(row.Viewport).Map(pose => new Leg(row, pose, pose, row.Viewport.ChangeCounter, curve))).As()
+        from ticks in Copies.Owned(static () => Conduit.make(Buffer<Duration>.New), static open => Fin.Succ(open), static open => open.Complete(), owned)
         from pacing in Copies.Owned(() => new Pacing(
-            document, move, frames, IO.lift(() => time.GetElapsedTime(start).ToDuration()), ticks,
-            Atom(new Course(new Leg(move.From, move.To, Duration.Zero), move.From, Duration.Zero, new Phase.Paused(Duration.Zero), move.Curve))),
+            document, move.Redraw, frames, ticks, Atom(new Course(legs, move.To, Duration.Zero, Duration.Zero, None, new Phase.Paused()))),
             static state => Fin.Succ(state), static state => state.Halt(), owned)
         from consumer in DisposalOps.Fork(
             DisposalOps.Within(() => pacing, static state => state.Ticks.Reduce(unit, (_, tick) => Frame(state, tick)), static state => state.Halt().OnUiThread())
@@ -184,18 +156,26 @@ public static class Motions {
         from resumed in handle.Resume()
         select handle, retain);
 
-    private static IO<Reduced<Unit>> Frame(Pacing pacing, FrameTick tick) =>
-        (from course in pacing.Course.ValueIO
-         from elapsed in pacing.Elapsed
-         from reduced in course.Sample(tick, elapsed).Match(
-             Some: sample => Show(pacing, course.Leg, sample),
-             None: static () => Reduced.ContinueIO(unit))
+    private static IO<Reduced<Unit>> Frame(Pacing pacing, Duration tick) =>
+        (from course in pacing.Course.SwapIO(held => held.Phase.Map(running: held.Ticked(tick), paused: held, stopped: held))
+         from reduced in course.Phase.Switch(
+             (Pacing: pacing, Course: course),
+             running: static (state, _) => Show(state.Pacing, state.Course, state.Course.Clock - state.Course.Start),
+             paused: static (_, _) => Reduced.ContinueIO(unit),
+             stopped: static (_, _) => Reduced.DoneIO(unit))
          select reduced)
         .OnUiThread();
 
-    private static IO<Reduced<Unit>> Show(Pacing pacing, Leg leg, Reduced<double> sample) =>
-        from pose in IO.lift(Interpolated(leg.From, leg.To, sample.Value))
-        from written in Viewports.Edit(pacing.Document, pacing.Move.Viewports, port => IO.lift(() => Cameras.Write(port, pose)), pacing.Move.Redraw)
-        from shown in pacing.Course.SwapIO(course => course with { Shown = pose })
-        select sample.Map(static _ => unit);
+    private static IO<Reduced<Unit>> Show(Pacing pacing, Course course, Duration at) =>
+        from shown in Commits.WithinRedraw(pacing.Document, pacing.Redraw, IO.lift(() => course.Legs
+            .Filter(static leg => leg.Row.Viewport.ChangeCounter == leg.Written)
+            .Traverse(leg => leg.Curve.Sample(at) switch {
+                var sample =>
+                    from pose in Interpolated(leg.From, course.To, sample.Value)
+                    from written in Cameras.Write(leg.Row.Viewport, pose)
+                    from committed in leg.Row.Commit()
+                    select (Leg: leg with { Shown = pose, Written = leg.Row.Viewport.ChangeCounter }, Sample: sample),
+            }).As()))
+        from swapped in pacing.Course.SwapIO(held => held with { Legs = shown.Map(static moved => moved.Leg) })
+        select shown.ForAll(static moved => !moved.Sample.Continue) ? Reduced.Done(unit) : Reduced.Continue(unit);
 }

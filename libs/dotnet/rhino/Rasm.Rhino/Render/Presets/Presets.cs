@@ -149,25 +149,26 @@ public sealed class PresetBinding {
         JsonFiles.Write(OutputPath.Create(file.FullName), values, ValueSetContext.Default.ValueSet, overwrite);
 
     // --- [ROWS]
-    public IO<Seq<MenuPick>> Listing() =>
+    public IO<Seq<Seq<Rasm.UI.Command<RowRule, Invoke>>>> Listing() =>
         from shelf in Shelf
         from current in Matched(shelf)
-        select shelf.Listed.Map(preset => (MenuPick)new MenuPick.Item(preset.Caption(scope.Sink), current.Exists(held => held == preset), Apply(preset).Map(unit)))
-            .Add(new MenuPick.Item(RowText.Localize("Save Preset...").Local, Marked: false, Saved(current)))
-            .Concat(current.Filter(static held => held.File.IsSome)
-                .Map(static held => (MenuPick)new MenuPick.Item(RowText.Localize("Delete {0}", arguments: [(string)held.Name]).Local, Marked: false, Delete(held)))
-                .ToSeq());
+        select Seq(
+            shelf.Listed.Map(preset => (Rasm.UI.Command<RowRule, Invoke>)CommandRows.Picked(
+                new Rasm.UI.CommandFace((string)preset.Name, (string)preset.Name, None, None), current.Exists(held => held == preset), _ => Apply(preset).Map(unit))),
+            Seq<Rasm.UI.Command<RowRule, Invoke>>(Run("preset-save", "Save Preset...", "Save section values as preset", _ => Saved(current)))
+                + current.Filter(static held => held.File.IsSome).Map(static held => (Rasm.UI.Command<RowRule, Invoke>)Run(
+                    "preset-delete-current", RowText.Localize("Delete {0}", arguments: [(string)held.Name]).Local, "Delete current user preset", _ => Delete(held))).ToSeq());
 
     public static ControlRow Browser(EffectSource source, string owner, Seq<Preset> stock) =>
         fun((RowScope scope) => EffectRegistry.Bindings(source, scope.Sink).Map(group => new PresetBinding(scope, group, owner, stock))) switch {
             var bindings => ListRows.Browser("Presets", "Stock looks and saved presets", new BrowserRow<Preset, PresetName>(
                     Key: static preset => preset.Name,
                     Label: static (scope, preset) => preset.Caption(scope.Sink),
-                    Tile: (scope, view, preset, box, retain) =>
+                    Tile: (scope, preset, extent) =>
                         from tiles in PreviewTiles.Current.Of(scope.Sink)
                         from binding in bindings(scope)
                         from request in binding.Requested(source, preset).OnUiThread()
-                        from thumbnail in tiles.Thumbnail(view, request, box, retain)
+                        from thumbnail in tiles.Thumbnail(request, extent, headroom: 1f)
                         select thumbnail,
                     Items: scope => new ValueStore<Seq<Preset>>(
                         bindings(scope).Bind(static binding => binding.Shelf).Map(static shelf => Some(shelf.Listed)),
@@ -213,8 +214,8 @@ public sealed class PresetBinding {
                 RowRules.Always),
         };
 
-    private static CommandRow.Run Run(string name, string caption, string help, Func<RowScope, IO<Unit>> execute) =>
-        new(new CommandFace(name, caption, help, None, None), None, execute);
+    private static Rasm.UI.Command<RowRule, Invoke>.Run Run(string name, string caption, string help, Func<RowScope, IO<Unit>> execute) =>
+        new(new Rasm.UI.CommandFace(name, caption, Some(help), None), None, new Invoke.Effect(execute));
 
     private IO<TileRequest> Requested(EffectSource source, Preset preset) =>
         from history in RenderHistory.Current.Of(scope.Sink)

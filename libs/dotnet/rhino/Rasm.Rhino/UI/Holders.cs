@@ -1,12 +1,14 @@
 using System.Drawing;
+using System.Globalization;
 using Eto.Forms;
 using NodaTime.Text;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino;
+using Rhino.Resources;
 using Rhino.UI.Controls;
 using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
@@ -68,8 +70,7 @@ public sealed class ViewBody : IDisposable {
             let scope = enclosing.Nested(ViewOps.Settings(owner, row), history, ViewOps.Locks(row, enclosing.Document))
             from hidden in scope.Shown(visible: false)
             from content in ViewOps.Realize(owner, row.Children, scope, owned.Retain)
-            from clicks in (from section in Optional(row as View.Section) from held in history select Actions(section).TraverseM(entry => entry.Realize(owner, held, scope, owned.Retain)).As())
-                .IfNone(IO.pure(Seq<IO<Unit>>()))
+            from clicks in Optional(row as View.Section).ToSeq().Bind(static section => section.Actions).TraverseM(action => CommandRows.Press(action, scope, owned.Retain)).As()
             from built in IO.lift(() => new ViewBody(row, content, scope, enclosing, bindings, clicks, listening, owned))
             from visibility in enclosing.OnVisibility(_ => built.Evaluated, owned.Retain)
             select built,
@@ -117,61 +118,19 @@ public sealed class ViewBody : IDisposable {
 
     // --- [HEADER]
     public static Option<IHeaderButtonHandler> Header(View.Section row, IO<Option<ViewBody>> current, IPlugInSink sink) =>
-        Actions(row) switch {
+        row.Actions switch {
             { IsEmpty: true } => None,
-            var actions => Some<IHeaderButtonHandler>(new HeaderButtons(actions.Map(static entry => (entry.Caption, entry.Glyph)), index =>
+            var actions => Some<IHeaderButtonHandler>(new HeaderButtons(actions.Map(static action => action.Face), index =>
                 current.Bind(held => IO.lift(held.Bind(body => body.clicks.At(index)).ToFin(new Refused(nameof(clicks), Refused.Absent)))).Bind(static click => click), sink, row.Identity)),
-        };
-
-    private static Seq<(string Caption, GlyphRole Glyph, Func<IPlugInViews, HistoryBinding, RowScope, Action<IDisposable>, IO<IO<Unit>>> Realize)> Actions(View.Section row) =>
-        row.Store.IsSome
-            ? [
-                .. row.Presets.Map(static listing => ("Presets", GlyphRole.Presets, fun((IPlugInViews owner, HistoryBinding _, RowScope scope, Action<IDisposable> retain) => Popped(listing(scope), owner, retain)))).ToSeq(),
-                ("Values", GlyphRole.Options, (owner, history, scope, retain) => Popped(Listing(owner, row.Children.Bind(static child => child.Controls), history, scope), owner, retain)),
-                ("Reset", GlyphRole.Reset, static (_, history, scope, _) => IO.pure(scope.Commit(history.Group, history.Group.Defaults).Map(unit))),
-            ]
-            : [];
-
-    private static IO<IO<Unit>> Popped(IO<Seq<MenuPick>> listing, IPlugInSink sink, Action<IDisposable> retain) =>
-        ChoiceRows.Menu(Seq<Seq<MenuEntry>>(), Seq<IO<Unit>>(), Some(listing), sink, retain).Map(static menu => IO.lift(() => menu.Show()));
-
-    // --- [VALUES]
-    private static IO<Seq<MenuPick>> Listing(IPlugInViews owner, Seq<ControlRow> controls, HistoryBinding history, RowScope scope) =>
-        from held in history.History
-        from pastes in IO.lift(static () => Clipboard.Instance.ContainsText)
-        from zone in IO.lift(() => owner.Clock.ToZonedClock().Zone)
-        let stamp = LocalDateTimePattern.Create("g", RowText.Culture)
-        select Seq(
-                held.Done.Head.Map<MenuPick>(entry => Pick(RowText.Localize("Undo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Undo, scope))),
-                held.Undone.Head.Map<MenuPick>(entry => Pick(RowText.Localize("Redo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Redo, scope))),
-                Some<MenuPick>(Pick(RowText.Localize("Copy values").Local, Transfer.Copy(history.Group, None, scope))),
-                Some<MenuPick>(Pick(RowText.Localize("Paste values").Local, Transfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
-                Some<MenuPick>(Pick(RowText.Localize("Clear history").Local, history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty)),
-                Some<MenuPick>(new MenuPick.Group(RowText.Localize("Restore").Local, held.Done.Map<MenuPick>(entry => Pick(
-                    RowText.Localize("{0}, {1}", arguments: [Described(entry, controls, owner), stamp.Format(entry.At.InZone(zone).LocalDateTime)]).Local,
-                    Heard(history.Restore(entry.Serial), scope))))).Filter(_ => !held.Done.IsEmpty))
-            .Somes();
-
-    private static MenuPick.Item Pick<T>(string caption, IO<T> run) => new(caption, Marked: false, run.Map(unit));
-
-    private static IO<ValueDiff> Heard(IO<ValueDiff> step, RowScope scope) =>
-        from diff in step
-        from changed in scope.Changed(toSeq(diff.Changes.Keys))
-        select diff;
-
-    private static string Described(HistoryEntry entry, Seq<ControlRow> controls, IPlugInSink sink) =>
-        controls.Filter(control => control.Keys.Exists(entry.Diff.Changes.ContainsKey)) switch {
-            [var only] => RowText.Localize(only.Caption, sink).Local,
-            _ => RowText.Localize("{0} values", arguments: [entry.Diff.Changes.Count]).Local,
         };
 }
 
-internal sealed class HeaderButtons(Seq<(string Caption, GlyphRole Glyph)> actions, Func<int, IO<Unit>> click, IPlugInSink sink, Type owner) : IHeaderButtonHandler {
+internal sealed class HeaderButtons(Seq<CommandFace> faces, Func<int, IO<Unit>> click, IPlugInSink sink, Type owner) : IHeaderButtonHandler {
     public bool ButtonDetails(int index, ref Bitmap iconOut, ref string sToolTipOut) {
         (bool Shown, Bitmap Icon, string ToolTip) held = (false, iconOut, sToolTipOut);
         (bool shown, iconOut, sToolTipOut) = Callbacks.Answer(
-            actions.At(index)
-                .Traverse(action => Icons.Raster(action.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(action.Caption, sink).Local)))
+            faces.At(index).Bind(static face => face.Glyph.Map(glyph => (Face: face, Glyph: glyph)))
+                .Traverse(shown => Icons.Raster(shown.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(shown.Face.Caption, sink).Local)))
                 .As()
                 .Map(found => found.IfNone(held)),
             () => held,
@@ -180,7 +139,7 @@ internal sealed class HeaderButtons(Seq<(string Caption, GlyphRole Glyph)> actio
     }
 
     public bool OnButtonClicked(int index) =>
-        Callbacks.Succeeded(actions.At(index).Map(_ => click(index)), static () => false, new CallbackSite(sink, owner, nameof(OnButtonClicked)));
+        Callbacks.Succeeded(faces.At(index).Map(_ => click(index)), static () => false, new CallbackSite(sink, owner, nameof(OnButtonClicked)));
 
     public Rectangle ButtonRect(int index, Rectangle rectHeader) =>
         Callbacks.Answer(IconSlot.SectionHeader.Size().Map(static size => new Rectangle(0, 0, size, size)), static () => Rectangle.Empty, new CallbackSite(sink, owner, nameof(ButtonRect)));
@@ -256,24 +215,25 @@ public sealed class SectionLifetime : IDisposable {
 
 public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     // --- [STATE]
+    private readonly IPlugInViews owner;
     private readonly Option<int> above;
 
-    private SectionHolder(Option<int> above) => this.above = above;
+    private SectionHolder(IPlugInViews owner, Option<int> above) => (this.owner, this.above) = (owner, above);
 
     // --- [HOLD]
     public static IO<SectionHolder> Hold(IPlugInViews owner, HolderRow holder, RowScope scope, Action<IDisposable> retain) =>
-        from stack in DisposalOps.Acquire(IO.lift(() => new SectionHolder(holder.Switch(stacked: static _ => Option<int>.None, filled: static filled => Some(filled.Above.Count)))), retain)
+        from stack in DisposalOps.Acquire(IO.lift(() => new SectionHolder(owner, holder.Switch(stacked: static _ => Option<int>.None, filled: static filled => Some(filled.Above.Count)))), retain)
         from sections in holder.Sections.TraverseM(row => Section(owner, row, scope, stack.Add)).As()
         from fitted in IO.lift(stack.Fit)
         select stack;
 
     public static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, RowScope scope, Action<DefinedSection> retain) =>
-        Section(owner, row, () => (DefinedSection)Activator.CreateInstance(row.Identity)!, scope, retain);
+        Section(owner, row, () => (DefinedSection)Activator.CreateInstance(row.Identity, owner)!, scope, retain);
 
     public static IO<SectionHolder> Disclose(IPlugInViews owner, ContainerRow.Disclosure disclosure, RowScope scope, Action<IDisposable> retain) =>
         new View.Section { Identity = typeof(DisclosureSection), Caption = disclosure.Caption, Children = toSeq(disclosure.Body) } switch {
             var row =>
-                from stack in DisposalOps.Acquire(IO.lift(static () => new SectionHolder(None)), retain)
+                from stack in DisposalOps.Acquire(IO.lift(() => new SectionHolder(owner, None)), retain)
                 from section in Section(owner, row, () => new DisclosureSection(row, owner, UUIDNext.Uuid.NewNameBased(owner.PlugIn.Id, disclosure.Caption), disclosure.Expanded), scope, stack.Add)
                 select stack,
         };
@@ -289,8 +249,7 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
         content switch {
             SectionHolder stack => Callbacks.Each(toSeq(stack.Sections).Choose(static section => Optional(section as EtoCollapsibleSection2))
                 .Map(section => IO.lift(() => section.HolderVisible(visible)))).Map(unit),
-            TabControl tabs => Callbacks.Each(toSeq(tabs.Pages).Map(page => Shown(page, visible && ReferenceEquals(page, tabs.SelectedPage)))).Map(unit),
-            Container container => Callbacks.Each(toSeq(container.Controls).Map(child => Shown(child, visible))).Map(unit),
+            Container container and not TabControl => Callbacks.Each(toSeq(container.Controls).Map(child => Shown(child, visible))).Map(unit),
             _ => IO.pure(unit),
         };
 
@@ -309,6 +268,55 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     protected override void OnPreLoad(EventArgs e) {
         base.OnPreLoad(e);
         if (UseScrollbars && toSeq(Parents).Exists(static parent => parent is Scrollable))
-            Callbacks.Run(IO.lift(() => { UseScrollbars = false; }), CallbackSite.Of(this));
+            Callbacks.Run(IO.lift(() => { UseScrollbars = false; }), CallbackSite.Of(owner, this));
     }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class SectionCommands {
+    // --- [ACTIONS]
+    public static Command<RowRule, Invoke>.Run Presets(Func<RowScope, IO<Seq<Seq<Command<RowRule, Invoke>>>>> listing) =>
+        new(new CommandFace("section-presets", "Presets", None, Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "presets.svg"))), None, new Invoke.Listed(listing));
+
+    public static Command<RowRule, Invoke>.Run Values(Seq<ControlRow> controls) =>
+        new(new CommandFace("section-values", "Values", None, Some<GlyphSource>(Icons.Embedded(typeof(SectionHolder).Assembly, "options.svg"))), None,
+            new Invoke.Listed(scope => Historied(scope).Bind(history => Listing(controls, history, scope))));
+
+    public static Command<RowRule, Invoke>.Run Reset { get; } =
+        new(new CommandFace("section-reset", "Reset", None, Some<GlyphSource>(Icons.Embedded(Assets.Rhino.Assembly, ResourceIds.Svg_namedItemRestoreHotSvg))), None,
+            new Invoke.Effect(static scope => Historied(scope).Bind(history => scope.Commit(history.Group, history.Group.Defaults)).Map(unit)));
+
+    private static IO<HistoryBinding> Historied(RowScope scope) =>
+        IO.lift(scope.History.ToFin(new Refused(nameof(RowScope.History), Refused.Absent)));
+
+    // --- [VALUES]
+    private static IO<Seq<Seq<Command<RowRule, Invoke>>>> Listing(Seq<ControlRow> controls, HistoryBinding history, RowScope scope) =>
+        from held in history.History
+        from pastes in IO.lift(static () => Clipboard.Instance.ContainsText)
+        from zone in IO.lift(() => history.Clock.ToZonedClock().Zone)
+        let stamp = LocalDateTimePattern.Create("g", RowText.Culture)
+        select Seq(
+            held.Done.Head.Map(entry => Ran("section-undo", RowText.Localize("Undo {0}", arguments: [Described(entry, controls, scope.Sink)]).Local, Heard(history.Undo, scope))).ToSeq()
+                + held.Undone.Head.Map(entry => Ran("section-redo", RowText.Localize("Redo {0}", arguments: [Described(entry, controls, scope.Sink)]).Local, Heard(history.Redo, scope))).ToSeq(),
+            Seq(Ran("section-copy", "Copy values", Transfer.Copy(history.Group, None, scope)))
+                + Seq(Ran("section-paste", "Paste values", Transfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
+            Seq(Ran("section-clear", "Clear history", history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty))
+                + Seq<Command<RowRule, Invoke>>(new Command<RowRule, Invoke>.Menu(new CommandFace("section-restore", "Restore", None, None), None, [held.Done.Map(entry => Ran(
+                    string.Create(CultureInfo.InvariantCulture, $"section-restore-{entry.Serial}"),
+                    RowText.Localize("{0}, {1}", arguments: [Described(entry, controls, scope.Sink), stamp.Format(entry.At.InZone(zone).LocalDateTime)]).Local,
+                    Heard(history.Restore(entry.Serial), scope)))])).Filter(_ => !held.Done.IsEmpty));
+
+    private static Command<RowRule, Invoke> Ran<T>(string name, string caption, IO<T> run) =>
+        new Command<RowRule, Invoke>.Run(new CommandFace(name, caption, None, None), None, new Invoke.Effect(_ => run.Map(unit)));
+
+    private static IO<ValueDiff> Heard(IO<ValueDiff> step, RowScope scope) =>
+        from diff in step
+        from changed in scope.Changed(toSeq(diff.Changes.Keys))
+        select diff;
+
+    private static string Described(HistoryEntry entry, Seq<ControlRow> controls, IPlugInSink sink) =>
+        controls.Filter(control => control.Keys.Exists(entry.Diff.Changes.ContainsKey)) switch {
+            [var only] => RowText.Localize(only.Caption, sink).Local,
+            _ => RowText.Localize("{0} values", arguments: [entry.Diff.Changes.Count]).Local,
+        };
 }

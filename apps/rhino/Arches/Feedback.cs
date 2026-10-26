@@ -6,33 +6,31 @@ namespace Arches;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ArchFeedback {
-    private static readonly FeedbackAppearance Appearance = new();
-
-    public static IO<Unit> DrawEnds(DisplayPipeline display, Line baseline) => Marks.Draw(display, Ends(baseline));
+    public static IO<Unit> DrawEnds(DisplayPipeline display, Line baseline) => Marks.Draw(display, Ends(FeedbackAppearance.Of(display), baseline));
 
     public static IO<Unit> Draw(DisplayPipeline display, ArchSpan span, Option<Func<Action<IDisposable>, IO<Seq<Curve>>>> build) =>
         DisposalOps.Within((Action<IDisposable> retain) =>
             build.Match(
                     Some: held => held(retain).Map(static curves => Some(curves)).Catch(ArchPrompts.Rejected, static _ => IO.pure(Option<Seq<Curve>>.None)),
                     None: static () => IO.pure(Option<Seq<Curve>>.None))
-                .Bind(curves => Marks.Draw(display, Figure(span, curves))), DisposalOps.Release);
+                .Bind(curves => Marks.Draw(display, Figure(FeedbackAppearance.Of(display), span, curves))), DisposalOps.Release);
 
-    private static Seq<WorldMark> Figure(ArchSpan span, Option<Seq<Curve>> curves) =>
+    private static Seq<RetainedMark> Figure(FeedbackAppearance look, ArchSpan span, Option<Seq<Curve>> curves) =>
         curves.Match(
-            Some: held => held.Bind(static curve => curve is ArcCurve { Arc: var arc }
-                    ? Seq<WorldMark>(
-                        new RetainedMark.ArcMark(arc, Appearance.Curve, Appearance.CurveThickness),
-                        new RetainedMark.Points(Seq(arc.Center, arc.MidPoint), Appearance.ActivePoint, Appearance.PointStyle))
-                        + Ends(new Line(arc.StartPoint, arc.EndPoint))
-                    : Seq<WorldMark>(new RetainedMark.CurveMark(curve, Appearance.Curve, Appearance.CurveThickness)))
-                + Seq<WorldMark>(
-                    new RetainedMark.LineMark(new Line(span.Apex(-span.Baseline.Length), span.Apex(span.Baseline.Length)), Appearance.Construction, Appearance.ConstructionThickness),
-                    new RetainedMark.Points(Seq(span.Midpoint), Appearance.ActivePoint, Appearance.PointStyle))
-                + Ends(span.Baseline),
-            None: () => Ends(span.Baseline));
+            Some: held => held.Bind(curve => curve is ArcCurve { Arc: var arc }
+                    ? Seq<RetainedMark>(
+                        new RetainedMark.ArcMark(arc, look.Curve, look.Thickness),
+                        new RetainedMark.Points(Seq(arc.Center, arc.MidPoint), look.ActivePoint, None))
+                        + Ends(look, new Line(arc.StartPoint, arc.EndPoint))
+                    : Seq<RetainedMark>(new RetainedMark.CurveMark(curve, look.Curve, look.Thickness)))
+                + Seq<RetainedMark>(
+                    new RetainedMark.LineMark(new Line(span.Apex(-span.Baseline.Length), span.Apex(span.Baseline.Length)), look.Construction, look.Thickness),
+                    new RetainedMark.Points(Seq(span.Midpoint), look.ActivePoint, None))
+                + Ends(look, span.Baseline),
+            None: () => Ends(look, span.Baseline));
 
-    private static Seq<WorldMark> Ends(Line baseline) =>
-        Seq<WorldMark>(
-            new RetainedMark.LineMark(baseline, Appearance.Construction, Appearance.ConstructionThickness),
-            new RetainedMark.Points(Seq(baseline.From, baseline.To), Appearance.Construction, Appearance.PointStyle));
+    private static Seq<RetainedMark> Ends(FeedbackAppearance look, Line baseline) =>
+        Seq<RetainedMark>(
+            new RetainedMark.LineMark(baseline, look.Construction, look.Thickness),
+            new RetainedMark.Points(Seq(baseline.From, baseline.To), look.Construction, None));
 }

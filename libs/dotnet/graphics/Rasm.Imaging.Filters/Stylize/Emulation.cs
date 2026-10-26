@@ -7,6 +7,7 @@ using Emgu.CV.Util;
 using MathNet.Numerics.Integration;
 using MathNet.Numerics.LinearAlgebra;
 using PeterO.Numbers;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Filters.Optics;
@@ -300,11 +301,10 @@ public sealed record AnalogVideo(
     }
 
     private static Fin<Unit> Signal(AnalogVideo state, PixelExtent extent, Clock now, uint field, PixelFrame frame, Mat header, IProgress<int> progress) {
-        ChromaAxes axes = new(state.Matrix.Weights);
         using Mat alpha = new();
         using Mat light = new();
-        using Mat forward = VideoKernels.Transform(axes.Forward);
-        using Mat inverse = VideoKernels.Transform(axes.Inverse);
+        using Mat forward = VideoKernels.Transform(Gamut.ToYpbpr(state.Matrix.Ybr));
+        using Mat inverse = VideoKernels.Transform(Gamut.FromYpbpr(state.Matrix.Ybr));
         using Mat ycc = new();
         using VectorOfMat planes = new();
         CvInvoke.ExtractChannel(header, alpha, 3);
@@ -682,14 +682,13 @@ public sealed record Glitch(
     }
 
     private static Action<Span<Vector4>, long, long> Corrupted(Glitch state, PixelExtent extent, uint field) {
-        ChromaAxes axes = new(state.Matrix.Weights);
-        (Matrix<double> forward, Matrix<double> inverse) = (axes.Forward, axes.Inverse);
-        Vector256<double> yAxis = Vector256.Create(forward[0, 0], forward[1, 0], forward[2, 0], 0d);
-        Vector256<double> cbAxis = Vector256.Create(forward[0, 1], forward[1, 1], forward[2, 1], 0d);
-        Vector256<double> crAxis = Vector256.Create(forward[0, 2], forward[1, 2], forward[2, 2], 0d);
-        Vector256<double> rAxis = Vector256.Create(inverse[0, 0], inverse[1, 0], inverse[2, 0], 0d);
-        Vector256<double> gAxis = Vector256.Create(inverse[0, 1], inverse[1, 1], inverse[2, 1], 0d);
-        Vector256<double> bAxis = Vector256.Create(inverse[0, 2], inverse[1, 2], inverse[2, 2], 0d);
+        (Matrix<double> forward, Matrix<double> inverse) = (Gamut.ToYpbpr(state.Matrix.Ybr), Gamut.FromYpbpr(state.Matrix.Ybr));
+        Vector256<double> yAxis = Vector256.Create(forward[0, 0], forward[0, 1], forward[0, 2], 0d);
+        Vector256<double> cbAxis = Vector256.Create(forward[1, 0], forward[1, 1], forward[1, 2], 0d);
+        Vector256<double> crAxis = Vector256.Create(forward[2, 0], forward[2, 1], forward[2, 2], 0d);
+        Vector256<double> rAxis = Vector256.Create(inverse[0, 0], inverse[0, 1], inverse[0, 2], 0d);
+        Vector256<double> gAxis = Vector256.Create(inverse[1, 0], inverse[1, 1], inverse[1, 2], 0d);
+        Vector256<double> bAxis = Vector256.Create(inverse[2, 0], inverse[2, 1], inverse[2, 2], 0d);
         (uint draws, uint powers) = (CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u));
         (float luma, float chroma) = (state.LumaCorruption, state.ChromaCorruption);
         return (row, column, line) => {
@@ -793,11 +792,11 @@ file static class VideoKernels {
         return taps;
     });
 
-    public static Mat Transform(Matrix<double> rows) {
-        double[] columns = rows.Resize(4, 4).ToColumnMajorArray();
-        columns[^1] = 1d;
+    public static Mat Transform(Matrix<double> linear) {
+        double[] rows = linear.Resize(4, 4).ToRowMajorArray();
+        rows[^1] = 1d;
         Mat matrix = new(4, 4, DepthType.Cv64F, 1);
-        matrix.SetTo(columns);
+        matrix.SetTo(rows);
         return matrix;
     }
 

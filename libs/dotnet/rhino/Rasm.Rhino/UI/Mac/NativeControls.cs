@@ -11,7 +11,6 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
-using Rhino.UI;
 
 namespace Rasm.Rhino.UI.Mac;
 
@@ -62,7 +61,7 @@ public static class NativeControls {
             Atom<Seq<(Guid Id, Func<NSView, NSEvent, IO<bool>> Receive, CallbackSite Site)>>([]);
 
         internal Fin<EventResponder> Attach(NSView view) =>
-            Subclass(parent, EventSelectors.Map(selector => (selector, (Delegate)receive))).Map(subclass => {
+            Subclass(parent, EventSelectors.Map(selector => (selector, (Delegate)receive)), []).Map(subclass => {
                 _ = GCHandle.Alloc(receive);
                 EventViews.Add(view, this);
                 _ = SafeNativeMethods.object_setClass(view.Handle, subclass);
@@ -85,12 +84,15 @@ public static class NativeControls {
             }), site);
     }
 
-    internal static Fin<nint> Subclass(nint parent, Seq<(nint Selector, Delegate Implementation)> methods) {
+    internal static Fin<nint> Subclass(nint parent, Seq<(nint Selector, Delegate Implementation)> methods, Seq<nint> protocols) {
         nint nativeClass = SafeNativeMethods.objc_allocateClassPair(parent, $"{typeof(NativeControls).Assembly.GetName().Name}.{Guid.NewGuid():N}", 0);
         return (from allocated in Refused.Unless(nativeClass != 0, nameof(SafeNativeMethods.objc_allocateClassPair))
-                from added in methods.TraverseM(method => Refused.Unless(SafeNativeMethods.class_addMethod(nativeClass, method.Selector,
-                    Marshal.GetFunctionPointerForDelegate(method.Implementation), SafeNativeMethods.method_getTypeEncoding(ObjCExtensions.GetInstanceMethod(parent, method.Selector))),
-                    nameof(SafeNativeMethods.class_addMethod))).As()
+                from adopted in protocols.TraverseM(protocol => Refused.Unless(ObjCExtensions.ClassAddProtocol(nativeClass, protocol), nameof(ObjCExtensions.ClassAddProtocol))).As()
+                from added in methods.TraverseM(method =>
+                    from types in Encoded(parent, method.Selector, protocols)
+                    from bound in Refused.Unless(SafeNativeMethods.class_addMethod(nativeClass, method.Selector, Marshal.GetFunctionPointerForDelegate(method.Implementation), types),
+                        nameof(SafeNativeMethods.class_addMethod))
+                    select bound).As()
                     .MapFail(error => {
                         SafeNativeMethods.objc_disposeClassPair(nativeClass);
                         return error;
@@ -100,6 +102,14 @@ public static class NativeControls {
                     return created;
                 });
     }
+
+    private static Fin<nint> Encoded(nint parent, nint selector, Seq<nint> protocols) =>
+        (Optional(ObjCExtensions.GetInstanceMethod(parent, selector)).Filter(static method => method != 0).Map(SafeNativeMethods.method_getTypeEncoding)
+         | protocols.Bind(protocol => Seq(
+                 SafeNativeMethods.protocol_getMethodDescription(protocol, selector, required: true, instance: true),
+                 SafeNativeMethods.protocol_getMethodDescription(protocol, selector, required: false, instance: true)))
+             .Map(static description => description.Types).Find(static types => types != 0))
+        .ToFin(new Refused(nameof(SafeNativeMethods.protocol_getMethodDescription), Refused.Absent));
 
     // --- [LIFETIME]
     internal static IO<Unit> Lifetime(Control control, Func<Action<IDisposable>, IO<Unit>> acquire, CallbackSite site, Action<IDisposable> retain) =>
@@ -121,7 +131,7 @@ public static class NativeControls {
         Callbacks.Run(
             IO.lift(() => grid.Styles.Add<object>(style: null, target =>
                 Callbacks.Run(
-                    Optional(target as IMacViewHandler).Map(handler => Sized(grid, handler)),
+                    Optional(target as IMacViewHandler).Map(handler => Sized(handler, grid.Caption(handler.Widget))),
                     new CallbackSite(grid.Sink, typeof(RowGrid), nameof(Sized))))),
             new CallbackSite(grid.Sink, typeof(RowGrid), nameof(Rows)));
 
@@ -189,24 +199,23 @@ public static class NativeControls {
             () => current, site);
 
     // --- [SIZES]
-    private static IO<Unit> Sized(RowGrid grid, IMacViewHandler handler) =>
+    internal static IO<Unit> Seated(Control slot, Option<string> label) =>
+        from handler in IO.lift(() => Refused.UnlessFound(slot.Handler as IMacViewHandler, nameof(IMacViewHandler)))
+        from sized in Sized(handler, label)
+        select sized;
+
+    private static IO<Unit> Sized(IMacViewHandler handler, Option<string> label) =>
         IO.lift(() => {
             NSView native = handler.ContainerControl;
-            NSControlSize size = SizeOf(handler.Widget);
+            NSControlSize size = HostTheme.Compact(handler.Widget) ? NSControlSize.Small : NSControlSize.Regular;
             if (native is NSControl control)
                 control.ControlSize = size;
             else if (native is NSProgressIndicator progress)
                 progress.ControlSize = size;
             if (handler.Widget is ProgressBar)
                 handler.Widget.Height = (int)Math.Ceiling(handler.GetAlignmentSizeForSize(native.FittingSize).Height);
-            _ = grid.Caption(handler.Widget).Iter(caption => native.AccessibilityLabel = caption);
+            _ = label.Iter(caption => native.AccessibilityLabel = caption);
         });
-
-    private static NSControlSize SizeOf(Control control) =>
-        toSeq(control.Parents).Exists(static parent =>
-            Optional(parent.Style).Exists(static style => style.Split(' ').Contains(Panels.EtoPanelStyleName, StringComparer.Ordinal)))
-            ? NSControlSize.Small
-            : NSControlSize.Regular;
 
     // --- [ACCESSIBILITY]
     internal static NSAccessibilityCustomAction[] Actions(Seq<(NSString Action, Func<bool> Perform)> rows) =>

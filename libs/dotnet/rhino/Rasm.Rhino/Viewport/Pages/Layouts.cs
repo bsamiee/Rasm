@@ -21,9 +21,9 @@ public sealed partial class LayoutName {
         validationError = string.IsNullOrWhiteSpace(value) ? new ValidationError("layout name is blank") : null;
 }
 
-public sealed record FrameStyle(LineGroup Lines, ComponentRef<Layer> Layer);
+public sealed record FrameStyle(LineGroup Lines, ComponentRef<Layer> Layer, ComponentRef<DimensionStyle> Lettering);
 
-public sealed record LayoutSheet(LayoutName Name, Sheet Sheet, Option<string> Description, Option<FrameStyle> Frame);
+public sealed record LayoutSheet(LayoutName Name, Sheet Sheet, Option<string> Description, Option<FrameStyle> Frame, Option<string> Printer);
 
 public sealed record LayoutGroup(LayoutName Name, Option<string> Description, Seq<LayoutName> Members);
 
@@ -36,6 +36,7 @@ public static class Layouts {
         from held in SheetOf(doc, page)
         from sized in unless(held == Some(sheet.Sheet), IO.lift(() => { (page.PageWidth, page.PageHeight) = extent; })).As()
         from described in IO.lift(() => sheet.Description.Iter(text => Update(page.Description, text, value => page.Description = value)))
+        from printed in IO.lift(() => sheet.Printer.Iter(name => Update(page.PrinterName, name, value => page.PrinterName = value)))
         from framed in sheet.Frame.Traverse(style => Frame(doc, page, sheet.Sheet, style)).As()
         select page;
 
@@ -114,7 +115,8 @@ public static class Layouts {
 
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> NumberFollowsPages(NamingStandard grammar) =>
         (sink, retain) => Subscriptions.Host(typeof(Layouts), static () => Seq(EventKind.RhinoViewCreate, EventKind.RhinoViewDestroy, EventKind.RhinoViewRename)
-                .Map(static row => row.Choose(args => row.DocumentSerial(args).Filter(_ => args.View is RhinoPageView).Map(static serial => (serial, unit)))))
+                .Map(static row => row.Choose(args => row.DocumentSerial(args).Filter(_ => args.View is RhinoPageView).Map(static serial => (serial, unit))))
+                .Add(EventKind.PageViewPropertiesChange.Choose(static args => EventKind.PageViewPropertiesChange.DocumentSerial(args).Map(static serial => (serial, unit)))))
             .Through(Subscriptions.Idle<uint, Unit>(serials =>
                 Callbacks.Each(toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(doc => Number(doc, grammar))).Map(unit)), sink, retain);
 
@@ -123,23 +125,27 @@ public static class Layouts {
 
     private static IO<Unit> Frame(RhinoDoc doc, RhinoPageView page, Sheet sheet, FrameStyle style) =>
         from layer in TableOps.Find(doc.Layers, style.Layer, includeDeleted: false)
-        from cleared in TableOps.Apply(doc, new TableOp.Delete(
-            new ObjectTarget.Lookup(objects => objects.FindByUserString(FrameKey, "*", caseSensitive: true, searchGeometry: false, searchAttributes: true,
-                new ObjectEnumeratorSettings { SpaceFilter = ActiveSpace.PageSpace, ViewportFilter = page.MainViewport, HiddenObjects = true, LockedObjects = true })),
-            Quiet: true, IgnoreModes: true))
-        from added in Callbacks.Each(Marks(doc, page, sheet, style, layer.Index))
+        from lettering in TableOps.Find(doc.DimStyles, style.Lettering, includeDeleted: false)
+        let wanted = Marks(doc, page, style, layer.Index, lettering, sheet).Fold(HashMap<string, Func<IO<Guid>>>(), static (held, mark) => held.AddOrUpdate(mark.Key, mark.Add))
+        from present in new ObjectTarget.Lookup(objects => objects.FindByUserString(FrameKey, "*", caseSensitive: true, searchGeometry: false, searchAttributes: true,
+                new ObjectEnumeratorSettings { SpaceFilter = ActiveSpace.PageSpace, ViewportFilter = page.MainViewport, HiddenObjects = true, LockedObjects = true }))
+            .Objects(doc).Map(static found => found.Map(static mark => (Key: mark.Attributes.GetUserString(FrameKey), mark.Id)).Strict())
+        let stale = present.Filter(mark => !wanted.ContainsKey(mark.Key)).Map(static mark => mark.Id)
+        let kept = toHashSet(present.Map(static mark => mark.Key))
+        from cleared in when(!stale.IsEmpty, TableOps.Apply(doc, new TableOp.Delete(new ObjectTarget.Ids(stale), Quiet: true, IgnoreModes: true)).Map(unit)).As()
+        from added in Callbacks.Each(wanted.Filter((key, _) => !kept.Contains(key)).Values.ToSeq().Map(static add => add()))
         select unit;
 
-    private static Seq<IO<Guid>> Marks(RhinoDoc doc, RhinoPageView page, Sheet sheet, FrameStyle style, int layer) {
-        (PaperRectangle field, ZoneGrid zones, (Length width, Length height), double lettering) =
+    private static Seq<(string Key, Func<IO<Guid>> Add)> Marks(RhinoDoc doc, RhinoPageView page, FrameStyle style, int layer, DimensionStyle lettering, Sheet sheet) {
+        (PaperRectangle field, ZoneGrid zones, (Length width, Length height), double letterHeight) =
             (sheet.Field, sheet.Zones, sheet.Extent, Quantities.As(sheet.Size.Convention.Lettering.ZoneHeight, doc.PageUnits));
         Option<Length> reach = sheet.Size.Convention.Centering.Map(static centering => centering.Reach);
         Option<Length> blocked = sheet.Size.Convention.Centering.Map(centering => width / 2 < field.Right - centering.TitleBlock ? centering.Reach : Length.Zero);
-        return Stroke(LineWeight.ExtraWide, new Rectangle3d(Plane.WorldXY, At(field.Left, field.Bottom), At(field.Right, field.Top)).ToPolyline())
+        return Stroke(LineWeight.ExtraWide, toSeq(new Rectangle3d(Plane.WorldXY, At(field.Left, field.Bottom), At(field.Right, field.Top)).ToPolyline()))
             + Axis(zones.Columns, field.Left, field.Right, width, zones.Column, At, [(field.Top, height, true, reach), (field.Bottom, Length.Zero, zones.AllEdges, blocked)])
             + Axis(zones.Rows, field.Bottom, field.Top, height, zones.Row, (along, across) => At(across, along), [(field.Right, width, true, reach), (field.Left, Length.Zero, zones.AllEdges, reach)]);
 
-        Seq<IO<Guid>> Axis(Seq<Length> divisions, Length near, Length far, Length edge, Func<int, string> label, Func<Length, Length, Point3d> at, Seq<(Length Inner, Length Outer, bool Zoned, Option<Length> Reach)> bands) =>
+        Seq<(string Key, Func<IO<Guid>> Add)> Axis(Seq<Length> divisions, Length near, Length far, Length edge, Func<int, string> label, Func<Length, Length, Point3d> at, Seq<(Length Inner, Length Outer, bool Zoned, Option<Length> Reach)> bands) =>
             (from band in bands
              where band.Zoned
              from mark in divisions.Map(division => Stroke(LineWeight.Wide, [at(division, band.Inner), at(division, band.Outer)]))
@@ -151,20 +157,29 @@ public static class Layouts {
 
         Point3d At(Length x, Length y) => new(Quantities.As(x, doc.PageUnits), Quantities.As(y, doc.PageUnits), 0);
 
-        IO<Guid> Stroke(LineWeight weight, IEnumerable<Point3d> points) => Row(Some(style.Lines.Width(weight)), () => new PolylineCurve(points));
+        (string Key, Func<IO<Guid>> Add) Stroke(LineWeight weight, Seq<Point3d> points) =>
+            PlotWeight.Of(style.Lines.Width(weight)).ToHost() switch {
+                var plotted => Row(
+                    Keyed(stream => stream.Text(nameof(Stroke)).Number(plotted).Rows(points, static (held, point) => held.Number(point.X).Number(point.Y))),
+                    Some(plotted), () => new PolylineCurve(points)),
+            };
 
-        IO<Guid> Label(string text, Point3d center) =>
-            Row(None, () => Refused.UnlessFound(TextEntity.Create(text, new Plane(center, Vector3d.XAxis, Vector3d.YAxis), doc.DimStyles.Current, wrapped: false, rectWidth: 0, rotationRadians: 0), nameof(TextEntity.Create))
-                .Map(entity => { (entity.Justification, entity.TextHeight) = (TextJustification.MiddleCenter, lettering); return (GeometryBase)entity; }));
+        (string Key, Func<IO<Guid>> Add) Label(string text, Point3d center) =>
+            Row(Keyed(stream => stream.Text(nameof(Label)).Id(lettering.Id).Number(letterHeight).Text(text).Number(center.X).Number(center.Y)), None,
+                () => Refused.UnlessFound(TextEntity.Create(text, new Plane(center, Vector3d.XAxis, Vector3d.YAxis), lettering, wrapped: false, rectWidth: 0, rotationRadians: 0), nameof(TextEntity.Create))
+                    .Map(entity => { (entity.Justification, entity.TextHeight) = (TextJustification.MiddleCenter, letterHeight); return (GeometryBase)entity; }));
 
-        IO<Guid> Row(Option<LineWidth> width, Func<Fin<GeometryBase>> shape) =>
-            TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes =>
+        string Keyed(Func<System.IO.Hashing.XxHash128, System.IO.Hashing.XxHash128> fields) =>
+            string.Create(CultureInfo.InvariantCulture, $"{ContentKey.Of(KeyDomain.FrameMark, stream => fields(stream.Integer(layer)))}");
+
+        (string Key, Func<IO<Guid>> Add) Row(string key, Option<double> plotWeight, Func<Fin<GeometryBase>> shape) =>
+            (key, () => TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes =>
                 from placed in IO.lift(() => { (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer, ActiveSpace.PageSpace, page.MainViewport.Id); })
-                from weighted in IO.lift(() => width.Iter(stroke => (attributes.PlotWeightSource, attributes.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, PlotWeight.Of(stroke).ToHost())))
-                from tagged in IO.lift(() => Refused.Unless(attributes.SetUserString(FrameKey, sheet.Size.Name), nameof(ObjectAttributes.SetUserString)))
+                from weighted in IO.lift(() => plotWeight.Iter(stroke => (attributes.PlotWeightSource, attributes.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke)))
+                from tagged in IO.lift(() => Refused.Unless(attributes.SetUserString(FrameKey, key), nameof(ObjectAttributes.SetUserString)))
                 from id in DisposalOps.Within(shape,
                     made => IO.lift(made).Bind(geometry => TableOps.Add(doc, new GeometryPair(geometry, Some(attributes)), None, reference: false)),
                     static made => DisposalOps.Release(made.ToOption().ToSeq()))
-                select id);
+                select id));
     }
 }

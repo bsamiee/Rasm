@@ -46,7 +46,7 @@ internal static class ArchGeometry {
 
     // --- [SPANNED_ARCHES]
     internal static IO<Seq<Curve>> Semicircular(ArchSpan span, Action<IDisposable> retain) =>
-        CurveConstruction.Arcs(Seq(new Arc(span.Baseline.From, span.Frame.YAxis, span.Baseline.To)), retain);
+        Copies.Acquire(nameof(ArcCurve), _ => Answer.One<Curve>(new ArcCurve(new Arc(span.Baseline.From, span.Frame.YAxis, span.Baseline.To))).Map(static curve => Seq(curve)), retain);
 
     internal static IO<Seq<Curve>> Equilateral(ArchSpan span, Action<IDisposable> retain) =>
         Symmetric(span, Seq(new Arc(span.Frame, span.Baseline.Length, double.Pi / 3)), retain);
@@ -88,7 +88,7 @@ internal static class ArchGeometry {
 
     // --- [RAISED_ARCHES]
     internal static IO<Seq<Curve>> Circular(ArchSpan span, Point3d apex, Action<IDisposable> retain) =>
-        CurveConstruction.Arcs(Seq(new Arc(span.Baseline.From, apex, span.Baseline.To)), retain);
+        Copies.Acquire(nameof(ArcCurve), _ => Answer.One<Curve>(new ArcCurve(new Arc(span.Baseline.From, apex, span.Baseline.To))).Map(static curve => Seq(curve)), retain);
 
     internal static IO<Seq<Curve>> Gothic(ArchSpan span, Point3d apex, Action<IDisposable> retain) {
         double length = span.Baseline.Length;
@@ -164,10 +164,11 @@ internal static class ArchGeometry {
     }
 
     internal static IO<Seq<Curve>> Parabolic(ArchSpan span, Point3d apex, Action<IDisposable> retain) =>
-        Copies.Acquire(() => NurbsCurve.CreateParabolaFromVertex(apex, span.Baseline.From, span.Baseline.To), nameof(NurbsCurve.CreateParabolaFromVertex), retain).Map(static curve => Seq<Curve>(curve));
+        Copies.Acquire(nameof(NurbsCurve.CreateParabolaFromVertex), _ => Answer.One<Curve>(NurbsCurve.CreateParabolaFromVertex(apex, span.Baseline.From, span.Baseline.To)).Map(static curve => Seq(curve)), retain);
 
     internal static IO<Seq<Curve>> Elliptical(ArchSpan span, Point3d apex, Action<IDisposable> retain) =>
-        CurveConstruction.EllipticalArc(new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex)), new Interval(0, double.Pi), retain)
+        new Conic.EllipseArc(new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex)), new Interval(0, double.Pi))
+            .ToNurbs(retain)
             .Map(static curve => Seq<Curve>(curve));
 
     private static IO<Seq<Curve>> FourCentered(ArchSpan span, Plane frame, double haunchRadius, Point3d crown, Action<IDisposable> retain) {
@@ -230,8 +231,8 @@ internal static class ArchGeometry {
     // --- [SYMMETRY]
     private static IO<Seq<Curve>> Symmetric(ArchSpan span, Seq<Arc> arcs, Action<IDisposable> retain) =>
         Transform.Mirror(span.Midpoint, span.Frame.XAxis) switch {
-            var mirror => CurveConstruction.Arcs(arcs.Bind(arc => Seq(
+            var mirror => Copies.Acquire(nameof(ArcCurve), _ => Answer.Many<Curve>(arcs.Bind(arc => Seq(
                 new Arc(new Circle(new Plane(mirror * arc.Center, mirror * arc.Plane.XAxis, mirror * arc.Plane.YAxis), arc.Radius), arc.AngleDomain),
-                new Arc(new Circle(new Plane(arc.Center, arc.Plane.XAxis, -arc.Plane.YAxis), arc.Radius), new Interval(-arc.EndAngle, -arc.StartAngle)))), retain),
+                new Arc(new Circle(new Plane(arc.Center, arc.Plane.XAxis, -arc.Plane.YAxis), arc.Radius), new Interval(-arc.EndAngle, -arc.StartAngle)))).Map(static arc => new ArcCurve(arc))), retain),
         };
 }

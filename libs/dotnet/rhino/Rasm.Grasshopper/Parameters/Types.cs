@@ -9,13 +9,12 @@ using Grasshopper2.Types.Assistant;
 using Grasshopper2.Types.Conversion;
 using Grasshopper2.Types.ConversionMethods;
 using Grasshopper2.UI.Icon;
-using Rasm.Grasshopper.UI;
+using Rasm.Grasshopper.UI.Surfaces;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.UI.Styling;
 using UUIDNext;
 using UnitsNet;
 
@@ -44,6 +43,8 @@ internal sealed class ImageDataAssistant(Guid parameterId, string name, IGrassho
 }
 
 internal sealed class ImageValueDisplay(Pear<PixelFrame> image, IValueDisplay text, CallbackSite site) : IValueDisplay {
+    private static readonly Rasm.UI.Sizing Grown = new Rasm.UI.Sizing.Grow(Rasm.UI.Factor.Create(1f));
+
     public DisplayHeight Height => DisplayHeight.Wide;
 
     public void Draw(Context context, Font font, Color background, ValueDisplayFrame frame) =>
@@ -53,11 +54,14 @@ internal sealed class ImageValueDisplay(Pear<PixelFrame> image, IValueDisplay te
                 let size = image.Item.Size
                 let fit = MathF.Min(frame.Inner.Width / size.Width, frame.Inner.Height / size.Height)
                 let target = RectangleF.FromCenter(frame.Inner.Center, new SizeF(size.Width * fit, size.Height * fit))
-                let device = Size.Ceiling(target.Size * CanvasPainting.Scale(context))
+                from scale in IO.lift(() => Guest.Device(context))
+                let device = Size.Ceiling(target.Size * scale)
                 from extent in IO.lift(() => PixelExtent.Validated(device.Width, device.Height))
-                from drawn in tiles.Paint(typeof(ImageValueDisplay), Optional(context.Control as Eto.Forms.Control), image.Item, extent, transfer,
-                    bitmap => context.Graphics.DrawImage(bitmap, target))
-                from deferred in drawn.Match(Some: static _ => unitIO, None: () => IO.lift(context.Invalidate))
+                from shown in tiles.Image(image.Item, extent, transfer, 1f)
+                from drawn in shown.Match(
+                    Some: picture => DisposalOps.Within(() => new Guest(site.Sink, unitIO), guest =>
+                        guest.Paint(context.Graphics, scale, target, Rasm.UI.Visibility.Shown, new Rasm.UI.Node.Image(picture) { Width = Grown, Height = Grown, Density = scale })),
+                    None: () => IO.lift(context.Invalidate))
                 select unit,
             None: () => IO.lift(() => text.Draw(context, font, background, frame)))), site);
 }
@@ -193,10 +197,10 @@ public static class DataTypes {
     public static Func<IGrasshopperPlugin, IO<Unit>> Of<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe) =>
         plugin => Registered(new DataAssistant<T>(parameterId, name, plugin, icon, copy, describe));
 
-    public static Func<IGrasshopperPlugin, IO<Unit>> Opaque<T>(string caption, IGlyph glyph, Func<T, T> copy, Func<T, string> describe) =>
+    public static Func<IGrasshopperPlugin, IO<Unit>> Opaque<T>(string caption, Rasm.UI.GlyphSource glyph, Func<T, T> copy, Func<T, string> describe) =>
         plugin => CanvasIcons.Vector(plugin, glyph).Bind(icon => Of(ParameterId<T>(plugin), caption, icon, copy, describe)(plugin));
 
-    public static Func<IGrasshopperPlugin, IO<Unit>> Image(string caption, IGlyph glyph) =>
+    public static Func<IGrasshopperPlugin, IO<Unit>> Image(string caption, Rasm.UI.GlyphSource glyph) =>
         plugin => CanvasIcons.Vector(plugin, glyph).Bind(icon => Registered(new ImageDataAssistant(ParameterId<PixelFrame>(plugin), caption, plugin, icon)));
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Of<T, TAssistant>(Func<IGrasshopperPlugin, IO<TAssistant>> create)

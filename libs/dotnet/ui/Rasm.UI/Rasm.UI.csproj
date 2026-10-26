@@ -15,6 +15,7 @@
 
     <ItemGroup Label="Color">
         <PackageReference Include="Wacton.Unicolour" />
+        <PackageReference Include="Wacton.Unicolour.Datasets" />
     </ItemGroup>
 
     <ItemGroup Label="Desktop UI">

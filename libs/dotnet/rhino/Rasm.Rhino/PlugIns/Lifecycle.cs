@@ -4,8 +4,13 @@ using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns.Licenses;
 using Rasm.Rhino.UI;
+using Rasm.Rhino.UI.Surfaces;
 using Rhino.Commands;
+using Rhino.Display;
+using Rhino.DocObjects.Custom;
 using Rhino.PlugIns;
+using Rhino.Render;
+using Rhino.Render.PostEffects;
 using Rhino.Runtime;
 
 namespace Rasm.Rhino.PlugIns;
@@ -99,6 +104,30 @@ public sealed class PlugInSlot<T> where T : notnull {
     public IO<T> Of(IPlugInSink owner) => Find(owner).Bind(static found => IO.lift(found.ToFin(Error.New($"plug-in session holds no {typeof(T).Name}"))));
 }
 
+internal static class HostedTypes {
+    // --- [STATE]
+    private static readonly Seq<Type> Scanned = [
+        typeof(RenderContent), typeof(PostEffect), typeof(RealtimeDisplayMode), typeof(RealtimeDisplayModeClassInfo),
+        typeof(LightManagerSupport), typeof(UserData), typeof(VisualAnalysisMode), typeof(CustomObjectGrips),
+    ];
+
+    private static readonly AtomHashMap<Type, IPlugInViews> Claimed = AtomHashMap<Type, IPlugInViews>();
+
+    // --- [CLAIMS]
+    public static Seq<Type> Declared(PlugIn plugIn, ViewCatalog views) =>
+        views.Rows.Bind(ViewCatalog.Tree).Filter(static view => view is View.Panel or View.Tab or View.Pane).Map(static view => view.Identity)
+        + toSeq(plugIn.Assembly.GetExportedTypes()).Filter(static type => !type.IsAbstract && Scanned.Exists(type.IsSubclassOf));
+
+    public static IO<Unit> Claim(IPlugInViews owner, Seq<Type> types, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
+            IO.lift(() => types.Iter(type => Claimed.AddOrUpdate(type, owner))).Map(types),
+            static held => IO.lift(() => held.Iter(static type => Claimed.Remove(type))),
+            retain).Map(unit);
+
+    // --- [OWNERS]
+    public static IPlugInViews Owner(Type type) => Claimed.Find(type).ToFin(new NotFound("hosted type", type.FullName ?? type.Name)).ThrowIfFail();
+}
+
 internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kindViews) {
     // --- [STATE]
     private readonly Atom<ViewCatalog> views = Atom(ViewCatalog.Empty);
@@ -144,11 +173,13 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             .. collection.Rows.Bind(ViewCatalog.Tree).Bind(ViewOps.Sources).Choose(static source => source.Setting).Distinct(),
             .. HostDialogs.Suppressions(collection)])
         from opened in Session.Open(plugIn, [
+            (owner, retain) => HostedTypes.Claim(owner, HostedTypes.Declared(plugIn, collection), retain),
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,
             ViewRegistration.AddCustomUISections,
             Toolbars.Registered,
             DocumentArchive.Rewrites,
+            .. SceneView.Opened(collection, definition.Clock),
             .. definition.Acquisitions,
             (_, _) => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
         ])

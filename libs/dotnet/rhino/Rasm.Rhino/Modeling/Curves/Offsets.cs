@@ -1,4 +1,5 @@
 using Rasm.Rhino.Document.Units;
+using Rasm.Rhino.Modeling.Surfaces;
 
 namespace Rasm.Rhino.Modeling.Curves;
 
@@ -16,18 +17,6 @@ public abstract partial record SurfaceOffset {
     public sealed record Varying(Seq<(double Parameter, double Distance)> Stations) : SurfaceOffset;
 }
 
-[SmartEnum]
-public sealed partial class LiftDirection {
-    public static readonly LiftDirection Normal =
-        new(static (curve, surface, height, retain) => Copies.Acquire(() => curve.OffsetNormalToSurface(surface, height), nameof(Curve.OffsetNormalToSurface), retain));
-
-    public static readonly LiftDirection Tangent =
-        new(static (curve, surface, height, retain) => Copies.Acquire(() => curve.OffsetTangentToSurface(surface, height), nameof(Curve.OffsetTangentToSurface), retain));
-
-    [UseDelegateFromConstructor]
-    public partial IO<Curve> Offset(Curve curve, Surface surface, double height, Action<IDisposable> retain);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Ribbon {
     public sealed record Ruled(Curve Offset, Seq<Curve> CrossSections, Seq<Surface> RuledSurfaces) : Ribbon;
@@ -41,55 +30,40 @@ public abstract partial record Ribbon {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveOffsets {
     // --- [OFFSETS]
-    public static IO<Seq<Curve>> Offset(Curve curve, OffsetFrame frame, double distance, Tolerances tolerances, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            () => frame.Switch(
-                (Curve: curve, Distance: distance, Tolerances: tolerances),
-                inPlane: static (state, plane) => state.Curve.Offset(plane.Plane, state.Distance, state.Tolerances.Absolute, plane.Corner),
-                byNormal: static (state, normal) => state.Curve.Offset(normal.DirectionPoint, normal.Normal, state.Distance, state.Tolerances.Absolute, state.Tolerances.Angle, normal.Loose, normal.Corner, normal.End)),
-            nameof(Curve.Offset), retain);
+    public static IO<Seq<Curve>> Offset(Tolerances tolerances, Curve curve, OffsetFrame frame, double distance, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Curve.Offset), _ => Answer.Many(frame.Switch(
+            (Curve: curve, Distance: distance, Tolerances: tolerances),
+            inPlane: static (state, plane) => state.Curve.Offset(plane.Plane, state.Distance, state.Tolerances.Absolute, plane.Corner),
+            byNormal: static (state, normal) => state.Curve.Offset(normal.DirectionPoint, normal.Normal, state.Distance, state.Tolerances.Absolute, state.Tolerances.Angle, normal.Loose, normal.Corner, normal.End))), retain);
 
-    public static IO<Seq<Curve>> OffsetOnSurface(Curve curve, BrepFace face, SurfaceOffset offset, Tolerances tolerances, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            () => offset.Switch(
-                (Curve: curve, Face: face, Fitting: tolerances.Absolute),
-                constant: static (state, constant) => state.Curve.OffsetOnSurface(state.Face, constant.Distance, state.Fitting),
-                through: static (state, through) => state.Curve.OffsetOnSurface(state.Face, through.Point, state.Fitting),
-                varying: static (state, varying) => state.Curve.OffsetOnSurface(state.Face,
-                    [.. varying.Stations.Map(static station => station.Parameter)], [.. varying.Stations.Map(static station => station.Distance)], state.Fitting)),
-            nameof(Curve.OffsetOnSurface), retain);
+    public static IO<Seq<Curve>> OffsetOnSurface(Tolerances tolerances, Curve curve, SurfaceTarget target, SurfaceOffset offset, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Curve.OffsetOnSurface), _ => Answer.Many(target.Switch(
+            (Curve: curve, Offset: offset, Fitting: tolerances.Absolute),
+            brepFace: static (state, face) => state.Offset.Switch(
+                (state.Curve, Face: face, state.Fitting),
+                constant: static (at, constant) => at.Curve.OffsetOnSurface(at.Face, constant.Distance, at.Fitting),
+                through: static (at, through) => at.Curve.OffsetOnSurface(at.Face, through.Point, at.Fitting),
+                varying: static (at, varying) => at.Curve.OffsetOnSurface(at.Face,
+                    [.. varying.Stations.Map(static station => station.Parameter)], [.. varying.Stations.Map(static station => station.Distance)], at.Fitting)),
+            surface: static (state, surface) => state.Offset.Switch(
+                (state.Curve, Surface: surface, state.Fitting),
+                constant: static (at, constant) => at.Curve.OffsetOnSurface(at.Surface, constant.Distance, at.Fitting),
+                through: static (at, through) => at.Curve.OffsetOnSurface(at.Surface, through.Point, at.Fitting),
+                varying: static (at, varying) => at.Curve.OffsetOnSurface(at.Surface,
+                    [.. varying.Stations.Map(static station => station.Parameter)], [.. varying.Stations.Map(static station => station.Distance)], at.Fitting)))), retain);
 
-    public static IO<Seq<Curve>> OffsetOnSurface(Curve curve, Surface surface, SurfaceOffset offset, Tolerances tolerances, Action<IDisposable> retain) =>
-        Copies.Acquire(
-            () => offset.Switch(
-                (Curve: curve, Surface: surface, Fitting: tolerances.Absolute),
-                constant: static (state, constant) => state.Curve.OffsetOnSurface(state.Surface, constant.Distance, state.Fitting),
-                through: static (state, through) => state.Curve.OffsetOnSurface(state.Surface, through.Point, state.Fitting),
-                varying: static (state, varying) => state.Curve.OffsetOnSurface(state.Surface,
-                    [.. varying.Stations.Map(static station => station.Parameter)], [.. varying.Stations.Map(static station => station.Distance)], state.Fitting)),
-            nameof(Curve.OffsetOnSurface), retain);
+    public static IO<Curve> OffsetNormalToSurface(Curve curve, Surface surface, double height, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Curve.OffsetNormalToSurface), _ => Answer.One(curve.OffsetNormalToSurface(surface, height)), retain);
+
+    public static IO<Curve> OffsetTangentToSurface(Curve curve, Surface surface, double height, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(Curve.OffsetTangentToSurface), _ => Answer.One(curve.OffsetTangentToSurface(surface, height)), retain);
 
     // --- [RIBBONS]
     public static IO<Ribbon> RibbonOffset(Curve curve, RibbonOffsetParameters parameters, Action<IDisposable> retain) =>
-        Copies.Owned(
-            () => parameters.RibbonSurfaceGenerationMethod is RibbonOffsetSurfaceMethod.None
-                ? Refused.UnlessFound(
-                        curve.RibbonOffset(parameters.OffsetDistance, parameters.BlendRadius, parameters.OffsetLocation, parameters.OffsetPlaneVector3d, parameters.OffsetTolerance, out Curve[] sections, out Surface[] surfaces),
-                        nameof(Curve.RibbonOffset))
-                    .Map<Ribbon>(offset => new Ribbon.Ruled(offset, Conversions.Rows(sections), Conversions.Rows(surfaces)))
-                : Refused.UnlessFound(curve.RibbonOffset(parameters, out Curve[] rails, out Curve[] crossSections, out Brep[] breps), nameof(Curve.RibbonOffset))
-                    .Map<Ribbon>(offset => new Ribbon.Swept(offset, Conversions.Rows(rails), Conversions.Rows(crossSections), Conversions.Rows(breps))),
-            static answer =>
-                from ribbon in answer
-                from valid in Measurements.Valid(toSeq<GeometryBase?>(ribbon.Parts), nameof(Curve.RibbonOffset))
-                select ribbon,
-            static answer => answer.Match(Succ: static ribbon => DisposalOps.Release(ribbon.Parts), Fail: static _ => IO.pure(unit)), retain);
-
-    // --- [PROJECTIONS]
-    public static IO<Seq<(Curve Result, (Curve Source, Brep Target) Row)>> ProjectToBrep(Seq<Curve> curves, Seq<Brep> breps, Vector3d direction, bool loose, Tolerances tolerances, Action<IDisposable> retain) =>
-        Copies.Acquire<Curve, (Curve Source, Brep Target)>(
-            () => (
-                Curve.ProjectToBrep(curves, breps, direction, tolerances.Absolute, loose, out int[]? curveIndices, out int[]? brepIndices),
-                (curveIndices, brepIndices) is ( { } sources, { } targets) ? [.. sources.Zip(targets, (source, target) => (Source: curves[source], Target: breps[target]))] : null),
-            nameof(Curve.ProjectToBrep), retain);
+        Copies.Acquire(nameof(Curve.RibbonOffset), _ => parameters.RibbonSurfaceGenerationMethod is RibbonOffsetSurfaceMethod.None
+            ? (Answer.One(curve.RibbonOffset(parameters.OffsetDistance, parameters.BlendRadius, parameters.OffsetLocation, parameters.OffsetPlaneVector3d, parameters.OffsetTolerance, out Curve[] sections, out Surface[] surfaces)),
+                    Answer.Many(sections), Answer.Many(surfaces))
+                .Apply(static (offset, crossSections, ruledSurfaces) => (Ribbon)new Ribbon.Ruled(offset, crossSections, ruledSurfaces)).As()
+            : (Answer.One(curve.RibbonOffset(parameters, out Curve[] rails, out Curve[] crossSections, out Brep[] breps)), Answer.Many(rails), Answer.Many(crossSections), Answer.Many(breps))
+                .Apply(static (offset, railCurves, sectionCurves, brepSurfaces) => (Ribbon)new Ribbon.Swept(offset, railCurves, sectionCurves, brepSurfaces)).As(), retain);
 }
