@@ -54,7 +54,7 @@ Functions honor their signature when each declared input produces a declared out
 
 ### [01.2]-[PURITY]
 
-Functions are pure when their return value depends only on their inputs (immutable values fixed at construction included) and evaluation causes no side effect, a pure call can be replaced by its result (referential transparency). Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (the clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, mutation local to a function that never escapes is no side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization, the same transformations can change the behavior of an impure function. Expose a variable dependency as input data, clock and reader's culture enter as arguments in place of ambient clock and culture:
+Functions are pure when their return value depends only on their inputs (immutable values fixed at construction included) and evaluation causes no side effect, a pure call's result replaces the call (referential transparency). Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, mutation local to a function that never escapes is no side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization. Expose a variable dependency as input data, clock and reader's culture enter as arguments in place of ambient clock and culture:
 
 ```csharp
 internal static class Stamps {
@@ -265,7 +265,7 @@ Workflow runs in order (normalize, validate, transition), `Fin` handles the cont
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. Each raising package declares one error record holding the subject and an `enum` reason as fields, a fact some failures lack is an `Option` field. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and an interpolated message. Records hold fields and one `Unless` factory returning `Fin` (`flag ? unit : new <Record>(…)`) alone, a limit or other operation sits in the raising class. `Unless` takes its subject from call text through `[CallerArgumentExpression]`:
+Expected failures are data in return types, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. Each raising package declares one error record holding the subject and a reason as fields, the reason a smart enum whose items carry their message text, a fact some failures lack is an `Option` field. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and an interpolated message. Records hold fields and one `Unless` factory returning `Fin` (`flag ? unit : new <Record>(…)`) alone, a limit or other operation sits in the raising class. `Unless` takes its subject from call text through `[CallerArgumentExpression]`:
 
 ```csharp
 public sealed record Failure(string Subject, Reason Reason, Option<int> Index) : Expected($"{Subject} failed: {Reason}", 0);
@@ -277,7 +277,7 @@ Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
 ### [04.3]-[UNIONS]
 
-Model each valid state a consumer inspects as a distinct case, states differing only by a tag as one record of tag and value, and count values a type has (a product multiplies the counts of its fields, `Option<A>` adds one) to expose unneeded states:
+Model each valid state a consumer inspects as a distinct case, and states differing only by a tag as one record of tag and value. Counting values a type has (a product multiplies its fields' counts, `Option<A>` adds one) exposes unneeded states:
 
 ```csharp
 [Union]
@@ -333,7 +333,7 @@ internal static class Host {
 
 ### [05.1]-[DEPENDENCIES]
 
-Inject the narrowest dependency that represents what consumers need: a value for a stable snapshot, an `IO<A>` for an operation that must run on demand, a runtime `RT` for a consumer that reads many capabilities, and one interface resolved once for a seam each platform implements in full. Wrapping the clock behind an interface does not make the consumer pure, and injecting the date makes it deterministic:
+Inject the narrowest dependency that represents what consumers need: a value for a stable snapshot, an `IO<A>` for an operation that must run on demand, a runtime `RT` for a consumer that reads many capabilities, and one interface resolved once for a seam each platform implements in full. Clocks behind an interface leave consumers impure, an injected date makes a consumer deterministic:
 
 ```csharp
 internal static class Validators {
@@ -344,7 +344,7 @@ internal static class Validators {
 }
 ```
 
-Host reads the date once from its `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies the command later, and a test supplies a date without a fake clock. The same argument supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside the `IO` that consumes it, and only the composition root names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`), a tick or second count appears at a host API taking a number alone. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside the release action.
+Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies each command later, and tests supply a date without a fake clock. `TimeProvider` supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside its consuming `IO`, and the composition root alone names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`), a tick or second count appears at a host API taking a number alone. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside its release action.
 
 ### [05.2]-[POLICIES]
 
@@ -379,16 +379,26 @@ Delivery shape selects the construct:
 ## [06]-[NUMERICS]
 
 Numeric facts come from the package that states them, and a sample loop reads only spans and SIMD lanes:
-- Scalar roots, quadrature, splines, fits, quantiles, and factorizations are MathNet members (`Brent.FindRoot`, `Integrate.GaussKronrod`, `CubicSpline.InterpolatePchipSorted`, `Fit.Polynomial`, `SortedArrayStatistics.Quantile`, `Matrix<double>.Svd`), a hand loop that converges, bisects, or sums a series is a defect
+- Scalar roots, quadrature, splines, fits, quantiles, and factorizations are MathNet members
+- Hand loops that converge, bisect, or sum a series are a defect
 - Elementwise and reduction loops over a float span are one `TensorPrimitives` call, a loop stays where each element is a `Vector4` pixel or reads neighbors
 - Flat pixel buffers are read through `Span2D<T>` and `GetRowSpan` with the source pitch, a hand `[(y * width) + x]` is a defect
 - Row-parallel passes are `ParallelHelper.For<TAction>` over a `readonly struct : IAction`, a `Parallel.For` closure is a defect
 - Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing, `Matrix<double>`, `Unicolour`, UnitsNet quantities, and `BigInteger` stay outside the loop
 - Exact integer-plus-fraction arithmetic on a hot path is fixed-point on `long` or `Int128`, a shift for the cell and a mask for the local part
-- `Length` and `Angle` name parameters, bounds, and presentation units, a `float` holds the samples and a host unit scale enters once at the boundary
-- Color facts (space conversion, white point, correlated temperature, difference, blend, gamut mapping, CSS names) come from Unicolour at swatch, bake, and style scale
+- `Length` and `Angle` name parameters, bounds, and presentation units, a `float` holds samples and a host unit scale enters once at the boundary
 - Host decompositions and projections (`Transform.DecomposeAffine`, `Quaternion.Slerp`, `Plane.FitPlaneToPoints`) have no package member beside them
-- Scopes building a Skia handle for a struct (`SKColorSpace` into `SKImageInfo`, `SKShader` into `SKPaint`) own it, with one static per fixed color space
+
+| [INDEX] | [FACT]        | [MEMBER]                             |
+| :-----: | :------------ | :----------------------------------- |
+|  [01]   | Scalar root   | `Brent.FindRoot`                     |
+|  [02]   | Quadrature    | `Integrate.GaussKronrod`             |
+|  [03]   | Spline        | `CubicSpline.InterpolatePchipSorted` |
+|  [04]   | Fit           | `Fit.Polynomial`                     |
+|  [05]   | Quantile      | `SortedArrayStatistics.Quantile`     |
+|  [06]   | Factorization | `Matrix<double>.Svd`                 |
+
+Use `Skill(dotnet-coding-ui)` for drawn surfaces, shaped text, vector art, color, and host controls.
 
 ```csharp
 internal static class Rows {

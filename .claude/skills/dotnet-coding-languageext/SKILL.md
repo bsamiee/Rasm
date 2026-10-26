@@ -450,7 +450,7 @@ internal static class Lenses {
 - `Atom`, `AtomHashMap`, and `Ref` order their own writes, and a lock guards a plain field
 - `Swap` returns the new value and reruns its function on conflict, `SwapMaybe` keeps the state on `None` and returns the current value
 - Next states derive from the transition argument, a `Value` read before a separate `Swap` races each write
-- Before-and-after pairs return from one `atomic` over a `Ref`, `Value` then `Swap` reads two states
+- Before-and-after pairs return from one `atomic` over a `Ref`, `Value` then `Swap` reads separate states
 - `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key
 - `SwapKey(key, Func<V, V>)` updates a present key, `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes
 - `Find` reads, `FindOrAdd` adds a missing value or returns the existing one in one atomic step

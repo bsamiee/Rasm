@@ -415,7 +415,7 @@ Value objects and smart enums raise the package error type under `[ValidationErr
 - Types with an extra `[ObjectFactory<T>]` implement more than one `IObjectFactory` and fail `X.Validated` with `CS0411`
 - `T.Validated` through a type parameter is `CS0704`, generic code and types with an extra factory call `Validations.Validated<T, TKey>(raw)`
 - `Validations.ToFin(T.Validate(..., out T? item), item)` converts a complex value object's `Validate`, declared once per type as its `Validated(members)`
-- Absence as the meaning crosses through `Validated(raw).ToOption()`, `TryCreate` outside the hook stays a defect
+- Absence as the meaning crosses through `Validated(raw).ToOption()`
 - `Create` takes a literal in a static default alone, a computed value crosses through `Validated`
 
 ```csharp
