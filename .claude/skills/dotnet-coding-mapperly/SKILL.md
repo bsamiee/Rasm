@@ -21,6 +21,8 @@ Adapters that reference both representations own the mapper, and no other code r
 - Declare a static partial mapper for a transformation with no stored inputs
 - Keep an instance mapper deterministic through immutable and pure collaborators
 - Keep mutable state, service location, and ambient reads outside every mapper
+- Host objects the host copies (`Duplicate()`, a copy constructor) are their own snapshot, a mapper maps a record a caller stores or compares
+- Source method reads (`IsSelected()`) enter one `[MapPropertyFromSource]` member each, a hand constructor call beside the mapper restates it
 
 | [INDEX] | [DIRECTION]                                       | [MAPPERLY_ROLE]             | [REQUIRED_FORM]                                       |
 | :-----: | :------------------------------------------------ | :-------------------------- | :---------------------------------------------------- |
@@ -71,6 +73,8 @@ MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method a
 - `MapperDefaultsAttribute` derives from `MapperAttribute` with the same options
 - Overrides replace the whole value, a deviating mapper names its full `EnabledConversions` allowlist
 - Mappers and methods state only an option that differs, `RequiredMappingStrategy.Source` where every source member must reach an existing host object
+- `Target` reports nothing for a source member the record lacks, a record holding every host member sets `Both`
+- `MapperlyAbstractionsScope` stays at default `compile`, `runtime` copies the abstractions assembly into every output and serves reference handling alone
 - Inbound mappers that feed constrained types keep `ParseMethod`, `Constructor`, `StaticConvertMethods`, and the casts out of their allowlist
 - Outbound mappers convert a value object to its key, or null for a nullable target, through a `[UserMapping]` (`int Key(Quantity value) => value`)
 - Inbound operator from the key is explicit and calls the throwing `Create`
@@ -456,18 +460,20 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
 
 ## [11]-[ANTI_PATTERNS]
 
-| [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                    |
-| :-----: | :------------------------------------------------------------------ | :---------------------------------------------------------------- |
-|  [01]   | Mapper conversion that calls `Create` or `Parse`                    | `X.Validated` over the generated `Validate`                       |
-|  [02]   | `MapDerivedType` or a partial `Switch` over a closed union          | Generated exhaustive `Switch`, one mapper call per arm            |
-|  [03]   | `EnabledConversions` on a mapper naming the one added bit           | Whole allowlist, the value replaces and never merges              |
-|  [04]   | Mapper method that builds or unwraps a LanguageExt result or effect | Mapper over the success value, `Map` keeps the context            |
-|  [05]   | `ToString()` as the wire contract of a value object                 | Key member, or `ToValue` of an `[ObjectFactory<T>]`               |
-|  [06]   | Validation or effects inside a query projection                     | Project, materialize, then validate and construct                 |
-|  [07]   | Existing-target mapping over a value the caller published           | New-instance mapping, or a target that never escapes              |
-|  [08]   | Private `[UserMapping]` repeated in every mapper that needs it      | One `internal static class` behind `[UseStaticMapper(typeof(T))]` |
-|  [09]   | Unsafe accessor over a private constructor or hidden member         | Declared factory of the constrained type                          |
-|  [10]   | Object factory that resolves services                               | Pure factory over its parameters                                  |
-|  [11]   | Mapping method forwarding its source unchanged to another method    | `Use = nameof(@<owner>.<member>)` or a `[UseStaticMapper]` owner  |
-|  [12]   | Assignments or an initializer copying source members one by one     | `partial` mapping, or existing-target `Update` for a host value   |
-|  [13]   | User mapping returning a source member path                         | `[MapProperty]` naming source path and target member              |
+| [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                     |
+| :-----: | :------------------------------------------------------------------ | :----------------------------------------------------------------- |
+|  [01]   | Mapper conversion that calls `Create` or `Parse`                    | `X.Validated` over the generated `Validate`                        |
+|  [02]   | `MapDerivedType` or a partial `Switch` over a closed union          | Generated exhaustive `Switch`, one mapper call per arm             |
+|  [03]   | `EnabledConversions` on a mapper naming the one added bit           | Whole allowlist, the value replaces and never merges               |
+|  [04]   | Mapper method that builds or unwraps a LanguageExt result or effect | Mapper over the success value, `Map` keeps the context             |
+|  [05]   | `ToString()` as the wire contract of a value object                 | Key member, or `ToValue` of an `[ObjectFactory<T>]`                |
+|  [06]   | Validation or effects inside a query projection                     | Project, materialize, then validate and construct                  |
+|  [07]   | Existing-target mapping over a value the caller published           | New-instance mapping, or a target that never escapes               |
+|  [08]   | Private `[UserMapping]` repeated in every mapper that needs it      | One `internal static class` behind `[UseStaticMapper(typeof(T))]`  |
+|  [09]   | Unsafe accessor over a private constructor or hidden member         | Declared factory of the constrained type                           |
+|  [10]   | Object factory that resolves services                               | Pure factory over its parameters                                   |
+|  [11]   | Mapping method forwarding its source unchanged to another method    | `Use = nameof(@<owner>.<member>)` or a `[UseStaticMapper]` owner   |
+|  [12]   | Assignments or an initializer copying source members one by one     | `partial` mapping, or existing-target `Update` for a host value    |
+|  [13]   | User mapping returning a source member path                         | `[MapProperty]` naming source path and target member               |
+|  [14]   | Record restating a host property bag the host copies               | Host copy as snapshot, mapper over the record a caller stores      |
+|  [15]   | `Update` into a host object with ignored members per union case     | One closure per case folded in order, no mapper                    |

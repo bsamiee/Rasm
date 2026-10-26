@@ -153,7 +153,7 @@ Complex value objects compose simple value objects, smart enums, and other compl
 ## [02]-[SMART_ENUMS]
 
 Smart enums declare a fixed set of items as `public static readonly` fields of a `partial` class under `[SmartEnum<TKey>]`, or under `[SmartEnum]` for a keyless set:
-- Each item holds its own data and behavior
+- Each item holds data a consumer reads, a plain `enum` stands only where a host or file format defines the values
 - Consumers call a method on the item in place of branching on it
 
 ```csharp
@@ -185,7 +185,6 @@ Generator emits one private constructor per base constructor with parameters in 
 - `null` keys throw `ArgumentNullException` after `ValidateConstructorArguments` returns
 - `[UseDelegateFromConstructor]` marks a `partial` method without type parameters (050, 051), a private delegate field implements it
 - `DelegateName` or a parameter a `Func` cannot hold (`ref`) makes the generator emit a nested delegate type
-- `Empty.Action` supplies the `Action` of an item without behavior
 - Static fields initialize in declaration order, an item that refers to a later item reads it through a `Lazy<T>` built from a static method
 - Derived classes nest inside the smart enum, first-level derived classes are `private` (014) and deeper ones `public` (015)
 - Derived classes that are neither abstract nor a base are `sealed` (037), a derived class can be generic, `Items` lists the permitted implementations
@@ -337,11 +336,11 @@ Smart enums and unions generate `Switch` with one `Action` per case, `Switch<TRe
 
 ```csharp
 internal static class Matching {
-    public static string Label(Kind kind, decimal weight) =>
+    public static string Label(Kind kind, decimal weight, CultureInfo culture) =>
         kind.Switch(
-            weight,
-            standard: static w => string.Create(CultureInfo.InvariantCulture, $"ground, {w} kg"),
-            express: static w => string.Create(CultureInfo.InvariantCulture, $"air, {w} kg"));
+            (weight, culture),
+            standard: static state => string.Create(state.culture, $"ground, {state.weight} kg"),
+            express: static state => string.Create(state.culture, $"air, {state.weight} kg"));
     public static string Handling(Kind kind) => kind.MapPartially(@default: "standard", express: "priority");
 }
 ```
@@ -350,6 +349,7 @@ internal static class Matching {
 - Void `SwitchPartially` takes an optional `@default` and does nothing for an unhandled case, the value-returning forms require `@default`
 - On an ad hoc union, `@default` receives the current member as `object?`, on a regular union the base type
 - Partial forms serve an intended fallback alone, the exhaustive form turns a new case into a compile error at every call
+- Per-case facts read through `MapPartially` with `@default` are abstract or `static virtual` members on the base
 - Every generated `Switch` and `Map` ends in an unreachable arm that throws `InvalidOperationException`
 - Smart enum arm message is `The instance is not a known item of 'Kind'.`, regular union arm message is `Unexpected type '...'.`
 - Ad hoc `Map` arm message is `Unexpected value index '...'.`, ad hoc `Switch` throws `IndexOutOfRangeException` in that arm
@@ -403,47 +403,53 @@ internal sealed partial class TextOrCount {
 
 ## [06]-[VALIDATED_RESULTS]
 
-Internal static class `ValidationResults` converts `ValidationError` to `Fin` through C# 14 static extension blocks with an interface receiver:
-- Every failure is an `Expected` under `ErrorCodes.ValidationFailed` holding the validation message
-- Range rules sit in a value type implementing `IMinMaxValue<TSelf>`, its hook assigns `OutsideRange(value, MinValue, MaxValue)`
+Value objects and smart enums raise the package error type under `[ValidationError<Invalid>]`. One static class in the core project every library references converts `Validate` out-parameter form to `Fin` through C# 14 static extension blocks with an interface receiver:
+- Every failure is `Invalid`, an `Expected` implementing `IValidationError<Invalid>` that holds validation message and converts to `Fin` as `Error`
+- Range rules sit in one value type per rule implementing `IMinMaxValue<TSelf>`, its hook assigns `OutsideRange(value, MinValue, MaxValue)`
 - Relative changes saturate into `MinValue` and `MaxValue` before `X.Validated`
 - `OutsideRange` keys implement `IComparable<TKey>` and `IFormattable`
 - Class value objects with a value-type key convert implicitly to `TKey?` alone, a class passes `MinValue._value` and `MaxValue._value`
 - `X.Validated(raw)` returns `Fin<X>`, a method group in `Bind` and `Traverse`, for a type with one `IObjectFactory` and for a string-keyed smart enum
-- Consumers cross through `Validated` alone, a `Validate` or `TryCreate` call outside a hook, an object factory, or `ValidationResults` is RASM1102
+- Consumers cross through `Validated` alone, a `Validate` or `TryCreate` call outside a hook, an object factory, or the converting class is a defect
 - Value types declare no `From` factory
 - Types with an extra `[ObjectFactory<T>]` implement more than one `IObjectFactory` and fail `X.Validated` with `CS0411`
-- `T.Validated` through a type parameter is `CS0704`, generic code and types with an extra factory call `ValidationResults.Validated<T, TKey>(raw)`
-- `ValidationResults.ToFin(T.Validate(..., out T? item), item)` converts a complex value object's `Validate`
+- `T.Validated` through a type parameter is `CS0704`, generic code and types with an extra factory call `Validations.Validated<T, TKey>(raw)`
+- `Validations.ToFin(T.Validate(..., out T? item), item)` converts a complex value object's `Validate`, declared once per type as its `Validated(members)`
+- Absence as the meaning crosses through `Validated(raw).ToOption()`, `TryCreate` outside the hook stays a defect
+- `Create` takes a literal in a static default alone, a computed value crosses through `Validated`
 
 ```csharp
-internal static class ValidationResults {
-    public static ValidationError? OutsideRange<TKey>(TKey value, TKey low, TKey high) where TKey : IComparable<TKey>, IFormattable =>
-        value.CompareTo(low) >= 0 && value.CompareTo(high) <= 0 ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{value} lies outside [{low}, {high}]"));
+public sealed record Invalid(string Message) : Expected(Message, 0), IValidationError<Invalid> {
+    public static Invalid Create(string message) => new(message);
+}
 
-    public static Fin<TValue> ToFin<TValue>(ValidationError? error, TValue? value) =>
-        error is null ? value! : Error.New(ErrorCodes.ValidationFailed, error.Message);
+public static class Validations {
+    public static Invalid? OutsideRange<TKey>(TKey value, TKey low, TKey high) where TKey : IComparable<TKey>, IFormattable =>
+        value.CompareTo(low) >= 0 && value.CompareTo(high) <= 0 ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"{value} lies outside [{low}, {high}]"));
 
-    extension<TValue, TKey>(IObjectFactory<TValue, TKey, ValidationError>) where TValue : IObjectFactory<TValue, TKey, ValidationError> where TKey : notnull {
+    public static Fin<TValue> ToFin<TValue>(Invalid? error, TValue? value) => error is null ? value! : error;
+
+    extension<TValue, TKey>(IObjectFactory<TValue, TKey, Invalid>) where TValue : IObjectFactory<TValue, TKey, Invalid> where TKey : notnull {
         public static Fin<TValue> Validated(TKey key) => ToFin(TValue.Validate(key, provider: null, out TValue? value), value);
     }
 
-    extension<TValue>(ISmartEnum<string, TValue, ValidationError>) where TValue : ISmartEnum<string, TValue, ValidationError> {
+    extension<TValue>(ISmartEnum<string, TValue, Invalid>) where TValue : ISmartEnum<string, TValue, Invalid> {
         public static Fin<TValue> Validated(string key) => Validated<TValue, string>(key);
     }
 }
 
 [ValueObject<int>]
+[ValidationError<Invalid>]
 internal readonly partial struct Count : IMinMaxValue<Count> {
     public static Count MinValue { get; } = new(0);
     public static Count MaxValue { get; } = new(100);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref int value) => validationError = Validations.OutsideRange(value, MinValue, MaxValue);
 }
 
 internal static class Crossings {
     public static Fin<Seq<Count>> Counts(Seq<int> raw) => raw.Traverse(Count.Validated).As();
-    public static Fin<Bounds> Range(decimal lower, decimal upper) => ValidationResults.ToFin(Bounds.Validate(lower, upper, out Bounds? bounds), bounds);
+    public static Fin<Bounds> Range(decimal lower, decimal upper) => Validations.ToFin(Bounds.Validate(lower, upper, out Bounds? bounds), bounds);
 }
 ```
 
@@ -523,10 +529,12 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |  [14]   | Hand-written serializers for an ad hoc union                         | `[ObjectFactory<string>]` with `ToValue` and `Validate`           |
 |  [15]   | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary   | `Thinktecture.Empty.Collection<T>()`                              |
 |  [16]   | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`       | `X.Validated(raw)` over `Validate`, which never throws            |
-|  [17]   | Package validation error type under `[ValidationError<T>]`           | Default `ValidationError` with the violated rule as message       |
-|  [18]   | `Error.New(ErrorCodes.ValidationFailed, error.Message)` by hand      | `X.Validated(raw)`, `ValidationResults.ToFin` for complex forms   |
-|  [19]   | `Items` scanned for the item with a matching `Key`                   | `Get(key)`, or `TryGet(key, out item)` where the key can miss     |
-|  [20]   | `switch` or `Equals` over text keys selecting one of a closed set    | `[SmartEnum<string>]` item per key, `TryGet` reads, `Key` writes  |
-|  [21]   | Smart enum or union `ToString` override, or one returning case text  | `Key`, or the consumer's own text through `Map`                   |
-|  [22]   | Union with `Switch` arms writing only host members from case fields  | `Set(Action<T> Write)` case, arm `IO.lift(() => set.Write(t))`    |
-|  [23]   | Stateless union cases selecting static presets of a host type        | Preset type itself, each caller passing its preset                |
+|  [17]   | `Error.New(<code>, error.Message)` by hand                           | `X.Validated(raw)`, `ToFin` over `Validate` for a complex form    |
+|  [18]   | `Items` scanned for the item with a matching `Key`                   | `Get(key)`, or `TryGet(key, out item)` where the key can miss     |
+|  [19]   | `switch` or `Equals` over text keys selecting one of a closed set    | `[SmartEnum<string>]` item per key, `TryGet` reads, `Key` writes  |
+|  [20]   | Smart enum or union `ToString` override, or one returning case text  | `Key`, or the consumer's own text through `Map`                   |
+|  [21]   | Union with `Switch` arms writing only host members from case fields  | `Func<T, IO<Unit>>` closures folded in order                      |
+|  [22]   | Stateless union cases selecting static presets of a host type        | Preset type itself, each caller passing its preset                |
+|  [23]   | `X.Create(<expression>)` on a drag delta, extent, or measured value  | `X.Validated(<expression>)` returning `Fin`                       |
+|  [24]   | `Clamp` before `Create` repeating the hook's range                   | Saturation into `MinValue` and `MaxValue`, then `Validated`       |
+|  [25]   | Hand-written `JsonConverter` for a value parsed from text            | `[ObjectFactory<string>(UseForSerialization = SystemTextJson)]`   |

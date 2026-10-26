@@ -257,7 +257,7 @@ Evaluation follows host rules:
 
 `RecordGroup` binds settings records to RNA properties for `Operator.form`, `Attachment`, and preference pages:
 - `str | None` fields bind as text holding `""` for absence, and `ID | None` fields as pointers
-- Other optional settings are `Gated[T]` fields from `blender.imaging.parameters`, an enabled flag beside its value
+- Other optional settings are `Gated[T]` fields from `blender.records.fields`, an enabled flag beside its value
 - Alternatives are `Case` subclasses with integer tags
 - Menu choices are `Choice` members with the persistent integers files store
 

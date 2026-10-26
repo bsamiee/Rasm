@@ -62,7 +62,7 @@
 - ALWAYS pair acquisition and release in one resource scope, release runs on the error path
 - ALWAYS pass changing context to the next domain operation as a returned value, shared mutable state does not coordinate domain operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value, a buffer that never escapes stays pure
-- ALWAYS describe a target's desired state as data and reconcile it against the live or stored target
+- ALWAYS describe a target's desired state as data and reconcile it against the live or stored target, a host type holding desired state is data
 
 [BOUNDARY]: Boundaries own every conversion between external values and domain values
 - ALWAYS return the language's result type from every fallible package and project API, consumers compose without unwrapping
@@ -71,13 +71,13 @@
 - ALWAYS translate the result at the boundary into the host's representation: exit code, status, host exception, or UI state
 
 [DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
-- ALWAYS call the owning type or package directly, a function between them stands only for a boundary conversion or steps every caller repeats
-- ALWAYS import each name under its declared name, NEVER alias an import, a naming conflict is fixed at the root level in project code no aliasing/indirection
+- ALWAYS call the owning type or package directly, a middle function is one boundary conversion per host convention or a step every caller repeats
+- ALWAYS import each name under its declared name, a naming conflict is fixed at its root in project code, an alias or forwarder around it is a defect
 - ALWAYS reach a dependency through the function or runtime that supplies it, a service locator or a layer forwarding a call unchanged is a defect
 
 [DERIVATION]: Values derive from the declaration or host API that states them
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
-- ALWAYS reach members through typed handles instead of member-name strings
+- ALWAYS reach members through typed handles the compiler or a generator derives, a name string or hand-written handle per member is a defect
 - ALWAYS derive a label, undo name, or progress text from the operation and its target, a caller-written description is a defect
 
 [CAPABILITY]: Libraries hold general capability in layers independent of any consumer, specific instances sit where a composition uses them

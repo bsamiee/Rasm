@@ -51,7 +51,7 @@ internal static class Reductions {
 
 ## [03]-[CONDUITS]
 
-`Conduit.make(Buffer<A>)` builds a `Sink<A>` and `Source<A>` pair, `Post` writes to the sink, `Comap` adapts the sink's input type, and `Complete()` closes the sink and a later `Post` fails. Buffer policies decide what happens when production outpaces consumption, the consumer cannot slow the producer by requesting the next item:
+`Conduit.make(Buffer<A>)` builds a `Sink<A>` and `Source<A>` pair, `Post` writes to the sink, `Comap` adapts the sink's input type, and `Complete()` closes the sink and a later `Post` fails. `Sink.lift(Channel<A>)` builds a sink over a BCL channel and `Source.lift(channel)` reads it, a `Sink<A>` subclass that forwards `Post` restates them. Buffer policies decide what happens when production outpaces consumption, the consumer cannot slow the producer by requesting the next item:
 
 | [INDEX] | [BUFFER]               | [BEHAVIOR]                                          |
 | :-----: | :--------------------- | :-------------------------------------------------- |

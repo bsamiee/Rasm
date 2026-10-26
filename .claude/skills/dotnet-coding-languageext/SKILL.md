@@ -197,6 +197,7 @@ internal static class Construction {
 - `Try.lift(io.Run).Run()` captures the thrown error and returns the original `Expected`
 - Disposable `EnvIO.New(token:)` passes the cancellation token into `Run(env)`
 - Cancelled tokens escape `RunSafe` as an exception that a host captures with `Try.lift`
+- `Try.lift` and `IO.lift` wrap the one throwing call, a block body captures every call in it as `Exceptional`
 
 ### [04.1]-[RESOURCES]
 
@@ -223,9 +224,11 @@ internal static class Resources {
 - `timeout(duration, effect)` fails the effect after the duration, `Uninterruptible` masks cancellation
 - `PartitionFallible` takes a `Seq<K<IO, A>>` (`Map<K<IO, A>>` sets that element type) and runs every effect without a short-circuit
 - `PartitionFallible` returns `(Seq<Error> Fails, Seq<A> Succs)`, `Succs` and `Fails` return one side
+- `PartitionFallible` serves a caller that keeps `Succs` beside `Fails`, a traversal that fails whole is `Traverse` under `Validation` then `ToFin`
 - `Traverse` under `IO` starts every element effect before awaiting any
 - Effects built with `IO.liftAsync` overlap without a bound, effects built with `IO.lift` run in order on the calling thread
 - Bounded parallelism chunks the collection and traverses the chunks with `TraverseM`
+- Exclusive writes to one resource go through a `Conduit` reduced under `Fork`, a `SemaphoreSlim` or `lock` stands where a host API demands a thread
 
 ```csharp
 internal static class Concurrency {
@@ -248,6 +251,7 @@ internal static class Concurrency {
 - `Monad.recur` works with every host operation and returns `K<IO, B>` that `.As()` narrows
 - `Monad.recur` checks the state before it advances, an already-finished initial state returns unchanged
 - `RepeatUntil` polls one effect until its value satisfies the predicate, `RepeatWhile` polls while it does
+- Polls waiting for `Some` are `RepeatUntil(Schedule.spaced(d), static x => x.IsSome)`, `Monad.recur` over `IO.yieldFor` restates them
 - Polls with a constant predicate are `Repeat` or `Retry` over the same schedule
 
 ```csharp
@@ -424,7 +428,7 @@ Forms the compiler rejects:
 
 ## [07]-[LENSES_AND_SHARED_STATE]
 
-`Lens<A, B>.New` takes a getter and a curried setter:
+`Lens<A, B>.New` takes a getter and a curried setter for a focus no record property states, a property's lens derives from the property:
 - `Get` reads the focus, `Set` writes a value and `Update` applies a function to it, both return a new `A`
 - `lens(outer, inner)` composes lenses into one that focuses on a value in a nested record
 - `Lens.identity<A>()` focuses on the whole value
@@ -446,6 +450,7 @@ internal static class Lenses {
 - `Atom`, `AtomHashMap`, and `Ref` order their own writes, and a lock guards a plain field
 - `Swap` returns the new value and reruns its function on conflict, `SwapMaybe` keeps the state on `None` and returns the current value
 - Next states derive from the transition argument, a `Value` read before a separate `Swap` races each write
+- Before-and-after pairs return from one `atomic` over a `Ref`, `Value` then `Swap` reads two states
 - `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key
 - `SwapKey(key, Func<V, V>)` updates a present key, `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes
 - `Find` reads, `FindOrAdd` adds a missing value or returns the existing one in one atomic step
