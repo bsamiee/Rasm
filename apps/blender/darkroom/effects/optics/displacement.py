@@ -24,7 +24,7 @@ from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Men
 from blender.bpy.render.compositor.coordinates import Border, BORDERS, Clock
 from blender.bpy.render.compositor.effects import Alpha, Animates, CameraFrame, CompositorEffect, precise, Requests, Shell
 from blender.imaging.color.processors import converted, GREY, luma
-from blender.imaging.files import images
+from blender.imaging.files import buffers
 from blender.imaging.files.images import ImageFile, read_file
 from blender.imaging.geometry.stmaps import displaced, slope, softened, tapped
 from blender.imaging.sampling.integration import Estimate, Precision, Raster, smoothstep
@@ -328,7 +328,7 @@ class Displacement(Effect, frozen=True, kw_only=True):
             centers = raster.centers
 
             def lifted(plane: npt.NDArray[np.float32]) -> npt.NDArray[np.float64]:
-                positive = np.maximum(images.unassociated(plane)[..., :3] @ luminance, 0.0)
+                positive = np.maximum(buffers.unassociated(plane)[..., :3] @ luminance, 0.0)
                 return positive / (positive + GREY / gain)
 
             base = lifted(source)
@@ -422,11 +422,11 @@ class Displacement(Effect, frozen=True, kw_only=True):
 
             def published(observations: tuple[npt.NDArray[np.float64], ...]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
                 estimate = Estimate.of(np.stack(observations), precision)
-                return images.located(np.ascontiguousarray(estimate.value, dtype=np.float32), image).map(estimate.holding)
+                return buffers.located(np.ascontiguousarray(estimate.value, dtype=np.float32), image).map(estimate.holding)
 
             return accumulated(map(replicated, range(precision.replicates))).bind(published)
 
-        return images.pixels(image).bind(computed)
+        return buffers.pixels(image).bind(computed)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

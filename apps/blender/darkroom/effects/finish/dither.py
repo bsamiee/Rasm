@@ -25,7 +25,9 @@ from blender.bpy.render.outputs.finishing import Finish, stamped, Written
 from blender.bpy.render.outputs.formats import Kind
 from blender.bpy.settings.attachments import Attachment
 from blender.imaging.color.processors import Domain
-from blender.imaging.files.images import Depth, Diffused, ImageFile, IntegerDepth, read_file, Storage, unassociated
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.coding import Depth, Diffused, IntegerDepth
+from blender.imaging.files.images import ImageFile, read_file, Storage
 from blender.imaging.sampling.tiles import ranks
 from blender.records.faults import accumulated, Faults, Outcome
 from blender.records.identity import content_hash

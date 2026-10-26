@@ -14,7 +14,7 @@ public static class Sliders {
     // --- [ROWS]
     public static ControlRow Numeric(string label, Slider track) =>
         new ControlRow.Bound<Slider>(label, RowShape.Inline, track, static (latest, scope, retain) =>
-            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Track(row.Row.Soft.IfNone(row.Row.Domain)), row.Row.Step, row.Row.Decimals, row.Row.Unit, row.Row.Culture),
+            Scened(latest, static row => (row.Row.Drawn, new ScalarText(row.Row.Track(row.Row.Soft.IfNone(row.Row.Domain)), row.Row.Step, row.Row.Decimals, row.Row.Unit, RowText.Culture),
                 (row.Row.Domain.Low, row.Row.Domain.High), row.Row.Value, row.Row.Edited), square: false, scope, retain));
 
     public static ControlRow Turned(string label, Dial dial) =>

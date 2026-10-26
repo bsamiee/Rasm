@@ -56,7 +56,7 @@ public sealed record BitmapPixels(Bitmap Bitmap) : IDisposable {
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class SceneView : Drawable {
     // --- [STATE]
-    private sealed record Seat(PixelLayout Holder, Control Control);
+    private sealed record Seat(PixelLayout Holder, Control Control, Func<SlotKind, IO<Unit>> Restated, IDisposable Lease);
 
     private readonly RowScope scope;
     private readonly PixelLayout seats = new();
@@ -66,7 +66,6 @@ public sealed class SceneView : Drawable {
     private PlacedControls<Seat> placing;
     private Option<CursorShape> pointer;
     private (bool Shown, bool Key) native;
-    private int marking;
 
     public SceneView(RowScope scope, Node view) {
         (this.scope, this.view) = (scope, view);
@@ -78,8 +77,6 @@ public sealed class SceneView : Drawable {
     }
 
     public static string HandlerStyle { get; } = $"{typeof(SceneView).Assembly.GetName().Name}.{nameof(SceneView)}";
-
-    public bool Cycles { get; init; }
 
     public Func<Seq<Key>, IO<Control>> Slots { get; init; } = static path => IO.fail<Control>(new Refused(nameof(Slots), $"no control for slot /{string.Join('/', path.Map(static key => key.Identifier))}"));
 
@@ -138,7 +135,7 @@ public sealed class SceneView : Drawable {
             new SKSize(Math.Max(0, Width), Math.Max(0, Height)),
             HostTheme.Projected(HostTheme.Compact(this)),
             Visibility.Of(visible && native.Shown, native.Key),
-            Cycles,
+            HostPlacement.Panel,
             RowText.Culture));
 
     private IO<Unit> Released(SceneHost<BitmapPixels> host) =>
@@ -151,8 +148,6 @@ public sealed class SceneView : Drawable {
         select unit;
 
     internal IO<Unit> Natively(bool shown, bool key) => IO.lift(() => native = (shown, key)).Bind(_ => Rehosted);
-
-    internal void Marked(int offset) => marking = offset;
 
     // --- [OUTPUT]
     private IO<Unit> Applied(Func<Mount, Output, IO<Unit>> projected, Mount mount, Output output) =>
@@ -177,22 +172,41 @@ public sealed class SceneView : Drawable {
     // --- [SLOTS]
     private PlacedControls<Seat> Seating =>
         new(
-            (path, placed, element) =>
-                from control in Slots(path)
-                from seat in IO.lift(() => {
-                    PixelLayout holder = new();
-                    holder.Add(control, placed.Frame.Left, placed.Frame.Top);
-                    seats.Add(holder, placed.Clip.Left, placed.Clip.Top);
-                    return Sized(new Seat(holder, control), placed);
+            (slot, placed, element) => DisposalOps.Transacted(
+                IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)),
+                owned => slot.Kind.Switch(
+                    (View: this, slot.Path, Owned: owned),
+                    text: static (held, text) => held.View.Entered(text, held.Owned.Retain),
+                    native: static (held, _) => DisposalOps.Acquire(held.View.Slots(held.Path), held.Owned.Retain)
+                        .Map(static control => (Control: control, Restated: (Func<SlotKind, IO<Unit>>)(static _ => IO.pure(unit))))),
+                static owned => owned.Close,
+                (owned, made) =>
+                    from seat in IO.lift(() => {
+                        PixelLayout holder = new();
+                        holder.Add(made.Control, placed.Frame.Left, placed.Frame.Top);
+                        seats.Add(holder, placed.Clip.Left, placed.Clip.Top);
+                        return Sized(new Seat(holder, made.Control, made.Restated, owned), placed);
+                    })
+                    from seated in Drawn.SlotSeated(made.Control, element.Bind(static held => held.Accessible.Label))
+                    select seat),
+            (seat, slot, placed) =>
+                from restated in seat.Restated(slot.Kind)
+                from moved in IO.lift(() => {
+                    seats.Move(seat.Holder, placed.Clip.Left, placed.Clip.Top);
+                    seat.Holder.Move(seat.Control, placed.Frame.Left, placed.Frame.Top);
+                    return Sized(seat, placed);
                 })
-                from seated in Drawn.SlotSeated(control, element.Bind(static held => held.Accessible.Label))
-                select seat,
-            (seat, placed) => IO.lift(() => {
-                seats.Move(seat.Holder, placed.Clip.Left, placed.Clip.Top);
-                seat.Holder.Move(seat.Control, placed.Frame.Left, placed.Frame.Top);
-                return Sized(seat, placed);
-            }),
+                select moved,
             seat => IO.lift(() => Unseated(seat)));
+
+    private IO<(Control Control, Func<SlotKind, IO<Unit>> Restated)> Entered(SlotKind.Text text, Action<IDisposable> owned) =>
+        from entry in text.MaxLines.Exists(static lines => lines is 1) ? HostInput.Line(owned) : HostInput.Area(text.MaxLines, owned)
+        from held in IO.lift(() => Atom(text))
+        from shown in HostInput.Bound(entry, IO.lift(() => (held.Value.Value, held.Value.Edited)), scope.Sink, owned)
+        select (entry.Shown, (Func<SlotKind, IO<Unit>>)(kind => kind.Switch(
+            (Held: held, Shown: shown),
+            text: static (state, next) => IO.lift(() => state.Held.Swap(_ => next)).Bind(_ => state.Shown),
+            native: static (_, _) => IO.pure(unit))));
 
     private static Seat Sized(Seat seat, (SKRectI Clip, SKRectI Frame) placed) {
         seat.Holder.Size = new Size(placed.Clip.Width, placed.Clip.Height);
@@ -203,7 +217,7 @@ public sealed class SceneView : Drawable {
     private Unit Unseated(Seat seat) {
         seats.Remove(seat.Holder);
         seat.Holder.Remove(seat.Control);
-        seat.Control.Dispose();
+        seat.Lease.Dispose();
         seat.Holder.Dispose();
         return unit;
     }
@@ -222,11 +236,11 @@ public sealed class SceneView : Drawable {
             select unit).As().Map(static _ => unit);
 
     private IO<Unit> Blitted(Graphics graphics, SceneTarget<BitmapPixels> target) =>
-        target.Switch(
-            (View: this, Graphics: graphics, Destination: new RectangleF(0f, 0f, Width, Height)),
-            standard: static (held, standard) => IO.lift(() => held.Graphics.DrawImage(standard.Pixels.Bitmap, new RectangleF(0f, 0f, standard.Info.Width, standard.Info.Height), held.Destination)),
-            extended: static (held, extended) =>
-                IO.lift(() => Drawn.ExtendedPresent(held.View, held.Graphics, extended.Surface.Snapshot(), held.Destination)));
+        new RectangleF(0f, 0f, Width, Height) switch {
+            var destination => target.Pixels.Match(
+                Some: pixels => IO.lift(() => graphics.DrawImage(pixels.Bitmap, new RectangleF(0f, 0f, target.Info.Width, target.Info.Height), destination)),
+                None: () => IO.lift(() => Drawn.ExtendedPresent(this, graphics, target.Surface.Snapshot(), destination))),
+        };
 
     // --- [INPUT]
     internal bool Receive(Input input, Duration now) =>
@@ -278,21 +292,6 @@ public sealed class SceneView : Drawable {
     protected override void OnKeyDown(KeyEventArgs e) {
         e.Handled = Current.Exists(mount => HostInput.Keyed(mount, e).Exists(Timed));
         if (!e.Handled) base.OnKeyDown(e);
-    }
-
-    protected override void OnTextInput(TextInputEventArgs e) {
-        e.Cancel = Timed(new Input.Perform(new Act.Insert(e.Text), new Target.Focused()));
-        base.OnTextInput(e);
-    }
-
-    protected override void OnTextComposition(TextCompositionEventArgs e) {
-        e.Handled = Timed(new Input.Perform(new Act.Compose(e.IsActive ? e.Text : "", e.IsActive ? marking : 0), new Target.Focused()));
-        base.OnTextComposition(e);
-    }
-
-    protected override void OnTextInsertionBoundsRequested(TextInsertionBoundsEventArgs e) {
-        e.Bounds = Current.Bind(static held => held.Caret).Map<RectangleF?>(static caret => new RectangleF(caret.Left, caret.Top, caret.Width, caret.Height)).ValueUnsafe();
-        base.OnTextInsertionBoundsRequested(e);
     }
 
     // --- [RELEASE]

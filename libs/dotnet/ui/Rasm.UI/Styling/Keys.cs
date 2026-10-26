@@ -1,9 +1,8 @@
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<string>]
+[ValueObject<string>(SkipIComparable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Role {
     public static readonly Role Window = Create("window");
     public static readonly Role Accent = Create("accent");
@@ -30,9 +29,8 @@ public sealed partial class Role {
     public static readonly Role Ring = Create("ring");
 }
 
-[ValueObject<string>]
+[ValueObject<string>(SkipIComparable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Appearance {
     public static readonly Appearance Native = Create("native");
     public static readonly Appearance Glass = Create("glass");
@@ -40,32 +38,35 @@ public sealed partial class Appearance {
     public static readonly Appearance Borderless = Create("borderless");
 }
 
-[ValueObject<string>]
+[ValueObject<string>(SkipIComparable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ControlSize {
     public static readonly ControlSize Regular = Create("regular");
     public static readonly ControlSize Compact = Create("compact");
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Condition {
-    public static readonly Condition IncreaseContrast = new("increase-contrast");
-    public static readonly Condition DifferentiateWithoutColor = new("differentiate-without-color");
-    public static readonly Condition ReduceTransparency = new("reduce-transparency");
-    public static readonly Condition ReduceMotion = new("reduce-motion");
-    public static readonly Condition Dark = new("dark");
-    public static readonly Condition Default = new("default");
-    public static readonly Condition Destructive = new("destructive");
-    public static readonly Condition Selected = new("selected");
-    public static readonly Condition Modified = new("modified");
-    public static readonly Condition Mixed = new("mixed");
-    public static readonly Condition Busy = new("busy");
-    public static readonly Condition Warning = new("warning");
-    public static readonly Condition Faulted = new("faulted");
-    public static readonly Condition Disabled = new("disabled");
+    public static readonly Condition IncreaseContrast = new("increase-contrast", inherited: false, identity);
+    public static readonly Condition DifferentiateWithoutColor = new("differentiate-without-color", inherited: false, identity);
+    public static readonly Condition ReduceTransparency = new("reduce-transparency", inherited: false,
+        static look => look with { Fills = look.Fills.Map(static fills => fills.Map(static fill => fill.Opaqued)) });
+    public static readonly Condition ReduceMotion = new("reduce-motion", inherited: false, static look => look with { Motion = Some<TimingCurve>(new TimingCurve.Instant()) });
+    public static readonly Condition Dark = new("dark", inherited: false, identity);
+    public static readonly Condition Default = new("default", inherited: false, identity);
+    public static readonly Condition Destructive = new("destructive", inherited: false, identity);
+    public static readonly Condition Selected = new("selected", inherited: false, identity);
+    public static readonly Condition Modified = new("modified", inherited: false, identity);
+    public static readonly Condition Mixed = new("mixed", inherited: false, identity);
+    public static readonly Condition Busy = new("busy", inherited: false, identity);
+    public static readonly Condition Warning = new("warning", inherited: false, identity);
+    public static readonly Condition Faulted = new("faulted", inherited: false, identity);
+    public static readonly Condition Disabled = new("disabled", inherited: true, identity);
+
+    internal bool Inherited { get; }
+
+    [UseDelegateFromConstructor]
+    internal partial Look Restyled(Look look);
 }
 
 [SmartEnum]
@@ -77,44 +78,40 @@ public sealed partial class ContrastLevel {
     public double Graphic { get; }
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum]
 public sealed partial class Interaction {
-    public static readonly Interaction Hover = new("hover", ring: false);
-    public static readonly Interaction Pressed = new("pressed", ring: false);
-    public static readonly Interaction Focused = new("focused", ring: true);
+    public static readonly Interaction Hover = new(ring: false);
+    public static readonly Interaction Pressed = new(ring: false);
+    public static readonly Interaction Focused = new(ring: true);
 
     public bool Ring { get; }
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Channel {
-    public static readonly Channel Fill = new("fill");
-    public static readonly Channel Stroke = new("stroke");
-    public static readonly Channel Text = new("text");
+    public static readonly Channel Fill = new("fill", inherited: false);
+    public static readonly Channel Stroke = new("stroke", inherited: false);
+    public static readonly Channel Text = new("text", inherited: true);
+
+    internal bool Inherited { get; }
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum]
 public sealed partial class Metric {
-    public static readonly Metric Extent = new("extent", 0f);
-    public static readonly Metric Reach = new("reach", 0f);
-    public static readonly Metric Inset = new("inset", 0f);
-    public static readonly Metric Gap = new("gap", 0f);
-    public static readonly Metric Radius = new("radius", 0f);
-    public static readonly Metric Smoothing = new("smoothing", 0f);
-    public static readonly Metric Stroke = new("stroke", 1f);
-    public static readonly Metric Icon = new("icon", 16f);
-    public static readonly Metric FontSize = new("font-size", 1f);
-    public static readonly Metric Spacing = new("spacing", 32f);
-    public static readonly Metric Slop = new("slop", 3f);
-    public static readonly Metric Fine = new("fine", 0.1f);
-    public static readonly Metric Notch = new("notch", 1.2f);
-    public static readonly Metric EdgeFade = new("edge-fade", 0f);
+    public static readonly Metric Extent = new(0f);
+    public static readonly Metric Reach = new(0f);
+    public static readonly Metric Inset = new(0f);
+    public static readonly Metric Gap = new(0f);
+    public static readonly Metric Radius = new(0f);
+    public static readonly Metric Smoothing = new(0f);
+    public static readonly Metric Stroke = new(1f);
+    public static readonly Metric Icon = new(16f);
+    public static readonly Metric FontSize = new(1f);
+    public static readonly Metric Spacing = new(32f);
+    public static readonly Metric Slop = new(3f);
+    public static readonly Metric Fine = new(0.1f);
+    public static readonly Metric Notch = new(1.2f);
+    public static readonly Metric EdgeFade = new(0f);
 
     public float Default { get; }
 }

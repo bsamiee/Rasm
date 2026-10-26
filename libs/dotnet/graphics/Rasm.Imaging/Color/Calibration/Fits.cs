@@ -32,14 +32,14 @@ public sealed record ChartFit {
     public Fin<double> Gain =>
         neutrals switch {
             ( > 0d, > 0d) and var (source, target) => target / source,
-            var (source, target) => Error.New(string.Create(CultureInfo.InvariantCulture, $"gain needs positive neutral patch luminances, not {source} and {target}")),
+            var (source, target) => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gain needs positive neutral patch luminances, not {source} and {target}")),
         };
 
     public ChartTransform Transform(FitDirection direction) => direction.Of(this, 1d);
     public Fin<ChartTransform> Normalized(FitDirection direction) => Gain.Map(gain => direction.Of(this, gain));
 
     public static Fin<ChartFit> Solve(ChartSamples source, FitTarget target) {
-        (Matrix<double> rows, double neutral) = Operand(source.Gamut, source.Colors);
+        (Matrix<double> rows, double neutral) = Operand(source.Gamut, source.Patches);
         Svd<double> fitted = rows.Svd();
         return
             from targets in (
@@ -47,15 +47,15 @@ public sealed record ChartFit {
                         source.Chart,
                         reference: static (chart, reference) => Operand(reference.Gamut, chart.References(reference.Gamut)),
                         sampled: static (chart, sampled) =>
-                            sampled.Samples.Chart == chart ? Operand(sampled.Samples.Gamut, sampled.Samples.Colors) : Error.New($"source chart {chart} differs from target chart {sampled.Samples.Chart}")),
+                            sampled.Samples.Chart == chart ? Operand(sampled.Samples.Gamut, sampled.Samples.Patches) : new ImagingFault($"source chart {chart} differs from target chart {sampled.Samples.Chart}")),
                     fitted.Rank is 3
                         ? Fin.Succ(unit)
-                        : Error.New(string.Create(CultureInfo.InvariantCulture, $"chart samples span {fitted.Rank} of three color directions")))
+                        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"chart samples span {fitted.Rank} of three color directions")))
                 .Apply(static (operand, _) => operand)
                 .As()
             let transform = fitted.Solve(targets.Rows)
             let decomposed = transform.Svd()
-            from _ in guard(decomposed.Rank is 3, Error.New(string.Create(CultureInfo.InvariantCulture, $"fitted transform is singular at rank {decomposed.Rank}")))
+            from _ in guard<Error>(decomposed.Rank is 3, new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"fitted transform is singular at rank {decomposed.Rank}")))
             select new ChartFit(
                 transform.Transpose(), decomposed.Solve(Matrix<double>.Build.DenseIdentity(3)).Transpose(),
                 new FitQuality((fitted.S[0], fitted.S[1], fitted.S[2]), (decomposed.S[0], decomposed.S[1], decomposed.S[2])),
@@ -70,8 +70,6 @@ public sealed record ChartFit {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FitDirection {
     public static readonly FitDirection Forward = new("forward", static (fit, gain) => new(fit.Forward.Divide(gain), Math.Log2(gain)));
     public static readonly FitDirection Inverse = new("inverse", static (fit, gain) => new(fit.Inverse.Multiply(gain), -Math.Log2(gain)));

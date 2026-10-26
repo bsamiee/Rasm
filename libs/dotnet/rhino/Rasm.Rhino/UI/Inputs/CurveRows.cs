@@ -40,7 +40,7 @@ public static class CurveRows {
                     References = toSeq(lanes.Values).Filter(other => other.Key != lane.Key && other.Plane == lane.Plane).Map(static other => other.Fit),
                     Underlay = state.Underlay,
                     Picked = state.Picked,
-                    Pick = Some<Func<Edit<Selection>, IO<Unit>>>(edit => held.SwapIO(prior => prior with { Picked = edit.Shown.IfNone(prior.Picked) }).Map(unit)),
+                    Pick = edit => Some(held.SwapIO(prior => prior with { Picked = edit.Value.IfNone(prior.Picked) }).Map(unit)),
                 }.Drawn switch {
                     var drawn => drawn with {
                         Accessible = drawn.Accessible.Combine(new Accessible { Label = $"{RowText.Localize(current.Label, scope.Sink).Local}: {RowText.Localize(lane.Caption, scope.Sink).Local}" }),
@@ -86,7 +86,7 @@ public static class CurveRows {
                     Some(new RowRule(_ => active.Map(static lane => lane.Rest.Exists(rest => rest != lane.Points)))),
                     new Invoke.Effect(_ =>
                         from lane in active
-                        from reset in lane.Rest.Traverse(rest => lane.Edited(new Edit<Seq<Vector2>>.Commit(rest))).As()
+                        from reset in lane.Rest.Traverse(rest => lane.Edited(Edit.Commit(rest))).As()
                         from cleared in held.SwapIO(static prior => prior with { Picked = Unpicked })
                         from redrawn in shown
                         select unit)),
@@ -112,7 +112,7 @@ public static class CurveRows {
         let placed = xs.Fold((lane.Points, At: Option<int>.None), (inserted, x) =>
             Placed(inserted.Points, x, lane.Fit, lane.Plane).Match(Some: static next => (next.Points, Some(next.At)), None: () => inserted))
         from written in placed.At.Traverse(at =>
-            from taken in lane.Edited(new Edit<Seq<Vector2>>.Commit(placed.Points))
+            from taken in lane.Edited(Edit.Commit(placed.Points))
             from chosen in held.SwapIO(prior => prior with { Picked = Lead(at) })
             select unit).As()
         select unit;

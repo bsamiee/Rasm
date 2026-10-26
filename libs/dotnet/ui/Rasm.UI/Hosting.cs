@@ -5,23 +5,29 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record SceneTarget<TPixels> where TPixels : IDisposable {
-    public required SKImageInfo Info { get; init; }
+[SmartEnum]
+public sealed partial class Visibility {
+    public static readonly Visibility Hidden = new(drawn: false, keyed: false);
+    public static readonly Visibility Shown = new(drawn: true, keyed: false);
+    public static readonly Visibility Active = new(drawn: true, keyed: true);
 
-    public SKCanvas Canvas => Switch(standard: static standard => standard.Surface.Canvas, extended: static extended => extended.Surface.Canvas);
+    public bool Drawn { get; }
+    public bool Keyed { get; }
 
-    internal void Release() =>
-        Switch(
-            standard: static standard => {
-                standard.Surface.Dispose();
-                standard.Pixels.Dispose();
-            },
-            extended: static extended => extended.Surface.Dispose());
+    public static Visibility Of(bool shown, bool key) => !shown ? Hidden : key ? Active : Shown;
+}
 
-    public sealed record Standard(TPixels Pixels, SKSurface Surface) : SceneTarget<TPixels>;
+public sealed record HostPlacement(Role Root) {
+    public static HostPlacement Window { get; } = new(Role.Window) { Cycles = true };
+    public static HostPlacement Panel { get; } = new(Role.Panel);
 
-    public sealed record Extended(SKSurface Surface) : SceneTarget<TPixels>;
+    public bool Cycles { get; init; }
+}
+
+public sealed record Host(SKSize Size, ColorScheme Theme, Visibility Visibility, HostPlacement Placement, CultureInfo Culture);
+
+public sealed record SceneTarget<TPixels>(SKSurface Surface, SKImageInfo Info, Option<TPixels> Pixels) : IDisposable where TPixels : IDisposable {
+    public void Dispose() => Surface.Dispose();
 }
 
 public sealed record SceneBackend<TPixels>(
@@ -33,15 +39,15 @@ public sealed record SceneBackend<TPixels>(
 }
 
 public sealed record PlacedControls<TControl>(
-    Func<Seq<Key>, (SKRectI Clip, SKRectI Frame), Option<Element>, IO<TControl>> Added,
-    Func<TControl, (SKRectI Clip, SKRectI Frame), IO<TControl>> Moved,
+    Func<Hosted.Slot, (SKRectI Clip, SKRectI Frame), Option<Element>, IO<TControl>> Added,
+    Func<TControl, Hosted.Slot, (SKRectI Clip, SKRectI Frame), IO<TControl>> Moved,
     Func<TControl, IO<Unit>> Removed) where TControl : notnull {
     public HashMap<Seq<Key>, (Hosted.Slot Slot, TControl Control)> Held { get; private init; }
 
     public IO<Unit> Released => Held.Values.ToSeq().TraverseM(held => Removed(held.Control)).As().Map(static _ => unit);
 
     public IO<PlacedControls<TControl>> Reconciled(Mount mount) =>
-        toHashMap(mount.Scene.Hosted.Choose(static hosted => hosted.Switch(slot: static slot => Some(slot), backdrop: static _ => Option<Hosted.Slot>.None)).Map(static slot => (slot.Path, slot))) switch {
+        toHashMap(mount.Hosted.Choose(static hosted => hosted.Switch(slot: static slot => Some(slot), backdrop: static _ => Option<Hosted.Slot>.None)).Map(static slot => (slot.Path, slot))) switch {
             var wanted => toTrackingHashMap(Held.Map(static held => held.Slot).AsIterable().Map(static entry => (entry.Key, entry.Value))).Snapshot()
                 .RemoveRange(Held.Keys.Filter(path => !wanted.ContainsKey(path)))
                 .AddOrUpdateRange(wanted.AsIterable().Map(static entry => (entry.Key, entry.Value)))
@@ -51,28 +57,37 @@ public sealed record PlacedControls<TControl>(
 
     private IO<PlacedControls<TControl>> Changed(Seq<Key> path, Change<Hosted.Slot> change, Mount mount) =>
         (change, Held.Find(path).Map(static held => held.Control).Case) switch {
-            (EntryAdded<Hosted.Slot> added, _) => Added(path, Placed(added.Value), Access.Flattened(mount.Tree).Find(element => element.Id == path))
+            (EntryAdded<Hosted.Slot> added, _) => Added(added.Value, Placed(added.Value), Access.Flattened(mount.Tree).Find(element => element.Id == path))
                 .Map(control => this with { Held = Held.AddOrUpdate(path, (added.Value, control)) }),
-            (EntryMappedTo<Hosted.Slot> mapped, TControl control) => Moved(control, Placed(mapped.To)).Map(moved => this with { Held = Held.AddOrUpdate(path, (mapped.To, moved)) }),
+            (EntryMappedTo<Hosted.Slot> mapped, TControl control) => Moved(control, mapped.To, Placed(mapped.To)).Map(moved => this with { Held = Held.AddOrUpdate(path, (mapped.To, moved)) }),
             (EntryRemoved<Hosted.Slot>, TControl control) => Removed(control).Map(_ => this with { Held = Held.Remove(path) }),
             _ => IO.pure(this),
         };
 
     private static (SKRectI Clip, SKRectI Frame) Placed(Hosted.Slot slot) =>
-        (SKRectI.Create((int)MathF.Floor(slot.Clip.Left), (int)MathF.Floor(slot.Clip.Top), (int)MathF.Ceiling(slot.Clip.Width), (int)MathF.Ceiling(slot.Clip.Height)),
-            SKRectI.Create((int)MathF.Round(slot.Frame.Left - slot.Clip.Left, MidpointRounding.ToEven), (int)MathF.Round(slot.Frame.Top - slot.Clip.Top, MidpointRounding.ToEven), (int)MathF.Ceiling(slot.Frame.Width), (int)MathF.Ceiling(slot.Frame.Height)));
+        (SKRectI.Ceiling(slot.Clip, outwards: true), SKRectI.Round(SKRect.Create(slot.Frame.Location - slot.Clip.Location, slot.Frame.Size)));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvider clock) : IDisposable where TPixels : IDisposable {
+public sealed class SceneHost<TPixels> : IDisposable where TPixels : IDisposable {
     // --- [STATE]
     private sealed record Raster(SceneTarget<TPixels> Target, PaintCache Cache, float Scale);
 
+    private readonly SceneBackend<TPixels> backend;
+    private readonly TimeProvider clock;
+    private readonly ITimer due;
     private readonly SKRegion damage = new();
+    private readonly Shaping shaping = new();
     private Option<Node> view;
     private Option<(Host Host, DefaultStyles Defaults)> hosting;
     private Option<Raster> raster;
     private Option<Func<bool, IO<Unit>>> running;
+    private Option<SynchronizationContext> waking;
+
+    public SceneHost(SceneBackend<TPixels> backend, TimeProvider clock) {
+        (this.backend, this.clock) = (backend, clock);
+        due = clock.CreateTimer(static held => ((SceneHost<TPixels>)held!).Woken(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+    }
 
     public Option<Mount> Current { get; private set; }
 
@@ -117,7 +132,7 @@ public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvid
 
     private IO<Unit> Created(Host host, DefaultStyles defaults, HashMap<Seq<Key>, float> adjusted) =>
         view.Match(
-            Some: node => from made in IO.lift(() => Mount.Create(host, defaults, node, adjusted)) from applied in Applied(made) select unit,
+            Some: node => from made in IO.lift(() => Mount.Create(host, defaults, node, adjusted, shaping)) from applied in Applied(made) select unit,
             None: static () => IO.pure(unit));
 
     private IO<Unit> Tick(Duration now) =>
@@ -131,7 +146,8 @@ public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvid
             return unit;
         })
         from invalidated in unless(moved.Output.Damage.IsEmpty, backend.Invalidated(moved.Output.Damage)).As()
-        from linked in Linked(moved.Mount.Animating)
+        from linked in Linked(moved.Mount)
+        from armed in Armed(moved.Mount.Animations.Due)
         from applied in backend.Applied(moved.Mount, moved.Output)
         from answered in moved.Output.Answer.IfNone(IO.pure(unit))
         select moved.Output.Answer.IsSome;
@@ -139,9 +155,24 @@ public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvid
     private Unit Damaged(Seq<SKRect> rects) =>
         raster.Iter(held => rects.Iter(rect => damage.Op(SKRectI.Ceiling(SKMatrix.CreateScale(held.Scale, held.Scale).MapRect(rect), outwards: true), SKRegionOperation.Union)));
 
-    private IO<Unit> Linked(bool animating) =>
-        (running.IsNone && animating ? backend.Linked(Tick).Map(started => running = Some(started)) : IO.pure(running))
-        .Bind(held => held.Traverse(run => run(animating)).As()).Map(static _ => unit);
+    private IO<Unit> Linked(Mount mount) =>
+        (running.IsNone && (mount.Animating || mount.Animations.Due.IsSome) ? backend.Linked(Tick).Map(started => running = Some(started)) : IO.pure(running))
+        .Bind(held => held.Traverse(run => run(mount.Animating)).As()).Map(static _ => unit);
+
+    // --- [TIMER]
+    private IO<Unit> Armed(Option<Duration> deadline) =>
+        from context in IO.syncContext
+        from now in Now
+        from changed in IO.lift(() => {
+            waking = context;
+            return due.Change(deadline.Map(at => Duration.Max(at - now, Duration.Zero).ToTimeSpan()).IfNone(Timeout.InfiniteTimeSpan), Timeout.InfiniteTimeSpan);
+        })
+        select unit;
+
+    private void Woken() {
+        using EnvIO environment = EnvIO.New(token: CancellationToken.None, syncContext: waking.ValueUnsafe());
+        _ = IO.lift(() => running).Bind(static held => held.Traverse(static run => run(true)).As()).Post().Run(environment);
+    }
 
     // --- [PAINT]
     public IO<Option<SceneTarget<TPixels>>> Paint(float scale) =>
@@ -157,7 +188,7 @@ public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvid
                 None: static () => IO.pure(Option<SceneTarget<TPixels>>.None)));
 
     private Fin<Raster> Rastered(SKSizeI pixels, float scale, bool extended) =>
-        raster.Filter(held => held.Target.Info.Size == pixels && held.Scale.Equals(scale) && held.Target.Map(standard: false, extended: true) == extended)
+        raster.Filter(held => held.Target.Info.Size == pixels && held.Scale.Equals(scale) && held.Target.Pixels.IsNone == extended)
             .Match<Fin<Raster>>(Some: static held => held, None: () => Reallocated(pixels, scale, extended));
 
     private Fin<Raster> Reallocated(SKSizeI pixels, float scale, bool extended) {
@@ -174,14 +205,14 @@ public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvid
     private Fin<SceneTarget<TPixels>> Allocated(SKSizeI pixels, bool extended) =>
         extended
             ? SceneRaster.Floated(pixels) switch {
-                var info => SceneRaster.Created(info, () => SKSurface.Create(info, backend.Properties)).Map(made => (SceneTarget<TPixels>)new SceneTarget<TPixels>.Extended(made) { Info = info }),
+                var info => SceneRaster.Created(info, () => SKSurface.Create(info, backend.Properties)).Map(surface => new SceneTarget<TPixels>(surface, info, None)),
             }
             : backend.Allocated(pixels).Bind(held => Wrapped(held.Pixels, held.Pixmap));
 
     private Fin<SceneTarget<TPixels>> Wrapped(TPixels pixels, SKPixmap pixmap) {
         using (pixmap) {
-            return SceneRaster.Created(pixmap.Info, () => SKSurface.Create(pixmap, backend.Properties))
-                .Map(made => (SceneTarget<TPixels>)new SceneTarget<TPixels>.Standard(pixels, made) { Info = pixmap.Info })
+            return SceneRaster.Created(pixmap.Info, () => SKSurface.Create(pixmap.Info, pixmap.GetPixels(), pixmap.RowBytes, static (_, held) => ((IDisposable)held).Dispose(), pixels, backend.Properties))
+                .Map(surface => new SceneTarget<TPixels>(surface, pixmap.Info, Some(pixels)))
                 .MapFail(error => {
                     pixels.Dispose();
                     return error;
@@ -189,14 +220,15 @@ public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvid
         }
     }
 
-    private Unit Drawn(Raster target, Mount current, Duration now) {
+    private Fin<Unit> Drawn(Raster target, Mount current, Duration now) {
         if (damage.IsEmpty) return unit;
-        SKCanvas canvas = target.Target.Canvas;
+        SKCanvas canvas = target.Target.Surface.Canvas;
         canvas.ResetMatrix();
         canvas.Scale(target.Scale);
-        Painter.Paint(canvas, target.Cache, current, damage, now);
-        damage.SetEmpty();
-        return unit;
+        return Painter.Paint(canvas, target.Cache, current, damage, now).Map(_ => {
+            damage.SetEmpty();
+            return unit;
+        });
     }
 
     // --- [RELEASE]
@@ -204,18 +236,21 @@ public sealed class SceneHost<TPixels>(SceneBackend<TPixels> backend, TimeProvid
         _ = Cleared(raster);
         (raster, Current, hosting, running) = (None, None, None, None);
         damage.SetEmpty();
+        _ = due.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         return unit;
     }
 
     private static Unit Cleared(Option<Raster> held) =>
         held.Iter(static current => {
-            current.Target.Release();
+            current.Target.Dispose();
             current.Cache.Dispose();
         });
 
     public void Dispose() {
         _ = Cleared();
+        due.Dispose();
         damage.Dispose();
+        shaping.Dispose();
     }
 }
 
@@ -232,19 +267,19 @@ public static class SceneRaster {
         created() is { } made ? made : new Invalid(string.Create(CultureInfo.InvariantCulture, $"SKSurface.Create refused {info.Width}x{info.Height} {info.ColorType}"));
 
     // --- [RASTER]
-    public static Fin<SKImage> Of(DefaultStyles defaults, ColorScheme theme, Node node, SKSizeI pixels) =>
-        from made in Mount.Create(new Host(new SKSize(pixels.Width, pixels.Height), theme, Visibility.Shown, Cycles: false, CultureInfo.InvariantCulture), defaults, node, [])
-        from image in Painted(made.Mount, made.Mount.Scene.Extended ? Floated(pixels) : new SKImageInfo(pixels.Width, pixels.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul, SKColorSpace.CreateSrgb()))
-        select image;
+    public static Fin<SKImage> Of(DefaultStyles defaults, ColorScheme theme, Node node, SKSizeI pixels) {
+        using Shaping shaping = new();
+        return from made in Mount.Create(new Host(new SKSize(pixels.Width, pixels.Height), theme, Visibility.Shown, HostPlacement.Panel, CultureInfo.InvariantCulture), defaults, node, [], shaping)
+               from image in Painted(made.Mount, made.Mount.Scene.Extended ? Floated(pixels) : new SKImageInfo(pixels.Width, pixels.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul, SKColorSpace.CreateSrgb()))
+               select image;
+    }
 
     private static Fin<SKImage> Painted(Mount mount, SKImageInfo info) {
         using PaintCache cache = new(info, Scaled);
         using SKRegion whole = new(SKRectI.Create(info.Width, info.Height));
-        return Created(info, () => SKSurface.Create(info, Scaled)).Map(surface => {
-            using (surface) {
-                Painter.Paint(surface.Canvas, cache, mount, whole, Duration.Zero);
-                return surface.Snapshot();
-            }
+        return Created(info, () => SKSurface.Create(info, Scaled)).Bind(surface => {
+            using SKSurface owned = surface;
+            return Painter.Paint(owned.Canvas, cache, mount, whole, Duration.Zero).Map(_ => owned.Snapshot());
         });
     }
 }

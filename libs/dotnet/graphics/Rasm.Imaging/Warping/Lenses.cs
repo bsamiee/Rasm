@@ -65,6 +65,9 @@ public sealed partial class RadialDistortion {
         return ((x + (factor * (point.X - x)), y + (factor * (point.Y - y))), Direction.Radial(red, scale, radius).Weight * Direction.Radial(blue, scale, radius).Weight);
     }
 
+    public static Fin<RadialDistortion> Validated(double coefficient, double dispersion, LensFraming framing, LensDirection direction) =>
+        TryCreate(coefficient, dispersion, framing, direction, out RadialDistortion? distortion, out ImagingFault? fault) ? distortion : fault;
+
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref double coefficient, ref double dispersion, ref LensFraming framing, ref LensDirection direction) =>
         validationError = coefficient >= Bounds.Low && coefficient <= Bounds.High && dispersion >= 0d ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Radial coefficient {coefficient} must lie in [{Bounds.Low}, {Bounds.High}] with non-negative dispersion {dispersion}"));

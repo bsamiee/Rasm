@@ -1,219 +1,24 @@
-using System.Globalization;
 using System.Numerics;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
 namespace Rasm.UI;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<int>(SkipIComparable = true)]
-public sealed partial class PhysicalAxis {
-    public static readonly PhysicalAxis Horizontal = new(0);
-    public static readonly PhysicalAxis Vertical = new(1);
-
-    public PhysicalAxis Cross => Map(horizontal: Vertical, vertical: Horizontal);
-
-    public float Of(Vector2 value) => value[Key];
-
-    public float Of(SKSize size) => Of(size.ToPoint());
-
-    public Vector2 With(Vector2 value, float along) => value.WithElement(Key, along);
-
-    public SKRect Spanned(SKRect frame, float start, float extent) => SKRect.Create(With(frame.Location, start), new SKSize(With(frame.Size.ToPoint(), extent)));
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<Invalid>]
-public sealed partial class Fraction {
-    public static Fraction MinValue { get; } = new(0f);
-    public static Fraction Half { get; } = new(0.5f);
-    public static Fraction MaxValue { get; } = new(1f);
-
-    public Fraction Complement => new(1f - _value);
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float value) =>
-        validationError = value is >= 0f and <= 1f ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"fraction {value} lies outside [0, 1]"));
-}
-
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<Invalid>]
-public sealed partial class Factor {
-    public static Factor Unit { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float value) =>
-        validationError = float.IsFinite(value) && value > 0f ? null : new Invalid(string.Create(CultureInfo.InvariantCulture, $"factor {value} is not finite and positive"));
-}
-
-[ComplexValueObject]
-public sealed partial class UnitPoint {
-    public static UnitPoint Start { get; } = new(Fraction.MinValue, Fraction.MinValue);
-    public static UnitPoint Center { get; } = new(Fraction.Half, Fraction.Half);
-
-    public Fraction X { get; }
-    public Fraction Y { get; }
-
-    public float Of(PhysicalAxis along) => along.Of(new Vector2((float)X, (float)Y));
-}
-
-[ComplexValueObject]
-[ValidationError<Invalid>]
-public sealed partial class Limits {
-    public static Limits Open { get; } = Create(0f, float.PositiveInfinity);
-
-    public float Min { get; }
-    public float Max { get; }
-
-    public float Clamped(float value) => float.Clamp(value, Min, Max);
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float min, ref float max) =>
-        validationError = float.IsFinite(min) && min >= 0f && max >= min
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"limits ({min}, {max}) are not a non-negative ordered span"));
-}
-
-[ComplexValueObject]
-[ValidationError<Invalid>]
-public sealed partial class Corners {
-    private static readonly Seq<Vector2> Headings = [Vector2.UnitX, Vector2.UnitY, -Vector2.UnitX, -Vector2.UnitY];
-
-    public static Corners Square { get; } = new(0f, 0f, 0f, 0f);
-
-    public float TopLeft { get; }
-    public float TopRight { get; }
-    public float BottomRight { get; }
-    public float BottomLeft { get; }
-
-    public Option<float> Uniform => TopLeft switch { var first => Seq(TopRight, BottomRight, BottomLeft).ForAll(radius => radius.CompareTo(first) is 0) ? Some(first) : None };
-
-    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float topLeft, ref float topRight, ref float bottomRight, ref float bottomLeft) =>
-        validationError = Seq(topLeft, topRight, bottomRight, bottomLeft).ForAll(static radius => float.IsFinite(radius) && radius >= 0f)
-            ? null
-            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"corners ({topLeft}, {topRight}, {bottomRight}, {bottomLeft}) are not finite non-negative radii"));
-
-    internal static Corners Round(float radius) => new(radius, radius, radius, radius);
-
-    internal Corners Within(SKRect outer, SKRect inner) =>
-        (Left: float.Max(0f, inner.Left - outer.Left), Top: float.Max(0f, inner.Top - outer.Top), Right: float.Max(0f, outer.Right - inner.Right), Bottom: float.Max(0f, outer.Bottom - inner.Bottom)) switch {
-            var gap => new(Concentric(TopLeft, gap.Left, gap.Top), Concentric(TopRight, gap.Right, gap.Top), Concentric(BottomRight, gap.Right, gap.Bottom), Concentric(BottomLeft, gap.Left, gap.Bottom)),
-        };
-
-    internal Corners Fitted(SKSize size) =>
-        Seq((Length: size.Width, Radii: TopLeft + TopRight), (Length: size.Height, Radii: TopRight + BottomRight), (Length: size.Width, Radii: BottomRight + BottomLeft), (Length: size.Height, Radii: BottomLeft + TopLeft))
-            .Fold(1f, static (least, edge) => edge.Radii > edge.Length ? float.Min(least, edge.Length / edge.Radii) : least) switch {
-                < 1f and var scale => new(TopLeft * scale, TopRight * scale, BottomRight * scale, BottomLeft * scale),
-                _ => this,
-            };
-
-    internal Corners Grown(float by) => new(Grown(TopLeft, by), Grown(TopRight, by), Grown(BottomRight, by), Grown(BottomLeft, by));
-
-    internal void Outline(SKPathBuilder path, SKRect frame, float smoothing) {
-        float continuous = float.Clamp(smoothing, 0f, 1f);
-        if (continuous <= 0f) {
-            using SKRoundRect rounded = new();
-            rounded.SetRectRadii(frame, [new SKPoint(TopLeft, TopLeft), new SKPoint(TopRight, TopRight), new SKPoint(BottomRight, BottomRight), new SKPoint(BottomLeft, BottomLeft)]);
-            path.AddRoundRect(rounded, SKPathDirection.Clockwise);
-            return;
-        }
-        float[] radii = [TopRight, BottomRight, BottomLeft, TopLeft];
-        float[] budgets = [-1f, -1f, -1f, -1f];
-        SKPoint[] vertices = [new(frame.Right, frame.Top), new(frame.Right, frame.Bottom), new(frame.Left, frame.Bottom), new(frame.Left, frame.Top)];
-        foreach (int corner in Enumerable.Range(0, 4).OrderByDescending(corner => radii[corner])) {
-            budgets[corner] = float.Min(Share(corner, (corner + 1) % 4, Side(corner)), Share(corner, (corner + 3) % 4, Side((corner + 3) % 4)));
-            radii[corner] = float.Min(radii[corner], budgets[corner]);
-        }
-        Seq<(float P, float A, float B, float C, float D, float Arc)> shapes = toSeq(Enumerable.Range(0, 4)).Map(corner => Smoothed(radii[corner], budgets[corner], continuous));
-        path.MoveTo(vertices[0] - (SKPoint)(Headings[0] * shapes[0].P));
-        _ = toSeq(Enumerable.Range(0, 4)).Iter(corner => {
-            (float p, float a, float b, float c, float d, float arc) = shapes[corner];
-            if (radii[corner] > 0f) {
-                SKPoint origin = vertices[corner] - (SKPoint)(Headings[corner] * p);
-                (Vector2 along, Vector2 turned) = (Headings[corner], Headings[(corner + 1) % 4]);
-                SKPoint At(float u, float v) => origin + (SKPoint)((along * u) + (turned * v));
-                path.CubicTo(At(a, 0f), At(a + b, 0f), At(a + b + c, d));
-                path.ArcTo(new SKPoint(radii[corner], radii[corner]), 0f, SKPathArcSize.Small, SKPathDirection.Clockwise, At(a + b + c + arc, d + arc));
-                path.CubicTo(At(a + b + c + arc + d, d + arc + c), At(a + b + c + arc + d, d + arc + b + c), At(p, p));
-            }
-            if (corner < 3) path.LineTo(vertices[corner + 1] - (SKPoint)(Headings[corner + 1] * shapes[corner + 1].P));
-        });
-        path.Close();
-
-        float Side(int corner) => corner % 2 is 0 ? frame.Height : frame.Width;
-
-        float Share(int corner, int adjacent, float side) =>
-            radii[corner] <= 0f && radii[adjacent] <= 0f ? 0f
-            : budgets[adjacent] >= 0f ? side - budgets[adjacent]
-            : radii[corner] / (radii[corner] + radii[adjacent]) * side;
-    }
-
-    private static float Concentric(float outer, float across, float down) => float.Max(0f, outer - float.Max(across, down));
-
-    private static float Grown(float radius, float by) => radius > 0f ? float.Max(0f, radius + by) : 0f;
-
-    private static (float P, float A, float B, float C, float D, float Arc) Smoothed(float radius, float budget, float smoothing) {
-        if (radius <= 0f) return (0f, 0f, 0f, 0f, 0f, 0f);
-        float kept = float.Min(smoothing, (budget / radius) - 1f);
-        float extent = float.Min((1f + kept) * radius, budget);
-        float sweep = MathF.PI / 2f * (1f - kept);
-        float arc = MathF.Sin(sweep / 2f) * radius * MathF.Sqrt(2f);
-        float bend = MathF.PI / 4f * kept;
-        float c = radius * MathF.Tan(((MathF.PI / 2f) - sweep) / 4f) * MathF.Cos(bend);
-        float d = c * MathF.Tan(bend);
-        float b = (extent - arc - c - d) / 3f;
-        return (extent, 2f * b, b, c, d, arc);
-    }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
-public abstract partial record Sizing {
-    public Limits Limits { get; init; } = Limits.Open;
-
-    internal float Growth => SwitchPartially(@default: static _ => 0f, grow: static grow => (float)grow.Weight);
-    internal Option<int> Yields => Map(@fixed: Option<int>.None, fit: Some(1), grow: Some(0), percent: Some(1));
-    internal bool Stretches => Growth > 0f;
-    internal Option<float> Definite => SwitchPartially(@default: static _ => Option<float>.None, @fixed: static held => Some(held.Limits.Clamped(held.Extent)));
-
-    internal float Floor(float content) => SwitchPartially(content, @default: static (_, held) => held.Limits.Min, fit: static (least, held) => float.Max(held.Limits.Min, least));
-
-    public sealed record Fixed(float Extent) : Sizing;
-
-    public sealed record Fit : Sizing {
-        public static Fit Content { get; } = new();
-    }
-
-    public sealed record Grow(Factor Weight) : Sizing {
-        public static Grow Unit { get; } = new(Factor.Unit);
-    }
-
-    public sealed record Percent(Fraction Fraction) : Sizing;
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Tracks {
-    public sealed record Explicit(Seq<Sizing> Sizes) : Tracks;
-
-    public sealed record AutoFill(Sizing Size) : Tracks;
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-public sealed record Invalid(string Message) : Expected(Message, 0), IValidationError<Invalid> {
-    public static Invalid Create(string message) => new(message);
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Layouts {
     // --- [ARRANGE]
-    private sealed record Pass(HashMap<Seq<Key>, Laid> Prior, HashMap<Seq<Key>, float> Adjusted);
+    private sealed record Pass(HashMap<Seq<Key>, Laid> Prior, HashMap<Seq<Key>, float> Adjusted, Shaping Shaping);
 
-    internal static Laid Arrange(Cascade root, Node node, SKSize size, HashMap<Seq<Key>, float> adjusted, HashMap<Seq<Key>, Laid> prior) =>
-        new Pass(prior, adjusted) switch {
-            var pass => Cornered(Placed(pass, Placed(pass, Built(root, [], node, prior.Find([]), prior), PhysicalAxis.Horizontal, 0f, size.Width), PhysicalAxis.Vertical, 0f, size.Height), None),
+    internal static Laid Arrange(Cascade root, Node node, SKSize size, HashMap<Seq<Key>, float> adjusted, HashMap<Seq<Key>, Laid> prior, Shaping shaping) =>
+        new Pass(prior, adjusted, shaping) switch {
+            var pass => Cornered(Placed(pass, Placed(pass, Built(pass, root, [], node, prior.Find([])), PhysicalAxis.Horizontal, 0f, size.Width), PhysicalAxis.Vertical, 0f, size.Height), None),
         };
 
     internal static Fin<Laid> Unique(Laid laid, HashMap<Seq<Key>, Laid> prior) =>
         Repeated(laid, prior).Head.Match<Fin<Laid>>(Some: static path => new Invalid($"sibling key /{string.Join('/', path.Map(static key => key.Identifier))} repeats"), None: () => laid);
 
-    internal static SKSize Preferred(Laid laid, SKSize offered, HashMap<Seq<Key>, float> adjusted) =>
-        Placed(new Pass([], adjusted), laid, PhysicalAxis.Horizontal, 0f, float.Min(Basis(laid, PhysicalAxis.Horizontal, offered.Width), offered.Width)) switch {
+    internal static SKSize Preferred(Laid laid, SKSize offered, HashMap<Seq<Key>, float> adjusted, Shaping shaping) =>
+        Placed(new Pass([], adjusted, shaping), laid, PhysicalAxis.Horizontal, 0f, float.Min(Basis(laid, PhysicalAxis.Horizontal, offered.Width), offered.Width)) switch {
             var wide => new SKSize(wide.Frame.Width, Basis(wide, PhysicalAxis.Vertical, offered.Height)),
         };
 
@@ -234,13 +39,6 @@ internal static class Layouts {
     internal static Option<PlotFrame> Plotted(Laid laid) => laid.Node.Plotted.Map(plane => plane.In(laid.ContentBox));
 
     internal static bool IsHandle(Laid laid) => laid.Path.Last.Exists(static last => last.Map(named: false, ordinal: false, handle: true));
-
-    internal static Option<Laid> Handle(Laid owner) => owner.Children.Find(IsHandle);
-
-    internal static Option<(float Least, float Most, float Extent)> Travel(Laid split, Node.Split node) =>
-        from first in Panes(split).Head
-        let range = Bounded(split, node)
-        select (range.Least, range.Most, node.Axis.Of(first.Frame.Size));
 
     internal static Option<(float Content, float Viewport)> Scrollable(Laid scroll, Node.Scroll node) =>
         Panes(scroll).Head.Map(content => (node.Axis.Of(content.Frame.Size), node.Axis.Of(scroll.ContentBox.Size)));
@@ -270,42 +68,35 @@ internal static class Layouts {
         node.Aspect | node.SwitchPartially(
             @default: static _ => Option<Factor>.None,
             plot: static plot => plot.Plane.Aspect,
-            image: static image => Factor.TryCreate(image.Source.Width / (float)image.Source.Height, out Factor? aspect) ? Some(aspect) : None);
+            image: static image => Factor.Validated(image.Source.Width / (float)image.Source.Height).ToOption());
 
     private static Seq<Laid> Panes(Laid owner) => owner.Children.Filter(static child => !IsHandle(child));
-
-    private static float Rule(Laid split, PhysicalAxis axis) => Handle(split).Map(handle => Basis(handle, axis, float.PositiveInfinity)).IfNone(0f);
-
-    private static (float Least, float Most) Bounded(Laid split, Node.Split node) =>
-        Sized(node.First, node.Axis).Limits.Min switch {
-            var least => (least, float.Max(least, float.Max(0f, node.Axis.Of(split.ContentBox.Size) - Rule(split, node.Axis)) - Sized(node.Second, node.Axis).Limits.Min)),
-        };
 
     private static float MinContent(Laid laid) => laid.Texted.Map(static text => text.MinContent).IfNone(0f);
 
     // --- [BUILD]
-    private static Laid Built(Cascade cascade, Seq<Key> path, Node node, Option<Laid> held, HashMap<Seq<Key>, Laid> prior) =>
-        held.Filter(kept => kept.Node.Equals(node) && kept.Cascade.Equals(cascade)).IfNone(() => Fresh(cascade, path, node, held, prior));
+    private static Laid Built(Pass pass, Cascade cascade, Seq<Key> path, Node node, Option<Laid> held) =>
+        held.Filter(kept => kept.Node.Equals(node) && kept.Cascade.Equals(cascade)).IfNone(() => Fresh(pass, cascade, path, node, held));
 
     private static Option<Laid> Held(HashMap<Seq<Key>, Laid> prior, Option<Laid> parent, Seq<Key> path) =>
         prior.Find(path) | parent.Bind(held => held.Members.Find(member => member.Path == path));
 
-    private static Laid Fresh(Cascade cascade, Seq<Key> path, Node node, Option<Laid> prior, HashMap<Seq<Key>, Laid> index) {
+    private static Laid Fresh(Pass pass, Cascade cascade, Seq<Key> path, Node node, Option<Laid> prior) {
         (RoleStyle style, Cascade inner) = Styles.Enter(cascade, node);
         Seq<Laid> members = Members(node).Map(member => path.Add(member.Segment) switch {
-            var at => Built(inner, at, member.Node, Held(index, prior, at), index),
+            var at => Built(pass, inner, at, member.Node, Held(pass.Prior, prior, at)),
         });
-        Laid built = node.SwitchPartially((Path: path, Node: node, Cascade: cascade, Style: style, Inner: inner, Members: members), @default: Boxing, choice: static (held, choice) => Boxing(held, choice) with { Children = held.Members.Take(1) }, text: Setting);
+        Laid built = node.SwitchPartially((Pass: pass, Path: path, Node: node, Cascade: cascade, Style: style, Inner: inner, Members: members), @default: Boxing, choice: static (held, choice) => Boxing(held, choice) with { Children = held.Members.Take(1) }, text: Setting);
         float width = Wide(built);
         return built with { Intrinsic = new SKSize(width, Tall(built, width)) };
     }
 
-    private static Laid Boxing((Seq<Key> Path, Node Node, Cascade Cascade, RoleStyle Style, Cascade Inner, Seq<Laid> Members) held, Node _) =>
+    private static Laid Boxing((Pass Pass, Seq<Key> Path, Node Node, Cascade Cascade, RoleStyle Style, Cascade Inner, Seq<Laid> Members) held, Node _) =>
         new Laid.Box { Path = held.Path, Node = held.Node, Cascade = held.Cascade, Style = held.Style, Members = held.Members, Children = held.Members };
 
-    private static Laid Setting((Seq<Key> Path, Node Node, Cascade Cascade, RoleStyle Style, Cascade Inner, Seq<Laid> Members) held, Node.Text text) =>
-        Typesetting.Resolve(held.Inner, held.Style) switch {
-            var face => Typesetting.Set(text, held.Inner, face, float.PositiveInfinity) switch {
+    private static Laid Setting((Pass Pass, Seq<Key> Path, Node Node, Cascade Cascade, RoleStyle Style, Cascade Inner, Seq<Laid> Members) held, Node.Text text) =>
+        Typesetting.Resolve(held.Pass.Shaping, held.Inner, held.Style) switch {
+            var face => Typesetting.Set(held.Pass.Shaping, text, held.Inner, face, float.PositiveInfinity) switch {
                 var set => new Laid.Text(text, set, face) { Path = held.Path, Node = held.Node, Cascade = held.Cascade, Style = held.Style, MinContent = Typesetting.MinContent(set) },
             },
         };
@@ -319,10 +110,6 @@ internal static class Layouts {
             overlay: static overlay => Segments(overlay.Base.Cons(overlay.Above)),
             choice: static choice => choice.Alternatives.Map(static alternative => (alternative.Key.IfNone(static () => new Key.Ordinal(0)), alternative)),
             scroll: static scroll => Seq((scroll.Content.Key.IfNone(static () => new Key.Ordinal(0)), scroll.Content), Handle(Role.Scrollbar)),
-            split: static split => Seq(
-                (split.First.Key.IfNone(static () => new Key.Ordinal(0)), split.First),
-                Handle(Role.Divider),
-                (split.Second.Key.IfNone(static () => new Key.Ordinal(1)), split.Second)),
             plot: static plot => Segments(plot.Children + plot.Labels.Map(static label => (Node)label)));
 
     private static (Key Segment, Node Node) Handle(Role role) => (new Key.Handle(), new Node.Box { Key = new Key.Handle(), Role = role });
@@ -355,7 +142,6 @@ internal static class Layouts {
             overlay: static (held, _) => Widest(held.Laid.Children.Head.ToSeq(), held.Along),
             choice: static (held, choice) => Widest((held.Along == choice.Axis ? held.Laid.Members : held.Along.Map(horizontal: held.Laid.Members, vertical: held.Laid.Children)).Take(1), held.Along),
             scroll: static (held, _) => Widest(Panes(held.Laid), held.Along),
-            split: static (held, split) => Summed(held.Laid.Children, split.Axis, held.Along, 0f),
             plot: static (held, _) => Widest(held.Laid.Children.Filter(static child => child.Node.Pinned.IsNone), held.Along),
             glyph: static (held, _) => held.Laid.Style.Metrics[Metric.Icon],
             image: static (held, image) => held.Along.Of(new SKSize(image.Source.Width / image.Density, image.Source.Height / image.Density)));
@@ -432,13 +218,15 @@ internal static class Layouts {
         laid.Switch(
             room,
             box: static (_, box) => (Laid)box,
-            text: static (room, wrapped) => wrapped with {
-                Typeset = room.Pass.Prior.Find(wrapped.Path)
-                    .Bind(static held => held.Texted)
-                    .Filter(held => held.Source.Equals(wrapped.Source) && held.Style.Equals(wrapped.Style) && held.Frame.Width.CompareTo(wrapped.Frame.Width) is 0)
-                    .Map(static held => held.Typeset)
-                    .IfNone(() => Typesetting.Set(wrapped.Source, Styles.Enter(wrapped.Cascade, wrapped.Source).Inner, wrapped.TextStyle, room.Space)),
-            });
+            text: static (room, wrapped) => (wrapped.Typeset.Lines.MaxWidth ?? float.PositiveInfinity).CompareTo(room.Space) is 0
+                ? wrapped
+                : wrapped with {
+                    Typeset = room.Pass.Prior.Find(wrapped.Path)
+                        .Bind(static held => held.Texted)
+                        .Filter(held => held.Source.Equals(wrapped.Source) && held.Style.Equals(wrapped.Style) && held.Frame.Width.CompareTo(wrapped.Frame.Width) is 0)
+                        .Map(static held => held.Typeset)
+                        .IfNone(() => Typesetting.Set(room.Pass.Shaping, wrapped.Source, Styles.Enter(wrapped.Cascade, wrapped.Source).Inner, wrapped.TextStyle, room.Space)),
+                });
 
     private static Option<float> Baseline(Laid laid) =>
         laid.Switch(
@@ -480,7 +268,6 @@ internal static class Layouts {
             overlay: static (held, _) => Shown(held.Laid, Layers(held)),
             choice: static (held, choice) => Chosen(held, choice),
             scroll: static (held, scroll) => Scrolled(held, scroll),
-            split: static (held, split) => Shown(held.Laid, split.Axis == held.Along ? Divided(held, split) : held.Laid.Members.Map(member => Filled(held, member))),
             plot: static (held, plot) => Charted(held, plot));
 
     private static Seq<Laid> Along(Room room) {
@@ -630,24 +417,14 @@ internal static class Layouts {
         return Placed(room.Pass, thumb, room.Along, room.Start + Rescaled(offset, total - viewport, viewport - length), length);
     }
 
-    private static Seq<Laid> Divided(Room room, Node.Split split) {
-        float rule = Rule(room.Laid, room.Along);
-        float available = float.Max(0f, room.Space - rule);
-        (float least, float most) = Bounded(room.Laid, split);
-        Option<Laid> first = room.Laid.Members.Find(static member => !IsHandle(member));
-        float extent = float.Clamp((room.Pass.Adjusted.Find(room.Laid.Path) | first.Map(pane => Basis(pane, room.Along, available))).IfNone(0f), least, most);
-        Seq<float> extents = room.Laid.Members.Map(member => IsHandle(member) ? rule : first.Exists(pane => pane.Path == member.Path) ? extent : float.Max(0f, available - extent));
-        Seq<float> starts = extents.Scan(room.Start, static (start, span) => start + span);
-        return room.Laid.Members.Zip(extents.Zip(starts)).Map(placed => Placed(room.Pass, placed.First, room.Along, placed.Second.Second, placed.Second.First));
-    }
-
     // --- [CORNER]
     private static Laid Cornered(Laid laid, Option<(Corners Corners, SKRect Frame)> background) {
-        Corners corners = laid.Node.Role.IsNone
+        Corners stated = laid.Node.Role.IsNone
             ? Corners.Square
             : laid.Style.Rounded.Match(
                 Some: Corners.Round,
-                None: () => background.Map(outer => outer.Corners.Within(outer.Frame, laid.Frame)).IfNone(() => Corners.Round(laid.Style.Metrics[Metric.Radius]))).Fitted(laid.Frame.Size);
+                None: () => background.Map(outer => outer.Corners.Within(outer.Frame, laid.Frame)).IfNone(() => Corners.Round(laid.Style.Metrics[Metric.Radius])));
+        Corners corners = laid.Smoothing > 0f ? stated.Fitted(laid.Frame.Size) : stated;
         Option<(Corners Corners, SKRect Frame)> inner = (laid.HasBackground ? Some((Corners: corners, laid.Frame)) : background)
             .Map(held => (held.Corners, SKRect.Create(held.Frame.Location - laid.Frame.Location, held.Frame.Size)));
         Seq<(Laid Was, Laid Now)> children = laid.Children.Map(child => (Was: child, Now: Cornered(child, inner))).Strict();
@@ -664,7 +441,7 @@ internal static class Layouts {
     private static Seq<float> Distributed(Seq<Sizing> tracks, Seq<float> bases, float space) =>
         Distribute(tracks.Zip(bases).Map(static track => (track.First, track.Second, track.First.Floor(0f))), space);
 
-    private static Seq<float> Distribute(Seq<(Sizing Sizing, float Basis, float Floor)> items, float space) {
+    internal static Seq<float> Distribute(Seq<(Sizing Sizing, float Basis, float Floor)> items, float space) {
         Seq<float> bases = items.Map(static item => item.Basis);
         float free = space - Enumerable.Sum(bases);
         return !float.IsFinite(space)

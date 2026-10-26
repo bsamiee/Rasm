@@ -21,7 +21,7 @@ from blender.bpy.render.compositor.effects import Alpha, Animates, Checks, Compo
 from blender.bpy.render.compositor.inputs import captured
 from blender.bpy.render.compositor.layers import AFFINE
 from blender.bpy.scene.cameras import camera_type
-from blender.imaging.geometry.homography import Homography, Quad
+from blender.imaging.geometry.frames import Homography, Quad
 from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 
 from ...chain.stages import Effect, Stage

@@ -21,7 +21,7 @@ from blender.bpy.ui.images.views import framed, image_type
 from blender.bpy.ui.resources.textures import uploaded
 from blender.bpy.ui.resources.theme import Color, color, Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.imaging.geometry.homography import Quad
+from blender.imaging.geometry.frames import Quad
 from blender.records.faults import accumulated, Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------

@@ -41,9 +41,9 @@ from blender.bpy.ui.surfaces.panels import Child, Panel
 from blender.bpy.ui.surfaces.tools import Appended, ImageEditor, Tool, Tools
 from blender.imaging.analysis.metering import Meter
 from blender.imaging.color.processors import processor
-from blender.imaging.files.images import applied, ImageFile
-from blender.imaging.geometry.homography import Quad
-from blender.imaging.geometry.regions import Region
+from blender.imaging.files.buffers import applied
+from blender.imaging.files.images import ImageFile
+from blender.imaging.geometry.frames import Quad, Region
 from blender.records.faults import Fault, Faults, Outcome
 
 from ..catalog import chain

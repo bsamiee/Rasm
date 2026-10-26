@@ -13,15 +13,12 @@ dependencies = ["blender"]
 [dependency-groups]
 workspace = [
     # --- [GENERAL]
-    "anyio",                                                                      # Structured concurrency over asyncio and trio
     "apscheduler",                                                                # Cron, interval, and date triggers
-    "asttokens",                                                                  # Source ranges for private Blender extension imports
     "azure-identity",                                                             # DefaultAzureCredential chain for Azure Key Vault secrets
     "azure-keyvault-secrets",                                                     # Azure Key Vault secret store
     "beartype",                                                                   # Runtime type checks over annotations
     "cloudpickle",                                                                # Kernel and closure transfer to processes and subinterpreters
     "cryptography",                                                               # AES-GCM envelopes and key wrap for per-subject crypto-shredding
-    "cyclopts",                                                                   # CLI parser from typed signatures
     "google-cloud-secret-manager",                                                # Google Cloud Secret Manager secret store
     "google-crc32c",                                                              # CRC32C integrity check for Google Cloud secret payloads
     "hvac",                                                                       # HashiCorp Vault secret store
@@ -30,9 +27,6 @@ workspace = [
     "lark",                                                                       # Parser generator for CESQL filter, IDS, and selector grammars
     "loky",                                                                       # Reusable process pool with worker restart
     "lxml",                                                                       # XML processing
-    "mcp",                                                                        # MCP client over Streamable HTTP
-    "msgspec[yaml]",                                                              # Struct types with JSON, MessagePack, TOML, and YAML codecs
-    "opentelemetry-api",                                                          # Trace, metric, and context API
     "opentelemetry-exporter-otlp-proto-grpc",                                     # OTLP gRPC exporter beside proto-http default
     "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
     "opentelemetry-instrumentation-asgi",                                         # ASGI server spans and W3C context extraction per Connect request
@@ -46,21 +40,14 @@ workspace = [
     "opentelemetry-instrumentation-threading",                                    # Cross-thread trace-context propagation
     "opentelemetry-processor-baggage",                                            # Baggage entries copied to span attributes for tenant dimension
     "opentelemetry-resource-detector-containerid",                                # container.id resource detector
-    "opentelemetry-sdk",                                                          # Tracer, meter, and logger providers with processors and samplers
     "opentelemetry-semantic-conventions",                                         # Schema URL for telemetry
-    "packaging",                                                                  # Python requirement, version, and wheel filename parsing
     "pebble",                                                                     # Worker kill at a terminal deadline and per-worker task recycling
-    "psutil",                                                                     # Process and host resource readings
-    "pydantic",                                                                   # Validated models at settings and protocol boundaries
     "pydantic-settings",                                                          # Settings models read from environment and files
-    "pygments",                                                                   # Lexer aliases and filename patterns for clean-prose fence languages
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",                           # AppKit, Foundation, and CoreFoundation for apps and main run loop
     "pyroscope-io",                                                               # Profiling agent feeding pyroscope-otel span-link exporter
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
-    "regex",                                                                      # Emoji and pictograph property classes `re` lacks
     "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
     "tblib",                                                                      # Picklable tracebacks for worker exceptions across processes
-    "tomlkit",                                                                    # Round-trip TOML with comments and layout kept
     "wasmtime",                                                                   # In-process WASM guest sandbox for workers
     "watchfiles",                                                                 # File-change watching over Rust notify backend
     "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
@@ -110,7 +97,6 @@ workspace = [
     "mpmath",                                                                     # Arbitrary-precision real and complex math
     "optax",                                                                      # First-order JAX optimizers for optimistix
     "optimistix",                                                                 # JAX nonlinear solvers and adjoint VJP
-    "pint",                                                                       # Unit registry and quantity arithmetic
     "python-flint",                                                               # Arb interval numerics
     "pywavelets",                                                                 # Discrete and continuous wavelet transforms
     "quadax",                                                                     # JAX adaptive quadrature
@@ -196,7 +182,6 @@ workspace = [
     "pystac-client",                                                              # STAC API search and discovery client
     "rasterio",                                                                   # Raster geospatial IO
     "rioxarray",                                                                  # rasterio accessor for CF DataArray and COG raster writes
-    "shapely",                                                                    # Planar operations
     "stac-geoparquet",                                                            # STAC item GeoParquet table interchange
     "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
 
@@ -281,9 +266,7 @@ workspace = [
 
     # --- [TYPOGRAPHY_COLOR]
     "blackrenderer",                                                              # COLRv1 color-glyph SVG rasterization
-    "coloraide",                                                                  # oklch gamut mapping and CVD filters
     "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
-    "fonttools",                                                                  # Font subsetting, instancing, and shaping metadata
     "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
     "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on Pixi's ICU
     "pyphen",                                                                     # Language-aware hyphenation dictionaries
@@ -302,12 +285,10 @@ workspace = [
     "kiwisolver",                                                                 # Cassowary constraint layout
     "latex2mathml",                                                               # LaTeX-to-MathML front end for ziamath
     "networkx",                                                                   # Graph structures and algorithms
-    "picosvg",                                                                    # SVG geometry normalization and path operations
     "pyelk",                                                                      # ELK layered and orthogonal diagram layout with ports and nesting
     "resvg-py",                                                                   # In-process SVG-to-PNG rasterization over resvg
     "rustworkx",                                                                  # Graph algorithms
     "schemdraw",                                                                  # SVG schematic diagrams
-    "skia-pathops",                                                               # Vector booleans, offsets, and stroke outlines
     "svgelements",                                                                # SVG geometry, transform, and parse helpers
     "ziafont",                                                                    # Text to SVG glyph paths
     "ziamath",                                                                    # Math-to-SVG rendering
@@ -325,19 +306,19 @@ dev       = [
     # --- [CHECKERS]
     "deptry",                                                                     # Import-to-requirement checker over runtime code rasm:lint runs
     "mypy",                                                                       # Type checker rasm:typecheck runs
-    "pydantic",                                                                   # Model strategies in test support and pydantic.mypy plugin
+    "pydantic",                                                                   # Validated models at protocol boundaries and the pydantic.mypy plugin
     "refurb",                                                                     # Modernization checker over a mypy build rasm:lint runs
     "ruff",                                                                       # Linter, formatter, and import graph source of Nx Python project edges
     "ty",                                                                         # Type checker rasm:typecheck runs
     "yamllint",                                                                   # YAML linter rasm:lint runs
 
     # --- [TESTING]
-    "anyio",                                                                      # Structured concurrency in tools, a required pytest plugin
+    "anyio",                                                                      # Structured concurrency over asyncio and trio, a required pytest plugin
     "coverage",                                                                   # Coverage engine pytest-cov drives
     "hypothesis",                                                                 # Property-based tests, a required pytest plugin
-    "opentelemetry-api",                                                          # Tracer access in test runtime plugin
-    "opentelemetry-sdk",                                                          # Tracer provider and span processor in test runtime plugin
-    "pydantic-core",                                                              # Core schema strategies in test support
+    "opentelemetry-api",                                                          # Trace, metric, and context API
+    "opentelemetry-sdk",                                                          # Tracer provider, span processors, and in-memory span exporter
+    "pint",                                                                       # Unit registry and quantity arithmetic
     "pytest",                                                                     # Test runner of every Python test target
     "pytest-benchmark",                                                           # Benchmark fixture, a required pytest plugin
     "pytest-cov",                                                                 # Coverage collection, a required pytest plugin
@@ -345,28 +326,30 @@ dev       = [
     "pytest-socket",                                                              # Socket blocking, a required pytest plugin
     "pytest-timeout",                                                             # Per-test timeout, a required pytest plugin
     "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
-    "trio",                                                                       # AnyIO Trio backend with autojumping clock for test doubles
+    "trio",                                                                       # AnyIO Trio backend and autojumping mock clock
 
     # --- [SCRIPTS]
-    "asttokens",                                                                  # Source ranges for private Blender extension imports
-    "coloraide",                                                                  # SVG tool paint parsing and sRGB gamut fitting
-    "cyclopts",                                                                   # CLI parser for tool commands
-    "editorconfig",                                                               # EditorConfig property resolution for clean-prose fence indent sizes
-    "expression",                                                                 # Results and options in tools, fitout, skill scripts, and test support
-    "fonttools",                                                                  # Cubic pens for Blender geometry icons
-    "httpx2",                                                                     # Blender Lab HTTP calls of extension installs
-    "mcp",                                                                        # Blender Lab execution through its public MCP service
-    "msgspec[yaml]",                                                              # Structs and codecs for tools, skill scripts, and test support
-    "numpy",                                                                      # Icon geometry arrays and test array assertions
-    "packaging",                                                                  # Wheel filename parsing for Blender extension assembly
-    "picosvg",                                                                    # SVG geometry normalization for Blender glyphs
-    "psutil",                                                                     # Blender identity, use-ghidra process lookup, benchmark readings
-    "pygments",                                                                   # Lexer aliases and filename patterns for clean-prose fence languages
-    "regex",                                                                      # DEFINE groups and pictograph property classes `re` lacks for clean-prose
-    "shapely",                                                                    # Filled-region geometry for Blender tool icons
-    "skia-pathops",                                                               # Glyph stroke expansion and filled-region unions
-    "structlog",                                                                  # Structured logs of fitout, refurb events, and test log capture
-    "tomlkit",                                                                    # Comment-preserving Blender extension manifest assembly
+    "asttokens",                                                                  # Source token ranges over `ast` nodes for in-place rewrites
+    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting
+    "cyclopts",                                                                   # CLI parser from typed signatures
+    "editorconfig",                                                               # EditorConfig property resolution per file path
+    "expression",                                                                 # Result and Option types, collections, and catch over raising calls
+    "fonttools",                                                                  # Font tables, subsetting, instancing, and pens
+    "httpx2",                                                                     # Sync and async HTTP client
+    "markdown-it-py",                                                             # CommonMark tokens with source line ranges and GFM tables
+    "mcp",                                                                        # MCP client over Streamable HTTP
+    "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
+    "msgspec[yaml]",                                                              # Struct types with JSON, MessagePack, TOML, and YAML codecs
+    "numpy",                                                                      # N-dimensional arrays and vectorized math
+    "packaging",                                                                  # Python requirement, version, and wheel filename parsing
+    "picosvg",                                                                    # SVG geometry normalization and path operations
+    "psutil",                                                                     # Process and host resource readings
+    "pygments",                                                                   # Lexer aliases and filename patterns
+    "regex",                                                                      # DEFINE groups and Unicode property classes `re` lacks
+    "shapely",                                                                    # Planar operations
+    "skia-pathops",                                                               # Vector booleans, offsets, and stroke outlines
+    "structlog",                                                                  # Structured logging through typed bound loggers and log capture
+    "tomlkit",                                                                    # Round-trip TOML with comments and layout kept
     "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
 
     # --- [STUBS]
@@ -802,7 +785,6 @@ required_plugins         = [
 ]
 markers                  = [
     "network: tests that need real INET sockets (loopback servers or outbound connections)",
-    "property: @property_test registration, record holds its PropertyRecord",
 ]
 
 # --- [COVERAGE] -------------------------------------------------------------------------

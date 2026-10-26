@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using Rasm.UI.Styling;
 using SkiaSharp;
@@ -5,111 +6,6 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Edit<TValue> : K<Edit, TValue> {
-    public Option<TValue> Shown =>
-        Switch(preview: static held => Some(held.Value), step: static held => Some(held.Value), commit: static held => Some(held.Value), cancel: static _ => Option<TValue>.None);
-
-    public Option<TValue> Applied =>
-        Switch(preview: static _ => Option<TValue>.None, step: static held => Some(held.Value), commit: static held => Some(held.Value), cancel: static _ => Option<TValue>.None);
-
-    public sealed record Preview(TValue Value) : Edit<TValue>;
-
-    public sealed record Step(TValue Value) : Edit<TValue>;
-
-    public sealed record Commit(TValue Value) : Edit<TValue>;
-
-    public sealed record Cancel : Edit<TValue>;
-}
-
-public sealed class Edit : Traversable<Edit> {
-    public static K<Edit, B> Map<A, B>(Func<A, B> f, K<Edit, A> ma) =>
-        ma.As().Switch(
-            f,
-            preview: static (map, held) => (Edit<B>)new Edit<B>.Preview(map(held.Value)),
-            step: static (map, held) => new Edit<B>.Step(map(held.Value)),
-            commit: static (map, held) => new Edit<B>.Commit(map(held.Value)),
-            cancel: static (_, _) => new Edit<B>.Cancel());
-
-    public static K<F, K<Edit, B>> Traverse<F, A, B>(Func<A, K<F, B>> f, K<Edit, A> ta) where F : Applicative<F> =>
-        ta.As().Switch(
-            f,
-            preview: static (map, held) => map(held.Value).Map(static value => (K<Edit, B>)new Edit<B>.Preview(value)),
-            step: static (map, held) => map(held.Value).Map(static value => (K<Edit, B>)new Edit<B>.Step(value)),
-            commit: static (map, held) => map(held.Value).Map(static value => (K<Edit, B>)new Edit<B>.Commit(value)),
-            cancel: static (_, _) => F.Pure<K<Edit, B>>(new Edit<B>.Cancel()));
-
-    public static Fold<A, S> FoldStep<A, S>(K<Edit, A> ta, S initialState) =>
-        ta.As().Shown.Match(Some: value => Fold.Loop(initialState, value, Fold.Done<A, S>), None: () => Fold.Done<A, S>(initialState));
-
-    public static Fold<A, S> FoldStepBack<A, S>(K<Edit, A> ta, S initialState) =>
-        ta.As().Shown.Match(Some: value => Fold.Loop(initialState, value, Fold.Done<A, S>), None: () => Fold.Done<A, S>(initialState));
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Selection {
-    public Option<Key> Lead => Switch(one: static one => one.Picked, many: static many => many.Focus);
-
-    public bool Holds(Key key) => Switch(key, one: static (held, one) => one.Picked == Some(held), many: static (held, many) => many.Picked.Contains(held));
-
-    public Selection Raised(Seq<Key> ordered, Key hit, KeyModifiers modifiers) =>
-        Switch(
-            (Ordered: ordered, Hit: hit, Modifiers: modifiers),
-            one: static (held, _) => (Selection)new One(Some(held.Hit)),
-            many: static (held, many) => (held.Modifiers.Common, held.Modifiers.Shift) switch {
-                (true, _) => new Many(many.Picked.SymmetricExcept([held.Hit]), Some(held.Hit), Some(held.Hit)),
-                (_, true) => Spanned(held.Ordered, many.Anchor, held.Hit),
-                _ when many.Picked.Contains(held.Hit) => new Many(many.Picked, Some(held.Hit), Some(held.Hit)),
-                _ => Only(held.Hit),
-            });
-
-    public Selection Led(Seq<Key> ordered, Key lead, bool extend) =>
-        Switch(
-            (Ordered: ordered, Lead: lead, Extend: extend),
-            one: static (held, _) => (Selection)new One(Some(held.Lead)),
-            many: static (held, many) => held.Extend ? Spanned(held.Ordered, many.Anchor | many.Focus, held.Lead) : Only(held.Lead));
-
-    public Selection All(Seq<Key> ordered) => Switch(ordered, one: static (_, one) => (Selection)one, many: static (keys, many) => new Many(toHashSet(keys), many.Anchor, many.Focus));
-
-    public Selection Swept(Seq<Key> ordered, LanguageExt.HashSet<Key> covered, KeyModifiers modifiers) =>
-        Switch(
-            (Ordered: ordered, Covered: covered, Modifiers: modifiers),
-            one: static (held, _) => (Selection)new One(held.Ordered.Find(held.Covered.Contains)),
-            many: static (held, many) => (held.Modifiers.Common, held.Modifiers.Shift) switch {
-                (true, _) => many.Picked.SymmetricExcept(held.Covered),
-                (_, true) => many.Picked.Union(held.Covered),
-                _ => held.Covered,
-            } switch {
-                var picked => held.Ordered.Filter(held.Covered.Contains) switch {
-                    var swept => new Many(picked, swept.Head | many.Anchor, swept.Last | many.Focus),
-                },
-            });
-
-    internal Selection Renamed(HashMap<Key, Key> renames) =>
-        Switch(
-            renames,
-            one: static (held, one) => (Selection)new One(one.Picked.Map(key => Renamed(held, key))),
-            many: static (held, many) => new Many(many.Picked.Map(key => Renamed(held, key)), many.Anchor.Map(key => Renamed(held, key)), many.Focus.Map(key => Renamed(held, key))));
-
-    internal static Option<int> Position(Seq<Key> ordered, Key key) =>
-        ordered.Map(static (held, index) => (Key: held, Index: index)).Find(entry => entry.Key == key).Map(static entry => entry.Index);
-
-    private static Key Renamed(HashMap<Key, Key> renames, Key key) => renames.Find(key).IfNone(key);
-
-    private static Many Only(Key key) => new([key], Some(key), Some(key));
-
-    private static Many Spanned(Seq<Key> ordered, Option<Key> anchor, Key target) =>
-        (from end in Position(ordered, target)
-         let found = anchor.Bind(held => Position(ordered, held))
-         let start = found.IfNone(end)
-         select new Many(toHashSet(ordered.Skip(int.Min(start, end)).Take(int.Abs(start - end) + 1)), found.IsSome ? anchor : Some(target), Some(target)))
-        .IfNone(() => Only(target));
-
-    public sealed record One(Option<Key> Picked) : Selection;
-
-    public sealed record Many(LanguageExt.HashSet<Key> Picked, Option<Key> Anchor, Option<Key> Focus) : Selection;
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record Reply {
     internal static Reply Passed<TState, TGesture>(TState _, TGesture __) => new Pass();
@@ -125,18 +21,14 @@ internal sealed record Track(Func<Gesture, Reply> Moved, Func<Gesture, Seq<IO<Un
     public Seq<Key> Dragged { get; init; }
 }
 
-internal sealed record Receiver<TState>(Func<TState, TState, bool> Same, Func<Edit<TState>, IO<Unit>> Emit) where TState : notnull {
-    public static Receiver<TState> Of<TOut>(Func<TState, TOut> project, Func<Edit<TOut>, IO<Unit>> edited) where TOut : notnull =>
+internal sealed record Receiver<TState>(Func<TState, TState, bool> Same, Func<Edit<TState>, Option<IO<Unit>>> Emit) where TState : notnull {
+    public static Receiver<TState> Of<TOut>(Func<TState, TOut> project, Func<Edit<TOut>, Option<IO<Unit>>> edited) where TOut : notnull =>
         new((before, after) => EqualityComparer<TOut>.Default.Equals(project(before), project(after)), edit => edited(edit.Map(project).As()));
 }
 
 internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Receivers, CursorShape Cursor) where TState : notnull {
     // --- [STATE]
-    public Func<TState, Gesture.Press, Option<TState>> Press { get; init; } = static (_, _) => None;
-    public Func<TState, Gesture.Scroll, Option<TState>> Scroll { get; init; } = static (_, _) => None;
-    public Func<TState, Gesture.Magnify, Option<TState>> Magnify { get; init; } = static (_, _) => None;
-    public Func<TState, Gesture.Rotate, Option<TState>> Rotate { get; init; } = static (_, _) => None;
-    public Func<TState, Gesture.Perform, Option<TState>> Perform { get; init; } = static (_, _) => None;
+    public Func<TState, Gesture, Option<TState>> Step { get; init; } = static (_, _) => None;
     public Func<TState, Gesture.Press, Option<Seq<IO<Unit>>>> Exit { get; init; } = static (_, _) => None;
     public Option<CursorShape> Dragging { get; init; }
     public Func<TState, Option<Vector2>> Detent { get; init; } = static _ => None;
@@ -144,35 +36,26 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
 
     // --- [EMIT]
     internal Reply Began(Gesture first) =>
-        Reduced(first).Match(
+        Step(Start, first).Match(
             Some: state => Previewed(Start, state) switch {
                 var opened => (Reply)new Reply.Take(opened.Map(static held => held.Effect), Some(Tracked(new Run(Start, state, first, toHashSet(opened.Map(static held => held.Index)))))),
             },
             None: static () => new Reply.Pass());
 
     internal Reply Stepped(Gesture gesture) =>
-        Reduced(gesture).Match(
-            Some: state => (Reply)new Reply.Take(Receivers.Filter(receiver => !receiver.Same(Start, state)).Map(receiver => receiver.Emit(new Edit<TState>.Step(state))), None),
+        Step(Start, gesture).Match(
+            Some: state => (Reply)new Reply.Take(Receivers.Filter(receiver => !receiver.Same(Start, state)).Choose(receiver => receiver.Emit(Edit.Step(state))), None),
             None: static () => new Reply.Pass());
 
     private sealed record Run(TState Origin, TState Last, Gesture Latest, LanguageExt.HashSet<int> Opened);
 
     private Seq<(Receiver<TState> Receiver, int Index)> Indexed => Receivers.Map(static (receiver, index) => (Receiver: receiver, Index: index));
 
-    private Option<TState> Reduced(Gesture gesture) =>
-        gesture.Switch(
-            this,
-            press: static (session, press) => session.Press(session.Start, press),
-            scroll: static (session, scroll) => session.Scroll(session.Start, scroll),
-            magnify: static (session, magnify) => session.Magnify(session.Start, magnify),
-            rotate: static (session, rotate) => session.Rotate(session.Start, rotate),
-            perform: static (session, perform) => session.Perform(session.Start, perform));
-
     private Seq<(int Index, IO<Unit> Effect)> Previewed(TState from, TState to) =>
-        Indexed.Filter(held => !held.Receiver.Same(from, to)).Map(held => (held.Index, held.Receiver.Emit(new Edit<TState>.Preview(to))));
+        Indexed.Filter(held => !held.Receiver.Same(from, to)).Choose(held => held.Receiver.Emit(Edit.Preview(to)).Map(effect => (held.Index, Effect: effect)));
 
     private Track Tracked(Run run) =>
-        new(gesture => Followed(run, gesture), gesture => Finished(run, Reduced(gesture).IfNone(run.Last)), () => Cancelled(run)) {
+        new(gesture => Followed(run, gesture), gesture => Finished(run, Step(Start, gesture).IfNone(run.Last)), () => Cancelled(run)) {
             Cursor = run.Latest.SwitchPartially(
                 this,
                 @default: static (session, _) => session.Cursor,
@@ -182,7 +65,7 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
         };
 
     private Reply Followed(Run run, Gesture gesture) =>
-        Reduced(gesture).Match(Some: state => (State: state, Latest: gesture), None: () => (State: run.Last, run.Latest)) switch {
+        Step(Start, gesture).Match(Some: state => (State: state, Latest: gesture), None: () => (State: run.Last, run.Latest)) switch {
             var next => gesture.SwitchPartially(
                     (Session: this, next.State),
                     @default: static (_, _) => Option<Seq<IO<Unit>>>.None,
@@ -199,16 +82,30 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
 
     private Seq<IO<Unit>> Finished(Run run, TState state) =>
         Indexed.Choose(held =>
-            !held.Receiver.Same(run.Origin, state) ? Some(held.Receiver.Emit(new Edit<TState>.Commit(state)))
-            : run.Opened.Contains(held.Index) ? Some(held.Receiver.Emit(new Edit<TState>.Cancel()))
+            !held.Receiver.Same(run.Origin, state) ? held.Receiver.Emit(Edit.Commit(state))
+            : run.Opened.Contains(held.Index) ? held.Receiver.Emit(Edit.Cancel<TState>())
             : None);
 
     private Seq<IO<Unit>> Cancelled(Run run) =>
-        Indexed.Filter(held => run.Opened.Contains(held.Index)).Map(static held => held.Receiver.Emit(new Edit<TState>.Cancel()));
+        Indexed.Filter(held => run.Opened.Contains(held.Index)).Choose(static held => held.Receiver.Emit(Edit.Cancel<TState>()));
 }
 
-internal sealed record Aim(Scene Scene, Laid Laid, SKRect Bounds, Seq<Key> Over) {
-    public Option<Editor> Editor { get; init; }
+internal sealed record Aim(Scene Scene, Laid Laid, SKRect Bounds, Seq<Key> Over);
+
+[ComplexValueObject]
+[ValidationError<Invalid>]
+public sealed partial class Magnification {
+    public static Magnification Free { get; } = Create(float.Epsilon, float.PositiveInfinity);
+
+    public float Least { get; }
+    public float Most { get; }
+
+    public static Fin<Magnification> Validated(float least, float most) => TryCreate(least, most, out Magnification? magnification, out Invalid? fault) ? magnification : fault;
+
+    static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float least, ref float most) =>
+        validationError = float.IsFinite(least) && least > 0f && most >= least
+            ? null
+            : new Invalid(string.Create(CultureInfo.InvariantCulture, $"magnification ({least}, {most}) is not a positive ordered span"));
 }
 
 internal sealed record Sight(Scene Scene, Laid Laid, Seq<Seq<Key>> Hover, Option<SKPoint> Pointer) {
@@ -232,7 +129,6 @@ public abstract partial record Part {
             press: static (held, press) => press.Begin(held.Gesture, held.Aim),
             pad: static (held, pad) => pad.Handles.Began(held.Gesture, held.Aim),
             choice: static (held, choice) => choice.Begin(held.Gesture, held.Aim),
-            field: static (held, field) => field.Begin(held.Gesture, held.Aim),
             viewport: static (held, viewport) => viewport.Begin(held.Gesture, held.Aim));
 
     internal Reply Performed(Gesture gesture, Aim aim) =>
@@ -241,20 +137,13 @@ public abstract partial record Part {
             press: static (held, press) => press.Perform(held.Gesture, held.Aim),
             pad: static (held, pad) => pad.Handles.Performed(held.Gesture, held.Aim),
             choice: static (held, choice) => choice.Perform(held.Gesture, held.Aim),
-            field: static (held, field) => field.Perform(held.Gesture, held.Aim),
             viewport: static (held, viewport) => viewport.Perform(held.Gesture, held.Aim));
 
     internal Option<IO<Unit>> Drop(Seq<Key> dragged, Aim aim) =>
         SwitchPartially(
             (Dragged: dragged, Aim: aim),
             @default: static (_, _) => Option<IO<Unit>>.None,
-            choice: static (held, choice) => choice.Dropped.Map(dropped => dropped(held.Dragged, choice.Item(held.Aim.Over, held.Aim.Laid))));
-
-    internal Seq<IO<Unit>> Left(Aim aim) =>
-        SwitchPartially(aim, @default: static (_, _) => Seq<IO<Unit>>(), field: static (held, field) => held.Editor.Map(editor => field.Committed(editor.Committed())).ToSeq());
-
-    internal Option<Editor> Opened(Laid laid) =>
-        SwitchPartially(laid, @default: static (_, _) => Option<Editor>.None, field: static (held, _) => held.Texted.Map(static text => new Editor(text)));
+            choice: static (held, choice) => choice.Dropped(held.Dragged, choice.Item(held.Aim.Over, held.Aim.Laid)));
 
     internal bool Offers(Laid owner, Seq<Key> path) =>
         SwitchPartially(
@@ -280,14 +169,9 @@ public abstract partial record Part {
 
     // --- [CASES]
     public sealed record Press(Func<SKRect, IO<Unit>> Run) : Part {
-        public Option<Func<SKRect, IO<Unit>>> Secondary { get; init; }
+        public Func<SKRect, Option<IO<Unit>>> Secondary { get; init; } = static _ => None;
 
         public Node Drawn(Node face) => face with { Part = this, Accessible = face.Accessible.Combine(new Accessible { Role = AccessRole.Button }) };
-
-        public static Node Disclosure(Node header, bool open, Func<bool, IO<Unit>> toggled, Func<Node> body) =>
-            new Node.Flex(PhysicalAxis.Vertical,
-                new Press(_ => toggled(!open)).Drawn(header with { Accessible = header.Accessible.Combine(new Accessible { Role = AccessRole.Disclosure, Expanded = open }) })
-                    .Cons(open ? Seq(body()) : []));
 
         internal Reply Begin(Gesture gesture, Aim aim) =>
             gesture.SwitchPartially((Press: this, Aim: aim), @default: Reply.Passed, press: static (held, _) => new Reply.Take([], Some(held.Press.Holding(held.Aim))));
@@ -301,7 +185,7 @@ public abstract partial record Part {
                     @default: static (_, _) => new Reply.Pass(),
                     press: static (state, _) => new Reply.Take([state.Press.Run(state.Bounds)], None),
                     confirm: static (state, _) => new Reply.Take([state.Press.Run(state.Bounds)], None),
-                    showMenu: static (state, _) => state.Press.Secondary.Match(Some: secondary => (Reply)new Reply.Take([secondary(state.Bounds)], None), None: static () => new Reply.Pass())));
+                    showMenu: static (state, _) => state.Press.Secondary(state.Bounds).Match(Some: static effect => (Reply)new Reply.Take([effect], None), None: static () => new Reply.Pass())));
 
         private Track Holding(Aim aim) =>
             new(_ => new Reply.Take([], Some(Holding(aim))),
@@ -316,44 +200,39 @@ public abstract partial record Part {
 
     public sealed record Choice(Seq<Key> Items, Selection Value, Func<Edit<Selection>, IO<Unit>> Edited) : Part {
         // --- [STATE]
-        public Option<Func<Edit<Seq<Key>>, IO<Unit>>> Reorder { get; init; }
-        public Option<Func<Seq<Key>, IO<Unit>>> Exported { get; init; }
-        public Option<Func<Seq<Key>, Option<Key>, IO<Unit>>> Dropped { get; init; }
-        public Option<Func<Seq<Key>, SKRect, IO<Unit>>> Menu { get; init; }
-        public Option<Func<Option<Key>, IO<Unit>>> Hover { get; init; }
-        public Option<Func<LanguageExt.HashSet<Key>, IO<Unit>>> Viewed { get; init; }
+        public Func<Edit<Seq<Key>>, Option<IO<Unit>>> Reorder { get; init; } = static _ => None;
+        public Func<Seq<Key>, Option<IO<Unit>>> Exported { get; init; } = static _ => None;
+        public Func<Seq<Key>, Option<Key>, Option<IO<Unit>>> Dropped { get; init; } = static (_, _) => None;
+        public Func<Seq<Key>, SKRect, Option<IO<Unit>>> Menu { get; init; } = static (_, _) => None;
+        public Func<Option<Key>, Option<IO<Unit>>> Hover { get; init; } = static _ => None;
+        public Func<LanguageExt.HashSet<Key>, Option<IO<Unit>>> Viewed { get; init; } = static _ => None;
 
         private AccessRole Composite => Value.Map(one: AccessRole.RadioGroup, many: AccessRole.List);
 
-        private Seq<Receiver<Held>> Receivers => Seq(Receiver<Held>.Of(static held => held.Value, Edited)) + Reorder.Map(static reorder => Receiver<Held>.Of(static held => held.Order, reorder)).ToSeq();
+        private bool Reorders => Reorder(Edit.Cancel<Seq<Key>>()).IsSome;
+
+        private bool Exports => Exported([]).IsSome;
+
+        private Seq<Receiver<Held>> Receivers => Seq(Receiver<Held>.Of(static held => held.Value, edit => Some(Edited(edit)))) + (Reorders ? Seq(Receiver<Held>.Of(static held => held.Order, Reorder)) : []);
 
         // --- [DRAW]
-        public Node Drawn(Func<Key, Node> item, Func<Seq<Node>, Node> container) => Drawn(item, container, Composite);
+        public Node Drawn(Func<Key, Node> item, Func<Seq<Node>, Node> container) =>
+            container(Items.Map(key => Member(item(key), key))) switch {
+                var held => held with { Part = this, Accessible = held.Accessible.Combine(new Accessible { Role = Composite }) },
+            };
 
         public Node.Lazy Drawn(Func<Key, Node> item, PhysicalAxis axis, Tracks across, float extent, LanguageExt.HashSet<Key> realized) =>
             new(axis, across, extent, Items) {
-                Realized = toHashMap(Items.Filter(realized.Contains).Map(key => (key, Member(item(key), key, Composite)))),
+                Realized = toHashMap(Items.Filter(realized.Contains).Map(key => (key, Member(item(key), key)))),
                 Part = this,
                 Accessible = new Accessible { Role = Composite },
             };
 
-        public static Node Tabs(Seq<(Key Key, Node Head)> heads, Selection.One value, Func<Edit<Selection>, IO<Unit>> edited, Func<Key, Node> body, PhysicalAxis axis) =>
-            toHashMap(heads) switch {
-                var faces => new Node.Flex(axis.Cross,
-                    new Choice(heads.Map(static head => head.Key), value, edited).Drawn(key => faces[key], tabs => new Node.Flex(axis, tabs), AccessRole.TabList)
-                        .Cons(value.Picked.Map(body).ToSeq())),
-            };
-
-        private Node Drawn(Func<Key, Node> item, Func<Seq<Node>, Node> container, AccessRole role) =>
-            container(Items.Map(key => Member(item(key), key, role))) switch {
-                var held => held with { Part = this, Accessible = held.Accessible.Combine(new Accessible { Role = role }) },
-            };
-
-        private Node Member(Node node, Key key, AccessRole role) =>
+        private Node Member(Node node, Key key) =>
             node with {
                 Key = key,
                 Conditions = Value.Holds(key) ? node.Conditions.TryAdd(Condition.Selected) : node.Conditions,
-                Accessible = node.Accessible.Combine(new Accessible { Role = role.Owns.IfNone(AccessRole.Radio) }),
+                Accessible = node.Accessible.Combine(new Accessible { Role = Composite.Owns.IfNone(AccessRole.Radio) }),
             };
 
         // --- [ANSWER]
@@ -377,10 +256,10 @@ public abstract partial record Part {
                     @default: static (_, _) => new Reply.Pass(),
                     press: static (state, _) => state.Choice.Selected(state.Aim, state.Perform),
                     confirm: static (state, _) => state.Choice.Selected(state.Aim, state.Perform),
-                    showMenu: static (state, _) => (from menu in state.Choice.Menu
-                                                    from key in state.Choice.Item(state.Aim.Over, state.Aim.Laid)
+                    showMenu: static (state, _) => (from key in state.Choice.Item(state.Aim.Over, state.Aim.Laid)
                                                     from tile in state.Choice.Framed(state.Aim).Find(tile => tile.Key == key)
-                                                    select (Reply)new Reply.Take([menu(state.Choice.Moving(state.Choice.Value, key), tile.Frame)], None))
+                                                    from effect in state.Choice.Menu(state.Choice.Moving(state.Choice.Value, key), tile.Frame)
+                                                    select (Reply)new Reply.Take([effect], None))
                         .IfNone(static () => new Reply.Pass()),
                     navigate: static (state, navigate) => navigate.Toward.Grain.Stride(1f, 0f).Match(
                             Some: stride => stride > 0f ? Adjacent((state.Choice, state.Aim, navigate.Toward)) : None,
@@ -391,33 +270,33 @@ public abstract partial record Part {
                     selectAll: static (state, _) => state.Choice.Stepping(start => start with { Value = start.Value.All(state.Choice.Items) }).Stepped(state.Perform)));
 
         internal Seq<IO<Unit>> Watch(Option<Sight> before, Sight after) =>
-            Hover.Map(hover => Hovered(after) switch {
-                var now => before.Bind(Hovered) == now ? Seq<IO<Unit>>() : [hover(now)],
-            }).IfNone([])
-            + Viewed.Map(viewed => Seen(after) switch {
-                var now => before.Map(Seen) == Some(now) ? Seq<IO<Unit>>() : [viewed(now)],
-            }).IfNone([]);
+            (Hovered(after) switch {
+                var now => before.Bind(Hovered) == now ? [] : Hover(now).ToSeq(),
+            })
+            + (Seen(after) switch {
+                var now => before.Map(Seen) == Some(now) ? [] : Viewed(now).ToSeq(),
+            });
 
         private Session<Held> Picking(Key key, Aim aim) =>
-            new(new Held(Value, Items), Receivers, Reorder.IsNone ? CursorShape.Default : CursorShape.Grab) {
-                Press = (start, press) => Some(Picked(start, key, press, aim)),
-                Dragging = Reorder.Map(static _ => CursorShape.Grabbing),
+            new(new Held(Value, Items), Receivers, Reorders ? CursorShape.Grab : CursorShape.Default) {
+                Step = (start, gesture) => gesture is Gesture.Press press ? Some(Picked(start, key, press, aim)) : None,
+                Dragging = Reorders ? Some(CursorShape.Grabbing) : None,
                 Dragged = state => Moving(state.Value, key),
-                Exit = (state, press) => from export in Exported
-                                         where press.Dragged.IsSome && !aim.Scene.Covers(press.At)
-                                         select Seq(export(Moving(state.Value, key))),
+                Exit = (state, press) => press.Dragged.IsSome && !aim.Scene.Covers(press.At) ? Exported(Moving(state.Value, key)).Map(static export => Seq(export)) : None,
             };
 
         private Held Picked(Held start, Key key, Gesture.Press press, Aim aim) =>
             start.Value.Raised(Items, key, press.Modifiers) switch {
-                var picked when press.Dragged.IsNone || (Exported.IsSome && !aim.Scene.Covers(press.At)) => new Held(picked, Items),
-                var picked => new Held(picked, Reorder.Map(_ => Ordered(Moving(picked, key), At(aim, press.At))).IfNone(Items)),
+                var picked when press.Dragged.IsNone || (Exports && !aim.Scene.Covers(press.At)) => new Held(picked, Items),
+                var picked => new Held(picked, Reorders ? Ordered(Moving(picked, key), At(aim, press.At)) : Items),
             };
 
         private Session<Held> Sweeping(Aim aim) =>
-            new(new Held(Value, Items), Receivers, CursorShape.Default) { Press = (start, press) => Some(start with { Value = start.Value.Swept(Items, Covered(aim, press), press.Modifiers) }) };
+            new(new Held(Value, Items), Receivers, CursorShape.Default) {
+                Step = (start, gesture) => gesture is Gesture.Press press ? Some(start with { Value = start.Value.Swept(Items, Covered(aim, press), press.Modifiers) }) : None,
+            };
 
-        private Session<Held> Stepping(Func<Held, Held> next) => new(new Held(Value, Items), Receivers, CursorShape.Default) { Perform = (start, _) => Some(next(start)) };
+        private Session<Held> Stepping(Func<Held, Held> next) => new(new Held(Value, Items), Receivers, CursorShape.Default) { Step = (start, gesture) => gesture is Gesture.Perform ? Some(next(start)) : None };
 
         private Reply Selected(Aim aim, Gesture.Perform perform) =>
             Item(aim.Over, aim.Laid).Match(
@@ -480,35 +359,6 @@ public abstract partial record Part {
         private sealed record Held(Selection Value, Seq<Key> Order);
     }
 
-    public sealed record Field(Func<Edit<string>, IO<Unit>> Edited) : Part {
-        public Node.Text Drawn(Node.Text text) =>
-            text with { Part = this, Accessible = text.Accessible.Combine(new Accessible { Role = AccessRole.TextBox, Value = new AccessValue.Text(text.Content) }) };
-
-        internal Reply Begin(Gesture gesture, Aim aim) =>
-            gesture.SwitchPartially((Field: this, Aim: aim), @default: Reply.Passed, press: static (held, press) => new Reply.Take(held.Field.Edits(press, held.Aim), Some(held.Field.Typing(held.Aim))));
-
-        internal Reply Perform(Gesture gesture, Aim aim) =>
-            gesture.SwitchPartially(
-                (Field: this, Aim: aim),
-                @default: Reply.Passed,
-                perform: static (held, perform) => held.Aim.Laid.Switch(
-                    (held.Field, held.Aim, Perform: perform),
-                    box: Reply.Passed,
-                    text: static (state, text) => Editor.Operation(text, state.Perform).Match(
-                        Some: operation => (Reply)new Reply.Take(state.Aim.Editor.Map(editor => state.Field.Committed(operation(editor))).ToSeq(), None),
-                        None: static () => new Reply.Pass())));
-
-        internal IO<Unit> Committed(IO<Seq<Edit<string>>> edits) => edits.Bind(held => held.TraverseM(Edited).As()).Map(static _ => unit);
-
-        private Track Typing(Aim aim) => new(gesture => new Reply.Take(Edits(gesture, aim), Some(Typing(aim))), static _ => [], static () => []) { Cursor = CursorShape.Text };
-
-        private Seq<IO<Unit>> Edits(Gesture gesture, Aim aim) =>
-            (from editor in aim.Editor
-             from text in aim.Laid.Texted
-             from next in editor.Next(gesture, text, aim.Bounds)
-             select Committed(next)).ToSeq();
-    }
-
     public sealed record Viewport(PlotPlane Rest, Func<Edit<PlotPlane>, IO<Unit>> Edited) : Part {
         public Magnification Scales { get; init; } = Magnification.Free;
 
@@ -518,23 +368,29 @@ public abstract partial record Part {
                     (Viewport: this, Frame: frame),
                     @default: Reply.Passed,
                     press: static (held, press) => (held.Viewport.Tracking(held.Frame) with {
-                        Press = press.Clicks >= 2
-                            ? (_, _) => Some(held.Viewport.Rest)
-                            : (start, moved) => from travel in held.Frame.Travel(moved.From, moved.At)
-                                                from plane in start.Shifted(-travel)
-                                                where (held.Frame with { Plane = plane }).Resolves
-                                                select plane,
+                        Step = press.Clicks >= 2
+                            ? (_, gesture) => gesture is Gesture.Press ? Some(held.Viewport.Rest) : None
+                            : (start, gesture) => gesture is Gesture.Press moved
+                                ? from travel in held.Frame.Travel(moved.From, moved.At)
+                                  from plane in start.Shifted(-travel)
+                                  where (held.Frame with { Plane = plane }).Resolves
+                                  select plane
+                                : None,
                     }).Began(press),
                     scroll: static (held, scroll) => (held.Viewport.Tracking(held.Frame) with {
-                        Scroll = (start, slid) => from travel in held.Frame.Travel(slid.At, new SKPoint(slid.At.X + slid.Travel.X, slid.At.Y + slid.Travel.Y))
-                                                  from plane in start.Shifted(-travel)
-                                                  where (held.Frame with { Plane = plane }).Resolves
-                                                  select plane,
+                        Step = (start, gesture) => gesture is Gesture.Scroll slid
+                            ? from travel in held.Frame.Travel(slid.At, new SKPoint(slid.At.X + slid.Travel.X, slid.At.Y + slid.Travel.Y))
+                              from plane in start.Shifted(-travel)
+                              where (held.Frame with { Plane = plane }).Resolves
+                              select plane
+                            : None,
                     }).Began(scroll),
                     magnify: static (held, magnify) => (held.Viewport.Tracking(held.Frame) with {
-                        Magnify = (start, pinched) => from about in held.Frame.At(pinched.About)
-                                                      from plane in held.Viewport.Scaled(start, about, 1f / (1f + pinched.Magnification), held.Frame)
-                                                      select plane,
+                        Step = (start, gesture) => gesture is Gesture.Magnify pinched
+                            ? from about in held.Frame.At(pinched.About)
+                              from plane in held.Viewport.Scaled(start, about, 1f / (1f + pinched.Magnification), held.Frame)
+                              select plane
+                            : None,
                     }).Began(magnify)),
                 None: static () => new Reply.Pass());
 
@@ -545,15 +401,17 @@ public abstract partial record Part {
                 scroll: static (held, scroll) => Framed(held.Aim).Match(
                     Some: frame => HandleLayer.Metrics(held.Aim.Laid, None) switch {
                         var metrics => (held.Viewport.Tracking(frame) with {
-                            Scroll = (start, notched) => from about in frame.At(notched.At)
-                                                         from plane in held.Viewport.Scaled(start, about, MathF.Pow(metrics[Metric.Notch], -notched.Travel.Y / metrics[Metric.Extent]), frame)
-                                                         select plane,
+                            Step = (start, gesture) => gesture is Gesture.Scroll notched
+                                ? from about in frame.At(notched.At)
+                                  from plane in held.Viewport.Scaled(start, about, MathF.Pow(metrics[Metric.Notch], -notched.Travel.Y / metrics[Metric.Extent]), frame)
+                                  select plane
+                                : None,
                         }).Stepped(scroll),
                     },
                     None: static () => new Reply.Pass()));
 
         private Session<PlotPlane> Tracking(PlotFrame frame) =>
-            new(frame.Plane, [Receiver<PlotPlane>.Of(static plane => plane, Edited)], CursorShape.Grab) { Dragging = CursorShape.Grabbing };
+            new(frame.Plane, [Receiver<PlotPlane>.Of(static plane => plane, edit => Some(Edited(edit)))], CursorShape.Grab) { Dragging = CursorShape.Grabbing };
 
         private Option<PlotPlane> Scaled(PlotPlane start, Vector2 about, float factor, PlotFrame frame) =>
             from free in start.Dimensions.Head
@@ -564,12 +422,5 @@ public abstract partial record Part {
             select plane;
 
         private static Option<PlotFrame> Framed(Aim aim) => Layouts.Plotted(aim.Laid).Map(frame => frame.Translated(aim.Bounds.Location));
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class EditExtensions {
-    extension<TValue>(K<Edit, TValue> edit) {
-        public Edit<TValue> As() => (Edit<TValue>)edit;
     }
 }

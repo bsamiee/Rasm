@@ -1,64 +1,23 @@
 using System.Numerics;
+using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
-using BitMiracle.LibTiff.Classic;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Pixels;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Quantization;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal interface IOffsetField {
-    public static abstract float Draw(long column, long line);
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-internal readonly struct NoOffset : IOffsetField {
-    public static float Draw(long column, long line) => 0.5f;
-}
-
-internal readonly struct WhiteNoise : IOffsetField {
-    public static float Draw(long column, long line) =>
-        1103515245u switch {
-            var scale => unchecked(scale * ((scale * (((uint)column >> 1) ^ (uint)line)) ^ ((scale * (((uint)line >> 1) ^ (uint)column)) >> 3))) * (1f / uint.MaxValue),
-        };
-}
-
-internal readonly struct BlueNoise : IOffsetField {
-    private static readonly Memo<ReadOnlyMemory2D<float>> Draws = memo(Read);
-
-    public static float Draw(long column, long line) =>
-        Draws.Value.Span switch {
-            var draws => draws[(int)(line & (draws.Height - 1)), (int)(column & (draws.Width - 1))],
-        };
-
-    private static ReadOnlyMemory2D<float> Read() {
-        const string Resource = "BlueNoise.tif";
-        using Stream stream = typeof(BlueNoise).Assembly.GetManifestResourceStream(typeof(BlueNoise), Resource)!;
-        using Tiff tiff = Tiff.ClientOpen(Resource, "r", stream, new TiffStream());
-        (int width, int height, int channels) = (tiff.GetField(TiffTag.IMAGEWIDTH)[0].ToInt(), tiff.GetField(TiffTag.IMAGELENGTH)[0].ToInt(), tiff.GetField(TiffTag.SAMPLESPERPIXEL)[0].ToInt());
-        const float codes = ushort.MaxValue + 1f;
-        float half = 0.5f * codes / (width * height);
-        float[] draws = new float[width * height];
-        byte[] line = new byte[tiff.ScanlineSize()];
-        for (int row = 0; row < height; row++) {
-            _ = tiff.ReadScanline(line, row);
-            ReadOnlySpan<ushort> ranks = MemoryMarshal.Cast<byte, ushort>(line);
-            for (int column = 0; column < width; column++)
-                draws[(row * width) + column] = (ranks[column * channels] + half) / codes;
-        }
-        return new(draws, height, width);
-    }
-}
-
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public partial class Dither {
-    public static readonly Dither Off = new Pointwise<NoOffset>("off");
-    public static readonly Dither WhiteNoise = new Pointwise<WhiteNoise>("white-noise");
-    public static readonly Dither BlueNoise = new Pointwise<BlueNoise>("blue-noise");
+public sealed partial class Dither {
+    public static readonly Dither Off = new("off", static levels => new PixelPass.Pointwise((row, column, line) => levels.Quantize(row, column, line, Flat)));
+    public static readonly Dither WhiteNoise = new("white-noise", static levels => new PixelPass.Pointwise((row, column, line) => levels.Quantize(row, column, line, White)));
+    public static readonly Dither BlueNoise = new("blue-noise", static levels => new PixelPass.Pointwise((row, column, line) => levels.Quantize(row, column, line, Blue)));
     public static readonly Dither FloydSteinberg = new("floyd-steinberg", static levels => new PixelPass.Frame((frame, progress) => Diffuse(levels, frame, progress)));
+
+    private static readonly Memo<ReadOnlyMemory2D<float>> Draws = memo(Read);
 
     [UseDelegateFromConstructor]
     public partial PixelPass Pass(Quantizer levels);
@@ -90,5 +49,30 @@ public partial class Dither {
         return unit;
     }
 
-    private sealed class Pointwise<TField>(string key) : Dither(key, static levels => new PixelPass.Pointwise(levels.Quantize<TField>)) where TField : IOffsetField;
+    private static float Flat(long column, long line) => 0.5f;
+
+    private static float White(long column, long line) =>
+        1103515245u switch {
+            var scale => unchecked(scale * ((scale * (((uint)column >> 1) ^ (uint)line)) ^ ((scale * (((uint)line >> 1) ^ (uint)column)) >> 3))) * (1f / uint.MaxValue),
+        };
+
+    private static float Blue(long column, long line) =>
+        Draws.Value.Span switch {
+            var draws => draws[(int)(line & (draws.Height - 1)), (int)(column & (draws.Width - 1))],
+        };
+
+    private static ReadOnlyMemory2D<float> Read() {
+        const float codes = ushort.MaxValue + 1f;
+        using Stream stream = typeof(Dither).Assembly.GetManifestResourceStream(typeof(Dither), "BlueNoise.tif")!;
+        using Image<Rgba64> image = Image.Load<Rgba64>(stream);
+        using SpanOwner<Rgba64> pixels = SpanOwner<Rgba64>.Allocate(image.Width * image.Height);
+        using SpanOwner<ushort> ranks = SpanOwner<ushort>.Allocate(pixels.Length);
+        float[] draws = GC.AllocateUninitializedArray<float>(pixels.Length);
+        image.CopyPixelDataTo(pixels.Span);
+        MemoryMarshal.Cast<Rgba64, ushort>(pixels.Span).AsSpan2D(pixels.Length, 4).GetColumn(0).CopyTo(ranks.Span);
+        TensorPrimitives.ConvertChecked<ushort, float>(ranks.Span, draws);
+        TensorPrimitives.Add(draws, 0.5f * codes / draws.Length, draws);
+        TensorPrimitives.Divide(draws, codes, draws);
+        return new(draws, image.Height, image.Width);
+    }
 }

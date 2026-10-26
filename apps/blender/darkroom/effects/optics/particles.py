@@ -20,7 +20,7 @@ from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor.coordinates import Clock, Shutter
 from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, precise, Requests, Shell
-from blender.imaging.files import images
+from blender.imaging.files import buffers
 from blender.imaging.geometry.lenses import Aperture
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.imaging.sampling.populations import Population, transmitted
@@ -208,11 +208,11 @@ class Particles(Effect, frozen=True, kw_only=True):
                 for index in range(len(drawn.keys)):
                     deposited(observations[replicate], replicate, index)
             estimate = msgspec.structs.replace(Estimate.of(observations, precision), normalization=Some((unit_area, area_error)) if emitting else Nothing)
-            return images.located(estimate.value.astype(np.float32), plane).map(estimate.holding)
+            return buffers.located(estimate.value.astype(np.float32), plane).map(estimate.holding)
 
         zeros, ones = np.zeros((len(drawn.keys), 3), dtype=np.float64), np.ones((len(drawn.keys), 3), dtype=np.float64)
         return accumulated((
-            images.pixels(plane).map(lambda values: values.astype(np.float64)),
+            buffers.pixels(plane).map(lambda values: values.astype(np.float64)),
             linear_rgb(self.coverage, drawn.tones) if self.coverage is not None else Ok(zeros),
             linear_rgb(self.emission.spectrum, drawn.tones) if self.emission is not None else Ok(zeros),
             linear_rgb(self.temperature, drawn.tones) if self.emission is not None and self.incandescence > 0.0 else Ok(ones),

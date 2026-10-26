@@ -1,119 +1,58 @@
 using System.Globalization;
+using MathNet.Numerics.LinearAlgebra;
+using Rasm.Spatial;
 using Rasm.Rhino.Modeling.Curves;
-using Rhino;
 
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record Decomposition {
-    public sealed record Rigid(Vector3d Translation, Transform Rotation) : Decomposition;
-    public sealed record Similarity(Vector3d Translation, double Dilation, Transform Rotation) : Decomposition;
-    public sealed record Affine(Vector3d Translation, Transform Rotation, Transform Orthogonal, Vector3d Diagonal) : Decomposition;
-    public sealed record Singular(Vector3d Translation, Transform Linear) : Decomposition;
-
-    private readonly record struct Polar(Vector3d Translation, Transform Rotation, double Orientation, Transform Stretch);
-
-    public bool Reversing =>
-        Switch(
-            rigid: static rigid => rigid.Rotation.Determinant < 0d,
-            similarity: static similarity => similarity.Dilation < 0d,
-            affine: static affine => affine.Diagonal.X * affine.Diagonal.Y * affine.Diagonal.Z < 0d,
-            singular: static singular => singular.Linear.Determinant < 0d);
-
-    public static Fin<Decomposition> Of(Transform xform, double tolerance = RhinoMath.ZeroTolerance) =>
-        !xform.IsAffine
-            ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Transform.IsAffine)} is false for {xform}")
-            : xform.DecomposeRigid(out Vector3d rigidTranslation, out Transform rigidRotation, tolerance) is not TransformRigidType.NotRigid
-                ? new Rigid(rigidTranslation, rigidRotation)
-                : xform.DecomposeSimilarity(out Vector3d similarTranslation, out double dilation, out Transform similarRotation, tolerance) is not TransformSimilarityType.NotSimilarity
-                    ? new Similarity(similarTranslation, dilation, similarRotation)
-                    : xform.DecomposeAffine(out Vector3d affineTranslation, out Transform affineRotation, out Transform orthogonal, out Vector3d diagonal)
-                        ? new Affine(affineTranslation, affineRotation, orthogonal, diagonal)
-                        : Refused.Unless<Decomposition>(xform.DecomposeAffine(out Vector3d translation, out Transform linear), new Singular(translation, linear), nameof(Transform.DecomposeAffine));
-
-    public Transform Compose() =>
-        Switch(
-            rigid: static rigid => Transform.Translation(rigid.Translation) * rigid.Rotation,
-            similarity: static similarity => Transform.Translation(similarity.Translation) * Transform.Diagonal(similarity.Dilation, similarity.Dilation, similarity.Dilation) * similarity.Rotation,
-            affine: static affine => Transform.Translation(affine.Translation) * affine.Rotation * affine.Orthogonal * Transform.Diagonal(affine.Diagonal) * affine.Orthogonal.Transpose(),
-            singular: static singular => Transform.Translation(singular.Translation) * singular.Linear);
-
-    public Fin<Transform> Interpolate(Decomposition other, double t) =>
-        from at in Conversions.Within(new Interval(0d, 1d), t, nameof(Quaternion.Slerp))
-        from start in Polarized()
-        from end in other.Polarized()
-        from oriented in guard(start.Orientation == end.Orientation, Error.New(ErrorCodes.ValidationFailed, $"{nameof(Interpolate)} ends of opposite orientation cross a singular transform"))
-        from startTurn in Turn(start.Rotation)
-        from endTurn in Turn(end.Rotation)
-        from turn in Turned(Quaternion.Slerp(startTurn, Quaternion.Distance(startTurn, endTurn) <= Quaternion.Distance(startTurn, endTurn * -1d) ? endTurn : endTurn * -1d, at))
-        select Transform.Translation(start.Translation + (at * (end.Translation - start.Translation)))
-            * turn
-            * Transform.Diagonal(start.Orientation, start.Orientation, start.Orientation)
-            * Blend(start.Stretch, end.Stretch, at);
-
-    private Fin<Polar> Polarized() =>
-        Switch<Fin<Polar>>(
-            rigid: static rigid => double.CopySign(1d, rigid.Rotation.Determinant) switch {
-                var sign => new Polar(rigid.Translation, Transform.Diagonal(sign, sign, sign) * rigid.Rotation, sign, Transform.Identity),
-            },
-            similarity: static similarity => Math.Abs(similarity.Dilation) switch {
-                var scale => new Polar(similarity.Translation, similarity.Rotation, double.CopySign(1d, similarity.Dilation), Transform.Diagonal(scale, scale, scale)),
-            },
-            affine: static affine => new Vector3d(double.CopySign(1d, affine.Diagonal.X), double.CopySign(1d, affine.Diagonal.Y), double.CopySign(1d, affine.Diagonal.Z)) switch {
-                var signs => (signs.X * signs.Y * signs.Z) switch {
-                    var sign => new Polar(
-                        affine.Translation,
-                        Transform.Diagonal(sign, sign, sign) * affine.Rotation * affine.Orthogonal * Transform.Diagonal(signs) * affine.Orthogonal.Transpose(),
-                        sign,
-                        affine.Orthogonal * Transform.Diagonal(Math.Abs(affine.Diagonal.X), Math.Abs(affine.Diagonal.Y), Math.Abs(affine.Diagonal.Z)) * affine.Orthogonal.Transpose()),
-                },
-            },
-            singular: static _ => Error.New(ErrorCodes.ValidationFailed, $"{nameof(Singular)} {nameof(Decomposition)} has no polar form to {nameof(Interpolate)}"));
-
-    private static Fin<Quaternion> Turn(Transform rotation) =>
-        Refused.Unless(rotation.GetQuaternion(out Quaternion quaternion), quaternion, nameof(Transform.GetQuaternion));
-
-    private static Fin<Transform> Turned(Quaternion quaternion) =>
-        Refused.Unless(quaternion.GetRotation(out Transform rotation), rotation, nameof(Quaternion.GetRotation));
-
-    private static Transform Blend(Transform start, Transform end, double at) =>
-        toSeq(Enumerable.Range(0, 3)).Bind(static row => toSeq(Enumerable.Range(0, 3)).Map(column => (Row: row, Column: column)))
-            .Fold(Transform.Identity, (blended, entry) => {
-                blended[entry.Row, entry.Column] = start[entry.Row, entry.Column] + (at * (end[entry.Row, entry.Column] - start[entry.Row, entry.Column]));
-                return blended;
-            });
-}
-
-[Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Frames {
     public sealed record Through(Seq<Plane> Frames) : Frames;
 
-    public sealed record Spaced(Point3d Start, Point3d End, double Interval) : Frames;
+    public sealed record Spaced : Frames {
+        private Spaced(Point3d start, Point3d end, double interval) => (Start, End, Interval) = (start, end, interval);
+        public Point3d Start { get; }
+        public Point3d End { get; }
+        public double Interval { get; }
+        public static Fin<Spaced> Validated(Point3d start, Point3d end, double interval) =>
+            !(end - start).IsTiny() && interval > 0d ? new Spaced(start, end, interval) : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"spaced frames need distinct ends and a positive interval, received {start} to {end} by {interval}"));
+    }
 
-    public sealed record Linear(Plane Start, Vector3d Step, int Count) : Frames;
+    public sealed record Linear : Frames {
+        private Linear(Plane start, Vector3d step, int count) => (Start, Step, Count) = (start, step, count);
+        public Plane Start { get; }
+        public Vector3d Step { get; }
+        public int Count { get; }
+        public static Fin<Linear> Validated(Plane start, Vector3d step, int count) => Counted(count).Map(_ => new Linear(start, step, count));
+    }
 
-    public sealed record Polar(Plane Start, Line Axis, int Count, double Sweep) : Frames;
+    public sealed record Polar : Frames {
+        private Polar(Plane start, Line axis, int count, double sweep) => (Start, Axis, Count, Sweep) = (start, axis, count, sweep);
+        public Plane Start { get; }
+        public Line Axis { get; }
+        public int Count { get; }
+        public double Sweep { get; }
+        public static Fin<Polar> Validated(Plane start, Line axis, int count, double sweep) => Counted(count).Map(_ => new Polar(start, axis, count, sweep));
+    }
 
     public sealed record Along(Curve Rail, CurveFrames Frames) : Frames;
 
     public sealed record OnSurface(Surface Surface, Seq<Point2d> At) : Frames;
 
     public Fin<Seq<Plane>> Planes =>
-        Switch(
+        Switch<Fin<Seq<Plane>>>(
             through: static through => through.Frames,
             spaced: static spaced => (spaced.End - spaced.Start) switch {
-                var span when span.IsTiny() || !(double.IsFinite(spaced.Interval) && spaced.Interval > 0d) =>
-                    Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{nameof(Spaced)} needs distinct ends and a positive interval, received {spaced.Start} to {spaced.End} by {spaced.Interval}")),
                 var span => Stepped(new Plane(spaced.Start, span), span / span.Length * spaced.Interval, (int)Math.Floor(span.Length / spaced.Interval) + 1),
             },
-            linear: static linear => Counted(linear.Count, nameof(Linear)).Map(count => Stepped(linear.Start, linear.Step, count)),
+            linear: static linear => Stepped(linear.Start, linear.Step, linear.Count),
             polar: static polar =>
-                from count in Counted(polar.Count, nameof(Polar))
-                from axis in polar.Axis.IsValid && double.IsFinite(polar.Sweep)
-                    ? Fin.Succ(polar.Axis)
-                    : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{nameof(Polar)} needs a valid axis and a finite sweep, received {polar.Axis} and {polar.Sweep}"))
-                select toSeq(Enumerable.Range(0, count)).Map(step => Moved(polar.Start, Transform.Rotation(step * polar.Sweep / count, axis.Direction, axis.From))).Strict(),
+                Callbacks.Each(
+                    toSeq(Enumerable.Range(0, polar.Count)).Map(step => Transform.Rotation(step * polar.Sweep / polar.Count, polar.Axis.Direction, polar.Axis.From)).Strict(),
+                    (rotation, index) => polar.Start switch {
+                        var plane => Refused.Unless(plane.Transform(rotation), plane, nameof(Plane.Transform), index),
+                    }),
             along: static along => CurveEvaluation.Frames(along.Rail, along.Frames),
             onSurface: static onSurface =>
                 Callbacks.Each(onSurface.At, (uv, index) => Refused.Unless(onSurface.Surface.FrameAt(uv.X, uv.Y, out Plane frame), frame, nameof(Surface.FrameAt), index)));
@@ -121,14 +60,10 @@ public abstract partial record Frames {
     public Fin<Seq<Transform>> Placements(Plane basis) =>
         Planes.Map(planes => planes.Map(plane => Transform.PlaneToPlane(basis, plane)).Strict());
 
-    private static Fin<int> Counted(int count, string kind) =>
-        count >= 0 ? count : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{kind} needs a count at or above 0, received {count}"));
+    private static Fin<Unit> Counted(int count) => count >= 0 ? unit : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"frames need a count at or above 0, received {count}"));
 
     private static Seq<Plane> Stepped(Plane start, Vector3d step, int count) =>
-        toSeq(Enumerable.Range(0, count)).Map(at => Moved(start, Transform.Translation(step * at))).Strict();
-
-    private static Plane Moved(Plane plane, Transform xform) =>
-        new(xform * plane.Origin, xform * plane.XAxis, xform * plane.YAxis);
+        toSeq(Enumerable.Range(0, count)).Map(at => start with { Origin = start.Origin + (step * at) }).Strict();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -177,4 +112,34 @@ public static class Transformations {
             ? Fin.Succ(typed)
             : Error.New(ErrorCodes.ValidationFailed,
                 $"{nameof(GeometryBase.MakeDeformable)} successor {made.GetType().Name} is no {typeof(T).Name}{index.Map(static at => " at index " + at.ToString(CultureInfo.InvariantCulture)).IfNone("")}")));
+
+    // --- [CONVERSIONS]
+    extension(Point3d point) {
+        public Vector3D<double> ToVector3D() => new(point.X, point.Y, point.Z);
+    }
+    extension(Vector3d vector) {
+        public Vector3D<double> ToVector3D() => new(vector.X, vector.Y, vector.Z);
+    }
+    extension(Vector3D<double> point) {
+        public Point3d ToPoint3d() => new(point.X, point.Y, point.Z);
+        public Point3d ToPoint3d(Plane frame) => frame.PointAt(point.X, point.Y, point.Z);
+    }
+    extension(Interval interval) {
+        public Fin<ParameterSpan> ToSpan() => ParameterSpan.Validated(interval.T0, interval.T1);
+    }
+    extension(Transform xform) {
+        public Matrix<double> ToMatrix() => Matrix<double>.Build.Dense(4, 4, xform.ToDoubleArray(rowDominant: false));
+    }
+    extension(Matrix<double> map) {
+        public Transform ToTransform() => new() {
+            M00 = map[0, 0], M01 = map[0, 1], M02 = map[0, 2], M03 = map[0, 3], M10 = map[1, 0], M11 = map[1, 1], M12 = map[1, 2], M13 = map[1, 3],
+            M20 = map[2, 0], M21 = map[2, 1], M22 = map[2, 2], M23 = map[2, 3], M30 = map[3, 0], M31 = map[3, 1], M32 = map[3, 2], M33 = map[3, 3],
+        };
+    }
+    extension(BoundingBox box) {
+        public Bounds ToBounds() => new(box.Min.ToVector3D(), box.Max.ToVector3D());
+    }
+    extension(Bounds bounds) {
+        public BoundingBox ToBoundingBox() => new(bounds.Min.ToPoint3d(), bounds.Max.ToPoint3d());
+    }
 }

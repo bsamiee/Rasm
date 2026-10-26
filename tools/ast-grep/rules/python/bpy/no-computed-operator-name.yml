@@ -27,4 +27,4 @@ rule:
         - not: {inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^getattr$'}}}}
         - not: {inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^dir$'}}}}}}}
 message: '`$ACCESS` reaches an operator by a computed name'
-note: 'Call the held command or a `bpy.ops.<module>.<name>` member, list a runtime submodule with `dir(getattr(bpy.ops, <module>))`, read RNA from held class `bl_rna`, and write context values through `bpy.ops.wm.context_set_value`'
+note: 'Call `bpy.ops.<module>.<name>` or a held operator, listing a submodule with `dir(getattr(bpy.ops, <module>))`'

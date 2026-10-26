@@ -1,7 +1,6 @@
-"""Record paths, entry inputs by interface key with their captures, restores, and defaults, and scene holds stored as JSON beside owned data."""
+"""Entry inputs by interface key with their captures, restores, and defaults, and scene holds stored as JSON beside owned data."""
 
-from collections.abc import Callable, Mapping
-from functools import reduce
+from collections.abc import Mapping
 from typing import Final
 
 import bpy
@@ -15,12 +14,7 @@ from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.interface import addresses, item_key, slot
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
-from blender.records.fields import Case
 from blender.records.trees import Owner, Tree
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type KeyPath = tuple[Key | int | type[Case], ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -34,7 +28,7 @@ class JsonSlot[T](msgspec.Struct, frozen=True, kw_only=True):
     def read(self, identity: Identity, holder: bpy.types.ID) -> Outcome[T]:
         """Decodes the slot of holder."""
         return identity.name(Name.ATTACHMENT, self.key).bind(
-            lambda name: catch(lambda: msgspec.json.decode(holder.get(name, b"{}"), type=self.form), exception=msgspec.DecodeError)().map_error(
+            lambda name: catch(msgspec.json.decode, exception=msgspec.DecodeError)(holder.get(name, b"{}"), type=self.form).map_error(
                 lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=repr(holder), cause=error),)
             )
         )
@@ -54,39 +48,11 @@ class JsonSlot[T](msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [SLOTS] ----------------------------------------------------------------------------
 
 HELD: Final = JsonSlot(key="held", form=dict[Key, Snapshot])
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [PATHS]
-
-
-def reached(value: msgspec.Struct, path: KeyPath) -> object:
-    """Reads value at record path, skipping case type parts."""
-    return reduce(lambda held, part: held[part - 1] if isinstance(part, int) and isinstance(held, tuple | list) else getattr(held, part) if isinstance(part, str) else held, path, value)
-
-
-def updated[T: msgspec.Struct](value: T, path: KeyPath, change: Callable[[object], object]) -> T:
-    """Replaces the value at a record field path by its change, case type parts skipped and collection items indexed from 1.
-
-    Args:
-        value: Record holding the path.
-        path: Field path from the record, starting at one of its fields.
-        change: New value from the held one.
-
-    Returns:
-        Record with the reached value replaced and every enclosing struct and collection rebuilt, unchanged for a path that reaches nothing.
-    """
-    match tuple(part for part in path if not isinstance(part, type)):
-        case (str(name), *rest):
-            return msgspec.structs.replace(value, **{name: _changed(getattr(value, name), tuple(rest), change)})
-        case _:
-            return value
-
-
-# --- [ENTRY_INPUTS]
 
 
 def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, Mapping[Key, str]]]:
@@ -174,19 +140,6 @@ def path(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -
     return entry_input(identity, entry, key).map(lambda value: value.path_from_id("value"))
 
 
-def _changed(held: object, path: tuple[Key | int, ...], change: Callable[[object], object]) -> object:
-    """Rebuilds held along the remaining path, its end replaced by change, held unchanged where the path reaches nothing."""
-    match path, held:
-        case (), _:
-            return change(held)
-        case (int(index), *rest), tuple() | list():
-            return (*held[: index - 1], _changed(held[index - 1], tuple(rest), change), *held[index:])
-        case (str(name), *rest), msgspec.Struct():
-            return msgspec.structs.replace(held, **{name: _changed(getattr(held, name), tuple(rest), change)})
-        case _:
-            return held
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HELD", "JsonSlot", "KeyPath", "captured", "defaulted", "entry_input", "inputs_of", "interface_input", "keyed", "path", "reached", "rebased", "restored", "updated"]
+__all__ = ["HELD", "JsonSlot", "captured", "defaulted", "entry_input", "inputs_of", "interface_input", "keyed", "path", "rebased", "restored"]

@@ -23,11 +23,11 @@ from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.graphs import Expr, Graph, Loaded, mixed, Term
 from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.settings.attachments import Attached, Attachment, reconciling
-from blender.bpy.settings.history import Retention
 from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.records.faults import Fault, Outcome
+from blender.records.trees import Retention
 from blender.rendering.lighting.solar import SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------

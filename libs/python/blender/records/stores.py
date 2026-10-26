@@ -1,7 +1,11 @@
-"""Atomic file commits and typed JSON files of one record."""
+"""Atomic file commits, folder and file writes, mirror paths, and typed JSON files of one record."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from functools import partial
+from itertools import starmap
+import os
 from pathlib import Path
+import shutil
 import tempfile
 
 from atomicwrites import move_atomic, replace_atomic
@@ -9,7 +13,7 @@ from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.records.faults import Fault, Faults, Outcome, RecordReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -26,12 +30,8 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(record), read fault for a missing, unreadable, or invalid file.
         """
-        refused: Callable[[OSError | msgspec.DecodeError], Faults] = lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(self.path), cause=error),)
-        return (
-            catch(self.path.read_bytes, exception=OSError)()
-            .map_error(refused)
-            .bind(lambda data: catch(lambda: msgspec.json.decode(data, type=self.form), exception=msgspec.DecodeError)().map_error(refused))
-        )
+        refused = partial(_faulted, self.path, reason=RecordReason.UNREADABLE)
+        return catch(self.path.read_bytes, exception=OSError)().map_error(refused).bind(lambda data: catch(msgspec.json.decode, exception=msgspec.DecodeError)(data, type=self.form).map_error(refused))
 
     def written(self, value: T, *, exclusive: bool = False) -> Outcome[Path]:
         """Writes the record in sorted key order through one atomic commit.
@@ -44,11 +44,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             Ok(path), write fault for a refused write, `FileExistsError` when exclusive meets a held path.
         """
         encoded = msgspec.json.encode(value, order="deterministic")
-        return committed(
-            self.path,
-            lambda stage: catch(stage.write_bytes, exception=OSError)(encoded).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(self.path), cause=error),)),
-            exclusive=exclusive,
-        )
+        return committed(self.path, lambda stage: catch(stage.write_bytes, exception=OSError)(encoded).map_error(partial(_faulted, self.path)), exclusive=exclusive)
 
     def revised(self, change: Callable[[T], T]) -> Outcome[T]:
         """Writes change of the held record.
@@ -64,6 +60,17 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [WRITES]
+
+
+def _faulted(path: Path, error: Exception, *, reason: RecordReason = RecordReason.UNWRITABLE) -> Faults:
+    return (Fault(reason=reason, subject=str(path), cause=error),)
+
+
+def folder_made(folder: Path) -> Outcome[Path]:
+    """Returns existing or created folder, or write fault."""
+    return catch(folder.mkdir, exception=OSError)(parents=True, exist_ok=True).map(lambda _: folder).map_error(partial(_faulted, folder))
+
 
 def committed(path: Path, write: Callable[[Path], Outcome[object]], *, exclusive: bool = False) -> Outcome[Path]:
     """Writes `path` whole through a stage beside it, replacing it in one atomic step.
@@ -77,22 +84,40 @@ def committed(path: Path, write: Callable[[Path], Outcome[object]], *, exclusive
         Ok(path), writer faults, or write fault for folder creation or replacement, `FileExistsError` when exclusive meets a held path.
     """
 
-    def refused(error: OSError) -> Faults:
-        return (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)
-
     def replaced(folder: tempfile.TemporaryDirectory[str]) -> Outcome[Path]:
         with folder as name:
             stage = Path(name) / path.name
-            return write(stage).bind(lambda _: catch(move_atomic if exclusive else replace_atomic, exception=OSError)(str(stage), str(path)).map_error(refused)).map(lambda _: path)
+            return write(stage).bind(lambda _: catch(move_atomic if exclusive else replace_atomic, exception=OSError)(str(stage), str(path)).map_error(partial(_faulted, path))).map(lambda _: path)
 
-    return (
-        catch(path.parent.mkdir, exception=OSError)(parents=True, exist_ok=True)
-        .bind(lambda _: catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=path.parent))
-        .map_error(refused)
-        .bind(replaced)
-    )
+    return folder_made(path.parent).bind(lambda parent: catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=parent).map_error(partial(_faulted, path))).bind(replaced)
+
+
+def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]]:
+    """Copies distinct pairs, returning targets in path order."""
+
+    def copy(source: Path, target: Path) -> Path:
+        return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
+
+    def one(source: Path, target: Path) -> Outcome[Path]:
+        return folder_made(target.parent).bind(lambda _: catch(copy, exception=OSError)(source, target).map_error(partial(_faulted, target)))
+
+    return accumulated(starmap(one, sorted(frozenset(pairs))))
+
+
+# --- [PATHS]
+
+
+def mirrored(root: Path, path: Path) -> Path:
+    """Returns path under mirror root, drive kept as directory."""
+    normal = Path(os.path.abspath(path))
+    return root / normal.drive.removesuffix(":").lstrip("\\/") / normal.relative_to(normal.anchor)
+
+
+def existing(path: Path) -> Path:
+    """Returns deepest existing folder on absolute path."""
+    return next(folder for folder in (path, *path.parents) if folder.is_dir())
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RecordFile", "committed"]
+__all__ = ["RecordFile", "committed", "existing", "files_copied", "folder_made", "mirrored"]

@@ -117,18 +117,18 @@ public static class ListRows {
             let selected = Callbacks.Handler<EventArgs>(_ =>
                 from current in latest
                 from keys in IO.lift(() => toHashSet(Chosen<TItem>(grid).Map(node => current.Row.Key(node.Row))))
-                from picked in when(keys != current.Row.Selected, current.Row.Picked(new Edit<LanguageExt.HashSet<TKey>>.Commit(keys))).As()
+                from picked in when(keys != current.Row.Selected, current.Row.Picked(Edit.Commit(keys))).As()
                 select unit, new CallbackSite(scope.Sink, typeof(TreeGridView), nameof(TreeGridView.SelectionChanged)))
             from selecting in Subscriptions.Attach(h => grid.SelectionChanged += h, h => grid.SelectionChanged -= h, selected, retain)
             from editing in Subscriptions.Attach(h => grid.CellEdited += h, h => grid.CellEdited -= h,
                 Callbacks.Handler<GridViewCellEventArgs>(args =>
                     from current in latest
-                    from committed in RowItem<TItem>.Of(args.Item).Traverse(node => current.Row.Edited(new Edit<Seq<TItem>>.Commit(Replaced(current.Row.Key, current.Row.Branches, current.Row.Items, node.Row)))).As()
+                    from committed in RowItem<TItem>.Of(args.Item).Traverse(node => current.Row.Edited(Edit.Commit(Replaced(current.Row.Key, current.Row.Branches, current.Row.Items, node.Row)))).As()
                     select unit, new CallbackSite(scope.Sink, typeof(TreeGridView), nameof(TreeGridView.CellEdited))), retain)
             let expanded = Callbacks.Handler<TreeGridViewItemEventArgs>(_ =>
                 from current in latest
                 from state in list.ValueIO
-                from opened in current.Row.Branches.Traverse(branches => branches.Edited(new Edit<LanguageExt.HashSet<TKey>>.Commit(Open(current.Row, state.Nodes)))).As()
+                from opened in current.Row.Branches.Traverse(branches => branches.Edited(Edit.Commit(Open(current.Row, state.Nodes)))).As()
                 select unit, new CallbackSite(scope.Sink, typeof(TreeGridView), nameof(TreeGridView.Expanded)))
             from expanding in Subscriptions.Attach(h => grid.Expanded += h, h => grid.Expanded -= h, expanded, retain)
             from collapsing in Subscriptions.Attach(h => grid.Collapsed += h, h => grid.Collapsed -= h, expanded, retain)
@@ -398,11 +398,11 @@ public static class ListRows {
     // --- [GALLERY]
     private static Gallery<TItem> Laid<TItem>(Realized<TItem> browser, ControlRow.Bound<BrowserRow<TItem>> current, Browsing<TItem> state) where TItem : notnull =>
         new(current.Row.Items.Filter(state.Keep), current.Row.Key, current.Row.Label, state.Tiles, keys => new Part.Choice(keys, state.Picked, change => Selecting(browser, change)) {
-            Reorder = current.Row.Reorders ? Some<Func<Edit<Seq<Key>>, IO<Unit>>>(change => current.Row.Edited(change.Map(order => Rearranged(current.Row.Key, current.Row.Items, order)).As())) : None,
-            Exported = current.Row.File.Map(file => (Func<Seq<Key>, IO<Unit>>)(moved => DataTransfer.Drag(browser.View, Listed(current.Row, toHashSet(moved)).Choose(file), None))),
-            Menu = Some<Func<Seq<Key>, SKRect, IO<Unit>>>((targeted, frame) => Menued(browser, targeted, frame)),
-            Hover = Some<Func<Option<Key>, IO<Unit>>>(hovered => Hovered(browser, hovered)),
-            Viewed = Some<Func<LanguageExt.HashSet<Key>, IO<Unit>>>(seen => Advanced(browser, held => held with { Viewed = seen })),
+            Reorder = change => current.Row.Reorders ? Some(current.Row.Edited(change.Map(order => Rearranged(current.Row.Key, current.Row.Items, order)).As())) : None,
+            Exported = moved => current.Row.File.Map(file => DataTransfer.Drag(browser.View, Listed(current.Row, toHashSet(moved)).Choose(file), None)),
+            Menu = (targeted, frame) => Some(Menued(browser, targeted, frame)),
+            Hover = hovered => Some(Hovered(browser, hovered)),
+            Viewed = seen => Some(Advanced(browser, held => held with { Viewed = seen })),
         }) {
             TileSize = state.Resizing | current.Row.TileSize,
             Aspect = current.Row.Aspect,
@@ -410,7 +410,7 @@ public static class ListRows {
             Current = current.Row.Current,
             Numbered = current.Row.Numbered,
             Overlay = item => current.Row.Marks.Map(mark => mark.Value.Get(item) switch {
-                var on => new Part.Press(_ => current.Row.Edited(new Edit<Seq<TItem>>.Commit(Replaced(current.Row.Key, current.Row.Items, mark.Value.Set(!on, item))))).Drawn(new Node.Glyph(on ? mark.On : mark.Off) {
+                var on => new Part.Press(_ => current.Row.Edited(Edit.Commit(Replaced(current.Row.Key, current.Row.Items, mark.Value.Set(!on, item))))).Drawn(new Node.Glyph(on ? mark.On : mark.Off) {
                     Accessible = AccessRole.CheckBox.Marked(new Accessible { Role = AccessRole.CheckBox, Label = RowText.Localize(mark.Caption, browser.Scope.Sink).Local }, on ? Check.On : Check.Off),
                 }),
             }),
@@ -478,7 +478,7 @@ public static class ListRows {
 
     // --- [CHOICE]
     private static IO<Unit> Selecting<TItem>(Realized<TItem> browser, Edit<Selection> change) where TItem : notnull =>
-        from moved in change.Shown.Traverse(picked => Advanced(browser, state => state with { Picked = picked })).As()
+        from moved in change.Value.Traverse(picked => Advanced(browser, state => state with { Picked = picked })).As()
         from current in browser.Latest
         from chosen in change.Applied.Bind(static picked => picked.Lead.Filter(picked.Holds)).Filter(lead => current.Row.Current != Some(lead))
             .Traverse(lead => current.Row.Chosen(change.Map(_ => lead).As())).As()
@@ -519,10 +519,7 @@ public static class ListRows {
 
     // --- [SIZE]
     private static IO<Unit> Resized<TItem>(Realized<TItem> browser, Func<Edit<float>, IO<Unit>> resized, Edit<float> change) where TItem : notnull =>
-        change.Switch(
-            (Browser: browser, Resized: resized),
-            preview: static (held, preview) => Advanced(held.Browser, state => state with { Resizing = Some(preview.Value) }),
-            step: static (held, step) => Advanced(held.Browser, static state => state with { Resizing = None }).Bind(_ => held.Resized(step)),
-            commit: static (held, commit) => Advanced(held.Browser, static state => state with { Resizing = None }).Bind(_ => held.Resized(commit)),
-            cancel: static (held, _) => Advanced(held.Browser, static state => state with { Resizing = None }));
+        from moved in Advanced(browser, state => state with { Resizing = change.Value.Filter(_ => change.Phase == EditPhase.Preview) })
+        from applied in change.Applied.Traverse(_ => resized(change)).As()
+        select unit;
 }

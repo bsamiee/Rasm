@@ -39,7 +39,8 @@ from blender.bpy.render.sessions.engines import Captured, Engine, Pass, Tile
 from blender.bpy.render.sessions.renders import bounds, engined, RenderCall, sourced
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.faults import ImagingReason
-from blender.imaging.files.images import emitted, pixels, Subimage
+from blender.imaging.files.buffers import pixels
+from blender.imaging.files.images import emitted, Subimage
 from blender.imaging.files.multilayer import Layer, Multilayer
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
@@ -361,11 +362,7 @@ class Execution:
         """Deletes capture files, holding OS errors in reports."""
         for path in self.files:
             for faults in (
-                catch(partial(path.unlink, missing_ok=True), exception=OSError)()
-                .map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
-                .swap()
-                .to_option()
-                .to_list()
+                catch(path.unlink, exception=OSError)(missing_ok=True).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)).swap().to_option().to_list()
             ):
                 self.identity.reports.hold(faults)
 

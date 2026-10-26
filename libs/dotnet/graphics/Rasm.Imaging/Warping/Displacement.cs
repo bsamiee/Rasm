@@ -1,9 +1,11 @@
 using System.Drawing;
 using System.Numerics;
+using System.Runtime.Intrinsics;
+using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
-using PeterO.Numbers;
+using Rasm.Imaging.Color;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
@@ -73,12 +75,12 @@ public abstract partial record Displacement {
 
     public sealed record Wave(
         WaveFront Front, WaveProfile Profile, int Count, (ShortSideExtent Low, ShortSideExtent High) Wavelength, (float Low, float High) Amplitude,
-        (ShortSideOffset X, ShortSideOffset Y) Amount, float Direction, float Spread, float Shift, ShortSideLength Radius, FramePosition Center, uint Field) : Displacement(Center) {
+        (float X, float Y) Amount, float Direction, float Spread, float Shift, ShortSideLength Radius, FramePosition Center, uint Field) : Displacement(Center) {
         private protected override Func<(double X, double Y), (double X, double Y)> Offset(PixelExtent extent) {
-            ((double X, double Y) amounts, double radius, Matrix3x2 across) = ((Amount.X.Pixels(extent), Amount.Y.Pixels(extent)), Radius.Pixels(extent), Matrix3x2.CreateRotation(-float.Pi / 2f));
+            ((double X, double Y) amounts, double radius, Matrix3x2 across) = (((double)Amount.X * extent.ShortSide, (double)Amount.Y * extent.ShortSide), Radius.Pixels(extent), Matrix3x2.CreateRotation(-float.Pi / 2f));
             (bool ring, Matrix3x2 turn) = Front.Ring.Match(Some: weights => (true, (Matrix3x2.Identity * weights.X) + (across * weights.Y)), None: () => (false, across));
             (Vector2 Along, double Length, float Amplitude, float Phase)[] waves = [.. Enumerable.Range(0, Count).Select(i =>
-                (CoordinateHash.White(Vector4.Zero, CoordinateHash.Branch(Field, (uint)i)), Direction + (Spread * (i - ((Count - 1) / 2f)) / int.Max(Count - 1, 1))) switch {
+                (CoordinateHash.White(Vector256<double>.Zero, CoordinateHash.Branch(Field, (uint)i)), Direction + (Spread * (i - ((Count - 1) / 2f)) / int.Max(Count - 1, 1))) switch {
                     var (draw, angle) => (Vector2.Transform(Vector2.UnitX, Matrix3x2.CreateRotation(-angle)), double.Lerp(Wavelength.Low.Pixels(extent), Wavelength.High.Pixels(extent), draw.X),
                         float.Lerp(Amplitude.Low, Amplitude.High, draw.Y), draw.Z + Shift),
                 })];
@@ -100,14 +102,13 @@ public abstract partial record Displacement {
         }
     }
 
-    public sealed record Turbulence(Func<LatticePoint, uint, float> Noise, (ShortSideExtent X, ShortSideExtent Y) Scale, (ShortSideOffset X, ShortSideOffset Y) Amount, double Depth, uint Field)
+    public sealed record Turbulence(Func<Vector256<double>, uint, float> Noise, (ShortSideExtent X, ShortSideExtent Y) Scale, (float X, float Y) Amount, double Depth, uint Field)
         : Displacement(FramePosition.Center) {
         private protected override Func<(double X, double Y), (double X, double Y)> Offset(PixelExtent extent) {
-            ERational side = ERational.FromInt32(extent.ShortSide);
-            ((ERational X, ERational Y) scale, (double X, double Y) amounts, ERational depth) =
-                ((ERational.FromSingle(Scale.X) * side, -ERational.FromSingle(Scale.Y) * side), (Amount.X.Pixels(extent), Amount.Y.Pixels(extent)), ERational.FromDouble(Depth));
+            ((double X, double Y) scale, (double X, double Y) amounts) =
+                ((Scale.X.Pixels(extent), -Scale.Y.Pixels(extent)), ((double)Amount.X * extent.ShortSide, (double)Amount.Y * extent.ShortSide));
             (uint right, uint left, uint down, uint up) = (CoordinateHash.Branch(Field, 0u), CoordinateHash.Branch(Field, 1u), CoordinateHash.Branch(Field, 2u), CoordinateHash.Branch(Field, 3u));
-            return d => new LatticePoint(ERational.FromDouble(d.X) / scale.X, ERational.FromDouble(d.Y) / scale.Y, depth, ERational.Zero) switch {
+            return d => Vector256.Create(d.X / scale.X, d.Y / scale.Y, Depth, 0d) switch {
                 var at => (d.X + (amounts.X * (Noise(at, right) - Noise(at, left))), d.Y + (amounts.Y * (Noise(at, down) - Noise(at, up)))),
             };
         }
@@ -131,14 +132,14 @@ public sealed partial class MapReading {
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Plane(Mat map, Mat plane, double sigma, (double R, double G, double B) luminance, double exposure);
 
-    private static unsafe Fin<Unit> Height(Mat map, double sigma, (double R, double G, double B) luminance, double exposure, Func<Mat, Fin<Unit>> read) {
+    private static Fin<Unit> Height(Mat map, double sigma, (double R, double G, double B) luminance, double exposure, Func<Mat, Fin<Unit>> read) {
         double logGray = double.Log(Exposure.MiddleGray) - (exposure * double.Log(2d));
         using Mat linear = new();
         using Mat height = new();
         using Mat plane = new();
         map.ConvertTo(linear, DepthType.Cv64F);
         HeightPlanes.Weighted(linear, height, 1, [luminance.R, luminance.G, luminance.B, 0d]);
-        foreach (ref double luma in new Span<double>((void*)height.DataPointer, height.Rows * height.Cols))
+        foreach (ref double luma in height.GetSpan<double>())
             luma = double.Log(double.Max(luma, 0d)) switch {
                 var logLuma => double.Exp(logLuma - double.Max(logLuma, logGray) - double.LogP1(double.Exp(-double.Abs(logLuma - logGray)))),
             };
@@ -147,19 +148,19 @@ public sealed partial class MapReading {
     }
 }
 
-public sealed record DisplacementMap(MapReading Reading, Option<ShortSideExtent> Tile, ShortSideExtent Softness, (ShortSideOffset X, ShortSideOffset Y) Amount, double Rotation) {
-    public PixelPass.Frame Pass(Option<PixelFrame> map, (double R, double G, double B) luminance, double exposure, Sampling sampling, WrapMode wrap) =>
-        new((frame, progress) => Kernel(map.Match(Some: image => Fitted(image, frame), None: frame), luminance, exposure, sampling, wrap, frame, progress));
+public sealed record DisplacementMap(MapReading Reading, Option<ShortSideExtent> Tile, ShortSideExtent Softness, (float X, float Y) Amount, double Rotation) {
+    public PixelPass.Frame Pass(Option<PixelFrame> map, Gamut gamut, double exposure, Sampling sampling, WrapMode wrap) =>
+        new((frame, progress) => Kernel(map.Match(Some: image => Fitted(image, frame), None: frame), gamut, exposure, sampling, wrap, frame, progress));
 
-    private unsafe Fin<Unit> Kernel(PixelFrame source, (double R, double G, double B) luminance, double exposure, Sampling sampling, WrapMode wrap, PixelFrame frame, IProgress<int> progress) =>
+    private Fin<Unit> Kernel(PixelFrame source, Gamut gamut, double exposure, Sampling sampling, WrapMode wrap, PixelFrame frame, IProgress<int> progress) =>
         source.Filter(header => {
             using Mat offsets = new();
-            ((double X, double Y) amount, (double Sin, double Cos) turn, Point corner, int width) =
-                ((Amount.X.Pixels(frame.Extent), Amount.Y.Pixels(frame.Extent)), double.SinCos(-Rotation), frame.Origin, header.Cols);
-            return Reading.Plane(header, offsets, Softness.Pixels(frame.Extent), luminance, exposure).Bind(_ => new CoordinateMap.Analytic((points, _, _) => {
-                ReadOnlySpan<Vector2> read = new((void*)offsets.DataPointer, offsets.Rows * offsets.Cols);
+            ((double X, double Y) amount, (double Sin, double Cos) turn, Point corner) =
+                (((double)Amount.X * frame.Extent.ShortSide, (double)Amount.Y * frame.Extent.ShortSide), double.SinCos(-Rotation), frame.Origin);
+            return Reading.Plane(header, offsets, Softness.Pixels(frame.Extent), gamut.Luminance, exposure).Bind(_ => new CoordinateMap.Analytic((points, _, _) => {
+                ReadOnlySpan2D<Vector2> read = offsets.View<Vector2>();
                 foreach (ref (double X, double Y) point in points) {
-                    Vector2 offset = read[((int)double.Floor(point.Y - corner.Y) * width) + (int)double.Floor(point.X - corner.X)];
+                    Vector2 offset = read[(int)double.Floor(point.Y - corner.Y), (int)double.Floor(point.X - corner.X)];
                     (double x, double y) = (offset.X * amount.X, offset.Y * amount.Y);
                     point = (point.X - (x * turn.Cos) + (y * turn.Sin), point.Y - (x * turn.Sin) - (y * turn.Cos));
                 }
@@ -190,7 +191,7 @@ public abstract partial record RefractionSurface {
             return q => {
                 Vector2 at = (Vector2.Transform(q, fall) - new Vector2(0f, Fall)) / scale;
                 Vector2 cell = Vector2.Round(at, MidpointRounding.ToNegativeInfinity);
-                Vector4 draw = CoordinateHash.White(new Vector4(cell, 0f, 0f), field);
+                Vector4 draw = CoordinateHash.White(Vector256.Create(cell.X, cell.Y, 0d, 0d), field);
                 Vector2 off = at - cell - new Vector2(0.25f) - (0.5f * new Vector2(draw.Y, draw.Z));
                 (float radius, float lag) = (0.5f * Size * (1f - (Variation * draw.W)), off.Y <= 0f ? Trails * (1f + (off.Y / (0.25f + (0.5f * draw.Z)))) : 0f);
                 float drop = ShapeEdge.Smooth(float.Clamp((radius - off.Length()) / (radius * Softness), 0f, 1f));
@@ -214,7 +215,7 @@ public abstract partial record RefractionSurface {
 
     public sealed record Frosted(Octaves Octaves) : RefractionSurface {
         internal override Func<Vector2, Vector4> Sampler(float scale, uint field) =>
-            Glass(scale, cell => 0.5f + (0.5f * NoiseDimensions.Two.Fbm(new Vector4(cell, 0f, 0f), Octaves, CoordinateHash.Branch(field, 2u))));
+            Glass(scale, cell => 0.5f + (0.5f * NoiseDimensions.Two.Fbm(Vector256.Create(cell.X, cell.Y, 0d, 0d), Octaves, CoordinateHash.Branch(field, 2u))));
     }
 
     public sealed record TinyLens : RefractionSurface {
@@ -223,10 +224,11 @@ public abstract partial record RefractionSurface {
     }
 }
 
-public sealed record RefractionField(RefractionSurface Surface, ShortSideExtent Scale, ShortSideOffset Strength, ShortSideExtent Smoothness, ShortSideLength Blur, uint Field) {
-    public PixelPass.Frame Pass(Sampling sampling, WrapMode wrap) => new((frame, progress) => Kernel(Surface.Sampler(Scale, Field), sampling, wrap, frame, progress));
+public sealed record RefractionField(RefractionSurface Surface, ShortSideExtent Scale, float Strength, ShortSideExtent Smoothness, ShortSideLength Blur, uint Field) {
+    public PixelPass.Frame Pass(Sampling sampling, WrapMode wrap, Gamut gamut) =>
+        new((frame, progress) => Kernel(Surface.Sampler(Scale, Field), sampling, wrap, gamut, frame, progress));
 
-    private unsafe Fin<Unit> Kernel(Func<Vector2, Vector4> sample, Sampling sampling, WrapMode wrap, PixelFrame frame, IProgress<int> progress) {
+    private Fin<Unit> Kernel(Func<Vector2, Vector4> sample, Sampling sampling, WrapMode wrap, Gamut gamut, PixelFrame frame, IProgress<int> progress) {
         (PixelExtent extent, (double X, double Y) half) = (frame.Extent, FramePosition.Center.Point(frame.Extent));
         (PixelFrame surface, PixelFrame refracted) = (new(frame.Origin, frame.Size, frame.Extent), frame.Copy());
         return (from painted in new PixelPass.Pointwise((row, column, line) => {
@@ -238,20 +240,19 @@ public sealed record RefractionField(RefractionSurface Surface, ShortSideExtent 
                     using Mat slope = new();
                     using Mat source = refracted.Header();
                     CvInvoke.ExtractChannel(drawn, level, 2);
-                    return from prepared in (level.Blur(level, 3d * Smoothness.Pixels(extent)).Map(_ => HeightPlanes.Slope(level, slope, Strength.Pixels(extent) * Scale.Pixels(extent) / 8d)),
+                    return from prepared in (level.Blur(level, 3d * Smoothness.Pixels(extent)).Map(_ => HeightPlanes.Slope(level, slope, (double)Strength * extent.ShortSide * Scale.Pixels(extent) / 8d)),
                                source.Blur(source, 3d * Blur.Pixels(extent))).Apply(static (_, _) => unit).As()
                            from applied in new CoordinateMap.Analytic((points, coverage, _) => {
-                               int pixels = drawn.Rows * drawn.Cols;
-                               ReadOnlySpan<Vector2> bend = new((void*)slope.DataPointer, pixels);
-                               ReadOnlySpan<Vector4> drops = new((void*)drawn.DataPointer, pixels);
-                               for (int i = 0; i < points.Length; i++)
-                                   (points[i], coverage[i]) = (((int)double.Floor(points[i].Y - surface.Origin.Y) * surface.Size.Width) + (int)double.Floor(points[i].X - surface.Origin.X)) switch {
-                                       var at => ((points[i].X + drops[at].X - bend[at].X, points[i].Y + drops[at].Y - bend[at].Y), coverage[i] * drops[at].W),
-                                   };
+                               ReadOnlySpan2D<Vector2> bend = slope.View<Vector2>();
+                               ReadOnlySpan2D<Vector4> drops = drawn.View<Vector4>();
+                               for (int i = 0; i < points.Length; i++) {
+                                   (int y, int x) = ((int)double.Floor(points[i].Y - surface.Origin.Y), (int)double.Floor(points[i].X - surface.Origin.X));
+                                   (points[i], coverage[i]) = ((points[i].X + drops[y, x].X - bend[y, x].X, points[i].Y + drops[y, x].Y - bend[y, x].Y), coverage[i] * drops[y, x].W);
+                               }
                            }, sampling, (wrap, wrap)).Apply(refracted, progress)
                            select applied;
                 })
-                select Blend.Composite(frame, refracted, BlendingMode.Mix, 1f, [], PixelAlphaRepresentation.Unassociated)).Map(composite => {
+                select Blend.Composite(frame, refracted, BlendingMode.Mix, 1f, [], PixelAlphaRepresentation.Unassociated, gamut)).Map(composite => {
                     composite.View.Span.CopyTo(frame.View.Span);
                     return unit;
                 });

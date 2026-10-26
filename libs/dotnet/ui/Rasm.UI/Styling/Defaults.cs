@@ -1,4 +1,3 @@
-using HarfBuzzSharp;
 using SkiaSharp;
 using Wacton.Unicolour;
 
@@ -6,23 +5,21 @@ namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appearances, HashMap<ControlSize, HashMap<Role, HashMap<Metric, float>>> Sizes) : Monoid<DefaultStyles> {
-    private const string Sweep =
-        "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 sweep; half4 main(float2 p) { float head = fract(time * 0.8) * 1.6 - 0.3; half a = half(1.0 - smoothstep(0.0, 0.15, abs(p.x / max(size.x, 1.0) - head))); half4 c = mix(base, sweep, a); return half4(c.rgb * c.a, c.a); }";
-    private const string Glow =
-        "uniform float2 size; layout(color) uniform half4 base; layout(color) uniform half4 glow; half4 main(float2 p) { float2 uv = p / size; float halo = 1.0 - smoothstep(0.0, 1.1, distance(uv, float2(0.15, -0.2))); float grain = fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453) - 0.5; half3 rgb = mix(base.rgb, glow.rgb, half(halo) * glow.a) + half3(grain * 0.012); return half4(rgb * base.a, base.a); }";
+    private static readonly SKRuntimeShaderBuilder Sweep = SKRuntimeEffect.BuildShader(
+        "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 sweep; half4 main(float2 p) { float head = fract(time * 0.8) * 1.6 - 0.3; half a = half(1.0 - smoothstep(0.0, 0.15, abs(p.x / max(size.x, 1.0) - head))); half4 c = mix(base, sweep, a); return half4(c.rgb * c.a, c.a); }");
+    private static readonly SKRuntimeShaderBuilder Glow = SKRuntimeEffect.BuildShader(
+        "uniform float2 size; layout(color) uniform half4 base; layout(color) uniform half4 glow; half4 main(float2 p) { float2 uv = p / size; float halo = 1.0 - smoothstep(0.0, 1.1, distance(uv, float2(0.15, -0.2))); float grain = fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453) - 0.5; half3 rgb = mix(base.rgb, glow.rgb, half(halo) * glow.a) + half3(grain * 0.012); return half4(rgb * base.a, base.a); }");
 
-    private static readonly ColorValue PanelFill = new ColorValue.Host(Role.Panel, Channel.Fill);
-    private static readonly ColorValue PanelText = new ColorValue.Host(Role.Panel, Channel.Text);
-    private static readonly ColorValue PanelRule = new ColorValue.Host(Role.Panel, Channel.Text) { Alpha = Fraction.Create(0.08f) };
-    private static readonly ColorValue FieldFill = new ColorValue.Host(Role.Field, Channel.Fill);
-    private static readonly ColorValue SelectionFill = new ColorValue.Host(Role.Selection, Channel.Fill);
-    private static readonly ColorValue Accent = new ColorValue.Host(Role.Accent, Channel.Fill) { Fallback = Some<ColorValue>(new ColorValue.Fixed(new Unicolour(ColourSpace.Oklch, 0.62, 0.19, 264))) };
-    private static readonly ColorValue Warning = new ColorValue.Host(Role.Window, Channel.Text) { Condition = Condition.Warning, Fallback = Some<ColorValue>(new ColorValue.Fixed(new Unicolour(ColourSpace.Oklch, 0.77, 0.17, 64))) };
-    private static readonly ColorValue Faulted = new ColorValue.Host(Role.Window, Channel.Text) { Condition = Condition.Faulted, Fallback = Some<ColorValue>(new ColorValue.Fixed(new Unicolour(ColourSpace.Oklch, 0.63, 0.24, 29))) };
+    private static readonly ColorValue PanelFill = new ColorValue.Host(Channel.Fill) { Role = Role.Panel };
+    private static readonly ColorValue PanelText = new ColorValue.Host(Channel.Text) { Role = Role.Panel };
+    private static readonly ColorValue PanelRule = new ColorValue.Host(Channel.Text) { Role = Role.Panel, Alpha = Fraction.Create(0.08f) };
+    private static readonly ColorValue FieldFill = new ColorValue.Host(Channel.Fill) { Role = Role.Field };
+    private static readonly ColorValue SelectionFill = new ColorValue.Host(Channel.Fill) { Role = Role.Selection };
+    private static readonly ColorValue Accent = new ColorValue.Host(Channel.Fill) { Role = Role.Accent, Fallback = Some<ColorValue>(new ColorValue.Fixed(new Unicolour(ColourSpace.Oklch, 0.62, 0.19, 264))) };
+    private static readonly ColorValue Warning = new ColorValue.Host(Channel.Text) { Role = Role.Window, Condition = Condition.Warning };
+    private static readonly ColorValue Faulted = new ColorValue.Host(Channel.Text) { Role = Role.Window, Condition = Condition.Faulted };
     private static readonly ColorValue WellText = new ColorValue.Fixed("#FFFFFFB3");
     private static readonly TimingCurve Eased = new TimingCurve.Eased(Duration.FromMilliseconds(120), Easing.EaseOut);
-    private static readonly Seq<Material> Unfilled = [];
-    private static readonly Seq<Stroke> Unstroked = [];
     private static readonly TextFace SemiBold = new() { Weight = SKFontStyleWeight.SemiBold };
 
     public static DefaultStyles Empty { get; } = new([], []);
@@ -33,10 +30,10 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                 (Role.Button, new Look {
                     When = HashMap(
                         (Condition.Default, new Look {
-                            Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(None, Channel.Fill) { Condition = Condition.Default, Fallback = Some(Accent) })),
-                            Text = new ColorValue.Host(None, Channel.Text) {
+                            Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(Channel.Fill) { Condition = Condition.Default, Fallback = Some(Accent) })),
+                            Text = new ColorValue.Host(Channel.Text) {
                                 Condition = Condition.Default,
-                                Fallback = Some<ColorValue>(new ColorValue.Contrasting(Accent, [new ColorValue.Host(Role.Window, Channel.Text), new ColorValue.Host(Role.Window, Channel.Fill)])),
+                                Fallback = Some<ColorValue>(new ColorValue.Contrasting(Accent, [new ColorValue.Host(Channel.Text) { Role = Role.Window }, new ColorValue.Host(Channel.Fill) { Role = Role.Window }])),
                             },
                         }),
                         (Condition.Destructive, new Look { Text = Faulted })),
@@ -50,22 +47,22 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                 (Role.Label, new Look {
                     When = HashMap(
                         (Condition.Modified, new Look { Text = SelectionFill, Face = SemiBold }),
-                        (Condition.Warning, new Look { Fills = Unfilled, Strokes = Unstroked, Text = Warning }),
-                        (Condition.Faulted, new Look { Fills = Unfilled, Strokes = Unstroked, Text = Faulted })),
+                        (Condition.Warning, Look.Bare with { Text = Warning }),
+                        (Condition.Faulted, Look.Bare with { Text = Faulted })),
                 }),
                 (Role.Track, new Look {
-                    Fills = Unfilled,
-                    Strokes = Seq(new Stroke(new ColorValue.Host(Role.Panel, Channel.Text) { Alpha = Fraction.Create(0.2f) })),
+                    Fills = Seq<Material>(),
+                    Strokes = Seq(new Stroke(new ColorValue.Host(Channel.Text) { Role = Role.Panel, Alpha = Fraction.Create(0.2f) })),
                     Text = PanelText,
                     When = HashMap((Condition.Busy, new Look {
-                        Fills = Seq<Material>(new Material.Drawn(SKRuntimeEffect.CreateShader(Sweep, out string _), HashMap(
-                            ("base", new ColorValue.Host(Role.Panel, Channel.Text) { Alpha = Fraction.Create(0.12f) }),
+                        Fills = Seq<Material>(new Material.Drawn(Sweep.Effect, HashMap(
+                            ("base", new ColorValue.Host(Channel.Text) { Role = Role.Panel, Alpha = Fraction.Create(0.12f) }),
                             ("sweep", SelectionFill)))),
                     })),
                 }),
-                (Role.Span, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(Role.Toolbar, Channel.Fill))), Strokes = Unstroked, Text = PanelText }),
-                (Role.Ring, new Look { Fills = Unfilled, Strokes = Seq(new Stroke(PanelText)), Text = PanelText }),
-                (Role.Needle, new Look { Fills = Unfilled, Strokes = Seq(new Stroke(PanelText)), Text = PanelText }),
+                (Role.Span, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(Channel.Fill) { Role = Role.Toolbar })), Strokes = Seq<Stroke>(), Text = PanelText }),
+                (Role.Ring, new Look { Fills = Seq<Material>(), Strokes = Seq(new Stroke(PanelText)), Text = PanelText }),
+                (Role.Needle, new Look { Fills = Seq<Material>(), Strokes = Seq(new Stroke(PanelText)), Text = PanelText }),
                 (Role.Stop, new Look {
                     Fills = Seq<Material>(new Material.Solid(PanelFill)),
                     Strokes = Seq(new Stroke(PanelText)),
@@ -82,17 +79,10 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                     Motion = Eased,
                     When = HashMap((Condition.Modified, new Look { Fills = Seq<Material>(new Material.Solid(SelectionFill)) })),
                 }),
-                (Role.FocusRing, new Look {
-                    Fills = Unfilled,
-                    Strokes = Unstroked,
-                    Shadows = Seq<Shadow>(new Shadow.Drop { Color = new ColorValue.Host(Role.FocusRing, Channel.Stroke), Blur = 0f, Spread = 3f }),
-                    Motion = Eased,
-                }),
-                (Role.OverlayCaption, new Look {
-                    Fills = Unfilled,
-                    Strokes = Unstroked,
+                (Role.FocusRing, Look.Bare with { Shadows = Seq(new Shadow(new ColorValue.Host(Channel.Stroke) { Role = Role.FocusRing }, Blur: 0f) { Spread = 3f }), Motion = Eased }),
+                (Role.OverlayCaption, Look.Bare with {
                     Text = new ColorValue.Fixed("#FFFFFFFF"),
-                    Shadows = Seq<Shadow>(new Shadow.Drop { Color = new ColorValue.Fixed("#00000080"), Blur = 0f, X = 1f, Y = 1f }),
+                    Shadows = Seq(new Shadow(new ColorValue.Fixed("#00000080"), Blur: 0f) { X = 1f, Y = 1f }),
                 }),
                 (Role.Series, new Look {
                     Palette = Seq<ColorValue>(
@@ -117,12 +107,12 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                             Motion = Eased,
                         }),
                         (Role.Grid, new Look {
-                            Fills = Unfilled,
+                            Fills = Seq<Material>(),
                             Strokes = Seq(new Stroke(new ColorValue.Fixed("#FFFFFF33"))),
                             When = HashMap((Condition.IncreaseContrast, new Look { Strokes = Seq(new Stroke(new ColorValue.Fixed("#FFFFFF66"))) })),
                         }),
                         (Role.GridFine, new Look {
-                            Fills = Unfilled,
+                            Fills = Seq<Material>(),
                             Strokes = Seq(new Stroke(new ColorValue.Fixed("#FFFFFF14"))),
                             When = HashMap((Condition.IncreaseContrast, new Look { Strokes = Seq(new Stroke(new ColorValue.Fixed("#FFFFFF33"))) })),
                         }),
@@ -135,27 +125,27 @@ public sealed record DefaultStyles(HashMap<Appearance, HashMap<Role, Look>> Appe
                             Blend = SKBlendMode.Plus,
                             When = HashMap((Condition.DifferentiateWithoutColor, new Look { Strokes = Seq(new Stroke(new ColorValue.Data(), [[4f, 2f, 1f, 2f], [], [4f, 2f], [1f, 2f]])) })),
                         }),
-                        (Role.Selection, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Fixed("#FFFFFF63"))), Strokes = Unstroked }),
-                        (Role.Label, new Look { Fills = Unfilled, Strokes = Unstroked, Text = WellText, Face = new TextFace { Features = Seq(new Feature(Tag.Parse("tnum"))) } })),
+                        (Role.Selection, new Look { Fills = Seq<Material>(new Material.Solid(new ColorValue.Fixed("#FFFFFF63"))), Strokes = Seq<Stroke>() }),
+                        (Role.Label, Look.Bare with { Text = WellText, Face = TextFace.Tabular })),
                 }))),
             (Appearance.Glass, HashMap(
-                (Role.Panel, new Look { Fills = Seq<Material>(new Material.Backdrop(Clear: false, PanelFill)), Strokes = Unstroked }),
-                (Role.Toolbar, new Look { Fills = Seq<Material>(new Material.Backdrop(Clear: false, PanelFill)), Strokes = Unstroked }))),
+                (Role.Panel, new Look { Fills = Seq<Material>(new Material.Backdrop(Clear: false, PanelFill)), Strokes = Seq<Stroke>() }),
+                (Role.Toolbar, new Look { Fills = Seq<Material>(new Material.Backdrop(Clear: false, PanelFill)), Strokes = Seq<Stroke>() }))),
             (Appearance.Drawn, HashMap(
                 (Role.Panel, new Look {
-                    Fills = Seq<Material>(new Material.Drawn(SKRuntimeEffect.CreateShader(Glow, out string _), HashMap(
+                    Fills = Seq<Material>(new Material.Drawn(Glow.Effect, HashMap(
                         ("base", PanelFill),
-                        ("glow", new ColorValue.Host(Role.FocusRing, Channel.Text) { Alpha = Fraction.Create(0.35f) })))),
+                        ("glow", new ColorValue.Host(Channel.Text) { Role = Role.FocusRing, Alpha = Fraction.Create(0.35f) })))),
                     Strokes = Seq(new Stroke(PanelRule)),
                 }),
                 (Role.Toolbar, new Look {
-                    Fills = Seq<Material>(new Material.Gradient([new Stop<ColorValue>(new ColorValue.Host(Role.Toolbar, Channel.Fill), Fraction.MinValue), new Stop<ColorValue>(PanelFill, Fraction.MaxValue)], 90f)),
+                    Fills = Seq<Material>(new Material.Gradient([new Stop<ColorValue>(new ColorValue.Host(Channel.Fill) { Role = Role.Toolbar }, Fraction.MinValue), new Stop<ColorValue>(PanelFill, Fraction.MaxValue)], 90f)),
                     Strokes = Seq(new Stroke(PanelRule)),
-                    Shadows = Seq<Shadow>(new Shadow.Drop { Color = new ColorValue.Fixed("#00000040"), Blur = 1f, Y = 0.5f }),
+                    Shadows = Seq(new Shadow(new ColorValue.Fixed("#00000040"), Blur: 1f) { Y = 0.5f }),
                 }))),
             (Appearance.Borderless, HashMap(
-                (Role.Button, new Look { Strokes = Unstroked }),
-                (Role.Field, new Look { Strokes = Unstroked })))),
+                (Role.Button, new Look { Strokes = Seq<Stroke>() }),
+                (Role.Field, new Look { Strokes = Seq<Stroke>() })))),
         HashMap(
             (ControlSize.Regular, HashMap(
                 (Role.Panel, HashMap((Metric.Inset, 8f), (Metric.Gap, 6f))),

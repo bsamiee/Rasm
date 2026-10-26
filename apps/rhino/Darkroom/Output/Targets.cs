@@ -5,10 +5,12 @@ using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using Rasm.Imaging.Tone;
+using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Settings;
 using Rhino;
+using Rhino.Render;
 using Thinktecture.Text.Json.Serialization;
 
 namespace Darkroom.Output;
@@ -33,21 +35,28 @@ public abstract partial class TargetFile {
     public static readonly TargetFile Dng = new DngFile("dng", FileExtension.Create(StillFormat.Dng.Extensions.Head));
     public static readonly TargetFile Layered = new LayeredFile("layered", FileExtension.Create(StillFormat.TiffRaster.Extensions.Head));
     public static readonly TargetFile Jpeg = new JpegFile("jpeg", FileExtension.Create(StillFormat.JpegRaster.Extensions.Head));
-    public static readonly TargetFile Bmp = new DibFile("bmp", FileExtension.Create(StillFormat.BmpRaster.Extensions.Head), static (frame, alpha) => new StillFormat.BmpRaster(frame, alpha));
-    public static readonly TargetFile Targa = new DibFile("targa", FileExtension.Create(StillFormat.TgaRaster.Extensions.Head), static (frame, alpha) => new StillFormat.TgaRaster(frame, alpha));
+    public static readonly TargetFile Bmp = new WindowFile("bmp", FileExtension.Create(".bmp"));
+    public static readonly TargetFile Targa = new WindowFile("targa", FileExtension.Create(".tga"));
 
     public FileExtension Extension { get; }
 
-    public abstract IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target);
+    public abstract IO<Unit> Write(RhinoDoc doc, SaveSource source, OutputTarget target, FileMetadata metadata, OutputPath path, bool overwrite);
+
+    private abstract class StillFile(string key, FileExtension extension) : TargetFile(key, extension) {
+        public override IO<Unit> Write(RhinoDoc doc, SaveSource source, OutputTarget target, FileMetadata metadata, OutputPath path, bool overwrite) =>
+            Still(doc, source, target).Bind(still => FilePublication.Write(path, overwrite, stream => StillWriter.Encode(still, metadata, stream)));
+
+        protected abstract IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target);
+    }
 
     private sealed class RasterFile(string key, FileExtension extension, Func<PixelFrame, OutputDepth, Option<ColorEncoding>, bool, Fin<StillFormat>> build)
-        : TargetFile(key, extension) {
-        public override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
+        : StillFile(key, extension) {
+        protected override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
             source.Formed(target, target.ColorDepth).Bind(formed => IO.lift(build(formed.Frame, target.ColorDepth, formed.Encoding, target.Alpha)));
     }
 
-    private sealed class ExrFile(string key, FileExtension extension) : TargetFile(key, extension) {
-        public override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
+    private sealed class ExrFile(string key, FileExtension extension) : StillFile(key, extension) {
+        protected override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
             Optional(target.Reader).Match(
                 Some: reader => source.Passes(doc, target, reader),
                 None: () =>
@@ -57,24 +66,38 @@ public abstract partial class TargetFile {
                     select still);
     }
 
-    private sealed class DngFile(string key, FileExtension extension) : TargetFile(key, extension) {
-        public override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
+    private sealed class DngFile(string key, FileExtension extension) : StillFile(key, extension) {
+        protected override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
             source.Linear.Bind(frame => IO.lift(StillFormat.Dng.From(
                 frame, DisplayFormation.Working, None, source.Scene.FocalLength, source.Scene.Aperture.Map(static aperture => (float)aperture))));
     }
 
-    private sealed class LayeredFile(string key, FileExtension extension) : TargetFile(key, extension) {
-        public override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) => source.Layered(doc, target);
+    private sealed class LayeredFile(string key, FileExtension extension) : StillFile(key, extension) {
+        protected override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) => source.Layered(doc, target);
     }
 
-    private sealed class JpegFile(string key, FileExtension extension) : TargetFile(key, extension) {
-        public override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
+    private sealed class JpegFile(string key, FileExtension extension) : StillFile(key, extension) {
+        protected override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
             source.Formed(target, OutputDepth.UInt8).Map(formed => StillFormat.JpegRaster.From(formed.Frame, formed.Encoding, target.Quality));
     }
 
-    private sealed class DibFile(string key, FileExtension extension, Func<PixelFrame, bool, StillFormat> build) : TargetFile(key, extension) {
-        public override IO<StillFormat> Still(RhinoDoc doc, SaveSource source, OutputTarget target) =>
-            source.Formed(target, OutputDepth.UInt8).Map(formed => build(formed.Frame, target.Alpha));
+    private sealed class WindowFile(string key, FileExtension extension) : TargetFile(key, extension) {
+        public override IO<Unit> Write(RhinoDoc doc, SaveSource source, OutputTarget target, FileMetadata metadata, OutputPath path, bool overwrite) =>
+            source.Switch(
+                (Extension, target.Alpha, Path: path, Overwrite: overwrite),
+                window: static (save, window) => IO.lift(() => Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{save.Extension}")).Bind(scratch =>
+                    (from saved in IO.lift(() => window.Rendering.SaveRenderImageAs(scratch, save.Alpha))
+                     from found in IO.lift(() => Refused.UnlessFound(File.Exists(scratch), nameof(RenderWindow.SaveRenderImageAs)))
+                     from written in FilePublication.Write(save.Path, save.Overwrite, stream =>
+                         from read in use(() => File.OpenRead(scratch))
+                         from copied in IO.liftAsync(async environment => {
+                             await read.CopyToAsync(stream, environment.Token).ConfigureAwait(false);
+                             return unit;
+                         })
+                         select unit)
+                     select unit)
+                    .Finally(IO.lift(() => File.Delete(scratch)))),
+                run: static (_, _) => IO.fail<Unit>(new Refused(nameof(RenderWindow.SaveRenderImageAs), Refused.Absent)));
     }
 }
 

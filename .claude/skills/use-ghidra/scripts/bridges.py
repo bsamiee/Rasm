@@ -36,11 +36,11 @@ class Settings(msgspec.Struct, frozen=True, rename={"projects": "GHIDRA_PROJECT_
     projects: str
 
 
-class Owner(msgspec.Struct, frozen=True, rename={"pid": "CLAUDE_PID", "session": "CLAUDE_CODE_SESSION_ID"}):
+class Owner(msgspec.Struct, frozen=True, rename={"pid": "CLAUDE_PID", "session_id": "CLAUDE_CODE_SESSION_ID"}):
     """Claude Code process and session bridges inherit through environment."""
 
     pid: int
-    session: str
+    session_id: str
 
 
 class Bridge(msgspec.Struct, frozen=True):
@@ -54,8 +54,8 @@ class Bridge(msgspec.Struct, frozen=True):
     def ended(self, event: Session) -> bool:
         """Return whether owner's process ended or `event` ends owner's session."""
         match event:
-            case SessionEnd(session_id=session):
-                return self.orphaned or self.owner.session == session
+            case SessionEnd(session_id=session_id):
+                return self.orphaned or self.owner.session_id == session_id
             case SessionStart():
                 return self.orphaned
 

@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.InteropServices;
+using System.Numerics.Tensors;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -11,12 +11,12 @@ using Emgu.CV.Structure;
 using Emgu.CV.Util;
 using MathNet.Numerics;
 using MathNet.Numerics.Statistics;
-using PeterO.Numbers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 using SixLabors.ImageSharp.PixelFormats;
+using TinyEXR;
 
 namespace Rasm.Imaging.Filtering;
 
@@ -126,7 +126,7 @@ public sealed partial class Iris {
 
 [ComplexValueObject]
 [ValidationError<ImagingFault>]
-public readonly partial struct HighlightKey {
+public sealed partial class HighlightKey {
     public float Threshold { get; }
     public float Softness { get; }
 
@@ -144,27 +144,33 @@ public readonly partial struct HighlightKey {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed unsafe class PointSpread : VectorOfMat {
+public sealed class PointSpread : VectorOfMat {
     private readonly Arr<int> planes;
 
-    private PointSpread(Arr<int> planes, Action<PointSpread> fill) : base(planes.Fold(0, int.Max) + 1) {
+    private PointSpread(Arr<int> planes, PixelExtent size, Action<PointSpread> fill) : base(planes.Fold(0, int.Max) + 1) {
         this.planes = planes;
+        for (int index = 0; index < Size; index++) {
+            using Mat plane = this[index];
+            plane.Create((2 * size.Height) - 1, (2 * size.Width) - 1, DepthType.Cv32F, 1);
+            plane.SetTo(default(MCvScalar));
+        }
         fill(this);
     }
 
-    public static PointSpread Veiling(PixelExtent size, double degreesPerPixel) => new([0, 0, 0], spread => {
+    public static PointSpread Veiling(PixelExtent size, double degreesPerPixel) => new([0, 0, 0], size, spread => {
         using Mat kernel = spread[0];
-        kernel.Create((2 * size.Height) - 1, (2 * size.Width) - 1, DepthType.Cv32F, 1);
-        Span<float> cells = new((void*)kernel.DataPointer, kernel.Rows * kernel.Cols);
-        for (int i = 0; i < cells.Length; i++)
-            cells[i] = (float)Spencer(degreesPerPixel * int.DivRem(i, kernel.Cols) switch { var (y, x) => double.Hypot(x - (size.Width - 1), y - (size.Height - 1)) });
+        Span2D<float> cells = kernel.View<float>();
+        for (int y = 0; y < cells.Height; y++) {
+            for (int x = 0; x < cells.Width; x++)
+                cells[y, x] = (float)Spencer(degreesPerPixel * double.Hypot(x - (size.Width - 1), y - (size.Height - 1)));
+        }
         kernel.ConvertTo(kernel, DepthType.Cv32F, 1d / CvInvoke.Sum(kernel).V0);
 
         static double Spencer(double degrees) =>
             (0.384d * 2.61e6d * double.Exp(-double.Pow(degrees / 0.02d, 2d))) + (0.478d * 20.91d / double.Pow(degrees + 0.02d, 3d)) + (0.138d * 72.37d / double.Pow(degrees + 0.02d, 2d));
     });
 
-    public static PointSpread Diffraction(Iris pupil, double airy, PixelExtent size, PixelExtent canvas, Gamut working) => new([0, 1, 2], spread => {
+    public static PointSpread Diffraction(Iris pupil, double airy, PixelExtent size, PixelExtent canvas, Gamut working) => new([0, 1, 2], size, spread => {
         const decimal reference = 550m;
         const decimal firstZero = 1.22m;
         Arr<(float Wavelength, Vector3 Matching)> rows = StandardObserver.Matching(working);
@@ -179,32 +185,27 @@ public sealed unsafe class PointSpread : VectorOfMat {
         using Mat dilated = new(kernel.Height, kernel.Width, DepthType.Cv64F, 1);
         using Mat normalized = new();
         Func<(double X, double Y), double> transmission = pupil.Transmission(half);
+        Span2D<double> cells = energy.View<double>();
         for (int y = 0; y < grid; y++) {
-            Span<double> cells = new((void*)energy.GetDataPointer(y), grid);
-            for (int x = 0; x < cells.Length; x++)
-                cells[x] = (1 - (2 * ((x + y) & 1))) * transmission((x - middle + 0.5d, y - middle + 0.5d));
+            for (int x = 0; x < grid; x++)
+                cells[y, x] = (1 - (2 * ((x + y) & 1))) * transmission((x - middle + 0.5d, y - middle + 0.5d));
         }
         CvInvoke.Dft(energy, spectrum, DxtType.ComplexOutput, 0);
         CvInvoke.MulSpectrums(spectrum, spectrum, power, MulSpectrumsType.Default, conjB: true);
         CvInvoke.ExtractChannel(power, energy, 0);
-        for (int component = 0; component < spread.Size; component++) {
-            using Mat plane = spread[component];
-            plane.Create(kernel.Height, kernel.Width, DepthType.Cv32F, 1);
-            plane.SetTo(default(MCvScalar));
-        }
-        ReadOnlySpan2D<double> samples = new((void*)energy.DataPointer, grid, grid, 0);
-        Span<double> light = new((void*)dilated.DataPointer, kernel.Width * kernel.Height);
+        ReadOnlySpan2D<double> samples = energy.View<double>();
+        Span2D<double> light = dilated.View<double>();
         foreach ((float wavelength, Vector3 matching) in rows) {
-            ERational step = ERational.FromDecimal(reference * firstZero).Multiply(ERational.FromSingle(pupil.Circumradius))
-                .Divide(ERational.FromDouble(airy)).Divide(ERational.FromSingle(wavelength)).Divide(grid);
+            double step = (double)(reference * firstZero) * pupil.Circumradius / airy / wavelength / grid;
             (double Phase, double Footprint)[] across = [.. Enumerable.Range(0, kernel.Width).Select(x => Cell(step, x - center.X))];
             (double Phase, double Footprint)[] down = [.. Enumerable.Range(0, kernel.Height).Select(y => Cell(step, y - center.Y))];
-            for (int i = 0; i < light.Length; i++) {
-                (int y, int x) = int.DivRem(i, kernel.Width);
-                double cell = across[x].Footprint * down[y].Footprint;
-                light[i] = cell * cell * samples.Sample(
-                    (middle + (grid * across[x].Phase) + 0.5d, middle + (grid * down[y].Phase) + 0.5d),
-                    (WrapMode.Periodic, WrapMode.Periodic), 0d, static (sum, pixel, weight) => sum + (pixel * weight));
+            for (int y = 0; y < light.Height; y++) {
+                for (int x = 0; x < light.Width; x++) {
+                    double cell = across[x].Footprint * down[y].Footprint;
+                    light[y, x] = cell * cell * samples.Sample(
+                        (middle + (grid * across[x].Phase) + 0.5d, middle + (grid * down[y].Phase) + 0.5d),
+                        (WrapMode.Periodic, WrapMode.Periodic), 0d, static (sum, pixel, weight) => sum + (pixel * weight));
+                }
             }
             dilated.ConvertTo(normalized, DepthType.Cv32F, 1d / CvInvoke.Sum(dilated).V0);
             for (int component = 0; component < 3; component++) {
@@ -213,13 +214,12 @@ public sealed unsafe class PointSpread : VectorOfMat {
             }
         }
 
-        static (double Phase, double Footprint) Cell(ERational step, int offset) {
+        static (double Phase, double Footprint) Cell(double step, int offset) {
             if (offset is 0)
                 return (0d, 1d);
-            ERational frequency = step.Multiply(int.Abs(offset));
-            ERational center = ERational.Create(1, 2);
-            double phase = frequency.Add(center).Remainder(ERational.One).Subtract(center).ToDouble();
-            return (offset < 0 ? -phase : phase, double.SinPi(phase) / (double.Pi * frequency.ToDouble()));
+            double frequency = step * int.Abs(offset);
+            double phase = frequency - double.Floor(frequency + 0.5d);
+            return (offset < 0 ? -phase : phase, double.SinPi(phase) / (double.Pi * frequency));
         }
     });
 
@@ -248,13 +248,13 @@ public static class Gaussian {
         PixelSampling.GaussianTaps<int>(sigma).Map(taps => CvInvoke.GetGaussianKernel(taps, sigma, DepthType.Cv64F));
 }
 
-public static unsafe class LightSpread {
+public static class LightSpread {
     private static readonly Progress<int> Unreported = new();
 
     public static Vector4 Light(Vector4 pixel) => new(pixel.AsVector3() * pixel.W, 0f);
 
     extension(PixelFrame frame) {
-        public Fin<Unit> Spread(Func<Vector4, Vector4> fill, Func<Mat, Fin<Unit>> spread, BlendingMode mode, float weight, IProgress<int> progress) => Try.lift(() => {
+        public Fin<Unit> Spread(Func<Vector4, Vector4> fill, Func<Mat, Fin<Unit>> spread, BlendingMode mode, float weight, Gamut gamut, IProgress<int> progress) => frame.Filter(_ => {
             using Mat light = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
             return new PixelPass.Pointwise((row, _, line) => {
                 Span<Vector4> plane = LightRow(line);
@@ -266,16 +266,16 @@ public static unsafe class LightSpread {
                     layer[x] = new(row[x].W > 0f ? layer[x].AsVector3() / row[x].W : Vector3.Zero, 0f);
                 using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
                 weights.Span.Fill(weight);
-                mode.Mixed(row, layer, weights.Span);
+                mode.Mixed(row, layer, weights.Span, gamut);
                 layer.CopyTo(row);
             }).Run(frame, progress));
 
-            Span<Vector4> LightRow(long line) => new((void*)light.GetDataPointer(frame.RowIndex(line)), frame.Size.Width);
-        }).Run();
+            Span<Vector4> LightRow(long line) => light.View<Vector4>().GetRowSpan(frame.RowIndex(line));
+        });
     }
 }
 
-public static unsafe class TentPyramid {
+public static class TentPyramid {
     public static Unit Spread(Mat light, int halvings) {
         using Mat tent = new(1, 3, DepthType.Cv32F, 1);
         tent.SetTo([0.25f, 0.5f, 0.25f]);
@@ -284,17 +284,17 @@ public static unsafe class TentPyramid {
     }
 
     public static Unit Soiled(Mat light, PixelFrame frame, PixelFrame dirt, float gain) {
-        using Mat lens = dirt.Header();
-        double cover = double.Max((double)frame.Extent.Width / lens.Cols, (double)frame.Extent.Height / lens.Rows);
-        using Mat fitted = new();
-        CvInvoke.Resize(lens, fitted, default, cover, cover, cover < 1d ? Inter.Area : Inter.Linear);
-        ReadOnlySpan2D<Vector4> soil = new((void*)fitted.DataPointer, fitted.Rows, fitted.Cols, 0);
-        Span<Vector4> cells = new((void*)light.DataPointer, frame.Block.Length / 4);
-        for (int i = 0; i < cells.Length; i++) {
-            (int y, int x) = int.DivRem(i, light.Cols);
-            cells[i] *= Vector4.One + (gain * soil.Sample(
-                (((fitted.Cols - (double)frame.Extent.Width) / 2d) + frame.Origin.X + x + 0.5d, ((fitted.Rows - (double)frame.Extent.Height) / 2d) + frame.Origin.Y + y + 0.5d),
-                (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + ((float)weight * pixel)));
+        double cover = double.Max((double)frame.Extent.Width / dirt.Size.Width, (double)frame.Extent.Height / dirt.Size.Height);
+        (int width, int height) = ((int)double.Round(dirt.Size.Width * cover, MidpointRounding.ToEven), (int)double.Round(dirt.Size.Height * cover, MidpointRounding.ToEven));
+        using SpanOwner<float> fitted = SpanOwner<float>.Allocate(4 * width * height);
+        ImageProcessing.Resize(dirt.Block, dirt.Size.Width, dirt.Size.Height, fitted.Span, width, height, 4, cover < 1d ? ResizeFilter.Box : ResizeFilter.Triangle);
+        ReadOnlySpan2D<Vector4> soil = fitted.Span.Cast<float, Vector4>().AsSpan2D(height, width);
+        Span2D<Vector4> cells = light.View<Vector4>();
+        for (int y = 0; y < cells.Height; y++) {
+            for (int x = 0; x < cells.Width; x++)
+                cells[y, x] *= Vector4.One + (gain * soil.Sample(
+                    (((width - (double)frame.Extent.Width) / 2d) + frame.Origin.X + x + 0.5d, ((height - (double)frame.Extent.Height) / 2d) + frame.Origin.Y + y + 0.5d),
+                    (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + ((float)weight * pixel)));
         }
         return unit;
     }
@@ -303,18 +303,19 @@ public static unsafe class TentPyramid {
         if (halvings <= 0)
             return;
         using Mat next = new(level.Rows / 2, level.Cols / 2, DepthType.Cv32F, 4);
-        using Mat up = new();
-        ReadOnlySpan2D<Vector4> taps = new((void*)level.DataPointer, level.Rows, level.Cols, 0);
-        Span<Vector4> cells = new((void*)next.DataPointer, next.Rows * next.Cols);
-        for (int n = 0; n < cells.Length; n++) {
-            (int y, int x) = int.DivRem(n, next.Cols);
-            (double u, double v) = ((x + 0.5d) * level.Cols / next.Cols, (y + 0.5d) * level.Rows / next.Rows);
-            Vector256<double> sum = (0.5d * Group(taps, u, v, weight)) + (0.125d * (Group(taps, u - 1d, v - 1d, weight) + Group(taps, u + 1d, v - 1d, weight)
-                + Group(taps, u - 1d, v + 1d, weight) + Group(taps, u + 1d, v + 1d, weight)));
-            cells[n] = Vector256.Narrow(sum, Vector256<double>.Zero).GetLower().AsVector4();
+        using Mat up = new(level.Rows, level.Cols, DepthType.Cv32F, 4);
+        ReadOnlySpan2D<Vector4> taps = level.View<Vector4>();
+        Span2D<Vector4> cells = next.View<Vector4>();
+        for (int y = 0; y < cells.Height; y++) {
+            for (int x = 0; x < cells.Width; x++) {
+                (double u, double v) = ((x + 0.5d) * level.Cols / next.Cols, (y + 0.5d) * level.Rows / next.Rows);
+                Vector256<double> sum = (0.5d * Group(taps, u, v, weight)) + (0.125d * (Group(taps, u - 1d, v - 1d, weight) + Group(taps, u + 1d, v - 1d, weight)
+                    + Group(taps, u - 1d, v + 1d, weight) + Group(taps, u + 1d, v + 1d, weight)));
+                cells[y, x] = Vector256.Narrow(sum, Vector256<double>.Zero).GetLower().AsVector4();
+            }
         }
         Chained(next, halvings - 1, static _ => 1d, tent);
-        CvInvoke.Resize(next, up, level.Size, 0d, 0d, Inter.Linear);
+        ImageProcessing.Resize(next.GetSpan<float>(), next.Cols, next.Rows, up.GetSpan<float>(), up.Cols, up.Rows, 4, ResizeFilter.Triangle);
         CvInvoke.SepFilter2D(up, up, DepthType.Cv32F, tent, tent, new Point(-1, -1), 0d, BorderType.Replicate);
         CvInvoke.AddWeighted(level, 1d / (halvings + 1), up, (double)halvings / (halvings + 1), 0d, level);
     }
@@ -331,7 +332,7 @@ public static unsafe class TentPyramid {
     }
 }
 
-public static unsafe class PinkSpecks {
+public static class PinkSpecks {
     public static PixelFrame Field(PixelExtent extent, double scale, double coverage, uint field) {
         const int frequencyPair = 2;
         static double Frequency(int index, int length) => (index <= length / 2 ? index : index - length) / (double)length;
@@ -341,41 +342,52 @@ public static unsafe class PinkSpecks {
         using Mat spectrum = new();
         double knee = 1d / scale;
         double reference = double.Hypot(1d / int.Max(size.Width, size.Height), knee);
-        Span<double> cells = new((void*)draw.DataPointer, size.Width * size.Height);
-        Span<Complex> gains = new((void*)pink.DataPointer, cells.Length);
-        for (int i = 0; i < cells.Length; i++) {
-            (int y, int x) = int.DivRem(i, size.Width);
-            double gain = x is 0 && y is 0 ? 0d : reference / double.Hypot(double.Hypot(Frequency(x, size.Width), Frequency(y, size.Height)), knee);
-            (cells[i], gains[i]) = (CoordinateHash.Normals(x, y, field).X, new Complex(gain, gain));
+        Span2D<double> cells = draw.View<double>();
+        Span2D<Complex> gains = pink.View<Complex>();
+        for (int y = 0; y < size.Height; y++) {
+            for (int x = 0; x < size.Width; x++) {
+                double gain = x is 0 && y is 0 ? 0d : reference / double.Hypot(double.Hypot(Frequency(x, size.Width), Frequency(y, size.Height)), knee);
+                (cells[y, x], gains[y, x]) = (CoordinateHash.Normals(x, y, field).X, new Complex(gain, gain));
+            }
         }
         CvInvoke.Dft(draw, spectrum, DxtType.ComplexOutput, 0);
         CvInvoke.Multiply(spectrum, pink, spectrum);
         CvInvoke.Dft(spectrum, draw, DxtType.Inverse | DxtType.RealOutput | DxtType.Scale, 0);
-        double floor = ArrayStatistics.QuantileCustomInplace(cells.ToArray(), 1d - coverage, QuantileDefinition.R7);
+        double floor = ArrayStatistics.QuantileCustomInplace(draw.GetSpan<double>().ToArray(), 1d - coverage, QuantileDefinition.R7);
         draw.ConvertTo(draw, DepthType.Cv64F, 1d, -floor);
         _ = CvInvoke.Threshold(draw, draw, 0d, 0d, ThresholdType.ToZero);
         CvInvoke.Normalize(draw, draw, 0d, 1d, NormType.MinMax);
-        return new PixelFrame(Point.Empty, extent, extent, block => {
-            ReadOnlySpan2D<double> values = new((void*)draw.DataPointer, size.Height, size.Width, 0);
-            Span<Vector4> plane = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
-            for (int i = 0; i < plane.Length; i++)
-                plane[i] = int.DivRem(i, extent.Width) switch { var (y, x) => new Vector4((float)values[y, x]) };
-        });
+        PixelFrame specks = new(Point.Empty, extent, extent);
+        Span2D<Vector4> plane = specks.View.Span;
+        ReadOnlySpan2D<double> values = draw.View<double>();
+        for (int y = 0; y < plane.Height; y++) {
+            for (int x = 0; x < plane.Width; x++)
+                plane[y, x] = new Vector4((float)values[y, x]);
+        }
+        return specks;
     }
 }
 
-public static unsafe class GhostReflections {
+public static class GhostReflections {
     private static readonly Arr<Vector3> Modulated = [Vector3.Zero, new(0f, 1f, 1f), new(1f, 1f, 0f), new(1f, 0f, 1f)];
 
     public static Fin<Unit> Reflected(Mat key, PixelFrame frame, float radius, int iterations, float modulation) {
         using Mat big = new();
         using Mat input = Mat.Zeros(key.Rows, key.Cols, DepthType.Cv32F, 4);
+        using Mat reach = new(key.Rows, key.Cols, DepthType.Cv32F, 4);
+        (double x, double y) = (frame.Extent.Width / 2d, frame.Extent.Height / 2d);
+        Span2D<Vector4> cells = reach.View<Vector4>();
+        for (int row = 0; row < cells.Height; row++) {
+            for (int column = 0; column < cells.Width; column++)
+                cells[row, column] = new Vector4((float)double.Hypot((frame.Origin.X + column + 0.5d - x) / x, (frame.Origin.Y + row + 0.5d - y) / y));
+        }
+        PointF center = new((float)(x - frame.Origin.X - 0.5d), (float)(y - frame.Origin.Y - 0.5d));
         return key.Blur(big, 2f * radius).Bind(_ => key.Blur(key, radius)).Map(_ => {
-            Accumulate(key, input, frame, [(2.13f, Vector4.One)]);
-            Accumulate(big, input, frame, [(-0.97f, Vector4.One)]);
+            Accumulate(key, input, reach, center, [(2.13f, Vector4.One)]);
+            Accumulate(big, input, reach, center, [(-0.97f, Vector4.One)]);
             key.SetTo(default(MCvScalar));
             for (int i = 1; i < iterations; i++) {
-                Accumulate(input, key, frame, Copies(i, iterations, modulation));
+                Accumulate(input, key, reach, center, Copies(i, iterations, modulation));
                 key.CopyTo(input);
             }
             return unit;
@@ -387,33 +399,37 @@ public static unsafe class GhostReflections {
             (2.1f * (1f - (((4 * iteration) + k + (count % 2 is 1 ? 0.5f : 0f)) / (4f * count)))) switch { var s => k % 2 is 1 ? -0.99f / s : s },
             new Vector4((Vector3.One - (Modulated[k] * modulation)) / Modulated.Count, 0f)))];
 
-    private static void Accumulate(Mat source, Mat target, PixelFrame frame, ReadOnlySpan<(float Scale, Vector4 Gain)> copies) {
-        ReadOnlySpan2D<Vector4> from = new((void*)source.DataPointer, source.Rows, source.Cols, 0);
-        Span<Vector4> to = new((void*)target.DataPointer, frame.Block.Length / 4);
-        (double x, double y) = (frame.Extent.Width / 2d, frame.Extent.Height / 2d);
-        for (int n = 0; n < to.Length; n++) {
-            (double u, double v) = int.DivRem(n, target.Cols) switch { var (row, column) => ((double)frame.Origin.X + column + 0.5d - x, (double)frame.Origin.Y + row + 0.5d - y) };
-            double reach = double.Hypot(u / x, v / y);
-            foreach ((float scale, Vector4 gain) in copies)
-                to[n] += from.Sample((x + (u * scale), y + (v * scale)), (WrapMode.Black, WrapMode.Black), Vector4.Zero,
-                    static (sum, pixel, weight) => sum + ((float)weight * pixel), Some((frame.Origin, frame.Extent))) * gain * (float)double.Max(0d, 1d - (reach * float.Abs(scale)));
+    private static void Accumulate(Mat source, Mat target, Mat reach, PointF center, ReadOnlySpan<(float Scale, Vector4 Gain)> copies) {
+        using Mat rotation = new();
+        using Mat warped = new();
+        using Mat weight = new();
+        using ScalarArray floor = new(0d);
+        foreach ((float scale, Vector4 gain) in copies) {
+            using ScalarArray gains = new(new MCvScalar(gain.X, gain.Y, gain.Z, gain.W));
+            CvInvoke.GetRotationMatrix2D(center, 0d, 1d / scale, rotation);
+            CvInvoke.WarpAffine(source, warped, rotation, source.Size, Inter.Linear, Warp.Default, BorderType.Constant, default);
+            reach.ConvertTo(weight, DepthType.Cv32F, -float.Abs(scale), 1d);
+            CvInvoke.Max(weight, floor, weight);
+            CvInvoke.Multiply(weight, gains, weight);
+            CvInvoke.Multiply(warped, weight, warped);
+            CvInvoke.Add(target, warped, target);
         }
     }
 }
 
-public static unsafe class Bokeh {
+public static class Bokeh {
     public static Func<Mat, Mat, PixelFrame, Fin<Unit>> Uniform(Iris iris, double fringe, double radius) =>
         (light, _, _) => Correlate(light, iris, fringe, Vector256.Create(radius));
 
     public static Fin<Unit> Correlate(Mat image, Iris iris, double fringe, Vector256<double> radii) =>
-        toSeq(Range(0, image.NumberOfChannels)).Traverse(channel => PixelSampling.KernelTaps<int>(ERational.FromDouble(radii[channel]).Multiply(ERational.FromSingle(iris.Circumradius))).Map(side => (Channel: channel, Side: side))).As().Bind(kernels => Try.lift(() => {
+        toSeq(Range(0, image.NumberOfChannels)).Traverse(channel => PixelSampling.KernelTaps<int>(radii[channel] * iris.Circumradius).Map(side => (Channel: channel, Side: side))).As().Map(kernels => {
             foreach ((int channel, int side) in kernels) {
                 using Mat plane = new();
                 using Mat kernel = new(side, side, DepthType.Cv32F, 1);
+                Span2D<float> cells = kernel.View<float>();
                 for (int y = 0; y < side; y++) {
-                    Span<float> cells = new((void*)kernel.GetDataPointer(y), side);
-                    for (int x = 0; x < cells.Length; x++)
-                        cells[x] = (float)Tap(iris, fringe, iris.Outline(((side / 2) - x, (side / 2) - y)), radii[channel])[channel];
+                    for (int x = 0; x < side; x++)
+                        cells[y, x] = (float)Tap(iris, fringe, iris.Outline(((side / 2) - x, (side / 2) - y)), radii[channel])[channel];
                 }
                 CvInvoke.Normalize(kernel, kernel, 1d, 0d, NormType.L1);
                 CvInvoke.ExtractChannel(image, plane, channel);
@@ -421,14 +437,16 @@ public static unsafe class Bokeh {
                 CvInvoke.InsertChannel(plane, image, channel);
             }
             return unit;
-        }).Run());
+        });
 
     public static Func<Mat, Mat, PixelFrame, Fin<Unit>> Focal(FieldFrame field, double sharp, double feather, double aspect, int power, double cap) =>
         (_, radii, frame) => {
-            Span<float> radius = new((void*)radii.DataPointer, frame.Block.Length / 4);
-            for (int i = 0; i < radius.Length; i++) {
-                (double u, double v) = field.Local(((double)frame.Origin.X + (i % frame.Size.Width) + 0.5d, (double)frame.Origin.Y + (i / frame.Size.Width) + 0.5d));
-                radius[i] = (float)(cap * double.Pow(double.Clamp((double.Hypot(aspect * u, v) - sharp) / feather, 0d, 1d), power));
+            Span2D<float> radius = radii.View<float>();
+            for (int y = 0; y < radius.Height; y++) {
+                for (int x = 0; x < radius.Width; x++) {
+                    (double u, double v) = field.Local(((double)frame.Origin.X + x + 0.5d, (double)frame.Origin.Y + y + 0.5d));
+                    radius[y, x] = (float)(cap * double.Pow(double.Clamp((double.Hypot(aspect * u, v) - sharp) / feather, 0d, 1d), power));
+                }
             }
             return unit;
         };
@@ -441,53 +459,58 @@ public static unsafe class Bokeh {
         let k = focal * extent.ShortSide / (2d * fStop * (focus - focal))
         let span = double.Min(window.Width, window.Height)
         select new Func<Mat, Mat, PixelFrame, Fin<Unit>>((_, radii, frame) => {
-            Span<float> radius = new((void*)radii.DataPointer, frame.Block.Length / 4);
             using Mat magnitude = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
+            Span2D<float> radius = radii.View<float>();
+            Span2D<float> blurred = magnitude.View<float>();
             ReadOnlySpan2D<Vector4> distance = depth.View.Span;
-            Span<float> blurred = new((void*)magnitude.DataPointer, radius.Length);
-            for (int i = 0; i < radius.Length; i++) {
-                (int y, int x) = int.DivRem(i, frame.Size.Width);
-                (int u, int v) = ((int)long.Clamp((long)frame.Origin.X + x - depth.Origin.X, 0, distance.Width - 1), (int)long.Clamp((long)frame.Origin.Y + y - depth.Origin.Y, 0, distance.Height - 1));
-                (radius[i], blurred[i]) = (float)double.Clamp(k * (1d - (focus / distance[v, u].X)) / span, -cap, cap) switch { var r => (r, float.Abs(r)) };
+            for (int y = 0; y < radius.Height; y++) {
+                for (int x = 0; x < radius.Width; x++) {
+                    (int u, int v) = ((int)long.Clamp((long)frame.Origin.X + x - depth.Origin.X, 0, distance.Width - 1), (int)long.Clamp((long)frame.Origin.Y + y - depth.Origin.Y, 0, distance.Height - 1));
+                    (radius[y, x], blurred[y, x]) = (float)double.Clamp(k * (1d - (focus / distance[v, u].X)) / span, -cap, cap) switch { var r => (r, float.Abs(r)) };
+                }
             }
             return magnitude.Blur(magnitude, cap).Map(_ => {
-                Span<float> values = new((void*)radii.DataPointer, frame.Block.Length / 4);
-                ReadOnlySpan<float> smooth = new((void*)magnitude.DataPointer, values.Length);
-                for (int i = 0; i < values.Length; i++)
-                    values[i] = float.CopySign(float.Min(smooth[i], float.Abs(values[i])), values[i]);
+                Span<float> values = radii.GetSpan<float>();
+                using SpanOwner<float> limits = SpanOwner<float>.Allocate(values.Length);
+                TensorPrimitives.Abs(values, limits.Span);
+                TensorPrimitives.Min(magnitude.GetSpan<float>(), limits.Span, limits.Span);
+                TensorPrimitives.CopySign(limits.Span, values, values);
                 return unit;
             });
         });
 
     public static PixelPass.Frame Gathered(Iris iris, double fringe, Func<Mat, Mat, PixelFrame, Fin<Unit>> field) =>
-        new((frame, progress) => Try.lift(() => {
+        new((frame, progress) => frame.Filter(delegate {
             using Mat source = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
             using Mat radii = Mat.Zeros(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
-            PixelOperations<RgbaVector>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, frame.Block.Cast<float, RgbaVector>(), new Span<Vector4>((void*)source.DataPointer, frame.Block.Length / 4), PixelConversionModifiers.Premultiply);
+            PixelOperations<RgbaVector>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, frame.Block.Cast<float, RgbaVector>(), source.GetSpan<Vector4>(), PixelConversionModifiers.Premultiply);
             return field(source, radii, frame).Bind(delegate {
                 radii.MinMax(out double[] least, out double[] most, out _, out _);
                 (float circumradius, float near) = (iris.Circumradius, float.Max(0f, -(float)least[0]));
                 int side = Window(float.Max(near, (float)most[0]) * circumradius);
-                (double Reach, double Edge)[] outlines = [.. Range(0, side * side).Select(i => iris.Outline(((side / 2) - (i % side), (side / 2) - (i / side))))];
+                (double Reach, double Edge)[] outlines = [.. from y in Enumerable.Range(0, side) from x in Enumerable.Range(0, side) select iris.Outline(((side / 2) - x, (side / 2) - y))];
                 return new PixelPass.Pointwise((row, _, line) => {
-                    ReadOnlySpan2D<Vector4> light = new((void*)source.DataPointer, source.Rows, source.Cols, 0);
-                    ReadOnlySpan2D<float> radius = new((void*)radii.DataPointer, radii.Rows, radii.Cols, 0);
+                    ReadOnlySpan2D<Vector4> light = source.View<Vector4>();
+                    ReadOnlySpan2D<float> radius = radii.View<float>();
+                    ReadOnlySpan2D<(double Reach, double Edge)> shapes = new(outlines, side, side);
                     int y = frame.RowIndex(line);
                     for (int x = 0; x < row.Length; x++) {
                         float own = float.Abs(radius[y, x]);
+                        int reach = Window(float.Max(own, near) * circumradius) / 2;
                         (Vector256<double> sum, Vector256<double> total) = (Vector256<double>.Zero, Vector256<double>.Zero);
-                        for (int span = Window(float.Max(own, near) * circumradius), k = 0; k < span * span; k++) {
-                            (int dy, int dx) = ((k / span) - (span / 2), (k % span) - (span / 2));
-                            (int u, int v) = (int.Clamp(x + dx, 0, radius.Width - 1), int.Clamp(y + dy, 0, radius.Height - 1));
-                            Vector256<double> weights = Tap(iris, fringe, outlines[((dy + (side / 2)) * side) + dx + (side / 2)], float.Abs(float.Min(radius[v, u], own)));
-                            Vector4 pixel = light[v, u];
-                            (sum, total) = (sum + (weights * Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W)), total + weights);
+                        for (int dy = -reach; dy <= reach; dy++) {
+                            for (int dx = -reach; dx <= reach; dx++) {
+                                (int u, int v) = (int.Clamp(x + dx, 0, radius.Width - 1), int.Clamp(y + dy, 0, radius.Height - 1));
+                                Vector256<double> weights = Tap(iris, fringe, shapes[dy + (side / 2), dx + (side / 2)], float.Abs(float.Min(radius[v, u], own)));
+                                Vector4 pixel = light[v, u];
+                                (sum, total) = (sum + (weights * Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W)), total + weights);
+                            }
                         }
                         row[x] = Vector256.Narrow(sum / total, Vector256<double>.Zero).GetLower().AsVector4() switch { { W: > 0f } mean => new(mean.AsVector3() / mean.W, mean.W), _ => Vector4.Zero };
                     }
                 }).Run(frame, progress);
             });
-        }).Run());
+        }));
 
     private static Vector256<double> Tap(Iris iris, double fringe, (double Reach, double Edge) outline, double radius) =>
         outline.Reach is 0d ? Vector256.Create(1d) : iris.Weights(outline.Reach, outline.Edge, radius, 1d, fringe);

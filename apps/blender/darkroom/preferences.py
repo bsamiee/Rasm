@@ -6,10 +6,11 @@ import bpy
 
 from blender.bpy.render.previews.nodes import NodePreviews
 from blender.bpy.render.sessions.queue import Queueing
-from blender.bpy.settings.history import Retaining, Retention
+from blender.bpy.settings.history import Retaining
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.status import Status
 from blender.bpy.ui.surfaces.preferences import PreferencesPage
+from blender.records.trees import Retention
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

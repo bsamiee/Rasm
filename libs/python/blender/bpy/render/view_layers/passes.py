@@ -37,19 +37,19 @@ from blender.bpy.render.outputs.paths import NodePaths, OutputPath, Outputs, Pat
 from blender.bpy.render.view_layers.overrides import colors, encoded, LayerOverride, LayerTag, Role, Spectrum
 from blender.bpy.scene.materials import AOVS, DataPass, Shading, stored, Utility
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.settings.history import Retention
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import Caption, Flow, joined, Label, Line, Member, OperatorButton, placed, Property, Row, RowDraw
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.values import Hosted, Listing, Store
-from blender.imaging.files import multilayer
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.coding import Depth, Rounded
 from blender.imaging.files.cryptomatte import Matte
-from blender.imaging.files.documents import Document, Group, Raster
-from blender.imaging.files.images import Deflate, Depth, Rounded, Storage, unassociated
-from blender.imaging.files.multilayer import Multilayer
+from blender.imaging.files.documents import Document, LayerGroup, PixelLayer
+from blender.imaging.files.images import Deflate, Storage
+from blender.imaging.files.multilayer import Multilayer, Pass, PassLayout, PassRole
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.identity import content_hash, rng
-from blender.records.trees import Owner, transfer, Tree
+from blender.records.trees import Owner, Retention, transfer, Tree
 from blender.rendering.outputs.conventions import Axis, Nuke, Space
 from blender.rendering.outputs.naming import Output
 
@@ -546,7 +546,7 @@ class PassSet(Line, frozen=True):
         size = (frame.parts[0].height, frame.parts[0].width)
         coded = functools.partial(depth.coded, coding=Rounded())
 
-        def grouped(index: int, matte: Matte) -> Outcome[tuple[Group[np.uint8 | np.uint16 | np.float32], npt.NDArray[np.float32]]]:
+        def grouped(index: int, matte: Matte) -> Outcome[tuple[LayerGroup[np.uint8 | np.uint16 | np.float32], npt.NDArray[np.float32]]]:
             def cover(name: str, color: tuple[float, float, float]) -> Outcome[tuple[str, tuple[float, float, float], npt.NDArray[np.float32]]]:
                 return matte.coverage(frozenset({name})).map(lambda plane: (name, color, plane))
 
@@ -556,10 +556,12 @@ class PassSet(Line, frozen=True):
             return located(scene, matte, matte.name.rpartition(".")[0]).bind(
                 lambda pair: covered(*pair).map(
                     lambda rows: (
-                        Group(
+                        LayerGroup(
                             name=matte.name,
                             visible=index == 0,
-                            layers=tuple(Raster(name=name, color=coded(np.broadcast_to(np.asarray(encoded(color), dtype=np.float32), (*size, 3))), alpha=coded(plane)) for name, color, plane in rows),
+                            layers=tuple(
+                                PixelLayer(name=name, color=coded(np.broadcast_to(np.asarray(encoded(color), dtype=np.float32), (*size, 3))), alpha=coded(plane)) for name, color, plane in rows
+                            ),
                         ),
                         functools.reduce(np.add, (plane[..., None] * np.asarray((*encoded(color), 1.0), dtype=np.float32) for _, color, plane in rows), np.zeros((*size, 4), np.float32)),
                     )
@@ -1094,8 +1096,8 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
             .bind(
                 lambda target: Multilayer.written(
                     target,
-                    tuple(multilayer.Pass(layer=name, channels=("R", "G", "B", "A"), role=multilayer.Role.COLOR) for name in known),
-                    multilayer.Layout.PARTS,
+                    tuple(Pass(layer=name, channels=("R", "G", "B", "A"), role=PassRole.COLOR) for name in known),
+                    PassLayout.PARTS,
                     Storage(depth=16, compression=Some(Deflate())),
                     (matte.file.parts[0].width, matte.file.parts[0].height),
                     stamped(identity),

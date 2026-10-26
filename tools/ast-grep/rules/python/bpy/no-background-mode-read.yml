@@ -18,10 +18,13 @@ utils:
             - matches: {python-member-use: {module: {regex: '^sys$'}, name: {regex: '^(argv|orig_argv)$'}}}
             - kind: subscript
               has: {field: value, matches: argv}
-    owner:
-        kind: function_definition
-        has: {field: name, regex: '^deferred$'}
-        inside: {kind: class_definition, stopBy: end, has: {field: name, regex: '^Reports$'}}
+    timers-module:
+        matches: {python-submodule: {parent: {regex: '^bpy\.app$'}, child: {regex: '^timers$'}}}
+    timer-register:
+        kind: call
+        all:
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^register$'}}
+            - has: {field: function, kind: attribute, has: {field: object, matches: timers-module}}
 rule:
     pattern: $READ
     any:
@@ -53,6 +56,6 @@ rule:
             - has: {kind: string, regex: '^["''](-b|--background)["'']$'}
             - has: {field: operators, pattern: $$_TEST, regex: '^((not\s+)?in|==|!=)$'}
             - has: {matches: argv}
-    not: {inside: {matches: owner, stopBy: end}}
-message: '`$READ` reads background mode outside `Reports.deferred`'
-note: 'Route main-thread writes through `Reports.deferred` and register timers, draw handlers, modal operators, and keymaps unconditionally'
+    not: {inside: {kind: function_definition, stopBy: end, has: {field: body, has: {stopBy: end, matches: timer-register}}}}
+message: '`$READ` branches on background mode outside a write deferred to a timer'
+note: 'Register timers, draw handlers, modal operators, and keymaps unconditionally, testing background mode where a write defers to a timer'

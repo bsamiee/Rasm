@@ -60,13 +60,7 @@ public static class DimensionStyles {
     private static extern double GetDouble(DimensionStyle style, DimensionStyle.Field field);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern void SetDouble(DimensionStyle style, DimensionStyle.Field field, double value);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern int GetInt(DimensionStyle style, DimensionStyle.Field field);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern void SetInt(DimensionStyle style, DimensionStyle.Field field, int value);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern bool GetBool(DimensionStyle style, DimensionStyle.Field field);
@@ -166,39 +160,24 @@ public static class DimensionStyles {
 
     private static IO<Unit> Lettered(RhinoDoc doc, DimensionStyle staged, StyleMetrics metrics) =>
         IO.lift(() => {
-            (LengthUnit page, LengthUnit model) = (doc.PageUnits, doc.ModelUnits);
-            int arrow = (int)metrics.Terminator.Map(
-                closedArrow: DimensionStyle.ArrowType.SolidTriangle,
-                openArrow: DimensionStyle.ArrowType.OpenArrow,
-                oblique: DimensionStyle.ArrowType.Tick,
-                dot: DimensionStyle.ArrowType.Dot);
-            Seq<(DimensionStyle.Field Field, Length Value, LengthUnit Unit)> lengths = [
-                (DimensionStyle.Field.TextHeight, metrics.TextHeight, page),
-                (DimensionStyle.Field.TextGap, metrics.TextGap, page),
-                (DimensionStyle.Field.BaselineSpacing, metrics.BaselineSpacing, page),
-                (DimensionStyle.Field.MaskBorder, metrics.MaskOffset, page),
-                (DimensionStyle.Field.Arrowsize, metrics.ArrowLength, page),
-                (DimensionStyle.Field.LeaderArrowsize, metrics.ArrowLength, page),
-                (DimensionStyle.Field.ClippingArrowSize, metrics.ArrowLength, page),
-                (DimensionStyle.Field.ExtensionLineOffset, metrics.ExtensionLineOffset, page),
-                (DimensionStyle.Field.ExtensionLineExtension, metrics.ExtensionLineExtension, page),
-                (DimensionStyle.Field.LeaderLandingLength, metrics.LeaderLandingLength, page),
-                (DimensionStyle.Field.DimensionScale, metrics.Scale.ToModel(Quantities.From(1d, page)), model)];
-            Seq<(DimensionStyle.Field Field, double Value)> ratios = [
-                (DimensionStyle.Field.LineSpaceScale, metrics.LineSpaceScale.ToDouble()),
-                (DimensionStyle.Field.StackTextheightScale, metrics.StackHeightScale.ToDouble())];
-            Seq<(DimensionStyle.Field Field, int Value)> codes = [
-                (DimensionStyle.Field.ArrowType1, arrow),
-                (DimensionStyle.Field.ArrowType2, arrow),
-                (DimensionStyle.Field.LengthResolution, metrics.LengthResolution),
-                (DimensionStyle.Field.AlternateLengthResolution, metrics.AlternateLengthResolution),
-                (DimensionStyle.Field.DimensionLengthDisplay, (int)DimensionStyle.LengthDisplay.InchesFractional),
-                (DimensionStyle.Field.AlternateDimensionLengthDisplay, (int)DimensionStyle.LengthDisplay.Millmeters),
-                (DimensionStyle.Field.UnitSystem, (int)doc.PageUnitSystem)];
-            _ = lengths.Filter(row => Quantities.From(GetDouble(staged, row.Field), row.Unit) != row.Value).Iter(row => SetDouble(staged, row.Field, Quantities.As(row.Value, row.Unit)));
-            _ = ratios.Filter(row => !GetDouble(staged, row.Field).Equals(row.Value)).Iter(row => SetDouble(staged, row.Field, row.Value));
-            _ = codes.Filter(row => GetInt(staged, row.Field) != row.Value).Iter(row => SetInt(staged, row.Field, row.Value));
+            double Page(Length length) => Quantities.As(length, doc.PageUnits);
+            (DimensionStyle.ArrowType arrow, double arrowLength) = (
+                metrics.Terminator.Map(closedArrow: DimensionStyle.ArrowType.SolidTriangle, openArrow: DimensionStyle.ArrowType.OpenArrow, oblique: DimensionStyle.ArrowType.Tick, dot: DimensionStyle.ArrowType.Dot), Page(metrics.ArrowLength));
+            (staged.TextHeight, staged.TextGap, staged.BaselineSpacing, staged.MaskOffset) = (Page(metrics.TextHeight), Page(metrics.TextGap), Page(metrics.BaselineSpacing), Page(metrics.MaskOffset));
+            (staged.ArrowLength, staged.LeaderArrowLength, staged.ClippingArrowLength) = (arrowLength, arrowLength, arrowLength);
+            (staged.ExtensionLineOffset, staged.ExtensionLineExtension, staged.LeaderLandingLength) = (Page(metrics.ExtensionLineOffset), Page(metrics.ExtensionLineExtension), Page(metrics.LeaderLandingLength));
+            (staged.LineSpaceScale, staged.StackHeightScale) = (metrics.LineSpaceScale.ToDouble(), metrics.StackHeightScale.ToDouble());
+            (staged.ArrowType1, staged.ArrowType2, staged.UnitSystem) = (arrow, arrow, doc.PageUnitSystem);
+            staged.DimensionScale = Quantities.As(metrics.Scale.ToModel(Quantities.From(1d, doc.PageUnits)), doc.ModelUnits);
+            (staged.LengthResolution, staged.AlternateLengthResolution) = (
+                Precision(metrics.Resolution, staged.DimensionLengthDisplay, staged.DimensionLengthDisplayUnit(doc.RuntimeSerialNumber)),
+                Precision(metrics.Resolution, staged.AlternateDimensionLengthDisplay, staged.AlternateDimensionLengthDisplayUnit(doc.RuntimeSerialNumber)));
         });
+
+    private static int Precision(Length resolution, DimensionStyle.LengthDisplay display, UnitSystem system) =>
+        (display is DimensionStyle.LengthDisplay.InchesFractional or DimensionStyle.LengthDisplay.FeetAndInches ? (Place: Length.FromInches(1), Radix: 2) : (Place: Quantities.From(1d, LengthUnit.FromKnownUnitSystem(system)), Radix: 10)) switch {
+            var (place, radix) => LanguageExt.List.unfold(place, held => held > resolution ? Some((held, held / radix)) : None).Count(),
+        };
 
     // --- [OVERRIDES]
     public static IO<Unit> SetOverride(RhinoDoc doc, AnnotationBase annotation, Func<DimensionStyle, IO<Unit>> edit) =>

@@ -1,51 +1,67 @@
-"""Benchmark cases with time budgets over pytest-benchmark fixture."""
+"""Benchmark cases with time budgets over the pytest-benchmark fixture."""
 
-from collections.abc import Callable, Sequence
-from typing import Literal
+from collections.abc import Callable
+from typing import Protocol
+lazy from collections.abc import Iterable
 
 import msgspec
-import psutil
-import pytest
-from pytest_benchmark.fixture import BenchmarkFixture
+from pytest_benchmark.stats import Stats
+lazy import psutil
+lazy import pytest
+lazy from pytest_benchmark.fixture import BenchmarkFixture
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class _Subject[*Ts](Protocol):
+    __qualname__: str
+
+    def __call__(self, *args: *Ts) -> object: ...
+
+
+class _Parametrized(Protocol):
+    @property
+    def parameters(self) -> tuple[object, ...]: ...
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class BenchmarkCase(msgspec.Struct, frozen=True):
-    """Benchmark subject, workload generator, sizes, and time budget over one timing statistic."""
+class BenchmarkCase[*Ts](msgspec.Struct, frozen=True, kw_only=True):
+    """Subject under test, its argument workload per size, sizes, and millisecond budget over one timing statistic."""
 
-    label: str
-    subject: Callable[[tuple[object, ...]], object]
-    workload: Callable[[int], tuple[object, ...]]
+    subject: _Subject[*Ts]
+    workload: Callable[[int], tuple[*Ts]]
     sizes: tuple[int, ...] = (100, 1_000, 10_000)
     budget_ms: float = 100.0
-    budget_statistic: Literal["min", "median", "mean"] = "median"
+    statistic: Callable[[Stats], float] = lambda stats: stats.median
+
+    @property
+    def parameters(self) -> tuple[object, ...]:
+        """One ``(case, size)`` parameter per size, identified by subject and size."""
+        return tuple(pytest.param(self, size, id=f"{self.subject.__qualname__}-{size}") for size in self.sizes)
+
+    def measure(self, benchmark: BenchmarkFixture, size: int) -> object:
+        """Time ``subject`` over the workload at ``size``, record resident memory growth, and fail past the budget."""
+        process, arguments = psutil.Process(), self.workload(size)
+        benchmark.group = self.subject.__qualname__
+        rss_before = process.memory_info().rss
+        result = benchmark(self.subject, *arguments)
+        assert benchmark.stats is not None
+        observed_ms = self.statistic(benchmark.stats.stats) * 1000.0
+        benchmark.extra_info.update(rss_delta_bytes=process.memory_info().rss - rss_before, budget_ms=self.budget_ms, observed_ms=observed_ms, size=size)
+        assert observed_ms <= self.budget_ms, f"{observed_ms:.4f}ms exceeds budget {self.budget_ms:.4f}ms"
+        return result
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def benchmark_parameters(cases: Sequence[BenchmarkCase]) -> pytest.MarkDecorator:
-    """Build ``(case, size)`` parametrization with ``"{label}-{size}"`` IDs."""
-    parameters = [(case, size) for case in cases for size in case.sizes]
-    return pytest.mark.parametrize("case,size", parameters, ids=[f"{case.label}-{size}" for case, size in parameters])
-
-
-def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -> object:
-    """Measure ``case`` at ``size``, record resident memory growth, and fail past its time budget."""
-    process = psutil.Process()
-    benchmark.group = case.label
-    arguments = case.workload(size)
-    rss_before = process.memory_info().rss
-    result = benchmark(case.subject, arguments)
-    assert benchmark.stats is not None
-    observed_ms = getattr(benchmark.stats.stats, case.budget_statistic) * 1000.0
-    benchmark.extra_info.update(rss_delta_bytes=process.memory_info().rss - rss_before, budget_ms=case.budget_ms, observed_ms=observed_ms, size=size)
-    if observed_ms > case.budget_ms:
-        pytest.fail(f"{case.label}-{size}: {case.budget_statistic}={observed_ms:.4f}ms exceeds budget {case.budget_ms:.4f}ms")
-    return result
+def benchmarks(cases: Iterable[_Parametrized]) -> pytest.MarkDecorator:
+    """Parametrize ``case`` and ``size`` over every case at each of its sizes."""
+    return pytest.mark.parametrize("case,size", [*case.parameters for case in cases])
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BenchmarkCase", "benchmark_parameters", "run_benchmark"]
+__all__ = ["BenchmarkCase", "benchmarks"]

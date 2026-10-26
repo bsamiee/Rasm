@@ -1,12 +1,11 @@
 """Blend file saves, loads, dependency packs, and projects."""
 
-from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import auto, Enum
 from itertools import starmap
 import os
 from pathlib import Path
-import shutil
 from typing import Literal, Self
 
 import bpy
@@ -20,6 +19,7 @@ from blender.bpy.data.ids.store import Handle, STORES
 from blender.bpy.data.rna.descriptors import assigned, Value
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.stores import files_copied, folder_made, mirrored
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -138,29 +138,6 @@ class Project(msgspec.Struct, frozen=True, kw_only=True):
 # --- [LIFTS]
 
 
-def folder_made(folder: Path) -> Outcome[Path]:
-    """Returns existing or created folder, or write fault."""
-    return (
-        catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)()
-        .map(lambda _: folder)
-        .map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(folder), cause=error),))
-    )
-
-
-def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]]:
-    """Copies distinct pairs, returning targets in path order."""
-
-    def copy(source: Path, target: Path) -> Path:
-        return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
-
-    def one(source: Path, target: Path) -> Outcome[Path]:
-        return folder_made(target.parent).bind(
-            lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(target), cause=error),))
-        )
-
-    return accumulated(starmap(one, sorted(frozenset(pairs))))
-
-
 def sourced[T](
     data: bpy.types.BlendData, path: Path, take: Callable[[object], tuple[T, Mapping[str, Sequence[str]]]], **keywords: bool
 ) -> Outcome[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
@@ -222,12 +199,6 @@ def inspected(path: Path) -> Generator[Outcome[bpy.types.BlendData]]:
 
 
 # --- [PATHS]
-
-
-def mirrored(root: Path, path: Path) -> Path:
-    """Returns path under mirror root, drive kept as directory."""
-    normal = Path(os.path.abspath(path))
-    return root / normal.drive.removesuffix(":").lstrip("\\/") / normal.relative_to(normal.anchor)
 
 
 def dependencies() -> tuple[Dependency, ...]:
@@ -384,10 +355,7 @@ __all__ = [
     "SaveMode",
     "TemplateVariable",
     "dependencies",
-    "files_copied",
-    "folder_made",
     "inspected",
-    "mirrored",
     "packed",
     "projected",
     "relinked",

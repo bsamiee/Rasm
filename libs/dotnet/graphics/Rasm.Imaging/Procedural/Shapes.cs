@@ -1,11 +1,11 @@
 using System.Numerics;
-using PeterO.Numbers;
+using MathNet.Numerics.Integration;
 using Rasm.Imaging.Pixels;
 
 namespace Rasm.Imaging.Procedural;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct FieldFrame(PixelExtent Extent, (double X, double Y) Center, (double Sin, double Cos) Turn) {
+public sealed record FieldFrame(PixelExtent Extent, (double X, double Y) Center, (double Sin, double Cos) Turn) {
     public static FieldFrame Centered(PixelExtent extent) => new(extent, FramePosition.Center.Point(extent), (0d, 1d));
 
     public (double X, double Y) Local((double X, double Y) point) =>
@@ -15,176 +15,180 @@ public readonly record struct FieldFrame(PixelExtent Extent, (double X, double Y
 
     public (double X, double Y) Upward(long column, long line) => Local((column + 0.5d, Extent.Height - line - 0.5d)) switch { var (x, y) => (x, -y) };
 
-    public Action<Span<Vector4>, long, long> Fill(Func<(double X, double Y), Vector4> shade) {
-        FieldFrame frame = this;
-        return (row, column, line) => {
+    public Action<Span<Vector4>, long, long> Fill(Func<(double X, double Y), Vector4> shade) =>
+        (row, column, line) => {
             for (int i = 0; i < row.Length; i++)
-                row[i] = shade(frame.Upward(column + i, line));
-        };
-    }
-}
-
-public readonly record struct FieldSample(EFloat Distance, EFloat Width) {
-    public static FieldSample Empty { get; } = new(EFloat.PositiveInfinity, EFloat.Zero);
-
-    public FieldSample Inverted => new(-Distance, EFloat.PositiveInfinity);
-
-    public static FieldSample Tapered((EFloat X, EFloat Y) point, (EFloat X, EFloat Y) start, (EFloat X, EFloat Y) end, EFloat from, EFloat to, EContext math) =>
-        DistanceField.Offset(point, start, end, math) switch {
-            var (offset, along) => (from + ((to - from) * along)) switch { var radius => new(DistanceField.Length(offset, math) - radius, 2 * radius) },
-        };
-
-    public FieldSample Union(FieldSample other, EFloat smoothing, EContext math) => new(SmoothMinimum(Distance, other.Distance, smoothing, math), EFloat.Max(Width, other.Width));
-
-    public FieldSample Difference(FieldSample other, EFloat smoothing, EContext math) => new(-SmoothMinimum(-Distance, other.Distance, smoothing, math), Width);
-
-    public FieldSample Intersection(FieldSample other, EFloat smoothing, EContext math) => new(-SmoothMinimum(-Distance, -other.Distance, smoothing, math), EFloat.Min(Width, other.Width));
-
-    public FieldSample Morph(FieldSample other, float progress) =>
-        progress switch {
-            0f => this,
-            1f => other,
-            _ => new(Width.IsZero || other.Width.IsZero ? EFloat.PositiveInfinity : Distance + ((other.Distance - Distance) * progress), Width + ((other.Width - Width) * progress)),
-        };
-
-    public EFloat Coverage(EFloat growth, EFloat band, EContext math) =>
-        EFloat.Min(EFloat.Max(0, EFloat.Min(1, 0.5d - (Distance - growth).Divide(band, math))), (Width + (2 * growth)).Divide(band, math));
-
-    private static EFloat SmoothMinimum(EFloat first, EFloat second, EFloat smoothing, EContext math) =>
-        (EFloat.Min(first, second), smoothing - (first - second).Abs()) switch {
-            (var low, var overlap) when overlap.Sign > 0 => low - (overlap * overlap).Divide(4 * smoothing, math),
-            (var low, _) => low,
+                row[i] = shade(Upward(column + i, line));
         };
 }
 
-public sealed record DistanceField(Func<(EFloat X, EFloat Y), EFloat> Distance, EFloat Width) {
-    public static DistanceField Empty { get; } = new(static _ => EFloat.PositiveInfinity, EFloat.Zero);
+public sealed record DistanceField(Func<(double X, double Y), double> Distance, double Width) {
+    // --- [FIELDS]
+    public static DistanceField Empty { get; } = new(static _ => double.PositiveInfinity, 0d);
 
-    public FieldSample Sample((EFloat X, EFloat Y) point) => new(Distance(point), Width);
+    public static DistanceField Ellipse((double X, double Y) half, float exponent) =>
+        new(point => Superellipse(point, half, exponent), 2d * double.Min(half.X, half.Y));
 
-    public static DistanceField Ellipse((EFloat X, EFloat Y) half, float exponent, EContext math) =>
-        new(point => Superellipse(point, half, exponent, math), 2 * EFloat.Min(half.X, half.Y));
+    public static DistanceField Box((double X, double Y) half, float roundness) =>
+        double.Min(half.X, half.Y) switch { var small => new(point => Rounded(point, half, roundness * small), 2d * small) };
 
-    public static DistanceField Box((EFloat X, EFloat Y) half, float roundness, EContext math) =>
-        EFloat.Min(half.X, half.Y) switch { var small => new(point => Rounded(point, half, roundness * small, math), 2 * small) };
-
-    public static DistanceField Polygon((EFloat X, EFloat Y) half, int sides, float inset, float roundness, EContext math) {
+    public static DistanceField Polygon((double X, double Y) half, int sides, float inset, float roundness) {
         double wedge = double.Pi / sides;
-        EFloat radius = roundness * half.X;
+        double radius = roundness * half.X;
         (double sine, double cosine) = double.SinCos(wedge);
-        (EFloat depth, EFloat reach) = ((EFloat)cosine * (1 - EFloat.FromSingle(inset)), half.X - radius);
-        ((EFloat X, EFloat Y) outer, (EFloat X, EFloat Y) inner) = ((0, reach), (reach * depth * sine, reach * depth * cosine));
-        return new(point => double.SinCos(double.Abs(double.Ieee754Remainder(double.Atan2(point.X.ToDouble(), point.Y.ToDouble()), 2d * wedge))) switch {
-            var (sin, cos) => Length(point, math) switch { var length => (X: length * sin, Y: length * cos) } switch {
-                var folded => Offset(folded, outer, inner, math).Offset switch { var offset => Length(offset, math).CopySign(Side(folded, outer, inner)) - radius },
+        (double depth, double reach) = (cosine * (1d - inset), half.X - radius);
+        ((double X, double Y) outer, (double X, double Y) inner) = ((0d, reach), (reach * depth * sine, reach * depth * cosine));
+        return new(point => double.SinCos(double.Abs(double.Ieee754Remainder(double.Atan2(point.X, point.Y), 2d * wedge))) switch {
+            var (sin, cos) => Length(point) switch { var length => (X: length * sin, Y: length * cos) } switch {
+                var folded => Offset(folded, outer, inner).Offset switch { var offset => double.CopySign(Length(offset), Side(folded, outer, inner)) - radius },
             },
-        }, half.X * (1 + depth));
+        }, half.X * (1d + depth));
     }
 
-    public static DistanceField Ring((EFloat X, EFloat Y) half, float exponent, float inset, EContext math) =>
-        (inset * EFloat.Min(half.X, half.Y)) switch {
-            var band => new(point => (Superellipse(point, half, exponent, math) + (band * 0.5d)).Abs() - (band * 0.5d), band),
+    public static DistanceField Ring((double X, double Y) half, float exponent, float inset) =>
+        (inset * double.Min(half.X, half.Y)) switch {
+            var band => new(point => double.Abs(Superellipse(point, half, exponent) + (band * 0.5d)) - (band * 0.5d), band),
         };
 
-    public static DistanceField Cross((EFloat X, EFloat Y) half, float inset, float roundness, EContext math) =>
-        ((1 - EFloat.FromSingle(inset)) * EFloat.Min(half.X, half.Y)) switch {
-            var arm => (roundness * arm) switch { var radius => new(point => EFloat.Min(Rounded(point, (half.X, arm), radius, math), Rounded(point, (arm, half.Y), radius, math)), 2 * arm) },
+    public static DistanceField Cross((double X, double Y) half, float inset, float roundness) =>
+        ((1d - inset) * double.Min(half.X, half.Y)) switch {
+            var arm => (roundness * arm) switch { var radius => new(point => double.Min(Rounded(point, (half.X, arm), radius), Rounded(point, (arm, half.Y), radius)), 2d * arm) },
         };
 
-    public static DistanceField Heart((EFloat X, EFloat Y) half, EContext math) =>
-        (Center: (X: (EFloat)0.25d, Y: (EFloat)0.75d), Radius: EFloat.FromInt32(2).Sqrt(math) * 0.25d) switch {
-            var lobe => (Lobe: lobe, Scale: half.X.Divide(lobe.Center.X + lobe.Radius, math), Middle: (lobe.Center.Y + lobe.Radius) * 0.5d),
+    public static DistanceField Heart((double X, double Y) half) =>
+        (Center: (X: 0.25d, Y: 0.75d), Radius: double.Sqrt(2d) * 0.25d) switch {
+            var lobe => (Lobe: lobe, Scale: half.X / (lobe.Center.X + lobe.Radius), Middle: (lobe.Center.Y + lobe.Radius) * 0.5d),
         } switch {
-            var (lobe, scale, middle) => new(point => (X: point.X.Abs().Divide(scale, math), Y: point.Y.Divide(scale, math) + middle) switch {
-                var q => (Q: q, Diagonal: 0.5d * EFloat.Max(q.X + q.Y, 0)),
+            var (lobe, scale, middle) => new(point => (X: double.Abs(point.X) / scale, Y: (point.Y / scale) + middle) switch {
+                var q => (Q: q, Diagonal: 0.5d * double.Max(q.X + q.Y, 0d)),
             } switch {
-                var (q, _) when (q.X + q.Y).CompareTo(EFloat.One) > 0 => scale * (Length((q.X - lobe.Center.X, q.Y - lobe.Center.Y), math) - lobe.Radius),
-                var (q, diagonal) => scale * EFloat.Min(Length((q.X, q.Y - 1), math), Length((q.X - diagonal, q.Y - diagonal), math)) * (q.X - q.Y).Sign,
-            }, 2 * lobe.Radius * scale),
+                var (q, _) when q.X + q.Y > 1d => scale * (Length((q.X - lobe.Center.X, q.Y - lobe.Center.Y)) - lobe.Radius),
+                var (q, diagonal) => scale * double.Min(Length((q.X, q.Y - 1d)), Length((q.X - diagonal, q.Y - diagonal))) * double.Sign(q.X - q.Y),
+            }, 2d * lobe.Radius * scale),
         };
 
-    public static DistanceField Triangle((EFloat X, EFloat Y) half, float apex, float roundness, EContext math) {
-        ((EFloat X, EFloat Y) a, (EFloat X, EFloat Y) b, (EFloat X, EFloat Y) c) = ((-half.X, -half.Y), (half.X, -half.Y), (apex * half.X, half.Y));
-        (EFloat opposite, EFloat across, EFloat under) = (Length((b.X - c.X, b.Y - c.Y), math), Length((c.X - a.X, c.Y - a.Y), math), Length((a.X - b.X, a.Y - b.Y), math));
-        (EFloat perimeter, EFloat twiceArea) = (opposite + across + under, 4 * half.X * half.Y);
-        (EFloat X, EFloat Y) = (((opposite * a.X) + (across * b.X) + (under * c.X)).Divide(perimeter, math), ((opposite * a.Y) + (across * b.Y) + (under * c.Y)).Divide(perimeter, math));
-        Func<(EFloat X, EFloat Y), (EFloat X, EFloat Y)> inward = vertex => (X + ((vertex.X - X) * (1 - EFloat.FromSingle(roundness))), Y + ((vertex.Y - Y) * (1 - EFloat.FromSingle(roundness))));
-        ((EFloat X, EFloat Y) p, (EFloat X, EFloat Y) q, (EFloat X, EFloat Y) r, EFloat radius) = (inward(a), inward(b), inward(c), (roundness * twiceArea).Divide(perimeter, math));
+    public static DistanceField Triangle((double X, double Y) half, float apex, float roundness) {
+        ((double X, double Y) a, (double X, double Y) b, (double X, double Y) c) = ((-half.X, -half.Y), (half.X, -half.Y), (apex * half.X, half.Y));
+        (double opposite, double across, double under) = (Length((b.X - c.X, b.Y - c.Y)), Length((c.X - a.X, c.Y - a.Y)), Length((a.X - b.X, a.Y - b.Y)));
+        (double perimeter, double twiceArea) = (opposite + across + under, 4d * half.X * half.Y);
+        (double X, double Y) = (((opposite * a.X) + (across * b.X) + (under * c.X)) / perimeter, ((opposite * a.Y) + (across * b.Y) + (under * c.Y)) / perimeter);
+        Func<(double X, double Y), (double X, double Y)> inward = vertex => (X + ((vertex.X - X) * (1d - roundness)), Y + ((vertex.Y - Y) * (1d - roundness)));
+        ((double X, double Y) p, (double X, double Y) q, (double X, double Y) r, double radius) = (inward(a), inward(b), inward(c), roundness * twiceArea / perimeter);
         return new(point => (Edge(point, p, q), Edge(point, q, r), Edge(point, r, p)) switch {
-            var (first, second, third) => (EFloat.Min(first.Distance, EFloat.Min(second.Distance, third.Distance)) * (EFloat.Min(first.Side, EFloat.Min(second.Side, third.Side)).Sign > 0 ? -1 : 1)) - radius,
-        }, twiceArea.Divide(EFloat.Max(under, EFloat.Max(opposite, across)), math));
+            var (first, second, third) => (double.Min(first.Distance, double.Min(second.Distance, third.Distance)) * (double.Min(first.Side, double.Min(second.Side, third.Side)) > 0d ? -1d : 1d)) - radius,
+        }, twiceArea / double.Max(under, double.Max(opposite, across)));
 
-        (EFloat Distance, EFloat Side) Edge((EFloat X, EFloat Y) point, (EFloat X, EFloat Y) start, (EFloat X, EFloat Y) end) =>
-            Offset(point, start, end, math).Offset switch { var offset => (Length(offset, math), Side(point, start, end)) };
+        static (double Distance, double Side) Edge((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
+            Offset(point, start, end).Offset switch { var offset => (Length(offset), Side(point, start, end)) };
     }
 
-    public static EContext Precision(PixelExtent extent) => EContext.Binary64.WithUnlimitedExponents().WithPrecision(
-        double.ILogB((double)float.MaxValue * int.Max(extent.Width, extent.Height)) - double.ILogB((double)float.Epsilon / extent.ShortSide) + EContext.Binary64.Precision.ToInt32Checked());
+    // --- [SAMPLES]
+    public static (double Distance, double Width) Outside => (double.PositiveInfinity, 0d);
 
-    public static EFloat Length((EFloat X, EFloat Y) point, EContext math) => ((point.X * point.X) + (point.Y * point.Y)).Sqrt(math);
+    public (double Distance, double Width) Sample((double X, double Y) point) => (Distance(point), Width);
 
-    public static ((EFloat X, EFloat Y) Offset, EFloat Along) Offset((EFloat X, EFloat Y) point, (EFloat X, EFloat Y) start, (EFloat X, EFloat Y) end, EContext math) =>
+    public static (double Distance, double Width) Tapered((double X, double Y) point, (double X, double Y) start, (double X, double Y) end, double from, double to) =>
+        Offset(point, start, end) switch {
+            var (offset, along) => (from + ((to - from) * along)) switch { var radius => (Length(offset) - radius, 2d * radius) },
+        };
+
+    public static (double Distance, double Width) Inverted((double Distance, double Width) sample) => (-sample.Distance, double.PositiveInfinity);
+
+    public static (double Distance, double Width) Union((double Distance, double Width) first, (double Distance, double Width) second, double smoothing) =>
+        (SmoothMinimum(first.Distance, second.Distance, smoothing), double.Max(first.Width, second.Width));
+
+    public static (double Distance, double Width) Difference((double Distance, double Width) first, (double Distance, double Width) second, double smoothing) =>
+        (-SmoothMinimum(-first.Distance, second.Distance, smoothing), first.Width);
+
+    public static (double Distance, double Width) Intersection((double Distance, double Width) first, (double Distance, double Width) second, double smoothing) =>
+        (-SmoothMinimum(-first.Distance, -second.Distance, smoothing), double.Min(first.Width, second.Width));
+
+    public static (double Distance, double Width) Morph((double Distance, double Width) first, (double Distance, double Width) second, float progress) =>
+        progress switch {
+            0f => first,
+            1f => second,
+            _ => (first.Width is 0d || second.Width is 0d ? double.PositiveInfinity : first.Distance + ((second.Distance - first.Distance) * progress),
+                first.Width + ((second.Width - first.Width) * progress)),
+        };
+
+    public static double Coverage((double Distance, double Width) sample, double growth, double band) =>
+        double.Min(double.Clamp(0.5d - ((sample.Distance - growth) / band), 0d, 1d), (sample.Width + (2d * growth)) / band);
+
+    // --- [GEOMETRY]
+    public static double Length((double X, double Y) point) => double.Hypot(point.X, point.Y);
+
+    public static ((double X, double Y) Offset, double Along) Offset((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
         (Edge: (X: end.X - start.X, Y: end.Y - start.Y), Reach: (X: point.X - start.X, Y: point.Y - start.Y)) switch {
             var (edge, reach) => ((edge.X * edge.X) + (edge.Y * edge.Y)) switch {
-                var squared when squared.IsZero => EFloat.Zero,
-                var squared => EFloat.Max(0, EFloat.Min(1, ((reach.X * edge.X) + (reach.Y * edge.Y)).Divide(squared, math))),
+                0d => 0d,
+                var squared => double.Clamp(((reach.X * edge.X) + (reach.Y * edge.Y)) / squared, 0d, 1d),
             } switch { var along => ((reach.X - (edge.X * along), reach.Y - (edge.Y * along)), along), },
         };
 
-    public static EFloat Side((EFloat X, EFloat Y) point, (EFloat X, EFloat Y) start, (EFloat X, EFloat Y) end) =>
+    public static double Side((double X, double Y) point, (double X, double Y) start, (double X, double Y) end) =>
         ((end.X - start.X) * (point.Y - start.Y)) - ((end.Y - start.Y) * (point.X - start.X));
 
-    public static EFloat Rounded((EFloat X, EFloat Y) point, (EFloat X, EFloat Y) extent, EFloat radius, EContext math) =>
-        (X: point.X.Abs() - extent.X + radius, Y: point.Y.Abs() - extent.Y + radius) switch {
-            var corner => Length((EFloat.Max(corner.X, 0), EFloat.Max(corner.Y, 0)), math) + EFloat.Min(EFloat.Max(corner.X, corner.Y), 0) - radius,
+    public static double Rounded((double X, double Y) point, (double X, double Y) extent, double radius) =>
+        (X: double.Abs(point.X) - extent.X + radius, Y: double.Abs(point.Y) - extent.Y + radius) switch {
+            var corner => Length((double.Max(corner.X, 0d), double.Max(corner.Y, 0d))) + double.Min(double.Max(corner.X, corner.Y), 0d) - radius,
         };
 
-    private static EFloat Superellipse((EFloat X, EFloat Y) point, (EFloat X, EFloat Y) extent, EFloat exponent, EContext math) {
-        EFloat length = Length(point, math);
-        (EFloat x, EFloat y) = length.Sign > 0 ? (point.X.Divide(length, math).Abs().Divide(extent.X, math), point.Y.Divide(length, math).Abs().Divide(extent.Y, math)) : (0, EFloat.One.Divide(extent.Y, math));
-        EFloat largest = EFloat.Max(x, y);
-        EFloat level = largest * (x.Divide(largest, math).Pow(exponent, math) + y.Divide(largest, math).Pow(exponent, math)).Pow(EFloat.One.Divide(exponent, math), math);
-        EFloat slope = exponent.CompareTo(EFloat.One) is 0
-            ? Length((EFloat.One.Divide(extent.X, math), EFloat.One.Divide(extent.Y, math)), math)
-            : Length((x.Divide(level, math).Pow(exponent - 1, math).Divide(extent.X, math), y.Divide(level, math).Pow(exponent - 1, math).Divide(extent.Y, math)), math);
-        return ((length * level) - 1).Divide(slope, math);
+    private static double SmoothMinimum(double first, double second, double smoothing) =>
+        (double.Min(first, second), smoothing - double.Abs(first - second)) switch {
+            (var low, > 0d and var overlap) => low - (overlap * overlap / (4d * smoothing)),
+            (var low, _) => low,
+        };
+
+    private static double Superellipse((double X, double Y) point, (double X, double Y) extent, double exponent) {
+        double length = Length(point);
+        (double x, double y) = length > 0d ? (double.Abs(point.X / length) / extent.X, double.Abs(point.Y / length) / extent.Y) : (0d, 1d / extent.Y);
+        double largest = double.Max(x, y);
+        double level = largest * double.Pow(double.Pow(x / largest, exponent) + double.Pow(y / largest, exponent), 1d / exponent);
+        double slope = exponent is 1d
+            ? Length((1d / extent.X, 1d / extent.Y))
+            : Length((double.Pow(x / level, exponent - 1d) / extent.X, double.Pow(y / level, exponent - 1d) / extent.Y));
+        return ((length * level) - 1d) / slope;
     }
 }
 
-public sealed record GridLattice(ERational Height, ERational Span, ERational Shift, double Line, double Band) {
+public sealed record GridLattice(double Height, double Span, double Shift, double Line, double Band) {
     public float Lines((double X, double Y) point) => ShapeEdge.Strip(Locate(point).Side, Line, Band);
 
-    public Vector3 Cells((double X, double Y) point, Func<EInteger, EInteger, Vector3> color, Vector3 ink) =>
+    public Vector3 Cells((double X, double Y) point, Func<long, long, Vector3> color, Vector3 ink) =>
         Locate(point) switch {
             var (i, j, side, acrossI, acrossJ) => Vector3.Lerp(Vector3.Lerp(color(i, j), color(acrossI, acrossJ), ShapeEdge.Coverage(side, Band)), ink, ShapeEdge.Strip(side, Line, Band)),
         };
 
-    private (EInteger I, EInteger J, double Side, EInteger AcrossI, EInteger AcrossJ) Locate((double X, double Y) point) {
-        ERational across = ERational.FromDouble(point.X);
-        (EInteger j, ERational vertical) = LatticePoint.Split(ERational.FromDouble(point.Y).Divide(Height));
-        (EInteger i, ERational horizontal) = LatticePoint.Split(across.Divide(Span).Add(Offset(j)));
-        (double x, double y, double right, double bottom) = (horizontal.Multiply(Span).ToDouble(), vertical.Multiply(Height).ToDouble(),
-            ERational.One.Subtract(horizontal).Multiply(Span).ToDouble(), ERational.One.Subtract(vertical).Multiply(Height).ToDouble());
+    private (long I, long J, double Side, long AcrossI, long AcrossJ) Locate((double X, double Y) point) {
+        double down = point.Y / Height;
+        double j = double.Floor(down);
+        double along = (point.X / Span) + Offset((long)j);
+        double i = double.Floor(along);
+        (double horizontal, double vertical) = (along - i, down - j);
+        (double x, double y, double right, double bottom) = (horizontal * Span, vertical * Height, (1d - horizontal) * Span, (1d - vertical) * Height);
         double side = double.Min(double.Min(x, right), double.Min(y, bottom));
-        return side == x ? (i, j, side, i.Subtract(1), j)
-            : side == right ? (i, j, side, i.Add(1), j)
-            : side == y ? (i, j, side, Column(across, j.Subtract(1)), j.Subtract(1))
-            : (i, j, side, Column(across, j.Add(1)), j.Add(1));
+        (long column, long line) = ((long)i, (long)j);
+        return side == x ? (column, line, side, column - 1L, line)
+            : side == right ? (column, line, side, column + 1L, line)
+            : side == y ? (column, line, side, Column(point.X, line - 1L), line - 1L)
+            : (column, line, side, Column(point.X, line + 1L), line + 1L);
     }
 
-    private EInteger Column(ERational x, EInteger j) => LatticePoint.Split(x.Divide(Span).Add(Offset(j))).Cell;
+    private long Column(double x, long j) => (long)double.Floor((x / Span) + Offset(j));
 
-    private ERational Offset(EInteger j) => j.IsEven ? Shift : ERational.Zero;
+    private double Offset(long j) => long.IsEvenInteger(j) ? Shift : 0d;
 }
 
-public readonly record struct Extinction(float Start, float Attenuation, Option<float> Cutoff) {
+public sealed record Extinction(float Start, float Attenuation) {
+    public Option<float> Cutoff { get; init; }
+
     public Func<long, long, float> Field(PixelFrame depth, Camera camera, Func<long, long, float, float> density) {
-        (float start, float attenuation, Vector3 axis) = (Start, Attenuation, Vector3.Transform(-Vector3.UnitZ, camera.Orientation));
+        Vector3 axis = Vector3.Transform(-Vector3.UnitZ, camera.Orientation);
         Func<float, bool> beyond = Cutoff.Match(Some: static cutoff => (Func<float, bool>)(distance => distance > cutoff), None: static () => static _ => false);
         return (column, line) => {
             (double X, double Y) point = (column + 0.5d, camera.Extent.Height - line - 0.5d);
             float distance = depth.Sample(point, (WrapMode.Black, WrapMode.Black), float.PositiveInfinity, static (_, sample, _) => sample.X) / Vector3.Dot(camera.Ray(point).Direction, axis);
-            float path = float.MaxNumber(distance - start, 0f) / attenuation;
+            float path = float.MaxNumber(distance - Start, 0f) / Attenuation;
             return beyond(distance) ? 0f : float.IsPositiveInfinity(path) ? 1f : 1f - float.Exp(-path * density(column, line, path));
         };
     }
@@ -192,6 +196,8 @@ public readonly record struct Extinction(float Start, float Attenuation, Option<
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShapeEdge {
+    private const int QuadratureOrder = 32;
+
     public static double Band(ShortSideLength feather, PixelExtent extent, double scale = 1d) => double.Max(feather.Pixels(extent) * scale, 1d);
 
     public static float Coverage(double distance, double band) => float.Clamp((float)(0.5d - (distance / band)), 0f, 1f);
@@ -200,6 +206,22 @@ public static class ShapeEdge {
         (double.Min(width, band), double.Max(width, band)) switch {
             var (small, large) => (float)(double.Max(0d, double.Min(small, (small / 2d) - (double.Abs(distance) - (large / 2d)))) / band),
         };
+
+    public static double DiscMass(double radius, double softness, (double Left, double Top, double Right, double Bottom) box) {
+        (double lowX, double lowY, double highX, double highY) = (double.Max(-radius, box.Left), double.Max(-radius, box.Top), double.Min(radius, box.Right), double.Min(radius, box.Bottom));
+        (double nearestX, double nearestY) = (double.Max(lowX, double.Min(0d, highX)), double.Max(lowY, double.Min(0d, highY)));
+        return lowX >= highX || lowY >= highY || (radius * radius) <= (nearestX * nearestX) + (nearestY * nearestY) ? 0d
+            : lowX == -radius && lowY == -radius && highX == radius && highY == radius ? double.Pi * radius * radius * (1d - softness + (0.3d * softness * softness))
+            : Partial(radius, softness, (lowX, lowY, highX, highY), double.Sqrt((radius * radius) - (nearestY * nearestY)));
+
+        static double Partial(double radius, double softness, (double LowX, double LowY, double HighX, double HighY) clipped, double horizontal) =>
+            (softness * radius) switch {
+                var band => GaussLegendreRule.Integrate(x => double.Sqrt((radius * radius) - (x * x)) switch {
+                    var vertical => GaussLegendreRule.Integrate(
+                        y => Smooth(band is 0d ? 1d : double.Min(1d, (radius - double.Hypot(x, y)) / band)), double.Max(clipped.LowY, -vertical), double.Min(clipped.HighY, vertical), QuadratureOrder),
+                }, double.Max(clipped.LowX, -horizontal), double.Min(clipped.HighX, horizontal), QuadratureOrder),
+            };
+    }
 
     public static T Smooth<T>(T t) where T : IFloatingPoint<T> => t * t * (T.CreateTruncating(3) - (T.CreateTruncating(2) * t));
 

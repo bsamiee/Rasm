@@ -35,7 +35,6 @@ from blender.bpy.render.outputs.results import ResultRead
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.sessions.renders import RenderSlots
 from blender.bpy.settings.attachments import annotated, Attachment
-from blender.bpy.settings.history import Dated, History, Retention
 from blender.bpy.ui.drawing.handlers import Refresh, Signal, Watch
 from blender.bpy.ui.images.overlays import FrameMask, Tint
 from blender.bpy.ui.images.views import ImageWindow, revealed
@@ -50,11 +49,11 @@ from blender.bpy.ui.surfaces.appends import Append
 from blender.bpy.ui.surfaces.panels import Joined, Panel
 from blender.imaging.analysis.comparison import Axis, Bar, Comparison
 from blender.imaging.color.processors import DisplayView, Domain
-from blender.imaging.files.images import fitted
+from blender.imaging.files.buffers import fitted
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.identity import content_hash, ContentHash
 from blender.records.stores import RecordFile
-from blender.records.trees import Deleted, diff, Edit, Inserted, Moved, Reparametrized
+from blender.records.trees import Dated, Deleted, diff, Edit, History, Inserted, Moved, Reparametrized, Retention
 
 from ..catalog import chain
 from ..preferences import reviewing

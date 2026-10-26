@@ -1,4 +1,5 @@
-using System.Globalization;
+using System.Runtime.CompilerServices;
+using Rasm.Spatial;
 using Rasm.Rhino.Document.Units;
 using Rhino.Geometry.Morphs;
 using Riok.Mapperly.Abstractions;
@@ -6,49 +7,6 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<RhinoFault>]
-public sealed partial class LatticeDegrees {
-    public int U { get; }
-
-    public int V { get; }
-
-    public int W { get; }
-
-    public long Count => (U + 1L) * (V + 1L) * (W + 1L);
-
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int u, ref int v, ref int w) =>
-        validationError = u >= 1 && v >= 1 && w >= 1
-            ? null
-            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"lattice degrees ({u}, {v}, {w}) hold one below 1"));
-}
-
-internal readonly struct BoxEquality : IEqualityComparerAccessor<Box> {
-    public static IEqualityComparer<Box> EqualityComparer { get; } = EqualityComparer<Box>.Create(
-        static (left, right) => left.Plane == right.Plane && left.X == right.X && left.Y == right.Y && left.Z == right.Z,
-        static box => HashCode.Combine(box.Plane, box.X, box.Y, box.Z));
-}
-
-[ComplexValueObject(SkipToString = true, SerializationFrameworks = SerializationFrameworks.None)]
-[ValidationError<RhinoFault>]
-public sealed partial class LatticeVolume {
-    [MemberEqualityComparer<BoxEquality, Box>]
-    public Box Reference { get; }
-
-    [MemberEqualityComparer<ComparerAccessors.Default<LatticeDegrees>, LatticeDegrees>]
-    public LatticeDegrees Degrees { get; }
-
-    [MemberEqualityComparer<ComparerAccessors.Default<Seq<Point3d>>, Seq<Point3d>>]
-    public Seq<Point3d> Controls { get; }
-
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Box reference, ref LatticeDegrees degrees, ref Seq<Point3d> controls) =>
-        validationError = (Box: reference.IsValid, Net: controls.Count == degrees.Count) switch {
-            (Box: false, _) => new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"reference box {reference.Plane.Origin} is invalid")),
-            (_, Net: false) => new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{controls.Count} controls form no lattice of {degrees.Count} for degrees ({degrees.U}, {degrees.V}, {degrees.W})")),
-            _ => null,
-        };
-}
-
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record MorphKind {
     public sealed record Bend(Point3d Start, Point3d End, Point3d Through, Option<double> Angle, bool Straight, bool Symmetric) : MorphKind;
@@ -75,12 +33,12 @@ public abstract partial record MorphKind {
 
     public sealed record Point(Func<Point3d, Point3d> Map) : MorphKind;
 
-    public sealed record Lattice(LatticeVolume Volume) : MorphKind;
+    public sealed record Lattice(Box Reference, BezierVolume Volume) : MorphKind;
 }
 
 public sealed record MorphSettings(bool QuickPreview, bool PreserveStructure);
 
-internal readonly record struct MorphStep(Func<GeometryBase, bool> Apply, string Member, bool PreserveStructure, int Index);
+internal sealed record MorphStep(Func<GeometryBase, bool> Apply, string Member, bool PreserveStructure, int Index);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class PointSpaceMorph(Func<Point3d, Point3d> map) : SpaceMorph {
@@ -101,13 +59,13 @@ internal static partial class MorphMapper {
 public static class Morphs {
     public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, MorphKind kind, MorphSettings settings, Action<IDisposable> retain) where T : GeometryBase =>
         DisposalOps.Acquire(owned => Morphing(kind, Some((Tolerances: tolerances, Settings: settings)), morph =>
-            Morphed(targets, morph.Morph, nameof(SpaceMorph.Morph), settings.PreserveStructure, owned)), retain);
+            Morphed(targets, morph.Morph, settings.PreserveStructure, owned)), retain);
 
     public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, NurbsCurve origin, NurbsCurve target, MorphSettings settings, Action<IDisposable> retain) where T : GeometryBase =>
         DisposalOps.Acquire(owned => DisposalOps.Within(() => new MorphControl(origin, target), control =>
             from valid in IO.lift(() => Refused.Unless(control.IsValid, nameof(MorphControl)))
             from configured in IO.lift(() => MorphMapper.Update(settings, control, tolerances.Absolute))
-            from morphed in Morphed(targets, control.Morph, nameof(MorphControl.Morph), settings.PreserveStructure, owned)
+            from morphed in Morphed(targets, control.Morph, settings.PreserveStructure, owned)
             select morphed), retain);
 
     public static IO<Seq<Plane>> Morph(Tolerances tolerances, Seq<Plane> planes, MorphKind kind, MorphSettings settings) =>
@@ -144,7 +102,9 @@ public static class Morphs {
             sequence: static (held, of) => of.Parts.TraverseM(part => Space(part, held)).As()
                 .Map(static SpaceMorph (chain) => new PointSpaceMorph(point => chain.Fold(point, static (at, part) => part.MorphPoint(at)))),
             point: static (_, of) => IO.pure<SpaceMorph>(new PointSpaceMorph(of.Map)),
-            lattice: static (_, of) => IO.pure<SpaceMorph>(new PointSpaceMorph(Bezier(of.Volume))));
+            lattice: static (_, of) => IO.lift(Refused.UnlessValid(of.Reference.IsValid, Transform.PlaneToPlane(of.Reference.Plane, Plane.WorldXY), nameof(Box))).Map(SpaceMorph (local) => new PointSpaceMorph(point => (local * point) switch {
+                var at => of.Volume.At(new(of.Reference.X.NormalizedParameterAt(at.X), of.Reference.Y.NormalizedParameterAt(at.Y), of.Reference.Z.NormalizedParameterAt(at.Z))).ToPoint3d(),
+            })));
 
     private static IO<SpaceMorph> Hosted<TMorph>(Func<TMorph> create, Func<TMorph, bool> valid, Action<IDisposable> held, Option<Action<TMorph>> configure = default)
         where TMorph : SpaceMorph, IDisposable =>
@@ -153,21 +113,8 @@ public static class Morphs {
         from constrained in IO.lift(() => configure.Iter(set => set(morph)))
         select (SpaceMorph)morph;
 
-    private static Func<Point3d, Point3d> Bezier(LatticeVolume volume) =>
-        Transform.PlaneToPlane(volume.Reference.Plane, Plane.WorldXY) switch {
-            var local => point => (local * point) switch {
-                var at => Seq(
-                        (Row: volume.Degrees.U + 1, At: volume.Reference.X.NormalizedParameterAt(at.X)),
-                        (Row: volume.Degrees.V + 1, At: volume.Reference.Y.NormalizedParameterAt(at.Y)),
-                        (Row: volume.Degrees.W + 1, At: volume.Reference.Z.NormalizedParameterAt(at.Z)))
-                    .Fold(volume.Controls, static (net, axis) => toSeq(net.Chunk(axis.Row)).Map(row => Casteljau(toSeq(row), axis.At)).Strict())[0],
-            },
-        };
-
-    private static Point3d Casteljau(Seq<Point3d> row, double at) =>
-        row.Count is 1 ? row[0] : Casteljau(row.Zip(row.Tail, (start, end) => start + (at * (end - start))).Strict(), at);
-
-    private static IO<Seq<T>> Morphed<T>(Seq<T> targets, Func<GeometryBase, bool> morph, string member, bool preserveStructure, Action<IDisposable> retain) where T : GeometryBase =>
+    private static IO<Seq<T>> Morphed<T>(Seq<T> targets, Func<GeometryBase, bool> morph, bool preserveStructure, Action<IDisposable> retain, [CallerArgumentExpression(nameof(morph))] string member = "")
+        where T : GeometryBase =>
         from morphable in IO.lift(() => Callbacks.Each(targets, SpaceMorph.IsMorphable, nameof(SpaceMorph.IsMorphable)))
         from morphed in targets.Map(static (target, index) => (target, index))
             .TraverseM(row => Edits.Apply(row.target, Seq(morph), (copy, apply, held) =>

@@ -1,6 +1,6 @@
 """Collection membership, placement, instancing, and lifetimes."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from contextlib import ExitStack
 from functools import reduce
 from itertools import chain, starmap
@@ -19,6 +19,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, Struct, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderReason
 from blender.records.faults import accumulated, Fault, Outcome
+from blender.records.trees import preorder
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -64,16 +65,14 @@ class CollectionTree(msgspec.Struct, frozen=True, kw_only=True):
 # --- [WALKS]
 
 
-def preorder[T](seed: T, children: Callable[[T], Iterable[T]]) -> Block[T]:
-    """Returns seed and every node children reach from it, depth first in child order."""
-    frontier: tuple[T, ...] = (seed,)
-    return Block.unfold(lambda pending: Some((pending[0], (*children(pending[0]), *pending[1:]))) if pending else Nothing, frontier)
-
-
 def walked(root: bpy.types.LayerCollection) -> Block[LayerPath]:
     """Returns layer tree in preorder, each node with ancestors root first."""
-    seed: LayerPath = (root, ())
-    return preorder(seed, lambda path: tuple((child, (*path[1], path[0])) for child in path[0].children))
+
+    def children(path: LayerPath) -> tuple[LayerPath, ...]:
+        node, ancestors = path
+        return tuple((child, (*ancestors, node)) for child in node.children)
+
+    return preorder((root, ()), children)
 
 
 # --- [MEMBERSHIP]
@@ -380,7 +379,6 @@ __all__ = [
     "moved",
     "parents",
     "parted",
-    "preorder",
     "reconciled",
     "ungrouped",
     "walked",

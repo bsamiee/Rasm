@@ -21,7 +21,7 @@ from blender.bpy.render.compositor.effects import Alpha, CameraFrame, Compositor
 from blender.bpy.render.compositor.tables import latticed, tabled, TILES
 from blender.imaging.color.luts import Lattice, LutFormat, split
 from blender.imaging.color.processors import bracketed, ColorSpace, converted
-from blender.imaging.files.images import located, pixels
+from blender.imaging.files.buffers import located, pixels
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.records.faults import Outcome
 

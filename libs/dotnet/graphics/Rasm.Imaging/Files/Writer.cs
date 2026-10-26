@@ -1,37 +1,48 @@
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using BitMiracle.LibTiff.Classic;
-using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats;
-using SixLabors.ImageSharp.Formats.Bmp;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
-using SixLabors.ImageSharp.Formats.Tga;
 using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal readonly record struct ImageSample(OutputDepth Depth, Func<PixelFrame, bool, FileMetadata, Option<ColorEncoding>, IImageEncoder, Stream, IO<Unit>> Write) {
+internal sealed record ImageSample(OutputDepth Depth, Func<PixelFrame, bool, FileMetadata, Option<ColorEncoding>, IImageEncoder, Stream, IO<Unit>> Write) {
     internal static ImageSample Bytes { get; } = Of<Rgba32, Rgb24>(OutputDepth.UInt8);
 
     internal static ImageSample Of<TAlpha, TOpaque>(OutputDepth depth)
         where TAlpha : unmanaged, IPixel<TAlpha>
         where TOpaque : unmanaged, IPixel<TOpaque> =>
-        new(depth, (frame, alpha, metadata, encoding, encoder, stream) => alpha
-            ? StillWriter.Encoded<TAlpha>(frame, depth, alpha, metadata, encoding, encoder, stream)
-            : StillWriter.Encoded<TOpaque>(frame, depth, alpha, metadata, encoding, encoder, stream));
+        new(depth, static (frame, alpha, metadata, encoding, encoder, stream) => alpha
+            ? StillWriter.Encoded<TAlpha>(frame, alpha, metadata, encoding, encoder, stream)
+            : StillWriter.Encoded<TOpaque>(frame, alpha, metadata, encoding, encoder, stream));
 }
 
-internal readonly record struct TiffSample(OutputDepth Depth, SampleFormat Format, Option<Predictor> Predictor);
+internal sealed record TiffSample(OutputDepth Depth, SampleFormat Format) {
+    internal Option<Predictor> Predictor { get; init; }
+}
+
+[ComplexValueObject]
+[ValidationError<ImagingFault>]
+internal sealed partial class DngExtent {
+    public int Width { get; }
+    public int Height { get; }
+
+    public static Fin<DngExtent> Validated(int width, int height) =>
+        TryCreate(width, height, out DngExtent? extent, out ImagingFault? fault) ? extent : fault;
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int width, ref int height) =>
+        validationError = width is >= 22 and <= 64000 && height is >= 22 and <= 64000 ? null
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Frame {width}x{height} lies outside the 22 to 64000 pixel DNG extent LibRaw reads"));
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StillFormat {
@@ -77,14 +88,6 @@ public abstract partial record StillFormat {
         public static IterableNE<string> Extensions => IterableNE.create(".webp");
     }
 
-    public sealed record BmpRaster(PixelFrame Frame, bool Alpha) : StillFormat {
-        public static IterableNE<string> Extensions => IterableNE.create(".bmp");
-    }
-
-    public sealed record TgaRaster(PixelFrame Frame, bool Alpha) : StillFormat {
-        public static IterableNE<string> Extensions => IterableNE.create(".tga");
-    }
-
     public sealed record TiffRaster : StillFormat {
         private TiffRaster(PixelFrame frame, TiffSample sample, Option<ColorEncoding> encoding, bool alpha) => (Frame, Sample, Encoding, Alpha) = (frame, sample, encoding, alpha);
 
@@ -103,13 +106,13 @@ public abstract partial record StillFormat {
 
         internal static Option<TiffSample> Table(OutputDepth depth) =>
             depth.Map<Option<TiffSample>>(
-                uInt8: new TiffSample(depth, SampleFormat.UINT, Predictor.HORIZONTAL),
-                uInt10: new TiffSample(depth, SampleFormat.UINT, None),
-                uInt12: new TiffSample(depth, SampleFormat.UINT, None),
-                uInt14: new TiffSample(depth, SampleFormat.UINT, None),
-                uInt16: new TiffSample(depth, SampleFormat.UINT, Predictor.HORIZONTAL),
-                float16: new TiffSample(depth, SampleFormat.IEEEFP, Predictor.FLOATINGPOINT),
-                float32: new TiffSample(depth, SampleFormat.IEEEFP, Predictor.FLOATINGPOINT));
+                uInt8: new TiffSample(depth, SampleFormat.UINT) { Predictor = Predictor.HORIZONTAL },
+                uInt10: new TiffSample(depth, SampleFormat.UINT),
+                uInt12: new TiffSample(depth, SampleFormat.UINT),
+                uInt14: new TiffSample(depth, SampleFormat.UINT),
+                uInt16: new TiffSample(depth, SampleFormat.UINT) { Predictor = Predictor.HORIZONTAL },
+                float16: new TiffSample(depth, SampleFormat.IEEEFP) { Predictor = Predictor.FLOATINGPOINT },
+                float32: new TiffSample(depth, SampleFormat.IEEEFP) { Predictor = Predictor.FLOATINGPOINT });
     }
 
     public sealed record ExrRaster : StillFormat {
@@ -142,9 +145,9 @@ public abstract partial record StillFormat {
             static Fin<float> Rational(TiffTag tag, float value, int minimum) =>
                 value >= minimum && value < (double)int.MaxValue
                     ? value
-                    : Error.New(string.Create(CultureInfo.InvariantCulture, $"DNG field {tag} value {value} lies outside [{minimum}, {int.MaxValue})"));
+                    : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"DNG field {tag} value {value} lies outside [{minimum}, {int.MaxValue})"));
             return (
-                    DngWriter.Bounded(frame.Size),
+                    DngExtent.Validated(frame.Size.Width, frame.Size.Height),
                     toSeq(gamut.FromXyz.ToRowMajorArray()).Traverse(static value => Rational(TiffTag.COLORMATRIX1, (float)value, int.MinValue)).As(),
                     exposure.Traverse(static gain => Rational(TiffTag.BASELINEEXPOSURE, (float)gain, int.MinValue)).As(),
                     focalLength.Traverse(static focal => Rational(TiffTag.EXIF_FOCALLENGTH, (float)focal.Millimeters, 0)).As(),
@@ -173,12 +176,6 @@ public static class StillWriter {
             }, save.Stream),
             jpegRaster: static (save, jpeg) => ImageSample.Bytes.Write(jpeg.Frame, false, save.Metadata, jpeg.Encoding, jpeg.Encoder, save.Stream),
             webpRaster: static (save, webp) => ImageSample.Bytes.Write(webp.Frame, webp.Alpha, save.Metadata, Some(webp.Encoding), new WebpEncoder { FileFormat = webp.Format, Quality = webp.Quality }, save.Stream),
-            bmpRaster: static (save, bmp) => ImageSample.Bytes.Write(bmp.Frame, bmp.Alpha, save.Metadata, None, new BmpEncoder {
-                BitsPerPixel = bmp.Alpha ? BmpBitsPerPixel.Bit32 : BmpBitsPerPixel.Bit24, SupportTransparency = bmp.Alpha,
-            }, save.Stream),
-            tgaRaster: static (save, tga) => ImageSample.Bytes.Write(tga.Frame, tga.Alpha, save.Metadata, None, new TgaEncoder {
-                BitsPerPixel = tga.Alpha ? TgaBitsPerPixel.Bit32 : TgaBitsPerPixel.Bit24,
-            }, save.Stream),
             tiffRaster: static (save, tiff) => Scanlines(save.Stream, "w", [], Tagged(tiff.Frame.Size, tiff.Sample, tiff.Alpha, tiff.Encoding, save.Metadata, []), tiff.Frame.Size.Height, Rows(tiff.Frame, tiff.Sample.Depth, tiff.Alpha)),
             exrRaster: static (save, exr) => ExrParts.Write(exr, save.Metadata, save.Stream),
             dng: static (save, dng) => DngWriter.Write(dng, save.Metadata, save.Stream),
@@ -197,28 +194,6 @@ public static class StillWriter {
                 Associate(frame.View.Span.GetRowSpan(y), scratch.Span);
                 depth.Encode(scratch.Span, alpha: false, destination);
             };
-
-    internal static byte[][] Planar(OutputDepth depth, PixelExtent size, int channels, Action<int, Span<Vector4>> source) {
-        int bytes = depth.SampleBytes;
-        int chunk = int.Min(size.Width, System.Array.MaxLength / Unsafe.SizeOf<Vector4>());
-        byte[][] planes = new byte[channels][];
-        for (int channel = 0; channel < channels; channel++)
-            planes[channel] = new byte[(int)((long)size.Width * size.Height * bytes)];
-        using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(size.Width);
-        using SpanOwner<byte> encoded = SpanOwner<byte>.Allocate((int)depth.RowBytes(chunk, alpha: true));
-        for (int y = 0; y < size.Height; y++) {
-            source(y, scratch.Span);
-            for (int x = 0; x < size.Width; x += chunk) {
-                int count = int.Min(chunk, size.Width - x);
-                Span<byte> row = encoded.Span[..(int)depth.RowBytes(count, alpha: true)];
-                depth.Encode(scratch.Span.Slice(x, count), alpha: true, row);
-                for (int channel = 0; channel < channels; channel++)
-                    row.AsSpan2D(count, 4 * bytes).Slice(0, channel * bytes, count, bytes)
-                        .CopyTo(planes[channel].AsSpan(((y * size.Width) + x) * bytes, count * bytes));
-            }
-        }
-        return planes;
-    }
 
     internal static Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> Tagged(PixelExtent size, TiffSample sample, bool alpha, Option<ColorEncoding> encoding, FileMetadata metadata, Seq<(TiffTag Tag, object[] Values)> extra) =>
         open => [
@@ -239,56 +214,90 @@ public static class StillWriter {
             (TiffTag.ROWSPERSTRIP, [open.DefaultStripSize(0)]),
         ];
 
-    internal static IO<Unit> Scanlines(Stream stream, string mode, Seq<TiffFieldInfo> custom, Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> fields, int height, Action<int, Span<byte>> row) {
-        Fin<Unit> Encode(Tiff tiff, CancellationToken token) {
-            tiff.MergeFieldInfo([.. custom], custom.Count);
-            foreach ((TiffTag tag, object[] values) in fields(tiff))
-                if (!tiff.SetField(tag, values))
-                    return Error.New($"TIFF writer refused field {tag}");
-            using MemoryOwner<byte> line = MemoryOwner<byte>.Allocate(tiff.ScanlineSize());
-            ArraySegment<byte> segment = line.DangerousGetArray();
-            for (int y = 0; y < height; y++) {
-                token.ThrowIfCancellationRequested();
-                row(y, line.Span);
-                if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
-                    return Error.New(string.Create(CultureInfo.InvariantCulture, $"TIFF writer refused scanline {y}"));
-            }
-            return unit;
-        }
-        return IO.lift(environment => Optional(Tiff.ClientOpen(nameof(Tiff), mode, stream, new BorrowedTiffStream())).ToFin(Error.New("TIFF writer refused to open its stream")).Bind(tiff => {
-            Fin<Unit> encoded = Try.lift(() => Encode(tiff, environment.Token)).Run();
-            Fin<Unit> flushed = Try.lift(Fin<Unit> () => tiff.Flush() ? unit : Error.New("TIFF writer refused to flush its stream")).Run();
-            Fin<Unit> closed = Try.lift(() => { tiff.Dispose(); return unit; }).Run();
-            return (encoded, flushed, closed).Apply(static (_, _, _) => unit).As();
-        }));
-    }
+    internal static IO<Unit> Scanlines(Stream stream, string mode, Seq<TiffFieldInfo> custom, Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> fields, int height, Action<int, Span<byte>> row) =>
+        (from tiff in use(IO.lift(() => Optional(Tiff.ClientOpen(nameof(Tiff), mode, stream, new BorrowedTiffStream())).ToFin(new ImagingFault("TIFF writer refused to open its stream"))))
+         from encoded in IO.lift(environment => Encode(tiff, custom, fields, height, row, environment.Token))
+         from flushed in IO.lift(() => tiff.Flush() ? Fin.Succ(unit) : new ImagingFault("TIFF writer refused to flush its stream"))
+         select unit).Bracket();
 
-    internal static IO<Unit> Encoded<TPixel>(PixelFrame frame, OutputDepth depth, bool alpha, FileMetadata metadata, Option<ColorEncoding> encoding, IImageEncoder encoder, Stream stream)
+    internal static IO<Unit> Encoded<TPixel>(PixelFrame frame, bool alpha, FileMetadata metadata, Option<ColorEncoding> encoding, IImageEncoder encoder, Stream stream)
         where TPixel : unmanaged, IPixel<TPixel> =>
         IO.liftAsync(async environment => {
-            void Fill(int y, Span<TPixel> destination) {
-                environment.Token.ThrowIfCancellationRequested();
-                ReadOnlySpan<Vector4> source = frame.View.Span.GetRowSpan(y);
-                for (int x = 0; x < destination.Length;) {
-                    int count = int.Min(destination.Length - x, System.Array.MaxLength / int.Max(Unsafe.SizeOf<TPixel>(), Unsafe.SizeOf<Vector4>()));
-                    Span<byte> into = MemoryMarshal.AsBytes(destination.Slice(x, count));
-                    if (alpha)
-                        depth.Encode(source.Slice(x, count), alpha: true, into);
-                    else {
-                        using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(count);
-                        Associate(source.Slice(x, count), scratch.Span);
-                        depth.Encode(scratch.Span, alpha: false, into);
-                    }
-                    x += count;
-                }
-            }
             using Image<TPixel> image = new(frame.Size.Width, frame.Size.Height);
             metadata.Into(image.Metadata, encoding);
             image.ProcessPixelRows(rows => {
-                for (int y = 0; y < rows.Height; y++)
-                    Fill(y, rows.GetRowSpan(y));
+                using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(rows.Width);
+                for (int y = 0; y < rows.Height; y++) {
+                    environment.Token.ThrowIfCancellationRequested();
+                    ReadOnlySpan<Vector4> source = frame.View.Span.GetRowSpan(y);
+                    if (alpha)
+                        source.CopyTo(scratch.Span);
+                    else
+                        Associate(source, scratch.Span);
+                    PixelOperations<TPixel>.Instance.FromVector4Destructive(Configuration.Default, scratch.Span, rows.GetRowSpan(y), PixelConversionModifiers.Scale);
+                }
             });
             await image.SaveAsync(stream, encoder, environment.Token).ConfigureAwait(false);
             return unit;
         });
+
+    private static Fin<Unit> Encode(Tiff tiff, Seq<TiffFieldInfo> custom, Func<Tiff, Seq<(TiffTag Tag, object[] Values)>> fields, int height, Action<int, Span<byte>> row, CancellationToken token) {
+        tiff.MergeFieldInfo([.. custom], custom.Count);
+        foreach ((TiffTag tag, object[] values) in fields(tiff))
+            if (!tiff.SetField(tag, values))
+                return new ImagingFault($"TIFF writer refused field {tag}");
+        using MemoryOwner<byte> line = MemoryOwner<byte>.Allocate(tiff.ScanlineSize());
+        ArraySegment<byte> segment = line.DangerousGetArray();
+        for (int y = 0; y < height; y++) {
+            token.ThrowIfCancellationRequested();
+            row(y, line.Span);
+            if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
+                return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"TIFF writer refused scanline {y}"));
+        }
+        return unit;
+    }
+}
+
+internal static class DngWriter {
+    private const Photometric LinearRaw = (Photometric)34892;
+    private const short D65 = 21;
+    private static readonly byte[] Version = [1, 4, 0, 0];
+    private static readonly float[] Neutral = [1f, 1f, 1f];
+    private static readonly Seq<TiffFieldInfo> Optics = [
+        new(TiffTag.EXIF_FNUMBER, 1, 1, TiffType.RATIONAL, FieldBit.Custom, okToChange: true, passCount: false, "FNumber"),
+        new(TiffTag.EXIF_FOCALLENGTH, 1, 1, TiffType.RATIONAL, FieldBit.Custom, okToChange: true, passCount: false, "FocalLength"),
+    ];
+
+    internal static IO<Unit> Write(StillFormat.Dng dng, FileMetadata metadata, Stream stream) =>
+        StillWriter.Scanlines(
+            stream,
+            "w4",
+            Optics,
+            _ => [
+                (TiffTag.SUBFILETYPE, [0]),
+                (TiffTag.IMAGEWIDTH, [dng.Frame.Size.Width]),
+                (TiffTag.IMAGELENGTH, [dng.Frame.Size.Height]),
+                (TiffTag.BITSPERSAMPLE, [OutputDepth.Float32.Bits]),
+                (TiffTag.SAMPLESPERPIXEL, [3]),
+                (TiffTag.SAMPLEFORMAT, [SampleFormat.IEEEFP]),
+                (TiffTag.PHOTOMETRIC, [LinearRaw]),
+                (TiffTag.PLANARCONFIG, [PlanarConfig.CONTIG]),
+                (TiffTag.COMPRESSION, [Compression.NONE]),
+                (TiffTag.ORIENTATION, [Orientation.TOPLEFT]),
+                (TiffTag.MAKE, [metadata.Software]),
+                (TiffTag.MODEL, [metadata.Software]),
+                (TiffTag.UNIQUECAMERAMODEL, [metadata.Software]),
+                (TiffTag.DNGVERSION, [Version]),
+                (TiffTag.DNGBACKWARDVERSION, [Version]),
+                (TiffTag.COLORMATRIX1, [dng.Matrix.Count, dng.Matrix.ToArray()]),
+                (TiffTag.CALIBRATIONILLUMINANT1, [D65]),
+                (TiffTag.ASSHOTNEUTRAL, [Neutral.Length, Neutral]),
+                .. dng.Exposure.Map(static exposure => (TiffTag.BASELINEEXPOSURE, new object[] { exposure })).ToSeq(),
+                .. dng.FocalMillimeters.Map(static focal => (TiffTag.EXIF_FOCALLENGTH, new object[] { focal })).ToSeq(),
+                .. dng.Aperture.Map(static stop => (TiffTag.EXIF_FNUMBER, new object[] { stop })).ToSeq(),
+                .. metadata.Tiff(),
+                (TiffTag.ROWSPERSTRIP, [dng.Frame.Size.Height]),
+            ],
+            dng.Frame.Size.Height,
+            StillWriter.Rows(dng.Frame, OutputDepth.Float32, alpha: false));
 }

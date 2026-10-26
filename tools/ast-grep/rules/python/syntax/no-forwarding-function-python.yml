@@ -134,4 +134,4 @@ rule:
                 - has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: function, matches: named-callee, not: {pattern: $NAME}}}}
         - has: {field: parameters, matches: forwarded-parameters}
 message: '`$NAME` forwards its parameters unchanged to `$F`'
-note: 'Call `<callee>` at each call site, move its body into a member a host calls by name, or delete an override calling `super()`'
+note: 'Call `<callee>` at each site, move its body into a host-named hook, or delete a `super()` override'

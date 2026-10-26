@@ -2,7 +2,6 @@ using Grasshopper2;
 using Grasshopper2.UI.Skinning;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Styling;
-using Rasm.UI;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
@@ -13,13 +12,11 @@ public static class CanvasTheme {
     // --- [PROJECTION]
     public static IO<ColorScheme> Current =>
         IO.lift(static () => Skin.Current switch {
-            var skin => ColorScheme.TryCreate(
+            var skin => ColorScheme.Validated(
                 HostTheme.Projected(compact: false).Chrome.AddOrUpdateRange(Shaded(skin.Shades)),
                 Settings.Animations.Value ? HostTheme.Conditions : HostTheme.Conditions.TryAdd(Condition.ReduceMotion),
                 new TextFace { Family = skin.Shape.FontWord.FamilyName },
-                skin.Shape.FontWord.Size,
-                out ColorScheme? theme,
-                out Invalid? fault) ? Fin.Succ(theme) : fault,
+                skin.Shape.FontWord.Size),
         });
 
     private static Seq<(Token Token, SKColorF Color)> Shaded(Shades shades) =>

@@ -102,7 +102,7 @@ public static class ViewCaptures {
             });
             _ = request.Scale.Iter(scale => scale.Switch(
                 settings,
-                toValue: static (target, value) => target.SetModelScaleToValue(UnitsNet.QuantityValue.Inverse(value.Scale).ToDouble()),
+                toValue: static (target, value) => target.SetModelScaleToValue(Millimeters(value.Scale.ToModel(Length.FromMillimeters(1)))),
                 toFit: static (target, _) => target.SetModelScaleToFit(promptOnChange: false)));
         })
         from edited in IO.lift(() => request.Options(settings))

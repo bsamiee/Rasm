@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using Darkroom.Chain;
-using PeterO.Numbers;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
@@ -30,7 +29,7 @@ public sealed record Twirl(
     public static Twirl Default { get; } = new(0f, ShortSideLength.Create(0.5f), 1f, 0, 0f, FramePosition.Center, Resampling.Default with { Wrap = WrapMode.Periodic });
 
     public static Option<PixelPass> Pass(Twirl state, PassContext context) =>
-        state.Angle is 0f || state.Radius == ShortSideLength.Neutral ? None
+        state.Angle is 0f || state.Radius == ShortSideLength.Zero ? None
             : Some<PixelPass>(new PixelPass.Frame(new Displacement.Twirl(state.Angle, state.Radius, state.Falloff, state.Arms, state.ArmOffset, state.Center)
                 .Map(extent: context.Extent, sampling: state.Resampling.Sampling, wrap: state.Resampling.Edges).Apply));
 }
@@ -44,7 +43,7 @@ public sealed record Bulge(
     public static Bulge Default { get; } = new(0f, BulgeMode.Round, ShortSideLength.Create(0.5f), FramePosition.Center, Resampling.Default with { Wrap = WrapMode.Clamp });
 
     public static Option<PixelPass> Pass(Bulge state, PassContext context) =>
-        state.Amount is 0f || state.Radius == ShortSideLength.Neutral ? None
+        state.Amount is 0f || state.Radius == ShortSideLength.Zero ? None
             : Some<PixelPass>(new PixelPass.Frame(new Displacement.Bulge(state.Amount, state.Mode, state.Radius, state.Center).Map(extent: context.Extent, sampling: state.Resampling.Sampling, wrap: state.Resampling.Edges).Apply));
 }
 
@@ -56,8 +55,8 @@ public sealed record WaveWarp(
     [property: Display(Name = "Wavelength max", Description = "Longest wave in frame short sides")][property: Range(0.005d, 1d)] ShortSideExtent MaxWavelength,
     [property: Display(Name = "Amplitude min", Description = "Weakest wave as share of amounts")][property: Range(0d, 1d)] float MinAmplitude,
     [property: Display(Name = "Amplitude max", Description = "Strongest wave as share of amounts")][property: Range(0d, 1d)] float MaxAmplitude,
-    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] ShortSideOffset Horizontal,
-    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] ShortSideOffset Vertical,
+    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Horizontal,
+    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Vertical,
     [property: Display(Name = "Direction", Description = "Straight wave angle counterclockwise from right")][property: Range(-double.Pi, double.Pi)] float Direction,
     [property: Display(Name = "Spread", Description = "Wave direction fan about travel direction")][property: Range(0d, double.Pi)] float Spread,
     [property: Display(Name = "Phase", Description = "Turn added to every wave period")][property: Range(-double.Pi, double.Pi)] float Phase,
@@ -70,11 +69,11 @@ public sealed record WaveWarp(
     [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<WaveWarp> {
     public static WaveWarp Default { get; } = new(
         WaveFront.Linear, WaveProfile.Sine, 5, ShortSideExtent.Create(10f / ReferenceFrame.Height), ShortSideExtent.Create(120f / ReferenceFrame.Height), 5f / 35f, 1f,
-        ShortSideOffset.Neutral, ShortSideOffset.Neutral, 0f, 0f, 0f, ShortSideLength.Create(0.5f), FramePosition.Center, 0f, Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default);
+        0f, 0f, 0f, 0f, 0f, ShortSideLength.Create(0.5f), FramePosition.Center, 0f, Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default);
 
     public static Option<PixelPass> Pass(WaveWarp state, PassContext context) =>
-        (state.Horizontal, state.Vertical) == (ShortSideOffset.Neutral, ShortSideOffset.Neutral) || state is { MinAmplitude: 0f, MaxAmplitude: 0f }
-        || (state.Front.Ring.IsSome && state.Radius == ShortSideLength.Neutral)
+        (state.Horizontal, state.Vertical) == (0f, 0f) || state is { MinAmplitude: 0f, MaxAmplitude: 0f }
+        || (state.Front.Ring.IsSome && state.Radius == ShortSideLength.Zero)
             ? None
             : Some<PixelPass>(new PixelPass.Frame(new Displacement.Wave(
                 state.Front, state.Profile, state.Count, (state.MinWavelength, state.MaxWavelength), (state.MinAmplitude, state.MaxAmplitude), (state.Horizontal, state.Vertical),
@@ -86,19 +85,19 @@ public sealed record Turbulence(
     [property: Display(Name = "Noise", Description = "Displacement field basis")] NoiseBasis Basis,
     [property: Display(Name = "Size X", Description = "Horizontal noise feature size in frame short sides")][property: Range(0.01d, 2d)] ShortSideExtent ScaleX,
     [property: Display(Name = "Size Y", Description = "Vertical noise feature size in frame short sides")][property: Range(0.01d, 2d)] ShortSideExtent ScaleY,
-    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] ShortSideOffset Horizontal,
-    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] ShortSideOffset Vertical,
+    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Horizontal,
+    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Vertical,
     [property: Display(Name = "Evolution", Description = "Noise units the field evolves per second")][property: Range(-2d, 2d)] float Rate,
     [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed,
     [property: Display(Name = "Timing", Description = "Stored time and rate of recorded frame time")] Timing Timing,
     [property: Display(Name = "Hold", Description = "Seconds between pattern redraws")] Hold Hold,
     [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Turbulence> {
     public static Turbulence Default { get; } = new(
-        NoiseBasis.Default, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f), ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f), ShortSideOffset.Neutral, ShortSideOffset.Neutral, 0f,
+        NoiseBasis.Default, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f), ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f), 0f, 0f, 0f,
         Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default with { Wrap = WrapMode.Clamp });
 
     public static Option<PixelPass> Pass(Turbulence state, PassContext context) =>
-        (state.Horizontal, state.Vertical) == (ShortSideOffset.Neutral, ShortSideOffset.Neutral) ? None
+        (state.Horizontal, state.Vertical) == (0f, 0f) ? None
             : state.Basis.Sampler switch {
                 var sampler => Some<PixelPass>(new PixelPass.Frame(new Displacement.Turbulence(
                     (at, hash) => sampler(at, hash).Value, (state.ScaleX, state.ScaleY), (state.Horizontal, state.Vertical), state.Rate * state.Hold.Held(state.Timing.At(context)),
@@ -111,17 +110,17 @@ public sealed record MapDisplacement(
     [property: Display(Name = "Reading", Description = "Map values moving frame, or map coordinates the frame is sampled at when unset")] MapReading? Reading,
     [property: Display(Name = "Tile size", Description = "Map tile height in frame short sides, off stretching to fit")][property: Range(0.05d, 2d)] ShortSideExtent? TileSize,
     [property: Display(Name = "Softness", Description = "Map luma blur before moving frame")][property: Range(0.001d, 0.1d)] ShortSideExtent Softness,
-    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] ShortSideOffset Horizontal,
-    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] ShortSideOffset Vertical,
+    [property: Display(Name = "Amount X", Description = "Horizontal move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Horizontal,
+    [property: Display(Name = "Amount Y", Description = "Vertical move at full strength in frame short sides")][property: Range(-0.1d, 0.1d)] float Vertical,
     [property: Display(Name = "Rotation", Description = "Counterclockwise turn of map moves")][property: Range(-double.Pi, double.Pi)] float Rotation,
     [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<MapDisplacement> {
     public static MapDisplacement Default { get; } = new(
-        Source: null, MapReading.Gradient, TileSize: null, ShortSideExtent.Create(0.015f * ReferenceFrame.GreaterSide), ShortSideOffset.Neutral, ShortSideOffset.Neutral, 0f, Resampling.Default);
+        Source: null, MapReading.Gradient, TileSize: null, ShortSideExtent.Create(0.015f * ReferenceFrame.GreaterSide), 0f, 0f, 0f, Resampling.Default);
 
     public static Option<PixelPass> Pass(MapDisplacement state, PassContext context) =>
         Optional(state.Source).Traverse(path => context.Derivations.Derived(path, static held => ImageFile.Load(held).RunSafe())).As().Match(
             Succ: image => Optional(state.Reading).Match(
-                Some: reading => (state.Horizontal, state.Vertical) == (ShortSideOffset.Neutral, ShortSideOffset.Neutral) ? None
+                Some: reading => (state.Horizontal, state.Vertical) == (0f, 0f) ? None
                     : Some<PixelPass>(new DisplacementMap(reading, Optional(state.TileSize), state.Softness, (state.Horizontal, state.Vertical), state.Rotation)
                         .Pass(image.Map(static file => file.Frame), context.Working.Luminance, context.Exposure, state.Resampling.Sampling, state.Resampling.Wrap)),
                 None: () => image.Map(file => (PixelPass)new PixelPass.Frame(new CoordinateMap.Sampled(file.Frame, state.Resampling.Sampling, state.Resampling.Edges).Apply))),
@@ -138,7 +137,7 @@ public sealed record MapDisplacement(
 public abstract partial record RefractionTexture {
     public abstract RefractionSurface Surface(float held);
 
-    public virtual bool Rests(Refraction state) => (state.Strength, state.Blur) == (ShortSideOffset.Neutral, ShortSideLength.Neutral);
+    public virtual bool Rests(Refraction state) => (state.Strength, state.Blur) == (0f, ShortSideLength.Zero);
 
     public sealed record Raindrops(
         [property: Display(Name = "Density", Description = "Share of cells holding a raindrop")][property: Range(0d, 1d)] float Density,
@@ -184,7 +183,7 @@ public abstract partial record RefractionTexture {
 public sealed record Refraction(
     [property: Display(Name = "Texture", Description = "Surface the frame is seen through")] RefractionTexture Texture,
     [property: Display(Name = "Scale", Description = "Texture cell size in frame short sides")][property: Range(0.005d, 1d)] ShortSideExtent Scale,
-    [property: Display(Name = "Distortion", Description = "Frame bend through surface, below 0 inverting")][property: Range(-0.1d, 0.1d)] ShortSideOffset Strength,
+    [property: Display(Name = "Distortion", Description = "Frame bend through surface, below 0 inverting")][property: Range(-0.1d, 0.1d)] float Strength,
     [property: Display(Name = "Smoothness", Description = "Surface blur before slope bends frame")][property: Range(0.001d, 0.05d)] ShortSideExtent Smoothness,
     [property: Display(Name = "Blur", Description = "Frame softening through surface")][property: Range(0d, 0.05d)] ShortSideLength Blur,
     [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed,
@@ -192,13 +191,13 @@ public sealed record Refraction(
     [property: Display(Name = "Hold", Description = "Seconds between pattern redraws")] Hold Hold,
     [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<Refraction> {
     public static Refraction Default { get; } = new(
-        RefractionTexture.Raindrops.Default, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f / 3.8f), ShortSideOffset.Neutral, ShortSideExtent.Create(3f / ReferenceFrame.Height),
+        RefractionTexture.Raindrops.Default, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f / 3.8f), 0f, ShortSideExtent.Create(3f / ReferenceFrame.Height),
         ShortSideLength.Create(14.6f / ReferenceFrame.Height), Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default);
 
     public static Option<PixelPass> Pass(Refraction state, PassContext context) =>
         state.Texture.Rests(state) ? None
             : Some<PixelPass>(new RefractionField(state.Texture.Surface(state.Hold.Held(state.Timing.At(context))), state.Scale, state.Strength, state.Smoothness, state.Blur,
-                state.Seed.Field(10u, 0u)).Pass(state.Resampling.Sampling, state.Resampling.Wrap));
+                state.Seed.Field(10u, 0u)).Pass(state.Resampling.Sampling, state.Resampling.Wrap, context.Working.Luminance));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -231,7 +230,7 @@ public abstract partial record PanoramaProjection {
         [property: Display(Name = "Height", Description = "Viewing window vertical offset")][property: Range(-10d, 10d)] float Height) : PanoramaProjection {
         public static Cylindrical Default { get; } = new(float.Pi, 0f);
 
-        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Cylindrical(rendering.Extent, ViewWindow.Centered(Angle.FromRadians(Sweep), rendering.Extent).Raised(Height));
+        public override Projection Of(Projection.Rectilinear rendering) => new Projection.Cylindrical(rendering.Extent, ViewWindow.Centered((double)Sweep, rendering.Extent).Raised(Height));
     }
 
     public sealed record Fisheye([property: Display(Name = "Sweep", Description = "Angle the output spans across frame")][property: Range(0d, double.Tau)] float Sweep) : PanoramaProjection {
@@ -313,7 +312,7 @@ public sealed record Shake(
     [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed,
     [property: Display(Name = "Timing", Description = "Stored time and rate of recorded frame time")] Timing Timing,
     [property: Display(Name = "Hold", Description = "Seconds between pattern redraws")] Hold Hold) {
-    public static Shake Default { get; } = new(ShortSideLength.Neutral, ShortSideLength.Neutral, 0f, 1f, 5f, NoiseBasis.Fbm.Default.Octaves, Seed.MinValue, Timing.Default, Hold.MinValue);
+    public static Shake Default { get; } = new(ShortSideLength.Zero, ShortSideLength.Zero, 0f, 1f, 5f, NoiseBasis.Fbm.Default.Octaves, Seed.MinValue, Timing.Default, Hold.MinValue);
 
     public bool Still => (AmplitudeX, AmplitudeY, Rotation, Zoom) == (Default.AmplitudeX, Default.AmplitudeY, Default.Rotation, Default.Zoom);
 
@@ -338,28 +337,28 @@ public sealed record ShutterMotion(
 }
 
 public sealed record AffineTransform(
-    [property: Display(Name = "X", Description = "Horizontal move in frame short sides")][property: Range(-1d, 1d)] ShortSideOffset OffsetX,
-    [property: Display(Name = "Y", Description = "Downward move in frame short sides")][property: Range(-1d, 1d)] ShortSideOffset OffsetY,
+    [property: Display(Name = "X", Description = "Horizontal move in frame short sides")][property: Range(-1d, 1d)] float OffsetX,
+    [property: Display(Name = "Y", Description = "Downward move in frame short sides")][property: Range(-1d, 1d)] float OffsetY,
     [property: Display(Name = "Angle", Description = "Counterclockwise turn about pivot")][property: Range(-double.Pi, double.Pi)] float Rotation,
     [property: Display(Name = "Scale X", Description = "Horizontal scale about pivot")][property: Range(1d / 16d, 16d)] float ScaleX,
     [property: Display(Name = "Scale Y", Description = "Vertical scale about pivot")][property: Range(1d / 16d, 16d)] float ScaleY,
     [property: Display(Name = "Skew X", Description = "Horizontal shear about pivot")][property: Range(-1.2490457723982544d, 1.2490457723982544d)] float SkewX,
     [property: Display(Name = "Skew Y", Description = "Vertical shear about pivot")][property: Range(-1.2490457723982544d, 1.2490457723982544d)] float SkewY,
     [property: Display(Name = "Pivot", Description = "Point the frame turns, scales, and shears about")] FramePosition Pivot,
-    [property: Display(Name = "Travel X", Description = "Horizontal move across exposure, blurring along it")][property: Range(-1d, 1d)] ShortSideOffset TravelX,
-    [property: Display(Name = "Travel Y", Description = "Downward move across exposure, blurring along it")][property: Range(-1d, 1d)] ShortSideOffset TravelY,
+    [property: Display(Name = "Travel X", Description = "Horizontal move across exposure, blurring along it")][property: Range(-1d, 1d)] float TravelX,
+    [property: Display(Name = "Travel Y", Description = "Downward move across exposure, blurring along it")][property: Range(-1d, 1d)] float TravelY,
     [property: Display(Name = "Spin", Description = "Counterclockwise turn about pivot across exposure")][property: Range(-double.Pi, double.Pi)] float Turn,
     [property: Display(Name = "Zoom", Description = "Scale about pivot at exposure end")][property: Range(1d / 16d, 16d)] float Zoom,
     [property: Display(Name = "Exposure", Description = "Camera shake and the shutter sampling motion")] ShutterMotion Motion,
     [property: Display(Name = "Resampling", Description = "Source filter and edge extension")] Resampling Resampling) : IPixelStage<AffineTransform> {
     public static AffineTransform Default { get; } = new(
-        ShortSideOffset.Neutral, ShortSideOffset.Neutral, 0f, 1f, 1f, 0f, 0f, FramePosition.Center, ShortSideOffset.Neutral, ShortSideOffset.Neutral, 0f, 1f, ShutterMotion.Default, Resampling.Default);
+        0f, 0f, 0f, 1f, 1f, 0f, 0f, FramePosition.Center, 0f, 0f, 0f, 1f, ShutterMotion.Default, Resampling.Default);
 
     public static Option<PixelPass> Pass(AffineTransform state, PassContext context) =>
         (Pivot: state.Pivot.Point(context.Extent), Side: context.Extent.ShortSide) switch {
             var (pivot, side) => state.Motion.Path(
-                new Pose((ERational.FromSingle(state.TravelX).Multiply(side), ERational.FromSingle(state.TravelY).Multiply(side)), state.Turn, (state.Zoom, state.Zoom), (0d, 0d), pivot),
-                new Pose((ERational.FromSingle(state.OffsetX).Multiply(side), ERational.FromSingle(state.OffsetY).Multiply(side)), state.Rotation, (state.ScaleX, state.ScaleY), (state.SkewX, state.SkewY), pivot).Inverse,
+                new Pose(((double)state.TravelX * side, (double)state.TravelY * side), state.Turn, (state.Zoom, state.Zoom), (0d, 0d), pivot),
+                new Pose(((double)state.OffsetX * side, (double)state.OffsetY * side), state.Rotation, (state.ScaleX, state.ScaleY), (state.SkewX, state.SkewY), pivot).Inverse,
                 context) switch {
                     var path when (state.TravelX, state.TravelY, state.Turn, state.Zoom) != (Default.TravelX, Default.TravelY, Default.Turn, Default.Zoom) || (state.Motion.Open && !state.Motion.Shake.Still) =>
                         Some<PixelPass>(Affine.Swept(path, state.Resampling.Sampling, state.Resampling.Wrap)),
@@ -391,6 +390,6 @@ public sealed record CornerPin(
     public static Option<PixelPass> Pass(CornerPin state, PassContext context) =>
         state with { Resampling = Default.Resampling } == Default ? None
             : FrameQuad.Validated(state.TopLeft.Point(context.Extent), state.TopRight.Point(context.Extent), state.BottomRight.Point(context.Extent), state.BottomLeft.Point(context.Extent)).Match(
-                Succ: quad => Some<PixelPass>(new PixelPass.Frame(quad.Pinned(state.Resampling.Sampling, state.Resampling.Edges).Apply)),
+                Succ: quad => Some<PixelPass>(quad.Pinned(state.Resampling.Sampling, state.Resampling.Wrap)),
                 Fail: static error => Some<PixelPass>(new PixelPass.Frame((_, _) => error)));
 }

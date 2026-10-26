@@ -36,7 +36,18 @@ utils:
         kind: call
         has: {field: function, kind: attribute, has: {field: object, matches: str-text}}
         any:
-            - has: {field: function, has: {field: attribute, regex: '^r?split$'}}
+            - has: {field: function, has: {field: attribute, regex: '^(r?split|format)$'}}
+            - all:
+                - has: {field: function, all: [{has: {field: attribute, regex: '^encode$'}}, {has: {field: object, not: {regex: '[^\x00-\x7F]'}}}]}
+                - has:
+                    field: arguments
+                    not:
+                        has:
+                            pattern: $_
+                            not:
+                                any:
+                                    - {kind: string, regex: '(?i)^["'']utf-?8["'']$'}
+                                    - {kind: keyword_argument, all: [{has: {field: name, regex: '^encoding$'}}, {has: {field: value, kind: string, regex: '(?i)^["'']utf-?8["'']$'}}]}
             - all:
                 - has: {field: function, has: {field: attribute, regex: '^join$'}}
                 - has:

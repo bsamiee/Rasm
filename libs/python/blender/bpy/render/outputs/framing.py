@@ -26,10 +26,9 @@ from blender.bpy.settings.attachments import Attached, Attachment, Recovery, Sto
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import Label
 from blender.bpy.ui.surfaces.appends import Append
-from blender.imaging.geometry.regions import Region
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.imaging.geometry.frames import Region
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case, NonNegative, Positive, Side
-from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -130,7 +129,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
 
         def validated(pixels: tuple[int, int]) -> Outcome[tuple[Self, tuple[Side, Side]]]:
             if any(side < 1 for side in pixels):
-                return Error((Fault(reason=RenderingReason.EMPTY, subject=str(pixels)),))
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject=type(self).__name__, member="at least 1 pixel per side", cause=str(pixels)),))
             if not any(self.padding):
                 return Ok((self, pixels))
             grown_x, grown_y = pixels
@@ -138,7 +137,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 Ok((msgspec.structs.replace(self, resolution_x=grown_x, resolution_y=grown_y, resolution_percentage=100, extent=Whole()), pixels))
                 if low <= grown_x <= high and low <= grown_y <= high
-                else Error((Fault(reason=RenderingReason.OVERSCAN, subject=str(pixels), member=str(bounds)),))
+                else Error((Fault(reason=RecordReason.OUTSIDE, subject=type(self).__name__, member=f"{low} to {high} pixels per side with overscan", cause=str(pixels)),))
             )
 
         return validated(self.pixels())

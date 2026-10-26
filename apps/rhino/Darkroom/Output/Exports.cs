@@ -1,12 +1,9 @@
-using System.Globalization;
 using System.Numerics;
-using System.Text;
 using Darkroom.Catalog;
 using Darkroom.Chain;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Quantization;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
@@ -31,29 +28,18 @@ public sealed record LutChoice(int Size, float Low, float Span, Primaries Gamut,
             OptionSpecs.Of(nameof(Span), OptionType.Number(1d, 40d), (double)Span, span => Next(this with { Span = (float)span })),
             OptionSpecs.Of(nameof(Gamut), OptionType.List(toSeq(Primaries.Items), static primaries => primaries.Key), Gamut, gamut => Next(this with { Gamut = gamut })),
             OptionSpecs.Of(nameof(Transfer), OptionType.Text(allowEmptyString: false), Transfer.ToValue(), text =>
-                Transfer.Validate(text, CultureInfo.InvariantCulture, out Transfer? transfer) is { } fault
-                    ? IO.pure<StageStep<LutChoice, LutChoice>>(new StageStep<LutChoice, LutChoice>.Retry(fault))
-                    : Next(this with { Transfer = transfer! })),
+                Transfer.Read(text).Match(
+                    Succ: transfer => Next(this with { Transfer = transfer }),
+                    Fail: static fault => IO.pure<StageStep<LutChoice, LutChoice>>(new StageStep<LutChoice, LutChoice>.Retry(fault)))),
             OptionSpecs.Of(nameof(Format), OptionType.List(toSeq(LutFormat.Items), static format => format.Key), Format, format => Next(this with { Format = format })),
         ];
-
-    public Fin<Func<FileStream, IO<Unit>>> Encoded(LutTable table, FileMetadata metadata, string name) =>
-        toSeq(LookupLayout.Items).Find(layout => layout.Format == Format).Match(
-            Some: layout => LutFiles.Lookup(table, layout)
-                .Bind(static image => StillFormat.PngRaster.From(image, OutputDepth.UInt16, None, alpha: false))
-                .Map<Func<FileStream, IO<Unit>>>(still => stream => StillWriter.Encode(still, metadata, stream)),
-            None: () => LutFiles.Render(table, Format, name)
-                .Map<Func<FileStream, IO<Unit>>>(static text => stream => IO.liftAsync(async environment => {
-                    await stream.WriteAsync(Encoding.UTF8.GetBytes(text), environment.Token).ConfigureAwait(false);
-                    return unit;
-                })));
 
     private static IO<StageStep<LutChoice, LutChoice>> Next(LutChoice choice) => IO.pure<StageStep<LutChoice, LutChoice>>(new StageStep<LutChoice, LutChoice>.Advance(choice));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public abstract class ExportCommand(IPlugInSink sink, Guid id, string englishName) : HostCommand(sink, id, englishName, None) {
-    protected abstract IO<(string Extension, Func<FileStream, IO<Unit>> Encode)> Export(RhinoDoc doc, CallbackSite site, IPlugInViews views, PixelExtent extent);
+    protected abstract IO<(string Extension, Func<Stream, IO<Unit>> Encode)> Export(RhinoDoc doc, CallbackSite site, IPlugInViews views, PixelExtent extent);
 
     protected sealed override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
         from views in IO.lift(Conversions.Cast<IPlugInViews>(site.Sink))
@@ -68,7 +54,7 @@ public abstract class ExportCommand(IPlugInSink sink, Guid id, string englishNam
 }
 
 public sealed class LutExportCommand(IPlugInSink sink) : ExportCommand(sink, new Guid(0x09625191, 0xac85, 0x44eb, 0xa7, 0x67, 0x23, 0x07, 0x6c, 0x4c, 0x64, 0xcf), "DarkroomExportLut") {
-    protected override IO<(string Extension, Func<FileStream, IO<Unit>> Encode)> Export(RhinoDoc doc, CallbackSite site, IPlugInViews views, PixelExtent extent) =>
+    protected override IO<(string Extension, Func<Stream, IO<Unit>> Encode)> Export(RhinoDoc doc, CallbackSite site, IPlugInViews views, PixelExtent extent) =>
         DisposalOps.Within(static () => new Derivations(), derivations =>
             from state in ChainState.Read(doc)
             from colors in state.Baked(ChainScene.Unframed.Context(extent, HashMap<GuideChannel, PixelFrame>(), derivations, rendering: false, None) with { Lights = Some(new SceneLights(None, HashMap<Guid, Vector3>(), HashMap<Guid, Vector3>())) })
@@ -78,15 +64,15 @@ public sealed class LutExportCommand(IPlugInSink sink) : ExportCommand(sink, new
             }))
             from table in Getters.Await(doc, LocalName, None, _ => IO.lift(Bakes.Bake(chosen.Bake, colors, DisplayFormation.Working)))
             from metadata in SaveSource.Metadata(doc, views)
-            from encode in IO.lift(chosen.Encoded(table, metadata, LocalName))
+            from encode in IO.lift(chosen.Format.Encode(table, LocalName, metadata))
             select (chosen.Format.Extension, encode));
 }
 
 public sealed class StMapExportCommand(IPlugInSink sink) : ExportCommand(sink, new Guid(0x66a517fb, 0x68c5, 0x42c9, 0x86, 0xe4, 0x30, 0x01, 0x03, 0x63, 0xa4, 0x57), "DarkroomExportStMap") {
-    protected override IO<(string Extension, Func<FileStream, IO<Unit>> Encode)> Export(RhinoDoc doc, CallbackSite site, IPlugInViews views, PixelExtent extent) =>
+    protected override IO<(string Extension, Func<Stream, IO<Unit>> Encode)> Export(RhinoDoc doc, CallbackSite site, IPlugInViews views, PixelExtent extent) =>
         from state in ChainState.Read(doc)
         from lens in IO.lift(state.Values.Recalled(Kinds.Lens.Owner, LensDistortion.Default))
         from still in IO.lift(StillFormat.ExrRaster.From(lens.Lens.Map(lens.Wrap).Bake(extent), ExrLayout.Coordinates, alpha: true, None))
         from metadata in SaveSource.Metadata(doc, views)
-        select (StillFormat.ExrRaster.Extensions.Head, (Func<FileStream, IO<Unit>>)(stream => StillWriter.Encode(still, metadata, stream)));
+        select (StillFormat.ExrRaster.Extensions.Head, (Func<Stream, IO<Unit>>)(stream => StillWriter.Encode(still, metadata, stream)));
 }

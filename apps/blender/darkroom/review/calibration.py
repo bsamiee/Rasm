@@ -30,7 +30,6 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.editing import Chosen, inserted
-from blender.bpy.nodes.placement import NodeSpacing
 from blender.bpy.render.color.luts import Baking, extension, FORMATS, output, Writing
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.effects import Enabled, entered
@@ -54,7 +53,7 @@ from blender.imaging.color.calibration import Calibration, CalibrationFit, Chart
 from blender.imaging.color.luts import LutOutput
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
-from blender.imaging.geometry.homography import Homography, Quad
+from blender.imaging.geometry.frames import Homography, Quad
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.imaging.geometry.stmaps import StMap
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
@@ -339,11 +338,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 matrix()
                 .bind(
                     lambda group: inserted(
-                        chosen,
-                        group,
-                        call.identity,
-                        NodeSpacing(),
-                        inputs={**dict(zip(("red", "green", "blue"), map(tuple, calibration.matrix.tolist()), strict=True)), "gain": math.exp2(calibration.exposure)},
+                        chosen, group, call.identity, inputs={**dict(zip(("red", "green", "blue"), map(tuple, calibration.matrix.tolist()), strict=True)), "gain": math.exp2(calibration.exposure)}
                     )
                 )
                 .map(lambda _: Done(notes=(*self.conditioned(made[2]), ("INFO", "Inserted calibration matrix"))))

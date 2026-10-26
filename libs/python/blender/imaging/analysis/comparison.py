@@ -16,7 +16,7 @@ from skimage.metrics import structural_similarity
 
 from blender.imaging.color.processors import Domain
 from blender.imaging.faults import ImagingReason
-from blender.imaging.files.images import checked, pixels
+from blender.imaging.files.buffers import checked, pixels
 from blender.records.faults import Fault, Outcome, paired
 from blender.records.fields import Frozen
 
@@ -46,7 +46,7 @@ class Axis(IntEnum):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-HOLDS: Final[Mapping[Axis, Callable[[float, float], bool]]] = MappingProxyType({
+_HOLDS: Final[Mapping[Axis, Callable[[float, float], bool]]] = MappingProxyType({
     Axis.MEAN_ERROR: operator.le,
     Axis.RMS_ERROR: operator.le,
     Axis.MAX_ERROR: operator.le,
@@ -71,7 +71,7 @@ class Bar(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Option
             .of_optional(measures.get(self.axis))
-            .map(lambda value: Verdict.REFUSE if not HOLDS[self.axis](value, self.refuse) else Verdict.ADVISORY if not HOLDS[self.axis](value, self.advisory) else Verdict.PASS)
+            .map(lambda value: Verdict.REFUSE if not _HOLDS[self.axis](value, self.refuse) else Verdict.ADVISORY if not _HOLDS[self.axis](value, self.advisory) else Verdict.PASS)
             .default_value(Verdict.UNMEASURED)
         )
 
@@ -89,7 +89,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: Annotated[float, msgspec.Meta(gt=0.0)]) -> Outcome[Self]:
         """Compares equal-shape planes, `data_range` as SSIM input range."""
         if reference.shape != test.shape:
-            return Error((Fault(reason=ImagingReason.MISMATCH, subject="Image", member=str(reference.shape), cause=str(test.shape)),))
+            return Error((Fault(reason=ImagingReason.MISMATCH, subject=cls.__name__, member=str(reference.shape), cause=str(test.shape)),))
         first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
         result = OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)
         compared: Outcome[OpenImageIO.CompareResults] = Error((Fault(reason=ImagingReason.COMPARISON, subject=str(reference.shape), cause=OpenImageIO.geterror()),)) if result.error else Ok(result)
@@ -125,4 +125,4 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HOLDS", "Axis", "Bar", "Comparison", "Verdict"]
+__all__ = ["Axis", "Bar", "Comparison", "Verdict"]

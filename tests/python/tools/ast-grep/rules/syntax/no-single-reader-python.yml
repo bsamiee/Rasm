@@ -1,0 +1,50 @@
+id: no-single-reader-python
+valid:
+    - |
+      import host
+
+      _STYLE: Final[host.Style] = host.STYLE_LINEAR  # type: ignore[attr-defined]
+
+
+      def styled(value: float) -> host.Transform:
+          return host.Transform(_STYLE, value)
+    - |
+      _IDNAME: Final = "VIEW3D_PT_tools"
+
+
+      def placed() -> str:
+          return _IDNAME
+    - |
+      import host
+
+      _STYLE = host.STYLE_LINEAR
+
+
+      def styled(value: float) -> host.Transform:
+          return host.Transform(_STYLE, value)
+
+
+      def other(value: float) -> host.Transform:
+          return host.Transform(_STYLE, -value)
+invalid:
+    - |
+      import host
+
+      _STYLE = host.STYLE_LINEAR
+
+
+      def styled(value: float) -> host.Transform:
+          return host.Transform(_STYLE, value)
+    - |
+      _KINDS = {"a": 1, "b": 2}
+
+
+      def kind(name: str) -> int:
+          return _KINDS[name]
+    - |
+      def _doubled(value: int) -> int:
+          return value * 2
+
+
+      def total(value: int) -> int:
+          return _doubled(value) + 1

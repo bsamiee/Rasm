@@ -33,7 +33,8 @@ from blender.bpy.ui.surfaces.panels import Joined, Panel
 from blender.imaging.analysis.scopes import Bands, Chromaticity, Clipping, Histogram
 from blender.imaging.color import observer
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.images import IntegerDepth, Rounded, unassociated
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.coding import IntegerDepth, Rounded
 from blender.records.faults import Outcome, paired
 
 from ..catalog import chain
@@ -179,7 +180,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
 
         config = PyOpenColorIO.GetCurrentConfig()
-        return Chromaticity.of(config, frames.linear, frames.view, (round(plot.width), round(plot.height))).map(lambda reading: plotted(config, reading))
+        return Chromaticity.of(config, frames.linear, frames.view, (round(plot.width), round(plot.height)), extent).map(lambda reading: plotted(config, reading))
 
     # --- [REGISTRATION]
 
@@ -211,7 +212,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 lit = clipped.struct(screen)
                 return (
                     last
-                    .bind(lambda frames: frames.depth.map(lambda depth: Clipping.of(Rounded().coded(unassociated(frames.formed), depth))))
+                    .bind(lambda frames: frames.depth.map(lambda depth: Clipping.of(Rounded.coded(unassociated(frames.formed), depth))))
                     .map(lambda clip: tuple(Tint(plane=mask.astype(np.float32), color=rgba) for mask, rgba, on in ((clip.low, self.under, lit.low), (clip.high, self.over, lit.high)) if on))
                     .filter(bool)
                 )

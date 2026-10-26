@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Numerics;
+using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Pixels;
 using UnitsNet;
 using Wacton.Unicolour;
@@ -38,8 +39,6 @@ public sealed partial class ChartPatch {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColorChart {
     public const int Columns = 6;
 
@@ -88,25 +87,16 @@ public sealed partial class ColorChart {
 }
 
 [ComplexValueObject]
-public readonly partial struct PatchSample {
-    public double R { get; }
-    public double G { get; }
-    public double B { get; }
-}
-
-[ComplexValueObject]
 [ValidationError<ImagingFault>]
 public sealed partial class ChartSamples {
     public ColorChart Chart { get; }
     public Gamut Gamut { get; }
-    public HashMap<ChartPatch, PatchSample> Patches { get; }
+    public HashMap<ChartPatch, (double R, double G, double B)> Patches { get; }
 
-    internal HashMap<ChartPatch, (double R, double G, double B)> Colors => Patches.Map(static sample => (sample.R, sample.G, sample.B));
-
-    public static Fin<ChartSamples> Validated(ColorChart chart, Gamut gamut, HashMap<ChartPatch, PatchSample> patches) =>
+    public static Fin<ChartSamples> Validated(ColorChart chart, Gamut gamut, HashMap<ChartPatch, (double R, double G, double B)> patches) =>
         TryCreate(chart, gamut, patches, out ChartSamples? samples, out ImagingFault? fault) ? samples : fault;
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref ColorChart chart, ref Gamut gamut, ref HashMap<ChartPatch, PatchSample> patches) =>
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref ColorChart chart, ref Gamut gamut, ref HashMap<ChartPatch, (double R, double G, double B)> patches) =>
         validationError = patches.Count == ChartPatch.Items.Count ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"chart samples must cover all {ChartPatch.Items.Count} patches, not {patches.Count}"));
 }
@@ -150,11 +140,13 @@ public abstract partial record ChartPlacement {
                         Some(flat.Footprints.Filter(footprint => Seq(footprint.TopLeft, footprint.TopRight, footprint.BottomRight, footprint.BottomLeft)
                             .Exists(point => point.X < 0f || point.X > state.Frame.Width || point.Y < 0f || point.Y > state.Frame.Height)).Map(static footprint => footprint.Patch))
                             .Filter(static patches => !patches.IsEmpty).Map(static patches => (ChartFinding)new ChartFinding.PatchesOutside(patches)),
-                    latLong: static (state, latLong) =>
-                        from left in latLong.Quad.Homography.Apply((0d, 0.5d)).Bind(latLong.Lens.Ray)
-                        from right in latLong.Quad.Homography.Apply((1d, 0.5d)).Bind(latLong.Lens.Ray)
-                        where latLong.Field > state.Widest
-                        select (ChartFinding)new ChartFinding.WideView(latLong.Field, Between(left, right)))).Somes(),
+                    latLong: static (state, latLong) => latLong.Quad.Homography switch {
+                        var map =>
+                            from left in map.Apply((0d, 0.5d)).Bind(latLong.Lens.Ray)
+                            from right in map.Apply((1d, 0.5d)).Bind(latLong.Lens.Ray)
+                            where latLong.Field > state.Widest
+                            select (ChartFinding)new ChartFinding.WideView(latLong.Field, Between(left, right)),
+                    })).Somes(),
         };
     }
 
@@ -165,7 +157,7 @@ public abstract partial record ChartPlacement {
         int Count(double length, int cells) => int.Max(1, (int)double.Round(Footprint * length / cells, MidpointRounding.ToEven));
         static double Offset(int index, int count, double length) => (index + 0.5d - (count / 2d)) / length;
         static double Ratio(double part, double weight) => weight is 0d ? 0d : part / weight;
-        static PatchSample Mean((double R, double G, double B, double Weight) sum) => PatchSample.Create(Ratio(sum.R, sum.Weight), Ratio(sum.G, sum.Weight), Ratio(sum.B, sum.Weight));
+        static (double R, double G, double B) Mean((double R, double G, double B, double Weight) sum) => (Ratio(sum.R, sum.Weight), Ratio(sum.G, sum.Weight), Ratio(sum.B, sum.Weight));
         (Func<(double X, double Y), Option<(double X, double Y)>> image, (WrapMode Across, WrapMode Down) wrap) = ToImage(frame.Extent);
         Func<(double R, double G, double B, double Weight), (double X, double Y), (double R, double G, double B, double Weight)> add = (sum, point) =>
             frame.Sample(point, wrap, sum, static (total, texel, weight) => (total.R + (texel.X * weight), total.G + (texel.Y * weight), total.B + (texel.Z * weight), total.Weight + weight));
@@ -197,7 +189,7 @@ public abstract partial record ChartPlacement {
         from bottomLeft in map(corners.BottomLeft)
         select (topLeft, topRight, bottomRight, bottomLeft);
 
-    private Error Unaligned => Error.New($"chart alignment {Quad} fits no rectilinear view");
+    private ImagingFault Unaligned => new($"chart alignment {Quad} fits no rectilinear view");
 
     public sealed record Flat(ColorChart Chart, FrameQuad Quad, float Footprint) : ChartPlacement(Chart, Quad, Footprint) {
         public Fin<LatLong> ToLatLong(PixelExtent source) {
@@ -207,7 +199,7 @@ public abstract partial record ChartPlacement {
             static double Spread(double first, double second, double third, double fourth) =>
                 double.Max(double.Max(first, second), double.Max(third, fourth)) - double.Min(double.Min(first, second), double.Min(third, fourth));
             Projection.Equirectangular panorama = new(source);
-            Homography map = Quad.Homography;
+            Matrix<double> map = Quad.Homography;
             return
                 from keys in (from left in map.Apply((0d, 0.5d)).Bind(panorama.Ray)
                               from right in map.Apply((1d, 0.5d)).Bind(panorama.Ray)
@@ -249,7 +241,7 @@ public abstract partial record ChartPlacement {
         }
 
         internal override (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image) {
-            (Projection.Equirectangular panorama, Homography view, Quaternion turn) = (new(image), Quad.Homography, View.Rotation);
+            (Projection.Equirectangular panorama, Matrix<double> view, Quaternion turn) = (new(image), Quad.Homography, View.Rotation);
             Func<(double X, double Y), Option<(double X, double Y)>> source = frame => Lens.Reprojected(panorama, turn, frame);
             return (point => view.Apply(point).Bind(source), panorama.Wrap);
         }

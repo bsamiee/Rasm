@@ -2,7 +2,9 @@
 id: no-frame-constant-divisor
 language: python
 severity: error
-files: ['libs/python/**/imaging/**']
+files:
+    - libs/python/**/imaging/**
+    - apps/blender/**
 utils:
     frame-constant:
         kind: 'float, integer'
@@ -19,4 +21,4 @@ rule:
                 - kind: 'parenthesized_expression, binary_operator'
                   has: {stopBy: {kind: 'call, subscript'}, matches: frame-constant}
 message: '`$DIVISOR` divides by a frame size or frame rate'
-note: 'Declare defaults in field units (frame share, seconds), and the host converts with its frame size and rate'
+note: 'Declare defaults in field units (frame fraction, seconds), converted through `scene.render` frame size and rate in host code'

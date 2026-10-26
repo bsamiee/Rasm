@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Text.Json.Serialization;
 using Darkroom.Chain;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
@@ -49,6 +50,36 @@ public sealed partial class FilmicLook {
     private readonly Option<string> resource;
 
     public Option<Lut1D> Curve => resource.Map(FormationTables.Curve);
+}
+
+[SmartEnum<string>]
+public sealed partial class FilmLook {
+    public static readonly FilmLook Nostalgia = new("nostalgia", ViewTransform.FilmPrint.Default with {
+        PreExposure = 5.563035f,
+        Multiplier = ViewTransform.FilmPrint.Default.Multiplier with { Red = 1.1f, Blue = 1.2f },
+        SigmoidSpan = 33f,
+        NegativeExposure = 5.8f,
+        Backlight = new(0.99f, 1.1f, 1.035989f),
+        PrintDensity = 40f,
+        BlackPoint = -5f,
+        MidtoneSaturation = 1.1f,
+    });
+
+    public static readonly FilmLook Silver = new("silver", ViewTransform.FilmPrint.Default with {
+        PreExposure = 3.9f,
+        PreFilter = ViewTransform.FilmPrint.Default.PreFilter with { Red = 0.95f, Green = 0.975f },
+        Multiplier = ViewTransform.FilmPrint.Default.Multiplier with { Blue = 1.06f },
+        NegativeExposure = 4.7f,
+        NegativeDensity = 7f,
+        Backlight = ViewTransform.FilmPrint.Default.Backlight with { Red = 0.9992f, Green = 0.99f },
+        PrintExposure = 4.7f,
+        PrintDensity = 30f,
+        BlackPoint = 0.5f,
+        PostFilter = ViewTransform.FilmPrint.Default.PostFilter with { Blue = 0.96f },
+        MidtoneSaturation = 1f,
+    });
+
+    public ViewTransform.FilmPrint Print { get; }
 }
 
 [SmartEnum]
@@ -102,7 +133,7 @@ public sealed record CurveControls(
     [property: Display(Name = "Rotation", Description = "Rendering primary turn about white in radians")][property: Range(-0.29d, 0.29d)] Channels<float> Rotation) {
     public static CurveControls Default { get; } = new(1f, 0f, Basis: null, new(0f), new(0f));
 
-    public Action<Span<Vector4>> Applied<TCurve>(PassContext context, DisplayDevice device, TCurve curve) where TCurve : struct, IToneCurve =>
+    public Action<Span<Vector4>> Applied(PassContext context, DisplayDevice device, Func<float, float> curve) =>
         ToneCurves.Applied(context.Working, device, Optional(Basis).Map(static basis => basis.Gamut).IfNone(context.Working),
             new CurveApplication(PreserveHue, Purity, new Vector3(Inset.Red, Inset.Green, Inset.Blue), new Vector3(Rotation.Red, Rotation.Green, Rotation.Blue)), curve);
 }
@@ -139,7 +170,8 @@ public abstract partial record ViewTransform {
         public override PixelPass Formed(PassContext context, DisplayDevice device) =>
             AgXBase.For(device) switch {
                 var basis => new PixelPass.Color(AgX.Formed(
-                    context.Working, device, FormationTables.AgXLog, Optional(Look).Map(static look => look.Graded(FormationTables.AgXLog)), basis.Table, basis.Signal)),
+                    context.Working, device, FormationTables.AgXLog,
+                    Optional(Look).Map(static look => AgX.Looked(FormationTables.AgXLog, look.Graded(FormationTables.AgXLog))).IfNone([]), basis.Table, basis.Signal)),
             };
     }
 
@@ -149,14 +181,16 @@ public abstract partial record ViewTransform {
 
         public override PixelPass Formed(PassContext context, DisplayDevice device) =>
             new PixelPass.Color(FalseColor.Formed(
-                context.Working, device, FormationTables.AgXLog, Optional(Look).Map(static look => look.Graded(FormationTables.AgXLog)), AgXBase.Rec2020.Table, FormationTables.FalseColorKey));
+                context.Working, device, FormationTables.AgXLog,
+                Optional(Look).Map(static look => AgX.Looked(FormationTables.AgXLog, look.Graded(FormationTables.AgXLog))).IfNone([]), AgXBase.Rec2020.Table, FormationTables.FalseColorKey));
     }
 
     [Display(Name = "ACES 2.0")]
     public sealed record AcesOutput : ViewTransform {
         public static AcesOutput Default { get; } = new();
 
-        public override PixelPass Formed(PassContext context, DisplayDevice device) => new PixelPass.Color(Aces.Formed(context.Working, device));
+        public override PixelPass Formed(PassContext context, DisplayDevice device) =>
+            Aces.Formed(context.Working, device).Match<PixelPass>(Succ: static formed => new PixelPass.Color(formed), Fail: static fault => new PixelPass.Frame((_, _) => fault));
     }
 
     public sealed record FilmicView([property: Display(Name = "Contrast", Description = "Contrast look, log shows base log encoding")] FilmicLook Look) : ViewTransform {
@@ -189,34 +223,9 @@ public abstract partial record ViewTransform {
         : ViewTransform {
         public static FilmPrint Default { get; } = Of(FilmStock.Default);
 
-        public static FilmPrint Nostalgia { get; } = Default with {
-            PreExposure = 5.563035f,
-            Multiplier = Default.Multiplier with { Red = 1.1f, Blue = 1.2f },
-            SigmoidSpan = 33f,
-            NegativeExposure = 5.8f,
-            Backlight = new(0.99f, 1.1f, 1.035989f),
-            PrintDensity = 40f,
-            BlackPoint = -5f,
-            MidtoneSaturation = 1.1f,
-        };
-
-        public static FilmPrint Silver { get; } = Default with {
-            PreExposure = 3.9f,
-            PreFilter = Default.PreFilter with { Red = 0.95f, Green = 0.975f },
-            Multiplier = Default.Multiplier with { Blue = 1.06f },
-            NegativeExposure = 4.7f,
-            NegativeDensity = 7f,
-            Backlight = Default.Backlight with { Red = 0.9992f, Green = 0.99f },
-            PrintExposure = 4.7f,
-            PrintDensity = 30f,
-            BlackPoint = 0.5f,
-            PostFilter = Default.PostFilter with { Blue = 0.96f },
-            MidtoneSaturation = 1f,
-        };
-
         public FilmStock Stock => new(
             PreExposure, Lanes(PreFilter), Lanes(Scale), Lanes(Rotation), Lanes(Multiplier), SigmoidMinimum, SigmoidSpan, ToeX, ToeY, ShoulderReachX, ShoulderReachY,
-            NegativeExposure, NegativeDensity, Lanes(Backlight), PrintExposure, PrintDensity, Optional(BlackPoint), Lanes(PostFilter), MidtoneSaturation);
+            NegativeExposure, NegativeDensity, Lanes(Backlight), PrintExposure, PrintDensity, Lanes(PostFilter), MidtoneSaturation) { BlackPoint = Optional(BlackPoint) };
 
         public static FilmPrint Of(FilmStock stock) =>
             new(stock.PreExposure, Channeled(stock.PreFilter), Channeled(stock.Scale), Channeled(stock.Rotation), Channeled(stock.Multiplier),
@@ -248,7 +257,7 @@ public abstract partial record ViewTransform {
         public static Sigmoid Default { get; } = new(1.5f, 0f, 0.000152f, CurveControls.Default);
 
         public override PixelPass Formed(PassContext context, DisplayDevice device) =>
-            new PixelPass.Color(Controls.Applied(context, device, SigmoidCurve.Of(Contrast, Skew, Black, device.Peak)));
+            new PixelPass.Color(Controls.Applied(context, device, ToneCurves.Sigmoid(Contrast, Skew, Black, device.Peak)));
     }
 
     public sealed record HablePiecewise(
@@ -262,7 +271,7 @@ public abstract partial record ViewTransform {
         public static HablePiecewise Default { get; } = new(0.5f, 0.5f, 1f, 1f, 2f, 0.5f, CurveControls.Default);
 
         public override PixelPass Formed(PassContext context, DisplayDevice device) =>
-            new PixelPass.Color(Controls.Applied(context, device, PiecewiseCurve.Of(ToeStrength, ToeLength, ShoulderAngle, Gamma, ShoulderStrength, ShoulderLength)));
+            new PixelPass.Color(Controls.Applied(context, device, ToneCurves.Piecewise(ToeStrength, ToeLength, ShoulderAngle, Gamma, ShoulderStrength, ShoulderLength)));
     }
 
     public sealed record Logarithmic(
@@ -272,7 +281,7 @@ public abstract partial record ViewTransform {
         public static Logarithmic Default { get; } = new(0.85f, White: null, CurveControls.Default);
 
         public override PixelPass Formed(PassContext context, DisplayDevice device) =>
-            Whitened(context, White, white => Controls.Applied(context, device, LogarithmicCurve.Of(Bias, white, device.Peak)));
+            Whitened(context, White, white => Controls.Applied(context, device, ToneCurves.Logarithmic(Bias, white, device.Peak)));
     }
 
     public sealed record Photoreceptor(
@@ -333,7 +342,7 @@ public sealed record ImageFormation(
     public static Seq<(string Name, Func<ImageFormation, ImageFormation> Look)> Looks { get; } =
         toSeq(AgXLook.Items).Map(static look => Viewed($"{nameof(ViewTransform.AgXView)} {look}", new ViewTransform.AgXView(look)))
         + toSeq(FilmicLook.Items).Map(static look => Viewed($"{nameof(ViewTransform.FilmicView)} {look}", new ViewTransform.FilmicView(look)))
-        + Seq(Viewed(nameof(ViewTransform.FilmPrint.Nostalgia), ViewTransform.FilmPrint.Nostalgia), Viewed(nameof(ViewTransform.FilmPrint.Silver), ViewTransform.FilmPrint.Silver));
+        + toSeq(FilmLook.Items).Map(static look => Viewed($"{nameof(ViewTransform.FilmPrint)} {look}", look.Print));
 
     public static Option<PixelPass> Pass(ImageFormation state, PassContext context) => Some(state.View.Formed(context, state.Device));
 
@@ -367,7 +376,9 @@ public static class FormationTables {
     private static Stream Opened(string resource) => typeof(FormationTables).Assembly.GetManifestResourceStream(resource)!;
 
     private static Fin<LutTable> Parsed(string resource, LutFormat format) {
-        using StreamReader reader = new(Opened(resource));
-        return LutFiles.Parse(reader.ReadToEnd(), format);
+        using Stream stream = Opened(resource);
+        using MemoryStream bytes = new();
+        stream.CopyTo(bytes);
+        return format.Decode(bytes.ToArray());
     }
 }

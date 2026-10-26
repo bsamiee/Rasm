@@ -64,4 +64,4 @@ rule:
             - precedes: {matches: tested-exit}
             - not: {follows: {matches: tested-exit}}
 message: '`if` chain dispatches `$X` on `isinstance` tests'
-note: 'Write `match <subject>:` with `case <a>() | <b>():` per test, `case _:` holding later code except a `TypeError` raise, or `pass` for unhandled types'
+note: 'Write `match <subject>:` with `case <a>() | <b>():` per test and code after the chain under `case _:`'

@@ -300,7 +300,7 @@ public static class QueueRuns {
         from saved in IO.lift(heard.Saved.ToFin(new FrameLost((int)frame)))
         from written in new RenderWindowSource.Rendering(saved.Event.SessionId).Open(window => new SaveSource.Window(window, framing, rendered, Optional(entry.Queued.Region)) switch {
             var source => entry.Outputs.Filter(output => output.Name.Number.IfNone(FrameSpan.First) == frame)
-                .TraverseM(output => source.Write(scope.Doc, scope.Metadata, output.Target, output.Path, entry.Overwrite)).As(),
+                .TraverseM(output => output.Target.FileFormat.Write(scope.Doc, source, output.Target, scope.Metadata, output.Path, entry.Overwrite)).As(),
         })
         from closed in Documents.RunScript(scope.Doc, "_CloseRenderWindow", echo: false, display: None)
         from peak in DisposalOps.Within(Process.GetCurrentProcess, static self => IO.lift(() => self.PeakWorkingSet64))

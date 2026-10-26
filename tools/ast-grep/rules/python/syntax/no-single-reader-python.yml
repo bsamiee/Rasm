@@ -148,6 +148,7 @@ rule:
         - kind: assignment
           all:
             - has: {field: left, kind: identifier, pattern: $NAME, not: {regex: '^__\w+__$'}}
+            - not: {has: {field: type, kind: type}}
             - any:
                 - has: {field: right, matches: literal}
                 - all:
@@ -213,6 +214,6 @@ rule:
                                 - all: [{matches: mention}, {not: {inside: {stopBy: end, pattern: $READER, matches: function-owner}}}]
                                 - all: [{matches: rebinding}, {not: {inside: {kind: function_definition, pattern: $DECLARATION}}}]
 message: '`$NAME` has one reader'
-note: 'Move the declaration into its reader as a nested `def`, a `match` for a mapping of up to eight rows, an `in` set display, or an inline literal, keeping a function `functools.partial` binds at module level'
+note: 'Inline into its reader as nested `def`, `match` over eight rows or fewer, `in` set display, or literal'
 labels:
     READER: {style: secondary, message: Only reader}

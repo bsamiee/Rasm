@@ -1,19 +1,30 @@
-"""Keyed owner trees with their diffs, merges, transfers, and reverts."""
+"""Keyed owner trees with their diffs, merges, transfers, and reverts, layered layouts of linked boxes, dated histories under retention, preorder walks over any tree, and record lenses reading and rebuilding nested values."""
 
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Hashable, Iterable, Mapping
+import datetime
 from difflib import SequenceMatcher
-from typing import Self
+from functools import reduce
+from graphlib import TopologicalSorter
+from itertools import accumulate
+from operator import sub
+from types import MemberDescriptorType
+from typing import Annotated, Self
 
 from expression import Nothing, Option, Some
+from expression.collections import Block
 import msgspec
+
+from blender.records.fields import NonNegative, Side
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Edit[V] = Inserted[V] | Deleted[V] | Moved | Reparametrized[V]
+type Lens = tuple[MemberDescriptorType | int, ...]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
+# --- [TREES]
 
 
 class Owner[V](msgspec.Struct, frozen=True, kw_only=True):
@@ -23,7 +34,7 @@ class Owner[V](msgspec.Struct, frozen=True, kw_only=True):
     children: tuple[str, ...] = ()
 
 
-class Place(msgspec.Struct, frozen=True, kw_only=True):
+class _Place(msgspec.Struct, frozen=True, kw_only=True):
     """Sibling index under parent or among roots."""
 
     parent: Option[str]
@@ -60,33 +71,33 @@ class Tree[V](msgspec.Struct, frozen=True, kw_only=True):
         """Returns ordered child keys under parent, roots for Nothing."""
         return parent.map(lambda key: self.owners[key].children).default_value(self.roots)
 
-    def places(self) -> dict[str, Place]:
+    def places(self) -> dict[str, _Place]:
         """Returns place per owner."""
-        return {key: Place(parent=parent, index=index) for parent in (Nothing, *map(Some, self.owners)) for index, key in enumerate(self.children(parent))}
+        return {key: _Place(parent=parent, index=index) for parent in (Nothing, *map(Some, self.owners)) for index, key in enumerate(self.children(parent))}
 
 
-class Inserted[V](msgspec.Struct, frozen=True, kw_only=True):
+class _Placed[V](msgspec.Struct, frozen=True, kw_only=True):
+    """Owner with values at place."""
+
+    key: str
+    place: _Place
+    values: Mapping[str, V]
+
+
+class Inserted[V](_Placed[V], frozen=True, kw_only=True):
     """Owner entering tree at place."""
 
-    key: str
-    place: Place
-    values: Mapping[str, V]
 
-
-class Deleted[V](msgspec.Struct, frozen=True, kw_only=True):
+class Deleted[V](_Placed[V], frozen=True, kw_only=True):
     """Owner leaving tree from place."""
-
-    key: str
-    place: Place
-    values: Mapping[str, V]
 
 
 class Moved(msgspec.Struct, frozen=True, kw_only=True):
     """Owner changing parent or sibling position."""
 
     key: str
-    before: Place
-    after: Place
+    before: _Place
+    after: _Place
 
 
 class Reparametrized[V](msgspec.Struct, frozen=True, kw_only=True):
@@ -105,7 +116,98 @@ class Reparametrized[V](msgspec.Struct, frozen=True, kw_only=True):
         return Some(cls(key=key, before=old, after=new)) if old or new else Nothing
 
 
+# --- [LAYOUTS]
+
+
+class Size(msgspec.Struct, frozen=True, kw_only=True):
+    """Drawn box size in layout units."""
+
+    width: NonNegative
+    height: NonNegative
+
+
+class Gaps(msgspec.Struct, frozen=True, kw_only=True):
+    """Layout gaps between columns, between rows, and between bands."""
+
+    across: NonNegative = 80.0
+    down: NonNegative = 20.0
+    band: NonNegative = 60.0
+
+    def arranged[K: Hashable](
+        self, sizes: Mapping[K, Size], links: tuple[tuple[K, int, K], ...], bands: Mapping[K, Option[K]], origin: Callable[[K], tuple[float, float]]
+    ) -> dict[K, tuple[float, float]]:
+        """Returns the top left corner per box, columns by depth over acyclic (source, slot, target) links, rows by source slot order, one band's boxes stacked together, growing right and down from the first box's origin."""
+        if not sizes:
+            return {}
+        feeds = {key: tuple((source, slot) for source, slot, target in links if target == key) for key in sizes}
+        order = tuple(TopologicalSorter({key: tuple(source for source, _ in fed) for key, fed in feeds.items()}).static_order())
+        position = {key: index for index, key in enumerate(order)}
+        column: dict[K, int] = reduce(lambda held, key: held | {key: max((held[source] + 1 for source, _ in feeds[key]), default=0)}, order, {})
+        rank = {key: min(((position[source], slot) for source, slot in feeds[key]), default=(position[key], -1)) for key in order}
+        banded, depths = tuple(dict.fromkeys(bands[key] for key in order)), range(max(column.values()) + 1)
+        cells = {(band, depth): sorted((key for key in order if (bands[key], column[key]) == (band, depth)), key=rank.__getitem__) for band in banded for depth in depths}
+        left, top = origin(order[0])
+        lefts = tuple(accumulate((max(sizes[key].width for key in order if column[key] == depth) + self.across for depth in depths), initial=left))
+        stacks = {cell: sum(sizes[key].height for key in keys) + self.down * (len(keys) - 1) if keys else 0.0 for cell, keys in cells.items()}
+        tops = dict(zip(banded, accumulate((max(stacks[band, depth] for depth in depths) + self.band for band in banded), sub, initial=top)))
+        return {key: (lefts[depth], y) for (band, depth), keys in cells.items() for key, y in zip(keys, accumulate((sizes[key].height + self.down for key in keys), sub, initial=tops[band]))}
+
+
+# --- [HISTORY]
+
+
+class Retention(msgspec.Struct, frozen=True, kw_only=True):
+    """History capacity in entries and merge interval in seconds."""
+
+    capacity: Side = 10
+    interval: NonNegative = 5.0
+
+
+class Dated[T](msgspec.Struct, frozen=True, kw_only=True):
+    """Value with the moment it entered a history."""
+
+    moment: Annotated[datetime.datetime, msgspec.Meta(tz=True)]
+    value: T
+
+
+class History[T](msgspec.Struct, frozen=True, kw_only=True):
+    """Past and future entries nearest first."""
+
+    past: tuple[Dated[T], ...] = ()
+    future: tuple[Dated[T], ...] = ()
+
+    def add(self, entry: Dated[T], retention: Retention) -> Self:
+        """Adds entry as the nearest past and drops the future, an entry within the merge interval of the nearest past merging into it, a held value leaving its place."""
+        held = tuple(present for present in self.past if present.value != entry.value)
+        match held:
+            case (head, *rest) if not self.future and 0 <= (entry.moment - head.moment).total_seconds() < retention.interval:
+                past = (msgspec.structs.replace(head, moment=entry.moment), *rest)
+            case _:
+                past = (entry, *held)
+        return type(self)(past=past[: retention.capacity])
+
+    def at(self, offset: int) -> Option[Dated[T]]:
+        """Returns the entry at a signed one-based offset, past for positive and future for negative, `Nothing` at zero or past either end."""
+        source, distance = self.past if offset > 0 else self.future, abs(offset)
+        return Some(source[distance - 1]) if 0 < distance <= len(source) else Nothing
+
+    def step(self, offset: int, current: Dated[T], retention: Retention) -> Option[tuple[T, "History[T]", "History[T]"]]:
+        """Returns the value at a signed one-based offset, the history arrived there with current and the entries passed held across from it, and the history a refused write leaves with both branches kept and current nearest across."""
+        distance = abs(offset)
+        source, other = (self.past, self.future) if offset > 0 else (self.future, self.past)
+
+        def oriented(near: tuple[Dated[T], ...], far: tuple[Dated[T], ...]) -> "History[T]":
+            return type(self)(past=near, future=far[: retention.capacity]) if offset > 0 else type(self)(past=far[: retention.capacity], future=near)
+
+        return self.at(offset).map(lambda entry: (entry.value, oriented(source[distance:], (*reversed(source[: distance - 1]), current, *other)), oriented(source, (current, *other))))
+
+    def remove(self, value: T) -> Self:
+        """Removes the entries holding value."""
+        return type(self)(past=tuple(entry for entry in self.past if entry.value != value), future=tuple(entry for entry in self.future if entry.value != value))
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [TREES]
 
 
 def diff[V](before: Tree[V], after: Tree[V]) -> tuple[Edit[V], ...]:
@@ -125,7 +227,7 @@ def merge[V](state: Tree[V], edits: Iterable[Edit[V]]) -> Tree[V]:
     """Applies edits drawn against state."""
     values = {key: owner.values for key, owner in state.owners.items()}
     lifted: set[str] = set()
-    entering: list[tuple[Place, str]] = []
+    entering: list[tuple[_Place, str]] = []
     for edit in edits:
         match edit:
             case Inserted(key=key, place=place, values=inserted):
@@ -163,6 +265,65 @@ def revert[V](current: Tree[V], applied: Iterable[Reparametrized[V]]) -> tuple[R
     )
 
 
+# --- [WALKS]
+
+
+def preorder[T](seed: T, children: Callable[[T], Iterable[T]]) -> Block[T]:
+    """Returns seed and every node children reach from it, depth first in child order."""
+    frontier: tuple[T, ...] = (seed,)
+    return Block.unfold(lambda pending: Some((pending[0], (*children(pending[0]), *pending[1:]))) if pending else Nothing, frontier)
+
+
+# --- [PATHS]
+
+
+def _walked(value: object, lens: Lens) -> Option[tuple[object, Callable[[object], object]]]:
+    match lens, value:
+        case (), _:
+            return Some((value, lambda new: new))
+        case (MemberDescriptorType() as field, *rest), msgspec.Struct() if isinstance(value, field.__objclass__):
+            return _walked(field.__get__(value), tuple(rest)).map(lambda found: (found[0], lambda new: msgspec.structs.replace(value, **{field.__name__: found[1](new)})))
+        case (int(index), *rest), tuple() if 0 <= index < len(value):
+            return _walked(value[index], tuple(rest)).map(lambda found: (found[0], lambda new: (*value[:index], found[1](new), *value[index + 1 :])))
+        case _:
+            return Nothing
+
+
+def focused(value: object, lens: Lens) -> Option[object]:
+    """Returns the value a lens of struct fields and 0-based tuple indexes reaches, `Nothing` where a field's struct misses the held value or an index falls outside its tuple."""
+    return _walked(value, lens).map(lambda found: found[0])
+
+
+def amended[T: msgspec.Struct](record: T, lens: Lens, change: Callable[[object], object]) -> Option[T]:
+    """Returns record with the value a lens opening at one of its fields reaches replaced by its change, every enclosing struct and tuple rebuilt, `Nothing` where the lens reaches nothing."""
+    match lens:
+        case (MemberDescriptorType() as field, *rest) if isinstance(record, field.__objclass__):
+            return _walked(field.__get__(record), tuple(rest)).map(lambda found: msgspec.structs.replace(record, **{field.__name__: found[1](change(found[0]))}))
+        case _:
+            return Nothing
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Deleted", "Edit", "Inserted", "Moved", "Owner", "Place", "Reparametrized", "Tree", "diff", "merge", "revert", "transfer"]
+__all__ = [
+    "Dated",
+    "Deleted",
+    "Edit",
+    "Gaps",
+    "History",
+    "Inserted",
+    "Lens",
+    "Moved",
+    "Owner",
+    "Reparametrized",
+    "Retention",
+    "Size",
+    "Tree",
+    "amended",
+    "diff",
+    "focused",
+    "merge",
+    "preorder",
+    "revert",
+    "transfer",
+]

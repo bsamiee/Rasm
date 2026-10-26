@@ -3,9 +3,8 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
 public sealed partial class LetteringForm {
     public static readonly LetteringForm TypeA = new("type-a", divisor: 14, xHeight: 10, pitch: 21);
     public static readonly LetteringForm TypeB = new("type-b", divisor: 10, xHeight: 7, pitch: 15);
@@ -17,8 +16,7 @@ public sealed partial class LetteringForm {
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LetteringStandard {
-    public static readonly LetteringStandard Iso3098 = new(zoneHeight: Length.FromMillimeters(3.5m),
-        height: static size => size.Sides.Long <= SheetSize.A2.Sides.Long ? Length.FromMillimeters(2.5m) : Length.FromMillimeters(3.5m));
+    public static readonly LetteringStandard Iso3098 = new(zoneHeight: Length.FromMillimeters(3.5m), height: static size => size.Sides.Long <= SheetSize.A2.Sides.Long ? Length.FromMillimeters(2.5m) : Length.FromMillimeters(3.5m));
     public static readonly LetteringStandard AsmeY142 = new(zoneHeight: Length.FromInches(0.24m), height: static _ => Length.FromInches(0.12m));
 
     public Length ZoneHeight { get; }
@@ -27,9 +25,8 @@ public sealed partial class LetteringStandard {
     public partial Length Height(SheetSize size);
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
 public sealed partial class Terminator {
     public static readonly Terminator ClosedArrow = new("closed-arrow", proportion: 1);
     public static readonly Terminator OpenArrow = new("open-arrow", proportion: 1);
@@ -46,24 +43,16 @@ public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator
     public Length BaselineSpacing => Stroke * Form.Pitch;
     public QuantityValue LineSpaceScale => QuantityValue.FromTerms(Form.Pitch, Form.Divisor);
     public QuantityValue StackHeightScale => QuantityValue.FromTerms(Form.XHeight, Form.Divisor);
+    public Length Resolution => Scale.ToModel(Stroke);
 
     private Length Stroke => TextHeight / Form.Divisor;
 
     // --- [DIMENSIONING]
-    public Length MaskOffset => SymbolLineWidth * Size.Convention.Dimensioning.Mask;
+    public Length MaskOffset => SymbolLineWidth * 2;
     public Length ArrowLength => TextHeight * Terminator.Proportion;
-    public Length ExtensionLineOffset => SymbolLineWidth * Size.Convention.Dimensioning.Offset;
-    public Length ExtensionLineExtension => SymbolLineWidth * Size.Convention.Dimensioning.Extension;
-    public Length LeaderLandingLength => SymbolLineWidth * Size.Convention.Dimensioning.Landing;
+    public Length ExtensionLineOffset => SymbolLineWidth * 8;
+    public Length ExtensionLineExtension => SymbolLineWidth * 8;
+    public Length LeaderLandingLength => SymbolLineWidth * 20;
 
     private Length SymbolLineWidth => TextHeight / 10;
-
-    // --- [RESOLUTION]
-    public int LengthResolution => Places(Length.FromInches(1), radix: 2);
-    public int AlternateLengthResolution => Places(Length.FromMillimeters(1), radix: 10);
-
-    private int Places(Length extent, int radix) {
-        Length quantum = Scale.ToModel(Stroke);
-        return LanguageExt.List.unfold(extent, place => place > quantum ? Some((place, place / radix)) : None).Count();
-    }
 }

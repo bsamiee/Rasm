@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using Rasm.Imaging.Color.Calibration;
@@ -28,8 +29,8 @@ public abstract partial record LatticeInput {
     }
 
     public sealed record Rational(Gamut Space) : LatticeInput {
-        private static readonly LogCurve Lifted = new(2f, Vector3.One, Vector3.Zero, Vector3.One, Vector3.One, None);
-        private static readonly LogCurve Folded = new(2f, -Vector3.One, Vector3.Zero, -Vector3.One, Vector3.One, None);
+        private static readonly LogCurve Lifted = new(2f, Vector3.One, Vector3.Zero, Vector3.One, Vector3.One);
+        private static readonly LogCurve Folded = new(2f, -Vector3.One, Vector3.Zero, -Vector3.One, Vector3.One);
         private static readonly (LutTable Head, LutTable Decode) Spacing = (
             new LutTable.Sequence([new LutTable.Log(Lifted), new LutTable.Antilog(Folded)]),
             new LutTable.Sequence([
@@ -50,14 +51,14 @@ public sealed record LutBake(int Size, LatticeInput Input, ColorEncoding Output)
         new ColorEncoding(Gamut.StandardRgb, new Transfer.Linear()));
 }
 
-file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Memory<float> samples) : IAction {
-    public void Invoke(int i) {
+file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Memory<float> samples) : IAction2D {
+    public void Invoke(int i, int j) {
         using SpanOwner<Vector4> nodes = SpanOwner<Vector4>.Allocate(edge);
         Span<Vector4> row = nodes.Span;
-        for (int red = 0; red < edge; red++) row[red] = new Vector4(red, i % edge, i / edge, edge - 1) / (edge - 1);
+        for (int red = 0; red < edge; red++) row[red] = new Vector4(red, j, i, edge - 1) / (edge - 1);
         foreach (Action<Span<Vector4>> step in steps) step(row);
-        Span<Vector3> written = MemoryMarshal.Cast<float, Vector3>(samples.Span).Slice(edge * i, edge);
-        for (int red = 0; red < edge; red++) written[red] = row[red].AsVector3();
+        MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(edge, 4).Slice(0, 0, edge, 3)
+            .CopyTo(samples.Span.AsSpan2D(edge * edge, 3 * edge).GetRowSpan((edge * i) + j));
     }
 }
 
@@ -86,7 +87,7 @@ public static class Bakes {
 
     internal static Fin<Lut3D> Lattice(int size, Seq<Action<Span<Vector4>>> steps) {
         using MemoryOwner<float> samples = MemoryOwner<float>.Allocate(3 * size * size * size);
-        ParallelHelper.For(0, size * size, new LatticeRows(size, steps, samples.Memory));
+        ParallelHelper.For2D(..size, ..size, new LatticeRows(size, steps, samples.Memory));
         return Lut3D.From(size, samples.Memory, Vector3.Zero, Vector3.One);
     }
 }

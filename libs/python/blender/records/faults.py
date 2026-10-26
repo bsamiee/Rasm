@@ -18,7 +18,7 @@ type Outcome[T] = Result[T, Faults]
 class RecordReason(StrEnum):
     """Numeric, file, and domain refusals, each value the report template of its fault."""
 
-    NUMERIC = "Numeric operation for {subject} failed. {cause!r}"
+    NUMERIC = "Numeric operation for {subject} failed. {cause}"
     UNREADABLE = "{subject} is unreadable. {cause}"
     UNWRITABLE = "{subject} is unwritable. {cause}"
     OUTSIDE = "{subject} accepts {member}, not {cause}"
@@ -47,8 +47,8 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
 def accumulated[T](results: Iterable[Outcome[T]]) -> Outcome[tuple[T, ...]]:
     """Combines results, keeping every fault in input order."""
     block: Block[Outcome[T]] = Block.of_seq(results)
-    faults: tuple[Fault, ...] = tuple(chain.from_iterable(block.choose(lambda result: result.swap().to_option())))
-    return Error((faults[0], *faults[1:])) if faults else Ok(tuple(block.choose(lambda result: result.to_option())))
+    faults: tuple[Fault, ...] = tuple(chain.from_iterable(block.map(Result.swap).choose(Result.to_option)))
+    return Error((faults[0], *faults[1:])) if faults else Ok(tuple(block.choose(Result.to_option)))
 
 
 @overload

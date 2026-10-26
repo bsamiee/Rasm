@@ -10,7 +10,7 @@ rule:
             all:
                 - has: {field: left, matches: local-name}
                 - has: {field: type, pattern: $T, not: {has: {kind: comment, stopBy: end}}}
-                - has: {field: right, pattern: $V, any: [{kind: yield, pattern: $YIELD}, {not: {kind: yield}}]}
+                - has: {field: right, pattern: $V, matches: typed-value}
         - precedes: {matches: local-return, stopBy: {not: {regex: '^;$'}}}
         - inside:
             kind: function_definition
@@ -22,6 +22,8 @@ rule:
                 stopBy: {kind: function_definition}
                 has: {kind: finally_clause, has: {stopBy: end, matches: local-read}}
 utils:
+    typed-value:
+        kind: 'string, concatenated_string, integer, float, true, false, none, list, tuple, set, dictionary, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, lambda, not_operator'
     local-name:
         any:
             - {kind: identifier, pattern: $N}
@@ -35,11 +37,8 @@ utils:
         kind: identifier
         pattern: $N
         not: {any: [{inside: {kind: attribute, field: attribute}}, {inside: {kind: keyword_argument, field: name}}]}
-transform:
-    OPEN: {replace: {source: $YIELD, replace: '(?s)^.+$', by: '('}}
-    CLOSE: {replace: {source: $YIELD, replace: '(?s)^.+$', by: ')'}}
 fix:
-    template: return $OPEN$V$CLOSE
+    template: return $V
     expandEnd: {matches: local-return, stopBy: {not: {regex: '^;$'}}}
 message: 'Local `$N` annotated `$T` serves only the `return` after it'
-note: 'Return `<value>` directly, through `msgspec.convert(<value>, <type>)` when the callee returns an untyped value'
+note: 'Return `<value>` directly, typed by its function''s return annotation'

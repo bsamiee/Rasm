@@ -1,8 +1,8 @@
 """RGB and HSY grading curves of OCIO's linear curve grades, sampled into compositor curve tables beside native curve editors, with knots inserted from covered frames."""
 
 from bisect import bisect_left
-from collections.abc import Mapping
-from typing import Annotated, ClassVar, Final
+from collections.abc import Callable, Mapping
+from typing import Annotated, Any, ClassVar, Final
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -24,7 +24,8 @@ from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Named
 from blender.bpy.render.compositor.tables import curved
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.color.processors import converted, lin_to_log, luma
-from blender.imaging.files.images import ImageFile, unassociated
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.images import ImageFile
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Knot
 
@@ -44,7 +45,11 @@ type Knots = tuple[Knot[float, float], ...]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NEUTRAL_RGB: Final = PyOpenColorIO.GradingRGBCurve(PyOpenColorIO.GRADING_LIN)
-_NEUTRAL_HUE: Final = PyOpenColorIO.GradingHueCurve(PyOpenColorIO.GRADING_LIN)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_HUE_CURVE: Final[type[Any]] = PyOpenColorIO.GradingHueCurve  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_HUE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SPLINE_OF: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], Any]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SPLINE_SET: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, Any], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_NEUTRAL_HUE: Final = _HUE_CURVE(PyOpenColorIO.GRADING_LIN)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -132,7 +137,7 @@ class HueCurves(Effect, frozen=True, kw_only=True):
         if any(len({knot.x for knot in held}) != len(held) for held in self.curves):
             raise ValueError(f"{type(self).__name__} curves hold one knot per input")
         try:
-            self.values.validate()
+            self.grade.validate()
         except PyOpenColorIO.Exception as error:
             raise ValueError(str(error)) from error
 
@@ -142,22 +147,22 @@ class HueCurves(Effect, frozen=True, kw_only=True):
         kinds = (_NEUTRAL_HUE.hue_hue, _NEUTRAL_HUE.hue_sat, _NEUTRAL_HUE.hue_lum, _NEUTRAL_HUE.lum_sat, _NEUTRAL_HUE.sat_sat, _NEUTRAL_HUE.lum_lum, _NEUTRAL_HUE.sat_lum)
         splines = tuple(map(spline, self.curves))
         for held, kind in zip(splines, kinds):
-            held.setSplineType(kind.getSplineType())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            _SPLINE_SET(held, _SPLINE_OF(kind))
         return splines
 
     @property
-    def values(self) -> PyOpenColorIO.GradingHueCurve:  # type: ignore[name-defined]  # ty: ignore[unresolved-attribute]
-        """Native hue curve grade, hue folding at the neutral grade's own."""
-        return PyOpenColorIO.GradingHueCurve(*self.splines, _NEUTRAL_HUE.hue_fx)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    def grade(self) -> PyOpenColorIO.Transform:
+        """Native linear hue curve grade, hue folding at the neutral grade's own."""
+        return _HUE_TRANSFORM(values=_HUE_CURVE(*self.splines, _NEUTRAL_HUE.hue_fx), style=PyOpenColorIO.GRADING_LIN)
 
     @staticmethod
     def alone(curve: PyOpenColorIO.GradingBSplineCurve) -> PyOpenColorIO.Transform:
         """Hue grade drawing the spline alone, held in a slot retyped to the spline's kind."""
-        grade = PyOpenColorIO.GradingHueCurve(PyOpenColorIO.GRADING_LIN)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        grade.hue_sat.setSplineType(curve.getSplineType())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        grade = _HUE_CURVE(PyOpenColorIO.GRADING_LIN)
+        _SPLINE_SET(grade.hue_sat, _SPLINE_OF(curve))
         grade.hue_sat = curve
         grade.setDrawCurveOnly(True)
-        return PyOpenColorIO.GradingHueCurveTransform(values=grade, style=PyOpenColorIO.GRADING_LIN)  # type: ignore[attr-defined, no-any-return]  # ty: ignore[unresolved-attribute]
+        return _HUE_TRANSFORM(values=grade, style=PyOpenColorIO.GRADING_LIN)
 
     def located(self, _config: PyOpenColorIO.Config, mean: npt.NDArray[np.float32], held: Mapping[Key, Points]) -> Outcome[dict[Key, float]]:
         """Hue inputs at the mean's hue, luma inputs at its luma stops, saturation input at its saturation, and the luma-gain input at the saturation the grade outputs."""
@@ -274,7 +279,7 @@ def _(record: Curves, _values: Mapping[Key, Value], _config: PyOpenColorIO.Confi
 @transform.register
 def _(record: HueCurves, _values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
     """Returns OCIO's linear hue curve grade."""
-    return Ok(Some(PyOpenColorIO.GradingHueCurveTransform(values=record.values, style=PyOpenColorIO.GRADING_LIN)))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    return Ok(Some(record.grade))
 
 
 # --- [GRAPHS]

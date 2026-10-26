@@ -47,7 +47,6 @@ from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import Ambient, Fitted, Lamp, Lighting, PreviewMesh, PreviewScene, Readback, Staging, Studio, White
 from blender.bpy.scene.materials import Clay, shaded
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.settings.history import Retention
 from blender.bpy.settings.presets import removed
 from blender.bpy.ui.drawing.canvas import Align, Canvas, Rect, Shadow
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Signal
@@ -59,9 +58,12 @@ from blender.bpy.ui.resources.theme import color, Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.surfaces.appends import Append
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.images import Depth, Format, ImageFile, read_file, Rounded, Storage, unassociated
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.coding import Depth, Rounded
+from blender.imaging.files.images import Format, ImageFile, read_file, Storage
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.identity import content_hash, ContentHash
+from blender.records.trees import Retention
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -612,24 +614,17 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
         state, folder, limit = NODE_STATES.of(identity), identity.folder / NodePreview.key, settings.display.limit
 
         def pruned() -> Outcome[None]:
-            files: Outcome[tuple[Path, ...]] = catch(lambda: tuple(sorted(folder.glob("*.exr"), key=lambda path: path.stat().st_mtime)), exception=OSError)().map_error(
+            files: Outcome[list[Path]] = catch(sorted, exception=OSError)(folder.glob("*.exr"), key=lambda path: path.stat().st_mtime).map_error(
                 lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(folder), cause=error),)
             )
-            return Result[tuple[Path, ...], Faults].bind(files, lambda found: accumulated(removed(path) for path in found[:-limit])).map(lambda _: None)
+            return Result[list[Path], Faults].bind(files, lambda found: accumulated(removed(path) for path in found[:-limit])).map(lambda _: None)
 
         def stored(readback: Readback, config: PyOpenColorIO.Config, name: str, space: str) -> Outcome[None]:
             number = readback.values.bind(value)
 
             def written_file(digest: ContentHash) -> Outcome[None]:
-                directory = catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map_error(
-                    lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(folder), cause=error),)
-                )
                 fields = number.map(lambda held_value: {name: msgspec.json.encode(held_value).decode()}).default_value({})
-                return (
-                    Result[None, Faults]
-                    .bind(directory, lambda _: ImageFile(pixels=readback.plane, colorspace=space).write(str(folder / f"{digest.hex()}.exr"), Storage(depth=16), fields, config))
-                    .bind(lambda _: pruned())
-                )
+                return ImageFile(pixels=readback.plane, colorspace=space).write(str(folder / f"{digest.hex()}.exr"), Storage(depth=16), fields, config).bind(lambda _: pruned())
 
             def saved(_texture: gpu.types.GPUTexture) -> Outcome[None]:
                 for held_value in number.to_list():
@@ -713,7 +708,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True):
                             TEXTURES
                             .of(identity)
                             .stored(key, image.pixels, limit, kept)
-                            .bind(lambda _: catch(lambda: os.utime(path), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)))
+                            .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)))
                             .map(recorded)
                         )
                     case _:

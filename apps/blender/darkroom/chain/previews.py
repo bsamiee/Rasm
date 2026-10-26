@@ -37,7 +37,7 @@ from blender.bpy.render.previews.scenes import Lighting, Mirrored, PreviewScene,
 from blender.bpy.ui.layout.rows import Line, RowDraw
 from blender.bpy.ui.resources.previews import PreviewKey, PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics
-from blender.imaging.files.images import checked, pixels
+from blender.imaging.files.buffers import checked, pixels
 from blender.records.faults import accumulated, Outcome, paired
 from blender.records.identity import content_hash, ContentHash
 

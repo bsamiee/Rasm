@@ -1,0 +1,32 @@
+id: no-exists-check-before-file-operation-python
+valid:
+    - |
+      import os.path
+
+      if os.path.exists(path):
+          text = open(path).read()
+    - |
+      text = catch(path.read_text, exception=OSError)()
+    - |
+      if path.exists():
+          log(path)
+invalid:
+    - |
+      if path.exists():
+          text = path.read_text()
+    - |
+      text = path.read_bytes() if path.is_file() else b""
+    - |
+      if not path.exists():
+          return None
+      data = path.read_bytes()
+    - |
+      import os.path
+
+      if os.path.lexists(link):
+          os.unlink(link)
+    - |
+      import os
+
+      if os.access(path, os.R_OK):
+          handle = open(path)

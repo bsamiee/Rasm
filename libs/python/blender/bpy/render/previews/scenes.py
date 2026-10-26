@@ -3,7 +3,6 @@
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from enum import auto, Enum, IntEnum
-from functools import partial
 import math
 from pathlib import Path
 from types import MappingProxyType
@@ -483,7 +482,7 @@ def unlinked(paths: Mapping[str, Path]) -> Outcome[None]:
     """Deletes capture files a render writes, absent ones included."""
 
     def unlink(path: Path) -> Outcome[None]:
-        return catch(partial(path.unlink, missing_ok=True), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
+        return catch(path.unlink, exception=OSError)(missing_ok=True).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
 
     return accumulated(map(unlink, paths.values())).map(lambda _: None)
 

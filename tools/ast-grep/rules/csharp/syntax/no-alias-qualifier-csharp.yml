@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-alias-qualifier-csharp
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    project-root:
+        kind: identifier
+        regex: '^Rasm$'
+    declaration-scope:
+        inside: {kind: 'using_directive, namespace_declaration, file_scoped_namespace_declaration', stopBy: {kind: 'using_directive, namespace_declaration, file_scoped_namespace_declaration, compilation_unit, declaration_list'}}
+rule:
+    any:
+        - kind: using_directive
+          has: {field: name, kind: identifier, pattern: $NAME}
+        - kind: alias_qualified_name
+          pattern: $NAME
+          has: {field: alias, regex: '^global$'}
+          not: {matches: declaration-scope}
+        - kind: qualified_name
+          pattern: $NAME
+          has: {field: qualifier, matches: project-root}
+          not: {matches: declaration-scope}
+        - kind: member_access_expression
+          pattern: $NAME
+          has: {field: expression, matches: project-root}
+message: '`$NAME` works around a name clash through an alias or namespace qualifier'
+note: 'Rename the clashing project declaration and import its namespace with `using`, a clash between two packages takes its namespace qualifier'

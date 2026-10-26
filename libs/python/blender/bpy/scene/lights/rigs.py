@@ -32,7 +32,6 @@ from blender.bpy.scene.lights.linking import LINK_STATE, linked, RECEIVERS
 from blender.bpy.scene.objects import descendants, extent, focused, ObjectState, reconciled, spawned, StackEntry, WorldBounds
 from blender.bpy.scene.worlds import reverted, swapped
 from blender.bpy.settings.attachments import Attached, Attachment, reconciling, Stored
-from blender.bpy.settings.history import Retention
 from blender.bpy.ui.layout.rows import DataBlocks, Member, OperatorButton, PreviewGrid, Selector
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
@@ -41,6 +40,7 @@ from blender.imaging.analysis.lighting import Lighting, LightingReading
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Positive
 from blender.records.identity import content_hash
+from blender.records.trees import Retention
 from blender.rendering.lighting.references import ReferenceDistribution, ReferenceImage
 from blender.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Rig, rig_catalog, Spot, Sun
 

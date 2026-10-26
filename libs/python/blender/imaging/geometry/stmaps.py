@@ -10,7 +10,7 @@ import numpy.typing as npt
 import OpenImageIO
 from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 
-from blender.imaging.files.images import checked, pixels
+from blender.imaging.files.buffers import checked, pixels
 from blender.imaging.sampling.integration import Raster
 from blender.records.faults import Outcome, paired
 from blender.records.fields import Positive

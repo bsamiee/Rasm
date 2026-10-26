@@ -1,0 +1,55 @@
+id: no-closure-returning-closure
+valid:
+    - |
+      def made(a):
+          def inner(b):
+              return a + b
+          return inner
+    - |
+      import functools
+      def retry(count):
+          def decorator(function):
+              @functools.wraps(function)
+              def wrapper(*arguments):
+                  return function(*arguments)
+              return wrapper
+          return decorator
+    - |
+      from expression.extra.result import catch
+      def outer(folder):
+          def placed(_):
+              @catch(exception=OSError)
+              def made(path):
+                  return path
+              return made(folder)
+          return placed
+invalid:
+    - |
+      def outer(a):
+          def middle(b):
+              def inner(c):
+                  return a + b + c
+              return inner
+          return middle
+    - |
+      def outer(a):
+          def middle(b):
+              return lambda c: a + b + c
+          return middle
+    - |
+      from expression.extra.result import catch
+      def outer(a):
+          def middle(b):
+              @catch(exception=OSError)
+              def made(path):
+                  return path / b
+              return made
+          return middle
+    - |
+      def outer(a):
+          def middle(function):
+              @wraps(function)
+              def inner(c):
+                  return function(c)
+              return inner
+          return middle

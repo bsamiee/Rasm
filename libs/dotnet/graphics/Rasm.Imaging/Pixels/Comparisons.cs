@@ -1,6 +1,5 @@
 using System.Numerics;
 using CommunityToolkit.HighPerformance;
-using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 
 namespace Rasm.Imaging.Pixels;
@@ -14,16 +13,13 @@ public sealed class FrameComparison {
     public PixelFrame Difference { get; }
 
     public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
-        reference.Size == test.Size ? Measured(reference, test) : Error.New($"Reference size {reference.Size} differs from test size {test.Size}");
+        reference.Size == test.Size ? Measured(reference, test) : new ImagingFault($"Reference size {reference.Size} differs from test size {test.Size}");
 
     private static FrameComparison Measured(PixelFrame reference, PixelFrame test) {
-        using MemoryOwner<Measure> rows = MemoryOwner<Measure>.Allocate(test.Size.Height);
-        PixelFrame difference = new(test.Origin, test.Size, test.Extent, block =>
-            ParallelHelper.For(0, test.Size.Height, new DifferenceAction(
-                reference.View, test.View, block.AsMemory().Cast<float, Vector4>().AsMemory2D(test.Size.Height, test.Size.Width), rows.Memory)));
-        Measure total = new(0d, 0d, Vector3.One);
-        foreach (Measure row in rows.Span)
-            total += row;
+        Measure[] rows = new Measure[test.Size.Height];
+        PixelFrame difference = new(test.Origin, test.Size, test.Extent);
+        ParallelHelper.For(0, test.Size.Height, new DifferenceAction(reference.View, test.View, difference.View, rows));
+        Measure total = toSeq(rows).Fold(new Measure(0d, 0d, Vector3.One), static (sum, row) => sum + row);
         double peak = float.Max(total.Peak.X, float.Max(total.Peak.Y, total.Peak.Z));
         return new(
             10d * double.Log10(peak * peak * 3d * test.Size.Width * test.Size.Height / total.Error),
@@ -32,22 +28,22 @@ public sealed class FrameComparison {
     }
 }
 
-file readonly record struct Measure(double Error, double Signal, Vector3 Peak) {
+file sealed record Measure(double Error, double Signal, Vector3 Peak) {
     public static Measure operator +(Measure left, Measure right) =>
         new(left.Error + right.Error, left.Signal + right.Signal, Vector3.Max(left.Peak, right.Peak));
 }
 
-file readonly struct DifferenceAction(Memory2D<Vector4> reference, Memory2D<Vector4> test, Memory2D<Vector4> difference, Memory<Measure> rows) : IAction {
+file readonly struct DifferenceAction(Memory2D<Vector4> reference, Memory2D<Vector4> test, Memory2D<Vector4> difference, Measure[] rows) : IAction {
     public void Invoke(int i) {
         ReadOnlySpan<Vector4> a = reference.Span.GetRowSpan(i);
         ReadOnlySpan<Vector4> b = test.Span.GetRowSpan(i);
         Span<Vector4> d = difference.Span.GetRowSpan(i);
-        Measure measure = default;
+        (double error, double signal, Vector3 peak) = (0d, 0d, Vector3.Zero);
         for (int x = 0; x < d.Length; x++) {
             (Vector3 r, Vector3 t) = (a[x].AsVector3(), b[x].AsVector3());
             d[x] = new(Vector3.Abs(r - t), 1f);
-            measure += new Measure(Vector3.DistanceSquared(r, t), r.LengthSquared(), Vector3.Max(r, t));
+            (error, signal, peak) = (error + Vector3.DistanceSquared(r, t), signal + r.LengthSquared(), Vector3.Max(peak, Vector3.Max(r, t)));
         }
-        rows.Span[i] = measure;
+        rows[i] = new Measure(error, signal, peak);
     }
 }

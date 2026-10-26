@@ -23,8 +23,6 @@ internal abstract partial record LogPiece {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CameraLog {
     public static readonly CameraLog ArriLogC3 = LogCamera("arri-logc3", new(10d, 0.247189638318671, 0.385536998692443, 5.55555555555556, 0.0522722750251688), 0.0105909904954696, None);
     public static readonly CameraLog ArriLogC4 = LogCamera("arri-logc4", new(2d, 0.0647954196341293, -0.295908392682586, 2231.82630906769, 64d), -0.0180569961199113, None);

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-enum-declaration
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    named-type:
+        any:
+            - kind: identifier
+              pattern: $NAME
+            - has: {stopBy: end, kind: identifier, pattern: $NAME}
+    native-signature:
+        kind: method_declaration
+        all:
+            - has: {kind: modifier, regex: '^(partial|extern)$'}
+            - has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^(LibraryImport|DllImport)(Attribute)?$'}}}}}}
+            - any:
+                - has: {field: returns, matches: named-type}
+                - has: {field: type, matches: named-type}
+                - has: {field: parameters, has: {kind: parameter, has: {field: type, matches: named-type}}}
+rule:
+    kind: enum_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^Flags(Attribute)?$'}}}}}}}
+        - not: {has: {kind: base_list}}
+        - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: native-signature}}}
+message: '`$NAME` is a plain enum'
+note: 'Declare `$NAME` as a `[SmartEnum]` with item data or a `[Union]` of records'

@@ -52,8 +52,7 @@ public static class ViewRegistration {
                 Some: glyph => glyph.Switch(
                     (PlugIn: plugIn, Row: row, Face: face, Glyph: glyph),
                     tinted: static (at, _) => Drawn(at.PlugIn, at.Row, at.Glyph, at.Face.Caption, at.Face.Kind),
-                    paired: static (at, art) => Hosted(at.Row.Identity, () => Panels.RegisterPanel(at.PlugIn.PlugIn, at.Row.Identity, at.Face.Caption, art.Assembly, art.Light, at.Face.Kind)),
-                    picture: static (at, _) => Drawn(at.PlugIn, at.Row, at.Glyph, at.Face.Caption, at.Face.Kind)),
+                    paired: static (at, art) => Hosted(at.Row.Identity, () => Panels.RegisterPanel(at.PlugIn.PlugIn, at.Row.Identity, at.Face.Caption, art.Assembly, art.Light, at.Face.Kind))),
                 None: () => Hosted(row.Identity, () => Panels.RegisterPanel(plugIn.PlugIn, row.Identity, face.Caption, iconAssembly: null, iconResourceId: null, face.Kind))),
         });
 

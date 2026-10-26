@@ -1,0 +1,125 @@
+using SkiaSharp;
+using SuperLinq;
+using Wacton.Unicolour;
+
+namespace Rasm.UI.Styling;
+
+// --- [MODELS] --------------------------------------------------------------------------
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
+public abstract partial record ColorValue {
+    public sealed record Fixed(Unicolour Color) : ColorValue {
+        public Fixed(string hex) : this(new Unicolour(hex)) { }
+    }
+
+    public sealed record Host(Channel Channel) : ColorValue {
+        public Option<Role> Role { get; init; }
+        public Fraction Alpha { get; init; } = Fraction.MaxValue;
+        public Option<Condition> Condition { get; init; }
+        public Option<ColorValue> Fallback { get; init; }
+    }
+
+    public sealed record Data : ColorValue {
+        public Fraction Alpha { get; init; } = Fraction.MaxValue;
+    }
+
+    public sealed record Mixed(ColorValue From, ColorValue To, Fraction Amount) : ColorValue {
+        public ColourSpace Space { get; init; } = ColourSpace.Oklab;
+        public HueSpan Hue { get; init; } = HueSpan.Shorter;
+    }
+
+    public sealed record Contrasting(ColorValue Over, Seq<ColorValue> Candidates) : ColorValue;
+
+    public sealed record Relative(ColorValue From, ColourSpace Space, ChannelShift First, ChannelShift Second, ChannelShift Third) : ColorValue {
+        public ChannelShift Alpha { get; init; } = ChannelShift.Kept;
+
+        internal SKColorF Shifted(SKColorF origin) =>
+            origin.ToUnicolour() switch {
+                var colour => colour.GetRepresentation(Space).Tuple switch {
+                    var (first, second, third) => new Unicolour(Space, First.Applied(Kept(first)), Second.Applied(Kept(second)), Third.Applied(Kept(third)),
+                            double.Clamp(Alpha.Applied(colour.Alpha.A), 0d, 1d))
+                        .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF(),
+                },
+            };
+
+        private static double Kept(double channel) => double.IsNaN(channel) ? 0d : channel;
+    }
+}
+
+public sealed record ChannelShift(double Scale, double Offset) {
+    public static ChannelShift Kept { get; } = new(1d, 0d);
+
+    internal double Applied(double kept) => Math.FusedMultiplyAdd(kept, Scale, Offset);
+}
+
+public sealed record Series(uint Ordinal) {
+    public Option<SKColorF> Color { get; init; }
+}
+
+public sealed record Stop<TColor>(TColor Color, Fraction At);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ColorRamp {
+    private const double JustNoticeable = 0.02d;
+
+    private ColorRamp(Seq<Stop<SKColorF>> stops) => Stops = toSeq(stops.OrderBy(static stop => (float)stop.At));
+
+    public Seq<Stop<SKColorF>> Stops { get; }
+
+    public Material.Gradient Material => new(Stopped.Map(static stop => new Stop<ColorValue>(new ColorValue.Fixed(stop.Color.ToUnicolour()), stop.At)), 0f);
+
+    private protected abstract Seq<Stop<SKColorF>> Stopped { get; }
+
+    private protected Seq<(Stop<SKColorF> Low, Stop<SKColorF> High)> Segments => toSeq(Stops.AsIterable().Window(2, static pair => (Low: pair[0], High: pair[1])));
+
+    private protected Option<SKColorF> Last => Stops.Last.Map(static stop => stop.Color);
+
+    public abstract Option<SKColorF> At(Fraction at);
+
+    public ColorRamp WithStops(Seq<Stop<SKColorF>> stops) =>
+        Switch(stops, smooth: static (held, smooth) => (ColorRamp)new Smooth(held) { Space = smooth.Space, Easing = smooth.Easing }, stepped: static (held, _) => new Stepped(held));
+
+    // --- [CASES]
+    public sealed record Smooth(Seq<Stop<SKColorF>> Stops) : ColorRamp(Stops) {
+        public ColourSpace Space { get; init; } = ColourSpace.Oklab;
+        public Easing Easing { get; init; } = Easing.Linear;
+
+        private protected override Seq<Stop<SKColorF>> Stopped =>
+            Stops.Head.ToSeq() + Segments.Bind(segment => Divided(at => Mixed(segment, at), segment.Low, segment.High).Add(segment.High));
+
+        public override Option<SKColorF> At(Fraction at) => Segments.Find(segment => (float)at <= (float)segment.High.At).Map(segment => Mixed(segment, at)) | Last;
+
+        private SKColorF Mixed((Stop<SKColorF> Low, Stop<SKColorF> High) segment, Fraction at) =>
+            ((float)segment.High.At - (float)segment.Low.At) switch {
+                var span => segment.Low.Color.ToUnicolour()
+                    .Mix(segment.High.Color.ToUnicolour(), Space, Easing.Progress(span > 0f ? float.Clamp(((float)at - (float)segment.Low.At) / span, 0f, 1f) : 1f))
+                    .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF(),
+            };
+
+        private static Seq<Stop<SKColorF>> Divided(Func<Fraction, SKColorF> color, Stop<SKColorF> low, Stop<SKColorF> high) =>
+            low.At.Midpoint(high.At) switch {
+                var at when at == low.At || at == high.At => [],
+                var at => new Stop<SKColorF>(color(at), at) switch {
+                    var middle when low.Color.ToUnicolour().Mix(high.Color.ToUnicolour(), ColourSpace.Rgb, premultiplyAlpha: false).Difference(middle.Color.ToUnicolour(), DeltaE.Ok) <= JustNoticeable => [],
+                    var middle => Divided(color, low, middle).Add(middle) + Divided(color, middle, high),
+                },
+            };
+    }
+
+    public sealed record Stepped(Seq<Stop<SKColorF>> Stops) : ColorRamp(Stops) {
+        private protected override Seq<Stop<SKColorF>> Stopped =>
+            Stops.Zip(Stops.Tail.Map(static stop => stop.At).Add(Fraction.MaxValue)).Bind(static held => Seq(held.First, held.First with { At = held.Second }));
+
+        public override Option<SKColorF> At(Fraction at) => Segments.Find(segment => (float)at < (float)segment.High.At).Map(static segment => segment.Low.Color) | Last;
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+internal static class Colours {
+    extension(SKColorF color) {
+        internal Unicolour ToUnicolour() => new(ColourSpace.Rgb, color.Red, color.Green, color.Blue, color.Alpha);
+    }
+
+    extension(Unicolour colour) {
+        internal SKColorF ToSKColorF() => new((float)colour.Rgb.R, (float)colour.Rgb.G, (float)colour.Rgb.B, (float)colour.Alpha.A);
+    }
+}

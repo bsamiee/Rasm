@@ -16,9 +16,9 @@ from blender.bpy.data.rna.descriptors import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderReason
-from blender.bpy.files.blends import folder_made
 from blender.bpy.files.libraries import blocks_loaded, library_written, LibraryLink, Linked, listed, LocalCopy
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.stores import folder_made
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

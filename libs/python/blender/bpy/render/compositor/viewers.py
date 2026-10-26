@@ -29,7 +29,7 @@ from blender.bpy.render.outputs.results import built, INTERMEDIATES
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.screens.editors import EditorState
 from blender.imaging.files.images import ImageFile
-from blender.imaging.geometry.regions import Region
+from blender.imaging.geometry.frames import Region
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.fields import Case
 

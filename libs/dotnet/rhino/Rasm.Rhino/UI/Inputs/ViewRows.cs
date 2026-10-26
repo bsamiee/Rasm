@@ -35,9 +35,10 @@ public abstract partial record Thumbnail {
         thumbnail.Switch(raster: static raster => raster.Pixels.Dispose(), linework: static _ => { }, hatching: static _ => { });
 
     private static Node Plotted(SKSize extent, Role ink, Seq<Figure> figures) =>
-        AxisRange.TryCreate(0f, extent.Width, out AxisRange? across) && AxisRange.TryCreate(extent.Height, 0f, out AxisRange? down)
-            ? new Node.Plot(new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down)), figures.Map(figure => (Node)new Node.Mark(figure) { Role = ink }))
-            : new Node.Box();
+        (AxisRange.Validated(0f, extent.Width), AxisRange.Validated(extent.Height, 0f))
+            .Apply((across, down) => (Node)new Node.Plot(new PlotPlane.Cartesian(new Axis.Linear(across), new Axis.Linear(down)), figures.Map(figure => (Node)new Node.Mark(figure) { Role = ink }))).As()
+            .ToOption()
+            .IfNone(static () => new Node.Box());
 
     public sealed record Raster(SKImage Pixels) : Thumbnail;
 
@@ -80,10 +81,12 @@ public static class ViewRows {
         Atom<(Content<SKImage> Image, Option<PlotPlane> View)> held, IO<ControlRow.Bound<(ReadoutSource<Content<SKImage>> Image, Option<ImageTool> Tool)>> latest, IO<Unit> shown) =>
         from state in held.ValueIO
         from row in latest
-        select state.Image.Held.Map(image => new ImagePlot(state.Image, new SKSizeI(image.Width, image.Height), PlotPlane.Track.Unit(PhysicalAxis.Horizontal),
-            edit => edit.Shown.Traverse(plane => held.SwapIO(current => current with { View = Some(plane) })).As().Bind(_ => shown)) switch {
-                var made => made with { View = state.View.IfNone(made.Fit), Tool = row.Row.Tool },
-            });
+        select
+            from image in state.Image.Held
+            let made = new ImagePlot(state.Image, new SKSizeI(image.Width, image.Height), PlotPlane.Track.Unit(PhysicalAxis.Horizontal),
+                edit => edit.Value.Traverse(plane => held.SwapIO(current => current with { View = Some(plane) })).As().Bind(_ => shown))
+            from view in state.View | made.Fit
+            select made with { View = view, Tool = row.Row.Tool };
 
     private static IO<Unit> Shown(
         SceneView view, Label readout, Atom<(Content<SKImage> Image, Option<PlotPlane> View)> held,
@@ -131,9 +134,9 @@ public static class ViewRows {
     private static Node Tiled(SceneView view, Content<SKImage> content, IO<Option<string>> file, string unexpected) =>
         content.Held.Match(
             Some: image => new Part.Choice([new Key.Named(nameof(Tile))], new Selection.One(None), static _ => IO.pure(unit)) {
-                Exported = Some<Func<Seq<Key>, IO<Unit>>>(_ => file.Bind(path => path.Traverse(held => DataTransfer.Drag(view, Seq(held), None)).As()).Map(unit)),
+                Exported = _ => Some(file.Bind(path => path.Traverse(held => DataTransfer.Drag(view, Seq(held), None)).As()).Map(unit)),
             }.Drawn(_ => new ImageTile(content).Drawn, static items => new Node.Flex(PhysicalAxis.Vertical, items) { Width = Sizing.Grow.Unit }) with {
-                Aspect = Factor.TryCreate((float)image.Width / image.Height, out Factor? aspect) ? Some(aspect) : None,
+                Aspect = Factor.Validated((float)image.Width / image.Height).ToOption(),
             },
             None: () => content.Drawn(static _ => new Node.Box(), unexpected));
 

@@ -1,10 +1,9 @@
 using System.Numerics;
-using Rasm.Imaging.Grade.Curves;
 
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct GradingRgbmsw(float Red, float Green, float Blue, float Master, float Start, float Width) {
+public sealed record GradingRgbmsw(float Red, float Green, float Blue, float Master, float Start, float Width) {
     internal static GradingRgbmsw Placed(float start, float width) => new(1f, 1f, 1f, 1f, start, width);
 
     internal bool Neutral => Red is 1f && Green is 1f && Blue is 1f && Master is 1f;
@@ -68,12 +67,12 @@ public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, Gr
                         - (0.5f * (x5 - x4)) + ((x4 - x3) * ((0.5f * m3) - 1f)) + ((x3 - center) * (m3 - 1f) * 0.5f)) / (-0.5f * (x5 - x3)))
                 : ((((x5 - x4) * (m4 - 1f) * 0.5f) + ((x4 - x3) * (m4 - 1f + ((m3 - m4) * 0.5f))) + ((x3 - center) * (m3 - 1f) * 0.5f)
                         - (0.5f * (x1 - x0)) + ((x2 - x1) * ((0.5f * m2) - 1f)) + ((center - x2) * (m2 - 1f) * 0.5f)) / (-0.5f * (x2 - x0)), m4)) switch {
-                            var (low, high) => Spline.Of(new(x0, x0, 1f), [(x1, low), (x2, m2), (x3, m3), (x4, high), (x5, 1f)]),
+                            var (low, high) => Spline.Of((x0, x0, 1f), [(x1, low), (x2, m2), (x3, m3), (x4, high), (x5, 1f)]),
                         },
         };
 
     private static Func<float, float> White(float x0, float x1, float value) =>
-        (Spline.Of(new(x0, x0, 1f), [(x1, float.Min(value, 2f - value))]), Tail(x0, x1, 2f - value)) switch {
+        (Spline.Of((x0, x0, 1f), [(x1, float.Min(value, 2f - value))]), Tail(x0, x1, 2f - value)) switch {
             _ when value is 1f => Identity,
             var (spline, _) when value < 1f => spline.Forward,
             var (spline, (a, b, c, gain)) => t => t >= x1 ? (((a * t) + b) * t) + c : spline.Gained(t, x0, gain),
@@ -89,9 +88,9 @@ public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, Gr
     private static Func<float, float> Black(float x0, float x1, float value) =>
         value switch {
             1f => Identity,
-            > 1f => Spline.Of(new(x0, x1 - ((3f - value) * 0.5f * (x1 - x0)), 2f - value), [(x1, 1f)]).Forward,
+            > 1f => Spline.Of((x0, x1 - ((3f - value) * 0.5f * (x1 - x0)), 2f - value), [(x1, 1f)]).Forward,
             _ => ((1f + value) * 0.5f) switch {
-                var gain => Spline.Of(new(x0, x1 - (gain * (x1 - x0)), value), [(x1, 1f)]) switch {
+                var gain => Spline.Of((x0, x1 - (gain * (x1 - x0)), value), [(x1, 1f)]) switch {
                     var spline => t => spline.Gained(t, x1, gain),
                 },
             },
@@ -102,7 +101,7 @@ public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, Gr
             ? Identity
             : (contrast > 1f ? 1f / (1.8125f - (0.8125f * contrast)) : 0.28125f + (0.71875f * contrast)) switch {
                 var slope => (Lower(style, slope), Upper(style, slope)) switch {
-                    var (low, high) => Spline.Of(new(low.X1, low.Y2 - ((low.Slope + slope) * (low.X2 - low.X1) * 0.5f), low.Slope), [(low.X2, slope), (high.X1, slope), (high.X2, high.Slope)]).Forward,
+                    var (low, high) => Spline.Of((low.X1, low.Y2 - ((low.Slope + slope) * (low.X2 - low.X1) * 0.5f), low.Slope), [(low.X2, slope), (high.X1, slope), (high.X2, high.Slope)]).Forward,
                 },
             };
 
@@ -126,44 +125,40 @@ public sealed record GradingTone(GradingRgbmsw Blacks, GradingRgbmsw Shadows, Gr
             },
         };
 
-    private sealed record Spline(Seq<Knot> Knots) {
-        public static Spline Of(Knot first, Seq<(float X, float M)> rest) =>
-            new(rest.Scan(first, static (knot, next) => new Knot(next.X, knot.Y + ((knot.M + next.M) * (next.X - knot.X) * 0.5f), next.M)));
+    private sealed record Spline(ImmutableArray<float> X, ImmutableArray<float> Y, ImmutableArray<float> M) {
+        public static Spline Of((float X, float Y, float M) first, Seq<(float X, float M)> rest) =>
+            rest.Scan(first, static (knot, next) => (next.X, knot.Y + ((knot.M + next.M) * (next.X - knot.X) * 0.5f), next.M)) switch {
+                var knots => new([.. knots.Map(static knot => knot.X)], [.. knots.Map(static knot => knot.Y)], [.. knots.Map(static knot => knot.M)]),
+            };
 
         public static Spline Bend(float low, float high, float lowSlope, float highSlope) =>
-            Of(new(low, low, lowSlope), [(low + ((high - low) * 0.5f), 2f - ((lowSlope + highSlope) * 0.5f)), (high, highSlope)]);
+            Of((low, low, lowSlope), [(low + ((high - low) * 0.5f), 2f - ((lowSlope + highSlope) * 0.5f)), (high, highSlope)]);
 
         public float Forward(float t) =>
-            Segment(t, static knot => knot.X) switch {
-                -1 => Knots[0].Y + ((t - Knots[0].X) * Knots[0].M),
-                var at when at == Knots.Count - 1 => Knots[at].Y + ((t - Knots[at].X) * Knots[at].M),
-                var at => (Knots[at], Knots[at + 1], t - Knots[at].X) switch {
-                    var (low, high, d) => low.Y + (d * (low.M + (0.5f * (high.M - low.M) * d / (high.X - low.X)))),
+            Segment(X, t) switch {
+                -1 => Y[0] + ((t - X[0]) * M[0]),
+                var at when at == X.Length - 1 => Y[at] + ((t - X[at]) * M[at]),
+                var at => (t - X[at]) switch {
+                    var d => Y[at] + (d * (M[at] + (0.5f * (M[at + 1] - M[at]) * d / (X[at + 1] - X[at])))),
                 },
             };
 
         public float Inverse(float t) =>
-            Segment(t, static knot => knot.Y) switch {
-                -1 => Knots[0].X + ((t - Knots[0].Y) / Knots[0].M),
-                var at when at == Knots.Count - 1 => Knots[at].X + ((t - Knots[at].Y) / Knots[at].M),
-                var at => (Knots[at], Knots[at + 1].X - Knots[at].X, Knots[at + 1].M - Knots[at].M, Knots[at].Y - t) switch {
-                    var (low, h, rise, c) => low.X + (-2f * c / (float.Sqrt((low.M * h * low.M * h) - (2f * rise * h * c)) + (low.M * h)) * h),
+            Segment(Y, t) switch {
+                -1 => X[0] + ((t - Y[0]) / M[0]),
+                var at when at == Y.Length - 1 => X[at] + ((t - Y[at]) / M[at]),
+                var at => (X[at + 1] - X[at], M[at + 1] - M[at], Y[at] - t) switch {
+                    var (h, rise, c) => X[at] + (-2f * c / (float.Sqrt((M[at] * h * M[at] * h) - (2f * rise * h * c)) + (M[at] * h)) * h),
                 },
             };
 
         public float Gained(float t, float anchor, float gain) => ((Inverse(((t - anchor) * gain) + anchor) - anchor) / gain) + anchor;
 
-        private int Segment(float t, Func<Knot, float> axis) =>
-            Knots.AsSpan().BinarySearch(new Comparable(t, axis)) switch {
+        private static int Segment(ImmutableArray<float> axis, float t) =>
+            axis.AsSpan().BinarySearch(t) switch {
                 >= 0 and var at => at,
                 var after => ~after - 1,
             };
-    }
-
-    private readonly record struct Knot(float X, float Y, float M);
-
-    private readonly record struct Comparable(float Value, Func<Knot, float> Axis) : IComparable<Knot> {
-        public int CompareTo(Knot other) => Value.CompareTo(Axis(other));
     }
 }
 

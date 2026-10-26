@@ -12,7 +12,7 @@ import PyOpenColorIO
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color import observer
 from blender.imaging.color.processors import chromaticities, converted, DisplayView, luma, xyz
-from blender.imaging.files.images import unassociated
+from blender.imaging.files.buffers import unassociated
 from blender.records.faults import Outcome, paired
 from blender.records.fields import Frozen
 
@@ -116,7 +116,7 @@ class Clipping(Frozen, frozen=True, kw_only=True, eq=False):
         return self.high_channels.any(axis=-1)
 
     @classmethod
-    def of(cls, codes: npt.NDArray[np.uint8] | npt.NDArray[np.uint16]) -> Self:
+    def of(cls, codes: npt.NDArray[np.uint8 | np.uint16]) -> Self:
         """Returns channel masks at code endpoints of array dtype."""
         color, covered = codes[..., :3], (codes[..., 3:] > 0).all(axis=-1)
         return cls(low_channels=(color == 0) & covered[..., None], high_channels=(color == np.iinfo(codes.dtype).max) & covered[..., None])
@@ -154,9 +154,8 @@ class Chromaticity(Frozen, frozen=True, kw_only=True, eq=False):
     display: Option[npt.NDArray[np.float64]]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, cells: tuple[int, int]) -> Outcome[Self]:
-        """Returns xy counts over `cells` spanning the diagram frame, or every color fault."""
-        extent, _ = observer.frame()
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, cells: tuple[int, int], extent: npt.NDArray[np.float64]) -> Outcome[Self]:
+        """Returns xy counts over `cells` spanning the diagram frame from the origin to the `extent` corner, or every color fault."""
 
         def built(parts: tuple[npt.NDArray[np.float32], npt.NDArray[np.float64], Option[npt.NDArray[np.float64]]]) -> Outcome[Self]:
             tristimulus, working, display = parts

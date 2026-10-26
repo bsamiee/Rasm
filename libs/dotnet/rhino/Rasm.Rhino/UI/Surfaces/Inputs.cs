@@ -1,6 +1,7 @@
 using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
+using Rasm.Rhino.Events;
 using Rasm.UI;
 using SkiaSharp;
 
@@ -37,6 +38,43 @@ public static class HostInput {
 
     // --- [KEYS]
     public static Option<Input> Keyed(Mount mount, KeyEventArgs e) => Input.Keyed(mount, e.KeyData.ToShortcutString(), Modifiers(e.Modifiers));
+
+    // --- [ENTRIES]
+    public sealed record Entry(Control Shown, TextControl Field, Keys Commit, Func<string> Read, Action<string> Write);
+
+    public static IO<Entry> Line(Action<IDisposable> retain) =>
+        from box in DisposalOps.Acquire(IO.lift(static () => new TextBox()), retain)
+        select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
+
+    public static IO<Entry> Area(Option<int> visible, Action<IDisposable> retain) =>
+        from area in DisposalOps.Acquire(IO.lift(static () => new TextArea()), retain)
+        from fitted in IO.lift(() => {
+            (area.Wrap, area.AcceptsReturn, area.AcceptsTab, area.SpellCheck) = (true, true, false, false);
+            _ = visible.Iter(lines => area.Height = (int)MathF.Ceiling(area.Font.LineHeight * lines));
+        })
+        select new Entry(area, area, Application.Instance.CommonModifier | Keys.Enter, () => area.Text, text => area.Text = text);
+
+    public static IO<IO<Unit>> Bound(Entry entry, IO<(string Value, Func<Edit<string>, IO<Unit>> Edited)> latest, IPlugInSink sink, Action<IDisposable> retain) =>
+        Callbacks.Handler<EventArgs>(_ => IO.lift(entry.Read).Bind(typed => Edited(latest, Edit.Preview(typed))), new CallbackSite(sink, entry.Field.GetType(), nameof(TextControl.TextChanged))) switch {
+            var changed =>
+                from previewed in Subscriptions.Attach(h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h, changed, retain)
+                let shown = latest.Bind(current => Subscriptions.Detached(h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h, changed,
+                    IO.lift(entry.Read).Bind(text => when(!string.Equals(text, current.Value, StringComparison.Ordinal), IO.lift(() => entry.Write(current.Value))).As())))
+                let committed = IO.lift(entry.Read).Bind(typed => Edited(latest, Edit.Commit(typed)))
+                let answers = HashMap((entry.Commit, committed), (Keys.Escape, Edited(latest, Edit.Cancel<string>()).Bind(_ => shown)))
+                from keys in Subscriptions.Attach(h => entry.Field.KeyDown += h, h => entry.Field.KeyDown -= h,
+                    Callbacks.Synchronous<KeyEventArgs>(args => Answered(args, answers), new CallbackSite(sink, entry.Field.GetType(), nameof(Control.KeyDown))), retain)
+                from lost in Subscriptions.Attach(h => entry.Field.LostFocus += h, h => entry.Field.LostFocus -= h,
+                    Callbacks.Handler<EventArgs>(_ => committed, new CallbackSite(sink, entry.Field.GetType(), nameof(Control.LostFocus))), retain)
+                select shown,
+        };
+
+    private static IO<Unit> Edited(IO<(string Value, Func<Edit<string>, IO<Unit>> Edited)> latest, Edit<string> edit) => latest.Bind(current => current.Edited(edit));
+
+    private static IO<Unit> Answered(KeyEventArgs args, HashMap<Keys, IO<Unit>> answers) =>
+        answers.Find(args.KeyData)
+            .Traverse(answer => IO.lift(() => args.Handled = true).Bind(_ => answer)).As()
+            .Map(unit);
 
     // --- [CURSOR]
     public static Fin<Cursor> Cursor(CursorShape cursor) =>

@@ -2,8 +2,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Double;
+using Rasm.Imaging.Pixels;
 using TinyEXR;
 using Wacton.Unicolour;
 
@@ -100,28 +102,25 @@ public sealed record Gamut {
 
 [ComplexValueObject]
 [ValidationError<ImagingFault>]
-public readonly partial struct GamutCompression {
-    public static GamutCompression Reference { get; } = Create(new Vector3(0.815f, 0.803f, 0.880f), new Vector3(1.147f, 1.264f, 1.312f), 1.2f);
+public sealed partial class GamutCompression {
+    public static GamutCompression Reference { get; } = Create(new Channels<float>(0.815f, 0.803f, 0.880f), new Channels<float>(1.147f, 1.264f, 1.312f), 1.2f);
 
-    public Vector3 Threshold { get; }
-    public Vector3 Limit { get; }
+    public Channels<float> Threshold { get; }
+    public Channels<float> Limit { get; }
     public float Power { get; }
 
     public Action<Span<Vector4>> Within(Gamut working, Gamut target) {
-        (Matrix<double> inward, Matrix<double> outward, double power) = (working.MatrixTo(target), target.MatrixTo(working), Power);
+        (ColorMatrix3x3 inward, ColorMatrix3x3 outward, double power) = (LutTables.Baked(working.MatrixTo(target)), LutTables.Baked(target.MatrixTo(working)), Power);
         ((double Threshold, double Scale) red, (double Threshold, double Scale) green, (double Threshold, double Scale) blue) =
-            (Curve(Threshold.X, Limit.X, power), Curve(Threshold.Y, Limit.Y, power), Curve(Threshold.Z, Limit.Z, power));
+            (Curve(Threshold.Red, Limit.Red, power), Curve(Threshold.Green, Limit.Green, power), Curve(Threshold.Blue, Limit.Blue, power));
         return row => {
-            DenseVector source = new(3);
-            DenseVector rgb = new(3);
+            Span<float> samples = MemoryMarshal.Cast<Vector4, float>(row);
+            ImageProcessing.ApplyColorMatrix(samples, samples, 4, inward);
             foreach (ref Vector4 pixel in row) {
-                (source[0], source[1], source[2]) = (pixel.X, pixel.Y, pixel.Z);
-                inward.Multiply(source, rgb);
-                double ach = double.Max(rgb[0], double.Max(rgb[1], rgb[2]));
-                (source[0], source[1], source[2]) = (Compress(rgb[0], ach, red, power), Compress(rgb[1], ach, green, power), Compress(rgb[2], ach, blue, power));
-                outward.Multiply(source, rgb);
-                pixel = new Vector4((float)rgb[0], (float)rgb[1], (float)rgb[2], pixel.W);
+                double ach = float.Max(pixel.X, float.Max(pixel.Y, pixel.Z));
+                pixel = new Vector4((float)Compress(pixel.X, ach, red, power), (float)Compress(pixel.Y, ach, green, power), (float)Compress(pixel.Z, ach, blue, power), pixel.W);
             }
+            ImageProcessing.ApplyColorMatrix(samples, samples, 4, outward);
         };
     }
 
@@ -139,8 +138,17 @@ public readonly partial struct GamutCompression {
             },
         };
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Vector3 threshold, ref Vector3 limit, ref float power) =>
-        validationError = Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(threshold, Vector3.Zero) & Vector3.LessThan(threshold, Vector3.One) & Vector3.GreaterThan(limit, Vector3.One)
-            & Vector3.IsFinite(limit)) && float.IsFinite(power) && power >= 1f ? null
+    public static Fin<GamutCompression> Validated(Channels<float> threshold, Channels<float> limit, float power) =>
+        TryCreate(threshold, limit, power, out GamutCompression? compression, out ImagingFault? fault) ? compression : fault;
+
+    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Channels<float> threshold, ref Channels<float> limit, ref float power) =>
+        validationError = Seq((threshold.Red, limit.Red), (threshold.Green, limit.Green), (threshold.Blue, limit.Blue))
+            .ForAll(static pair => pair.Item1 is >= 0f and < 1f && pair.Item2 > 1f && float.IsFinite(pair.Item2)) && float.IsFinite(power) && power >= 1f ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Gamut compression threshold {threshold} must lie in [0, 1), limit {limit} above 1, and power {power} at least 1"));
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class Lanes {
+    public static (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) Of(Matrix<double> matrix) =>
+        (Vector256.Create([.. matrix.Column(0), 0d]), Vector256.Create([.. matrix.Column(1), 0d]), Vector256.Create([.. matrix.Column(2), 0d]));
 }

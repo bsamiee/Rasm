@@ -4,7 +4,7 @@ language: python
 severity: error
 utils:
     rejection:
-        matches: {python-builtin-name: {name: {regex: '^(TypeError|ValueError|AttributeError|KeyError|IndexError|LookupError|OverflowError|RuntimeError|Exception|BaseException)$'}}}
+        matches: {python-builtin-name: {name: {regex: '^(TypeError|ValueError|AttributeError|KeyError|IndexError|LookupError|OverflowError|RuntimeError)$'}}}
     caught-type:
         any:
             - matches: rejection
@@ -55,10 +55,13 @@ utils:
     swallowing-handler:
         kind: except_clause
         all:
-            - any:
-                - has: {field: value, matches: caught-type}
-                - not: {has: {field: value, pattern: $_}}
+            - has: {field: value, matches: caught-type}
             - not: {has: {kind: block, has: {stopBy: end, kind: raise_statement}}}
+            - not:
+                has:
+                    kind: block
+                    has: {kind: 'pass_statement, continue_statement'}
+                    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
             - not:
                 all:
                     - has: {field: value, kind: as_pattern, has: {field: alias, has: {kind: identifier, pattern: $ERROR}}}

@@ -10,7 +10,7 @@ utils:
                 - has:
                     field: function
                     any:
-                        - matches: {python-member-use: {module: {regex: '^(os\.path|posixpath|ntpath)$'}, name: {regex: '^(exists|lexists|isfile)$'}}}
+                        - matches: {python-member-use: {module: {regex: '^(os\.path|posixpath|ntpath)$'}, name: {regex: '^lexists$'}}}
                         - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^access$'}}}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
             - kind: call
@@ -68,4 +68,4 @@ rule:
             - not: {has: {field: alternative, pattern: $_}}
             - precedes: {stopBy: end, matches: reads}
 message: 'Existence test on `$PATH` races the operation it guards'
-note: 'Delete the test and wrap operation in one `try` mapping `OSError` to an absent value'
+note: 'Delete test, run operation as `catch(<callee>, exception=OSError)(<arguments>)`'

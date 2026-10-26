@@ -64,6 +64,11 @@ public abstract partial record Stated<TGate, TInvoke> where TGate : notnull wher
     public sealed record Menu(Command<TGate, TInvoke>.Menu Source, CommandState State, Option<Run> Primary) : Stated<TGate, TInvoke>(State);
 }
 
+public sealed record Toolbar<TGate, TInvoke>(Seq<Seq<Command<TGate, TInvoke>>> Groups, CommandFace Overflow) where TGate : notnull where TInvoke : notnull {
+    public PhysicalAxis Axis { get; init; } = PhysicalAxis.Horizontal;
+    public Func<CommandFace, Seq<Node>> Face { get; init; } = Commands.Fitting(Commands.Labelled, Commands.Glyphed);
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Commands {
     // --- [READ]
@@ -92,21 +97,22 @@ public static class Commands {
         select new CommandState(enabled.IfNone(noneValue: true), mark);
 
     // --- [BAR]
-    public static Node Bar<TGate, TInvoke>(Seq<Seq<Stated<TGate, TInvoke>>> groups, CommandHost<TGate, TInvoke> host, CommandFace overflow, PhysicalAxis axis, Func<CommandFace, Seq<Node>> face)
+    public static Node Bar<TGate, TInvoke>(Seq<Seq<Stated<TGate, TInvoke>>> stated, CommandHost<TGate, TInvoke> host, Toolbar<TGate, TInvoke> toolbar)
         where TGate : notnull where TInvoke : notnull =>
-        groups.Map(group => group.Map(stated => Drawn(stated, host, face, axis, None))) switch {
-            var drawn => groups.Count > 1
-                ? new Node.Choice(axis, toSeq(Range(0, groups.Count)).Map(dropped =>
-                    (Node)Row(drawn.Take(groups.Count - dropped), groups.Skip(groups.Count - dropped), overflow, host, face, axis)))
-                : Row(drawn, [], overflow, host, face, axis),
+        stated.Map(group => group.Map(held => Drawn(held, host, toolbar.Face, toolbar.Axis, None))) switch {
+            var drawn => stated.Count > 1
+                ? new Node.Choice(toolbar.Axis, toSeq(Range(0, stated.Count)).Map(dropped =>
+                    (Node)Row(drawn.Take(stated.Count - dropped), stated.Skip(stated.Count - dropped), host, toolbar)))
+                : Row(drawn, [], host, toolbar),
         };
 
-    private static Node.Flex Row<TGate, TInvoke>(
-        Seq<Seq<Node>> shown, Seq<Seq<Stated<TGate, TInvoke>>> rest, CommandFace overflow, CommandHost<TGate, TInvoke> host, Func<CommandFace, Seq<Node>> face, PhysicalAxis axis)
+    private static Node.Flex Row<TGate, TInvoke>(Seq<Seq<Node>> shown, Seq<Seq<Stated<TGate, TInvoke>>> rest, CommandHost<TGate, TInvoke> host, Toolbar<TGate, TInvoke> toolbar)
         where TGate : notnull where TInvoke : notnull =>
-        new(axis,
-            shown.Intersperse(Seq<Node>(Divider(axis))).Flatten()
-            + (rest.IsEmpty ? Seq<Node>() : Seq(Divider(axis), Opening(overflow, new CommandState(Enabled: true, Mark: None), rest.Map(static group => group.Map(static stated => stated.Command)), host, face)))) {
+        new(toolbar.Axis,
+            shown.Intersperse(Seq<Node>(Divider(toolbar.Axis))).Flatten()
+            + (rest.IsEmpty
+                ? Seq<Node>()
+                : Seq(Divider(toolbar.Axis), Opening(toolbar.Overflow, new CommandState(Enabled: true, Mark: None), rest.Map(static group => group.Map(static held => held.Command)), host, toolbar.Face)))) {
             Role = Role.Toolbar,
             Accessible = new Accessible { Role = AccessRole.Toolbar },
         };
@@ -123,12 +129,12 @@ public static class Commands {
             },
             menu: static (held, menu) => menu.Primary.Filter(static primary => primary.State.Enabled).Match(
                 Some: primary => Button(menu.Source.Face, menu.State with { Mark = primary.State.Mark }, held.Within,
-                    new Part.Press(bounds => held.Host.Run(primary.Source.Invoke, bounds)) { Secondary = Some<Func<SKRect, IO<Unit>>>(bounds => held.Host.Menu(menu.Source.Groups, bounds)) }, held.Face),
+                    new Part.Press(bounds => held.Host.Run(primary.Source.Invoke, bounds)) { Secondary = bounds => Some(held.Host.Menu(menu.Source.Groups, bounds)) }, held.Face),
                 None: () => Opening(menu.Source.Face, menu.State, menu.Source.Groups, held.Host, held.Face)));
 
     private static Part.Press Pressing<TGate, TInvoke>(Command<TGate, TInvoke>.Run run, CommandHost<TGate, TInvoke> host)
         where TGate : notnull where TInvoke : notnull =>
-        new(bounds => host.Run(run.Invoke, bounds)) { Secondary = run.Alternate.Map(alternate => (Func<SKRect, IO<Unit>>)(bounds => host.Run(alternate, bounds))) };
+        new(bounds => host.Run(run.Invoke, bounds)) { Secondary = bounds => run.Alternate.Map(alternate => host.Run(alternate, bounds)) };
 
     private static Node Opening<TGate, TInvoke>(
         CommandFace shown, CommandState state, Seq<Seq<Command<TGate, TInvoke>>> groups, CommandHost<TGate, TInvoke> host, Func<CommandFace, Seq<Node>> face)

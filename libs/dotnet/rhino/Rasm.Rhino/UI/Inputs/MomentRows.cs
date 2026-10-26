@@ -53,7 +53,7 @@ public static class MomentRows {
                 from picker in DisposalOps.Acquire(IO.lift(static () => new DateTimePicker()), retain)
                 let handler = Callbacks.Handler<EventArgs>(_ =>
                     from current in latest
-                    from answered in Optional(picker.Value).Map(static picked => LocalDateTime.FromDateTime(picked)).Traverse(wall => current.Row.Edited(new Edit<LocalDateTime>.Commit(current.Row.Part switch {
+                    from answered in Optional(picker.Value).Map(static picked => LocalDateTime.FromDateTime(picked)).Traverse(wall => current.Row.Edited(Edit.Commit(current.Row.Part switch {
                         DateTimePickerMode.Date => wall.Date.At(current.Row.Value.TimeOfDay),
                         DateTimePickerMode.Time => current.Row.Value.Date.At(wall.TimeOfDay),
                         _ => wall,
@@ -83,7 +83,7 @@ public static class MomentRows {
                     from current in latest
                     from routed in (Optional(start.Value), Optional(end.Value))
                         .Apply(static (first, last) => new DateInterval(LocalDate.FromDateTime(first), LocalDate.FromDateTime(last))).As()
-                        .Traverse(picked => current.Row.Edited(new Edit<DateInterval>.Commit(picked))).As()
+                        .Traverse(picked => current.Row.Edited(Edit.Commit(picked))).As()
                     select unit, new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged)))
                 from started in Subscriptions.Attach(h => start.ValueChanged += h, h => start.ValueChanged -= h, handler, retain)
                 from ended in Subscriptions.Attach(h => end.ValueChanged += h, h => end.ValueChanged -= h, handler, retain)

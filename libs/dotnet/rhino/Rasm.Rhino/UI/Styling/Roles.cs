@@ -1,8 +1,6 @@
-using HarfBuzzSharp;
 using Rasm.UI;
 using Rasm.UI.Styling;
 using SkiaSharp;
-using Wacton.Unicolour;
 
 namespace Rasm.Rhino.UI.Styling;
 
@@ -17,56 +15,45 @@ public static class PanelRoles {
     public static readonly Role SectionHeader = Role.Create("section-header");
     public static readonly Role Tab = Role.Create("tab");
 
-    private static readonly ColorValue PanelFill = new ColorValue.Host(Role.Panel, Channel.Fill);
-    private static readonly ColorValue PanelText = new ColorValue.Host(Role.Panel, Channel.Text);
+    private static readonly ColorValue PanelFill = new ColorValue.Host(Channel.Fill) { Role = Role.Panel };
+    private static readonly ColorValue PanelText = new ColorValue.Host(Channel.Text) { Role = Role.Panel };
     private static readonly ColorValue Umbra = new ColorValue.Fixed("#00000059");
     private static readonly TextFace SemiBold = new() { Weight = SKFontStyleWeight.SemiBold };
     private static readonly TimingCurve Shown = new TimingCurve.Eased(Duration.FromMilliseconds(200), Easing.EaseOut);
-    private static readonly Seq<Material> Unfilled = [];
-    private static readonly Seq<Stroke> Unstroked = [];
-    private static readonly Seq<Shadow> Unshadowed = [];
 
     private static readonly Look Raised = new() {
-        Fills = Seq<Material>(new Material.Solid(PanelFill)), Strokes = Unstroked, Text = PanelText, Shadows = Seq<Shadow>(new Shadow.Drop { Color = Umbra, Blur = 3f, Y = 1f }),
+        Fills = Seq<Material>(new Material.Solid(PanelFill)), Strokes = Seq<Stroke>(), Text = PanelText, Shadows = Seq(new Shadow(Umbra, Blur: 3f) { Y = 1f }),
     };
 
-    private static readonly Look Frosted = new() { Fills = Seq<Material>(new Material.Backdrop(Clear: false, PanelFill)), Strokes = Unstroked, Text = PanelText, Shadows = Unshadowed };
+    private static readonly Look Frosted = new() { Fills = Seq<Material>(new Material.Backdrop(Clear: false, PanelFill)), Strokes = Seq<Stroke>(), Text = PanelText, Shadows = Seq<Shadow>() };
 
     public static DefaultStyles Defaults { get; } = DefaultStyles.Base.Combine(new DefaultStyles(
         HashMap(
             (Appearance.Native, HashMap(
-                (ListRow, new Look { When = HashMap((Condition.Modified, new Look { Text = new ColorValue.Host(Role.Selection, Channel.Fill), Face = SemiBold })) }),
+                (ListRow, new Look { When = HashMap((Condition.Modified, new Look { Text = new ColorValue.Host(Channel.Fill) { Role = Role.Selection }, Face = SemiBold })) }),
                 (Readout, new Look {
-                    Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(Role.Panel, Channel.Fill) { Alpha = Fraction.Create(0.85f) })),
-                    Strokes = Unstroked,
+                    Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(Channel.Fill) { Role = Role.Panel, Alpha = Fraction.Create(0.85f) })),
+                    Strokes = Seq<Stroke>(),
                     Text = PanelText,
-                    Face = new TextFace { Features = Seq(new Feature(Tag.Parse("tnum"))) },
+                    Face = TextFace.Tabular,
                     When = HashMap(
-                        (Condition.Warning, new Look {
-                            Text = new ColorValue.Host(Role.Window, Channel.Text) {
-                                Condition = Condition.Warning, Fallback = Some<ColorValue>(new ColorValue.Fixed(new Unicolour(ColourSpace.Oklch, 0.77, 0.17, 64))),
-                            },
-                        }),
-                        (Condition.Faulted, new Look {
-                            Text = new ColorValue.Host(Role.Window, Channel.Text) {
-                                Condition = Condition.Faulted, Fallback = Some<ColorValue>(new ColorValue.Fixed(new Unicolour(ColourSpace.Oklch, 0.63, 0.24, 29))),
-                            },
-                        })),
+                        (Condition.Warning, new Look { Text = new ColorValue.Host(Channel.Text) { Role = Role.Window, Condition = Condition.Warning } }),
+                        (Condition.Faulted, new Look { Text = new ColorValue.Host(Channel.Text) { Role = Role.Window, Condition = Condition.Faulted } })),
                 }),
                 (Rail, Raised),
                 (Popover, Raised),
-                (Toast, Raised with { Shadows = Seq<Shadow>(new Shadow.Drop { Color = Umbra, Blur = 6f, Y = 2f }), Motion = Shown }),
+                (Toast, Raised with { Shadows = Seq(new Shadow(Umbra, Blur: 6f) { Y = 2f }), Motion = Shown }),
                 (HudCapsule, Raised with {
-                    Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(Role.Panel, Channel.Fill) { Alpha = Fraction.Create(0.9f) })),
-                    Shadows = Seq<Shadow>(new Shadow.Drop { Color = Umbra, Blur = 1f, Y = 0.5f }),
+                    Fills = Seq<Material>(new Material.Solid(new ColorValue.Host(Channel.Fill) { Role = Role.Panel, Alpha = Fraction.Create(0.9f) })),
+                    Shadows = Seq(new Shadow(Umbra, Blur: 1f) { Y = 0.5f }),
                 }),
-                (SectionHeader, new Look { Fills = Unfilled, Strokes = Unstroked, Text = PanelText, Face = SemiBold }))),
+                (SectionHeader, Look.Bare with { Text = PanelText, Face = SemiBold }))),
             (Appearance.Glass, HashMap(
                 (Rail, Frosted),
                 (Popover, Frosted),
                 (Toast, Frosted with { Motion = Shown }),
                 (HudCapsule, Frosted with { Fills = Seq<Material>(new Material.Backdrop(Clear: true, PanelFill)) }))),
-            (Appearance.Borderless, HashMap((Tab, new Look { Strokes = Unstroked })))),
+            (Appearance.Borderless, HashMap((Tab, new Look { Strokes = Seq<Stroke>() })))),
         HashMap(
             (ControlSize.Regular, HashMap(
                 (ListRow, HashMap((Metric.Extent, 20f), (Metric.Inset, 4f))),

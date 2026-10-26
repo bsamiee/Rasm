@@ -4,11 +4,12 @@
     </PropertyGroup>
 
     <ItemGroup Label="Core">
-        <PackageReference Include="LanguageExt.Streaming" />
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
+        <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 

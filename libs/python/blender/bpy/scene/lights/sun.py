@@ -28,12 +28,12 @@ from blender.bpy.faults import BlenderReason
 from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, VERTEX
 from blender.bpy.scene.worlds import EnvironmentNode, Follower, followers, WorldEnvironment
 from blender.bpy.settings.attachments import Attached, Attachment, nested, reconciling
-from blender.bpy.settings.history import Retention
 from blender.bpy.ui.layout.rows import Line, OperatorButton, RowDraw
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case, NonNegative
+from blender.records.trees import Retention
 from blender.rendering.lighting.solar import Daylight, DayStudy, LocalTime, moments, Polar, SeasonStudy, Site, SolarDay, SunPaths, SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------

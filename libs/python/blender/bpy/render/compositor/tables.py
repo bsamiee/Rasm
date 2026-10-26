@@ -16,7 +16,7 @@ from blender.bpy.nodes.graphs import Expr, Generated, grouped, math, Points, vec
 from blender.bpy.render.compositor.colors import space_item
 from blender.imaging.color.luts import Lattice, Logarithmic, Rational, split, Uniform
 from blender.imaging.color.processors import converted, processor
-from blender.imaging.files.images import applied
+from blender.imaging.files.buffers import applied
 from blender.records.faults import Faults, Outcome
 from blender.records.identity import content_hash
 

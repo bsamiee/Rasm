@@ -31,7 +31,7 @@ public abstract partial record PixelPass {
     }
 }
 
-public readonly record struct Channels<T>(T Red, T Green, T Blue) where T : notnull {
+public sealed record Channels<T>(T Red, T Green, T Blue) where T : notnull {
     public Channels(T all) : this(all, all, all) { }
 
     public Vector256<double> Lanes(Func<T, double> lane) => Vector256.Create(lane(Red), lane(Green), lane(Blue), 0d);

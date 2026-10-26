@@ -1,12 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
+using System.Runtime.Intrinsics;
 using System.Text.Json.Serialization;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Buffers;
 using Darkroom.Chain;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using MathNet.Numerics.Integration;
-using PeterO.Numbers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Grade;
@@ -19,6 +20,7 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Dithering;
 using SixLabors.ImageSharp.Processing.Processors.Quantization;
+using TinyEXR;
 using Wacton.Unicolour;
 
 namespace Darkroom.Catalog;
@@ -126,29 +128,27 @@ public sealed partial class Separation {
 [SmartEnum<string>]
 public sealed partial class MosaicCell {
     public static readonly MosaicCell Square = new("square", static (state, context, frame, progress) => frame.Filter(header => {
-        ERational cell = ERational.FromSingle(state.Size).Multiply(context.Extent.ShortSide);
+        double cell = state.Size.Pixels(context.Extent);
         CellGrid grid = CellGrid.Fit(context.Extent, cell, cell);
         using Mat source = header.Clone();
-        Func<(EInteger Column, EInteger Row), Vector3> colors = memoUnsafe(grid.Means(frame, source));
+        Func<(long Column, long Row), Vector3> colors = memoUnsafe(grid.Means(frame, source));
         return new PixelPass.Pointwise((row, column, line) => {
-            EInteger down = grid.Row(context.Extent.Height - 1L - line, context.Extent.Height).Cell;
+            long down = grid.Row(context.Extent.Height - 1L - line, context.Extent.Height).Cell;
             for (int x = 0; x < row.Length; x++)
                 row[x] = new Vector4(colors((grid.Column(column + x, context.Extent.Width).Cell, down)), row[x].W);
         }).Run(frame, progress);
     }));
     public static readonly MosaicCell Cellular = new("cellular", static (state, context, frame, progress) => {
         PixelFrame copy = frame.Copy();
-        (ERational centerX, ERational centerY, ERational pitch) =
-            (ERational.FromInt32(context.Extent.Width).Divide(2), ERational.FromInt32(context.Extent.Height).Divide(2), ERational.FromSingle(state.Size).Multiply(context.Extent.ShortSide));
+        (double centerX, double centerY, double pitch) = (context.Extent.Width / 2d, context.Extent.Height / 2d, state.Size.Pixels(context.Extent));
         uint field = state.Seed.Field(4u, state.Hold.Period(state.Timing.At(context)));
         return new PixelPass.Pointwise((row, column, line) => {
             ReadOnlySpan2D<Vector4> source = copy.View.Span;
             for (int x = 0; x < row.Length; x++) {
-                (ERational X, ERational Y) = NoiseDimensions.PlanarF1(
-                    ERational.FromInt64((2L * (column + x)) + 1L).Divide(2).Subtract(centerX).Divide(pitch),
-                    ERational.FromInt64((2L * (context.Extent.Height - line)) - 1L).Divide(2).Subtract(centerY).Divide(pitch), state.Cells, field).Site;
+                (double X, double Y) = NoiseDimensions.PlanarF1(
+                    ((((2L * (column + x)) + 1L) / 2d) - centerX) / pitch, ((((2L * (context.Extent.Height - line)) - 1L) / 2d) - centerY) / pitch, state.Cells, field).Site;
                 Vector4 color = source.Sample(
-                    (ERational.FromEInteger(LatticePoint.Split(X.Multiply(pitch).Add(centerX)).Cell).ToDouble() + 0.5d, ERational.FromEInteger(LatticePoint.Split(Y.Multiply(pitch).Add(centerY)).Cell).ToDouble() + 0.5d),
+                    (double.Floor((X * pitch) + centerX) + 0.5d, double.Floor((Y * pitch) + centerY) + 0.5d),
                     (WrapMode.Clamp, WrapMode.Clamp), Vector4.Zero, static (sum, pixel, weight) => sum + (pixel * (float)weight), Some((frame.Origin, frame.Extent)));
                 row[x] = new Vector4(color.AsVector3(), row[x].W);
             }
@@ -180,11 +180,11 @@ public sealed record EdgeDetect(
     [property: Display(Name = "Fill color", Description = "Color under lines on fill")][property: JsonConverter(typeof(UnicolourConverter))] Unicolour Fill,
     [property: Display(Name = "Blend mode", Description = "Drawn layer blend over frame")] BlendingMode Mode) : IPixelStage<EdgeDetect> {
     public static EdgeDetect Default { get; } = new(
-        EdgeOperator.Kirsch, EdgeSource.Luma, ShortSideLength.Neutral, EdgeRendering.LinesOnFill, 0.1f, ShortSideLength.Create(1f / ReferenceFrame.Height),
+        EdgeOperator.Kirsch, EdgeSource.Luma, ShortSideLength.Zero, EdgeRendering.LinesOnFill, 0.1f, ShortSideLength.Create(1f / ReferenceFrame.Height),
         new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), BlendingMode.Mix);
 
     public static Option<PixelPass> Pass(EdgeDetect state, PassContext context) =>
-        state.Rendering == EdgeRendering.Lines && state.Width == ShortSideLength.Neutral ? None
+        state.Rendering == EdgeRendering.Lines && state.Width == ShortSideLength.Zero ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => EdgeResponse.Detected(frame, state.Operator, state.Source, 3d * state.Softening.Pixels(context.Extent), context.Working.Luminance,
                 edges => state.Rendering.Render(state, context, frame, edges, progress))));
 
@@ -236,7 +236,7 @@ public sealed record GeometryOutline(
                             select (marks, guide)).Somes(),
                         line.Placement(state), width, Presets.Shown(stroke.Color))),
             }).As()
-            from drawn in Contours.Outlined(frame, depth, lines, Optional(state.Paper).Map(static paper => new Vector4(Presets.Shown(paper), (float)paper.Alpha.A)), state.Mode, progress)
+            from drawn in Contours.Outlined(frame, depth, lines, Optional(state.Paper).Map(static paper => new Vector4(Presets.Shown(paper), (float)paper.Alpha.A)), state.Mode, context.Working.Luminance, progress)
             select drawn);
 }
 
@@ -265,7 +265,7 @@ public sealed record Posterize(
 
     public static Option<PixelPass> Pass(Posterize state, PassContext context) =>
         Some(Reduction.Posterized(state.Levels, state.DitherStrength, state.RetainHue,
-                Optional(state.DitherCell).Map(size => ERational.FromSingle(size).Multiply(context.Extent.ShortSide)).IfNone(ERational.One), context.Extent.Height).Match<PixelPass>(
+                Optional(state.DitherCell).Map(cell => cell.Pixels(context.Extent)).IfNone(1d), context.Extent.Height).Match<PixelPass>(
             Succ: static rows => new PixelPass.Pointwise(rows),
             Fail: static error => new PixelPass.Frame((_, _) => error)));
 }
@@ -306,7 +306,7 @@ public sealed record InkScreen(
     public static InkScreen Yellow { get; } = Default with { U = 0f, V = 0.2f * ChannelScale };
     public static InkScreen Key { get; } = Default with { U = 0.1414f * ChannelScale, V = 0.1414f * ChannelScale };
 
-    public HalftoneScreen Screen(ERational pitch, ScreenShape shape, float turn, float onset) =>
+    public HalftoneScreen Screen(double pitch, ScreenShape shape, float turn, float onset) =>
         new(Matrix3x2.CreateRotation(Angle + turn) * Matrix3x2.CreateTranslation(U, V), pitch, shape, onset);
 }
 
@@ -326,10 +326,10 @@ public sealed record Halftone(
         ScreenShape.Round, ShortSideExtent.Create(1f / (2f * 2f * 4f) * ReferenceFrame.GreaterSide), Separation.Mono, InkScreen.Cyan, InkScreen.Magenta, InkScreen.Yellow, InkScreen.Key,
         1f, new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), BlendingMode.Mix);
 
-    public static Option<PixelPass> Pass(Halftone state, PassContext context) => Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, 1f, []);
+    public static Option<PixelPass> Pass(Halftone state, PassContext context) => Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, 1f, [], context.Working.Luminance);
 
     private static Action<Span<Vector4>, long, long> Print(Halftone state, PassContext context) {
-        (ERational pitch, PixelExtent extent, (double R, double G, double B) weights) = (ERational.FromSingle(state.Size).Multiply(context.Extent.ShortSide), context.Extent, context.Working.Luminance);
+        (double pitch, PixelExtent extent, (double R, double G, double B) weights) = (state.Size.Pixels(context.Extent), context.Extent, context.Working.Luminance);
         Arr<(Arr<HalftoneScreen> Screens, Vector3 Absorbance, Vector4 Channel)> plates = [
             Plate(state.Cyan, Vector3.UnitX, Vector4.UnitX), Plate(state.Magenta, Vector3.UnitY, Vector4.UnitY), Plate(state.Yellow, Vector3.UnitZ, Vector4.UnitZ),
             Plate(state.Key, Vector3.One - Presets.Shown(state.Ink), Vector4.UnitW)];
@@ -392,15 +392,15 @@ public sealed record GlyphCells(
     public static Seq<(string Name, Func<GlyphCells, GlyphCells> Look)> Looks { get; } = [
         (nameof(Binary), static _ => Binary), (nameof(Numbers), static _ => Numbers), (nameof(Arithmetic), static _ => Arithmetic), (nameof(Latin), static _ => Latin), (nameof(Mixed), static _ => Mixed)];
 
-    public static Option<PixelPass> Pass(GlyphCells state, PassContext context) => Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, 1f, []);
+    public static Option<PixelPass> Pass(GlyphCells state, PassContext context) => Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, 1f, [], context.Working.Luminance);
 
     private static Fin<Unit> Kernel(GlyphCells state, PassContext context, PixelFrame frame, IProgress<int> progress) => frame.Filter(header => {
-        using GlyphAtlas atlas = new(state.Characters, state.Font, ERational.FromSingle(state.Size).Multiply(context.Extent.ShortSide), context.Extent);
+        GlyphAtlas atlas = new(state.Characters, state.Font, state.Size.Pixels(context.Extent), context.Extent);
         using Mat source = header.Clone();
-        Func<(EInteger Column, EInteger Row), Vector3> mean = atlas.Grid.Means(frame, source);
+        Func<(long Column, long Row), Vector3> mean = atlas.Grid.Means(frame, source);
         uint field = state.Seed.Field(5u, state.Hold.Period(state.Timing.At(context)));
         (uint gray, uint tint, (double R, double G, double B) weights) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), context.Working.Luminance);
-        Func<(EInteger Column, EInteger Row), (int Glyph, Vector3 Color)> cells = memoUnsafe<(EInteger Column, EInteger Row), (int Glyph, Vector3 Color)>(cell => {
+        Func<(long Column, long Row), (int Glyph, Vector3 Color)> cells = memoUnsafe<(long Column, long Row), (int Glyph, Vector3 Color)>(cell => {
             Vector3 color = mean(cell);
             (Vector4 u, Vector4 c) = (CoordinateHash.Uniforms(cell.Column, cell.Row, gray), CoordinateHash.Uniforms(cell.Column, cell.Row, tint));
             float level = (float)double.Clamp(double.Clamp(LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights), 0d, 1d) + (state.Jitter * (u.X - 0.5d)), 0d, 1d);
@@ -408,10 +408,10 @@ public sealed record GlyphCells(
         });
         (int width, int height, Vector3 background) = (context.Extent.Width, context.Extent.Height, Presets.Shown(state.Background));
         return new PixelPass.Pointwise((row, column, line) => {
-            (EInteger down, int across) = atlas.Grid.Row(height - 1L - line, height);
+            (long down, int across) = atlas.Grid.Row(height - 1L - line, height);
             int maskRow = (int)((long)across * atlas.Tile.Height / height);
             for (int x = 0; x < row.Length; x++) {
-                (EInteger right, int inside) = atlas.Grid.Column(column + x, width);
+                (long right, int inside) = atlas.Grid.Column(column + x, width);
                 (int glyph, Vector3 color) = cells((right, down));
                 row[x] = new Vector4(Vector3.Lerp(background, color, atlas.Coverage(glyph, maskRow, (int)((long)inside * atlas.Tile.Width / width))), row[x].W);
             }
@@ -441,7 +441,7 @@ public sealed record CrtDisplay(
     [property: Display(Name = "Curvature", Description = "Tube glass bulge and the warped frame scale filling edges or corners")] RadialDistortion Curvature,
     [property: Display(Name = "Timing", Description = "Start time and pace over recorded frames")] Timing Timing) : IPixelStage<CrtDisplay> {
     public static CrtDisplay Default { get; } = new(
-        PhosphorMask.SlotMask, ShortSideExtent.Create(8f / ReferenceFrame.Height), 0.8f, 480, Interlaced: false, 1f, 0f, ShortSideLength.Neutral,
+        PhosphorMask.SlotMask, ShortSideExtent.Create(8f / ReferenceFrame.Height), 0.8f, 480, Interlaced: false, 1f, 0f, ShortSideLength.Zero,
         RadialDistortion.Create(0d, 0d, LensFraming.Edges, LensDirection.Distort), Timing.Default);
 
     public static CrtDisplay CathodeRayTube { get; } = Default with {
@@ -462,35 +462,34 @@ public sealed record CrtDisplay(
 
     private bool Warped => Curvature.Coefficient is not 0d;
 
-    private (ERational Width, ERational Height) Scales =>
-        (ERational.FromSingle(Collapse).Multiply(2), ERational.One.Divide(Lines)) switch {
-            var (collapse, line) => (ERational.Min(ERational.One, ERational.Max(ERational.FromInt32(2).Subtract(collapse), line)), ERational.Max(ERational.One.Subtract(collapse), line)),
+    private (double Width, double Height) Scales =>
+        (2d * Collapse, 1d / Lines) switch {
+            var (collapse, line) => (double.Min(1d, double.Max(2d - collapse, line)), double.Max(1d - collapse, line)),
         };
 
     public static Option<PixelPass> Pass(CrtDisplay state, PassContext context) =>
-        (state.Lit, state.Collapse is 0f && state.Glow == ShortSideLength.Neutral && !state.Warped) switch {
+        (state.Lit, state.Collapse is 0f && state.Glow == ShortSideLength.Zero && !state.Warped) switch {
             (false, true) => None,
             (true, true) => Some<PixelPass>(new PixelPass.Pointwise(Raster(state, context))),
             _ => Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
                 from collapsed in state.Collapse is 0f ? unit : new CoordinateMap.Analytic(Deflection(state.Scales, context.Extent), Sampling.Linear, (WrapMode.Black, WrapMode.Black)).Apply(frame, progress)
-                from glowed in state.Glow == ShortSideLength.Neutral ? unit : VideoKernels.Glow(frame, state.Glow.Pixels(context.Extent))
+                from glowed in state.Glow == ShortSideLength.Zero ? unit : VideoKernels.Glow(frame, state.Glow.Pixels(context.Extent))
                 from rastered in state.Lit ? new PixelPass.Pointwise(Raster(state, context)).Run(frame, progress) : unit
                 from warped in state.Warped ? state.Curvature.Map(WrapMode.Black).Apply(frame, progress) : unit
                 select warped)),
         };
 
-    private static Action<Span<(double X, double Y)>, Span<float>, PixelExtent> Deflection((ERational Width, ERational Height) scale, PixelExtent extent) {
-        (ERational X, ERational Y) = (ERational.FromInt32(extent.Width).Divide(2), ERational.FromInt32(extent.Height).Divide(2));
+    private static Action<Span<(double X, double Y)>, Span<float>, PixelExtent> Deflection((double Width, double Height) scale, PixelExtent extent) {
+        (double X, double Y) = (extent.Width / 2d, extent.Height / 2d);
         return (points, _, _) => {
             foreach (ref (double X, double Y) point in points)
-                point = (Sampling.Linear.Point(X.Add(ERational.FromDouble(point.X).Subtract(X).Divide(scale.Width)), WrapMode.Black, extent.Width),
-                    Sampling.Linear.Point(Y.Add(ERational.FromDouble(point.Y).Subtract(Y).Divide(scale.Height)), WrapMode.Black, extent.Height));
+                point = (Sampling.Linear.Point(X + ((point.X - X) / scale.Width), WrapMode.Black, extent.Width), Sampling.Linear.Point(Y + ((point.Y - Y) / scale.Height), WrapMode.Black, extent.Height));
         };
     }
 
     private static Action<Span<Vector4>, long, long> Raster(CrtDisplay state, PassContext context) =>
         VideoKernels.Raster(context.Extent, state.Lines, state.Interlaced, SystemM.Frame(state.Timing.At(context)), state.Scales, state.Mask,
-            ERational.FromSingle(state.Pitch).Multiply(context.Extent.ShortSide), state.MaskStrength, state.ScanlineDepth);
+            state.Pitch.Pixels(context.Extent), state.MaskStrength, state.ScanlineDepth);
 }
 
 public sealed record AnalogVideo(
@@ -500,14 +499,14 @@ public sealed record AnalogVideo(
     [property: Display(Name = "Chroma blur", Description = "Chroma band limit along each line in frame short sides")][property: Range(0d, 0.005d)] ShortSideLength ChromaBandwidth,
     [property: Display(Name = "Chroma vertical blur", Description = "Chroma blur across lines in frame short sides")][property: Range(0d, 0.005d)] ShortSideLength ChromaVertical,
     [property: Display(Name = "Chroma sampling", Description = "Chroma sample spacing along each line in frame short sides")][property: Range(0d, 0.01d)] ShortSideLength ChromaPitch,
-    [property: Display(Name = "Chroma delay", Description = "Shift of both color difference signals against luma")][property: Range(-0.02d, 0.02d)] ShortSideOffset ChromaDelay,
+    [property: Display(Name = "Chroma delay", Description = "Shift of both color difference signals against luma")][property: Range(-0.02d, 0.02d)] float ChromaDelay,
     [property: Display(Name = "Smear", Description = "Luma trail length right of each edge")][property: Range(0d, 0.005d)] ShortSideLength Smear,
     [property: Display(Name = "Smear amount", Description = "Trail share mixed into luma")][property: Range(0d, 1d)] float SmearMix,
     [property: Display(Name = "Ringing", Description = "Overshoot beside edges at luma band scale")][property: Range(0d, 2d)] float Ringing,
-    [property: Display(Name = "Ringing delay", Description = "Signed shift of ringing from image edges")][property: Range(-0.02d, 0.02d)] ShortSideOffset RingingDelay,
+    [property: Display(Name = "Ringing delay", Description = "Signed shift of ringing from image edges")][property: Range(-0.02d, 0.02d)] float RingingDelay,
     [property: Display(Name = "Emboss", Description = "Relief from band-limited luma slope")][property: Range(0d, 2d)] float Emboss,
     [property: Display(Name = "Ghost", Description = "Strength of delayed signal copy")][property: Range(0d, 1d)] float Ghost,
-    [property: Display(Name = "Ghost delay", Description = "Delayed copy shift")][property: Range(-0.05d, 0.05d)] ShortSideOffset GhostDelay,
+    [property: Display(Name = "Ghost delay", Description = "Delayed copy shift")][property: Range(-0.05d, 0.05d)] float GhostDelay,
     [property: Display(Name = "Cross color", Description = "Rainbow fringes fine luma detail leaks into chroma")][property: Range(0d, 1d)] float CrossColor,
     [property: Display(Name = "Luma noise", Description = "Gaussian noise deviation in luma before band limit")][property: Range(0d, 0.2d)] float LumaNoise,
     [property: Display(Name = "Chroma noise", Description = "Independent Gaussian noise deviation in each chroma signal before band limit")][property: Range(0d, 0.2d)] float ChromaNoise,
@@ -515,13 +514,13 @@ public sealed record AnalogVideo(
     [property: Display(Name = "Snow", Description = "Brightness of snow streaks")][property: Range(0d, 1d)] float Snow,
     [property: Display(Name = "Snow density", Description = "Share of line cells lit as snow")][property: Range(0d, 1d)] float SnowDensity,
     [property: Display(Name = "Snow length", Description = "Snow cell fading head length in frame short sides")][property: Range(0.001d, 0.5d)] ShortSideExtent SnowLength,
-    [property: Display(Name = "Interlace", Description = "Shift of odd lines against even lines")][property: Range(-0.01d, 0.01d)] ShortSideOffset Interlace,
+    [property: Display(Name = "Interlace", Description = "Shift of odd lines against even lines")][property: Range(-0.01d, 0.01d)] float Interlace,
     [property: Display(Name = "Line jitter", Description = "Standard deviation of Gaussian sideways line shifts")][property: Range(0d, 0.01d)] ShortSideLength Jitter,
     [property: Display(Name = "Jitter period", Description = "Height over which line shifts change")][property: Range(0.001d, 0.5d)] ShortSideExtent JitterPeriod,
-    [property: Display(Name = "Wrinkle", Description = "Sideways shift inside rolling wrinkle band")][property: Range(-0.05d, 0.05d)] ShortSideOffset Wrinkle,
+    [property: Display(Name = "Wrinkle", Description = "Sideways shift inside rolling wrinkle band")][property: Range(-0.05d, 0.05d)] float Wrinkle,
     [property: Display(Name = "Wrinkle height", Description = "Wrinkle band half height")][property: Range(0.001d, 0.5d)] ShortSideExtent WrinkleHeight,
     [property: Display(Name = "Wrinkle rate", Description = "Upward wrinkle band passes per second")][property: Range(-1d, 1d)] float WrinkleRate,
-    [property: Display(Name = "Head switching", Description = "Bottom band skew where tape heads switch")][property: Range(-0.1d, 0.1d)] ShortSideOffset HeadSwitch,
+    [property: Display(Name = "Head switching", Description = "Bottom band skew where tape heads switch")][property: Range(-0.1d, 0.1d)] float HeadSwitch,
     [property: Display(Name = "Head switching height", Description = "Skewed band height")][property: Range(0.001d, 0.1d)] ShortSideExtent HeadSwitchHeight,
     [property: Display(Name = "Bounce", Description = "Largest vertical picture jump")][property: Range(0d, 0.02d)] ShortSideLength Bounce,
     [property: Display(Name = "Roll rate", Description = "Frame heights the picture rolls up per second")][property: Range(-1d, 1d)] float RollRate,
@@ -531,11 +530,11 @@ public sealed record AnalogVideo(
     [property: Display(Name = "Timing", Description = "Start time and pace over recorded frames")] Timing Timing) : IPixelStage<AnalogVideo> {
     public static AnalogVideo Default { get; } = new(
         VideoStandard.Rec601, 480,
-        ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideOffset.Neutral,
-        ShortSideLength.Neutral, 0.3f * 0.25f, 0f, ShortSideOffset.Neutral, 0f, 0f, ShortSideOffset.Neutral, 0f,
+        ShortSideLength.Zero, ShortSideLength.Zero, ShortSideLength.Zero, ShortSideLength.Zero, 0f,
+        ShortSideLength.Zero, 0.3f * 0.25f, 0f, 0f, 0f, 0f, 0f, 0f,
         0f, 0f, ShortSideExtent.Create(ReferenceFrame.GreaterSide / 40f), 0f, 0f, ShortSideExtent.Create(0.04f * ReferenceFrame.GreaterSide),
-        ShortSideOffset.Neutral, ShortSideLength.Neutral, ShortSideExtent.Create(1f / 65f), ShortSideOffset.Neutral, ShortSideExtent.Create(0.15f), 0f,
-        ShortSideOffset.Neutral, ShortSideExtent.Create(0.31f / (32f - (28.8f * 0.5f))), ShortSideLength.Neutral, 0f, 0f, 60f / 1001f,
+        0f, ShortSideLength.Zero, ShortSideExtent.Create(1f / 65f), 0f, ShortSideExtent.Create(0.15f), 0f,
+        0f, ShortSideExtent.Create(0.31f / (32f - (28.8f * 0.5f))), ShortSideLength.Zero, 0f, 0f, 60f / 1001f,
         Seed.MinValue, Timing.Default);
 
     public static AnalogVideo ChromaBlur { get; } =
@@ -544,14 +543,14 @@ public sealed record AnalogVideo(
     public static Seq<(string Name, Func<AnalogVideo, AnalogVideo> Look)> Looks { get; } = [(nameof(ChromaBlur), static _ => ChromaBlur)];
 
     private bool Moves =>
-        Interlace != ShortSideOffset.Neutral || Jitter != ShortSideLength.Neutral || Wrinkle != ShortSideOffset.Neutral
-        || HeadSwitch != ShortSideOffset.Neutral || Bounce != ShortSideLength.Neutral || RollRate is not 0f;
+        Interlace is not 0f || Jitter != ShortSideLength.Zero || Wrinkle is not 0f
+        || HeadSwitch is not 0f || Bounce != ShortSideLength.Zero || RollRate is not 0f;
 
     private bool Speckled => (Snow is not 0f && SnowDensity is not 0f) || Hum is not 0f;
 
     private bool Filters(PixelExtent extent) =>
-        LumaBandwidth != ShortSideLength.Neutral || ChromaBandwidth != ShortSideLength.Neutral || ChromaVertical != ShortSideLength.Neutral || ChromaPitch.Pixels(extent) > 1d
-        || ChromaDelay != ShortSideOffset.Neutral || (Smear != ShortSideLength.Neutral && SmearMix is not 0f) || Ghost is not 0f || CrossColor is not 0f
+        LumaBandwidth != ShortSideLength.Zero || ChromaBandwidth != ShortSideLength.Zero || ChromaVertical != ShortSideLength.Zero || ChromaPitch.Pixels(extent) > 1d
+        || ChromaDelay is not 0f || (Smear != ShortSideLength.Zero && SmearMix is not 0f) || Ghost is not 0f || CrossColor is not 0f
         || LumaNoise is not 0f || ChromaNoise is not 0f;
 
     public static Option<PixelPass> Pass(AnalogVideo state, PassContext context) =>
@@ -567,22 +566,21 @@ public sealed record AnalogVideo(
                     select signaled)
                 : unit)
             .Bind(_ => state.Speckled
-                ? new PixelPass.Pointwise(VideoKernels.Snow(extent, state.Lines, ERational.FromSingle(state.SnowLength).Multiply(extent.ShortSide), state.Snow, state.SnowDensity, state.Hum,
-                    LatticePoint.Split(ERational.FromSingle(state.HumRate).Multiply(ERational.FromSingle(now))).Local, state.Matrix.Signal.Luminance, CoordinateHash.Branch(field, 1u))).Run(frame, progress)
+                ? new PixelPass.Pointwise(VideoKernels.Snow(extent, state.Lines, state.SnowLength.Pixels(extent), state.Snow, state.SnowDensity, state.Hum,
+                    ((double)state.HumRate * now) switch { var turns => turns - double.Floor(turns) }, state.Matrix.Signal.Luminance, CoordinateHash.Branch(field, 1u))).Run(frame, progress)
                 : unit);
     }
 
     private static Fin<Unit> Sync(AnalogVideo state, PixelExtent extent, float now, uint field, PixelFrame frame, IProgress<int> progress) {
-        double sigma = ERational.FromSingle(state.JitterPeriod).Multiply(extent.ShortSide).Multiply(state.Lines).Divide(extent.Height).ToDouble();
-        (uint jitterDraws, ERational clock) = (CoordinateHash.Branch(field, 2u), ERational.FromSingle(now));
-        ERational rise = LatticePoint.Split(ERational.FromSingle(state.RollRate).Multiply(clock)).Local.Multiply(extent.Height);
-        ERational jump = ERational.FromSingle(state.Bounce).Multiply(extent.ShortSide).Multiply(ERational.FromSingle(CoordinateHash.White(Vector4.Zero, CoordinateHash.Branch(field, 3u)).X).Multiply(2).Subtract(1));
-        ERational crest = ERational.One.Subtract(LatticePoint.Split(ERational.FromSingle(state.WrinkleRate).Multiply(clock)).Local).Multiply(extent.Height);
-        (ERational interlace, ERational jitter, ERational wrinkle, ERational wrinkleBand) =
-            (ERational.FromSingle(state.Interlace).Multiply(extent.ShortSide), ERational.FromSingle(state.Jitter).Multiply(extent.ShortSide),
-                ERational.FromSingle(state.Wrinkle).Multiply(extent.ShortSide), ERational.FromSingle(state.WrinkleHeight).Multiply(extent.ShortSide));
-        (ERational switching, ERational switchBand) = (ERational.FromSingle(state.HeadSwitch).Multiply(extent.ShortSide), ERational.FromSingle(state.HeadSwitchHeight).Multiply(extent.ShortSide));
-        return (state.Jitter == ShortSideLength.Neutral ? Gaussian.Kernel(0d) : VideoKernels.Unit(sigma)).Map(static taps => {
+        double sigma = state.JitterPeriod.Pixels(extent) * state.Lines / extent.Height;
+        uint jitterDraws = CoordinateHash.Branch(field, 2u);
+        double rise = ((double)state.RollRate * now) switch { var turns => (turns - double.Floor(turns)) * extent.Height };
+        double jump = state.Bounce.Pixels(extent) * ((2d * CoordinateHash.White(Vector256<double>.Zero, CoordinateHash.Branch(field, 3u)).X) - 1d);
+        double crest = ((double)state.WrinkleRate * now) switch { var turns => (1d - (turns - double.Floor(turns))) * extent.Height };
+        (double interlace, double jitter, double wrinkle, double wrinkleBand) =
+            ((double)state.Interlace * extent.ShortSide, state.Jitter.Pixels(extent), (double)state.Wrinkle * extent.ShortSide, state.WrinkleHeight.Pixels(extent));
+        (double switching, double switchBand) = ((double)state.HeadSwitch * extent.ShortSide, state.HeadSwitchHeight.Pixels(extent));
+        return (state.Jitter == ShortSideLength.Zero ? Gaussian.Kernel(0d) : VideoKernels.Unit(sigma)).Map(static taps => {
             using (taps) {
                 double[] weights = new double[taps.Rows];
                 taps.CopyTo(weights);
@@ -593,31 +591,27 @@ public sealed record AnalogVideo(
                 new CoordinateMap.Analytic(
                     (points, _, _) => {
                         foreach (ref (double X, double Y) point in points)
-                            point.Y = Sampling.Linear.Point(ERational.FromDouble(point.Y).Add(rise), WrapMode.Periodic, extent.Height);
+                            point.Y = Sampling.Linear.Point(point.Y + rise, WrapMode.Periodic, extent.Height);
                     }, Sampling.Linear, (WrapMode.Periodic, WrapMode.Periodic)),
                 new CoordinateMap.Analytic(
                     (points, _, _) => {
                         foreach (ref (double X, double Y) point in points)
-                            point.Y = Sampling.Linear.Point(ERational.FromDouble(point.Y).Subtract(jump), WrapMode.Black, extent.Height);
+                            point.Y = Sampling.Linear.Point(point.Y - jump, WrapMode.Black, extent.Height);
                     }, Sampling.Linear, (WrapMode.Black, WrapMode.Black))),
             new CoordinateMap.Analytic(
                 (points, _, _) => {
-                    EInteger line = SystemM.Line((long)Math.Floor(points[0].Y), state.Lines, extent.Height);
+                    const double crestShare = 0.9d;
+                    long line = SystemM.Line((long)double.Floor(points[0].Y), state.Lines, extent.Height);
                     double draw = 0d;
                     for (int tap = 0; tap < weights.Length; tap++)
-                        draw += weights[tap] * CoordinateHash.Normals(EInteger.Zero, line.Add(tap - (weights.Length / 2)), jitterDraws).X;
+                        draw += weights[tap] * CoordinateHash.Normals(0L, line + tap - (weights.Length / 2), jitterDraws).X;
                     foreach (ref (double X, double Y) point in points) {
-                        ERational row = ERational.FromDouble(point.Y);
-                        ERational distance = row.Subtract(crest);
-                        distance = distance.Subtract(ERational.FromEInteger(LatticePoint.Split(distance.Divide(extent.Height).Add(ERational.One.Divide(2))).Cell).Multiply(extent.Height));
-                        ERational band = ERational.FromInt32(extent.Height).Subtract(row).Divide(switchBand);
-                        ERational crestShare = ERational.FromDouble(0.9d);
-                        ERational head = band.Sign >= 0 && band.CompareTo(ERational.One) < 0
-                            ? switching.Multiply(band.CompareTo(crestShare) < 0 ? band.Divide(crestShare) : ERational.One.Subtract(band).Divide(ERational.One.Subtract(crestShare)))
-                            : ERational.Zero;
-                        ERational offset = interlace.Multiply(line.IsEven ? 0 : 1).Add(jitter.Multiply(ERational.FromDouble(draw)))
-                            .Add(wrinkle.Multiply(ERational.Max(ERational.Zero, ERational.One.Subtract(distance.Abs().Divide(wrinkleBand))))).Add(head);
-                        point.X = Sampling.Linear.Point(ERational.FromDouble(point.X).Subtract(offset), WrapMode.Clamp, extent.Width);
+                        double distance = point.Y - crest;
+                        distance -= double.Floor((distance / extent.Height) + 0.5d) * extent.Height;
+                        double band = (extent.Height - point.Y) / switchBand;
+                        double head = band is >= 0d and < 1d ? switching * (band < crestShare ? band / crestShare : (1d - band) / (1d - crestShare)) : 0d;
+                        double offset = (long.IsEvenInteger(line) ? 0d : interlace) + (jitter * draw) + (wrinkle * double.Max(0d, 1d - (double.Abs(distance) / wrinkleBand))) + head;
+                        point.X = Sampling.Linear.Point(point.X - offset, WrapMode.Clamp, extent.Width);
                     }
                 }, Sampling.Linear, (WrapMode.Clamp, WrapMode.Clamp))).Apply(frame, progress));
     }
@@ -646,7 +640,7 @@ public sealed record AnalogVideo(
                     CvInvoke.Sobel(luma, ring, DepthType.Cv64F, 2, 0, 1, 1d, 0d, BorderType.Replicate);
                 if (embosses)
                     CvInvoke.Sobel(luma, relief, DepthType.Cv64F, 1, 0, 1, 1d, 0d, BorderType.Replicate);
-                return rings ? VideoKernels.Filter(ring, VideoKernels.Echo(0d, state.RingingDelay.Pixels(extent), 1f)) : unit;
+                return rings ? VideoKernels.Filter(ring, VideoKernels.Echo(0d, (double)state.RingingDelay * extent.ShortSide, 1f)) : unit;
             })
             .Bind(_ => smear > 0d && state.SmearMix is not 0f ? VideoKernels.Filter(luma, VideoKernels.Echo(smear, smear, state.SmearMix)) : unit)
             .Bind(_ => {
@@ -654,21 +648,25 @@ public sealed record AnalogVideo(
                     CvInvoke.ScaleAdd(ring, -state.Ringing * sigma * sigma, luma, luma);
                 if (embosses)
                     CvInvoke.ScaleAdd(relief, -state.Emboss * sigma / 2d, luma, luma);
-                return state.Ghost is 0f ? unit : VideoKernels.Filter(luma, VideoKernels.Echo(0d, state.GhostDelay.Pixels(extent), state.Ghost));
+                return state.Ghost is 0f ? unit : VideoKernels.Filter(luma, VideoKernels.Echo(0d, (double)state.GhostDelay * extent.ShortSide, state.Ghost));
             });
     }
 
     private static Fin<Unit> Chroma(AnalogVideo state, PixelExtent extent, Mat plane) {
         double pitch = state.ChromaPitch.Pixels(extent);
         if (pitch > 1d) {
-            using Mat coarse = new();
-            CvInvoke.Resize(plane, coarse, new(int.Max(1, (int)Math.Round(plane.Cols / pitch, MidpointRounding.ToEven)), plane.Rows), 0d, 0d, Inter.Area);
-            CvInvoke.Resize(coarse, plane, plane.Size, 0d, 0d, Inter.Linear);
+            int samples = int.Max(1, (int)Math.Round(plane.Cols / pitch, MidpointRounding.ToEven));
+            using Mat signal = new();
+            using SpanOwner<float> coarse = SpanOwner<float>.Allocate(samples * plane.Rows);
+            plane.ConvertTo(signal, DepthType.Cv32F);
+            ImageProcessing.Resize(signal.GetSpan<float>(), signal.Cols, signal.Rows, coarse.Span, samples, signal.Rows, 1, ResizeFilter.Box);
+            ImageProcessing.Resize(coarse.Span, samples, signal.Rows, signal.GetSpan<float>(), signal.Cols, signal.Rows, 1, ResizeFilter.Triangle);
+            signal.ConvertTo(plane, DepthType.Cv64F);
         }
-        return (state.ChromaBandwidth == ShortSideLength.Neutral ? unit : VideoKernels.Filter(plane, Gaussian.Kernel(state.ChromaBandwidth.Pixels(extent))))
-            .Bind(_ => state.ChromaVertical == ShortSideLength.Neutral ? unit : VideoKernels.Filter(plane, Gaussian.Kernel(state.ChromaVertical.Pixels(extent)), vertical: true))
-            .Bind(_ => state.ChromaDelay == ShortSideOffset.Neutral ? unit : VideoKernels.Filter(plane, VideoKernels.Echo(0d, state.ChromaDelay.Pixels(extent), 1f)))
-            .Bind(_ => state.Ghost is 0f ? unit : VideoKernels.Filter(plane, VideoKernels.Echo(0d, state.GhostDelay.Pixels(extent), state.Ghost)));
+        return (state.ChromaBandwidth == ShortSideLength.Zero ? unit : VideoKernels.Filter(plane, Gaussian.Kernel(state.ChromaBandwidth.Pixels(extent))))
+            .Bind(_ => state.ChromaVertical == ShortSideLength.Zero ? unit : VideoKernels.Filter(plane, Gaussian.Kernel(state.ChromaVertical.Pixels(extent)), vertical: true))
+            .Bind(_ => state.ChromaDelay is 0f ? unit : VideoKernels.Filter(plane, VideoKernels.Echo(0d, (double)state.ChromaDelay * extent.ShortSide, 1f)))
+            .Bind(_ => state.Ghost is 0f ? unit : VideoKernels.Filter(plane, VideoKernels.Echo(0d, (double)state.GhostDelay * extent.ShortSide, state.Ghost)));
     }
 }
 
@@ -696,7 +694,7 @@ public sealed record Glitch(
     [property: Display(Name = "Block lift", Description = "Largest vertical block displacement in frame short sides")][property: Range(0d, 0.1d)] ShortSideLength BlockLift,
     [property: Display(Name = "Tear", Description = "Torn band sideways shift range in frame short sides")][property: Range(0d, 0.1d)] ShortSideLength Tear,
     [property: Display(Name = "Tear period", Description = "Height of each torn band in frame short sides")][property: Range(0.01d, 1d)] ShortSideExtent TearPeriod,
-    [property: Display(Name = "RGB split", Description = "Opposed red and blue offset in frame short sides")][property: Range(-0.05d, 0.05d)] ShortSideOffset Split,
+    [property: Display(Name = "RGB split", Description = "Opposed red and blue offset in frame short sides")][property: Range(-0.05d, 0.05d)] float Split,
     [property: Display(Name = "Split angle", Description = "Counterclockwise from right")][property: Range(-double.Pi, double.Pi)] float SplitDirection,
     [property: Display(Name = "Split jitter", Description = "Mix of fixed and random signed split per held period")][property: Range(0d, 1d)] float SplitJitter,
     [property: Display(Name = "Slide", Description = "Share of the split each moved channel smears across")][property: Range(0d, 1d)] float Slide,
@@ -710,8 +708,8 @@ public sealed record Glitch(
     private static readonly GaussLegendreRule Smear = new(0d, 1d, 1 << 6);
 
     public static Glitch Default { get; } = new(
-        ShortSideExtent.Create(1f / (5f * 0.1f)), ShortSideExtent.Create(1f / 5f), 0f, ShortSideLength.Neutral, ShortSideLength.Neutral,
-        ShortSideLength.Neutral, ShortSideExtent.Create(MathF.Tau / 20f), ShortSideOffset.Neutral, 0f, 0f, 0f, VideoStandard.Rec601, 0f, 0f, WrapMode.Periodic, Seed.MinValue, Timing.Default, Hold.MinValue);
+        ShortSideExtent.Create(1f / (5f * 0.1f)), ShortSideExtent.Create(1f / 5f), 0f, ShortSideLength.Zero, ShortSideLength.Zero,
+        ShortSideLength.Zero, ShortSideExtent.Create(MathF.Tau / 20f), 0f, 0f, 0f, 0f, VideoStandard.Rec601, 0f, 0f, WrapMode.Periodic, Seed.MinValue, Timing.Default, Hold.MinValue);
 
     public static Glitch Corruption { get; } = Default with {
         BlockWidth = ShortSideExtent.Create(0.03f * ReferenceFrame.GreaterSide),
@@ -725,27 +723,27 @@ public sealed record Glitch(
     public static Glitch BlockGlitch { get; } = Default with {
         BlockDensity = 0.2f,
         BlockShift = ShortSideLength.Create(0.05f * ReferenceFrame.GreaterSide),
-        Split = ShortSideOffset.Create(0.03f * ReferenceFrame.GreaterSide),
+        Split = 0.03f * ReferenceFrame.GreaterSide,
         Hold = Hold.Create(2f / 24f),
     };
 
     public static Seq<(string Name, Func<Glitch, Glitch> Look)> Looks { get; } = [(nameof(Corruption), static _ => Corruption), (nameof(BlockGlitch), static _ => BlockGlitch)];
 
-    private bool Blocks => BlockDensity is not 0f && (BlockShift != ShortSideLength.Neutral || BlockLift != ShortSideLength.Neutral);
+    private bool Blocks => BlockDensity is not 0f && (BlockShift != ShortSideLength.Zero || BlockLift != ShortSideLength.Zero);
 
-    private bool Moves => Blocks || Tear != ShortSideLength.Neutral;
+    private bool Moves => Blocks || Tear != ShortSideLength.Zero;
 
     private bool Corrupts => BlockDensity is not 0f && (LumaCorruption is not 0f || ChromaCorruption is not 0f);
 
     public static Option<PixelPass> Pass(Glitch state, PassContext context) =>
-        state.Moves || state.Split != ShortSideOffset.Neutral || state.Corrupts ? Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress))) : None;
+        state.Moves || state.Split is not 0f || state.Corrupts ? Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress))) : None;
 
     private static Fin<Unit> Kernel(Glitch state, PassContext context, PixelFrame frame, IProgress<int> progress) {
         PixelExtent extent = context.Extent;
         uint field = state.Seed.Field(3u, state.Hold.Period(state.Timing.At(context)));
-        Vector4 draw = CoordinateHash.White(Vector4.Zero, CoordinateHash.Branch(field, 3u));
+        Vector4 draw = CoordinateHash.White(Vector256<double>.Zero, CoordinateHash.Branch(field, 3u));
         CoordinateMap blocks = new CoordinateMap.Analytic(Displacement(state, extent, field, draw.X), Sampling.Nearest, (state.Wrap, state.Wrap));
-        return (state.Split != ShortSideOffset.Neutral, state.Moves) switch {
+        return (state.Split is not 0f, state.Moves) switch {
             (true, _) => Splits(state, extent, draw.Y, blocks, frame, progress),
             (false, true) => blocks.Apply(frame, progress),
             (false, false) => unit,
@@ -758,48 +756,42 @@ public sealed record Glitch(
     }
 
     private static Action<Span<(double X, double Y)>, Span<float>, PixelExtent> Displacement(Glitch state, PixelExtent extent, uint field, float phase) {
-        (ERational X, ERational Y) = (ERational.FromInt32(extent.Width).Divide(2), ERational.FromInt32(extent.Height).Divide(2));
+        (double centerX, double centerY) = (extent.Width / 2d, extent.Height / 2d);
         uint draws = CoordinateHash.Branch(field, 1u);
-        (ERational shift, ERational lift, ERational tear, ERational period) =
-            (ERational.FromSingle(state.BlockShift).Multiply(extent.ShortSide), ERational.FromSingle(state.BlockLift).Multiply(extent.ShortSide),
-                ERational.FromSingle(state.Tear).Multiply(extent.ShortSide), ERational.FromSingle(state.TearPeriod).Multiply(extent.ShortSide));
+        (double shift, double lift, double tear, double period) = (state.BlockShift.Pixels(extent), state.BlockLift.Pixels(extent), state.Tear.Pixels(extent), state.TearPeriod.Pixels(extent));
         return (points, _, _) => {
             foreach (ref (double X, double Y) point in points) {
-                (ERational X, ERational Y) p = (ERational.FromDouble(point.X), ERational.FromDouble(point.Y));
-                (ERational X, ERational Y) q = (p.X.Subtract(X), p.Y.Subtract(Y));
-                (ERational X, ERational Y) offset = state.Blocks && state.Cell(extent, q, draws) is (true, _, var cell)
-                    ? (shift.Multiply(ERational.FromSingle(cell.Y).Multiply(2).Subtract(1)), lift.Multiply(ERational.FromSingle(cell.Z).Multiply(2).Subtract(1)))
-                    : (ERational.Zero, ERational.Zero);
-                ERational band = LatticePoint.Split(q.Y.Divide(period).Add(ERational.FromSingle(phase))).Local.Subtract(ERational.One.Divide(2));
-                point = (Sampling.Nearest.Point(p.X.Subtract(offset.X).Subtract(tear.Multiply(band)), state.Wrap, extent.Width), Sampling.Nearest.Point(p.Y.Subtract(offset.Y), state.Wrap, extent.Height));
+                (double X, double Y) q = (point.X - centerX, point.Y - centerY);
+                (double across, double down) = state.Blocks && state.Cell(extent, q, draws) is (true, _, var cell) ? (shift * ((2d * cell.Y) - 1d), lift * ((2d * cell.Z) - 1d)) : (0d, 0d);
+                double band = ((q.Y / period) + phase) switch { var turns => turns - double.Floor(turns) - 0.5d };
+                point = (Sampling.Nearest.Point(point.X - across - (tear * band), state.Wrap, extent.Width), Sampling.Nearest.Point(point.Y - down, state.Wrap, extent.Height));
             }
         };
     }
 
     private static Fin<Unit> Splits(Glitch state, PixelExtent extent, float draw, CoordinateMap blocks, PixelFrame frame, IProgress<int> progress) {
-        (ERational jitter, ERational slide) = (ERational.FromSingle(state.SplitJitter), ERational.FromSingle(state.Slide));
-        ERational reach = ERational.FromSingle(state.Split).Multiply(extent.ShortSide).Multiply(ERational.One.Subtract(jitter).Add(jitter.Multiply(ERational.FromSingle(draw).Multiply(2).Subtract(1))));
+        (double jitter, double slide) = (state.SplitJitter, state.Slide);
+        double reach = (double)state.Split * extent.ShortSide * (1d - jitter + (jitter * ((2d * draw) - 1d)));
         (double X, double Y) = double.SinCos(state.SplitDirection) switch { var (sin, cos) => (cos, -sin) };
-        return reach.IsZero ? state.Moves ? blocks.Apply(frame, progress) : unit : CoordinateMap.Integrated(
+        return reach is 0d ? state.Moves ? blocks.Apply(frame, progress) : unit : CoordinateMap.Integrated(
             Smear,
-            tau => Subframe(reach.Multiply(ERational.One.Subtract(slide).Add(slide.Multiply(ERational.FromDouble(tau)))), Vector4.UnitX),
-            tau => Subframe(reach.Negate().Multiply(ERational.One.Subtract(slide).Add(slide.Multiply(ERational.FromDouble(tau)))), Vector4.UnitZ),
-            _ => Subframe(ERational.Zero, new Vector4(0f, 1f, 0f, 1f)))(frame, progress);
+            tau => Subframe(reach * (1d - slide + (slide * tau)), Vector4.UnitX),
+            tau => Subframe(-reach * (1d - slide + (slide * tau)), Vector4.UnitZ),
+            _ => Subframe(0d, new Vector4(0f, 1f, 0f, 1f)))(frame, progress);
 
-        (CoordinateMap Map, Vector4 Gains) Subframe(ERational shift, Vector4 gains) {
-            (ERational X, ERational Y) offset = (shift.Multiply(ERational.FromDouble(X)), shift.Multiply(ERational.FromDouble(Y)));
+        (CoordinateMap Map, Vector4 Gains) Subframe(double shift, Vector4 gains) {
+            (double X, double Y) offset = (shift * X, shift * Y);
             CoordinateMap moved = new CoordinateMap.Analytic(
                 (points, _, _) => {
                     foreach (ref (double X, double Y) point in points)
-                        point = (Sampling.Linear.Point(ERational.FromDouble(point.X).Subtract(offset.X), state.Wrap, extent.Width), Sampling.Linear.Point(ERational.FromDouble(point.Y).Subtract(offset.Y), state.Wrap, extent.Height));
+                        point = (Sampling.Linear.Point(point.X - offset.X, state.Wrap, extent.Width), Sampling.Linear.Point(point.Y - offset.Y, state.Wrap, extent.Height));
                 }, Sampling.Linear, (state.Wrap, state.Wrap));
             return (state.Moves ? new CoordinateMap.Composed(blocks, moved) : moved, gains);
         }
     }
 
-    private (bool Active, (EInteger X, EInteger Y) Site, Vector4 Draw) Cell(PixelExtent extent, (ERational X, ERational Y) q, uint draws) {
-        (EInteger X, EInteger Y) site = (LatticePoint.Split(q.X.Divide(ERational.FromSingle(BlockWidth).Multiply(extent.ShortSide))).Cell,
-            LatticePoint.Split(q.Y.Divide(ERational.FromSingle(BlockHeight).Multiply(extent.ShortSide))).Cell);
+    private (bool Active, (long X, long Y) Site, Vector4 Draw) Cell(PixelExtent extent, (double X, double Y) q, uint draws) {
+        (long X, long Y) site = ((long)double.Floor(q.X / BlockWidth.Pixels(extent)), (long)double.Floor(q.Y / BlockHeight.Pixels(extent)));
         Vector4 draw = CoordinateHash.Uniforms(site.X, site.Y, draws);
         return (draw.X < BlockDensity, site, draw);
     }
@@ -843,23 +835,23 @@ public sealed record FilmDamage(
         FilmSpots.Default with { Mark = DamageMark.Default with { White = 0.5f } }, FilmSpots.Default, FilmSpots.Default,
         DamageMark.Default with { White = 0.7f }, 3f, ShortSideLength.Create(0.0008f * ReferenceFrame.GreaterSide), 0.05f * 24f,
         DamageMark.Default, 1f, ShortSideLength.Create(0.0012f * ReferenceFrame.GreaterSide), ShortSideExtent.Create(0.08f * ReferenceFrame.GreaterSide), 1f,
-        0.1f * 24f, ShortSideLength.Neutral, ShortSideLength.Neutral, 5f * 0.05f * 0.5f * 24f, Seed.MinValue, Timing.Default);
+        0.1f * 24f, ShortSideLength.Zero, ShortSideLength.Zero, 5f * 0.05f * 0.5f * 24f, Seed.MinValue, Timing.Default);
 
     public static Option<PixelPass> Pass(FilmDamage state, PassContext context) {
         (float clock, PixelExtent extent) = (state.Timing.At(context), context.Extent);
         long denominator = 2L * extent.ShortSide;
         Seq<(DamageMark Mark, bool Held, Func<uint, Func<long, long, (float Coverage, float Value)>> Field)> marks = [
             .. Seq(state.Specks, state.Dirt, state.Blotches).Map(spots => (spots.Mark, true, new Func<uint, Func<long, long, (float Coverage, float Value)>>(field => (column, line) =>
-                spots.Cells.Disc((ERational.Create((2L * column) + 1 - extent.Width, denominator), ERational.Create((2L * line) + 1 - extent.Height, denominator)), extent.ShortSide, field,
+                spots.Cells.Disc((((2L * column) + 1 - extent.Width) / (double)denominator, ((2L * line) + 1 - extent.Height) / (double)denominator), extent.ShortSide, field,
                     tone => tone < spots.Mark.White ? 1f : 0f)))),
             (state.Scratches, false, field => Scratch(state, extent, clock, field)),
             (state.Hairs, false, field => Hair(state, extent, clock, field))];
         Func<long, long, (float Coverage, float Value)>[] shown = [.. marks
             .Map((mark, index) => (Mark: mark, Period: mark.Mark.Hold.Period(clock), Index: (uint)index))
-            .Filter(drawn => CoordinateHash.White(Vector4.Zero, Shot(drawn.Period, drawn.Index)).X < drawn.Mark.Mark.Likelihood)
+            .Filter(drawn => CoordinateHash.White(Vector256<double>.Zero, Shot(drawn.Period, drawn.Index)).X < drawn.Mark.Mark.Likelihood)
             .Map(drawn => drawn.Mark.Field(Shot(drawn.Mark.Held ? drawn.Period : 0u, drawn.Index)))];
         Option<PixelPass> composite = shown is [] ? None : Some<PixelPass>(Composite(shown, extent));
-        return (state.WeaveX, state.WeaveY) == (ShortSideLength.Neutral, ShortSideLength.Neutral) ? composite : Weave(state, extent, clock, (uint)marks.Count) switch {
+        return (state.WeaveX, state.WeaveY) == (ShortSideLength.Zero, ShortSideLength.Zero) ? composite : Weave(state, extent, clock, (uint)marks.Count) switch {
             var map => Some<PixelPass>(new PixelPass.Frame((frame, progress) => composite.Map(pass => pass.Run(frame, Unreported)).IfNone(unit).Bind(_ => map.Apply(frame, progress)))),
         };
 
@@ -881,7 +873,7 @@ public sealed record FilmDamage(
 
     private static CoordinateMap.Analytic Weave(FilmDamage state, PixelExtent extent, float clock, uint axes) {
         uint field = state.Seed.Field(6u, 0u);
-        LatticePoint term = new(ERational.FromSingle(clock).Multiply(ERational.FromSingle(state.WeaveRate)), ERational.Zero, ERational.Zero, ERational.Zero);
+        Vector256<double> term = Vector256.Create((double)clock * state.WeaveRate, 0d, 0d, 0d);
         (double X, double Y) = (
             state.WeaveX.Pixels(extent) * NoiseDimensions.One.Fbm(term, NoiseBasis.Fbm.Default.Octaves, CoordinateHash.Branch(field, axes)),
             state.WeaveY.Pixels(extent) * NoiseDimensions.One.Fbm(term, NoiseBasis.Fbm.Default.Octaves, CoordinateHash.Branch(field, axes + 1u)));
@@ -889,10 +881,10 @@ public sealed record FilmDamage(
     }
 
     private static Func<long, long, (float Coverage, float Value)> Scratch(FilmDamage state, PixelExtent extent, float clock, uint field) {
-        (ERational count, ERational drift) = (ERational.FromSingle(state.ScratchCount), ERational.FromSingle(clock).Multiply(ERational.FromSingle(state.ScratchRate)));
+        (double count, double drift) = (state.ScratchCount, (double)clock * state.ScratchRate);
         (double width, uint sites, uint tones) = (state.ScratchWidth.Pixels(extent), CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u));
-        return (column, _) => NoiseDimensions.PlanarF1(ERational.Create((2L * column) + 1 - extent.Width, 2L * extent.Width).Multiply(count), drift, NoiseBasis.F1.Default.Cells, sites) switch {
-            var feature => ShapeEdge.Strip(feature.Delta.X.Abs().Divide(count).Multiply(extent.Width).ToDouble(), width, 1d) switch {
+        return (column, _) => NoiseDimensions.PlanarF1(((2L * column) + 1 - extent.Width) / (2d * extent.Width) * count, drift, NoiseBasis.F1.Default.Cells, sites) switch {
+            var feature => ShapeEdge.Strip(double.Abs(feature.Delta.X) / count * extent.Width, width, 1d) switch {
                 var coverage => (coverage, CoordinateHash.Uniforms(feature.Cell.X, feature.Cell.Y, tones).X < state.Scratches.White ? coverage : 0f),
             },
         };
@@ -900,17 +892,15 @@ public sealed record FilmDamage(
 
     private static Func<long, long, (float Coverage, float Value)> Hair(FilmDamage state, PixelExtent extent, float clock, uint field) {
         (double pixels, double width) = (state.HairLength.Pixels(extent), state.HairWidth.Pixels(extent));
-        (ERational length, ERational curl, ERational drift) =
-            (ERational.FromSingle(state.HairLength).Multiply(extent.ShortSide), ERational.FromSingle(state.HairCurl), ERational.FromSingle(clock).Multiply(ERational.FromSingle(state.HairRate)));
+        (double curl, double drift) = (state.HairCurl, (double)clock * state.HairRate);
         (double share, Octaves octaves) = (state.HairCount * pixels * pixels / ((double)extent.Width * extent.Height), NoiseBasis.Fbm.Default.Octaves);
         (uint across, uint down, uint sites, uint tones, uint strands) =
             (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u), CoordinateHash.Branch(field, 4u));
         return (column, line) => {
-            LatticePoint strand = new(ERational.Create((2L * column) + 1 - extent.Width, 2).Divide(length), ERational.Create((2L * line) + 1 - extent.Height, 2).Divide(length), ERational.Zero, ERational.Zero);
-            LatticePoint bent = new(strand.X.Add(curl.Multiply(ERational.FromSingle(NoiseDimensions.Two.Fbm(strand, octaves, across)))),
-                strand.Y.Add(curl.Multiply(ERational.FromSingle(NoiseDimensions.Two.Fbm(strand, octaves, down)))), drift, ERational.Zero);
-            (float _, float edgeDistance, LatticeCell cell) = NoiseDimensions.Three.Voronoi(bent, NoiseBasis.F1.Default.Cells, sites);
-            Vector4 draw = cell.White(tones);
+            Vector256<double> strand = Vector256.Create(((2L * column) + 1 - extent.Width) / 2d / pixels, ((2L * line) + 1 - extent.Height) / 2d / pixels, 0d, 0d);
+            Vector256<double> bent = Vector256.Create(strand[0] + (curl * NoiseDimensions.Two.Fbm(strand, octaves, across)), strand[1] + (curl * NoiseDimensions.Two.Fbm(strand, octaves, down)), drift, 0d);
+            (float _, float edgeDistance, Vector256<long> cell) = NoiseDimensions.Three.Voronoi(bent, NoiseBasis.F1.Default.Cells, sites);
+            Vector4 draw = CoordinateHash.Uniforms(CoordinateHash.Hash(cell, tones));
             float edge = ShapeEdge.Strip(edgeDistance * pixels, width, 1d);
             float open = ShapeEdge.Smooth(float.Clamp((0.5f + (0.5f * NoiseDimensions.Two.Fbm(strand, octaves, strands)) - 0.45f) / 0.1f, 0f, 1f));
             float coverage = draw.X < share ? edge * open : 0f;
@@ -929,7 +919,7 @@ public sealed record FilmFlicker(
     public static Option<PixelPass> Pass(FilmFlicker state, PassContext context) =>
         state.Depth is 0f ? None
             : new Vector3(float.Exp2(state.Depth * NoiseDimensions.One.Fbm(
-                new LatticePoint(ERational.FromSingle(state.Timing.At(context)).Multiply(ERational.FromSingle(state.Rate)), ERational.Zero, ERational.Zero, ERational.Zero),
+                Vector256.Create((double)state.Timing.At(context) * state.Rate, 0d, 0d, 0d),
                 NoiseBasis.Fbm.Default.Octaves, state.Seed.Field(7u, 0u)))) switch {
                     var gain => Some<PixelPass>(new PixelPass.Color(row => {
                         foreach (ref Vector4 pixel in row)

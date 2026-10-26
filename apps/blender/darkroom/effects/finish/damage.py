@@ -22,7 +22,7 @@ from blender.bpy.nodes.textures import Noise, stream, uniforms, Voronoi
 from blender.bpy.render.compositor.coordinates import Clock
 from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, precise, Requests, Shell
 from blender.imaging.color.processors import Domain
-from blender.imaging.files import images
+from blender.imaging.files import buffers
 from blender.imaging.sampling.integration import Estimate, footprint, Precision, Raster, smoothstep
 from blender.imaging.sampling.populations import Population
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
@@ -232,7 +232,7 @@ def _(
                 shift = held.sampled(clock, seed=seed)
                 transform = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, float(shift[0] / step_x), float(-shift[1] / step_y), 1.0)
                 return accumulated(
-                    images.located(replicate, source).bind(lambda image: images.checked(OpenImageIO.ImageBufAlgo.warp(image, transform, "triangle", 2.0, False, "clamp"))).bind(images.pixels)
+                    buffers.located(replicate, source).bind(lambda image: buffers.checked(OpenImageIO.ImageBufAlgo.warp(image, transform, "triangle", 2.0, False, "clamp"))).bind(buffers.pixels)
                     for replicate in replicates
                 )
 
@@ -242,7 +242,7 @@ def _(
                 outside = gate.map(lambda held: np.asarray(held.color[:3])).default_value(np.zeros(3))
                 result[..., :3] = result[..., :3] * opening + outside * result[..., 3:4] * (1.0 - opening)
                 estimate = Estimate.of(result[..., :4], precision)
-                return images.located(estimate.value.astype(np.float32), source).map(estimate.holding).map(Some)
+                return buffers.located(estimate.value.astype(np.float32), source).map(estimate.holding).map(Some)
 
             return weave.map(woven).default_value(Ok(replicates)).bind(gated)
 
@@ -254,7 +254,7 @@ def _(
     gate = part(Noise, "gate_edge", noise_dimensions="3D", noise_type="RIDGED_MULTIFRACTAL", normalize=True).bind(
         lambda edge: edge.map(lambda found: part(Gate, "gate", edge=found)).default_value(Ok(Nothing))
     )
-    return paired(paired(paired(images.pixels(source), paired(seed, clock)), paired(speckles, part(Scratches, "scratches"))), paired(paired(part(Hairs, "hairs"), part(Weave, "weave")), gate)).bind(
+    return paired(paired(paired(buffers.pixels(source), paired(seed, clock)), paired(speckles, part(Scratches, "scratches"))), paired(paired(part(Hairs, "hairs"), part(Weave, "weave")), gate)).bind(
         lambda found: composed(
             found[0][0][0], found[0][0][1][0], found[0][0][1][1].clock(scene.frame_current + scene.frame_subframe), found[0][1][0], found[0][1][1], found[1][0][0], found[1][0][1], found[1][1]
         )

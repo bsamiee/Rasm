@@ -18,7 +18,7 @@ internal interface IRowFold {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct ClipLevels(float Low, float High);
+public sealed record ClipLevels(float Low, float High);
 
 [SmartEnum]
 public sealed partial class ClipEnd {
@@ -44,11 +44,14 @@ public sealed partial class TracePlane {
 
 [ComplexValueObject]
 [ValidationError<ImagingFault>]
-public readonly partial struct BinRange {
+public sealed partial class BinRange {
     public int First { get; }
     public int Last { get; }
 
     public bool Holds(double level) => !double.IsNaN(level) && HistogramAxis.Bin(level) is var bin && bin >= First && bin <= Last;
+
+    public static Fin<BinRange> Validated(int first, int last) =>
+        TryCreate(first, last, out BinRange? range, out ImagingFault? fault) ? range : fault;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int first, ref int last) =>
         validationError = 0 <= first && first <= last && last < HistogramAxis.Bins ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Bin range [{first}, {last}] must ascend within [0, {HistogramAxis.Bins - 1}]"));
@@ -94,7 +97,7 @@ public sealed record Traces(BinGrid Red, BinGrid Green, BinGrid Blue, BinGrid Lu
         };
 }
 
-public readonly record struct Clips(Channels<int> Low, Channels<int> High) {
+public sealed record Clips(Channels<int> Low, Channels<int> High) {
     internal const int Ends = 6;
 
     internal static Clips Of(ReadOnlySpan<int> counts) =>
@@ -182,7 +185,7 @@ public static class HistogramAxis {
 }
 
 // --- [FOLDS] ---------------------------------------------------------------------------
-internal readonly struct HistogramFold((double R, double G, double B) luminance, Option<ClipLevels> clipping) : IRowFold {
+internal sealed class HistogramFold((double R, double G, double B) luminance, Option<ClipLevels> clipping) : IRowFold {
     public int Bins => (4 * HistogramAxis.Bins) + (Clips.Ends * clipping.Count());
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
@@ -206,7 +209,7 @@ internal readonly struct HistogramFold((double R, double G, double B) luminance,
     }
 }
 
-internal readonly struct WaveformFold((double R, double G, double B) luminance, int columns, int rows, int width) : IRowFold {
+internal sealed class WaveformFold((double R, double G, double B) luminance, int columns, int rows, int width) : IRowFold {
     public int Bins => 4 * columns * rows;
 
     public void Fold(ReadOnlySpan<Vector4> row, Span<int> bins) {
@@ -221,14 +224,7 @@ internal readonly struct WaveformFold((double R, double G, double B) luminance, 
     }
 }
 
-internal static class Lanes {
-    public static (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) Of(Matrix<double> matrix) =>
-        (Lane(matrix, 0), Lane(matrix, 1), Lane(matrix, 2));
-
-    private static Vector256<double> Lane(Matrix<double> matrix, int column) => Vector256.Create(matrix[0, column], matrix[1, column], matrix[2, column], 0d);
-}
-
-internal readonly struct VectorscopeFold(Matrix<double> forward, float reach, int columns, int rows) : IRowFold {
+internal sealed class VectorscopeFold(Matrix<double> forward, float reach, int columns, int rows) : IRowFold {
     private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) _lanes = Lanes.Of(forward);
 
     public int Bins => columns * rows;
@@ -244,7 +240,7 @@ internal readonly struct VectorscopeFold(Matrix<double> forward, float reach, in
     }
 }
 
-internal readonly struct ChromaticityFold(Matrix<double> toXyz, Transfer encoding, int columns, int rows) : IRowFold {
+internal sealed class ChromaticityFold(Matrix<double> toXyz, Transfer encoding, int columns, int rows) : IRowFold {
     private readonly (Vector256<double> Red, Vector256<double> Green, Vector256<double> Blue) _lanes = Lanes.Of(toXyz);
 
     public int Bins => columns * rows;
@@ -266,7 +262,7 @@ internal readonly struct ChromaticityFold(Matrix<double> toXyz, Transfer encodin
 
 // --- [BANDS] ---------------------------------------------------------------------------
 internal static class BandFold {
-    public static int[] Run<TFold>(PixelFrame frame, TFold fold) where TFold : struct, IRowFold {
+    public static int[] Run<TFold>(PixelFrame frame, TFold fold) where TFold : IRowFold {
         int bands = int.Min(frame.Size.Height, Environment.ProcessorCount);
         int[][] counts = new int[bands][];
         ParallelHelper.For(0, bands, new BandAction<TFold>(frame.View, counts, fold));
@@ -277,7 +273,7 @@ internal static class BandFold {
     }
 }
 
-file readonly struct BandAction<TFold>(Memory2D<Vector4> rows, int[][] counts, TFold fold) : IAction where TFold : struct, IRowFold {
+file readonly struct BandAction<TFold>(Memory2D<Vector4> rows, int[][] counts, TFold fold) : IAction where TFold : IRowFold {
     public void Invoke(int i) {
         int[] bins = new int[fold.Bins];
         counts[i] = bins;

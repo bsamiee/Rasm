@@ -1,7 +1,6 @@
 """Display formation, colorspace transforms, encoding domains, and RGB geometry."""
 
 from enum import auto, Enum
-from functools import reduce
 from typing import Annotated, Final, Self
 
 from expression import Error, identity, Nothing, Ok, Option, Some
@@ -15,7 +14,7 @@ from scipy.linalg import block_diag
 
 from blender.imaging.color.observer import coordinates
 from blender.imaging.faults import ImagingReason
-from blender.imaging.files.images import applied
+from blender.imaging.files.buffers import applied
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -28,7 +27,7 @@ class Domain(Enum):
     DISPLAY = auto()
 
 
-type Gamma = Annotated[float, msgspec.Meta(ge=0.0, le=5.0)]
+type _Gamma = Annotated[float, msgspec.Meta(ge=0.0, le=5.0)]
 type Stops = Annotated[float, msgspec.Meta(ge=-32.0, le=32.0)]
 type ColorSpace = Annotated[str, msgspec.Meta(min_length=1)]
 
@@ -43,12 +42,12 @@ REC709_SCENE: Final = "lin_rec709_scene"
 class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
     """Scene-linear formation through OCIO's viewing pipeline: exposure, look, display view, and display gamma."""
 
-    display: Annotated[str, msgspec.Meta(min_length=1, description="Target display device")]
-    view: Annotated[str, msgspec.Meta(min_length=1, description="View transform of display")]
-    looks_override: Annotated[str, msgspec.Meta(description="Looks overriding the view's looks")] = ""
+    display: Annotated[str, msgspec.Meta(min_length=1)]
+    view: Annotated[str, msgspec.Meta(min_length=1)]
+    looks_override: str = ""
     looks_override_enabled: bool = False
-    exposure: Annotated[Stops, msgspec.Meta(description="Scene-linear exposure before the view")] = 0.0
-    gamma: Annotated[Gamma, msgspec.Meta(description="Display exponent after the view")] = 1.0
+    exposure: Stops = 0.0
+    gamma: _Gamma = 1.0
 
     @classmethod
     def for_encoding(cls, config: PyOpenColorIO.Config, display: str, view: Option[str] = Nothing) -> Outcome[Option[tuple[Self, PyOpenColorIO.Processor]]]:
@@ -102,10 +101,9 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
             built.setLinearCC(PyOpenColorIO.MatrixTransform.Scale([2.0**self.exposure] * 3 + [1.0]))
         if self.gamma != 1.0:
             built.setDisplayCC(PyOpenColorIO.ExponentTransform([1.0 / max(self.gamma, float(np.spacing(np.float32(1))))] * 3 + [1.0]))
-        try:
-            return Ok(built.getProcessor(config))
-        except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-            return Error((Fault(reason=ImagingReason.COLOR, subject=f"{self.display} {self.view}", cause=error),))
+        return catch(catch(built.getProcessor, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(config).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+            lambda error: (Fault(reason=ImagingReason.COLOR, subject=repr(self), cause=error),)
+        )
 
     def form(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[npt.NDArray[np.float32]]:
         """Returns associated display colors of associated `values` in `source`."""
@@ -164,10 +162,9 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 
 def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[PyOpenColorIO.Processor]:
     """Returns processor, or color fault."""
-    try:
-        return Ok(config.getProcessor(transform))
-    except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-        return Error((Fault(reason=ImagingReason.COLOR, subject=type(transform).__name__, cause=error),))
+    return catch(catch(config.getProcessor, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(transform).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+        lambda error: (Fault(reason=ImagingReason.COLOR, subject=type(transform).__name__, cause=error),)
+    )
 
 
 def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, values: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
@@ -178,20 +175,24 @@ def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, 
 # --- [READINGS]
 
 
+def interop(space: PyOpenColorIO.ColorSpace) -> str:
+    """Returns the interop ID of `space`, empty when the config states none."""
+    return str(space.getInteropID())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
+
 def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
     """Returns linear RGB-to-XYZ D65 matrix of `space`, or base fault."""
-    request = xyz(config, space)
 
-    def composed(group: PyOpenColorIO.GroupTransform) -> Outcome[npt.NDArray[np.float64]]:
-        matrices = tuple(op for op in group if isinstance(op, PyOpenColorIO.MatrixTransform))
-        with np.errstate(all="ignore"):
-            affine = reduce(
-                np.matmul, (np.vstack((np.column_stack((np.asarray(op.getMatrix(), dtype=np.float64).reshape(4, 4), op.getOffset())), np.eye(1, 5, 4))) for op in reversed(matrices)), np.eye(5)
-            )
-        held = len(matrices) == len(group) and np.isfinite(affine[:3]).all() and (affine[:3, 3:] == 0.0).all()
-        return Ok(affine[:3, :3]) if held else Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(group)),))
+    def held(group: PyOpenColorIO.GroupTransform) -> Outcome[npt.NDArray[np.float64]]:
+        match tuple(group):
+            case ():
+                return Ok(np.eye(3))
+            case (PyOpenColorIO.MatrixTransform() as op,) if not any(op.getOffset()) and np.isfinite(values := np.asarray(op.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3]).all():
+                return Ok(values)
+            case _:
+                return Error((Fault(reason=ImagingReason.BASIS, subject=space, member=str(group)),))
 
-    return processor(config, request).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(composed)
+    return processor(config, xyz(config, space)).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(held)
 
 
 def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:
@@ -211,10 +212,9 @@ def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDA
 def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
     """Returns signed RGB matching weights with unit channel integrals."""
 
-    def solved(values: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-        return catch(lambda: np.linalg.solve(values, tristimulus.T).T, exception=np.linalg.LinAlgError)().map_error(
-            lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(values), cause=error),)
-        )
+    @catch(exception=np.linalg.LinAlgError)
+    def solved(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        return np.linalg.solve(values, tristimulus.T).T
 
     def normalized(weights: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
         with np.errstate(all="ignore"):
@@ -222,7 +222,7 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
         held = np.isfinite(weights).all() and np.isfinite(integral).all() and (integral != 0.0).all()
         return Ok(weights / integral) if held else Error((Fault(reason=ImagingReason.SPECTRAL, subject=space, member=str(integral)),))
 
-    return basis(config, space).bind(solved).bind(normalized)
+    return basis(config, space).bind(lambda values: solved(values).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(values), cause=error),))).bind(normalized)
 
 
 def luma(config: PyOpenColorIO.Config) -> Outcome[npt.NDArray[np.float64]]:
@@ -243,12 +243,12 @@ __all__ = [
     "ColorSpace",
     "DisplayView",
     "Domain",
-    "Gamma",
     "Stops",
     "basis",
     "bracketed",
     "chromaticities",
     "converted",
+    "interop",
     "lin_to_log",
     "luma",
     "matching",

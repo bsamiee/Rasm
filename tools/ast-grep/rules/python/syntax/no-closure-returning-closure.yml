@@ -16,7 +16,7 @@ rule:
                             - kind: function_definition
                               has: {field: name, pattern: $INNER}
                             - kind: decorated_definition
-                              not: {has: {kind: decorator, regex: '\bwraps\b'}}
+                              not: {has: {kind: decorator, has: {kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^wraps$'}}}}}}}
                               has: {field: definition, has: {field: name, pattern: $INNER}}
                 - has:
                     field: body
@@ -31,4 +31,4 @@ rule:
                     stopBy: {kind: 'function_definition, lambda, class_definition'}
                     has: {kind: lambda}
 message: '`$NAME` returns a closure from inside a closure'
-note: 'Lift the returned function to module level and bind its free values with `functools.partial`'
+note: 'Define the returned function at module level and bind its free values with `functools.partial`'

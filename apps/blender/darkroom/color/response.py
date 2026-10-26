@@ -29,7 +29,7 @@ from blender.bpy.ui.images.overlays import overlaid
 from blender.bpy.ui.images.views import image_type
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.color.processors import DisplayView, GREY, processor
-from blender.imaging.files.images import applied
+from blender.imaging.files.buffers import applied
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.identity import content_hash, ContentHash
 

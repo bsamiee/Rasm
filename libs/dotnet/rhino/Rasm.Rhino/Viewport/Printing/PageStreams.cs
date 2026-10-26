@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Rasm.Drafting;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Document.Files;
@@ -120,10 +121,10 @@ public static class PageStreams {
                 (Document: doc, Retain: retain),
                 printed: static (state, printed) => Planned(state.Document, printed.Source, state.Retain).Map(static pages => pages.Map(static page => new PlannedShot(owned =>
                     from settings in page.Settings(owned)
-                    from bitmap in Owned(() => ViewCapture.CaptureToBitmap(settings), nameof(ViewCapture.CaptureToBitmap), owned)
+                    from bitmap in Owned(() => ViewCapture.CaptureToBitmap(settings), owned)
                     select (bitmap, Some(settings.Resolution))))),
                 screen: static (state, screen) => Views(state.Document, screen.Set, state.Retain).Map(views => views.Map(view => new PlannedShot(owned =>
-                    Owned(() => screen.Capture.CaptureToBitmap(view), nameof(ViewCapture.CaptureToBitmap), owned).Map(static bitmap => (bitmap, Option<double>.None))))),
+                    Owned(() => screen.Capture.CaptureToBitmap(view), owned).Map(static bitmap => (bitmap, Option<double>.None))))),
                 mode: static (state, mode) => Views(state.Document, mode.Set, state.Retain).Map(views => views.Map(view => new PlannedShot(owned =>
                     DisplayModes.CaptureToBitmap(view, mode.Id, mode.Pixels, mode.Edits, owned).Map(static bitmap => (bitmap, Option<double>.None))))))).As()
                 .Map(static planned => planned.Flatten()).Bind(body),
@@ -132,7 +133,7 @@ public static class PageStreams {
     private static IO<Seq<RhinoView>> Views(RhinoDoc doc, ViewportSet set, Action<IDisposable> retain) =>
         Viewports.Resolve(doc, set, retain).Map(static rows => toSeq(rows.Map(static row => row.View).DistinctBy(static view => view.RuntimeSerialNumber)).Strict());
 
-    private static IO<System.Drawing.Bitmap> Owned(Func<System.Drawing.Bitmap?> capture, string member, Action<IDisposable> retain) =>
+    private static IO<System.Drawing.Bitmap> Owned(Func<System.Drawing.Bitmap?> capture, Action<IDisposable> retain, [CallerArgumentExpression(nameof(capture))] string member = "") =>
         Copies.Owned(capture, bitmap => Refused.UnlessFound(bitmap, member), static bitmap => DisposalOps.Release(bitmap), retain);
 
     // --- [DRAWING]

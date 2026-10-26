@@ -1,11 +1,9 @@
 """Keyword arguments restating the literal default a same-module function or a `msgspec.Struct` field declares."""
 
-from collections.abc import Iterator
-from typing import override
+lazy from typing import override
 
 import msgspec
-from mypy.nodes import (
-    ArgKind,
+lazy from mypy.nodes import (
     AssignmentStmt,
     BytesExpr,
     CallExpr,
@@ -18,26 +16,28 @@ from mypy.nodes import (
     MypyFile,
     NameExpr,
     RefExpr,
+    Statement,
     StrExpr,
     SymbolNode,
     TypeInfo,
     UnaryExpr,
     Var,
 )
-from mypy.types import Instance
-from refurb.checks.common import get_mypy_type, is_equivalent, stringify
-from refurb.error import Error
-from refurb.visitor import TraverserVisitor
+lazy from mypy.types import Instance
+lazy from refurb.checks.common import get_mypy_type, is_equivalent, stringify
+lazy from refurb.error import Error
+lazy from refurb.visitor import TraverserVisitor
+
+from tools.refurb.findings import fullname, RasmError
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_STRUCT = f"{msgspec.Struct.__module__}.{msgspec.Struct.__qualname__}"
-_FIELD = f"{msgspec.field.__module__}.{msgspec.field.__qualname__}"
+_STRUCT = fullname(msgspec.Struct)
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-class ErrorRestatedDefaultError(Error):
+class ErrorRestatedDefaultError(RasmError):
     """Keyword argument equal to the literal default its callee or `msgspec.Struct` field declares.
 
     Bad:
@@ -62,9 +62,7 @@ class ErrorRestatedDefaultError(Error):
     ```
     """
 
-    prefix = "RASM"
     code = 102
-    name = "restated-default"
     categories = ("function",)
 
 
@@ -76,9 +74,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
 
     def literal(expression: Expression) -> bool:
         match expression:
-            case IntExpr() | FloatExpr() | StrExpr() | BytesExpr() | NameExpr(fullname="builtins.True" | "builtins.False" | "builtins.None"):
-                return True
-            case UnaryExpr(op="-", expr=IntExpr() | FloatExpr()):
+            case IntExpr() | FloatExpr() | StrExpr() | BytesExpr() | NameExpr(fullname="builtins.True" | "builtins.False" | "builtins.None") | UnaryExpr(op="-", expr=IntExpr() | FloatExpr()):
                 return True
             case _:
                 return False
@@ -92,18 +88,14 @@ def check(node: MypyFile, errors: list[Error]) -> None:
             case _:
                 return None
 
-    def assigned(info: TypeInfo) -> Iterator[tuple[str, Expression]]:
-        for statement in info.defn.defs.body:
-            match statement:
-                case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=CallExpr(callee=RefExpr(fullname=callee)) as call) if callee == _FIELD:
-                    yield name, next((value for argument, value in zip(call.arg_names, call.args) if argument == "default"), call)
-                case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=value, type=annotation) if annotation is not None:
-                    yield name, value
-                case _:
-                    pass
-
-    def fields(info: TypeInfo) -> dict[str, Expression]:
-        return {name: value for owner in reversed(info.mro) if owner.fullname != _STRUCT for name, value in assigned(owner)}
+    def assigned(statement: Statement) -> tuple[tuple[str, Expression], ...]:
+        match statement:
+            case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=CallExpr(callee=RefExpr(fullname=callee)) as call) if callee == fullname(msgspec.field):
+                return ((name, next((value for argument, value in zip(call.arg_names, call.args) if argument == "default"), call)),)
+            case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=value, type=annotation) if annotation is not None:
+                return ((name, value),)
+            case _:
+                return ()
 
     class Defined(TraverserVisitor):
         def __init__(self) -> None:
@@ -122,13 +114,13 @@ def check(node: MypyFile, errors: list[Error]) -> None:
                 case (FuncDef() as function) | Decorator(func=FuncDef() as function) if function in defined.functions:
                     owner, defaults = function.name, {argument.variable.name: argument.initializer for argument in function.arguments if argument.initializer is not None}
                 case TypeInfo() as info if info.has_base(_STRUCT):
-                    owner, defaults = info.name, fields(info)
+                    owner, defaults = info.name, {name: value for base in reversed(info.mro) if base.fullname != _STRUCT for statement in base.defn.defs.body for name, value in assigned(statement)}
                 case _:
                     owner, defaults = "", {}
             errors.extend(
                 ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{owner}` declares, remove the argument")
-                for name, value, kind in zip(o.arg_names, o.args, o.arg_kinds)
-                if kind is ArgKind.ARG_NAMED and name is not None and (default := defaults.get(name)) is not None and literal(default) and is_equivalent(value, default)
+                for name, value in zip(o.arg_names, o.args)
+                if name is not None and (default := defaults.get(name)) is not None and literal(default) and is_equivalent(value, default)
             )
             super().visit_call_expr(o)
 

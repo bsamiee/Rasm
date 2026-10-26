@@ -110,4 +110,4 @@ rule:
                     - has: {field: arguments, has: {nthChild: 2, pattern: $NAME}}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $NAME}}
 message: '`$NAME` defaults to an empty string that marks absence'
-note: 'Use `Option[str]` with `Nothing`, `str | None` with `None` on a field msgspec decodes'
+note: 'Use `str | None` or `UnsetType` on a field msgspec decodes, `Option[str]` in signatures and encode-only records'

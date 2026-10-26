@@ -5,7 +5,6 @@ import math
 from typing import Annotated
 
 from expression import Nothing, Ok, Option, Some
-from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +15,7 @@ from scipy.signal import ZoomFFT
 from blender.imaging.color import observer
 from blender.imaging.color.processors import matching
 from blender.imaging.geometry.lenses import Aperture
-from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.faults import Outcome
 from blender.records.fields import NonNegative, Positive, Seed
 from blender.records.identity import content_hash, rng
 
@@ -26,9 +25,9 @@ from blender.records.identity import content_hash, rng
 class Pupil(msgspec.Struct, frozen=True, kw_only=True):
     """Bladed iris with spectral diffraction of every ray."""
 
-    iris: Annotated[Aperture, msgspec.Meta(description="Blade outline and central obstruction")] = Aperture(blades=6, rotation=math.pi / 6.0, roundness=0.0)
-    squeeze: Annotated[float, msgspec.Meta(ge=1.0, le=2.0, description="Anamorphic horizontal pupil compression")] = 1.0
-    core: Annotated[NonNegative, msgspec.Meta(description="Airy radius at 550 nm")] = 0.002
+    iris: Aperture = Aperture(blades=6, rotation=math.pi / 6.0, roundness=0.0)
+    squeeze: Annotated[float, msgspec.Meta(ge=1.0, le=2.0)] = 1.0
+    core: NonNegative = 0.002
 
     def kernel(self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: Positive) -> Outcome[Option[npt.NDArray[np.float32]]]:
         """Returns spectral diffraction weights over every frame displacement, absent at zero core or a closed iris.
@@ -40,7 +39,7 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
             pixel_aspect: Displayed pixel width over height.
 
         Returns:
-            RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, or color, numeric capacity, and allocation refusals.
+            RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, or color and numeric refusals.
         """
         if self.core == 0.0 or self.iris.obstruction == 1.0:
             return Ok(Nothing)
@@ -74,31 +73,24 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
 
             return sum((np.multiply.outer(spread(wavelength), weight) for wavelength, weight in zip(rows[:, 0].flat, weights)), start=np.zeros(shape, dtype=np.float64)).astype(np.float32)
 
-        def allocated(weights: npt.NDArray[np.float64]) -> Outcome[Option[npt.NDArray[np.float32]]]:
-            return catch(computed, exception=MemoryError)(weights).map(Some).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
-
-        return matching(config, PyOpenColorIO.ROLE_SCENE_LINEAR, rows[:, 1:]).bind(allocated)
+        return matching(config, PyOpenColorIO.ROLE_SCENE_LINEAR, rows[:, 1:]).map(lambda weights: Some(computed(weights)))
 
 
 class Specks(msgspec.Struct, frozen=True, kw_only=True):
     """Seeded front-element dirt coverage with a 1/f spectrum."""
 
-    coverage: Annotated[float, msgspec.Meta(ge=0.01, le=1.0, description="Covered lens share")] = 0.2
-    scale: Annotated[float, msgspec.Meta(ge=0.001, le=0.5, description="Largest speck size")] = 0.05
-    seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
+    coverage: Annotated[float, msgspec.Meta(ge=0.01, le=1.0)] = 0.2
+    scale: Annotated[float, msgspec.Meta(ge=0.001, le=0.5)] = 0.05
+    seed: Seed = 0
 
-    def field(self, size: tuple[int, int]) -> Outcome[npt.NDArray[np.float32]]:
-        """Returns float32 dirt coverage, zero on clean lens, at positive frame extent (height, width), or allocation or dimension refusal."""
-
-        def computed() -> npt.NDArray[np.float32]:
-            height, width = (max(2, extent) for extent in size)
-            frequency = np.hypot(np.fft.fftfreq(height)[:, None], np.fft.rfftfreq(width)[None, :])
-            noise = rng(content_hash(Specks), self.seed).standard_normal((height, width), dtype=np.float32)
-            smudge = np.fft.irfft2(np.fft.rfft2(noise) / np.hypot(frequency, 1.0 / (self.scale * max(size))), s=(height, width), axes=(-2, -1))
-            floor = np.quantile(smudge, 1.0 - self.coverage)
-            return np.clip((smudge - floor) / (smudge.max() - floor), 0.0, 1.0)[: size[0], : size[1]].astype(np.float32)
-
-        return catch(computed, exception=MemoryError)().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
+    def field(self, size: tuple[int, int]) -> npt.NDArray[np.float32]:
+        """Returns float32 dirt coverage, zero on clean lens, at positive frame extent (height, width)."""
+        height, width = (max(2, extent) for extent in size)
+        frequency = np.hypot(np.fft.fftfreq(height)[:, None], np.fft.rfftfreq(width)[None, :])
+        noise = rng(content_hash(Specks), self.seed).standard_normal((height, width), dtype=np.float32)
+        smudge = np.fft.irfft2(np.fft.rfft2(noise) / np.hypot(frequency, 1.0 / (self.scale * max(size))), s=(height, width), axes=(-2, -1))
+        floor = np.quantile(smudge, 1.0 - self.coverage)
+        return np.clip((smudge - floor) / (smudge.max() - floor), 0.0, 1.0)[: size[0], : size[1]].astype(np.float32)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

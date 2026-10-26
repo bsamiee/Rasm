@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Rasm.Drafting;
 using Rasm.Rhino.Viewport;
 using Rhino;
@@ -18,7 +19,7 @@ public abstract partial record ComponentRef<T> {
     public sealed record ByName(string Name) : ComponentRef<T>;
 }
 
-public readonly record struct ComponentIdentity(Guid Id, ModelComponentType Type);
+public sealed record ComponentIdentity(Guid Id, ModelComponentType Type);
 
 public sealed record TableKind<T>(
     Func<RhinoDoc, RhinoDocCommonTable<T>> Table,
@@ -78,7 +79,7 @@ public abstract partial record LinetypeRef {
             row: static (document, row) => TableOps.Find(document.Linetypes, row.Address, includeDeleted: false).Map(static found => found.Index));
 }
 
-public readonly record struct SelectionOptions(bool SyncHighlight, bool Persistent, bool IgnoreGrips, bool IgnoreLayerLocks, bool IgnoreLayerVisibility);
+public sealed record SelectionOptions(bool SyncHighlight, bool Persistent, bool IgnoreGrips, bool IgnoreLayerLocks, bool IgnoreLayerVisibility);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SelectionEdit {
@@ -316,7 +317,7 @@ public static class TableOps {
             add: static (document, add) => Callbacks.Each(add.Rows.Map(row => Add(document, row.Row, row.History, add.Reference))),
             replace: static (document, replace) => IO.lift(() =>
                 Refused.Unless(document.Objects.Replace(replace.Id, replace.Geometry, replace.IgnoreModes), Seq(replace.Id), nameof(ObjectTable.Replace))),
-            delete: static (document, delete) => Each(document, delete.Target, found => document.Objects.Delete(found, delete.Quiet, delete.IgnoreModes), nameof(ObjectTable.Delete)),
+            delete: static (document, delete) => Each(document, delete.Target, found => document.Objects.Delete(found, delete.Quiet, delete.IgnoreModes)),
             move: static (document, move) => Each(document, move.Target, (found, _, index) => IO.lift(() => move.Mode.Apply(document.Objects, found, move.Xform, index))),
             modifyAttributes: static (document, modify) => Each(document, modify.Target, (found, id, index) =>
                 DisposalOps.Within(() => found.Attributes.Duplicate(), copy =>
@@ -324,7 +325,7 @@ public static class TableOps {
                  from landed in IO.lift(() => Refused.Unless(document.Objects.ModifyAttributes(found, copy, modify.Quiet), id, nameof(ObjectTable.ModifyAttributes), index))
                  select landed)),
             state: static (document, state) => Each(document, state.Target, (found, id, index) => IO.lift(() => state.Next.Apply(document.Objects, found, state.IgnoreLayerMode, index).Map(_ => id))),
-            undelete: static (document, undelete) => Each(document, undelete.Target, document.Objects.Undelete, nameof(ObjectTable.Undelete)),
+            undelete: static (document, undelete) => Each(document, undelete.Target, document.Objects.Undelete),
             pointCloud: static (document, cloud) => WithAttributes(document.CreateDefaultAttributes, cloud.Attributes, attributes => IO.lift(() => Conversions.Required(
                     document.Objects.AddOrderedPointCloud(cloud.X, cloud.Y, cloud.Z, cloud.Box.GetCorners(), attributes, cloud.History.ValueUnsafe(), cloud.Reference),
                     nameof(ObjectTable.AddOrderedPointCloud))
@@ -362,7 +363,7 @@ public static class TableOps {
     private static IO<Seq<Guid>> Each(RhinoDoc doc, ObjectTarget target, Func<RhinoObject, Guid, int, IO<Guid>> element) =>
         target.Objects(doc).Bind(objects => Callbacks.Each(objects.Map((found, index) => element(found, found.Id, index)).Strict()));
 
-    private static IO<Seq<Guid>> Each(RhinoDoc doc, ObjectTarget target, Func<RhinoObject, bool> call, string member) =>
+    private static IO<Seq<Guid>> Each(RhinoDoc doc, ObjectTarget target, Func<RhinoObject, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         Each(doc, target, (found, id, index) => IO.lift(() => Refused.Unless(call(found), id, member, index)));
 
     // --- [IMMEDIATE]
@@ -378,7 +379,7 @@ public static class TableOps {
                 from objects in flash.Target.Objects(document)
                 from flashed in IO.lift(() => document.Views.FlashObjects(objects, flash.UseSelectionColor))
                 select objects.Count,
-            purge: static (document, purge) => Each(document, purge.Target, document.Objects.Purge, nameof(ObjectTable.Purge)).Map(static ids => ids.Count)));
+            purge: static (document, purge) => Each(document, purge.Target, document.Objects.Purge).Map(static ids => ids.Count)));
 
     // --- [UNDO]
     public static IO<Unit> Undo(RhinoDoc doc, RedrawPolicy redraw, UndoOp op) =>

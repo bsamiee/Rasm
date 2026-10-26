@@ -13,7 +13,7 @@ import numpy.typing as npt
 
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
-from blender.imaging.files.images import unassociated
+from blender.imaging.files.buffers import unassociated
 from blender.records.faults import Fault, Outcome
 
 # --- [SERVICES] -------------------------------------------------------------------------

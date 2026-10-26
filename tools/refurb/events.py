@@ -1,26 +1,29 @@
 """Structlog log fields lost to event text, positional arguments, or a discarded logger."""
 
+from inspect import getmembers, isfunction, signature
 from typing import get_protocol_members
 
-from mypy.nodes import ArgKind, CallExpr, Expression, ExpressionStmt, MemberExpr, OpExpr, RefExpr
-from mypy.types import get_proper_type, Instance, Type
-from refurb.checks.common import get_mypy_type, stringify
-from refurb.error import Error
 import structlog
 from structlog.stdlib import AsyncBoundLogger
 from structlog.typing import BindableLogger, FilteringBoundLogger
+lazy from mypy.nodes import ArgKind, CallExpr, Expression, ExpressionStmt, MemberExpr, OpExpr, RefExpr
+lazy from mypy.types import get_proper_type, Instance, Type
+lazy from refurb.checks.common import get_mypy_type, stringify
+lazy from refurb.error import Error
+
+from tools.refurb.findings import fullname, RasmError
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LOGGERS = tuple(f"{owner.__module__}.{owner.__qualname__}" for owner in (FilteringBoundLogger, BindableLogger, structlog.BoundLoggerBase, AsyncBoundLogger))
-_FACTORIES = frozenset(f"{factory.__module__}.{factory.__qualname__}" for factory in (structlog.get_logger, structlog.stdlib.get_logger, structlog.wrap_logger))
+_LOGGERS = tuple(map(fullname, (FilteringBoundLogger, BindableLogger, structlog.BoundLoggerBase, AsyncBoundLogger)))
+_FACTORIES = frozenset(map(fullname, (structlog.get_logger, structlog.stdlib.get_logger, structlog.wrap_logger)))
 _BINDERS = frozenset(name for name in get_protocol_members(BindableLogger) if not name.startswith("_"))
-_EVENTS = {name: 0 for level in ("debug", "info", "warning", "warn", "error", "err", "fatal", "exception", "critical", "msg") for name in (level, f"a{level}")} | {"log": 1, "alog": 1}
+_EVENTS = frozendict({name: index for name, member in getmembers(FilteringBoundLogger, isfunction) for index, parameter in enumerate(signature(member).parameters, start=-1) if parameter == "event"})
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-class ErrorLostLogFieldError(Error):
+class ErrorLostLogFieldError(RasmError):
     """Structlog value formatted into event text, passed as a positional argument, or bound to a discarded logger.
 
     Bad:
@@ -38,18 +41,15 @@ class ErrorLostLogFieldError(Error):
     ```
     """
 
-    prefix = "RASM"
     code = 103
-    name = "lost-log-field"
     categories = ("logging",)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _typed(expression: Expression, owner: str) -> bool:
-    found = get_mypy_type(expression)
-    return isinstance(found, Type) and isinstance(proper := get_proper_type(found), Instance) and proper.type.has_base(owner)
+def _typed(expression: Expression, *owners: str) -> bool:
+    return isinstance(found := get_mypy_type(expression), Type) and isinstance(proper := get_proper_type(found), Instance) and any(map(proper.type.has_base, owners))
 
 
 def _logger(expression: Expression) -> bool:
@@ -59,7 +59,7 @@ def _logger(expression: Expression) -> bool:
         case CallExpr(callee=MemberExpr(name=name, expr=receiver)) if name in _BINDERS:
             return _logger(receiver)
         case _:
-            return any(_typed(expression, owner) for owner in _LOGGERS)
+            return _typed(expression, *_LOGGERS)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -70,25 +70,19 @@ def check(node: CallExpr | ExpressionStmt, errors: list[Error]) -> None:
 
     def formatted(event: Expression) -> bool:
         match event:
-            case OpExpr(op="%" | "+"):
+            case OpExpr(op="%" | "+") | CallExpr(callee=RefExpr(fullname="builtins.str" | "builtins.repr" | "builtins.format")):
                 return True
             case CallExpr(callee=MemberExpr(name="format" | "join", expr=receiver)):
-                return _typed(receiver, "builtins.str")
-            case CallExpr(callee=RefExpr(fullname="builtins.str" | "builtins.repr" | "builtins.format")):
-                return True
+                return _typed(receiver, fullname(str))
             case _:
                 return False
 
     match node:
         case CallExpr(callee=MemberExpr(name=name, expr=receiver) as callee) if name in _EVENTS and _logger(receiver):
-            positional = [argument for argument, kind in zip(node.args, node.arg_kinds) if kind in {ArgKind.ARG_POS, ArgKind.ARG_STAR}]
-            if (
-                event := positional[_EVENTS[name]]
-                if len(positional) > _EVENTS[name]
-                else next((argument for argument, argument_name in zip(node.args, node.arg_names) if argument_name == "event"), None)
-            ) is not None and formatted(event):
-                errors.append(ErrorLostLogFieldError.from_node(event, f"`{stringify(callee)}` formats values into its event, pass each as a keyword argument"))
-            if len(positional) > _EVENTS[name] + 1:
+            passed = [argument for argument, kind in zip(node.args, node.arg_kinds) if kind in {ArgKind.ARG_POS, ArgKind.ARG_STAR}][_EVENTS[name] :]
+            events = [*passed[:1], *(argument for argument, keyword in zip(node.args, node.arg_names) if keyword == "event")]
+            errors.extend(ErrorLostLogFieldError.from_node(event, f"`{stringify(callee)}` formats values into its event, pass each as a keyword argument") for event in events[:1] if formatted(event))
+            if passed[1:]:
                 errors.append(ErrorLostLogFieldError.from_node(callee, f"`{stringify(callee)}` passes positional arguments into its event, pass each as a keyword argument"))
         case ExpressionStmt(expr=CallExpr(callee=MemberExpr(name=name, expr=receiver) as callee)) if name in _BINDERS and _logger(receiver):
             errors.append(ErrorLostLogFieldError.from_node(node, f"`{stringify(callee)}` returns a new logger the statement discards, assign it and log through it"))

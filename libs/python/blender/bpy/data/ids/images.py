@@ -19,7 +19,9 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.faults import BlenderReason
 from blender.imaging.color.processors import converted
-from blender.imaging.files.images import Depth, Format, ImageFile, read_file, resampled, Rounded, Storage, unassociated
+from blender.imaging.files.buffers import associated, resampled, unassociated
+from blender.imaging.files.coding import Depth, Rounded
+from blender.imaging.files.images import Format, ImageFile, read_file, Storage
 from blender.records.faults import Fault, Faults, Outcome, paired
 from blender.records.fields import Case
 from blender.records.identity import content_hash, ContentHash
@@ -126,12 +128,11 @@ def fingerprinted(image: bpy.types.Image) -> Outcome[Option[ContentHash]]:
 def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[ImageFile[np.float32]]:
     """Returns associated float32 pixels top row first, absent fault when empty."""
     settings = image.colorspace_settings
+    space = config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName() if image.is_float and not settings.is_data else settings.name  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
     def formed(pixels: npt.NDArray[np.float32]) -> ImageFile[np.float32]:
         plane = np.ascontiguousarray(pixels[::-1])
-        if _associated(image):
-            np.multiply(plane[..., :3], plane[..., 3:], out=plane[..., :3], where=plane[..., 3:] != 0.0)
-        return ImageFile(pixels=plane, colorspace=config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName() if image.is_float and not settings.is_data else settings.name)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        return ImageFile(pixels=associated(plane) if _associated(image) else plane, colorspace=space)
 
     return _plane(image).map(formed) if np.asarray(image.size).prod() else Error((Fault(reason=BlenderReason.ABSENT, subject=repr(image), member=image.filepath),))
 

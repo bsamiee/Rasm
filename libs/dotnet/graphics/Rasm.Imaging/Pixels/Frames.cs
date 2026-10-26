@@ -4,9 +4,9 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
+using CommunityToolkit.HighPerformance.Buffers;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
-using PeterO.Numbers;
 using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 
@@ -15,7 +15,7 @@ namespace Rasm.Imaging.Pixels;
 // --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError<ImagingFault>]
-public readonly partial struct PixelExtent {
+public sealed partial class PixelExtent {
     public static PixelExtent Analysis { get; } = new(256, 256);
 
     public int Width { get; }
@@ -29,51 +29,66 @@ public readonly partial struct PixelExtent {
             : bound.Height < Height ? new((int)((((long)Width * bound.Height) + Height - 1) / Height), bound.Height) : this;
 
     public static Fin<PixelExtent> Validated(int width, int height) =>
-        TryCreate(width, height, out PixelExtent extent, out ImagingFault? fault) ? extent : fault;
+        TryCreate(width, height, out PixelExtent? extent, out ImagingFault? fault) ? extent : fault;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int width, ref int height) =>
         validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null
             : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Extent {width}x{height} must be positive with at most {System.Array.MaxLength / 4} pixels"));
 }
 
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct ShortSideOffset {
-    public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
-}
-
-[ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<float>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<ImagingFault>]
-public readonly partial struct ShortSideLength {
+public sealed partial class ShortSideLength {
+    public static ShortSideLength Zero { get; } = Create(0f);
+
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float value) =>
         validationError = value >= 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Short-side length {value} must be non-negative"));
 }
 
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<float>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<ImagingFault>]
-public readonly partial struct ShortSideExtent {
+public sealed partial class ShortSideExtent {
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float value) =>
         validationError = value > 0f ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Short-side extent {value} must be positive"));
 }
 
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct FrameAxis {
-    public static FrameAxis Start { get; } = new(0f);
-    public static FrameAxis Middle { get; } = new(0.5f);
-    public static FrameAxis End { get; } = new(1f);
-}
-
-public sealed record FramePosition(FrameAxis X, FrameAxis Y) {
-    public static FramePosition Center { get; } = new(FrameAxis.Middle, FrameAxis.Middle);
-    public static FramePosition TopLeft { get; } = new(FrameAxis.Start, FrameAxis.Start);
-    public static FramePosition TopRight { get; } = new(FrameAxis.End, FrameAxis.Start);
-    public static FramePosition BottomRight { get; } = new(FrameAxis.End, FrameAxis.End);
-    public static FramePosition BottomLeft { get; } = new(FrameAxis.Start, FrameAxis.End);
+public sealed record FramePosition(float X, float Y) {
+    public static FramePosition Center { get; } = new(0.5f, 0.5f);
+    public static FramePosition TopLeft { get; } = new(0f, 0f);
+    public static FramePosition TopRight { get; } = new(1f, 0f);
+    public static FramePosition BottomRight { get; } = new(1f, 1f);
+    public static FramePosition BottomLeft { get; } = new(0f, 1f);
 
     public (double X, double Y) Point(PixelExtent extent) => ((double)X * extent.Width, (double)Y * extent.Height);
+}
+
+[SmartEnum<string>]
+public sealed partial class WrapMode {
+    public static readonly WrapMode Black = new("black", static (point, size, offset) => (point + offset) switch {
+        var center => (double.Clamp(center, 0.5d, size - 0.5d), double.Clamp(center + 0.5d, 0d, 1d) * double.Clamp(size + 0.5d - center, 0d, 1d)),
+    });
+    public static readonly WrapMode Clamp = new("clamp", static (point, size, offset) => (double.Clamp(point + offset, 0.5d, size - 0.5d), 1d));
+    public static readonly WrapMode Periodic = new("periodic", static (point, size, offset) => (((point % size) + (offset % size)) % size) switch {
+        var turn => (turn < 0d ? turn + size : turn, 1d),
+    });
+    public static readonly WrapMode Mirror = new("mirror", static (point, size, offset) => (2d * size) switch {
+        var period => double.Abs(((point % period) + (offset % period)) % period) switch { var turn => (double.Min(turn, period - turn), 1d) },
+    });
+
+    public bool Tiles => Map(black: false, clamp: false, periodic: true, mirror: true);
+
+    [UseDelegateFromConstructor]
+    public partial (double Point, double Weight) Fold(double point, int size, double offset);
+
+    internal Option<int> Index(double index, int size) =>
+        Fold(index, size, 0.5d) switch {
+            (var point, > 0d) => Some((int)point),
+            _ => None,
+        };
 }
 
 public sealed class PixelFrame {
@@ -97,26 +112,28 @@ public sealed class PixelFrame {
 
     public int RowIndex(long line) => int.CreateChecked((long)Extent.Height - 1 - Origin.Y - line);
 
-    public Span<Vector4> Row(long line) => MemoryMarshal.Cast<float, Vector4>(block.AsSpan()).AsSpan2D(Size.Height, Size.Width).GetRowSpan(RowIndex(line));
+    public Span<Vector4> Row(long line) => View.Span.GetRowSpan(RowIndex(line));
 
     public PixelFrame Copy() => new(Origin, Size, Extent, destination => Block.CopyTo(destination));
 
     public Mat Header() => new(Size.Height, Size.Width, DepthType.Cv32F, 4, Address, step: 0);
 
-    public Fin<Unit> Filter(Func<Mat, Fin<Unit>> apply) => Try.lift(() => {
+    public Fin<Unit> Filter(Func<Mat, Fin<Unit>> apply) {
         using Mat header = Header();
-        return apply(header);
-    }).Run();
+        return Try.lift(() => apply(header)).Run();
+    }
 
-    public Fin<Unit> Mutate(Action<SixLabors.ImageSharp.Image<RgbaVector>> edit) => Try.lift(() => {
-        using SixLabors.ImageSharp.Image<RgbaVector> image = new(Size.Width, Size.Height);
-        Memory2D<Vector4> view = View;
-        EachRow(static (pixels, stored) => { for (int x = 0; x < pixels.Length; x++) pixels[x] = stored[x] with { W = 1f }; });
-        edit(image);
-        EachRow(static (pixels, stored) => { for (int x = 0; x < pixels.Length; x++) stored[x] = pixels[x] with { W = stored[x].W }; });
-        void EachRow(Action<Span<Vector4>, Span<Vector4>> copy) =>
-            image.ProcessPixelRows(rows => { for (int y = 0; y < rows.Height; y++) copy(MemoryMarshal.Cast<RgbaVector, Vector4>(rows.GetRowSpan(y)), view.Span.GetRowSpan(y)); });
-    }).Run();
+    public Fin<Unit> Mutate(Action<SixLabors.ImageSharp.Image<RgbaVector>> edit) {
+        Span2D<float> samples = block.AsSpan().AsSpan2D(Size.Width * Size.Height, 4);
+        using SpanOwner<float> rental = SpanOwner<float>.Allocate(samples.Height);
+        Span2D<float> alpha = rental.Span.AsSpan2D(samples.Height, 1);
+        samples.GetColumn(3).CopyTo(alpha.GetColumn(0));
+        samples.GetColumn(3).Fill(1f);
+        using SixLabors.ImageSharp.Image<RgbaVector> image = SixLabors.ImageSharp.Image.WrapMemory(block.AsMemory().Cast<float, RgbaVector>(), Size.Width, Size.Height);
+        Fin<Unit> edited = Try.lift(() => edit(image)).Run();
+        alpha.GetColumn(0).CopyTo(samples.GetColumn(3));
+        return edited;
+    }
 
     public T Sample<T>((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap, T sum, Func<T, Vector4, double, T> add) =>
         ((ReadOnlySpan2D<Vector4>)View.Span).Sample(point, wrap, sum, add, Some((Origin, Extent)));
@@ -126,72 +143,23 @@ public sealed class PixelFrame {
             var fitted => new(Point.Empty, fitted, fitted, block =>
                 ImageProcessing.Resize(Block, Size.Width, Size.Height, block, fitted.Width, fitted.Height, 4, ResizeFilter.Triangle, alphaChannel: 3)),
         };
-
-    public static IO<(PixelFrame Frame, Option<Chromaticities> Primaries)> Read(FileInfo file, string layer) =>
-        from result in IO.liftVAsync(env => ExrFile.LoadFromFileAsync(file.FullName, cancellationToken: env.Token))
-        from image in IO.lift(Optional(result.Value).ToFin(new Expected($"EXR codec refused reading {file.FullName} with {result.Status}", 0, Optional(result.Error).Map(Error.New))))
-        from read in IO.lift(() => Layer(toSeq(image.Parts), layer))
-        select read;
-
-    private static Fin<(PixelFrame Frame, Option<Chromaticities> Primaries)> Layer(Seq<Part> parts, string layer) =>
-        from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length is 0))
-            .ToFin(Error.New($"EXR file holds no part for layer '{layer}'"))
-        from header in (
-                from samples in part.Header.IsDeep
-                     ? Fin.Fail<InterleavedFloatImage>(Error.New($"EXR part '{part.Header.Name}' holds deep samples"))
-                     : layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part)
-                from layout in Components(samples.ChannelNames, layer)
-                select (Samples: samples, Layout: layout),
-                PixelExtent.Validated(int.CreateSaturating(part.Width), int.CreateSaturating(part.Height)),
-                PixelExtent.Validated(int.CreateSaturating(part.Header.DisplayWindow.Width), int.CreateSaturating(part.Header.DisplayWindow.Height)))
-            .Apply(static (decoded, size, extent) => (decoded.Samples, decoded.Layout, Size: size, Extent: extent))
-            .As()
-        select (new PixelFrame(
-            new Point(part.Header.DataWindow.MinX - part.Header.DisplayWindow.MinX, part.Header.DataWindow.MinY - part.Header.DisplayWindow.MinY),
-            header.Size,
-            header.Extent,
-            block => {
-                Span<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
-                ReadOnlySpan2D<float> source = header.Samples.Data.AsSpan2D(pixels.Length, header.Samples.Channels);
-                for (int index = 0; index < pixels.Length; index++) {
-                    ReadOnlySpan<float> channels = source.GetRowSpan(index);
-                    Vector4 pixel = Vector4.UnitW;
-                    foreach ((int component, int channel) in header.Layout.Rows)
-                        pixel[component] = channels[channel];
-                    pixels[index] = (header.Layout.Associated, pixel.W > 0f) switch {
-                        (false, _) => pixel,
-                        (true, true) => new(pixel.AsVector3() / pixel.W, pixel.W),
-                        (true, false) => new(Vector3.Zero, pixel.W),
-                    };
-                }
-            }), Optional(part.Header.Chromaticities));
-
-    private static Fin<((int Component, int Channel)[] Rows, bool Associated)> Components(IReadOnlyList<string> names, string layer) =>
-        toSeq(
-            (from family in Seq("RGBA", "XYZW", "UV")
-             from entry in toSeq(names).Map(static (name, channel) => (Name: name, Channel: channel, Dot: name.LastIndexOf('.')))
-             where entry.Name.Length == entry.Dot + 2 && entry.Name.AsSpan(0, int.Max(entry.Dot, 0)).SequenceEqual(layer)
-             let component = family.IndexOf(entry.Name[^1], StringComparison.OrdinalIgnoreCase)
-             where component >= 0
-             select (Component: component, entry.Channel, Letter: entry.Name[^1])).DistinctBy(static row => row.Component)) switch {
-                 [] => Error.New($"EXR part holds no channel of layer '{layer}'"),
-                 var filled => (
-                     (filled.Filter(static row => row.Component < 3) is [var lone]
-                         ? filled + Seq(0, 1, 2).Filter(component => component != lone.Component).Map(component => (Component: component, lone.Channel, lone.Letter))
-                         : filled).Map(static row => (row.Component, row.Channel)).ToArray(),
-                     filled.Exists(static row => row is { Component: 3, Letter: 'A' or 'a' })),
-             };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PixelSampling {
-    public static Fin<TCount> GaussianTaps<TCount>(double sigma) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> => KernelTaps<TCount>(ERational.FromDouble(sigma).Multiply(3));
+    public static Fin<TCount> GaussianTaps<TCount>(double sigma) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> => KernelTaps<TCount>(3d * sigma);
 
-    public static Fin<TCount> KernelTaps<TCount>(ERational radius) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> =>
-        radius.IsFinite && radius.CompareTo(0) >= 0 && radius.Numerator.DivRem(radius.Denominator) is [var whole, var rest]
-        && new BigInteger(whole.Add(rest.IsZero ? 0 : 1).Multiply(2).Add(1).ToBytes(littleEndian: true)) is var taps && taps <= BigInteger.CreateTruncating(TCount.MaxValue)
+    public static Fin<TCount> KernelTaps<TCount>(double radius) where TCount : IBinaryInteger<TCount>, IMinMaxValue<TCount> =>
+        double.IsFinite(radius) && radius >= 0d && ((2d * double.Ceiling(radius)) + 1d) is var taps && taps <= double.CreateTruncating(TCount.MaxValue)
             ? TCount.CreateTruncating(taps)
-            : Error.New(string.Create(CultureInfo.InvariantCulture, $"Kernel radius {radius} has no tap count up to {TCount.MaxValue}"));
+            : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Kernel radius {radius} has no tap count up to {TCount.MaxValue}"));
+
+    extension(Mat plane) {
+        internal unsafe Span2D<T> View<T>() where T : unmanaged =>
+            (plane.Cols * plane.ElementSize / sizeof(T)) switch {
+                var width => new((void*)plane.DataPointer, plane.Rows, width, (plane.Step / sizeof(T)) - width),
+            };
+    }
 
     extension(ReadOnlySpan2D<Vector4> plane) {
         public Vector4 Sample((double X, double Y) point, (WrapMode Across, WrapMode Down) wrap) =>

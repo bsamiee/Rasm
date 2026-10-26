@@ -1,9 +1,10 @@
-"""OCIO view transform rows, merged configs, archives, and installations."""
+"""OCIO configuration sources, view transform rows, merged configs, archives, and installations."""
 
 import copy
 from enum import auto, Enum
 import pathlib
 import shutil
+from typing import Any
 
 from expression import Error, Ok, Option
 from expression.extra.result import catch
@@ -11,9 +12,11 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
+from blender.imaging.color.processors import interop
 from blender.imaging.faults import ImagingReason
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
-from blender.records.stores import committed
+from blender.records.fields import Case
+from blender.records.stores import committed, files_copied, folder_made
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -32,10 +35,38 @@ class DynamicRange(Enum):
     @staticmethod
     def absolute(space: PyOpenColorIO.ColorSpace) -> bool:
         """Returns whether display colorspace interop ID names PQ luminance."""
-        return space.getInteropID().rpartition(":")[2].startswith("pq_")  # type: ignore[attr-defined, no-any-return]  # ty: ignore[unresolved-attribute]
+        return interop(space).rpartition(":")[2].startswith("pq_")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+# --- [SOURCES]
+
+
+class ConfigFile(Case, frozen=True, kw_only=True):
+    """Configuration file, OCIO archive, or `ocio://` built-in URI."""
+
+    path: str
+
+    def opened(self) -> Outcome[PyOpenColorIO.Config]:
+        """Opens the configuration, a color fault for one OCIO cannot read."""
+        return catch(catch(PyOpenColorIO.Config.CreateFromFile, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(self.path).map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+            lambda error: (Fault(reason=ImagingReason.COLOR, subject=self.path, cause=error),)
+        )
+
+
+class EnvironmentConfig(Case, frozen=True):
+    """Configuration the `OCIO` variable names."""
+
+    @staticmethod
+    def opened() -> Outcome[PyOpenColorIO.Config]:
+        """Opens the configuration, a color fault for one OCIO cannot read."""
+        return catch(catch(PyOpenColorIO.Config.CreateFromEnv, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)().map_error(  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+            lambda error: (Fault(reason=ImagingReason.COLOR, subject=PyOpenColorIO.OCIO_CONFIG_ENVVAR, cause=error),)
+        )
+
+
+# --- [BUILDS]
 
 
 class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
@@ -44,11 +75,12 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     # --- [ROWS]
 
     @staticmethod
-    def merging() -> PyOpenColorIO.ConfigMergingParameters:  # type: ignore[name-defined]  # ty: ignore[unresolved-attribute]
+    def merging() -> object:
         """Returns merge defaults preferring base roles and colorspaces."""
-        parameters = PyOpenColorIO.ConfigMergingParameters.Create()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        parameters.setRoles(PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        parameters.setColorspaces(PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        form: type[Any] = PyOpenColorIO.ConfigMergingParameters  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        parameters = form.Create()
+        parameters.setRoles(form.STRATEGY_PREFER_BASE)
+        parameters.setColorspaces(form.STRATEGY_PREFER_BASE)
         return parameters
 
     view_transforms: tuple[PyOpenColorIO.ViewTransform, ...]
@@ -57,7 +89,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     inactive: frozenset[str] = frozenset()
     file_rules: PyOpenColorIO.FileRules = msgspec.field(default_factory=PyOpenColorIO.FileRules)
     luts: tuple[pathlib.Path, ...] = ()
-    merge: PyOpenColorIO.ConfigMergingParameters = msgspec.field(default_factory=merging)  # type: ignore[name-defined]  # ty: ignore[unresolved-attribute]
+    merge: Any = msgspec.field(default_factory=merging)
 
     # --- [OUTPUTS]
 
@@ -76,6 +108,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         stage = stage.absolute()
         clf = next(row for row in LutFormat.writable() if row.extension == "clf")
         working = base.getWorkingDir()
+        copies = (*(((pathlib.Path(working), stage),) if working else ()), *((folder, stage / folder.name) for folder in self.luts))
 
         def tabled(transform: PyOpenColorIO.Transform) -> PyOpenColorIO.Transform:
             match transform:
@@ -91,6 +124,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return transform
 
+        @catch(exception=PyOpenColorIO.Exception)
         def authored() -> None:
             scene = PyOpenColorIO.ColorSpace(PyOpenColorIO.REFERENCE_SPACE_SCENE, name="ACES2065-1")
             display = PyOpenColorIO.ColorSpace(PyOpenColorIO.REFERENCE_SPACE_DISPLAY, name="CIE-XYZ-D65")
@@ -122,6 +156,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                     look.setInverseTransform(tabled(transform))
                 rows.addLook(look)
 
+        @catch(exception=PyOpenColorIO.Exception)
         def viewed(request: PyOpenColorIO.Config) -> PyOpenColorIO.Config:
             built = tuple(space.getName() for space in self.displays)
             names = tuple(view.getName() for view in self.view_transforms)
@@ -145,32 +180,24 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             request.setWorkingDir(str(stage))
             return request
 
-        def refused(error: OSError) -> Faults:
-            return (Fault(reason=RecordReason.UNWRITABLE, subject=str(stage), cause=error),)
-
         def unauthored(error: PyOpenColorIO.Exception) -> Faults:
             return (Fault(reason=ImagingReason.COLOR, subject=str(stage), cause=error),)
 
         return (
-            catch(authored, exception=PyOpenColorIO.Exception)()
+            authored()
             .map_error(unauthored)
             .bind(
                 lambda _: paired(
-                    catch(PyOpenColorIO.ConfigMergingHelpers.MergeConfigs, exception=PyOpenColorIO.Exception)(self.merge, base, rows)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                    .bind(catch(viewed, exception=PyOpenColorIO.Exception))
-                    .map_error(unauthored),
-                    catch(stage.mkdir, exception=OSError)(parents=True, exist_ok=True)
-                    .map_error(refused)
-                    .bind(
-                        lambda _: accumulated(
-                            written.map_error(refused)
-                            for written in (
-                                *(
-                                    catch(shutil.copytree, exception=OSError)(source, target, dirs_exist_ok=True)
-                                    for source, target in (*(((pathlib.Path(working), stage),) if working else ()), *((folder, stage / folder.name) for folder in self.luts))
-                                ),
-                                *(catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="") for name, text in tables.items()),
-                            )
+                    catch(PyOpenColorIO.ConfigMergingHelpers.MergeConfigs, exception=PyOpenColorIO.Exception)(self.merge, base, rows).bind(viewed).map_error(unauthored),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    folder_made(stage).bind(
+                        lambda _: paired(
+                            files_copied(copies),
+                            accumulated(
+                                catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(
+                                    lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(stage), cause=error),)
+                                )
+                                for name, text in tables.items()
+                            ),
                         )
                     ),
                 ).map(lambda pair: pair[0])
@@ -187,15 +214,14 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Published path, or `color` and `write` faults.
         """
-
-        def packed(config: PyOpenColorIO.Config, stage: pathlib.Path) -> Outcome[None]:
-            try:
-                config.archive(str(stage))
-            except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-                return Error((Fault(reason=ImagingReason.COLOR, subject=str(path), cause=error),))
-            return Ok(None)
-
-        return committed(path, lambda stage: self.staged(base, stage.parent).bind(lambda config: packed(config, stage)))
+        return committed(
+            path,
+            lambda stage: self.staged(base, stage.parent).bind(
+                lambda config: catch(catch(config.archive, exception=PyOpenColorIO.Exception), exception=PyOpenColorIO.ExceptionMissingFile)(str(stage)).map_error(
+                    lambda error: (Fault(reason=ImagingReason.COLOR, subject=str(path), cause=error),)
+                )
+            ),
+        )
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> Outcome[pathlib.Path]:
         """Replaces config folder whole with staged config and its files.
@@ -220,4 +246,4 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ConfigBuild", "DynamicRange"]
+__all__ = ["ConfigBuild", "ConfigFile", "DynamicRange", "EnvironmentConfig"]

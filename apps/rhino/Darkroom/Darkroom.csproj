@@ -20,7 +20,6 @@
 
     <ItemGroup Label="Quantities">
         <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="PeterO.Numbers" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
@@ -30,6 +29,7 @@
 
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
+        <PackageReference Include="Emgu.CV.runtime.mini.macos" Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
         <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="TinyEXR.NET" />

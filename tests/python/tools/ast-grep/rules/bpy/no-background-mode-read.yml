@@ -1,0 +1,45 @@
+id: no-background-mode-read
+valid:
+    - |
+      import bpy
+
+      def deferred(write):
+          def queued():
+              bpy.app.timers.register(write)
+
+          return write if bpy.app.background else queued
+    - |
+      from bpy.app import timers
+      import bpy
+
+      def deferred(write):
+          timers.register(write)
+          return bpy.app.background
+    - |
+      import bpy
+
+      def registered(timer):
+          bpy.app.timers.register(timer)
+invalid:
+    - |
+      import bpy
+
+      def registered(timer):
+          if not bpy.app.background:
+              bpy.app.timers.unregister(timer)
+    - |
+      from bpy.app import background
+
+      def drawn():
+          if background:
+              return None
+    - |
+      import bpy
+
+      def queued(write):
+          return getattr(bpy.app, "background")
+    - |
+      import sys
+
+      def queued():
+          return "--background" in sys.argv

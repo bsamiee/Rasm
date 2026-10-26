@@ -131,4 +131,4 @@ fix:
     template: $BIND$INLINE$WRAP$UNFIXED
     expandStart: {matches: binding-statement}
 message: '`$N = $V` precedes the `if` condition that first reads `$N`'
-note: 'Move `<value>` into the condition, as `(<name> := (<value>))` where a later statement, loop pass, or closure reads `<name>`'
+note: 'Write `<value>` in place of `<name>` in the condition, or `(<name> := (<value>))` where later code reads `<name>`'

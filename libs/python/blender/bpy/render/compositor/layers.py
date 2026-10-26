@@ -5,11 +5,11 @@ from enum import Enum
 import functools
 import graphlib
 import itertools
+from types import MemberDescriptorType
 from typing import Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.extra.result import catch
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import PyOpenColorIO
 
@@ -24,11 +24,11 @@ from blender.bpy.render.compositor.blending import Blend, Entry, mixed_back
 from blender.bpy.render.compositor.coordinates import framed, placed, placement
 from blender.bpy.render.compositor.effects import CompositorEffect, FRAME, Shell
 from blender.bpy.render.compositor.entries import EffectRows
-from blender.bpy.render.compositor.inputs import KeyPath, reached, updated
 from blender.bpy.render.compositor.recombination import Recombined, TermFilter
 from blender.bpy.render.view_layers.passes import filed, Filing, PassFlags, PassRequest, PassRouting, PassSet, reading
 from blender.records.faults import accumulated, Fault, Outcome, paired
 from blender.records.fields import Case
+from blender.records.trees import amended, focused, Lens
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -185,9 +185,9 @@ class LayerStack[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
             case LayerMaskAt(layer=layer) | EffectMaskAt(layer=layer), _:
                 return self.masked(target, -1 if action is Edit.REMOVE else 1 if action is Edit.DUPLICATE else 0).map(lambda edited: (edited, layer))
             case LayerAt(layer=index), _:
-                path: KeyPath = ("layers",)
+                lens: Lens = (LAYERS,)
             case EffectAt(layer=layer, entry=index), _:
-                path = ("layers", layer + 1, "effects")
+                lens = (LAYERS, layer, EFFECTS)
 
         def fresh(item: object) -> Outcome[object]:
             match item:
@@ -210,17 +210,28 @@ class LayerStack[S: Case, M: Case](msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return fresh(item).map(lambda replaced: ((*items[:index], replaced, *items[index + 1 :]), index))
 
-        edit = collection(self, path).bind(lambda items: indexed(items, index, item_key(*path)).bind(lambda item: moved(items, item)))
-        return edit.map(lambda held: (updated(self, path, lambda _: held[0]), held[1] if isinstance(target, LayerAt) else target.layer))
+        def written(changed: tuple[object, ...], moved_to: int) -> Outcome[tuple["LayerStack[S, M]", int]]:
+            active = moved_to if isinstance(target, LayerAt) else target.layer
+            return located(amended(self, lens, lambda _: changed).to_optional(), type(self).__name__, item_key(*lens)).map(lambda edited: (edited, active))
+
+        match focused(self, lens).to_optional():
+            case tuple(items) if 0 <= index < len(items):
+                return moved(items, items[index]).bind(lambda held: written(*held))
+            case _:
+                return located(None, type(self).__name__, item_key(*lens, index))
 
     def masked(self, target: Target, change: int) -> Outcome["LayerStack[S, M]"]:
         """Changes the mask count of the targeted blend by `change`, never below zero, the last mask leaving first."""
-        at = masking(target)
-        return (
-            catch(lambda: reached(self, at), exception=IndexError)()
-            .map_error(lambda _: (Fault(reason=BlenderReason.ABSENT, subject=type(self).__name__, member=item_key(*at)),))
-            .map(lambda blend: updated(self, at, lambda _: Blend(masks=max(blend.masks + change, 0)) if isinstance(blend, Blend) else blend))
-        )
+
+        def blended(lens: Lens) -> Outcome["LayerStack[S, M]"]:
+            changed = amended(self, lens, lambda blend: msgspec.structs.replace(blend, masks=max(blend.masks + change, 0)) if isinstance(blend, Blend) else blend)
+            return located(changed.to_optional(), type(self).__name__, item_key(*lens))
+
+        match target:
+            case LayerAt(layer=layer) | LayerMaskAt(layer=layer):
+                return blended((LAYERS, layer, Layer.blend))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            case EffectAt(layer=layer, entry=entry) | EffectMaskAt(layer=layer, entry=entry):
+                return blended((LAYERS, layer, EFFECTS, entry, Entry.blend))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 class TermFiltering[M: Case](msgspec.Struct, frozen=True, kw_only=True):
@@ -255,6 +266,12 @@ class Built(msgspec.Struct, frozen=True, kw_only=True):
     items: tuple[tuple[FileItem, Expr], ...]
 
 
+# --- [LENSES] ---------------------------------------------------------------------------
+
+LAYERS: Final[MemberDescriptorType] = LayerStack.layers  # type: ignore[misc, assignment]  # ty: ignore[invalid-attribute-access, invalid-assignment]
+SOURCE: Final[MemberDescriptorType] = Layer.source  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+EFFECTS: Final[MemberDescriptorType] = Layer.effects  # type: ignore[misc, assignment]  # ty: ignore[invalid-attribute-access, invalid-assignment]
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [LOOKUPS]
@@ -268,24 +285,6 @@ def located[T](value: T | None, owner: str, key: str) -> Outcome[T]:
 def indexed[T](items: tuple[T, ...], index: int, owner: str) -> Outcome[T]:
     """Answers the item at a zero-based index, absent past the collection."""
     return located(items[index] if index < len(items) else None, owner, str(index))
-
-
-def collection(record: msgspec.Struct, path: KeyPath) -> Outcome[tuple[object, ...]]:
-    """Answers the collection at a record path, absent where an index on the way reaches past its collection."""
-    match catch(lambda: reached(record, path), exception=IndexError)():
-        case Result(tag="ok", ok=tuple(items)):
-            return Ok(items)
-        case _:
-            return Error((Fault(reason=BlenderReason.ABSENT, subject=type(record).__name__, member=item_key(*path)),))
-
-
-def masking(target: Target) -> KeyPath:
-    """Record path of the blend of the layer or effect a target names."""
-    match target:
-        case LayerAt(layer=layer) | LayerMaskAt(layer=layer):
-            return ("layers", layer + 1, "blend")
-        case EffectAt(layer=layer, entry=entry) | EffectMaskAt(layer=layer, entry=entry):
-            return ("layers", layer + 1, "effects", entry + 1, "blend")
 
 
 # --- [GRAPHS]
@@ -470,6 +469,9 @@ def filing[M: Case](planning: Planning[M], view: str, request: Filing, at: Key) 
 
 __all__ = [
     "AFFINE",
+    "EFFECTS",
+    "LAYERS",
+    "SOURCE",
     "Adjustment",
     "Built",
     "Edit",
@@ -485,11 +487,9 @@ __all__ = [
     "Source",
     "Target",
     "TermFiltering",
-    "collection",
     "filing",
     "indexed",
     "located",
-    "masking",
     "node_types",
     "planned",
     "sourced",

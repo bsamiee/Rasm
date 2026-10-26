@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using QuikGraph;
 using Rasm.Drafting;
 using Rhino;
@@ -332,13 +333,13 @@ public static class Layers {
                 from created in IO.lift(() => document.Layers.Duplicate(rows.Map(static row => row.Index), duplicate.Objects, duplicate.Sublayers))
                 select unit,
             delete: static (document, delete) =>
-                Called(Resolve(document, delete.Target), row => document.Layers.Delete(row.Index, quiet: true), nameof(LayerTable.Delete)),
+                Called(Resolve(document, delete.Target), row => document.Layers.Delete(row.Index, quiet: true)),
             purge: static (document, purge) =>
-                Called(Resolve(document, purge.Target), row => document.Layers.Purge(row.Index, quiet: true), nameof(LayerTable.Purge)),
+                Called(Resolve(document, purge.Target), row => document.Layers.Purge(row.Index, quiet: true)),
             undelete: static (document, undelete) =>
-                Called(TableOps.Find(document.Layers, undelete.Target, includeDeleted: true), row => document.Layers.Undelete(row.Index), nameof(LayerTable.Undelete)),
+                Called(TableOps.Find(document.Layers, undelete.Target, includeDeleted: true), row => document.Layers.Undelete(row.Index)),
             setCurrent: static (document, current) =>
-                Called(Resolve(document, current.Target), row => document.Layers.SetCurrentLayerIndex(row.Index, quiet: true), nameof(LayerTable.SetCurrentLayerIndex)),
+                Called(Resolve(document, current.Target), row => document.Layers.SetCurrentLayerIndex(row.Index, quiet: true)),
             forceVisible: static (document, force) =>
                 Resolve(document, force.Target).Bind(row => IO.lift(() => document.Layers.ForceLayerVisible(row.Id))).Map(unit),
             sortByName: static (document, sort) =>
@@ -348,7 +349,7 @@ public static class Layers {
                 from sorted in IO.lift(() => document.Layers.Sort(rows.Map(static row => row.Index)))
                 select sorted,
             undoModify: static (document, undo) =>
-                Called(Resolve(document, undo.Target), row => document.Layers.UndoModify(row.Index, Conversions.Unset(undo.Serial)), nameof(LayerTable.UndoModify)),
+                Called(Resolve(document, undo.Target), row => document.Layers.UndoModify(row.Index, Conversions.Unset(undo.Serial))),
             selectInPanel: static (document, panel) =>
                 from rows in panel.Targets.TraverseM(address => Resolve(document, address)).As()
                 from shown in IO.lift(() => Refused.UnlessFound(document.Layers.Select(rows.Map(static row => row.Index), panel.Deselect), nameof(LayerTable.Select)))
@@ -363,6 +364,6 @@ public static class Layers {
     private static IO<Unit> Written(RhinoDoc doc, Layer staged, Seq<LayerEdit> edits) =>
         edits.TraverseM(edit => edit.Write(doc, staged)).As().Map(unit);
 
-    private static IO<Unit> Called(IO<Layer> resolved, Func<Layer, bool> call, string member) =>
+    private static IO<Unit> Called(IO<Layer> resolved, Func<Layer, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         resolved.Bind(row => IO.lift(() => Refused.Unless(call(row), member)));
 }

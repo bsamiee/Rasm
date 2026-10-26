@@ -66,7 +66,7 @@ public sealed record EffectKind(
                 row.Looks.Map(look => (look.Name, (Func<ValueSet, Fin<ValueSet>>)(values => values.Recalled(owner, row.Default).Map(state => ValueSet.Fields(owner, look.Look(state)))))),
                 (values, mix, context) =>
                     from state in IO.lift(values.Recalled(owner, row.Default))
-                    let staged = pass(state, context).Bind(found => Blend.Mixed(found, BlendingMode.Mix, mix, []))
+                    let staged = pass(state, context).Bind(found => Blend.Mixed(found, BlendingMode.Mix, mix, [], context.Working.Luminance))
                     select (staged, staged.IsSome ? continued(state, mix, context) : context),
                 values => IO.lift(values.Recalled(owner, row.Default)).Map(channels),
                 doc => ValueBinding.Of(owner, row.Default, ValueStores.Defaulted(
@@ -178,6 +178,13 @@ public sealed record ChainState(ImmutableArray<ChainEntry> Entries, ValueSet Val
             static (held, next) => held.SequenceEqual(next), Applied.Live, Some(new EffectSource.Document(doc).Changed)))));
 }
 
+[SmartEnum<string>]
+public sealed partial class ChainMembership {
+    public static readonly ChainMembership Add = new("Add", static (state, kind) => state.Added(kind));
+    public static readonly ChainMembership Remove = new("Remove", static (state, kind) => state.Removed(kind));
+    public Func<ChainState, Guid, Fin<ChainState>> Changed { get; }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChainEdit {
     public IO<ChainState> Committed(RhinoDoc doc) =>
@@ -189,8 +196,7 @@ public abstract partial record ChainEdit {
 
     private Fin<(ChainState State, string Target)> Applied(ChainState prior) =>
         Switch(prior,
-            add: static (state, edit) => Named(edit.Kind, state.Added(edit.Kind)),
-            remove: static (state, edit) => Named(edit.Kind, state.Removed(edit.Kind)),
+            membership: static (state, edit) => Named(edit.Kind, edit.Change.Changed(state, edit.Kind)).Map(done => done with { Target = $"{edit.Change} {done.Target}" }),
             toggle: static (state, edit) => Named(edit.Kind, state.Toggled(edit.Kind, edit.On)),
             move: static (state, edit) => Named(edit.Kind, state.Moved(edit.Kind, edit.Before)),
             tune: static (state, edit) => Named(edit.Kind, state.Tuned(edit.Kind, edit.Values)),
@@ -201,9 +207,7 @@ public abstract partial record ChainEdit {
     private static Fin<(ChainState State, string Target)> Named(Guid kind, Fin<ChainState> next) =>
         (next, ChainState.Kind(kind)).Apply(static (state, held) => (state, held.State.Name)).As();
 
-    public sealed record Add(Guid Kind) : ChainEdit;
-
-    public sealed record Remove(Guid Kind) : ChainEdit;
+    public sealed record Membership(Guid Kind, ChainMembership Change) : ChainEdit;
 
     public sealed record Toggle(Guid Kind, bool On) : ChainEdit;
 

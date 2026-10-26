@@ -19,7 +19,7 @@ import PyOpenColorIO
 
 from blender.imaging.color.processors import basis, converted, matrix, xyz
 from blender.imaging.color.white import adaptation
-from blender.imaging.geometry.homography import Homography, Quad
+from blender.imaging.geometry.frames import Homography, Quad
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.imaging.geometry.stmaps import StMap
 from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
@@ -82,16 +82,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     "E6 (Black 2)": (0.0248551698, 0.0258980980, 0.0222499522),
                 }
                 values = np.array(tuple(patches.values()), dtype=np.float64)
-                return cls(
-                    checker=ColourChecker(
-                        "SpyderCheckr 24",
-                        dict(zip(patches, np.unstack(np.column_stack((values[:, :2] / values.sum(axis=-1, keepdims=True), values[:, 1]))))),
-                        np.array((0.3457, 0.3585), dtype=np.float64),
-                        4,
-                        6,
-                    ),
-                    neutral=21,
-                )
+                return cls(checker=ColourChecker("SpyderCheckr 24", dict(zip(patches, np.unstack(colour.XYZ_to_xyY(values)))), np.array((0.3457, 0.3585), dtype=np.float64), 4, 6), neutral=21)
 
     @property
     def shape(self) -> npt.NDArray[np.int64]:
@@ -100,10 +91,8 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[tuple[tuple[float, float, float], ...]]:
         """Returns white-adapted patch RGB in `colorspace`, or color faults."""
-        coordinates = np.array(tuple(self.checker.data.values()), dtype=np.float64)
-        illuminant = np.asarray(self.checker.illuminant, dtype=np.float64)
-        white = np.append(illuminant, 1.0 - illuminant.sum()) / illuminant[1]
-        patches = np.stack((coordinates[:, 0], coordinates[:, 1], 1.0 - coordinates[:, 0] - coordinates[:, 1]), axis=-1) * (coordinates[:, 2:] / coordinates[:, 1:2])
+        patches = colour.xyY_to_XYZ(np.array(tuple(self.checker.data.values()), dtype=np.float64))
+        white = np.asarray(colour.xy_to_XYZ(self.checker.illuminant), dtype=np.float64)
         return (
             basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)
             .bind(
@@ -273,7 +262,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
 
         def conditioned(fitted: npt.NDArray[np.float64]) -> Outcome[CalibrationFit]:
             if not (condition := float(np.linalg.cond(fitted))) < ceiling:
-                return Error((Fault(reason=RecordReason.OUTSIDE, subject="Calibration fit", member=f"matrix condition below {ceiling:.3g}", cause=str(condition)),))
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject=cls.__name__, member=f"matrix condition below {ceiling:.3g}", cause=str(condition)),))
             forward, inverse = (
                 cls(gained=msgspec.convert(rows.tolist(), tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]])) for rows in (fitted, np.linalg.inv(fitted))
             )

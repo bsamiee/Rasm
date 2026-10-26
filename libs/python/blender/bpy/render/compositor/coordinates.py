@@ -16,7 +16,7 @@ from blender.bpy.nodes.graphs import End, Expr, math, menu, Scalar, switched, Te
 from blender.bpy.nodes.interface import item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor.colors import AXES, composed, inverted
 from blender.bpy.render.compositor.inputs import entry_input, path
-from blender.imaging.geometry.homography import Homography
+from blender.imaging.geometry.frames import Homography
 from blender.records.faults import accumulated, Outcome, paired
 from blender.records.fields import Finite, NonNegative
 

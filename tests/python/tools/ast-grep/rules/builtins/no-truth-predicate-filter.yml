@@ -1,0 +1,9 @@
+id: no-truth-predicate-filter
+valid:
+    - |
+      filter(None, items)
+invalid:
+    - |
+      filter(bool, items)
+    - |
+      filter(lambda x: x, items)

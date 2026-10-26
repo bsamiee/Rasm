@@ -70,7 +70,7 @@ def bloomed(shell: Shell[Bloom]) -> Outcome[Expr]:
     content = content_hash(Specks, specks, arrays=tuple(np.asarray(frame.size[::-1], dtype=np.int64) for _, frame in shell.context.to_list()), providers=(np,))
 
     def plane() -> Outcome[Option[npt.NDArray[np.float32]]]:
-        return shell.context.map(lambda context: specks.field(context[1].size[::-1]).map(lambda coverage: Some(np.broadcast_to(coverage[..., None], (*coverage.shape, 3))))).default_value(Ok(Nothing))
+        return Ok(shell.context.map(lambda context: specks.field(context[1].size[::-1])).map(lambda coverage: np.broadcast_to(coverage[..., None], (*coverage.shape, 3))))
 
     field = Expr(
         kind=bpy.types.CompositorNodeImage,

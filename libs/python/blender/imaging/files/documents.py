@@ -1,8 +1,8 @@
-"""Layered TIFF documents with Photoshop layer data."""
+"""Layered TIFF documents with Photoshop layer data and Linear Raw DNG frames through tifffile."""
 
+import fractions
 import functools
 import struct
-from typing import IO
 
 from expression import Nothing, Option
 from expression.extra.result import catch
@@ -13,18 +13,20 @@ import psdtags
 import PyOpenColorIO
 import tifffile
 
+from blender.imaging.color.processors import basis
 from blender.imaging.files.images import profile, written
 from blender.records.faults import Fault, Outcome, paired, RecordReason
+from blender.records.fields import Finite, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Layers[D: np.uint8 | np.uint16 | np.float32] = tuple[Raster[D] | Adjustment[D] | Group[D], ...]
+type DocumentLayers[D: np.uint8 | np.uint16 | np.float32] = tuple[PixelLayer[D] | AdjustmentLayer[D] | LayerGroup[D], ...]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Raster[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class PixelLayer[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Pixel layer in unassociated color with alpha."""
 
     name: str
@@ -36,7 +38,7 @@ class Raster[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, 
     visible: bool = True
 
 
-class Adjustment[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class AdjustmentLayer[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Adjustment layer as rasterized result in unassociated color."""
 
     name: str
@@ -45,11 +47,11 @@ class Adjustment[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=Tr
     visible: bool = True
 
 
-class Group[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class LayerGroup[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Layer group, layers bottom first."""
 
     name: str
-    layers: Layers[D]
+    layers: DocumentLayers[D]
     mode: Option[psdtags.PsdBlendMode] = Nothing
     opacity: float = 1.0
     visible: bool = True
@@ -58,7 +60,7 @@ class Group[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, k
 class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Layers bottom first and density in pixels per meter."""
 
-    layers: Layers[D]
+    layers: DocumentLayers[D]
     composite: npt.NDArray[D]
     colorspace: str
     density: float
@@ -99,16 +101,16 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
                 info=[psdtags.PsdString(psdtags.PsdKey.UNICODE_LAYER_NAME, name), *info],
             )
 
-        def records(node: Raster[D] | Adjustment[D] | Group[D]) -> tuple[psdtags.PsdLayer, ...]:
+        def records(node: PixelLayer[D] | AdjustmentLayer[D] | LayerGroup[D]) -> tuple[psdtags.PsdLayer, ...]:
             match node:
-                case Raster():
+                case PixelLayer():
                     channels = (*zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)), *((psdtags.PsdChannelId.USER_LAYER_MASK, mask) for mask in node.mask.to_list()))
                     mask = node.mask.map(lambda _: psdtags.PsdLayerMask(rectangle=canvas)).to_optional()
                     return (record(node.name, blend=(node.mode, node.opacity), visible=node.visible, channels=channels, rectangle=canvas, mask=mask, info=()),)
-                case Adjustment():
+                case AdjustmentLayer():
                     channels = tuple(zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)))
                     return (record(node.name, blend=(psdtags.PsdBlendMode.NORMAL, 1.0), visible=node.visible, channels=channels, rectangle=canvas, mask=None, info=()),)
-                case Group():
+                case LayerGroup():
                     blend = (node.mode.default_value(psdtags.PsdBlendMode.PASS_THROUGH), node.opacity)
                     bounding = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.BOUNDING_SECTION_DIVIDER)
                     section = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.OPEN_FOLDER, blend[0])
@@ -128,32 +130,112 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             usermask=psdtags.PsdUserMask(),
             info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
         )
-
-        def tiff(tag: tuple[int, int, int, bytes, bool], icc: Option[bytes], output: IO[bytes]) -> None:
-            tifffile.imwrite(
-                output,
-                self.composite,
-                photometric=tifffile.PHOTOMETRIC.RGB,
-                planarconfig=tifffile.PLANARCONFIG.CONTIG,
-                extrasamples=(tifffile.EXTRASAMPLE.UNASSALPHA,),
-                compression=tifffile.COMPRESSION.ADOBE_DEFLATE,
-                predictor=tifffile.PREDICTOR.HORIZONTAL if np.issubdtype(self.composite.dtype, np.integer) else tifffile.PREDICTOR.NONE,
-                iccprofile=icc.to_optional(),
-                resolution=(self.density * 0.0254, self.density * 0.0254),
-                resolutionunit=tifffile.RESUNIT.INCH,
-                byteorder=source.byteorder,
-                metadata=None,
-                software=False,
-                bigtiff=False,
-                extratags=[tag],
-            )
-
-        tagged = catch(lambda: source.tifftag(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS), exception=struct.error)().map_error(
+        tagged = catch(source.tifftag, exception=struct.error)(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS).map_error(
             lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)
         )
-        return paired(tagged, profile(config, self.colorspace)).bind(lambda pair: written(path, functools.partial(tiff, *pair)))
+        return paired(tagged, profile(config, self.colorspace)).bind(
+            lambda pair: written(
+                path,
+                functools.partial(
+                    tifffile.imwrite,
+                    data=self.composite,
+                    photometric=tifffile.PHOTOMETRIC.RGB,
+                    planarconfig=tifffile.PLANARCONFIG.CONTIG,
+                    extrasamples=(tifffile.EXTRASAMPLE.UNASSALPHA,),
+                    compression=tifffile.COMPRESSION.ADOBE_DEFLATE,
+                    predictor=tifffile.PREDICTOR.HORIZONTAL if np.issubdtype(self.composite.dtype, np.integer) else tifffile.PREDICTOR.NONE,
+                    iccprofile=pair[1].to_optional(),
+                    resolution=(self.density * 0.0254, self.density * 0.0254),
+                    resolutionunit=tifffile.RESUNIT.INCH,
+                    byteorder=source.byteorder,
+                    metadata=None,
+                    software=False,
+                    bigtiff=False,
+                    extratags=[pair[0]],
+                ),
+            )
+        )
+
+
+class Optics(msgspec.Struct, frozen=True, kw_only=True):
+    """Source camera focal length in meters and f-number."""
+
+    focal_length: Positive
+    f_number: Positive
+
+
+class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
+    """Camera and exposure tags of Linear Raw DNG."""
+
+    make: str
+    model: str
+    exposure: Finite = 0.0
+    optics: Option[Optics] = Nothing
+
+    def written(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> Outcome[str]:
+        """Writes scene-linear frame as Linear Raw DNG.
+
+        Args:
+            path: File to write.
+            frame: C-contiguous `(height, width, 3)` scene-linear frame.
+            config: Config defining scene-linear space.
+
+        Returns:
+            Path, or `color`, `numeric`, or `write` fault.
+        """
+
+        def signed(*values: float) -> tuple[tuple[int, int], ...]:
+            limits = np.iinfo(np.int32)
+            bounded = (
+                fraction.limit_denominator(min(limits.max, (limits.max if fraction > 0 else -limits.min) * fraction.denominator // abs(fraction.numerator))) if fraction else fraction
+                for fraction in map(fractions.Fraction, values)
+            )
+            return tuple(fraction.as_integer_ratio() for fraction in bounded)
+
+        def tags(matrix: npt.NDArray[np.inexact]) -> list[tuple[int, int, int, object, bool]]:
+            rows = (
+                ("Make", tifffile.DATATYPE.ASCII, 0, self.make),
+                ("Model", tifffile.DATATYPE.ASCII, 0, self.model),
+                ("UniqueCameraModel", tifffile.DATATYPE.ASCII, 0, f"{self.make} {self.model}"),
+                ("DNGVersion", tifffile.DATATYPE.BYTE, 4, (1, 4, 0, 0)),
+                ("DNGBackwardVersion", tifffile.DATATYPE.BYTE, 4, (1, 4, 0, 0)),
+                ("ColorMatrix1", tifffile.DATATYPE.SRATIONAL, 9, signed(*matrix.reshape(-1).tolist())),
+                ("CalibrationIlluminant1", tifffile.DATATYPE.SHORT, 1, 21),
+                ("AsShotNeutral", tifffile.DATATYPE.RATIONAL, 3, (tifffile.rational(1.0),) * 3),
+                ("BaselineExposure", tifffile.DATATYPE.SRATIONAL, 1, signed(self.exposure)),
+                *(
+                    row
+                    for optics in self.optics.to_list()
+                    for row in (
+                        ("FocalLength", tifffile.DATATYPE.RATIONAL, 1, tifffile.rational(optics.focal_length * 1000.0)),
+                        ("FNumber", tifffile.DATATYPE.RATIONAL, 1, tifffile.rational(optics.f_number)),
+                    )
+                ),
+            )
+            return [(tifffile.TIFF.TAGS[name], kind, count, value, True) for name, kind, count, value in rows]
+
+        return (
+            basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)
+            .bind(lambda matrix: catch(np.linalg.inv, exception=np.linalg.LinAlgError)(matrix).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(matrix), cause=error),)))
+            .bind(
+                lambda inverse: written(
+                    path,
+                    functools.partial(
+                        tifffile.imwrite,
+                        data=frame,
+                        photometric=tifffile.PHOTOMETRIC.LINEAR_RAW,
+                        planarconfig=tifffile.PLANARCONFIG.CONTIG,
+                        subfiletype=tifffile.FILETYPE.UNDEFINED,
+                        metadata=None,
+                        software=False,
+                        bigtiff=False,
+                        extratags=tags(inverse),
+                    ),
+                )
+            )
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Adjustment", "Document", "Group", "Layers", "Raster"]
+__all__ = ["AdjustmentLayer", "Document", "DocumentLayers", "LayerGroup", "LinearRaw", "Optics", "PixelLayer"]

@@ -4,7 +4,7 @@ from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from functools import reduce
 import typing
-from typing import Self
+from typing import Final, Self
 
 import bpy
 from expression import Error, Ok, Option
@@ -16,13 +16,18 @@ from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import made, valued
 from blender.bpy.nodes.graphs import NodeGroup
 from blender.bpy.nodes.interface import addresses, slot
-from blender.bpy.nodes.placement import NodeSize, NodeSpacing
+from blender.bpy.nodes.placement import measured
 from blender.bpy.nodes.trees import created, GraphTree, GROUP_NODES, grouped, joined, ordered
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.trees import Gaps
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Incoming = bpy.types.NodeLink | tuple[bpy.types.NodeSocket, bool]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_GAPS: Final = Gaps()
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -129,12 +134,12 @@ class _Edit:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, spacing: NodeSpacing, *, inputs: Mapping[Key, Value] = {}) -> Outcome[bpy.types.Node]:
+def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, *, gaps: Gaps = _GAPS, inputs: Mapping[Key, Value] = {}) -> Outcome[bpy.types.Node]:
     """Splices group after active node's first enabled output, routing each consumer link through group."""
 
     def spliced(node: bpy.types.Node, tree: bpy.types.NodeTree) -> Outcome[bpy.types.Node]:
         sources = tuple(socket for active in chosen.active.to_list() for socket in tuple(each for each in active.outputs if each.enabled)[:1])
-        at = chosen.active.map(lambda active: (active.location_absolute.x + NodeSize.of(active).width + spacing.across, active.location_absolute.y)).default_value(chosen.cursor)
+        at = chosen.active.map(lambda active: (active.location_absolute.x + measured(active).width + gaps.across, active.location_absolute.y)).default_value(chosen.cursor)
 
         def linked(source: bpy.types.NodeSocket) -> Outcome[None]:
             def socket(sockets: Iterable[bpy.types.NodeSocket]) -> Outcome[bpy.types.NodeSocket]:

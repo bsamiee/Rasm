@@ -33,7 +33,7 @@ from blender.bpy.ui.resources.icons import Glyph
 from blender.bpy.ui.resources.textures import uploaded
 from blender.bpy.ui.resources.theme import Color, Metrics
 from blender.bpy.ui.surfaces.gizmos import Gizmos, Move
-from blender.imaging.files.images import unassociated
+from blender.imaging.files.buffers import unassociated
 from blender.records.faults import Fault, Faults, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------

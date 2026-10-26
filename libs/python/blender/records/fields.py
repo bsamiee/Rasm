@@ -32,11 +32,9 @@ class Frozen(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def __post_init__(self) -> None:
         """Marks every array field read-only."""
-        for field in msgspec.structs.fields(self):
-            match getattr(self, field.name):
-                case np.ndarray() as array:
-                    array.setflags(write=False)
-                case Option(tag="some", some=np.ndarray() as array):
+        for value in msgspec.structs.astuple(self):
+            match value:
+                case (np.ndarray() as array) | Option(tag="some", some=np.ndarray() as array):
                     array.setflags(write=False)
                 case _:
                     pass

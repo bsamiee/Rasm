@@ -18,7 +18,8 @@ from blender.bpy.nodes.trees import nested
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.values import Listing
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.images import Codec, Compressions, Depth, Format, Plain
+from blender.imaging.files.coding import Depth
+from blender.imaging.files.images import Codec, Compressions, Format, Plain
 from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
 from blender.records.trees import transfer
 from blender.rendering.outputs.naming import Output

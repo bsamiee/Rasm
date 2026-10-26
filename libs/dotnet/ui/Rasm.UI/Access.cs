@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
@@ -6,8 +7,6 @@ namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Check {
     public static readonly Check Off = new("false");
     public static readonly Check On = new("true");
@@ -23,40 +22,40 @@ public sealed partial class Live {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AccessRole {
-    public static readonly AccessRole Text = new("text", composite: false, namedByContents: true, None, Checked);
-    public static readonly AccessRole Image = new("img", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole Heading = new("heading", composite: false, namedByContents: true, None, Checked);
-    public static readonly AccessRole Button = new("button", composite: false, namedByContents: true, None, Checked);
-    public static readonly AccessRole MenuButton = new("menubutton", composite: false, namedByContents: true, None, Checked);
-    public static readonly AccessRole PopUpButton = new("popupbutton", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole Text = new("text", composite: false, namedByContents: true);
+    public static readonly AccessRole Image = new("img", composite: false, namedByContents: false);
+    public static readonly AccessRole Heading = new("heading", composite: false, namedByContents: true);
+    public static readonly AccessRole Button = new("button", composite: false, namedByContents: true);
+    public static readonly AccessRole MenuButton = new("menubutton", composite: false, namedByContents: true);
+    public static readonly AccessRole PopUpButton = new("popupbutton", composite: false, namedByContents: true);
     public static readonly AccessRole Disclosure = new("disclosure", composite: false, namedByContents: true, None, Expanded);
-    public static readonly AccessRole CheckBox = new("checkbox", composite: false, namedByContents: true, None, Checked);
-    public static readonly AccessRole Switch = new("switch", composite: false, namedByContents: true, None, Checked);
-    public static readonly AccessRole Radio = new("radio", composite: false, namedByContents: true, None, Checked);
+    public static readonly AccessRole CheckBox = new("checkbox", composite: false, namedByContents: true);
+    public static readonly AccessRole Switch = new("switch", composite: false, namedByContents: true);
+    public static readonly AccessRole Radio = new("radio", composite: false, namedByContents: true);
     public static readonly AccessRole Tab = new("tab", composite: false, namedByContents: true, None, Selected);
     public static readonly AccessRole ListItem = new("listitem", composite: false, namedByContents: true, None, Selected);
     public static readonly AccessRole TreeItem = new("treeitem", composite: false, namedByContents: true, None, Selected);
     public static readonly AccessRole GridCell = new("gridcell", composite: false, namedByContents: true, None, Selected);
-    public static readonly AccessRole MenuItem = new("menuitem", composite: false, namedByContents: true, None, Checked);
-    public static readonly AccessRole Slider = new("slider", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole Handle = new("handle", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole Separator = new("separator", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole TextBox = new("textbox", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole ProgressBar = new("progressbar", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole Group = new("group", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole ScrollArea = new("scrollarea", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole Status = new("status", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole Dialog = new("dialog", composite: false, namedByContents: false, None, Checked);
-    public static readonly AccessRole Toolbar = new("toolbar", composite: true, namedByContents: false, None, Checked);
+    public static readonly AccessRole MenuItem = new("menuitem", composite: false, namedByContents: true);
+    public static readonly AccessRole Slider = new("slider", composite: false, namedByContents: false);
+    public static readonly AccessRole Handle = new("handle", composite: false, namedByContents: false);
+    public static readonly AccessRole Separator = new("separator", composite: false, namedByContents: false);
+    public static readonly AccessRole TextBox = new("textbox", composite: false, namedByContents: false);
+    public static readonly AccessRole ProgressBar = new("progressbar", composite: false, namedByContents: false);
+    public static readonly AccessRole Group = new("group", composite: false, namedByContents: false);
+    public static readonly AccessRole ScrollArea = new("scrollarea", composite: false, namedByContents: false);
+    public static readonly AccessRole Status = new("status", composite: false, namedByContents: false);
+    public static readonly AccessRole Dialog = new("dialog", composite: false, namedByContents: false);
+    public static readonly AccessRole Toolbar = new("toolbar", composite: true, namedByContents: false);
     public static readonly AccessRole RadioGroup = new("radiogroup", composite: true, namedByContents: false, Some(Radio), Checked);
     public static readonly AccessRole TabList = new("tablist", composite: true, namedByContents: false, Some(Tab), Checked);
     public static readonly AccessRole List = new("list", composite: true, namedByContents: false, Some(ListItem), Checked);
     public static readonly AccessRole Tree = new("tree", composite: true, namedByContents: false, Some(TreeItem), Checked);
     public static readonly AccessRole Grid = new("grid", composite: true, namedByContents: false, Some(GridCell), Checked);
     public static readonly AccessRole Menu = new("menu", composite: true, namedByContents: false, Some(MenuItem), Checked);
+
+    private AccessRole(string key, bool composite, bool namedByContents) : this(key, composite, namedByContents, None, Checked) { }
 
     public bool Composite { get; }
     public bool NamedByContents { get; }
@@ -79,7 +78,13 @@ public abstract partial record AccessValue {
     public sealed record Checked(Check Mark) : AccessValue;
 
     public sealed record Ranged(double Value, double Min, double Max) : AccessValue {
-        public Option<string> Description { get; init; }
+        public Option<int> Decimals { get; init; }
+        public Option<string> Unit { get; init; }
+        public Option<string> Description { get; internal init; }
+    }
+
+    public sealed record Point(PlotPlane Plane, Vector2 At) : AccessValue {
+        public Option<string> Description { get; internal init; }
     }
 }
 
@@ -110,54 +115,56 @@ public sealed record Accessible : Monoid<Accessible> {
 
 public sealed record Element(Seq<Key> Id, AccessRole Role, Accessible Accessible, Seq<Act> Actions, LanguageExt.HashSet<Condition> Conditions, SKRect Frame, Seq<Element> Children);
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record AccessibilityNotice {
+    public sealed record Announced(string Text, Live Live) : AccessibilityNotice;
+
+    public sealed record ValueChanged(Seq<Key> Element) : AccessibilityNotice;
+
+    public sealed record SelectionChanged(Seq<Key> Container) : AccessibilityNotice;
+
+    public sealed record FocusChanged(Seq<Key> Element) : AccessibilityNotice;
+
+    public sealed record LayoutChanged : AccessibilityNotice;
+
+    public sealed record Detent : AccessibilityNotice;
+}
+
+public sealed record Output(Seq<SKRect> Damage, Seq<AccessibilityNotice> Notices, Option<IO<Unit>> Answer);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Access {
     // --- [PROJECT]
-    private sealed record Claim(Accessible Derived, Seq<Act> Actions);
-
-    private sealed record Owner(Laid Laid, Part Part, SKRect Bounds);
-
-    internal static Seq<Element> Project(Scene scene, CultureInfo culture) => Projected(scene, culture, scene.Layout, [], None, Accessible.Empty);
+    internal static Seq<Element> Project(Scene scene, CultureInfo culture) => Projected(scene, culture, scene.Layout, None, Accessible.Empty);
 
     public static Seq<Element> Flattened(Seq<Element> tree) => tree.Bind(static element => element.Cons(Flattened(element.Children)));
 
     internal static HashMap<Seq<Key>, Element> Indexed(Seq<Element> elements) => toHashMap(Flattened(elements).Map(static element => (element.Id, element)));
 
-    private static Seq<Element> Projected(Scene scene, CultureInfo culture, Laid laid, HashMap<Seq<Key>, Claim> claimed, Option<Owner> owner, Accessible lent) {
-        Option<Owner> owning = (from part in laid.Node.Part from bounds in scene.Frame(laid.Path) select new Owner(laid, part, bounds)) | owner;
-        HashMap<Seq<Key>, Claim> claims = claimed.AddOrUpdateRange(Claims(scene, laid, owner.IsSome));
-        Claim claim = claims.Find(laid.Path).IfNone(() => new Claim(owning.IsSome ? Accessible.Empty : Implied(scene, laid), []));
-        Accessible accessible = laid.Node.Accessible.Combine(claim.Derived);
+    private static Seq<Element> Projected(Scene scene, CultureInfo culture, Laid laid, Option<Owned> owner, Accessible lent) {
+        Option<Owned> owning = scene.Parted(laid.Path) | owner;
+        Accessible accessible = laid.Node.Accessible.Combine(owning.IsSome ? Accessible.Empty : Implied(scene, laid));
         Accessible lends = accessible.Role.IsSome ? Accessible.Empty : new Accessible { Label = accessible.Label, Help = accessible.Help, Shortcut = accessible.Shortcut }.Combine(lent);
-        Seq<Element> children = laid.Children.Bind(child => Projected(scene, culture, child, claims, owning, lends));
+        Seq<Element> children = laid.Children.Bind(child => Projected(scene, culture, child, owning, lends));
         return (from role in accessible.Role
                 from frame in scene.Frame(laid.Path)
-                select new Element(laid.Path, role, Described(Named(accessible, role, laid, lent), culture), claim.Actions + owning.Filter(held => held.Part.Offers(held.Laid, laid.Path)).Map(held => Offered(scene, held, laid.Path)).IfNone([]),
+                select new Element(laid.Path, role, Described(Named(accessible, role, laid, lent), culture), owning.Filter(held => held.Part.Offers(held.Laid, laid.Path)).Map(held => Offered(scene, held, laid.Path)).IfNone([]),
                     laid.Style.Conditions, frame, children))
             .Match(Some: static element => [element], None: () => children);
     }
-
-    private static Seq<(Seq<Key> Path, Claim Claim)> Claims(Scene scene, Laid laid, bool owned) =>
-        owned
-            ? []
-            : (from adjuster in scene.Adjuster(laid.Path)
-               from split in adjuster.Switch(scroll: static _ => Option<Adjuster.Split>.None, split: static split => Some(split))
-               from handle in Layouts.Handle(laid)
-               select (handle.Path, new Claim(Adjusted(AccessRole.Separator, split), Stepping))).ToSeq();
 
     private static Accessible Implied(Scene scene, Laid laid) =>
         laid.Node.SwitchPartially(
             (Scene: scene, Laid: laid),
             @default: static (_, _) => Accessible.Empty,
-            scroll: static (held, _) => held.Scene.Adjuster(held.Laid.Path).Map(static adjuster => Adjusted(AccessRole.ScrollArea, adjuster)).IfNone(Accessible.Empty),
+            scroll: static (held, _) => held.Scene.Adjuster(held.Laid.Path)
+                .Map(static adjuster => new Accessible { Role = AccessRole.ScrollArea, Value = new AccessValue.Ranged(adjuster.Value, adjuster.Min, adjuster.Max), Orientation = adjuster.Axis })
+                .IfNone(Accessible.Empty),
             text: static (_, text) => new Accessible { Role = AccessRole.Text, Label = text.Content },
             glyph: static (_, glyph) => Pictured(glyph),
             image: static (_, image) => Pictured(image));
 
     private static Accessible Pictured(Node node) => node.Accessible.Label.Map(static _ => new Accessible { Role = AccessRole.Image }).IfNone(Accessible.Empty);
-
-    private static Accessible Adjusted(AccessRole role, Adjuster adjuster) =>
-        new() { Role = role, Value = new AccessValue.Ranged(adjuster.Value, adjuster.Min, adjuster.Max), Orientation = adjuster.Axis };
 
     private static Accessible Named(Accessible accessible, AccessRole role, Laid laid, Accessible lent) =>
         accessible with {
@@ -177,17 +184,20 @@ public static class Access {
                 text: static (_, text) => (AccessValue)text,
                 @checked: static (_, mark) => mark,
                 ranged: static (culture, ranged) => ranged with {
-                    Description = ranged.Description.IfNone(() => string.Create(culture, $"{(ranged.Value - ranged.Min) / double.Max(ranged.Max - ranged.Min, double.Epsilon):P0}")),
-                })),
+                    Description = ranged.Decimals.Match(
+                        Some: digits => Math.Round(ranged.Value, digits, MidpointRounding.ToEven).ToString(culture) switch {
+                            var number => ranged.Unit.Match(Some: unit => $"{number} {unit}", None: () => number),
+                        },
+                        None: () => string.Create(culture, $"{(ranged.Value - ranged.Min) / double.Max(ranged.Max - ranged.Min, double.Epsilon):P0}")),
+                },
+                point: static (culture, point) => point with { Description = point.Plane.Spoken(point.At, culture) })),
         };
 
     // --- [ACTIONS]
-    private static readonly Seq<Act> Stepping = Seq<Act>(new Act.Increment(), new Act.Decrement());
+    private static readonly Seq<Act> Standard = Seq<Act>(new Act.Press(), new Act.Confirm(), new Act.Cancel(), new Act.ShowMenu(), new Act.Delete(), new Act.Increment(), new Act.Decrement());
 
-    private static readonly Seq<Act> Standard = Seq<Act>(new Act.Press(), new Act.Confirm(), new Act.Cancel(), new Act.ShowMenu(), new Act.Delete(None)) + Stepping;
-
-    private static Seq<Act> Offered(Scene scene, Owner owner, Seq<Key> path) =>
-        Standard.Filter(act => owner.Part.Performed(new Gesture.Perform(act), new Aim(scene, owner.Laid, owner.Bounds, path)).Switch(pass: static _ => false, take: static _ => true));
+    private static Seq<Act> Offered(Scene scene, Owned owner, Seq<Key> path) =>
+        Standard.Filter(act => owner.Part.Performed(new Gesture.Perform(act), scene.Aimed(owner, path)).Switch(pass: static _ => false, take: static _ => true));
 
     // --- [CHANGES]
     internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, Element> was, HashMap<Seq<Key>, Element> now) {
@@ -209,5 +219,6 @@ public static class Access {
         string.Join(' ', Seq(accessible.Label, accessible.Value.Bind(static value => value.Switch(
             text: static text => Some(text.Value),
             @checked: static held => Some(held.Mark.Map(off: "not checked", on: "checked", mixed: "mixed")),
-            ranged: static ranged => ranged.Description))).Somes());
+            ranged: static ranged => ranged.Description,
+            point: static point => point.Description))).Somes());
 }

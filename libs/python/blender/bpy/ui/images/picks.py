@@ -15,7 +15,7 @@ from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.images.views import framed, image_type, WINDOW
-from blender.imaging.geometry.regions import Region
+from blender.imaging.geometry.frames import Region
 from blender.records.faults import Fault, Outcome, paired
 
 if TYPE_CHECKING:

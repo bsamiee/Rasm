@@ -1,5 +1,5 @@
 using System.Globalization;
-using MathNet.Numerics;
+using Rasm.Spatial;
 using Rasm.Rhino.Modeling.Curves;
 
 namespace Rasm.Rhino.Modeling.Surfaces;
@@ -46,78 +46,6 @@ public sealed partial class HermiteGrid {
             : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{stations.Count} Hermite stations fill no {u.Values.Count} by {v.Values.Count} grid"));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record SurfaceForm {
-    public sealed record Paraboloid(Plane Frame, double CurvatureU, double CurvatureV, Interval U, Interval V) : SurfaceForm;
-
-    public sealed record Hyperboloid(Plane Frame, double Waist, double Axial, Interval S) : SurfaceForm;
-
-    public sealed record Polynomial : SurfaceForm {
-        private Polynomial(Seq<Seq<Point4d>> coefficients, Interval u, Interval v) => (Coefficients, U, V) = (coefficients, u, v);
-
-        public Seq<Seq<Point4d>> Coefficients { get; }
-
-        public Interval U { get; }
-
-        public Interval V { get; }
-
-        public static Fin<Polynomial> Validated(Seq<Seq<Point4d>> coefficients, Interval u, Interval v) =>
-            from rectangular in guard(coefficients.Map(static row => row.Count).Distinct().Count is 1, Error.New(ErrorCodes.ValidationFailed, "polynomial coefficient rows differ in length")).ToFin()
-            from spanned in guard(u.IsIncreasing && v.IsIncreasing, Error.New(ErrorCodes.ValidationFailed, $"polynomial domains {u} and {v} are not increasing")).ToFin()
-            select new Polynomial(coefficients, u, v);
-
-        internal Seq<Seq<Point4d>> Net => Bernstein(Shifted(Coefficients, U, V));
-
-        private static Seq<Seq<Point4d>> Shifted(Seq<Seq<Point4d>> a, Interval u, Interval v) =>
-            Grid(a, (k, l) => Sum(Range(k, a.Count - k), i => Sum(Range(l, a[0].Count - l), j =>
-                a[i][j] * (SpecialFunctions.Binomial(i, k) * Math.Pow(u.T0, i - k) * Math.Pow(u.Length, k) * SpecialFunctions.Binomial(j, l) * Math.Pow(v.T0, j - l) * Math.Pow(v.Length, l)))));
-
-        private static Seq<Seq<Point4d>> Bernstein(Seq<Seq<Point4d>> b) =>
-            Grid(b, (p, q) => Sum(Range(0, p + 1), k => Sum(Range(0, q + 1), l =>
-                b[k][l] * (SpecialFunctions.Binomial(p, k) / SpecialFunctions.Binomial(b.Count - 1, k) * SpecialFunctions.Binomial(q, l) / SpecialFunctions.Binomial(b[0].Count - 1, l)))));
-
-        private static Seq<Seq<Point4d>> Grid(Seq<Seq<Point4d>> shape, Func<int, int, Point4d> entry) =>
-            toSeq(Range(0, shape.Count)).Map(row => toSeq(Range(0, shape[0].Count)).Map(column => entry(row, column)).Strict()).Strict();
-
-        private static Point4d Sum(IEnumerable<int> indices, Func<int, Point4d> term) =>
-            toSeq(indices).Fold(new Point4d(0d, 0d, 0d, 0d), (sum, index) => sum + term(index));
-    }
-
-    public IO<Surface> ToSurface(Action<IDisposable> retain) =>
-        Switch(
-            retain,
-            paraboloid: static (held, paraboloid) => DisposalOps.Within<IDisposable, Surface>(temporary =>
-                from a in Parabola((x, z) => paraboloid.Frame.PointAt(x, paraboloid.V.T0, z + (paraboloid.CurvatureV * paraboloid.V.T0 * paraboloid.V.T0)), paraboloid.CurvatureU, paraboloid.U, temporary)
-                from b in Parabola((y, z) => paraboloid.Frame.PointAt(0d, y, z), paraboloid.CurvatureV, paraboloid.V, temporary)
-                from sum in Copies.Acquire(nameof(SumSurface.Create), _ => Answer.One<Surface>(SumSurface.Create(a, b)), held)
-                select sum, DisposalOps.Release),
-            hyperboloid: static (held, hyperboloid) => Copies.Acquire(nameof(RevSurface.Create), _ => Answer.One<Surface>(RevSurface.Create(
-                new Line(
-                    hyperboloid.Frame.PointAt(hyperboloid.Waist, hyperboloid.Waist * hyperboloid.S.T0, hyperboloid.Axial * hyperboloid.S.T0),
-                    hyperboloid.Frame.PointAt(hyperboloid.Waist, hyperboloid.Waist * hyperboloid.S.T1, hyperboloid.Axial * hyperboloid.S.T1)),
-                new Line(hyperboloid.Frame.Origin, hyperboloid.Frame.ZAxis, 1d))), held),
-            polynomial: static (held, polynomial) => polynomial.Net switch {
-                var net => Copies.Acquire(nameof(NurbsSurface.CreateFromPoints), _ =>
-                    NurbsSurface.CreateFromPoints(net.Bind(static row => row.Map(static point => new Point3d(point))), net.Count, net[0].Count, net.Count - 1, net[0].Count - 1) switch {
-                        var surface => (
-                                Answer.Accepted(surface is not null
-                                    && (net.ForAll(static row => row.ForAll(static point => point.W is 1d)) || surface.MakeRational())
-                                    && net.Map((row, u) => row.Map((point, v) => surface.Points.SetPoint(u, v, point)).ForAll(static set => set)).ForAll(static set => set)
-                                    && surface.SetDomain((int)SurfaceDirection.U, polynomial.U)
-                                    && surface.SetDomain((int)SurfaceDirection.V, polynomial.V)),
-                                Answer.One<Surface>(surface))
-                            .Apply(static (_, built) => built).As(),
-                    }, held),
-            });
-
-    private static IO<NurbsCurve> Parabola(Func<double, double, Point3d> at, double curvature, Interval span, Action<IDisposable> retain) =>
-        Copies.Acquire(nameof(BezierCurve.ToNurbsCurve), _ => Answer.Successor(
-            new BezierCurve([
-                at(span.T0, curvature * span.T0 * span.T0), at((span.T0 + span.T1) / 2d, curvature * span.T0 * span.T1), at(span.T1, curvature * span.T1 * span.T1),
-            ]),
-            static bezier => Answer.One(bezier.ToNurbsCurve())), retain);
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SurfaceConstruction {
     // --- [FROM_POINTS]
@@ -151,4 +79,27 @@ public static class SurfaceConstruction {
         Copies.Acquire(nameof(NurbsSurface.MakeCompatible), _ =>
             (Answer.Accepted(NurbsSurface.MakeCompatible(a, b, out NurbsSurface first, out NurbsSurface second)), Answer.One(first), Answer.One(second))
                 .Apply(static (_, compatibleA, compatibleB) => (A: compatibleA, B: compatibleB)).As(), retain);
+
+    // --- [REVOLUTION]
+    public static IO<RevSurface> Hyperboloid(Plane frame, double waist, double axial, Interval span, Action<IDisposable> retain) =>
+        Copies.Acquire(nameof(RevSurface.Create), _ => Answer.One(RevSurface.Create(
+            new Line(frame.PointAt(waist, waist * span.T0, axial * span.T0), frame.PointAt(waist, waist * span.T1, axial * span.T1)),
+            new Line(frame.Origin, frame.ZAxis, 1d))), retain);
+
+    // --- [LOWERINGS]
+    extension(PolynomialPatch patch) {
+        public IO<NurbsSurface> ToNurbs(Plane frame, Action<IDisposable> retain) =>
+            (Rows: patch.Net.X.RowCount, Columns: patch.Net.X.ColumnCount, Controls: Controls(patch.Net, frame)) switch {
+                var grid => Copies.Acquire(nameof(NurbsSurface.CreateFromPoints), _ =>
+                    NurbsSurface.CreateFromPoints(grid.Controls.Map(static control => control.Place), grid.Rows, grid.Columns, grid.Rows - 1, grid.Columns - 1) switch {
+                        var surface => (Answer.Accepted(surface is not null
+                                && (grid.Controls.ForAll(static control => control.Weight is 1d) || (surface.MakeRational() && grid.Controls.ForAll(control => surface.Points.SetPoint(control.U, control.V, control.Place, control.Weight))))
+                                && surface.SetDomain((int)SurfaceDirection.U, new Interval(patch.U.Start, patch.U.End)) && surface.SetDomain((int)SurfaceDirection.V, new Interval(patch.V.Start, patch.V.End))), Answer.One(surface))
+                            .Apply(static (_, built) => built).As(),
+                    }, retain),
+            };
+    }
+
+    private static Seq<(int U, int V, double Weight, Point3d Place)> Controls(HomogeneousGrid net, Plane frame) =>
+        (from u in toSeq(Range(0, net.X.RowCount)) from v in toSeq(Range(0, net.X.ColumnCount)) select (U: u, V: v, Weight: net.W[u, v], Place: (new Vector3D<double>(net.X[u, v], net.Y[u, v], net.Z[u, v]) / net.W[u, v]).ToPoint3d(frame))).Strict();
 }

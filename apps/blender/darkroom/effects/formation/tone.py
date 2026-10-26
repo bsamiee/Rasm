@@ -31,7 +31,8 @@ from blender.bpy.render.compositor.tables import tabled, TILES
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.color.luts import Rational, split
 from blender.imaging.color.processors import ColorSpace, GREY, REC709_SCENE, rendering_basis, Stops
-from blender.imaging.files.images import ImageFile, pixels
+from blender.imaging.files.buffers import pixels
+from blender.imaging.files.images import ImageFile
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.records.faults import Fault, Faults, Outcome, RecordReason
 
@@ -272,7 +273,7 @@ def tabled_tony(shell: Shell[Tony]) -> Outcome[Expr]:
         return (
             Result[Path, Faults]
             .bind(
-                catch(lambda: scope.enter_context(as_file(table)), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(table), cause=error),)),
+                catch(scope.enter_context, exception=OSError)(as_file(table)).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(table), cause=error),)),
                 lambda path: split(shell.config, PyOpenColorIO.FileTransform(src=str(path), interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)).bind(
                     lambda parts: parts[1].to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(path), member=PyOpenColorIO.Lut3DTransform.__name__),))
                 ),

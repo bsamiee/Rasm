@@ -1,100 +1,45 @@
-"""Call-recording stubs, Trio autojump clock, fixture writer, and NDJSON line-count check."""
+"""Mock installs logging every call in order, and fixture file writer."""
 
-from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
+from typing import Protocol
+lazy from collections.abc import Callable, Mapping
+lazy from pathlib import Path
+lazy from unittest.mock import Mock
 
-import anyio.lowlevel
-import msgspec
 import msgspec.json
-import pytest
-import trio.testing
+lazy import pytest
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type CallRecord = tuple[str, tuple[object, ...], dict[str, object]]
 
-# --- [MODELS] ---------------------------------------------------------------------------
+class _Member(Protocol):
+    __name__: str
 
-
-class Sync[R](msgspec.Struct, frozen=True):
-    """Synchronous double, ``(*args, **kwargs) -> value``."""
-
-    value: R
-
-
-class Async[R](msgspec.Struct, frozen=True):
-    """Awaited double, ``async (*args, **kwargs) -> value``."""
-
-    value: R
-
-
-class Factory[R](msgspec.Struct, frozen=True):
-    """Curried double ``(*bind) -> (*call) -> value`` logging its inner call as ``<member>()``."""
-
-    value: R
-
-
-type Stub[R] = Sync[R] | Async[R] | Factory[R]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [RECORDING]
 
 
-def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str, Stub[object]]) -> Sequence[CallRecord]:
-    """Replace each ``target.member`` with its stub and return shared call log in call order."""
-    calls: list[CallRecord] = []
-
-    def runner(member: str, stub: Stub[object]) -> object:
-        def sync(*args: object, **kwargs: object) -> object:
-            calls.append((member, args, kwargs))
-            match stub:
-                case Factory(value):
-                    return runner(f"{member}()", Sync(value))
-                case Sync(value) | Async(value):
-                    return value
-
-        async def coroutine(*args: object, **kwargs: object) -> object:
-            value = sync(*args, **kwargs)
-            await anyio.lowlevel.checkpoint()
-            return value
-
-        return coroutine if isinstance(stub, Async) else sync
-
+def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[_Member, Mock]) -> Mock:
+    """Replace each member of ``target`` with its mock and return the parent whose ``mock_calls`` log every call in order."""
+    log = Mock()
     for member, stub in stubs.items():
-        monkeypatch.setattr(target, member, runner(member, stub))
-    return calls
-
-
-# --- [CLOCKS]
-
-
-def autojump_backend() -> tuple[str, dict[str, object]]:
-    """Return ``anyio_backend`` parameter for Trio autojumping clock."""
-    return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=0)})
+        log.attach_mock(stub, member.__name__)
+        monkeypatch.setattr(target, member.__name__, stub)
+    return log
 
 
 # --- [FIXTURES]
 
 
-def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callable[[object], bytes] = msgspec.json.encode) -> dict[str, Path]:
+def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callable[[object], bytes] = msgspec.json.encode) -> frozendict[str, Path]:
     """Write each file under ``directory``, non-bytes content through ``encode``, and return paths by name."""
-    paths = {name: directory / name for name in files}
+    paths = frozendict({name: directory / name for name in files})
     for name, path in paths.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content if isinstance(content := files[name], bytes) else encode(content))
     return paths
 
 
-# --- [DECODING]
-
-
-def decoded_lines[T](decoder: msgspec.json.Decoder[T], raw: bytes | str, count: int) -> list[T]:
-    """Decode newline-delimited JSON and assert ``count`` lines."""
-    rows = decoder.decode_lines(raw)
-    assert len(rows) == count, f"expected {count} NDJSON lines, got {len(rows)} in {raw!r}"
-    return rows
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Async", "CallRecord", "Factory", "Stub", "Sync", "autojump_backend", "decoded_lines", "install", "write_fixtures"]
+__all__ = ["install", "write_fixtures"]

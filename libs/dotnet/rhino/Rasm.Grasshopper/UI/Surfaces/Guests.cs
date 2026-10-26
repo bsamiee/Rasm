@@ -57,21 +57,20 @@ public sealed class Guest(IPlugInSink sink, IO<Unit> redraw) : IDisposable {
     public IO<Unit> Paint(Graphics graphics, float device, RectangleF box, Visibility visibility, Node view) =>
         from held in Held
         from shown in held.Host.Show(view)
-        from hosted in held.Host.Rehost(new Host(new SKSize(box.Width, box.Height), held.Theme, visibility, Cycles: false, RowText.Culture), held.Stated)
+        from hosted in held.Host.Rehost(new Host(new SKSize(box.Width, box.Height), held.Theme, visibility, HostPlacement.Panel, RowText.Culture), held.Stated)
         from target in held.Host.Paint(device)
         from drawn in target.Traverse(painted => Blitted(graphics, painted, box)).As()
         select unit;
 
     private static IO<Unit> Blitted(Graphics graphics, SceneTarget<BitmapPixels> target, RectangleF box) =>
-        target.Switch(
-            (Graphics: graphics, Box: box),
-            standard: static (held, standard) => IO.lift(() => held.Graphics.DrawImage(standard.Pixels.Bitmap, new RectangleF(0f, 0f, standard.Info.Width, standard.Info.Height), held.Box)),
-            extended: static (held, extended) => DisposalOps.Within(extended.Surface.Snapshot, frame =>
+        target.Pixels.Match(
+            Some: pixels => IO.lift(() => graphics.DrawImage(pixels.Bitmap, new RectangleF(0f, 0f, target.Info.Width, target.Info.Height), box)),
+            None: () => DisposalOps.Within(target.Surface.Snapshot, frame =>
                 DisposalOps.Within(
                     IO.lift(() => BitmapPixels.Allocated(new SKSizeI(frame.Width, frame.Height))),
                     allocated =>
                         from read in IO.lift(() => Refused.Unless(frame.ReadPixels(allocated.Pixmap), nameof(SKImage.ReadPixels)))
-                        from drawn in IO.lift(() => held.Graphics.DrawImage(allocated.Pixels.Bitmap, new RectangleF(0f, 0f, frame.Width, frame.Height), held.Box))
+                        from drawn in IO.lift(() => graphics.DrawImage(allocated.Pixels.Bitmap, new RectangleF(0f, 0f, frame.Width, frame.Height), box))
                         select unit,
                     static allocated => IO.lift(() => {
                         allocated.Pixmap.Dispose();

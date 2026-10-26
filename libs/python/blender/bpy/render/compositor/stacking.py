@@ -40,17 +40,18 @@ from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.blending import Entry, photoshop
 from blender.bpy.render.compositor.effects import camera_frame, CompositorEffect, Derives, entered, framing, PRECISION
 from blender.bpy.render.compositor.entries import Edge, EffectRows, Pinned, relocated
-from blender.bpy.render.compositor.inputs import captured, defaulted, entry_input, KeyPath, rebased, restored, updated
+from blender.bpy.render.compositor.inputs import captured, defaulted, entry_input, rebased, restored
 from blender.bpy.render.compositor.layers import (
     Adjustment,
-    collection,
     Edit,
     EffectAt,
     EffectMaskAt,
+    EFFECTS,
     indexed,
     Layer,
     LayerAt,
     LayerMaskAt,
+    LAYERS,
     LayerStack,
     located,
     node_types,
@@ -58,6 +59,7 @@ from blender.bpy.render.compositor.layers import (
     planned,
     Planning,
     RenderPass,
+    SOURCE,
     Source,
     sourced,
     Target,
@@ -76,12 +78,13 @@ from blender.bpy.ui.layout.templates import NodeEditors
 from blender.bpy.ui.layout.values import Listing
 from blender.bpy.ui.surfaces.menus import Dropdown, Menu, Submenus
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.files import documents
-from blender.imaging.files.documents import Document
-from blender.imaging.files.images import Depth, Rounded, unassociated
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.coding import Depth, Rounded
+from blender.imaging.files.documents import AdjustmentLayer, Document, DocumentLayers, LayerGroup, PixelLayer
 from blender.imaging.files.multilayer import Multilayer
 from blender.records.faults import accumulated, Fault, Outcome, paired
 from blender.records.fields import Case
+from blender.records.trees import amended, Lens
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -291,9 +294,13 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         """Writes the stack and active index when either changed, answering whether one did."""
         return Ok(False) if record == held.record and active == held.active else self.persisted(context, held, record, active).map(lambda _: True)
 
-    def appended(self, context: bpy.types.Context, held: Selection[M], at: KeyPath, item: object, active: int) -> Outcome[bool]:
-        """Appends an item to the collection at a record path, answering whether the stack changed."""
-        return collection(held.record, at).bind(lambda found: self.replaced(context, held, updated(held.record, at, lambda _: (*found, item)), active))
+    def rewritten(self, context: bpy.types.Context, held: Selection[M], at: Lens, change: Callable[[object], object], active: int) -> Outcome[bool]:
+        """Writes the stack with the value a lens reaches changed, answering whether the stack changed."""
+        return located(amended(held.record, at, change).to_optional(), TITLE, str(active)).bind(lambda record: self.replaced(context, held, record, active))
+
+    def appended(self, context: bpy.types.Context, held: Selection[M], entry: Entry[M]) -> Outcome[bool]:
+        """Appends an effect entry to the active layer, answering whether the stack changed."""
+        return self.rewritten(context, held, (LAYERS, held.active, EFFECTS), lambda found: (*found, entry) if isinstance(found, tuple) else found, held.active)
 
     # --- [GRAPH]
 
@@ -538,14 +545,14 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
     def select_output(self, call: Call[OutputChoice]) -> Outcome[Answer]:
         """Set layer source output."""
-        index, at = call.properties.layer, ("layers", call.properties.layer + 1, "source", "output")
+        index = call.properties.layer
 
         def chosen(held: Selection[M], layer: Layer[Source, M]) -> Outcome[bool]:
             match layer.source:
-                case RenderPass() | NodeSource():
-                    return self.replaced(call.context, held, updated(held.record, at, lambda _: call.properties.output), index)
+                case RenderPass() | NodeSource() as source:
+                    return self.rewritten(call.context, held, (LAYERS, index, SOURCE), lambda _: msgspec.structs.replace(source, output=call.properties.output), index)
                 case Adjustment() | Recombined():
-                    return located(None, layer.name, at[-1])
+                    return located(None, layer.name, call.properties.output)
 
         wrote = self.selected(call.context).bind(lambda held: indexed(held.record.layers, index, TITLE).bind(lambda layer: chosen(held, layer)))
         return wrote.map(lambda changed: Done() if changed else Unchanged(reason=f"Layer reads {call.properties.output}"))
@@ -557,11 +564,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
 
     def effected(self, row: CompositorEffect[M], call: Call[Empty]) -> Outcome[Answer]:
         """Appends the effect's seeded record to the active layer."""
-
-        def appended(held: Selection[M], record: M) -> Outcome[bool]:
-            return self.appended(call.context, held, ("layers", held.active + 1, "effects"), Entry(record=record), held.active)
-
-        return paired(call.root(bpy.types.Scene).bind(row.seeded), self.selected(call.context)).bind(lambda parts: appended(parts[1], parts[0])).map(lambda _: Done())
+        return paired(call.root(bpy.types.Scene).bind(row.seeded), self.selected(call.context)).bind(lambda parts: self.appended(call.context, parts[1], Entry(record=parts[0]))).map(lambda _: Done())
 
     def edit_layer(self, call: Call[Addressed]) -> Outcome[Answer]:
         """Remove, duplicate, move, or reset a layer, effect, or mask, its input values following it."""
@@ -637,22 +640,17 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def edited(held: Selection[M]) -> Outcome[bool]:
-            at = ("layers", held.active + 1)
             match value.structure:
                 case LayerStack() as stack:
                     return self.replaced(context, held, stack, 0).bind(lambda changed: valued("", changed=changed))
                 case Layer() as layer:
                     return held.layer.bind(
-                        lambda prior: self.replaced(context, held, updated(held.record, at, lambda _: msgspec.structs.replace(layer, key=prior.key)), held.active).bind(
+                        lambda prior: self.rewritten(context, held, (LAYERS, held.active), lambda _: msgspec.structs.replace(layer, key=prior.key), held.active).bind(
                             lambda changed: valued(prior.key, changed=changed)
                         )
                     )
                 case Entry() as entry:
-                    return held.layer.bind(
-                        lambda prior: self.appended(context, held, (*at, "effects"), entry, held.active).bind(
-                            lambda changed: valued(item_key(prior.key, "effects", len(prior.effects) + 1), changed=changed)
-                        )
-                    )
+                    return held.layer.bind(lambda prior: self.appended(context, held, entry).bind(lambda changed: valued(item_key(prior.key, "effects", len(prior.effects) + 1), changed=changed)))
 
         return self.selected(context).bind(edited).map(lambda wrote: Done() if wrote else Unchanged(reason="Stack matches preset"))
 
@@ -739,7 +737,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
     def layered(self, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document[Coded]]:
         """Builds the document of formed color and raw mask coverage of the head stack at a saved frame, nested stacks as groups."""
         number = located(next((part.header.get("Frame") for part in frame.parts[:1]), None), frame.path, "Frame").bind(
-            lambda text: catch(lambda: int(text), exception=ValueError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=frame.path, cause=error),))
+            lambda text: catch(int, exception=ValueError)(text).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=frame.path, cause=error),))
         )
 
         coded = functools.partial(depth.coded, coding=Rounded())
@@ -747,7 +745,7 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         def composed(
             entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, record: LayerStack[Source, M], at: int, config: PyOpenColorIO.Config, view: DisplayView
         ) -> Outcome[Document[Coded]]:
-            def read_tree(tree: bpy.types.NodeTree, record: LayerStack[Source, M], valued: Callable[[Key], Outcome[Value]]) -> Outcome[tuple[documents.Layers[Coded], npt.NDArray[np.float32]]]:
+            def read_tree(tree: bpy.types.NodeTree, record: LayerStack[Source, M], valued: Callable[[Key], Outcome[Value]]) -> Outcome[tuple[DocumentLayers[Coded], npt.NDArray[np.float32]]]:
                 shown = frozenset(layer.key for layer, _ in record.composited())
 
                 def written(node: bpy.types.CompositorNodeOutputFile) -> Outcome[str]:
@@ -762,17 +760,17 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                     bpy.types.CompositorNodeOutputFile.__name__,
                 ).bind(written)
 
-                def planes(file: Multilayer) -> Outcome[tuple[documents.Layers[Coded], npt.NDArray[np.float32]]]:
+                def planes(file: Multilayer) -> Outcome[tuple[DocumentLayers[Coded], npt.NDArray[np.float32]]]:
                     def raw(name: str) -> Outcome[npt.NDArray[np.float32]]:
                         return located(next((layer for layer in file.layers if layer.name == name), None), file.path, name).bind(lambda layer: file.plane(layer, layer.channels))
 
                     def color(name: str) -> Outcome[npt.NDArray[np.float32]]:
                         return raw(name).bind(lambda pixels: view.form(config, pixels)).map(unassociated)
 
-                    def each(layer: Layer[Source, M]) -> Outcome[documents.Raster[Coded] | documents.Adjustment[Coded] | documents.Group[Coded]]:
+                    def each(layer: Layer[Source, M]) -> Outcome[PixelLayer[Coded] | AdjustmentLayer[Coded] | LayerGroup[Coded]]:
                         visible = layer.key in shown
                         if isinstance(layer.source, Adjustment):
-                            return color(f"{layer.key} Composite").map(lambda pixels: documents.Adjustment(name=layer.name, color=coded(pixels[..., :3]), alpha=coded(pixels[..., 3]), visible=visible))
+                            return color(f"{layer.key} Composite").map(lambda pixels: AdjustmentLayer(name=layer.name, color=coded(pixels[..., :3]), alpha=coded(pixels[..., 3]), visible=visible))
                         mask = raw(f"{layer.key} Mask").map(lambda pixels: Some(coded(pixels[..., 0]))) if layer.blend.masks or layer.matte else Ok(Nothing)
                         blend = paired(valued(item_key(layer.key, "blend", "mode")), valued(item_key(layer.key, "blend", "opacity"))).bind(
                             lambda pair: (
@@ -787,14 +785,14 @@ class LayerStacking[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                             .map(
                                 lambda inner: paired(self.read(inner), blend).bind(
                                     lambda parts: read_tree(inner, parts[0], functools.partial(grouped_value, self.identity, inner, owned(tree, self.identity)[layer.node])).map(
-                                        lambda held: documents.Group(name=layer.name, layers=held[0], mode=Some(parts[1][0]), opacity=parts[1][1], visible=visible)
+                                        lambda held: LayerGroup(name=layer.name, layers=held[0], mode=Some(parts[1][0]), opacity=parts[1][1], visible=visible)
                                     )
                                 )
                             )
                         )
                         return nested.default_with(
                             lambda: paired(color(layer.key), mask, blend).map(
-                                lambda parts: documents.Raster(
+                                lambda parts: PixelLayer(
                                     name=layer.name, color=coded(parts[0][..., :3]), alpha=coded(parts[0][..., 3]), mask=parts[1], mode=parts[2][0], opacity=parts[2][1], visible=visible
                                 )
                             )

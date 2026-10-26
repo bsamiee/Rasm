@@ -16,6 +16,10 @@ import numpy.typing as npt
 from blender.imaging.files.multilayer import Layer, Multilayer
 from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Manifest = dict[str, Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{8}$")]]
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -47,7 +51,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
                 if re.fullmatch(f"{re.escape(name)}[0-9]{{2}}", layer.name) and (folded := {channel.name.casefold(): channel for channel in layer.channels}).keys() >= set(rgba)
             )
             return (
-                catch(lambda: msgspec.json.decode(manifest, type=dict[str, Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{8}$")]]), exception=msgspec.DecodeError)()
+                catch(msgspec.json.decode, exception=msgspec.DecodeError)(manifest, type=_Manifest)
                 .map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=file.path, cause=error),))
                 .map(
                     lambda entries: cls(

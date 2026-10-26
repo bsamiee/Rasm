@@ -3,7 +3,6 @@ using System.Numerics;
 using System.Text.Json.Serialization;
 using Darkroom.Chain;
 using Emgu.CV;
-using PeterO.Numbers;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Grade;
@@ -36,12 +35,12 @@ public sealed record Bloom(
     public static Option<PixelPass> Pass(Bloom state, PassContext context) =>
         state.Strength is 0f ? None : Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(LightSpread.Light, light => {
             _ = TentPyramid.Spread(light, (int)float.Log2(float.Max(1f, frame.Size.ShortSide * state.Size)) - 1);
-            return Optional(state.Specks).Match<Fin<Unit>>(
+            return Optional(state.Specks).Match(
                 Some: specks => TentPyramid.Soiled(light, frame, context.Derivations.Derived((specks, context.Extent), DirtSpecks.Field), state.DirtGain),
                 None: () => Optional(state.Dirt)
                     .Map(path => context.Derivations.Derived(path, static held => ImageFile.Load(held).RunSafe()).Map(file => TentPyramid.Soiled(light, frame, file.Frame, state.DirtGain)))
                     .IfNone(unit));
-        }, BlendingMode.Mix, state.Strength, progress)));
+        }, BlendingMode.Mix, state.Strength, context.Working.Luminance, progress)));
 }
 
 public sealed record VeilingGlare([property: Display(Name = "Size", Description = "Field of view the glare kernel spans, narrower at higher values")][property: Range(0d, 1d)] float Size)
@@ -53,7 +52,7 @@ public sealed record VeilingGlare([property: Display(Name = "Size", Description 
             light => context.Derivations.Held((state.Size, context.Extent, Window: frame.Size),
                 static key => Fin.Succ(PointSpread.Veiling(key.Window, double.Lerp(180d, 10d, double.Cbrt(key.Size)) / int.Max(key.Extent.Width, key.Extent.Height))),
                 spread => spread.Convolve(light)),
-            BlendingMode.Mix, 1f, progress)));
+            BlendingMode.Mix, 1f, context.Working.Luminance, progress)));
 }
 
 public sealed record StarGlare(
@@ -63,12 +62,12 @@ public sealed record StarGlare(
     public static StarGlare Default { get; } = new(Iris.Create(6, double.Pi / 3d, 0d, 0d, 1d), ShortSideLength.Create(2f / ReferenceFrame.Height));
 
     public static Option<PixelPass> Pass(StarGlare state, PassContext context) =>
-        state.Radius == ShortSideLength.Neutral || state.Aperture.Obstruction is 1d ? None
+        state.Radius == ShortSideLength.Zero || state.Aperture.Obstruction is 1d ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(LightSpread.Light,
                 light => context.Derivations.Held((State: state, context.Extent, Window: frame.Size, context.Working),
                     static key => Fin.Succ(PointSpread.Diffraction(key.State.Aperture, key.State.Radius.Pixels(key.Extent), key.Window, key.Extent, key.Working)),
                     spread => spread.Convolve(light)),
-                BlendingMode.Mix, 1f, progress)));
+                BlendingMode.Mix, 1f, context.Working.Luminance, progress)));
 }
 
 public sealed record Ghosts(
@@ -79,7 +78,7 @@ public sealed record Ghosts(
 
     public static Option<PixelPass> Pass(Ghosts state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(state.Highlight.Extract,
-            light => GhostReflections.Reflected(light, frame, 16f / ReferenceFrame.Height * frame.Extent.ShortSide, state.Iterations, state.Modulation), BlendingMode.Add, 1f, progress)));
+            light => GhostReflections.Reflected(light, frame, 16f / ReferenceFrame.Height * frame.Extent.ShortSide, state.Iterations, state.Modulation), BlendingMode.Add, 1f, context.Working.Luminance, progress)));
 }
 
 public sealed record Halation(
@@ -91,7 +90,7 @@ public sealed record Halation(
     public static Option<PixelPass> Pass(Halation state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Color.ConvertToConfiguration(context.Working.Configuration).RgbLinear switch {
             var linear => new Vector4((float)linear.R, (float)linear.G, (float)linear.B, 0f) switch {
-                var color => frame.Spread(pixel => state.Highlight.Extract(pixel) * color, light => light.Blur(light, state.Radius.Pixels(frame.Extent)), BlendingMode.Add, 1f, progress),
+                var color => frame.Spread(pixel => state.Highlight.Extract(pixel) * color, light => light.Blur(light, state.Radius.Pixels(frame.Extent)), BlendingMode.Add, 1f, context.Working.Luminance, progress),
             },
         }));
 }
@@ -151,7 +150,7 @@ public sealed record AxialAberration(
     public static AxialAberration Default { get; } = new(ShortSideLength.Create(20f / ReferenceFrame.Height), Defocus.Default.Aperture);
 
     public static Option<PixelPass> Pass(AxialAberration state, PassContext context) =>
-        state.Radius == ShortSideLength.Neutral ? None : Some<PixelPass>(new AxialDefocus(state.Aperture, state.Radius).Pass);
+        state.Radius == ShortSideLength.Zero ? None : Some<PixelPass>(new AxialDefocus(state.Aperture, state.Radius).Pass);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -178,12 +177,12 @@ public abstract partial record Vignette : IPixelStage<Vignette> {
         public static new Outline Default { get; } = new(0.8f, 0.8f, 1f, ShortSideLength.Create(0.2f * float.Sqrt(float.Tau) / 3f), new Unicolour(ColourSpace.RgbLinear, 0d, 0d, 0d));
 
         public PixelPass.Pointwise Falloff(PassContext context) {
-            (PixelExtent extent, EContext math) = (context.Extent, DistanceField.Precision(context.Extent));
-            DistanceField field = DistanceField.Box((EFloat.FromDouble(Width * extent.Width / 2d), EFloat.FromDouble(Height * extent.Height / 2d)), Roundness, math);
+            PixelExtent extent = context.Extent;
+            DistanceField field = DistanceField.Box((Width * extent.Width / 2d, Height * extent.Height / 2d), Roundness);
             double band = ShapeEdge.Band(Feather, extent);
             RgbLinear pull = Pull.ConvertToConfiguration(context.Working.Configuration).RgbLinear;
-            return Pulled(new Vector3((float)pull.R, (float)pull.G, (float)pull.B), (column, line) => ShapeEdge.Coverage(field.Sample((
-                EFloat.FromDouble(column + 0.5d - (extent.Width / 2d)), EFloat.FromDouble((extent.Height / 2d) - line - 0.5d))).Distance.ToDouble(), band));
+            return Pulled(new Vector3((float)pull.R, (float)pull.G, (float)pull.B), (column, line) =>
+                ShapeEdge.Coverage(field.Distance((column + 0.5d - (extent.Width / 2d), (extent.Height / 2d) - line - 0.5d)), band));
         }
     }
 

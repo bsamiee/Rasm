@@ -14,8 +14,7 @@ from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.imaging.color.authoring import ConfigBuild
-from blender.imaging.color.config import ConfigFile, opened
+from blender.imaging.color.authoring import ConfigBuild, ConfigFile
 from blender.imaging.color.processors import ColorSpace, DisplayView
 from blender.imaging.color.white import White
 from blender.records.faults import accumulated, Outcome
@@ -62,7 +61,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def base(self) -> Outcome[PyOpenColorIO.Config]:
         """Bundled base configuration independent of a user installation."""
-        return opened(ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))).opened()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def merged(self, base: PyOpenColorIO.Config) -> Outcome[ConfigBuild]:
         """Application build with the views' view transforms added."""

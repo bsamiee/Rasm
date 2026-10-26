@@ -1,0 +1,33 @@
+id: no-computed-literal-python
+valid:
+    - |
+      text = "abc".encode()
+    - |
+      text = "abc".encode("utf-8")
+    - |
+      text = "abc".encode(encoding="UTF8")
+    - |
+      text = "{}".format(1)
+    - |
+      text = "a b".split()
+    - |
+      text = str("x")
+    - |
+      text = "abc".upper
+invalid:
+    - |
+      text = "abc".encode("ascii")
+    - |
+      text = "é".encode()
+    - |
+      text = "abc".upper()
+    - |
+      text = "ab" + "cd"
+    - |
+      text = "\x41bc"
+    - |
+      text = f"{1}x"
+    - |
+      text = hex(255)
+    - |
+      text = (1, 2)[0]

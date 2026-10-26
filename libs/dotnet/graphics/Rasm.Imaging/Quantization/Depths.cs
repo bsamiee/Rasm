@@ -10,7 +10,7 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Quantization;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct Quantizer {
+public sealed record Quantizer {
     internal Quantizer(int bits) => MaxCode = (1 << bits) - 1;
 
     public float MaxCode { get; }
@@ -27,18 +27,16 @@ public readonly record struct Quantizer {
             + (Vector4.Clamp(2f * Vector4.Min(code, Vector4.Create(MaxCode) - code), Vector4.Zero, Vector4.One) * (MathF.CopySign(1f - MathF.Sqrt(1f - MathF.Abs(signed)), signed) - rectangular));
     }
 
-    internal void Quantize<TField>(Span<Vector4> row, long column, long line) where TField : IOffsetField {
+    internal void Quantize(Span<Vector4> row, long column, long line, Func<long, long, float> draw) {
         for (int x = 0; x < row.Length; x++) {
             Vector4 pixel = row[x];
             Vector4 code = MaxCode * pixel;
-            row[x] = Vector4.Create((Round(code + Offset(TField.Draw(column + x, line), code)) / MaxCode).AsVector3(), pixel.W);
+            row[x] = Vector4.Create((Round(code + Offset(draw(column + x, line), code)) / MaxCode).AsVector3(), pixel.W);
         }
     }
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public abstract partial class OutputDepth {
     public static readonly OutputDepth UInt8 = new Integer<byte>(8);
     public static readonly OutputDepth UInt10 = new Integer<ushort>(10);
@@ -57,13 +55,13 @@ public abstract partial class OutputDepth {
     public static Seq<OutputDepth> Where<T>(Func<OutputDepth, Option<T>> table) => toSeq(Items).Filter(depth => table(depth).IsSome);
 
     internal static Fin<T> Sampled<T>(string format, OutputDepth depth, Func<OutputDepth, Option<T>> table) =>
-        table(depth).ToFin(Error.New($"{format} holds no {depth} samples, only {Where(table)}"));
+        table(depth).ToFin(new ImagingFault($"{format} holds no {depth} samples, only {Where(table)}"));
 
     public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;
 
     internal Fin<Unit> Buffered(string format, int width, bool alpha) =>
         RowBytes(width, alpha) switch {
-            var bytes when bytes > System.Array.MaxLength => Error.New(string.Create(CultureInfo.InvariantCulture, $"{format} row of {bytes} bytes exceeds one buffer of {System.Array.MaxLength} bytes")),
+            var bytes when bytes > System.Array.MaxLength => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{format} row of {bytes} bytes exceeds one buffer of {System.Array.MaxLength} bytes")),
             _ => unit,
         };
 
@@ -76,8 +74,11 @@ public abstract partial class OutputDepth {
     }
 
     public void ToBigEndian(Span<byte> words) {
-        for (int at = 0; at < words.Length; at += SampleBytes)
-            words.Slice(at, SampleBytes).Reverse();
+        (int Bytes, bool Whole) sample = (SampleBytes, Bits == 8 * SampleBytes);
+        if (sample is (2, true))
+            BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<byte, ushort>(words), MemoryMarshal.Cast<byte, ushort>(words));
+        else if (sample is (4, true))
+            BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<byte, uint>(words), MemoryMarshal.Cast<byte, uint>(words));
     }
 
     private protected abstract Vector4 Sample(Vector4 pixel);

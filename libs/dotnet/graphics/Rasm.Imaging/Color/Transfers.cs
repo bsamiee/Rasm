@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using CommunityToolkit.HighPerformance;
 using Rasm.Imaging.Pixels;
 using TinyEXR;
 using UnitsNet;
@@ -10,6 +11,16 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
+[SmartEnum<string>]
+internal sealed partial class TransferForm {
+    public static readonly TransferForm Gamma = new("gamma", static level => Transfer.Gamma.Of((float)level).ToOption().Map(static gamma => (Transfer)gamma));
+    public static readonly TransferForm Pq = new("pq", static level => Transfer.Pq.Of(Luminance.FromNits(level)).ToOption().Map(static pq => (Transfer)pq));
+    public static readonly TransferForm Hlg = new("hlg", static level => Transfer.Hlg.Of(Luminance.FromNits(level)).ToOption().Map(static hlg => (Transfer)hlg));
+
+    [UseDelegateFromConstructor]
+    public partial Option<Transfer> At(double level);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
 [ValidationError<ImagingFault>]
@@ -33,31 +44,34 @@ public abstract partial record Transfer : IConvertible<string> {
     public string ToValue() => Switch(
         linear: static _ => "linear",
         srgb: static _ => "srgb",
-        pq: static pq => string.Create(CultureInfo.InvariantCulture, $"pq:{pq.White.Nits.ToDouble()}"),
-        hlg: static hlg => string.Create(CultureInfo.InvariantCulture, $"hlg:{hlg.White.Nits.ToDouble()}"),
+        pq: static pq => string.Create(CultureInfo.InvariantCulture, $"{TransferForm.Pq.Key}:{pq.White.Nits.ToDouble()}"),
+        hlg: static hlg => string.Create(CultureInfo.InvariantCulture, $"{TransferForm.Hlg.Key}:{hlg.White.Nits.ToDouble()}"),
         acesCct: static _ => "acescct",
         acesCc: static _ => "acescc",
-        gamma: static gamma => string.Create(CultureInfo.InvariantCulture, $"gamma:{gamma.Exponent}"),
+        gamma: static gamma => string.Create(CultureInfo.InvariantCulture, $"{TransferForm.Gamma.Key}:{gamma.Exponent}"),
         camera: static camera => camera.Log.Key);
 
+    public static Fin<Transfer> Read(string value) => Named(value).ToFin(Unnamed(value));
+
     public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Transfer? item) {
-        item = value is null ? null : (Fixed.Find(value) | Parametric(value)).ValueUnsafe();
-        return value is not null && item is null ? new ImagingFault($"transfer '{value}' must name a curve or camera log, or state gamma:<exponent>, pq:<nits>, or hlg:<nits>") : null;
+        item = value is null ? null : Named(value).ValueUnsafe();
+        return value is not null && item is null ? Unnamed(value) : null;
     }
+
+    private static Option<Transfer> Named(string value) => Fixed.Find(value) | Parametric(value);
+
+    private static ImagingFault Unnamed(string value) =>
+        new($"transfer '{value}' must name a curve or camera log, or state gamma:<exponent>, pq:<nits>, or hlg:<nits>");
 
     private static Option<Transfer> Parametric(string value) =>
         from parts in value.Split(':', 2) is [var form, var number] ? Some((Form: form, Number: number)) : None
+        from family in TransferForm.TryGet(parts.Form, out TransferForm? named) ? Some(named) : None
         from level in double.TryParse(parts.Number, NumberStyles.Float, CultureInfo.InvariantCulture, out double read) ? Some(read) : None
-        from transfer in parts.Form switch {
-            "gamma" => Gamma.Of((float)level).ToOption().Map(static gamma => (Transfer)gamma),
-            "pq" => Pq.Of(Luminance.FromNits(level)).ToOption().Map(static pq => (Transfer)pq),
-            "hlg" => Hlg.Of(Luminance.FromNits(level)).ToOption().Map(static hlg => (Transfer)hlg),
-            _ => None,
-        }
+        from transfer in family.At(level)
         select transfer;
 
     private static Fin<Luminance> Lit(Luminance white) =>
-        double.IsFinite(white.Nits.ToDouble()) && white.Nits.ToDouble() > 0d ? white : Error.New(string.Create(CultureInfo.InvariantCulture, $"transfer white {white} must be positive"));
+        double.IsFinite(white.Nits.ToDouble()) && white.Nits.ToDouble() > 0d ? white : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"transfer white {white} must be positive"));
 
     private static void PerChannel(Span<Vector4> row, Func<double, double> curve) {
         for (int index = 0; index < row.Length; index++)
@@ -71,21 +85,26 @@ public abstract partial record Transfer : IConvertible<string> {
 
     private static Span<float> Components(ref Vector4 pixel) => MemoryMarshal.CreateSpan(ref pixel.X, 3);
 
+    private static void Encoded(Span<Vector4> row, TransferFunction curve) {
+        Span2D<float> pixels = MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4).Slice(0, 0, row.Length, 3);
+        for (int pixel = 0; pixel < pixels.Height; pixel++)
+            ImageProcessing.EncodeTransfer(pixels.GetRowSpan(pixel), pixels.GetRowSpan(pixel), curve);
+    }
+
+    private static void Decoded(Span<Vector4> row, TransferFunction curve) {
+        Span2D<float> pixels = MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4).Slice(0, 0, row.Length, 3);
+        for (int pixel = 0; pixel < pixels.Height; pixel++)
+            ImageProcessing.DecodeTransfer(pixels.GetRowSpan(pixel), pixels.GetRowSpan(pixel), curve);
+    }
+
     public sealed record Linear : Transfer {
         public override void Encode(Span<Vector4> row) { }
         public override void Decode(Span<Vector4> row) { }
     }
 
     public sealed record Srgb : Transfer {
-        public override void Encode(Span<Vector4> row) {
-            foreach (ref Vector4 pixel in row)
-                ImageProcessing.EncodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Srgb);
-        }
-
-        public override void Decode(Span<Vector4> row) {
-            foreach (ref Vector4 pixel in row)
-                ImageProcessing.DecodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Srgb);
-        }
+        public override void Encode(Span<Vector4> row) => Encoded(row, TransferFunction.Srgb);
+        public override void Decode(Span<Vector4> row) => Decoded(row, TransferFunction.Srgb);
     }
 
     public sealed record Pq : Transfer {
@@ -102,13 +121,11 @@ public abstract partial record Transfer : IConvertible<string> {
 
         public override void Encode(Span<Vector4> row) {
             Scaled(row, (float)(White / Peak).ToDouble());
-            foreach (ref Vector4 pixel in row)
-                ImageProcessing.EncodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Pq);
+            Encoded(row, TransferFunction.Pq);
         }
 
         public override void Decode(Span<Vector4> row) {
-            foreach (ref Vector4 pixel in row)
-                ImageProcessing.DecodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Pq);
+            Decoded(row, TransferFunction.Pq);
             Scaled(row, (float)(Peak / White).ToDouble());
         }
     }
@@ -171,10 +188,23 @@ public abstract partial record Transfer : IConvertible<string> {
         public float Exponent { get; }
 
         public static Fin<Gamma> Of(float exponent) =>
-            float.IsFinite(exponent) && exponent > 0f ? new Gamma(exponent) : Error.New(string.Create(CultureInfo.InvariantCulture, $"gamma exponent {exponent} must be positive"));
+            float.IsFinite(exponent) && exponent > 0f ? new Gamma(exponent) : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"gamma exponent {exponent} must be positive"));
 
-        public override void Encode(Span<Vector4> row) => PerChannel(row, linear => double.Pow(double.Max(linear, 0d), 1d / Exponent));
-        public override void Decode(Span<Vector4> row) => PerChannel(row, signal => double.Pow(double.Max(signal, 0d), Exponent));
+        public override void Encode(Span<Vector4> row) {
+            if (Curve.ToSpan() is [var curve]) Encoded(row, curve);
+            else PerChannel(row, linear => double.Pow(double.Max(linear, 0d), 1d / Exponent));
+        }
+
+        public override void Decode(Span<Vector4> row) {
+            if (Curve.ToSpan() is [var curve]) Decoded(row, curve);
+            else PerChannel(row, signal => double.Pow(double.Max(signal, 0d), Exponent));
+        }
+
+        private Option<TransferFunction> Curve => Exponent switch {
+            2.2f => TransferFunction.Gamma22,
+            2.4f => TransferFunction.Gamma24,
+            _ => None,
+        };
     }
 
     public sealed record Camera(CameraLog Log) : Transfer {

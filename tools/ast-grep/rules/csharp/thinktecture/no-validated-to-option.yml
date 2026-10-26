@@ -20,4 +20,4 @@ rule:
                           has: {field: name, regex: '^Validated$'}
                         - matches: {csharp-owner-member: {type: {regex: '^ValidationResults$'}, member: {regex: '^ToFin$'}}}
 message: '`$VALIDATION.ToOption()` spells validated-or-absent through a result'
-note: 'Call `<type>.TryCreate(<value>, out <type>? <item>)` and lift `<item>` through `Optional`'
+note: 'Read validated-or-absent through one `Present` member returning `Option<T>`'

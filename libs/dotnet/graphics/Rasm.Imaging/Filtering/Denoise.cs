@@ -19,13 +19,17 @@ internal enum OidnError {
     Cancelled = 6,
 }
 
-public enum GuidePrefilter {
-    Off,
-    Fast,
-    Accurate,
+// --- [MODELS] --------------------------------------------------------------------------
+[SmartEnum<string>]
+public sealed partial class GuidePrefilter {
+    public static readonly GuidePrefilter Off = new("off", prefilters: false, cleans: true);
+    public static readonly GuidePrefilter Fast = new("fast", prefilters: false, cleans: false);
+    public static readonly GuidePrefilter Accurate = new("accurate", prefilters: true, cleans: true);
+
+    public bool Prefilters { get; }
+    public bool Cleans { get; }
 }
 
-// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class DenoiseQuality {
     public static readonly DenoiseQuality High = new("high", 6, 20000);
@@ -117,8 +121,8 @@ public sealed partial class Denoiser : IDisposable {
         oidnGetDeviceError(device, out nint message) switch {
             OidnError.None => unit,
             OidnError.Cancelled => Errors.Cancelled,
-            OidnError.UnsupportedHardware => Error.New($"Open Image Denoise does not support host hardware. {Marshal.PtrToStringUTF8(message)}"),
-            (OidnError.Unknown or OidnError.InvalidArgument or OidnError.InvalidOperation or OidnError.OutOfMemory) and var failed =>
+            (OidnError.UnsupportedHardware or OidnError.OutOfMemory) and var refused => new ImagingFault($"Open Image Denoise refused with {refused}. {Marshal.PtrToStringUTF8(message)}"),
+            (OidnError.Unknown or OidnError.InvalidArgument or OidnError.InvalidOperation) and var failed =>
                 throw new InvalidOperationException($"Open Image Denoise failed with {failed}. {Marshal.PtrToStringUTF8(message)}"),
         };
 
@@ -129,20 +133,13 @@ public sealed partial class Denoiser : IDisposable {
     private Denoiser(SafeOidnDeviceHandle device) => this.device = device;
 
     public static Fin<Denoiser> Open() {
-        Denoiser? held = new(oidnNewDevice());
-        try {
-            (Fin<Unit> committed, Denoiser opened) = (held.Committed(), held);
-            held = committed.IsSucc ? null : held;
-            return committed.Map(_ => opened);
-        } finally {
-            held?.Dispose();
-        }
-    }
-
-    private Fin<Unit> Committed() {
-        oidnSetDeviceBool(device, "setAffinity", value: false);
-        oidnCommitDevice(device);
-        return Status(device);
+        SafeOidnDeviceHandle created = oidnNewDevice();
+        oidnSetDeviceBool(created, "setAffinity", value: false);
+        oidnCommitDevice(created);
+        return Status(created).MapFail(fault => {
+            created.Dispose();
+            return fault;
+        }).Map(_ => new Denoiser(created));
     }
 
     public void Dispose() {
@@ -152,14 +149,12 @@ public sealed partial class Denoiser : IDisposable {
 
     // --- [RUN]
     public IO<PixelFrame> Run(PixelFrame color, Option<(PixelFrame Albedo, Option<PixelFrame> Normal)> auxiliary, GuidePrefilter prefilter, DenoiseQuality quality, IProgress<int> rows) =>
-        from selected in IO.lift(auxiliary
-            .Match(
-                Some: static images => (Role: "albedo", Frame: images.Albedo).Cons(images.Normal.Map(static normal => (Role: "normal", Frame: normal)).ToSeq()),
-                None: static () => Seq<(string Role, PixelFrame Frame)>())
+        from selected in IO.lift(auxiliary.ToSeq()
+            .Bind(static images => (Role: "albedo", Frame: images.Albedo).Cons(images.Normal.Map(static normal => (Role: "normal", Frame: normal)).ToSeq()))
             .Traverse(input => (View: input.Frame.Window, Target: color.Window) switch {
                 var (view, target) when input.Frame.Extent == color.Extent && view.Left <= target.Left && view.Top <= target.Top && view.Right >= target.Right && view.Bottom >= target.Bottom =>
                     Fin.Succ(input),
-                var (view, target) => Error.New($"Denoise {input.Role} guide window {view} does not cover color window {target} on its canvas"),
+                var (view, target) => new ImagingFault($"Denoise {input.Role} guide window {view} does not cover color window {target} on its canvas"),
             }).As())
         from token in cancelToken
         from result in IO.lift(() => Denoised(color, selected, prefilter, quality, token, rows))
@@ -169,14 +164,14 @@ public sealed partial class Denoiser : IDisposable {
         using Lock.Scope serialized = gate.EnterScope();
         int version = oidnGetDeviceInt(device, "version");
         if (quality.Since > version)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"Denoise quality {quality} needs Open Image Denoise {quality.Since}, host has {version}"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Denoise quality {quality} needs Open Image Denoise {quality.Since}, host has {version}"));
         if (color.Size.Width > MaxSide || color.Size.Height > MaxSide)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"Denoise frame {color.Size.Width}x{color.Size.Height} exceeds Open Image Denoise {MaxSide} pixel side limit"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Denoise frame {color.Size.Width}x{color.Size.Height} exceeds Open Image Denoise {MaxSide} pixel side limit"));
         nuint bytes = (nuint)color.Block.Length * sizeof(float);
         (nuint size, Seq<(string Role, PixelFrame Frame, nuint Offset)> inputs) = (Role: "color", Frame: color).Cons(selected).Fold(
             (Size: (nuint)0, Inputs: Seq<(string Role, PixelFrame Frame, nuint Offset)>()),
             static (packed, input) => (packed.Size + ((nuint)input.Frame.Block.Length * sizeof(float)), packed.Inputs.Add((input.Role, input.Frame, packed.Size))));
-        Seq<(string Role, PixelFrame Frame, nuint Offset)> prefiltered = prefilter is GuidePrefilter.Accurate ? inputs.Tail : [];
+        Seq<(string Role, PixelFrame Frame, nuint Offset)> prefiltered = prefilter.Prefilters ? inputs.Tail : [];
         using SafeOidnBufferHandle buffer = oidnNewBuffer(device, size);
         nuint pixelStride = (nuint)Marshal.SizeOf<Vector4>();
         ProgressMonitor monitor = (step, n) => {
@@ -202,7 +197,7 @@ public sealed partial class Denoiser : IDisposable {
         return from written in Status(device)
                from filtered in prefiltered.Map(static (guide, step) => (Guide: guide, Step: step))
                    .TraverseM(input => Execute([input.Guide], (input.Guide.Frame, input.Guide.Offset), input.Step, [])).As()
-               from denoised in Execute(inputs, (color, 0), prefiltered.Count, Seq(("hdr", true), ("cleanAux", inputs.Count > 1 && prefilter is not GuidePrefilter.Fast)))
+               from denoised in Execute(inputs, (color, 0), prefiltered.Count, Seq(("hdr", true), ("cleanAux", inputs.Count > 1 && prefilter.Cleans)))
                let output = new PixelFrame(color.Origin, color.Size, color.Extent, block => oidnReadBuffer(buffer, 0, bytes, block))
                from read in Status(device)
                select output;

@@ -24,8 +24,7 @@ from blender.bpy.ui.images.overlays import Edges, overlaid
 from blender.bpy.ui.images.views import framed, image_type
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.surfaces.gizmos import Cage, Gizmos, Handler, MatrixValues, Move
-from blender.imaging.geometry.homography import Quad
-from blender.imaging.geometry.regions import Region
+from blender.imaging.geometry.frames import Quad, Region
 from blender.records.faults import Fault, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -140,7 +139,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
     def moves(self, shown: Setting) -> tuple[Registrable, ...]:
         """Returns each free handle's drag operator, the handle group, then the quad outline."""
-        corners = len(Quad.__struct_fields__)
+        corners = len(Quad().corners)
 
         def reach() -> float:
             metrics = Metrics.read()

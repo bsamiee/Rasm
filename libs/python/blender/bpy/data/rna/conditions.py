@@ -15,6 +15,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.faults import BlenderReason
 from blender.imaging.color.authoring import DynamicRange
 from blender.records.faults import accumulated, Fault, Outcome
+from blender.records.stores import existing
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import WmJobTypeItems
@@ -152,11 +153,6 @@ class AllOf(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def existing(path: Path) -> Path:
-    """Returns deepest existing folder on absolute path."""
-    return next(folder for folder in (path, *path.parents) if folder.is_dir())
-
-
 def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> bool:
     """Whether requirement holds, nested collection conditions reading each item."""
     match condition:
@@ -213,4 +209,4 @@ def polled(condition: Option[Condition]) -> Mapping[str, object]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AllOf", "AnyOf", "Condition", "Count", "Extension", "Folder", "HdrWindow", "Job", "Not", "Present", "Setting", "check", "existing", "holds", "polled"]
+__all__ = ["AllOf", "AnyOf", "Condition", "Count", "Extension", "Folder", "HdrWindow", "Job", "Not", "Present", "Setting", "check", "holds", "polled"]

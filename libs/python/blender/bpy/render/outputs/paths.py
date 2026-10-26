@@ -18,7 +18,7 @@ import msgspec
 from blender.bpy.commands.calls import called
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Suppressible, tallied, Unchanged
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.conditions import AllOf, existing, Not, Setting
+from blender.bpy.data.rna.conditions import AllOf, Not, Setting
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, rooted, Value, written
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_POST, SAVE_PRE
 from blender.bpy.extension.events.subscriptions import Subscription
@@ -29,6 +29,7 @@ from blender.bpy.files.blends import BlendFile
 from blender.bpy.render.outputs.formats import Kind
 from blender.bpy.settings.attachments import Attached, Attachment, Changed, Stored
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.stores import existing
 from blender.rendering.outputs.naming import Count, Field, Fields, Number, Output, OutputName, RESERVED, Slot, stepped, Word
 
 # --- [MODELS] ---------------------------------------------------------------------------

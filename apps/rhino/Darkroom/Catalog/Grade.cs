@@ -5,7 +5,6 @@ using Darkroom.Chain;
 using MathNet.Numerics.LinearAlgebra;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Grade;
-using Rasm.Imaging.Grade.Curves;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Wacton.Unicolour;
@@ -122,10 +121,10 @@ public sealed record ColorWheels(
     [property: Display(Name = "Highlights start", Description = "Working luminance starting highlights weight")][property: Range(0d, 1d)] float HighlightsStart,
     [property: Display(Name = "Highlights width", Description = "Luminance span over which highlights weight reaches full")][property: Range(0d, 1d)] float HighlightsWidth)
     : IPixelStage<ColorWheels> {
-    public static ColorWheels Default { get; } = new(default, default, default, default, 0.333f, 0.55f, 0.45f);
+    public static ColorWheels Default { get; } = new(WheelOffset.Neutral, WheelOffset.Neutral, WheelOffset.Neutral, WheelOffset.Neutral, 0.333f, 0.55f, 0.45f);
 
     public static Option<PixelPass> Pass(ColorWheels state, PassContext context) =>
-        Seq(state.Global, state.Shadows, state.Midtones, state.Highlights).ForAll(static wheel => wheel == default) ? None
+        Seq(state.Global, state.Shadows, state.Midtones, state.Highlights).ForAll(static wheel => wheel == WheelOffset.Neutral) ? None
             : Some<PixelPass>(new PixelPass.Color(WheelOffset.Graded(
                 context.Working, state.Global, state.Shadows, state.Midtones, state.Highlights, state.ShadowsEnd, state.HighlightsStart, state.HighlightsWidth)));
 }
@@ -183,7 +182,7 @@ public sealed record GradientMapping([property: Display(Name = "Gradient", Descr
         toSeq(Range(0, Texels + 1)).Map(texel => RampStop.At(state.Ramp, texel / (float)Texels).ConvertToConfiguration(context.Working.Configuration) switch {
             var color => new Vector4((float)color.RgbLinear.R, (float)color.RgbLinear.G, (float)color.RgbLinear.B, (float)color.Alpha.A),
         }).ToArray() switch {
-            var lights => Some<PixelPass>(new PixelPass.Color(row => GradientMap.Mapped(row, lights, context.Working.Luminance))),
+            var lights => Some<PixelPass>(new PixelPass.Color(row => Primary.Mapped(row, lights, context.Working.Luminance))),
         };
 }
 
@@ -198,8 +197,7 @@ public sealed record ReferenceGamutCompression(
         new(Target: null, new(compression.Threshold.X, compression.Threshold.Y, compression.Threshold.Z), new(compression.Limit.X, compression.Limit.Y, compression.Limit.Z), compression.Power);
 
     public static Option<PixelPass> Pass(ReferenceGamutCompression state, PassContext context) =>
-        GamutCompression.Validate(new(state.Threshold.Red, state.Threshold.Green, state.Threshold.Blue), new(state.Limit.Red, state.Limit.Green, state.Limit.Blue), state.Power, out GamutCompression compression) switch {
-            null => Some<PixelPass>(new PixelPass.Color(compression.Within(context.Working, Optional(state.Target).Map(static target => target.Gamut).IfNone(context.Working)))),
-            var fault => Some<PixelPass>(new PixelPass.Frame((_, _) => fault)),
-        };
+        Some(GamutCompression.Validated(new(state.Threshold.Red, state.Threshold.Green, state.Threshold.Blue), new(state.Limit.Red, state.Limit.Green, state.Limit.Blue), state.Power).Match<PixelPass>(
+            Succ: compression => new PixelPass.Color(compression.Within(context.Working, Optional(state.Target).Map(static target => target.Gamut).IfNone(context.Working))),
+            Fail: static fault => new PixelPass.Frame((_, _) => fault)));
 }

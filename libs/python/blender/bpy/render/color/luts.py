@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
-from typing import ClassVar, Final
+from typing import ClassVar, Final, get_args
 
 import bpy
 from expression import Error, Nothing, Ok, Result, Some
@@ -27,14 +27,15 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderReason
-from blender.imaging.color.luts import Lattice, Logarithmic, LutFormat, LutOutput, Rational, Uniform
+from blender.imaging.color.luts import Lattice, LutFormat, LutOutput, Spacing
 from blender.imaging.color.processors import processor
-from blender.imaging.files.images import applied, ImageFile, read_file, Storage
+from blender.imaging.files.buffers import applied
+from blender.imaging.files.images import ImageFile, read_file, Storage
 from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SPACINGS: Final = MappingProxyType({case.__name__: case for case in (Uniform, Logarithmic, Rational)})
+SPACINGS: Final = MappingProxyType({case.__name__: case for case in get_args(Spacing.__value__)})
 FORMATS: Final = MappingProxyType({row.name: row for row in (*LutFormat.writable(), *LutFormat.bakeable())})
 
 # --- [MODELS] ---------------------------------------------------------------------------

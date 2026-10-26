@@ -18,7 +18,7 @@ from blender.records.identity import content_hash, rng
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]]
+type _Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -26,11 +26,11 @@ type Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.floa
 class Precision(msgspec.Struct, frozen=True, kw_only=True):
     """Scrambled Sobol resolution and independent error replicates."""
 
-    power: Annotated[int, msgspec.Meta(ge=0, le=64, title="Samples Exponent", description="Base-2 exponent of Sobol samples per support and replicate")] = 6
-    replicates: Annotated[int, msgspec.Meta(ge=2, description="Scrambles estimating standard error")] = 4
-    seed: Annotated[Seed, msgspec.Meta(title="Scramble Seed", description="Number selecting integration scrambles")] = 0
-    absolute: Annotated[NonNegative, msgspec.Meta(title="Profile Absolute Tolerance", description="Angular quadrature target in unit-radius profile area")] = 1e-4
-    relative: Annotated[NonNegative, msgspec.Meta(title="Profile Relative Tolerance", description="Angular quadrature target over profile area")] = 1e-3
+    power: Annotated[int, msgspec.Meta(ge=0, le=64)] = 6
+    replicates: Annotated[int, msgspec.Meta(ge=2)] = 4
+    seed: Seed = 0
+    absolute: NonNegative = 1e-4
+    relative: NonNegative = 1e-3
 
     def points(self, dimensions: int, replicate: int, *, key: tuple[int, ...] = ()) -> npt.NDArray[np.float64]:
         """Returns complete scrambled Sobol net for one replicate and non-negative key."""
@@ -86,24 +86,26 @@ class Raster(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def integrated(request: msgspec.Struct, field: Integrand, bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
+def integrated(request: msgspec.Struct, field: _Integrand, bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
     """Estimates a positive rectangular field integral with replicate standard error."""
     lower, upper = np.asarray(bounds, dtype=np.float64)
     width = upper - lower
     volume = np.prod(width)
 
-    def averaged(values: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
-        with np.errstate(over="raise", divide="raise", invalid="raise"):
-            return catch(lambda: np.asarray(np.mean(values, axis=0) * volume), exception=FloatingPointError)().map_error(
-                lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(request), cause=error),)
-            )
+    @catch(exception=FloatingPointError)
+    @np.errstate(over="raise", divide="raise", invalid="raise")
+    def averaged(values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        return np.asarray(np.mean(values, axis=0) * volume)
 
-    return accumulated(field(lower + width * precision.points(len(lower), replicate)).bind(averaged) for replicate in range(precision.replicates)).map(
-        lambda values: Estimate.of(np.stack(values), precision)
-    )
+    return accumulated(
+        field(lower + width * precision.points(len(lower), replicate)).bind(
+            lambda values: averaged(values).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(request), cause=error),))
+        )
+        for replicate in range(precision.replicates)
+    ).map(lambda values: Estimate.of(np.stack(values), precision))
 
 
-def footprint(field: Integrand, raster: Raster, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
+def footprint(field: _Integrand, raster: Raster, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
     """Estimates the mean of `field`, read at `(points, 2)` global positions as `(points, channels)`, over each pixel's square footprint.
 
     Returns:
@@ -127,4 +129,4 @@ def smoothstep[V: Field](values: V) -> V:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Estimate", "Integrand", "Precision", "Raster", "footprint", "integrated", "smoothstep"]
+__all__ = ["Estimate", "Precision", "Raster", "footprint", "integrated", "smoothstep"]

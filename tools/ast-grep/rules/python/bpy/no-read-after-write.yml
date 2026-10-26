@@ -93,4 +93,4 @@ rule:
                     stopBy: {kind: expression_statement, has: {kind: assignment, has: {field: left, pattern: $READ}}}
                     matches: assigned
 message: '`$READ` reads back state a preceding write stored'
-note: 'Read committed state from native setter outcomes or events'
+note: 'Use written `<value>` in place of a second read'

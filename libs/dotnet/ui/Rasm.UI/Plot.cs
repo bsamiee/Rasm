@@ -19,11 +19,11 @@ public sealed partial class AxisRange {
     public float High => float.Max(From, To);
 
     public Option<AxisRange> Scaled(float about, float factor) =>
-        float.IsFinite(factor) && factor > 0f ? Ranged(about + ((From - about) * factor), about + ((To - about) * factor)) : None;
+        float.IsFinite(factor) && factor > 0f ? Validated(about + ((From - about) * factor), about + ((To - about) * factor)).ToOption() : None;
 
-    public Option<AxisRange> Shifted(float delta) => Ranged(From + delta, To + delta);
+    public Option<AxisRange> Shifted(float delta) => Validated(From + delta, To + delta).ToOption();
 
-    private static Option<AxisRange> Ranged(float from, float to) => TryCreate(from, to, out AxisRange? range) ? Some(range) : None;
+    public static Fin<AxisRange> Validated(float from, float to) => TryCreate(from, to, out AxisRange? range, out Invalid? fault) ? range : fault;
 
     static partial void ValidateFactoryArguments(ref Invalid? validationError, ref float from, ref float to) =>
         validationError = float.IsFinite(from) && float.IsFinite(to) && from.CompareTo(to) is not 0
@@ -58,7 +58,7 @@ public abstract partial record Axis {
 
     public int Decimals => new Linear(Domain).Step(0.01f).Map(static step => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(step)))).IfNone(0);
 
-    public string Spoken(float value) => MathF.Round(value, Decimals, MidpointRounding.ToEven).ToString(CultureInfo.InvariantCulture);
+    public string Spoken(float value, CultureInfo culture) => MathF.Round(value, Decimals, MidpointRounding.ToEven).ToString(culture);
 
     public abstract Option<float> Step(float least);
     public abstract Seq<float> Ticks(float least);
@@ -108,11 +108,7 @@ public abstract partial record Axis {
 
         public override float Value(float fraction) => Domain.From + (MathF.Sign(Domain.Span) * MathF.CopySign(float.ExpM1(MathF.Abs(fraction) * Depth), fraction));
 
-        public override Option<float> Step(float least) =>
-            MathF.Ceiling(least * Depth / MathF.Log(10f)) switch {
-                var decades when float.IsFinite(decades) => Some(float.Exp10(float.Max(1f, decades))),
-                _ => None,
-            };
+        public override Option<float> Step(float least) => Some(MathF.Ceiling(least * Depth / MathF.Log(10f))).Filter(float.IsFinite).Map(static decades => float.Exp10(float.Max(1f, decades)));
 
         public override Seq<float> Ticks(float least) =>
             Step(least).Map(factor => Domain.From.Cons(toSeq(Range(0, int.Max(0, (int)MathF.Floor(MathF.Log10(MathF.Abs(Domain.Span)) / MathF.Log10(factor)) + 1)))
@@ -121,10 +117,12 @@ public abstract partial record Axis {
         public override float Snapped(float value, int steps, float least) => Ticked(value, steps, least);
     }
 
-    public sealed record Log(AxisRange Domain, float Base) : Axis(Domain.Low > 0f ? Domain : throw new ArgumentOutOfRangeException(nameof(Domain), Domain, "a log axis spans positive values alone")) {
+    public sealed record Log : Axis {
         private const float Slack = 1e-4f;
 
-        public float Base { get; } = Base > 1f ? Base : throw new ArgumentOutOfRangeException(nameof(Base), Base, "a log axis base exceeds one");
+        private Log(AxisRange domain, float @base) : base(domain) => Base = @base;
+
+        public float Base { get; }
 
         private float Depth => MathF.Log(Domain.To / Domain.From);
 
@@ -132,7 +130,10 @@ public abstract partial record Axis {
 
         public override float Value(float fraction) => Domain.From * MathF.Exp(fraction * Depth);
 
-        public override Option<Axis> Over(AxisRange range) => range.Low > 0f ? Some<Axis>(new Log(range, Base)) : None;
+        public static Fin<Axis> Validated(AxisRange domain, float @base) =>
+            domain.Low > 0f && @base > 1f ? new Log(domain, @base) : new Invalid(string.Create(CultureInfo.InvariantCulture, $"log axis over ({domain.From}, {domain.To}) at base {@base} needs a positive domain and a base above one"));
+
+        public override Option<Axis> Over(AxisRange range) => Validated(range, Base).ToOption();
 
         public override Option<float> Step(float least) => None;
 
@@ -204,28 +205,6 @@ public abstract partial record Axis {
     }
 }
 
-public sealed record Pen(SKMatrix Device, float Stroke, float Spacing) {
-    public static Pen Hit { get; } = new(SKMatrix.Identity, 0f, 0f);
-
-    internal SKPoint Snapped(SKPoint local) =>
-        Device.MapPoint(local) switch {
-            var device => Local(new SKPoint(Grid(device.X, 0f), Grid(device.Y, 0f)), local),
-        };
-
-    internal (SKPoint From, SKPoint To) Snapped(SKPoint from, SKPoint to) =>
-        (Start: Device.MapPoint(from), End: Device.MapPoint(to), Half: MathF.Round(Device.MapRadius(Stroke), MidpointRounding.ToEven) / 2f) switch {
-            var held when held.Start.X.CompareTo(held.End.X) is 0 =>
-                (Local(held.Start with { X = Grid(held.Start.X, held.Half) }, from), Local(held.End with { X = Grid(held.End.X, held.Half) }, to)),
-            var held when held.Start.Y.CompareTo(held.End.Y) is 0 =>
-                (Local(held.Start with { Y = Grid(held.Start.Y, held.Half) }, from), Local(held.End with { Y = Grid(held.End.Y, held.Half) }, to)),
-            _ => (from, to),
-        };
-
-    private static float Grid(float device, float offset) => MathF.Round(device - offset, MidpointRounding.ToEven) + offset;
-
-    private SKPoint Local(SKPoint device, SKPoint local) => Device.TryInvert(out SKMatrix inverse) ? inverse.MapPoint(device) : local;
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PlotPlane {
     public abstract Option<Axis> Dimension(PhysicalAxis along);
@@ -244,7 +223,7 @@ public abstract partial record PlotPlane {
 
     public Seq<(PhysicalAxis Along, Axis Axis)> Dimensions => toSeq(PhysicalAxis.Items).Choose(along => Dimension(along).Map(axis => (Along: along, Axis: axis)));
 
-    public string Spoken(Vector2 value) => string.Join(", ", Dimensions.Map(held => held.Axis.Spoken(held.Along.Of(value))));
+    public string Spoken(Vector2 at, CultureInfo culture) => string.Join($"{culture.TextInfo.ListSeparator} ", Dimensions.Map(held => held.Axis.Spoken(held.Along.Of(at), culture)));
 
     public Option<PlotPlane> Shifted(Vector2 delta) => Mapped((along, axis) => axis.Domain.Shifted(along.Of(delta)).Bind(axis.Over));
 
@@ -366,7 +345,14 @@ public abstract partial record PlotPlane {
     }
 }
 
-public sealed record PlotFrame(PlotPlane Plane, SKMatrix Matrix) {
+public sealed record PlotFrame {
+    private readonly Option<SKMatrix> inverse;
+
+    public PlotFrame(PlotPlane plane, SKMatrix matrix) => (Plane, Matrix) = (plane, matrix);
+
+    public PlotPlane Plane { get; init; }
+    public SKMatrix Matrix { get; init { field = value; inverse = value.TryInvert(out SKMatrix inverted) ? Some(inverted) : None; } }
+
     public bool Resolves => Plane.Dimensions.ForAll(held => held.Axis.Resolves(Pixels(held.Along)));
 
     public SKPoint Point(Vector2 value) => Matrix.MapPoint(Plane.Unit(value));
@@ -402,7 +388,7 @@ public sealed record PlotFrame(PlotPlane Plane, SKMatrix Matrix) {
 
     private Option<(PhysicalAxis Along, Axis Axis)> Free(PhysicalAxis along) => Plane.Dimension(along).Map(axis => (Along: along, Axis: axis)) | Plane.Dimensions.Head;
 
-    private Option<SKPoint> Square(SKPoint local) => Matrix.TryInvert(out SKMatrix inverse) ? Some(inverse.MapPoint(local)) : None;
+    private Option<SKPoint> Square(SKPoint local) => inverse.Map(held => held.MapPoint(local));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

@@ -10,6 +10,9 @@
     <Folder Name="/libs/dotnet/bim/">
         <Project Path="libs/dotnet/bim/Rasm.Drafting/Rasm.Drafting.csproj" />
     </Folder>
+    <Folder Name="/libs/dotnet/geometry/">
+        <Project Path="libs/dotnet/geometry/Rasm.Spatial/Rasm.Spatial.csproj" />
+    </Folder>
     <Folder Name="/libs/dotnet/graphics/">
         <Project Path="libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
     </Folder>

@@ -19,6 +19,19 @@ utils:
             - all:
                 - has: {field: function, regex: '^sum$'}
                 - has: {field: arguments, kind: generator_expression, has: {field: body, regex: '^(1|True)$'}}
+    condition:
+        any:
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+            - inside: {kind: 'if_clause, assert_statement'}
+            - nthChild: 2
+              inside: {kind: conditional_expression}
+            - inside: {kind: 'boolean_operator, parenthesized_expression', matches: condition}
+    refurb-length-test:
+        kind: comparison_operator
+        all:
+            - has: {nthChild: 1, kind: call, has: {field: function, regex: '^len$'}}
+            - not: {has: {field: operators, regex: '^<$'}}
+            - matches: condition
     zero:
         kind: integer
         regex: '^0$'
@@ -31,6 +44,7 @@ rule:
         - kind: comparison_operator
           all:
             - not: {has: {nthChild: 3}}
+            - not: {matches: refurb-length-test}
             - any:
                 - all: [{has: {nthChild: 1, matches: count}}, {has: {nthChild: 2, matches: zero}}, {has: {field: operators, regex: '^(>|!=|==|<=)$'}}]
                 - all: [{has: {nthChild: 1, matches: count}}, {has: {nthChild: 2, matches: one}}, {has: {field: operators, regex: '^(>=|<)$'}}]

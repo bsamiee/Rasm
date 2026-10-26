@@ -12,8 +12,9 @@ import msgspec
 from blender.bpy.data.ids.store import Handle, member
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.faults import BlenderReason
-from blender.bpy.files.blends import folder_made, sourced
+from blender.bpy.files.blends import sourced
 from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.stores import folder_made
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

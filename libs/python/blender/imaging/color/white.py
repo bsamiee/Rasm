@@ -3,6 +3,7 @@
 from typing import Annotated, ClassVar, Self
 
 import colour
+from colour.hints import NDArrayFloat
 from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
@@ -20,8 +21,8 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
     """Color temperature and signed Duv from the Planckian locus."""
 
     hottest: ClassVar[float] = 100000.0
-    temperature: Annotated[float, msgspec.Meta(ge=1800.0, le=hottest, description="Correlated color temperature")] = 6500.0
-    duv: Annotated[float, msgspec.Meta(ge=-0.05, le=0.05, description="Distance from the Planckian locus in CIE 1960 uv, positive toward green")] = 0.0
+    temperature: Annotated[float, msgspec.Meta(ge=1800.0, le=hottest)] = 6500.0
+    duv: Annotated[float, msgspec.Meta(ge=-0.05, le=0.05)] = 0.0
 
     @property
     def xyz(self) -> npt.NDArray[np.float64]:
@@ -32,20 +33,13 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
     def of(cls, config: PyOpenColorIO.Config, color: npt.NDArray[np.float64]) -> Outcome[Option[Self]]:
         """Solves white of a scene-linear neutral pick of shape `(3,)`, absent off the uv plane, at or past the hottest isotherm Robertson inverts, or outside field bounds."""
 
-        def solved(matrix: npt.NDArray[np.float64]) -> Option[Self]:
-            return (
-                Some(colour.XYZ_to_UCS(matrix @ color))
-                .filter(lambda ucs: float(ucs.sum()) > 0.0)
-                .bind(
-                    lambda ucs: catch(
-                        lambda: msgspec.convert(dict(zip(cls.__struct_fields__, colour.temperature.uv_to_CCT_Robertson1968(colour.UCS_to_uv(ucs)).tolist())), type=cls),
-                        exception=msgspec.ValidationError,
-                    )().to_option()
-                )
-                .filter(lambda white: white.temperature < cls.hottest)
-            )
+        def solved(ucs: NDArrayFloat) -> Option[Self]:
+            temperature, duv = colour.temperature.uv_to_CCT_Robertson1968(colour.UCS_to_uv(ucs)).tolist()
+            return catch(msgspec.convert, exception=msgspec.ValidationError)(msgspec.to_builtins(cls(temperature=temperature, duv=duv)), type=cls).to_option()
 
-        return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(solved)
+        return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(
+            lambda matrix: Some(colour.XYZ_to_UCS(matrix @ color)).filter(lambda ucs: float(ucs.sum()) > 0.0).bind(solved).filter(lambda white: white.temperature < cls.hottest)
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

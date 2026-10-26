@@ -4,9 +4,8 @@ using System.Globalization;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
 public sealed partial class Discipline {
     public static readonly Discipline General = new("G");
     public static readonly Discipline HazardousMaterials = new("H");
@@ -57,21 +56,15 @@ public abstract partial record NameLayout {
         internal override Option<HashMap<NameField, string>> Split(Seq<NameField> fields, string text) =>
             Some(fields.Fold(
                     (Tokens: toSeq(text.Split(Separator)), Entries: HashMap<NameField, string>()),
-                    static (state, field) => state.Tokens.Head.Filter(token => field.Fits(token.Length)).Match(
-                        Some: token => (state.Tokens.Tail, state.Entries.Add(field, token)),
-                        None: () => state)))
+                    static (state, field) => state.Tokens.Head.Filter(token => field.Fits(token.Length)).Match(Some: token => (state.Tokens.Tail, state.Entries.Add(field, token)), None: () => state)))
                 .Filter(static state => state.Tokens.IsEmpty)
                 .Map(static state => state.Entries);
     }
 
     public sealed record Positional(char Pad) : NameLayout {
         internal override string Compose(Seq<NameField> fields, HashMap<NameField, string> entries) =>
-            fields.Init.FoldBack(
-                fields.Last.Bind(entries.Find).IfNone(""),
-                (text, field) => entries.Find(field) switch {
-                    { IsNone: true } when text.Length is 0 => text,
-                    var value => value.IfNone("").PadRight(field.MaxWidth.IfNone(0), Pad) + text,
-                });
+            fields.Init.FoldBack(fields.Last.Bind(entries.Find).IfNone(""),
+                (text, field) => entries.Find(field) switch { { IsNone: true } when text.Length is 0 => text, var value => value.IfNone("").PadRight(field.MaxWidth.IfNone(0), Pad) + text });
         internal override Option<HashMap<NameField, string>> Split(Seq<NameField> fields, string text) =>
             from sliced in fields.Init.Fold(
                     Some((Remaining: text, Slices: Seq<(NameField Field, string Value)>())),
@@ -85,7 +78,9 @@ public abstract partial record NameLayout {
     }
 }
 
-public sealed record NamingStandard(string Key, NameLayout Layout, Seq<NameField> Fields) {
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
+public sealed partial class NamingStandard {
     private const string UppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private const string LowercaseLetters = "abcdefghijklmnopqrstuvwxyz";
     private const string DecimalDigits = "0123456789";
@@ -139,6 +134,9 @@ public sealed record NamingStandard(string Key, NameLayout Layout, Seq<NameField
         new("view", FieldRole.Code, MinWidth: 3, MaxWidth: 3, Required: false, SearchValues.Create(UppercaseLetters + LowercaseLetters)),
     ]);
 
+    public NameLayout Layout { get; }
+    public Seq<NameField> Fields { get; }
+
     internal Option<NameField> SequenceField => Fields.Find(static nameField => nameField.Role == FieldRole.Sequence);
 }
 
@@ -148,6 +146,7 @@ public sealed record NameField(string Key, FieldRole Role, int MinWidth, Option<
 }
 
 [ComplexValueObject(SkipToString = true)]
+[ValidationError<DraftingFault>]
 public sealed partial class StandardName : IComparable<StandardName> {
     public NamingStandard Standard { get; }
     public HashMap<NameField, string> Fields { get; }
@@ -160,26 +159,19 @@ public sealed partial class StandardName : IComparable<StandardName> {
             .Scan(Fields.Filter(static (nameField, _) => nameField.Required), static (prefix, entry) => prefix.Add(entry.Field, entry.Value))
             .Map(fields => new StandardName(Standard, fields));
 
+    public static Fin<StandardName> Validated(NamingStandard standard, HashMap<NameField, string> fields) => TryCreate(standard, fields, out StandardName? name, out DraftingFault? fault) ? name : fault;
+
     public static Fin<StandardName> From(NamingStandard standard, string text) =>
-        standard.Layout.Split(standard.Fields, text)
-            .Bind(fields => Validate(standard, fields, out StandardName? name) is null ? Optional(name) : None)
-            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"{text} breaks naming standard {standard.Key}"));
+        standard.Layout.Split(standard.Fields, text).ToFin(new DraftingFault($"{standard.Key} name {text}", DraftingReason.NameBroken)).Bind(fields => Validated(standard, fields));
 
     public static Fin<Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) {
         HashMap<(NamingStandard Standard, HashMap<NameField, string> Fields), Seq<int>> bySeries = toHashMap(ordered.GroupBy(static entry => entry.Number.Series)
             .Select(static series => (series.Key, toSeq(series).Map(static entry => entry.Number.Sequence.Map(static sequence => sequence.Value)).Somes().Distinct().Strict())));
-        Seq<(TSheet Sheet, StandardName Number)> renumbered = ordered.Map(entry => (entry.Sheet, Number: entry.Number.Resequenced(old => {
-            Seq<int> sequences = bySeries[entry.Number.Series];
-            return sequences.Fold(old, Math.Min) + sequences.TakeWhile(sequence => sequence != old).Count;
-        })));
-        HashMap<StandardName, int> counts = toHashMap(renumbered.CountBy(static entry => entry.Number).Select(static count => (count.Key, count.Value)));
-        LanguageExt.HashSet<StandardName> taken = [.. others];
-        return renumbered
-            .Map(static (entry, index) => (entry.Sheet, entry.Number, Index: index))
-            .Traverse(entry => counts[entry.Number] > 1 || taken.Contains(entry.Number)
-                ? Error.New(string.Create(CultureInfo.InvariantCulture, $"renumbered sheet {entry.Index} takes number {entry.Number} of another sheet"))
-                : Fin.Succ((entry.Sheet, entry.Number)))
-            .As();
+        Seq<(TSheet Sheet, StandardName Number)> renumbered = ordered.Map(entry => (entry.Sheet, Number: entry.Number.Resequenced(old =>
+            bySeries[entry.Number.Series] switch { var sequences => sequences.Fold(old, Math.Min) + sequences.TakeWhile(sequence => sequence != old).Count })));
+        HashMap<StandardName, int> counts = toHashMap(renumbered.Map(static entry => entry.Number).Concat(others).CountBy(static number => number).Select(static count => (count.Key, count.Value)));
+        return renumbered.Map(static (entry, index) => (entry.Sheet, entry.Number, Index: index))
+            .Traverse(entry => DraftingFault.Unless(counts[entry.Number] is 1, DraftingReason.NumberTaken, entry.Index).Map(_ => (entry.Sheet, entry.Number))).As();
     }
 
     public static Seq<(TSheet Sheet, int Ordinal, int Count)> Positions<TSheet>(Seq<(TSheet Sheet, StandardName Number)> sheets) =>
@@ -190,12 +182,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
     public int CompareTo(StandardName? other) =>
         other is null ? 1
         : string.CompareOrdinal(Standard.Key, other.Standard.Key) is var standard and not 0 ? standard
-        : Standard.Fields.Map(field => (Fields.Find(field).Case, other.Fields.Find(field).Case) switch {
-            (string left, string right) => field.Role.Compare(left, right),
-            (string, _) => 1,
-            (_, string) => -1,
-            _ => 0,
-        })
+        : Standard.Fields.Map(field => (Fields.Find(field).Case, other.Fields.Find(field).Case) switch { (string left, string right) => field.Role.Compare(left, right), (string, _) => 1, (_, string) => -1, _ => 0 })
             .Find(static order => order is not 0).IfNone(0);
 
     public static bool operator <(StandardName? left, StandardName? right) => Comparer<StandardName>.Default.Compare(left, right) < 0;
@@ -216,11 +203,10 @@ public sealed partial class StandardName : IComparable<StandardName> {
         select (nameField, text, value);
 
     private StandardName Resequenced(Func<int, int> next) =>
-        Sequence.Map(sequence => new StandardName(Standard, Fields.SetItem(sequence.Field, next(sequence.Value).ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0'))))
-            .IfNone(this);
+        Sequence.Map(sequence => new StandardName(Standard, Fields.SetItem(sequence.Field, next(sequence.Value).ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(this);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref NamingStandard standard, ref HashMap<NameField, string> fields) =>
-        validationError = Accepts(standard, fields) ? null : new ValidationError($"fields break naming standard {standard.Key}");
+    static partial void ValidateFactoryArguments(ref DraftingFault? validationError, ref NamingStandard standard, ref HashMap<NameField, string> fields) =>
+        validationError = Accepts(standard, fields) ? null : new DraftingFault($"{standard.Key} name {standard.Layout.Compose(standard.Fields, fields)}", DraftingReason.NameBroken);
 
     private static bool Accepts(NamingStandard standard, HashMap<NameField, string> fields) =>
         standard.Fields.ForAll(field => fields.Find(field).Match(Some: field.Allows, None: () => !field.Required))

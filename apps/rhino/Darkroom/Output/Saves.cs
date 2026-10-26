@@ -69,7 +69,7 @@ public sealed partial class SavedChannel {
     public DocumentLayer Layer(RhinoDoc doc, PixelFrame frame, Option<ColorEncoding> encoding) =>
         Sources.Match(
             Some: sources => DocumentLayer.Identities(PartName, frame, Identified(frame, sources(doc), encoding)),
-            None: () => new DocumentLayer.Raster(PartName, frame, BlendingMode.Mix, 1f, Visible: false, Mask: None));
+            None: () => new DocumentLayer.Raster(PartName, frame, BlendingMode.Mix, 1f, Visible: false));
 
     private static Seq<IdentityLayer> Identified(PixelFrame ids, Seq<IdentitySource> sources, Option<ColorEncoding> encoding) {
         System.Collections.Generic.HashSet<ushort> present = [];
@@ -107,15 +107,12 @@ public abstract partial record SaveSource {
     public abstract IO<HashMap<SavedChannel, PixelFrame>> Channels(OutputTarget target);
 
     // --- [WRITES]
-    public IO<Unit> Write(RhinoDoc doc, FileMetadata metadata, OutputTarget target, OutputPath path, bool overwrite) =>
-        target.FileFormat.Still(doc, this, target).Bind(still => FilePublication.Write(path, overwrite, stream => StillWriter.Encode(still, metadata, stream)));
-
     public IO<Seq<(OutputName Name, OutputPath Path)>> Saved(RhinoDoc doc, IPlugInViews views) =>
         from book in OutputBook.Read(doc)
         let named = book.Names([])
         from placed in Destinations.Resolve(doc, book.Folder, book.Stem, book.Overwrite, named.Map(static held => held.Name))
         from metadata in Metadata(doc, views)
-        from written in named.Zip(placed).TraverseM(pair => Write(doc, metadata, pair.First.Target, pair.Second.Path, book.Overwrite)).As()
+        from written in named.Zip(placed).TraverseM(pair => pair.First.Target.FileFormat.Write(doc, this, pair.First.Target, metadata, pair.Second.Path, book.Overwrite)).As()
         select placed;
 
     public static IO<FileMetadata> Metadata(RhinoDoc doc, IPlugInViews views) =>
@@ -142,7 +139,7 @@ public abstract partial record SaveSource {
         from beauty in target.ColorDepth.Levels.IsSome ? Formed(target, target.ColorDepth) : Linear.Map(static frame => (Frame: frame, Encoding: Some(SceneLinear)))
         from channels in Channels(target)
         from document in IO.lift(LayeredDocument.From(target.ColorDepth, beauty.Encoding,
-            new DocumentLayer.Raster(nameof(RenderWindow.StandardChannels.RGBA), beauty.Frame, BlendingMode.Mix, 1f, Visible: true, Mask: None)
+            new DocumentLayer.Raster(nameof(RenderWindow.StandardChannels.RGBA), beauty.Frame, BlendingMode.Mix, 1f, Visible: true)
                 .Cons(Held(channels).Filter(held => target.ColorDepth.Levels.IsNone || held.Channel.Sources.IsSome).Map(held => held.Channel.Layer(doc, held.Frame, beauty.Encoding)))))
         select (StillFormat)new StillFormat.Document(document);
 

@@ -54,7 +54,7 @@ public sealed record ChainScene {
 
     private static Option<LensFocus> Focus(ViewInfo view, double meters, Option<Length> focal, Option<float> aperture) =>
         from length in aperture.IsSome ? focal : None
-        from lens in LensFocus.Validate(length, Length.FromMeters(view.FocalBlurDistance * meters), out LensFocus focus) switch { null => Some(focus), _ => None }
+        from lens in LensFocus.TryCreate(length, Length.FromMeters(view.FocalBlurDistance * meters), out LensFocus? focus) ? Optional(focus) : None
         select lens;
 
     private static Fin<Camera> Viewed(ViewInfo view, double meters, PixelExtent extent, Option<LensFocus> lens) =>
@@ -71,10 +71,7 @@ public sealed record ChainScene {
         if (!viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _))
             return new Refused(nameof(ViewportInfo.GetFrustum), Refused.Declined);
         double scale = parallel ? meters : 1d / near;
-        return ViewWindow.Validate(scale * ((left + right) / 2d), scale * ((bottom + top) / 2d), scale * (right - left), scale * (top - bottom), out ViewWindow held) switch {
-            null => held,
-            var fault => fault,
-        };
+        return ViewWindow.Validated(scale * ((left + right) / 2d), scale * ((bottom + top) / 2d), scale * (right - left), scale * (top - bottom));
     }
 
     private static Fin<Matrix4x4> Pose(Transform xform) =>

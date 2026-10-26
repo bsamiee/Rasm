@@ -10,7 +10,7 @@ class ImagingReason(StrEnum):
 
     COLOR = "Color operation on {subject} failed. {cause}"
     UNRESOLVED = "Color configuration {subject} lacks color spaces {member}"
-    BUFFER = "Image buffer {subject!r} failed. {cause}"
+    BUFFER = "Image buffer {subject} failed. {cause}"
     CODEC = "JPEG coding of {subject} samples failed. {cause}"
     COMPARISON = "Image comparison at {subject} failed. {cause}"
     MISMATCH = "{subject} shapes {member} and {cause} differ"

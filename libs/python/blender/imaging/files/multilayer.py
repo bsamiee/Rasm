@@ -17,14 +17,14 @@ from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Role(IntEnum):
+class PassRole(IntEnum):
     """Pass content deciding stored type."""
 
     COLOR = 1
     DATA = 2
 
 
-class Layout(IntEnum):
+class PassLayout(IntEnum):
     """Pass arrangement in file."""
 
     PARTS = 1
@@ -39,7 +39,7 @@ class Pass(msgspec.Struct, frozen=True, kw_only=True):
 
     layer: str
     channels: tuple[str, ...]
-    role: Role
+    role: PassRole
 
 
 class Channel(msgspec.Struct, frozen=True, kw_only=True):
@@ -135,7 +135,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     def written(
-        path: str, passes: tuple[Pass, ...], layout: Layout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], Outcome[npt.NDArray[np.float32]]]
+        path: str, passes: tuple[Pass, ...], layout: PassLayout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], Outcome[npt.NDArray[np.float32]]]
     ) -> Outcome[str]:
         """Writes passes to one file, reading each plane when its part writes.
 
@@ -151,25 +151,25 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Path, or `write` fault.
         """
-        groups = tuple((item,) for item in passes) if layout is Layout.PARTS else (passes,)
+        groups = tuple((item,) for item in passes) if layout is PassLayout.PARTS else (passes,)
         lossy = storage.compression.filter(lambda compression: compression.lossy).is_some()
 
         def subimage(group: tuple[Pass, ...]) -> Subimage[np.float32]:
             channels = tuple(
-                (f"{item.layer}.{channel}", OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is Role.DATA or storage.depth == 32 else OpenImageIO.HALF))
+                (f"{item.layer}.{channel}", OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is PassRole.DATA or storage.depth == 32 else OpenImageIO.HALF))
                 for item in group
                 for channel in item.channels
             )
             spec = OpenImageIO.ImageSpec(*size, len(channels), channels[0][1])
             spec.channelnames = tuple(name for name, _ in channels)
             spec.channelformats = tuple(kind for _, kind in channels)
-            stored = msgspec.structs.replace(storage, compression=Some(Deflate())) if lossy and any(item.role is Role.DATA for item in group) else storage
-            named = (("name", OpenImageIO.TypeString, group[0].layer),) if layout is Layout.PARTS else ()
+            stored = msgspec.structs.replace(storage, compression=Some(Deflate())) if lossy and any(item.role is PassRole.DATA for item in group) else storage
+            named = (("name", OpenImageIO.TypeString, group[0].layer),) if layout is PassLayout.PARTS else ()
             return Subimage(
                 spec=spec,
                 attributes=(*stored.attributes, *named, *((name, OpenImageIO.TypeString, text) for name, text in fields.items())),
                 pixels=lambda: accumulated(plane(item) for item in group).map(
-                    lambda planes: np.concatenate([stored.clipped(array) if item.role is Role.COLOR else array for item, array in zip(group, planes)], axis=-1)
+                    lambda planes: np.concatenate([stored.clipped(array) if item.role is PassRole.COLOR else array for item, array in zip(group, planes)], axis=-1)
                 ),
             )
 
@@ -216,4 +216,4 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Channel", "Layer", "Layout", "Multilayer", "Part", "Pass", "Role"]
+__all__ = ["Channel", "Layer", "Multilayer", "Part", "Pass", "PassLayout", "PassRole"]

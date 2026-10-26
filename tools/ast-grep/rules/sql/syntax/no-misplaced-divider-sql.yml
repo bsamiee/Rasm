@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-misplaced-divider-sql
+language: sql
+severity: error
+rule:
+    kind: line_comment
+    pattern: _DIVIDER
+    any:
+        - {regex: '^-- --- \[TYPES\] -', follows: {stopBy: end, kind: line_comment, regex: '^-- --- \[(CONSTANTS|MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] -'}}
+        - {regex: '^-- --- \[CONSTANTS\] -', follows: {stopBy: end, kind: line_comment, regex: '^-- --- \[(MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] -'}}
+        - {regex: '^-- --- \[MODELS\] -', follows: {stopBy: end, kind: line_comment, regex: '^-- --- \[(ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] -'}}
+        - {regex: '^-- --- \[ERRORS\] -', follows: {stopBy: end, kind: line_comment, regex: '^-- --- \[(SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] -'}}
+        - {regex: '^-- --- \[SERVICES\] -', follows: {stopBy: end, kind: line_comment, regex: '^-- --- \[(OPERATIONS|COMPOSITION|EXPORTS)\] -'}}
+        - {regex: '^-- --- \[OPERATIONS\] -', follows: {stopBy: end, kind: line_comment, regex: '^-- --- \[(COMPOSITION|EXPORTS)\] -'}}
+        - {regex: '^-- --- \[COMPOSITION\] -', follows: {stopBy: end, kind: line_comment, regex: '^-- --- \[EXPORTS\] -'}}
+message: '`$DIVIDER` stands out of `CLAUDE.md` file order'
+note: 'Move the divider below the last preamble line and its section after every section the `CLAUDE.md` table ranks earlier'

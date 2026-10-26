@@ -26,7 +26,10 @@ public abstract partial record DocumentLayer {
     public float Opacity { get; }
     public bool Visible { get; }
 
-    public sealed record Raster(string Name, PixelFrame Frame, BlendingMode Mode, float Opacity, bool Visible, Option<Coverage.Matte> Mask) : DocumentLayer(Name, Opacity, Visible);
+    public sealed record Raster(string Name, PixelFrame Frame, BlendingMode Mode, float Opacity, bool Visible) : DocumentLayer(Name, Opacity, Visible) {
+        public Option<Coverage.Matte> Mask { get; init; }
+    }
+
     public sealed record Folder(string Name, Option<BlendingMode> Mode, float Opacity, bool Visible, bool Open, Seq<DocumentLayer> Children) : DocumentLayer(Name, Opacity, Visible);
 
     public static DocumentLayer Identities(string name, PixelFrame ids, Seq<IdentityLayer> entries) =>
@@ -34,7 +37,7 @@ public abstract partial record DocumentLayer {
             entry.Name,
             new PixelFrame(ids.Origin, ids.Size, ids.Extent, block =>
                 IdentityLayer.Fill(Seq(entry))(MemoryMarshal.Cast<float, Vector4>(ids.Block), MemoryMarshal.Cast<float, Vector4>(block.AsSpan()))),
-            BlendingMode.Mix, 1f, Visible: true, None)));
+            BlendingMode.Mix, 1f, Visible: true)));
 }
 
 public sealed record LayeredDocument {
@@ -47,7 +50,7 @@ public sealed record LayeredDocument {
     ];
     private static readonly Seq<(short Id, int Plane)> ColorChannels = [(-1, 3), (0, 0), (1, 1), (2, 2)];
     private static readonly Seq<(short Id, ReadOnlyMemory<byte> Data)> GroupChannels = ColorChannels.Map(static channel => (channel.Id, new ReadOnlyMemory<byte>(new byte[sizeof(ushort)]))).Strict();
-    private static readonly LayerRecord Divider = new((0L, 0L, 0L, 0L), GroupChannels, PassThrough, 1f, Visible: false, None, "</Layer group>", [3]);
+    private static readonly LayerRecord Divider = new((0L, 0L, 0L, 0L), GroupChannels, PassThrough, 1f, Visible: false, "</Layer group>", [3]);
 
     private LayeredDocument((TiffSample Tiff, uint Key) sample, Option<ColorEncoding> encoding, PixelFrame canvas, Seq<DocumentLayer> layers) => (Sample, Encoding, Canvas, Layers) = (sample, encoding, canvas, layers);
 
@@ -55,6 +58,7 @@ public sealed record LayeredDocument {
     public Seq<DocumentLayer> Layers { get; }
     private (TiffSample Tiff, uint Key) Sample { get; }
     private PixelFrame Canvas { get; }
+    private Gamut Gamut => Encoding.Map(static encoding => encoding.Gamut).IfNone(Gamut.StandardRgb);
 
     public static Seq<OutputDepth> Depths => OutputDepth.Where(Table);
 
@@ -94,16 +98,16 @@ public sealed record LayeredDocument {
         layers.Bind(static layer => layer.Switch(raster: static raster => Seq(raster), folder: static folder => Rasters(folder.Children)));
 
     private static Fin<PixelFrame> CanvasOf(Seq<DocumentLayer.Raster> rasters) =>
-        from canvas in rasters.Head.Map(static raster => raster.Frame).ToFin(Error.New("Layered document holds no raster layer"))
+        from canvas in rasters.Head.Map(static raster => raster.Frame).ToFin(new ImagingFault("Layered document holds no raster layer"))
         from accepted in (
                 canvas.Window.Right <= int.MaxValue && canvas.Window.Bottom <= int.MaxValue
                     ? Fin.Succ(unit)
-                    : Error.New($"Canvas window {canvas.Window} exceeds TIFF coordinate range"),
+                    : new ImagingFault($"Canvas window {canvas.Window} exceeds TIFF coordinate range"),
                 rasters.Map(static (raster, index) => raster.Frame.Cons(raster.Mask.Map(static mask => mask.Frame).ToSeq()).Map(frame => (Frame: frame, Index: index)))
                     .Flatten()
                     .Traverse(entry => entry.Frame.Window == canvas.Window && entry.Frame.Extent == canvas.Extent
                         ? Fin.Succ(unit)
-                        : Error.New(string.Create(CultureInfo.InvariantCulture, $"Document layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from canvas")))
+                        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Document layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from canvas")))
                     .As())
             .Apply(static (_, _) => unit).As()
         select canvas;
@@ -122,9 +126,9 @@ public sealed record LayeredDocument {
     private PixelFrame Over(PixelFrame under, DocumentLayer layer) =>
         layer.Switch(
             (Document: this, Under: under),
-            raster: static (state, raster) => Blend.Composite(state.Under, raster.Frame, raster.Mode, raster.Opacity, raster.Mask.Map(static mask => new Mask(MaskOperation.Add, mask)).ToSeq(), PixelAlphaRepresentation.Associated),
+            raster: static (state, raster) => Blend.Composite(state.Under, raster.Frame, raster.Mode, raster.Opacity, raster.Mask.Map(static mask => new Mask(MaskOperation.Add, mask)).ToSeq(), PixelAlphaRepresentation.Associated, state.Document.Gamut),
             folder: static (state, folder) => folder.Mode.Match(
-                Some: mode => Blend.Composite(state.Under, state.Document.Isolated(folder.Children), mode, folder.Opacity, [], PixelAlphaRepresentation.Associated),
+                Some: mode => Blend.Composite(state.Under, state.Document.Isolated(folder.Children), mode, folder.Opacity, [], PixelAlphaRepresentation.Associated, state.Document.Gamut),
                 None: () => state.Document.Flatten(folder.Children, state.Under) switch {
                     var passed => folder.Opacity is 1f ? passed : new PixelFrame(passed.Origin, passed.Size, passed.Extent, block => TensorPrimitives.Lerp(state.Under.Block, passed.Block, folder.Opacity, block)),
                 }));
@@ -132,7 +136,7 @@ public sealed record LayeredDocument {
     private Fin<byte[]> SourceData() {
         Seq<LayerRecord> records = Records(Layers).Strict();
         if (records.Count > -short.MinValue)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"{records.Count} layer records exceed Photoshop maximum {-short.MinValue}"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"{records.Count} layer records exceed Photoshop maximum {-short.MinValue}"));
         using MemoryStream fields = new();
         using (BinaryWriter writer = new(fields, System.Text.Encoding.UTF8, leaveOpen: true))
             _ = records.Iter(record => record.Write(writer));
@@ -140,7 +144,7 @@ public sealed record LayeredDocument {
         long layered = info + (info & 1);
         long size = (DataBlock.Length + (6 * sizeof(uint)) + layered + 3) & ~3L;
         if (size > System.Array.MaxLength)
-            return Error.New(string.Create(CultureInfo.InvariantCulture, $"Document data block of {size} bytes exceeds {System.Array.MaxLength} byte buffer"));
+            return new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Document data block of {size} bytes exceeds {System.Array.MaxLength} byte buffer"));
         byte[] block = new byte[(int)size];
         using (BinaryWriter writer = new(new MemoryStream(block))) {
             writer.Write(DataBlock);
@@ -161,23 +165,39 @@ public sealed record LayeredDocument {
         layers.Bind(layer => layer.Switch(
             this,
             raster: static (document, raster) => Seq(new LayerRecord(
-                document.Canvas.Window, document.Channels(raster), raster.Mode.BlendModeKey, raster.Opacity, raster.Visible, raster.Mask.Map(_ => document.Canvas.Window), raster.Name, [])),
+                document.Canvas.Window, document.Channels(raster), raster.Mode.BlendModeKey, raster.Opacity, raster.Visible, raster.Name, []) { Mask = raster.Mask.Map(_ => document.Canvas.Window) }),
             folder: static (document, folder) => folder.Mode.Match(Some: static mode => mode.BlendModeKey, None: PassThrough) switch {
                 var key => [Divider, .. document.Records(folder.Children), new LayerRecord(
-                    (0L, 0L, 0L, 0L), GroupChannels, key, folder.Opacity, folder.Visible, None, folder.Name, [folder.Open ? 1u : 2u, Signature, key])],
+                    (0L, 0L, 0L, 0L), GroupChannels, key, folder.Opacity, folder.Visible, folder.Name, [folder.Open ? 1u : 2u, Signature, key])],
             }));
 
     private Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels(DocumentLayer.Raster raster) {
         Seq<(short Id, int Plane)> channels = ColorChannels + raster.Mask.Map(static _ => (Id: (short)-2, Plane: ColorChannels.Count)).ToSeq();
         byte[][] planes = [
-            .. StillWriter.Planar(Sample.Tiff.Depth, Canvas.Size, ColorChannels.Count, (y, row) => raster.Frame.View.Span.GetRowSpan(y).CopyTo(row)),
-            .. raster.Mask.Map(mask => StillWriter.Planar(Sample.Tiff.Depth, Canvas.Size, 1, (y, row) => Weigh(mask, y, row))[0]).ToSeq(),
+            .. Planar(ColorChannels.Count, (y, row) => raster.Frame.View.Span.GetRowSpan(y).CopyTo(row)),
+            .. raster.Mask.Map(mask => Planar(1, (y, row) => Weigh(mask, y, row))[0]).ToSeq(),
         ];
         foreach (byte[] plane in planes)
             Sample.Tiff.Depth.ToBigEndian(plane);
         byte[][] compressed = new byte[channels.Count][];
         ParallelHelper.For(0, channels.Count, new ChannelAction(planes, compressed));
         return channels.Map(channel => (channel.Id, new ReadOnlyMemory<byte>(compressed[channel.Plane]))).Strict();
+    }
+
+    private byte[][] Planar(int channels, Action<int, Span<Vector4>> source) {
+        (OutputDepth depth, PixelExtent size) = (Sample.Tiff.Depth, Canvas.Size);
+        int bytes = depth.SampleBytes;
+        byte[][] planes = [.. Enumerable.Range(0, channels).Select(_ => new byte[size.Width * size.Height * bytes])];
+        using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(size.Width);
+        using SpanOwner<byte> encoded = SpanOwner<byte>.Allocate((int)depth.RowBytes(size.Width, alpha: true));
+        for (int y = 0; y < size.Height; y++) {
+            source(y, scratch.Span);
+            depth.Encode(scratch.Span, alpha: true, encoded.Span);
+            Span2D<byte> samples = encoded.Span.AsSpan2D(size.Width, 4 * bytes);
+            for (int channel = 0; channel < channels; channel++)
+                samples.Slice(0, channel * bytes, size.Width, bytes).CopyTo(planes[channel].AsSpan().AsSpan2D(size.Height, size.Width * bytes).GetRowSpan(y));
+        }
+        return planes;
     }
 
     private void Weigh(Coverage.Matte mask, int y, Span<Vector4> row) {
@@ -199,7 +219,9 @@ public sealed record LayeredDocument {
         };
     }
 
-    private readonly record struct LayerRecord((long Left, long Top, long Right, long Bottom) Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, float Opacity, bool Visible, Option<(long Left, long Top, long Right, long Bottom)> Mask, string Name, Seq<uint> Section) {
+    private sealed record LayerRecord((long Left, long Top, long Right, long Bottom) Bounds, Seq<(short Id, ReadOnlyMemory<byte> Data)> Channels, uint Mode, float Opacity, bool Visible, string Name, Seq<uint> Section) {
+        internal Option<(long Left, long Top, long Right, long Bottom)> Mask { get; init; }
+
         internal void Write(BinaryWriter writer) {
             static void Edges(BinaryWriter into, (long Left, long Top, long Right, long Bottom) rectangle) {
                 into.Write((int)rectangle.Top);

@@ -202,8 +202,7 @@ public static class Toolbars {
     private static Fin<GlyphSource.Paired> Paired(GlyphSource glyph) =>
         glyph.Switch<Fin<GlyphSource.Paired>>(
             tinted: static _ => new Refused(nameof(Document), $"holds no {nameof(GlyphSource.Tinted)} glyph"),
-            paired: static held => held,
-            picture: static _ => new Refused(nameof(Document), $"holds no {nameof(GlyphSource.Picture)} glyph"));
+            paired: static held => held);
 
     private static Fin<XAttribute> Bitmap(Guid file, GlyphSource glyph) =>
         Paired(glyph).Map(art => new XAttribute("bitmap_id", IconId(file, art)));

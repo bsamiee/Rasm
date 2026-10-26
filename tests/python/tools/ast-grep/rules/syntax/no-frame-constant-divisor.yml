@@ -1,0 +1,15 @@
+id: no-frame-constant-divisor
+valid:
+    - |
+      frames = seconds * scene.render.fps / scene.render.fps_base
+    - |
+      half = width / 2.0
+    - |
+      aspect = 9.0 / 16.0
+invalid:
+    - |
+      speed = 0.5 / 24.0
+    - |
+      blur = 14.6 / 1920.0
+    - |
+      speed = 0.01 / (24.0 * spacing)

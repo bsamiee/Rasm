@@ -27,48 +27,48 @@ type Share = Annotated[float, msgspec.Meta(gt=0.0, lt=1.0)]
 class Sensitivity(msgspec.Struct, frozen=True, kw_only=True):
     """Primary's hue, reciprocal saturation, and photographic gain."""
 
-    scale: Annotated[AtLeastOne, msgspec.Meta(description="Reciprocal HSV saturation")] = 1.0
-    rotation: Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6.0, description="Hue turn about primary")] = 0.0
-    gain: Annotated[Positive, msgspec.Meta(description="Photographic layer sensitivity")] = 1.0
+    scale: AtLeastOne = 1.0
+    rotation: Annotated[float, msgspec.Meta(gt=-math.pi / 6.0, lt=math.pi / 6.0)] = 0.0
+    gain: Positive = 1.0
 
 
 class Characteristic(msgspec.Struct, frozen=True, kw_only=True):
     """Logarithmic exposure window with a tangent-continuous toe and shoulder."""
 
-    low: Annotated[Stops, msgspec.Meta(description="Stops from scene one to window lower endpoint")] = -10.0
-    span: Annotated[Positive, msgspec.Meta(description="Stops between window endpoints")] = 22.0 - -10.0
-    toe_x: Annotated[Share, msgspec.Meta(description="Toe exposure within window")] = 0.44
-    toe_y: Annotated[Share, msgspec.Meta(description="Toe density within stock")] = 0.28
-    across: Annotated[Share, msgspec.Meta(description="Shoulder share of exposure above toe")] = (0.591 - 0.44) / (1.0 - 0.44)
-    up: Annotated[Share, msgspec.Meta(description="Shoulder share of density above toe")] = (0.779 - 0.28) / (1.0 - 0.28)
+    low: Stops = -10.0
+    span: Positive = 22.0 - -10.0
+    toe_x: Share = 0.44
+    toe_y: Share = 0.28
+    across: Share = (0.591 - 0.44) / (1.0 - 0.44)
+    up: Share = (0.779 - 0.28) / (1.0 - 0.28)
 
 
 class Stock(msgspec.Struct, frozen=True, kw_only=True):
     """Photographic stock's exposure and maximum density in stops."""
 
-    exposure: Annotated[Stops, msgspec.Meta(description="Stock exposure in stops")] = 6.0
-    density: Annotated[Positive, msgspec.Meta(description="Maximum optical density in stops")] = 5.0
+    exposure: Stops = 6.0
+    density: Positive = 5.0
 
 
 class Film(msgspec.Struct, frozen=True, kw_only=True):
     """Editable negative and print stocks sampled into an OCIO formation."""
 
     space: ClassVar[str] = REC709_SCENE
-    pre_exposure: Annotated[Stops, msgspec.Meta(description="Exposure before development")] = 4.3
-    pre_filter: Annotated[tuple[Unit, Unit, Unit], msgspec.Meta(description="Channel transmission before negative")] = (1.0, 1.0, 1.0)
-    sensitivities: Annotated[tuple[Sensitivity, Sensitivity, Sensitivity], msgspec.Meta(description="Red, green, and blue layer sensitivities")] = (
+    pre_exposure: Stops = 4.3
+    pre_filter: tuple[Unit, Unit, Unit] = (1.0, 1.0, 1.0)
+    sensitivities: tuple[Sensitivity, Sensitivity, Sensitivity] = (
         Sensitivity(scale=1.05, rotation=math.radians(0.5)),
         Sensitivity(scale=1.12, rotation=math.radians(2.0)),
         Sensitivity(scale=1.045, rotation=math.radians(0.1)),
     )
     characteristic: Characteristic = Characteristic()
     negative: Stock = Stock()
-    backlight: Annotated[tuple[Positive, Positive, Positive], msgspec.Meta(description="Light behind developed negative")] = (1.0, 1.0, 1.0)
-    positive: Annotated[Stock, msgspec.Meta(description="Photographic print stock")] = Stock(density=27.5)
-    black_point: Annotated[Annotated[float, msgspec.Meta(ge=-sys.float_info.max, lt=1.0)] | None, msgspec.Meta(description="Black as a share of white, print black when absent")] = None
-    post_filter: Annotated[tuple[Unit, Unit, Unit], msgspec.Meta(description="Channel transmission after development")] = (1.0, 1.0, 1.0)
-    saturation: Annotated[NonNegative, msgspec.Meta(description="HSV saturation multiplier in midtones")] = 1.02
-    weights: Annotated[tuple[Positive, Positive, Positive], msgspec.Meta(description="Channel weights of photographic brightness")] = (0.3, 0.5, 0.2)
+    backlight: tuple[Positive, Positive, Positive] = (1.0, 1.0, 1.0)
+    positive: Stock = Stock(density=27.5)
+    black_point: Annotated[float, msgspec.Meta(ge=-sys.float_info.max, lt=1.0)] | None = None
+    post_filter: tuple[Unit, Unit, Unit] = (1.0, 1.0, 1.0)
+    saturation: NonNegative = 1.02
+    weights: tuple[Positive, Positive, Positive] = (0.3, 0.5, 0.2)
     lattice: Lattice = Lattice(size=80, spacing=Logarithmic())
 
     # --- [DEVELOPMENT]

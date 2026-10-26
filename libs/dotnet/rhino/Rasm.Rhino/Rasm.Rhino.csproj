@@ -26,12 +26,13 @@
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
+        <PackageReference Include="HyperJet" />
         <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
     <ItemGroup Label="Algorithms and Data Structures">
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
     <ItemGroup Label="Geospatial">
@@ -50,11 +51,11 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Logging" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
+        <ProjectReference Include="../../geometry/Rasm.Spatial/Rasm.Spatial.csproj" />
         <ProjectReference Include="../../ui/Rasm.UI/Rasm.UI.csproj" />
     </ItemGroup>
 </Project>

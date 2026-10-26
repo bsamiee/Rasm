@@ -1,0 +1,75 @@
+id: no-try-answering-error
+valid:
+    - |
+      from expression import Error
+      def read(path):
+          try:
+              return Ok(path.read_bytes())
+          except OSError as error:
+              return Error(error)
+          finally:
+              path.unlink()
+    - |
+      from expression import Error
+      def read(path):
+          try:
+              return Ok(path.read_bytes())
+          except OSError as error:
+              log(error)
+              return Error(error)
+    - |
+      from expression import Error
+      def read(path):
+          try:
+              return Ok(path.read_bytes())
+          except* OSError as error:
+              return Error(error)
+    - |
+      def read(path):
+          try:
+              return Ok(path.read_bytes())
+          except OSError as error:
+              return Error(error)
+    - |
+      from expression import Error
+      def read(path):
+          try:
+              return Ok(path.read_bytes())
+          except:
+              return Error(path)
+invalid:
+    - |
+      from expression import Error
+      def read(path):
+          try:
+              return Ok(path.read_bytes())
+          except OSError as error:
+              return Error(error)
+    - |
+      import msgspec
+      from expression import Error
+      def read(path):
+          try:
+              manifest = msgspec.toml.decode(path.read_bytes())
+          except (OSError, msgspec.DecodeError) as error:
+              return Error(error)
+          return Ok(manifest)
+    - |
+      from expression import Result
+      def register(cls):
+          try:
+              bpy.utils.register_class(cls)
+          except ValueError as error:
+              answer = Result[None, Fault](error=error)
+          else:
+              answer = Result[None, Fault](ok=None)
+          return answer
+    - |
+      from expression.core import Result
+      def drawn(space):
+          try:
+              handle = space.draw_handler_add()
+          except TypeError as error:
+              yield Result[None, Fault].Error(error)
+          else:
+              yield Result[None, Fault].Ok(None)

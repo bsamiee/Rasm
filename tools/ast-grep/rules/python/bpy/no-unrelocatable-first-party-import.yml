@@ -11,4 +11,4 @@ rule:
     regex: '^blender(\.|$)'
     not: {inside: {kind: import_from_statement, field: module_name}}
 message: '`$MODULE` import stays absolute through extension packing and resolves to nothing in an installed extension'
-note: 'Write `from blender.<module> import <member>`'
+note: 'Import first-party members as `from <module> import <member>` for extension packing to make relative'

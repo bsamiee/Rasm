@@ -24,12 +24,12 @@ from blender.bpy.nodes.graphs import Expr, Graph, mixed
 from blender.bpy.nodes.trees import emptied, socket_at, tree_of
 from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, VERTEX
 from blender.bpy.settings.attachments import Attachment, reconciling
-from blender.bpy.settings.history import Retention
 from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.surfaces.appends import Append
 from blender.records.faults import accumulated, Fault, Outcome, paired
+from blender.records.trees import Retention
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

@@ -10,8 +10,8 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.color.processors import converted, GREY, luma
-from blender.imaging.files.images import unassociated
-from blender.imaging.geometry.regions import Region
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.geometry.frames import Region
 from blender.records.faults import Outcome
 from blender.records.fields import Frozen, Unit
 
@@ -80,9 +80,9 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
 class Meter(msgspec.Struct, frozen=True, kw_only=True):
     """Exposure percentile trims, center weight, and region, the whole frame by default."""
 
-    low: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, description="Percentile trimmed below")] = 0.0
-    high: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, description="Percentile trimmed above")] = 100.0
-    centre: Annotated[Unit, msgspec.Meta(description="Weight taken from samples outside the center")] = 0.0
+    low: Annotated[float, msgspec.Meta(ge=0.0, le=100.0)] = 0.0
+    high: Annotated[float, msgspec.Meta(ge=0.0, le=100.0)] = 100.0
+    centre: Unit = 0.0
     region: Region = Region()
 
     def stops(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Outcome[Option[float]]:

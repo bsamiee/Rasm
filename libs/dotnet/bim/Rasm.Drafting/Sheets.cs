@@ -4,36 +4,44 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record DraftingConvention(
-    Length Binding, Length Border, bool RowsFromTop, bool ColumnsFromRight, bool SmallestTopRight, Option<(Length Reach, Length TitleBlock)> Centering,
-    LetteringStandard Lettering, RevisionAlphabet Revisions, Func<Length, Length, Length, Seq<Length>> Divisions) {
-    public static readonly DraftingConvention Iso = new(Binding: Length.FromMillimeters(20), Border: Length.FromMillimeters(10),
-        RowsFromTop: true, ColumnsFromRight: false, SmallestTopRight: true, Centering: Some((Reach: Length.FromMillimeters(10), TitleBlock: Length.FromMillimeters(180))),
-        LetteringStandard.Iso3098, RevisionAlphabet.Iso,
-        static (side, _, _) =>
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class DraftingConvention {
+    public static readonly DraftingConvention Iso = new(binding: Length.FromMillimeters(20), border: Length.FromMillimeters(10), rowsFromTop: true, columnsFromRight: false, smallestTopRight: true,
+        centering: Some((Reach: Length.FromMillimeters(10), TitleBlock: Length.FromMillimeters(180))), lettering: LetteringStandard.Iso3098, revisions: RevisionAlphabet.Iso,
+        divisions: static (side, _, _) =>
             from pitch in Seq(Length.FromMillimeters(50))
             from half in Seq((int)QuantityValue.Round(side / pitch / 2, MidpointRounding.ToEven))
             from k in toSeq(Range(1 - half, (2 * half) - 1))
             select (side / 2) + (pitch * k));
-    public static readonly DraftingConvention Asme = new(Binding: Length.FromInches(0.5m), Border: Length.FromInches(0.5m),
-        RowsFromTop: false, ColumnsFromRight: true, SmallestTopRight: false, Centering: None,
-        LetteringStandard.AsmeY142, RevisionAlphabet.Asme,
-        static (side, _, _) =>
+    public static readonly DraftingConvention Asme = new(binding: Length.FromInches(0.5m), border: Length.FromInches(0.5m), rowsFromTop: false, columnsFromRight: true, smallestTopRight: false,
+        centering: None, lettering: LetteringStandard.AsmeY142, revisions: RevisionAlphabet.Asme,
+        divisions: static (side, _, _) =>
             from count in Seq(2 * (int)QuantityValue.Round(side / Length.FromInches(5.5m) / 2, MidpointRounding.ToPositiveInfinity))
             from k in toSeq(Range(1, count - 1))
             select side * k / count);
-    public static readonly DraftingConvention Ncs = new(Binding: Length.FromInches(1.5m), Border: Length.FromInches(0.75m),
-        RowsFromTop: false, ColumnsFromRight: false, SmallestTopRight: false, Centering: None,
-        LetteringStandard.AsmeY142, RevisionAlphabet.Asme,
-        static (_, first, last) =>
+    public static readonly DraftingConvention Ncs = new(binding: Length.FromInches(1.5m), border: Length.FromInches(0.75m), rowsFromTop: false, columnsFromRight: false, smallestTopRight: false,
+        centering: None, lettering: LetteringStandard.AsmeY142, revisions: RevisionAlphabet.Asme,
+        divisions: static (_, first, last) =>
             from pitch in Seq(Length.FromInches(1.5m))
             from k in toSeq(Range(1, (int)QuantityValue.Round((last - first) / pitch, MidpointRounding.ToPositiveInfinity) - 1))
             select first + (pitch * k));
 
-    public (int Mask, int Offset, int Extension, int Landing) Dimensioning { get; init; } = (Mask: 2, Offset: 8, Extension: 8, Landing: 20);
+    public Length Binding { get; }
+    public Length Border { get; }
+    public bool RowsFromTop { get; }
+    public bool ColumnsFromRight { get; }
+    public bool SmallestTopRight { get; }
+    public Option<(Length Reach, Length TitleBlock)> Centering { get; }
+    public LetteringStandard Lettering { get; }
+    public RevisionAlphabet Revisions { get; }
+
+    [UseDelegateFromConstructor]
+    public partial Seq<Length> Divisions(Length side, Length first, Length last);
 }
 
-public sealed record SheetSize(string Name, DraftingConvention Convention, (Length Short, Length Long) Sides) {
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[ValidationError<DraftingFault>]
+public sealed partial class SheetSize {
     public static readonly SheetSize A0 = new("A0", DraftingConvention.Iso, (Length.FromMillimeters(841), Length.FromMillimeters(1189)));
     public static readonly SheetSize A1 = new("A1", DraftingConvention.Iso, (Length.FromMillimeters(594), Length.FromMillimeters(841)));
     public static readonly SheetSize A2 = new("A2", DraftingConvention.Iso, (Length.FromMillimeters(420), Length.FromMillimeters(594)));
@@ -51,7 +59,8 @@ public sealed record SheetSize(string Name, DraftingConvention Convention, (Leng
     public static readonly SheetSize ArchE = new("ARCH E", DraftingConvention.Ncs, (Length.FromInches(36), Length.FromInches(48)));
     public static readonly SheetSize ArchF = new("ARCH F", DraftingConvention.Ncs, (Length.FromInches(30), Length.FromInches(42)));
 
-    public static Seq<SheetSize> Standard { get; } = [A0, A1, A2, A3, A4, AnsiA, AnsiB, AnsiC, AnsiD, AnsiE, ArchA, ArchB, ArchC, ArchD, ArchE, ArchF];
+    public DraftingConvention Convention { get; }
+    public (Length Short, Length Long) Sides { get; }
 }
 
 [SmartEnum]
@@ -68,8 +77,7 @@ public sealed record PaperRectangle(Length Left, Length Bottom, Length Right, Le
 public sealed record ZoneGrid(Seq<Length> Columns, Seq<Length> Rows, DraftingConvention Convention, bool AllEdges) {
     private const string Letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
-    public string Column(int index) =>
-        (Convention.ColumnsFromRight ? Columns.Count + 1 - index : index + 1).ToString(CultureInfo.InvariantCulture);
+    public string Column(int index) => (Convention.ColumnsFromRight ? Columns.Count + 1 - index : index + 1).ToString(CultureInfo.InvariantCulture);
     public string Row(int index) => Letter(Convention.RowsFromTop ? Rows.Count - index : index);
 
     private static string Letter(int row) => new(Letters[row % Letters.Length], (row / Letters.Length) + 1);
@@ -79,23 +87,16 @@ public sealed record Sheet(SheetSize Size, SheetOrientation Orientation) {
     public (Length Width, Length Height) Extent => Orientation.Extent(Size);
     public PaperRectangle Field => new(Size.Convention.Binding, Size.Convention.Border, Extent.Width - Size.Convention.Border, Extent.Height - Size.Convention.Border);
     public ZoneGrid Zones =>
-        new(
-            Size.Convention.Divisions(Extent.Width, Field.Left, Field.Right),
-            Size.Convention.Divisions(Extent.Height, Field.Bottom, Field.Top),
-            Size.Convention,
-            !Size.Convention.SmallestTopRight
-                || SheetSize.Standard.Exists(other => other.Convention == Size.Convention && other.Sides.Short < Size.Sides.Short));
+        new(Size.Convention.Divisions(Extent.Width, Field.Left, Field.Right), Size.Convention.Divisions(Extent.Height, Field.Bottom, Field.Top), Size.Convention,
+            !Size.Convention.SmallestTopRight || toSeq(SheetSize.Items).Exists(other => other.Convention == Size.Convention && other.Sides.Short < Size.Sides.Short));
 
     public Option<string> Locate(Length x, Length y) =>
         (Field, Zones) switch {
-            var (drawing, zones) when x >= drawing.Left && x <= drawing.Right && y >= drawing.Bottom && y <= drawing.Top =>
-                Some(zones.Row(zones.Rows.Filter(division => division <= y).Count) + zones.Column(zones.Columns.Filter(division => division <= x).Count)),
+            var (drawing, zones) when x >= drawing.Left && x <= drawing.Right && y >= drawing.Bottom && y <= drawing.Top => Some(zones.Row(zones.Rows.Filter(division => division <= y).Count) + zones.Column(zones.Columns.Filter(division => division <= x).Count)),
             _ => None,
         };
 
     public static Option<Sheet> Match(Length width, Length height, Length tolerance) =>
-        (from size in SheetSize.Standard
-         from orientation in toSeq(SheetOrientation.Items)
-         select new Sheet(size, orientation))
+        (from size in toSeq(SheetSize.Items) from orientation in toSeq(SheetOrientation.Items) select new Sheet(size, orientation))
             .Find(sheet => sheet.Extent.Width.Equals(width, tolerance) && sheet.Extent.Height.Equals(height, tolerance));
 }

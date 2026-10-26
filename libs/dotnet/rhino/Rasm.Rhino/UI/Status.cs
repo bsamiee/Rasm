@@ -1,5 +1,6 @@
 using Rasm.Rhino.Events;
 using Rasm.UI;
+using Rasm.UI.Components;
 using Rhino;
 using Rhino.Runtime.Notifications;
 using Rhino.UI;
@@ -14,7 +15,7 @@ public sealed record NoticeReplies(Option<string> Confirm, Option<string> Altern
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class WorkProgress<T>(Atom<Content<T>> work, long total) : IProgress<int> where T : notnull {
-    public void Report(int value) => _ = work.Swap(held => held.Requested(Some(Progress.Create(value, total))));
+    public void Report(int value) => _ = work.Swap(held => held.Requested(Progress.Validated(value, total).ToOption()));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

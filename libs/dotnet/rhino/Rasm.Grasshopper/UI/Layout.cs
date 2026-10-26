@@ -18,17 +18,6 @@ using Rasm.Rhino;
 namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject]
-[ValidationError<RhinoFault>]
-public sealed partial class Extent {
-    public float Minimum { get; }
-    public float Ideal { get; }
-    public float Maximum { get; }
-
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref float minimum, ref float ideal, ref float maximum) =>
-        validationError = 0f <= minimum && minimum <= ideal && ideal <= maximum ? null : new RhinoFault("extent needs 0 <= minimum <= ideal <= maximum");
-}
-
 public sealed record Distribution(Orientation Axis, Seq<Guid> Objects);
 
 public sealed record Arrangement(LanguageExt.HashSet<Guid> Objects, SnappingSettings Settings, Seq<Distribution> Distributions, Option<RectangleF> Frame);
@@ -82,25 +71,6 @@ public static class CanvasLayout {
                 _ => true,
             }))
             .Strict();
-
-    // --- [STRETCH]
-    public static (Seq<float> Sizes, float Deviation) Stretch(Seq<Extent> extents, float target) {
-        Seq<Variable> sizes = extents.Map(static _ => new Variable()).Strict();
-        Variable spread = new();
-        Solver solver = new();
-        _ = extents.Zip(sizes)
-            .Bind(element => Seq(
-                Constraint.Make(element.Second, RelationalOperator.GreaterThanOrEqual, element.First.Minimum, Strength.Required),
-                Constraint.Make(element.Second, RelationalOperator.LessThanOrEqual, element.First.Maximum, Strength.Required),
-                Constraint.LessEqual(element.Second - element.First.Ideal, spread, Strength.Required),
-                Constraint.LessEqual(element.First.Ideal - element.Second, spread, Strength.Required)))
-            .Add(Constraint.Equal(new Expression([.. sizes.Map(static size => new Term(size))]), target, Strength.Strong))
-            .Add(Constraint.Equal(spread, 0d, Strength.Medium))
-            .Iter(solver.AddConstraint);
-        solver.Solve();
-        Seq<float> solved = sizes.Map(static size => (float)size.Value).Strict();
-        return (solved, solved.Fold(0f, static (sum, size) => sum + size) - target);
-    }
 
     // --- [MOVES]
     public static IO<bool> Moved(Document document, VerbNoun name, Seq<(IDocumentObject Object, PointF Pivot)> moves) =>

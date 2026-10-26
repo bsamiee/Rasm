@@ -171,18 +171,18 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
             this,
             @default: static (_, _) => IO.pure(unit),
             pressed: static (owner, pressed) => owner.Released(Some(pressed.Shown)),
-            scrubbing: static (owner, scrubbing) => owner.Unscrubbed(Some(scrubbing.Shown), owner.Raised(new Edit<TKey>.Cancel()))));
+            scrubbing: static (owner, scrubbing) => owner.Unscrubbed(Some(scrubbing.Shown), owner.Raised(Edit.Cancel<TKey>()))));
 
     private Option<IO<Unit>> Stepping(FieldState<TKey> held, double steps, Keys modifiers) =>
         held.SwitchPartially(
             (Field: this, Steps: steps, Modifiers: modifiers),
             @default: static (_, _) => Option<IO<Unit>>.None,
             resting: static (s, resting) => resting.Shown.Bind(shown => s.Field.Stepped(shown, s.Steps, s.Modifiers)).Map(stepped =>
-                s.Field.Become(new FieldState<TKey>.Resting(Some(stepped)), Some(s.Field.text.Shown(stepped))).Bind(_ => s.Field.Raised(new Edit<TKey>.Step(stepped)))),
+                s.Field.Become(new FieldState<TKey>.Resting(Some(stepped)), Some(s.Field.text.Shown(stepped))).Bind(_ => s.Field.Raised(Edit.Step(stepped)))),
             editing: static (s, editing) => (editing.Typed | editing.Shown).Bind(shown => s.Field.Stepped(shown, s.Steps, s.Modifiers)).Map(stepped =>
                 from typed in s.Field.Become(editing with { Typed = Some(stepped), Faulted = false }, Some(s.Field.text.Entry(stepped)))
                 from selected in IO.lift(s.Field.SelectAll)
-                from raised in s.Field.Raised(new Edit<TKey>.Step(stepped))
+                from raised in s.Field.Raised(Edit.Step(stepped))
                 select raised));
 
     // --- [VALUES]
@@ -202,11 +202,11 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
         : key;
 
     private IO<Unit> Accepted(FieldState<TKey>.Editing editing, TKey value) =>
-        Become(editing with { Typed = Some(value), Faulted = false }, None).Bind(_ => Raised(new Edit<TKey>.Preview(value)));
+        Become(editing with { Typed = Some(value), Faulted = false }, None).Bind(_ => Raised(Edit.Preview(value)));
 
     private IO<Unit> Faulted(FieldState<TKey>.Editing editing) => Become(editing with { Faulted = true }, None);
 
-    private IO<Unit> Committed(Option<TKey> value) => Raised(value.Map<Edit<TKey>>(static held => new Edit<TKey>.Commit(held)));
+    private IO<Unit> Committed(Option<TKey> value) => Raised(value.Map(Edit.Commit));
 
     private IO<Unit> Raised(Option<Edit<TKey>> edit) => edit.Traverse(edited).As().Map(static _ => unit);
 
@@ -220,7 +220,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
 
     private IO<Unit> Restyled =>
         from compact in IO.lift(() => HostTheme.Compact(this))
-        let cascade = Styles.Root(HostTheme.Projected(compact), HostTheme.Stated(compact))
+        let cascade = Styles.Root(HostTheme.Projected(compact), HostTheme.Stated(compact), HostPlacement.Panel.Root)
         from text in IO.lift(() => Colored(cascade.Theme, Styles.Resolve(cascade, Role.Field, [])))
         from faulted in IO.lift(() => Colored(cascade.Theme, Styles.Resolve(cascade, Role.Field, [Condition.Faulted])))
         let metrics = Styles.Resolve(cascade, Role.Handle, []).Metrics
@@ -232,7 +232,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
         select unit;
 
     private static Fin<Color> Colored(ColorScheme theme, RoleStyle style) =>
-        theme.Color(style.Text, style, None, None)
+        theme.Color(style.Text, style)
             .Map(static color => new Color(color.Red, color.Green, color.Blue, color.Alpha))
             .ToFin(new Refused(nameof(ColorScheme.Color), Refused.Absent));
 
@@ -264,7 +264,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
                 let travel = scrubbing.Travel + delta
                 let moved = s.Field.Stepped(scrubbing.Shown, float.Truncate(travel), s.Args.Modifiers).Filter(value => scrubbing.Moved != Some(value))
                 from shown in s.Field.Become(scrubbing with { Travel = travel, Last = s.Args.Location, Moved = moved | scrubbing.Moved }, moved.Map(s.Field.text.Shown))
-                from raised in s.Field.Raised(moved.Map<Edit<TKey>>(static value => new Edit<TKey>.Preview(value)))
+                from raised in s.Field.Raised(moved.Map(Edit.Preview))
                 select raised)));
         base.OnMouseMove(e);
     }
@@ -300,7 +300,7 @@ public sealed class NumberField<TKey> : NumberBox where TKey : notnull, ICompara
                 Keys.Enter => Claimed(() => s.Args.Handled = true,
                     s.Field.Become(editing with { Shown = editing.Typed | editing.Shown, Typed = None }, None).Bind(_ => s.Field.Committed(editing.Typed))),
                 Keys.Escape => Claimed(() => s.Args.Handled = true,
-                    s.Field.Become(editing with { Typed = None }, None).Bind(_ => s.Field.Raised(new Edit<TKey>.Cancel()))),
+                    s.Field.Become(editing with { Typed = None }, None).Bind(_ => s.Field.Raised(Edit.Cancel<TKey>()))),
                 _ => IO.pure(unit),
             })));
         if (e.Handled) return;

@@ -21,10 +21,10 @@ from blender.records.fields import Finite, Positive, Unit
 class Aperture(msgspec.Struct, frozen=True, kw_only=True):
     """Iris outline of bokeh and diffraction pupils."""
 
-    blades: Annotated[int, msgspec.Meta(ge=3, le=24, description="Blades outlining bokeh")] = 5
-    rotation: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Clockwise blade vertex turn from vertical")] = 0.0
-    roundness: Annotated[Unit, msgspec.Meta(description="Blade curvature, circular at 1")] = 1.0
-    obstruction: Annotated[Unit, msgspec.Meta(description="Central mirror share of iris")] = 0.0
+    blades: Annotated[int, msgspec.Meta(ge=3, le=24)] = 5
+    rotation: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi)] = 0.0
+    roundness: Unit = 1.0
+    obstruction: Unit = 0.0
 
     @property
     def sector(self) -> float:

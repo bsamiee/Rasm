@@ -27,7 +27,7 @@ from blender.bpy.render.compositor.effects import Alpha, CameraFrame, Compositor
 from blender.bpy.render.outputs.framing import capacity
 from blender.imaging.color.processors import Domain
 from blender.imaging.faults import ImagingReason
-from blender.imaging.files import images
+from blender.imaging.files import buffers, coding
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 
@@ -68,7 +68,7 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
         def resized(image: OpenImageIO.ImageBuf, spec: OpenImageIO.ImageSpec, filtername: str) -> Outcome[OpenImageIO.ImageBuf]:
             target = OpenImageIO.ImageBuf(spec)
             OpenImageIO.ImageBufAlgo.resize(target, image, filtername=filtername, roi=target.roi)
-            return images.checked(target)
+            return buffers.checked(target)
 
         def cycled(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
             rgb: Outcome[npt.NDArray[np.uint8]] = Option.of_optional(image.get_pixels(OpenImageIO.UINT8)).to_result_with(
@@ -76,8 +76,8 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
             )
             return (
                 Result[npt.NDArray[np.uint8], Faults]
-                .bind(rgb, lambda codes: images.generations(np.ascontiguousarray(codes), quality=self.quality, subsampling=self.subsampling, count=self.generations))
-                .bind(lambda values: images.located(values, image))
+                .bind(rgb, lambda codes: coding.generations(np.ascontiguousarray(codes), quality=self.quality, subsampling=self.subsampling, count=self.generations))
+                .bind(lambda values: buffers.located(values, image))
             )
 
         return (
@@ -126,19 +126,19 @@ def _(
         def coded(straight: npt.NDArray[np.float32]) -> Outcome[OpenImageIO.ImageBuf]:
             alpha = straight[..., 3:]
             return (
-                images
+                buffers
                 .located(straight, source)
-                .bind(lambda image: images.checked(OpenImageIO.ImageBufAlgo.channels(image, (0, 1, 2))))
+                .bind(lambda image: buffers.checked(OpenImageIO.ImageBufAlgo.channels(image, (0, 1, 2))))
                 .bind(compression.applied)
-                .bind(images.pixels)
-                .bind(lambda rgb: images.located(np.concatenate((np.where(alpha != 0.0, rgb * alpha, rgb), alpha), axis=-1), source))
+                .bind(buffers.pixels)
+                .bind(lambda rgb: buffers.located(buffers.associated(np.concatenate((rgb, alpha), axis=-1)), source))
             )
 
-        return images.pixels(source).map(images.unassociated).bind(coded)
+        return buffers.pixels(source).map(buffers.unassociated).bind(coded)
 
     match values:
         case {"compression": False}:
-            coding: Outcome[Option[Compression]] = Ok(Nothing)
+            requested: Outcome[Option[Compression]] = Ok(Nothing)
         case {
             "compression_quality": int(quality),
             "compression_coded_width": bool(sized),
@@ -146,15 +146,15 @@ def _(
             "compression_subsampling": str(chroma),
             "compression_generations": int(count),
         }:
-            coding = (
+            requested = (
                 Option
                 .of_optional({"4:4:4": (1, 1), "4:2:2": (2, 1), "4:2:0": (2, 2), "4:1:1": (4, 1)}.get(chroma))
                 .map(lambda factors: Some(Compression(quality=quality, coded_width=width if sized else None, subsampling=factors, generations=count)))
                 .to_result_with(lambda: (Fault(reason=RecordReason.UNREADABLE, subject=Compression.__name__, cause=chroma),))
             )
         case _:
-            coding = Error((Fault(reason=RecordReason.UNREADABLE, subject=Compression.__name__, cause=repr(values)),))
-    return paired(fitted(source.spec().height), coding.bind(lambda found: found.map(lambda held: compressed(held).map(Some)).default_value(Ok(Nothing)))).map(lambda parts: parts[1])
+            requested = Error((Fault(reason=RecordReason.UNREADABLE, subject=Compression.__name__, cause=repr(values)),))
+    return paired(fitted(source.spec().height), requested.bind(lambda found: found.map(lambda held: compressed(held).map(Some)).default_value(Ok(Nothing)))).map(lambda parts: parts[1])
 
 
 # --- [GRAPH]

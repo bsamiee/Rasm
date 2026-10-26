@@ -108,4 +108,4 @@ rule:
             - matches: tested
             - pattern: $TESTED
 message: 'Absence test reads `$TESTED`, a pointer Blender never sets to `None`'
-note: 'Read `<member>` without the test, with `# type: ignore[union-attr]  # ty: ignore[unresolved-attribute]` where a stub types it optional'
+note: 'Read `<member>` untested through one annotated local at the stub boundary, `<name>: bpy.types.<Class> = <owner>.<member>`'

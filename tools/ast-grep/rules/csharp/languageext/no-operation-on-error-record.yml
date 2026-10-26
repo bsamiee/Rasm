@@ -69,6 +69,19 @@ utils:
                             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToFin$'}}, {has: {field: expression, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}}, {has: {field: arguments, has: {kind: argument, has: {matches: guarded-value}}, not: {has: {kind: argument, nthChild: 2}}}}]}}]}
                             - has: {field: arguments, has: {kind: argument, has: {matches: own-error}}, not: {has: {kind: argument, nthChild: 2}}}
             - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $SELF}}
+    validation-factory:
+        kind: method_declaration
+        all:
+            - has: {field: name, regex: '^Create$'}
+            - has: {kind: modifier, regex: '^static$'}
+            - has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '^string$'}}, not: {has: {kind: parameter, nthChild: 2}}}
+            - has: {field: returns, kind: identifier, pattern: $SELF}
+            - inside:
+                stopBy: end
+                kind: record_declaration
+                all:
+                    - has: {field: name, pattern: $SELF}
+                    - has: {kind: base_list, has: {kind: generic_name, all: [{has: {kind: identifier, regex: '^IValidationError$'}}, {has: {kind: type_argument_list, has: {pattern: $SELF}, not: {has: {nthChild: 2}}}}]}}
     own-vocabulary:
         all:
             - has: {kind: modifier, regex: '^const$'}
@@ -130,7 +143,7 @@ rule:
         - kind: method_declaration
           all:
             - has: {field: name, pattern: $MEMBER}
-            - not: {any: [{matches: guard-factory}, {matches: inherited}]}
+            - not: {any: [{matches: guard-factory}, {matches: validation-factory}, {matches: inherited}]}
     inside: {stopBy: end, kind: declaration_list, inside: {matches: languageext-error-record}}
 message: '`$MEMBER` declares a limit or operation inside an error record'
 note: 'Move the member to an operations class raising the error'

@@ -8,7 +8,6 @@ using CommunityToolkit.HighPerformance.Buffers;
 using Darkroom.Chain;
 using Emgu.CV;
 using MathNet.Numerics.Integration;
-using PeterO.Numbers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Grade;
@@ -68,7 +67,7 @@ public sealed record GeneratedLayer(
     public static GeneratedLayer Default { get; } = new(BlendingMode.Mix, 0f);
     public static GeneratedLayer Added { get; } = Default with { Mode = BlendingMode.Add };
 
-    public PixelPass Pass(Action<Span<Vector4>, long, long> fill) =>
+    public PixelPass Pass(Action<Span<Vector4>, long, long> fill, (double R, double G, double B) luminance) =>
         (float.Exp2(Exposure), Mode) switch {
             var (gain, mode) => new PixelPass.Pointwise((row, column, line) => {
                 using SpanOwner<Vector4> layer = SpanOwner<Vector4>.Allocate(row.Length);
@@ -77,9 +76,9 @@ public sealed record GeneratedLayer(
                 for (int i = 0; i < row.Length; i++)
                     (weights.Span[i], layer.Span[i]) = (layer.Span[i].W, new Vector4(layer.Span[i].AsVector3() * gain, 1f));
                 if (mode == BlendingMode.Mix)
-                    mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated);
+                    mode.Composite(row, layer.Span, weights.Span, PixelAlphaRepresentation.Unassociated, luminance);
                 else {
-                    mode.Mixed(row, layer.Span, weights.Span);
+                    mode.Mixed(row, layer.Span, weights.Span, luminance);
                     layer.Span.CopyTo(row);
                 }
             }),
@@ -105,19 +104,19 @@ public abstract partial record NoiseBasis {
     public static NoiseBasis Default { get; } = Fbm.Default;
     public static Fbm Plain => Fbm.Default with { Octaves = Fbm.Default.Octaves with { Detail = 0f } };
 
-    public abstract Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler { get; }
+    public abstract Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler { get; }
 
     public abstract Fin<(float Lower, float Upper)> Range { get; }
 
     private protected virtual bool Degenerate => false;
 
-    public Fin<(Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sample, (float Lower, float Upper) Range)> BoundedSampler => Range.Map(range => (Sampler, range));
+    public Fin<(Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sample, (float Lower, float Upper) Range)> BoundedSampler => Range.Map(range => (Sampler, range));
 
-    public Fin<Func<LatticePoint, uint, NoiseSample<LatticePoint>>> SiteSampler =>
-        Degenerate ? new Unrenderable(GetType().Name, "cell sites need octaves that advance in scale") : Sampler;
+    public Fin<Func<Vector256<double>, uint, (float Value, Vector256<double> Site)>> SiteSampler =>
+        Degenerate ? new Unrenderable("Cell sites", "they need octaves that advance in scale") : Sampler;
 
-    private static Func<LatticePoint, uint, NoiseSample<LatticePoint>> Distorted(NoiseDimensions dimensions, float distortion, Func<LatticePoint, uint, float> sum) =>
-        (point, field) => new(sum(dimensions.Distort(point, distortion, CoordinateHash.Branch(field, 0u)), CoordinateHash.Branch(field, 1u)), point);
+    private static Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Distorted(NoiseDimensions dimensions, float distortion, Func<Vector256<double>, uint, float> sum) =>
+        (point, field) => (sum(dimensions.Distort(point, distortion, CoordinateHash.Branch(field, 0u)), CoordinateHash.Branch(field, 1u)), point);
 
     private static Fin<(float Lower, float Upper)> Symmetric(float bound) => (-bound, bound);
 
@@ -131,7 +130,7 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Distortion", Description = "Warps noise by its own signal")][property: Range(-1000d, 1000d)] float Distortion) : NoiseBasis {
         public static new Fbm Default { get; } = new(NoiseDimensions.Three, new Octaves(2f, 0.5f, 2f), 0f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => Distorted(Dimensions, Distortion, (point, hash) => 0.5f + (0.5f * Dimensions.Fbm(point, Octaves, hash)));
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => Distorted(Dimensions, Distortion, (point, hash) => 0.5f + (0.5f * Dimensions.Fbm(point, Octaves, hash)));
 
         public override Fin<(float Lower, float Upper)> Range => Centered(Dimensions.FbmBound(Octaves));
     }
@@ -142,7 +141,7 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Distortion", Description = "Warps noise by its own signal")][property: Range(-1000d, 1000d)] float Distortion) : NoiseBasis {
         public static new Multifractal Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, 0f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => Distorted(Dimensions, Distortion, (point, hash) => Dimensions.Cascade(point, Octaves, 0f, 1f, hash));
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => Distorted(Dimensions, Distortion, (point, hash) => Dimensions.Cascade(point, Octaves, 0f, 1f, hash));
 
         public override Fin<(float Lower, float Upper)> Range => Symmetric(Dimensions.CascadeBound(Octaves, 0f, 1f));
     }
@@ -154,7 +153,7 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Offset", Description = "Value added to each multifractal octave")][property: Range(-242d, 242d)] float Offset) : NoiseBasis {
         public static new HeteroTerrain Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, 0f, 0f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => Distorted(Dimensions, Distortion, (point, hash) => Dimensions.Cascade(point, Octaves, Offset, 0f, hash));
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => Distorted(Dimensions, Distortion, (point, hash) => Dimensions.Cascade(point, Octaves, Offset, 0f, hash));
 
         public override Fin<(float Lower, float Upper)> Range => Symmetric(Dimensions.CascadeBound(Octaves, Offset, 0f));
     }
@@ -167,7 +166,7 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Gain", Description = "Weight each multifractal octave hands the next")][property: Range(0d, 1000d)] float Gain) : NoiseBasis {
         public static new HybridMultifractal Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, 0f, 0f, 1f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler =>
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler =>
             Distorted(Dimensions, Distortion, (point, hash) => Dimensions.HybridMultifractal(point, Octaves, Offset, Gain, hash));
 
         public override Fin<(float Lower, float Upper)> Range => Symmetric(Dimensions.HybridBound(Octaves, Offset, Gain));
@@ -181,7 +180,7 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Gain", Description = "Weight each multifractal octave hands the next")][property: Range(0d, 1000d)] float Gain) : NoiseBasis {
         public static new RidgedMultifractal Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, 0f, 0f, 1f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler =>
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler =>
             Distorted(Dimensions, Distortion, (point, hash) => Dimensions.RidgedMultifractal(point, Octaves, Offset, Gain, hash));
 
         public override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.RidgedBound(Octaves, Offset, Gain));
@@ -193,9 +192,9 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Cells", Description = "Cell distance and site placement")] VoronoiCells Cells) : NoiseBasis {
         public static new F1 Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, new VoronoiCells(CellMetric.Euclidean, 0.5f, 1f));
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => Dimensions.F1(point, Octaves, Cells, 0f, hash);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => (point, hash) => Dimensions.F1(point, Octaves, Cells, 0f, hash);
 
-        public override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.CellBound(Octaves, Cells, 0f, 1f));
+        public override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.CellBound(Cells, 0f, 1f));
 
         private protected override bool Degenerate => Octaves.Degenerate;
     }
@@ -206,9 +205,9 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Cells", Description = "Cell distance and site placement")] VoronoiCells Cells) : NoiseBasis {
         public static new F2 Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, F1.Default.Cells);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => Dimensions.F2(point, Octaves, Cells, hash);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => (point, hash) => Dimensions.F2(point, Octaves, Cells, hash);
 
-        public override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.CellBound(Octaves, Cells, 0f, 2f));
+        public override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.CellBound(Cells, 0f, 2f));
 
         private protected override bool Degenerate => Octaves.Degenerate;
     }
@@ -221,9 +220,9 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Smoothness", Description = "Blend between neighboring cells")][property: Range(0d, 1d)] float Smoothness) : NoiseBasis {
         public static new SmoothF1 Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, F1.Default.Cells, 1f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => Dimensions.F1(point, Octaves, Cells, Smoothness, hash);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => (point, hash) => Dimensions.F1(point, Octaves, Cells, Smoothness, hash);
 
-        public override Fin<(float Lower, float Upper)> Range => Symmetric(Dimensions.CellBound(Octaves, Cells, Smoothness, 1f));
+        public override Fin<(float Lower, float Upper)> Range => Symmetric(Dimensions.CellBound(Cells, Smoothness, 1f));
 
         private protected override bool Degenerate => Octaves.Degenerate;
     }
@@ -234,7 +233,7 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Randomness", Description = "Share of its cell each site wanders over")][property: Range(0d, 1d)] float Randomness) : NoiseBasis {
         public static new EdgeDistance Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, F1.Default.Cells.Randomness);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => new(Dimensions.EdgeDistance(point, Octaves, Randomness, hash), point);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => (point, hash) => (Dimensions.EdgeDistance(point, Octaves, Randomness, hash), point);
 
         public override Fin<(float Lower, float Upper)> Range =>
             Octaves.Degenerate ? new Unrenderable(nameof(EdgeDistance), "edge distance needs octaves that advance in scale") : Dimensions.EdgeRange(Octaves, Randomness);
@@ -247,8 +246,8 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Orientation", Description = "Base angle of Gabor impulses")][property: Range(-double.Pi, double.Pi)] float Orientation) : NoiseBasis {
         public static new Gabor Default { get; } = new(NoiseDimensions.Three, 2f, 1f, float.Pi / 4f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler =>
-            (point, hash) => new(0.5f + (0.5f * Dimensions.Gabor(point, Frequency, Anisotropy, Orientation, hash).Y), point);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler =>
+            (point, hash) => (0.5f + (0.5f * Dimensions.Gabor(point, Frequency, Anisotropy, Orientation, hash).Y), point);
 
         public override Fin<(float Lower, float Upper)> Range => Centered(Dimensions.GaborBound);
     }
@@ -256,7 +255,7 @@ public abstract partial record NoiseBasis {
     public sealed record Magic([property: Display(Name = "Magic", Description = "Turbulence steps and self-warp of magic noise")] MagicNoise Noise) : NoiseBasis {
         public static new Magic Default { get; } = new(new MagicNoise(2, 0f));
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, _) => new(Vector3.Sum(Noise.Sample(point)) / 3f, point);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => (point, _) => (Vector3.Sum(Noise.Sample(point)) / 3f, point);
 
         public override Fin<(float Lower, float Upper)> Range => Noise.Range;
     }
@@ -271,8 +270,8 @@ public abstract partial record NoiseBasis {
         [property: Display(Name = "Detail scale", Description = "Distortion noise frequency relative to wave")][property: Range(0d, 1000d)] float DetailScale) : NoiseBasis {
         public static new Wave Default { get; } = new(NoiseDimensions.Three, Fbm.Default.Octaves, 0f, WaveForm.Bands, WaveProfile.Sine, 0f, 1f);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler =>
-            (point, hash) => new(Dimensions.Wave(point, Form, Profile, Phase, Distortion, Octaves, DetailScale, hash), point);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler =>
+            (point, hash) => (Dimensions.Wave(point, Form, Profile, Phase, Distortion, Octaves, DetailScale, hash), point);
 
         public override Fin<(float Lower, float Upper)> Range => (0f, 1f);
     }
@@ -280,7 +279,7 @@ public abstract partial record NoiseBasis {
     public sealed record White([property: Display(Name = "Dimensions", Description = "Coordinate axes the noise reads")] NoiseDimensions Dimensions) : NoiseBasis {
         public static new White Default { get; } = new(NoiseDimensions.Three);
 
-        public override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => new(Dimensions.White(point, hash).X, point);
+        public override Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sampler => (point, hash) => (Dimensions.White(point, hash).X, point);
 
         public override Fin<(float Lower, float Upper)> Range => (0f, 1f);
     }
@@ -295,11 +294,9 @@ public sealed record NoiseSource(
     [property: Display(Name = "Evolution", Description = "Noise units per second the field changes through")][property: Range(-4d, 4d)] float Evolution) {
     public static NoiseSource Default { get; } = new(NoiseBasis.Default, ShortSideExtent.Create(1f), ShortSideExtent.Create(1f), 0f, 0f, 0f);
 
-    public Func<LatticePoint, float> Sampler(float time, uint field) =>
-        (Basis.Sampler, ERational.FromSingle(ScaleX), ERational.FromSingle(ScaleY), ERational.FromSingle(time)) switch {
-            var (basis, scaleX, scaleY, clock) => (ERational.FromSingle(DriftX).Multiply(clock), ERational.FromSingle(DriftY).Multiply(clock), ERational.FromSingle(Evolution).Multiply(clock)) switch {
-                var (driftX, driftY, lift) => point => basis(new(point.X.Subtract(driftX).Divide(scaleX), point.Y.Subtract(driftY).Divide(scaleY), point.Z.Divide(scaleX).Add(lift), point.W), field).Value,
-            },
+    public Func<Vector256<double>, float> Sampler(float time, uint field) =>
+        (Basis.Sampler, Vector256.Create((double)DriftX * time, (double)DriftY * time, 0d, 0d), Vector256.Create(ScaleX, ScaleY, ScaleX, 1d), Vector256.Create(0d, 0d, (double)Evolution * time, 0d)) switch {
+            var (basis, drift, scale, lift) => point => basis(((point - drift) / scale) + lift, field).Value,
         };
 }
 
@@ -311,15 +308,14 @@ public sealed record VortexField(
     [property: Display(Name = "Spin", Description = "Turns per second about center")][property: Range(-1d, 1d)] float Spin) {
     public static VortexField Default { get; } = new(1, 2.8f, ShortSideExtent.Create(0.5f), 0.6f, 1f / float.Tau);
 
-    public Func<(double X, double Y), LatticePoint> Shape(float time) =>
-        (ERational.FromSingle(Radius), ERational.FromDouble(double.Tau), ERational.FromSingle(Spin).Multiply(ERational.FromSingle(time))) switch {
-            var (size, period, clock) => point => (double.Hypot(point.X, point.Y), double.Atan2(point.Y, point.X)) switch {
-                var (radius, angle) => (
-                    double.SinCos(LatticePoint.Split(ERational.FromDouble(angle).Multiply(Arms).Add(ERational.FromSingle(Twist).Multiply(ERational.One.Subtract(ERational.FromDouble(radius).Divide(size))))
-                        .Divide(period).Add(clock)).Local.Multiply(period).ToDouble()),
-                    ERational.Min(ERational.FromDouble(radius), size)),
+    public Func<(double X, double Y), Vector256<double>> Shape(float time) =>
+        ((double)Radius, (double)Spin * time) switch {
+            var (size, clock) => point => (double.Hypot(point.X, point.Y), double.Atan2(point.Y, point.X)) switch {
+                var (radius, angle) => ((((angle * Arms) + (Twist * (1d - (radius / size)))) / double.Tau) + clock) switch {
+                    var turns => (double.SinCos((turns - double.Floor(turns)) * double.Tau), double.Min(radius, size)),
+                },
             } switch {
-                var ((sin, cos), reach) => new LatticePoint(reach.Multiply(ERational.FromDouble(cos)), reach.Multiply(ERational.FromDouble(sin)), reach.Multiply(ERational.FromSingle(Tunnel)), ERational.Zero),
+                var ((sin, cos), reach) => Vector256.Create(reach * cos, reach * sin, reach * Tunnel, 0d),
             },
         };
 }
@@ -354,8 +350,8 @@ public sealed record PointCells(
     [property: Display(Name = "Variation", Description = "Share each radius shrinks at random")][property: Range(0d, 1d)] float Variation,
     [property: Display(Name = "Brightness spread", Description = "Stops each point dims at random")][property: Range(0d, 10d)] float Spread,
     [property: Display(Name = "Softness", Description = "Share of each disc's radius fading at its edge")][property: Range(0d, 1d)] float Softness) {
-    private static readonly JitteredCells Sites = new(0.5f);
-    private static readonly float Largest = (1f - Sites.Randomness) / 2f;
+    private const float Randomness = 0.5f;
+    private const float Largest = (1f - Randomness) / 2f;
 
     public static PointCells Default { get; } = new(ShortSideExtent.Create(0.01f * ReferenceFrame.GreaterSide), 0.5f, 2f * 0.2f, 0.5f, 1f, 0.5f);
 
@@ -363,24 +359,24 @@ public sealed record PointCells(
 
     public (double Radius, double Gain) Draw(Vector4 draw) => (Size * (1d - (Variation * (double)draw.Y)) * Largest, double.Exp2(-Spread * draw.Z));
 
-    public (float Coverage, float Value) Disc((ERational X, ERational Y) point, double side, uint field, Func<float, float> tone) {
-        (ERational spacing, uint sites, uint colors) = (ERational.FromSingle(Spacing), CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u));
-        ERational width = ERational.One.Divide(spacing.Multiply(ERational.FromDouble(side)));
-        (ERational x, ERational y, ERational half) = (point.X.Divide(spacing), point.Y.Divide(spacing), width.Divide(2));
-        (ERational left, ERational top, ERational right, ERational bottom) = (x.Subtract(half), y.Subtract(half), x.Add(half), y.Add(half));
-        ERational area = width.Multiply(width);
+    public (float Coverage, float Value) Disc((double X, double Y) point, double side, uint field, Func<float, float> tone) {
+        (double spacing, uint sites, uint colors) = (Spacing, CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u));
+        double width = 1d / (spacing * side);
+        (double x, double y, double half) = (point.X / spacing, point.Y / spacing, width / 2d);
+        (double Left, double Top, double Right, double Bottom) box = (x - half, y - half, x + half, y + half);
+        double area = width * width;
         PointCells cells = this;
-        (ERational coverage, ERational value) = Empty ? (ERational.Zero, ERational.Zero) : Sites.Covering(left, top, right, bottom, ERational.FromSingle(Largest)).Aggregate((Coverage: ERational.Zero, Value: ERational.Zero), (sum, cell) => {
+        (double coverage, double value) = Empty ? (0d, 0d) : JitteredCells.Covering(box, Largest, Randomness).Aggregate((Coverage: 0d, Value: 0d), (sum, cell) => {
             Vector4 draw = CoordinateHash.Uniforms(cell.X, cell.Y, colors);
             (double radius, double gain) = cells.Draw(draw);
             if (draw.X >= cells.Density || radius is 0d)
                 return sum;
-            Vector2 offset = Sites.Offset(cell.X, cell.Y, sites);
-            (ERational siteX, ERational siteY) = (ERational.FromEInteger(cell.X).Add(ERational.FromSingle(offset.X)), ERational.FromEInteger(cell.Y).Add(ERational.FromSingle(offset.Y)));
-            ERational weight = new SoftDisc(radius, cells.Softness).Mass(left.Subtract(siteX), top.Subtract(siteY), right.Subtract(siteX), bottom.Subtract(siteY)).Multiply(ERational.FromDouble(gain)).Divide(area);
-            return (sum.Coverage.Add(weight), sum.Value.Add(weight.Multiply(ERational.FromSingle(tone(draw.X / cells.Density)))));
+            Vector2 offset = JitteredCells.Offset(cell.X, cell.Y, Randomness, sites);
+            (double siteX, double siteY) = (cell.X + offset.X, cell.Y + offset.Y);
+            double weight = ShapeEdge.DiscMass(radius, cells.Softness, (box.Left - siteX, box.Top - siteY, box.Right - siteX, box.Bottom - siteY)) * gain / area;
+            return (sum.Coverage + weight, sum.Value + (weight * tone(draw.X / cells.Density)));
         });
-        return (coverage.ToSingle(), value.ToSingle());
+        return ((float)coverage, (float)value);
     }
 }
 
@@ -416,34 +412,32 @@ public sealed class RampFootprint {
             var color => new Vector4(Presets.Shown(color) * (float)color.Alpha.A, (float)color.Alpha.A),
         })]);
 
-    public Vector4 Mean(double position, double footprint, bool periodic) =>
-        double.IsPositiveInfinity(footprint) ? Unassociated(sums[Bins] / Bins) : Mean(ERational.FromDouble(position), ERational.FromDouble(footprint), periodic);
-
-    public Vector4 Mean(ERational position, ERational footprint, bool periodic) {
-        (ERational low, ERational high, ERational total) = (position.Subtract(footprint.Divide(2)), position.Add(footprint.Divide(2)), footprint.Multiply(Bins));
+    public Vector4 Mean(double position, double footprint, bool periodic) {
+        if (double.IsPositiveInfinity(footprint))
+            return Unassociated(sums[Bins] / Bins);
+        (double low, double high, double total) = (position - (footprint / 2d), position + (footprint / 2d), footprint * Bins);
         if (periodic) {
-            (EInteger periods, ERational remainder) = LatticePoint.Split(footprint);
-            ERational start = LatticePoint.Split(low).Local;
-            ERational end = start.Add(remainder);
-            return Unassociated((sums[Bins] * ERational.FromEInteger(periods).Divide(total).ToSingle())
-                + Segment(start.Multiply(Bins), ERational.Min(end, ERational.One).Multiply(Bins), total)
-                + (end.CompareTo(ERational.One) > 0 ? Segment(ERational.Zero, end.Subtract(ERational.One).Multiply(Bins), total) : Vector4.Zero));
+            double periods = double.Floor(footprint);
+            double start = low - double.Floor(low);
+            double end = start + (footprint - periods);
+            return Unassociated((sums[Bins] * (float)(periods / total))
+                + Segment(start * Bins, double.Min(end, 1d) * Bins, total)
+                + (end > 1d ? Segment(0d, (end - 1d) * Bins, total) : Vector4.Zero));
         }
-        return Unassociated((low.Sign < 0 ? bins[0] * ERational.Min(ERational.Zero, high).Subtract(low).Divide(footprint).ToSingle() : Vector4.Zero)
-            + (high.CompareTo(ERational.One) > 0 ? bins[Bins - 1] * high.Subtract(ERational.Max(low, ERational.One)).Divide(footprint).ToSingle() : Vector4.Zero)
-            + Segment(ERational.Max(low, ERational.Zero).Multiply(Bins), ERational.Min(high, ERational.One).Multiply(Bins), total));
+        return Unassociated((low < 0d ? bins[0] * (float)((double.Min(0d, high) - low) / footprint) : Vector4.Zero)
+            + (high > 1d ? bins[Bins - 1] * (float)((high - double.Max(low, 1d)) / footprint) : Vector4.Zero)
+            + Segment(double.Max(low, 0d) * Bins, double.Min(high, 1d) * Bins, total));
     }
 
     private static Vector4 Unassociated(Vector4 mean) => mean.W > 0f ? new Vector4(mean.AsVector3() / mean.W, mean.W) : Vector4.Zero;
 
-    private Vector4 Segment(ERational low, ERational high, ERational total) {
-        if (low.CompareTo(high) >= 0)
+    private Vector4 Segment(double low, double high, double total) {
+        if (low >= high)
             return Vector4.Zero;
-        (int first, int last) = (LatticePoint.Split(low).Cell.ToInt32Checked(), LatticePoint.Split(high).Cell.ToInt32Checked());
-        ERational next = ERational.FromInt32(first + 1);
-        return (bins[first] * ERational.Min(high, next).Subtract(low).Divide(total).ToSingle())
-            + (last > first + 1 ? (sums[last] - sums[first + 1]) * ERational.One.Divide(total).ToSingle() : Vector4.Zero)
-            + (last > first && high.CompareTo(last) > 0 ? bins[last] * high.Subtract(last).Divide(total).ToSingle() : Vector4.Zero);
+        (int first, int last) = ((int)double.Floor(low), (int)double.Floor(high));
+        return (bins[first] * (float)((double.Min(high, first + 1) - low) / total))
+            + (last > first + 1 ? (sums[last] - sums[first + 1]) * (float)(1d / total) : Vector4.Zero)
+            + (last > first && high > last ? bins[last] * (float)((high - last) / total) : Vector4.Zero);
     }
 }
 
@@ -451,7 +445,7 @@ public sealed record NoiseTexture(
     [property: Display(Name = "Noise", Description = "Field pattern, feature size, and motion")] NoiseSource Noise,
     [property: Display(Name = "Placement", Description = "Field position and turn")] Placement Placement,
     [property: Display(Name = "Vortex", Description = "Swirls field around center into tunnel")] VortexField? VortexShape,
-    [property: Display(Name = "Warp", Description = "Warp noise displacement in frame short sides")][property: Range(-1d, 1d)] ShortSideOffset Warp,
+    [property: Display(Name = "Warp", Description = "Warp noise displacement in frame short sides")][property: Range(-1d, 1d)] float Warp,
     [property: Display(Name = "Warp noise", Description = "Pattern displacing the field")] NoiseBasis WarpBasis,
     [property: Display(Name = "Colors", Description = "Color and coverage by noise value")] ImmutableArray<RampStop> Colors,
     [property: Display(Name = "Envelope", Description = "Elliptical falloff shaping field")] FieldEnvelope? Envelope,
@@ -463,7 +457,7 @@ public sealed record NoiseTexture(
     private static readonly Octaves VoronoiOctaves = new(1f, 0.5f, 2f);
 
     public static NoiseTexture Default { get; } = new(
-        NoiseSource.Default with { ScaleX = ShortSideExtent.Create(1f / 5f), ScaleY = ShortSideExtent.Create(1f / 5f) }, Placement.Default, VortexShape: null, ShortSideOffset.Neutral,
+        NoiseSource.Default with { ScaleX = ShortSideExtent.Create(1f / 5f), ScaleY = ShortSideExtent.Create(1f / 5f) }, Placement.Default, VortexShape: null, 0f,
         NoiseBasis.Wave.Default with { Octaves = new(2f, 0.186957f, 2f), Distortion = 14.9f, Phase = -3f, DetailScale = 1.3f },
         Presets.Grayscale, Envelope: null, Incandescence: null, Extinction: null, GeneratedLayer.Default, Seed.MinValue, Timing.Default);
 
@@ -507,7 +501,7 @@ public sealed record NoiseTexture(
     public static NoiseTexture Flow { get; } = (Cover: (Low: 0.37f, High: 0.87f), Tint: (Low: 0.62f, High: 1.1f)) switch {
         var (cover, tint) => Default with {
             Noise = NoiseSource.Default with { Basis = NoiseBasis.Fbm.Default with { Octaves = new(2.48f, 0f, 12.4f), Distortion = 7.25f }, Evolution = 0.15f },
-            Warp = ShortSideOffset.Create(0.0566f),
+            Warp = 0.0566f,
             Colors = Presets.Sampled(n => new Vector4(Vector3.Lerp(new(0.305f, 0.129f, 1f), new(1f, 0.059f, 0.298f), ShapeEdge.Smoother(Presets.Map(n, tint))), Presets.Map(n, cover)), 0.37f, 0.62f, 0.87f, 1f),
             Layer = GeneratedLayer.Added,
         },
@@ -531,7 +525,7 @@ public sealed record NoiseTexture(
             ScaleY = ShortSideExtent.Create(1f / 0.7f),
             DriftY = 5f,
         },
-        Placement = Placement.Default with { Center = new(FrameAxis.Middle, FrameAxis.End) },
+        Placement = Placement.Default with { Center = new(0.5f, 1f) },
         Colors = Presets.Threshold(Vector3.One, 0.17f, 1f),
         Envelope = FieldEnvelope.Default,
         Incandescence = Emission.Default,
@@ -570,13 +564,13 @@ public sealed record NoiseTexture(
 
     public static Option<PixelPass> Pass(NoiseTexture state, PassContext context) {
         (uint field, float time) = (state.Seed.Field(12u, 0u), state.Timing.At(context));
-        Func<LatticePoint, float> noise = state.Noise.Sampler(time, CoordinateHash.Branch(field, 0u));
-        Func<(double X, double Y), LatticePoint> shape = Optional(state.VortexShape).Map(vortex => vortex.Shape(time))
-            .IfNone(static point => new LatticePoint(ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero, ERational.Zero));
-        Func<LatticePoint, LatticePoint> warp = state.Warp == ShortSideOffset.Neutral ? static at => at
-            : (state.Noise with { Basis = state.WarpBasis }, ERational.FromSingle(state.Warp).Multiply(2)) switch {
+        Func<Vector256<double>, float> noise = state.Noise.Sampler(time, CoordinateHash.Branch(field, 0u));
+        Func<(double X, double Y), Vector256<double>> shape = Optional(state.VortexShape).Map(vortex => vortex.Shape(time))
+            .IfNone(static point => Vector256.Create(point.X, point.Y, 0d, 0d));
+        Func<Vector256<double>, Vector256<double>> warp = state.Warp is 0f ? static at => at
+            : (state.Noise with { Basis = state.WarpBasis }, 2d * state.Warp) switch {
                 var (source, gain) => (source.Sampler(time, CoordinateHash.Branch(field, 1u)), source.Sampler(time, CoordinateHash.Branch(field, 2u))) switch {
-                    var (across, along) => at => at with { X = at.X.Add(gain.Multiply(ERational.FromSingle(across(at) - 0.5f))), Y = at.Y.Add(gain.Multiply(ERational.FromSingle(along(at) - 0.5f))) },
+                    var (across, along) => at => at.WithElement(0, at[0] + (gain * (across(at) - 0.5f))).WithElement(1, at[1] + (gain * (along(at) - 0.5f))),
                 },
             };
         Func<(double X, double Y), float> rim = Optional(state.Envelope).Map<Func<(double X, double Y), float>>(static envelope => envelope.Falloff).IfNone(static _ => 0f);
@@ -586,7 +580,7 @@ public sealed record NoiseTexture(
         Func<float, float> opacity = Optional(state.Extinction).Map<Func<float, float>>(static depth => cover => 1f - float.Exp(-depth * cover)).IfNone(static cover => cover);
         RampLight colors = RampLight.Of(state.Colors, context.Working);
         return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-            colors.Sample(noise(warp(shape(point))) - rim(point)) switch { var color => new Vector4(light(color), opacity(color.W)) })));
+            colors.Sample(noise(warp(shape(point))) - rim(point)) switch { var color => new Vector4(light(color), opacity(color.W)) }), context.Working.Luminance));
     }
 }
 
@@ -628,18 +622,18 @@ public sealed record Fog(
                 PixelFrame spread = new(frame.Origin, frame.Size, frame.Extent);
                 using Mat target = spread.Header();
                 return source.Blur(target, radius.Pixels(context.Extent)).Bind(_ =>
-                    state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, (column, line) => spread.Row(line)[(int)(column - spread.Origin.X)].AsVector3())).Run(frame, progress));
+                    state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, (column, line) => spread.Row(line)[(int)(column - spread.Origin.X)].AsVector3()), context.Working.Luminance).Run(frame, progress));
             })),
-            None: () => state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, static (_, _) => Vector3.One))));
+            None: () => state.Layer.Pass(Fill(state, RampLight.Of(state.Colors, context.Working), opacity, static (_, _) => Vector3.One), context.Working.Luminance)));
 
     private static Func<long, long, float> Opacity(Fog state, PassContext context, PixelFrame depth, Camera camera, float attenuation) {
         FieldFrame frame = Placement.Default.Frame(context.Extent);
-        Func<LatticePoint, float> noise = state.Noise.Sampler(state.Timing.At(context), state.Seed.Field(13u, 0u));
+        Func<Vector256<double>, float> noise = state.Noise.Sampler(state.Timing.At(context), state.Seed.Field(13u, 0u));
         Func<long, long, float, float> density = state.Variation is 0f ? static (_, _, _) => 1f
             : (column, line, path) => frame.Upward(column, line) switch {
-                var point => float.Max(1f + (state.Variation * ((2f * noise(new LatticePoint(ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero, ERational.FromSingle(path)))) - 1f)), 0f),
+                var point => float.Max(1f + (state.Variation * ((2f * noise(Vector256.Create(point.X, point.Y, 0d, path))) - 1f)), 0f),
             };
-        return new Extinction(state.Start, attenuation, Optional(state.Cutoff)).Field(depth, camera, density);
+        return new Extinction(state.Start, attenuation) { Cutoff = Optional(state.Cutoff) }.Field(depth, camera, density);
     }
 
     private static Action<Span<Vector4>, long, long> Fill(Fog state, RampLight table, Func<long, long, float> opacity, Func<long, long, Vector3> light) =>
@@ -677,26 +671,26 @@ public sealed record Starfield(
     public static Option<PixelPass> Pass(Starfield state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Stars.SiteSampler.Bind(stars => Drawn(state, context, stars).Run(frame, progress))));
 
-    private static PixelPass Drawn(Starfield state, PassContext context, Func<LatticePoint, uint, NoiseSample<LatticePoint>> stars) {
+    private static PixelPass Drawn(Starfield state, PassContext context, Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> stars) {
         (RampLight starTable, RampLight nebulaTable) = (RampLight.Of(state.StarColors, context.Working), RampLight.Of(state.NebulaColors, context.Working));
         (uint field, float time) = (state.Seed.Field(14u, 0u), state.Timing.At(context));
         (uint glint, uint sites, uint clouds, uint draws) = (CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u), CoordinateHash.Branch(field, 4u));
-        (float gain, ERational scale, double reach) = (float.Exp2(state.StarExposure), ERational.FromSingle(state.StarScale), (double)state.StarScale / state.StarRadius);
-        Func<LatticePoint, float> steady = state.Twinkle is 0f ? static _ => 1f
-            : ((NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler, ERational.FromSingle(state.TwinkleRate).Multiply(ERational.FromSingle(time)), state.Twinkle) switch {
-                var (plain, phase, depth) => site => 1f - (depth * plain(site with { W = site.W.Add(phase) }, glint).Value),
+        (float gain, double scale, double reach) = (float.Exp2(state.StarExposure), state.StarScale, (double)state.StarScale / state.StarRadius);
+        Func<Vector256<double>, float> steady = state.Twinkle is 0f ? static _ => 1f
+            : ((NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler, (double)state.TwinkleRate * time, state.Twinkle) switch {
+                var (plain, phase, depth) => site => 1f - (depth * plain(site.WithElement(3, site[3] + phase), glint).Value),
             };
         Func<(double X, double Y), Vector3> nebula = state.NebulaDensity is 0f ? static _ => Vector3.Zero
             : (state.Nebula.Sampler(time, clouds), float.Exp2(state.NebulaExposure), state.NebulaDensity) switch {
-                var (sample, light, density) => point => sample(new LatticePoint(ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero, ERational.Zero)) switch {
+                var (sample, light, density) => point => sample(Vector256.Create(point.X, point.Y, 0d, 0d)) switch {
                     var n => ShapeEdge.Smoother(Presets.Map(n, (1f - density, 1f))) * nebulaTable.Sample(n) switch { var cloud => cloud.W * light * cloud.AsVector3() },
                 },
             };
         return state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point => {
-            NoiseSample<LatticePoint> cell = stars(new(ERational.FromDouble(point.X).Divide(scale), ERational.FromDouble(point.Y).Divide(scale), ERational.Zero, ERational.Zero), sites);
-            Vector4 draw = cell.Site.White(draws);
-            return new Vector4((draw.Y * (float)double.Clamp(1d - (cell.Value * reach), 0d, 1d) * steady(cell.Site) * gain * starTable.Sample(draw.X).AsVector3()) + nebula(point), 1f);
-        }));
+            (float value, Vector256<double> site) = stars(Vector256.Create(point.X / scale, point.Y / scale, 0d, 0d), sites);
+            Vector4 draw = CoordinateHash.White(site, draws);
+            return new Vector4((draw.Y * (float)double.Clamp(1d - (value * reach), 0d, 1d) * steady(site) * gain * starTable.Sample(draw.X).AsVector3()) + nebula(point), 1f);
+        }), context.Working.Luminance);
     }
 }
 
@@ -730,19 +724,17 @@ public sealed record ParticleField(
     [property: Display(Name = "Timing", Description = "Start time and pace over recorded frames")] Timing Timing) : IPixelStage<ParticleField> {
     private static readonly GaussLegendreRule Shutters = new(0d, 1d, 32);
 
-    public static ParticleField Default { get; } = (Unit: ReferenceFrame.GreaterSide / 2f, Pace: 24f * 0.05f * 0.5f, Scale: 1.6f) switch {
-        var (unit, pace, scale) => new(
-            new(ShortSideExtent.Create(unit / 10f), 1f, 2f * 0.2f, 0.5f, 1f, 1f / 1.8f), 4, float.Atan2(0.5f, 0.4f), pace * float.Hypot(0.4f, 0.5f) * unit, NoiseBasis.Default,
-            ShortSideLength.Create(0.12f / 2f * unit), ShortSideExtent.Create(unit / scale), scale * pace / 3200f, 4f, 1f, 1f, ShortSideLength.Create(0.01f * ReferenceFrame.GreaterSide),
-            Iris.Create(6, double.Pi / 3d, 0d, 0d, 1d), 0f, 0.5f / 24f, 0f, Covering: false, Presets.White, 0f, Presets.White, Emission.Default,
-            0f, 0f, 0f, GeneratedLayer.Added with { Exposure = 2f }, Seed.MinValue, Timing.Default),
-    };
+    public static ParticleField Default { get; } = new(
+        new(ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f / 10f), 1f, 2f * 0.2f, 0.5f, 1f, 1f / 1.8f), 4, float.Atan2(0.5f, 0.4f), 24f * 0.05f * 0.5f * float.Hypot(0.4f, 0.5f) * (ReferenceFrame.GreaterSide / 2f),
+        NoiseBasis.Default, ShortSideLength.Create(0.12f / 2f * (ReferenceFrame.GreaterSide / 2f)), ShortSideExtent.Create(ReferenceFrame.GreaterSide / 2f / 1.6f), 1.6f * (24f * 0.05f * 0.5f) / 3200f, 4f, 1f, 1f,
+        ShortSideLength.Create(0.01f * ReferenceFrame.GreaterSide), Iris.Create(6, double.Pi / 3d, 0d, 0d, 1d), 0f, 0.5f / 24f, 0f, Covering: false, Presets.White, 0f, Presets.White, Emission.Default,
+        0f, 0f, 0f, GeneratedLayer.Added with { Exposure = 2f }, Seed.MinValue, Timing.Default);
 
     public static ParticleField Rain { get; } = Default with {
         Cells = PointCells.Default,
         Heading = -float.Pi / 2f,
         Speed = 2.5f * ReferenceFrame.GreaterSide,
-        Turbulence = ShortSideLength.Neutral,
+        Turbulence = ShortSideLength.Zero,
         Aperture = Iris.Create(6, double.Pi / 3d, 1d, 0d, 1d),
         Layer = GeneratedLayer.Default,
         Covering = true,
@@ -771,7 +763,7 @@ public sealed record ParticleField(
         Radiance = null,
         Cells = Default.Cells with { Variation = 0f, Spread = 0f, Softness = 0f },
         Heading = -float.Pi / 2f,
-        Defocus = ShortSideLength.Neutral,
+        Defocus = ShortSideLength.Zero,
         Aperture = Iris.Create(4, double.Pi / 4d, 0d, 0d, 1d),
     };
 
@@ -780,7 +772,7 @@ public sealed record ParticleField(
         Layers = 1,
         Depth = 1f,
         Speed = 0f,
-        Defocus = ShortSideLength.Neutral,
+        Defocus = ShortSideLength.Zero,
         Emission = new(3000d, 12_000d),
         Incandescence = 1f,
         Layer = GeneratedLayer.Added,
@@ -794,128 +786,122 @@ public sealed record ParticleField(
     public static Option<PixelPass> Pass(ParticleField state, PassContext context) =>
         state.Cells.Empty || state.Aperture.Obstruction is 1d || (!state.Covering && state.Radiance is null) ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
-                from bounded in state.Turbulence == ShortSideLength.Neutral ? (Sample: state.Basis.Sampler, Range: (Lower: 0f, Upper: 0f)) : state.Basis.BoundedSampler
+                from bounded in state.Turbulence == ShortSideLength.Zero ? (Sample: state.Basis.Sampler, Range: (Lower: 0f, Upper: 0f)) : state.Basis.BoundedSampler
                 from drawn in Drawn(state, context, frame, bounded).Run(frame, progress)
                 select drawn));
 
-    private static PixelPass Drawn(ParticleField state, PassContext context, PixelFrame frame, (Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sample, (float Lower, float Upper) Range) bounded) {
+    private static PixelPass Drawn(ParticleField state, PassContext context, PixelFrame frame, (Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> Sample, (float Lower, float Upper) Range) bounded) {
         (Iris iris, RampLight colors, RampLight coating) = (state.Aperture, RampLight.Of(state.Colors, context.Working), RampLight.Of(state.Coating, context.Working));
-        (PointCells cells, int side, ERational time, ERational shutter) = (state.Cells, context.Extent.ShortSide, ERational.FromSingle(state.Timing.At(context)), ERational.FromSingle(state.Shutter));
-        (ERational X, ERational Y) middle = (ERational.FromInt32(context.Extent.Width).Divide(2), ERational.FromInt32(context.Extent.Height).Divide(2));
-        Func<LatticePoint, uint, NoiseSample<LatticePoint>> plain = (NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler;
+        (PointCells cells, int side, double time, double shutter) = (state.Cells, context.Extent.ShortSide, state.Timing.At(context), state.Shutter);
+        (double X, double Y) middle = (context.Extent.Width / 2d, context.Extent.Height / 2d);
+        Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> plain = (NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler;
         uint field = state.Seed.Field(15u, 0u);
         (uint presence, uint tone, uint across, uint down, uint twinkle) =
             (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u), CoordinateHash.Branch(field, 4u));
         Func<float, Vector3> thermal = Emission.Span((context.Working, state.Emission));
         (double focus, double radiance) = (double.Pow(state.Depth, -(double)state.Focus), Optional(state.Radiance).Map(static exposure => (double)float.Exp2(exposure)).IfNone(0d));
-        (ERational X, ERational Y) heading = double.SinCos(state.Heading) switch {
-            var (sin, cos) => (ERational.FromSingle(state.Speed).Multiply(ERational.FromDouble(cos)), ERational.FromSingle(state.Speed).Multiply(ERational.FromDouble(-sin))),
-        };
-        (ERational lowWind, ERational highWind) = (ERational.FromSingle(bounded.Range.Lower).Multiply(2).Subtract(1), ERational.FromSingle(bounded.Range.Upper).Multiply(2).Subtract(1));
-        List<Mote> motes = [];
-        for (int layer = 0; layer < state.Layers; layer++) {
-            ERational middleDepth = ERational.FromInt32(layer).Add(ERational.One.Divide(2)).Divide(state.Layers);
-            ERational depthWidth = ERational.FromSingle(state.DepthVariation).Divide(2).Divide(state.Layers);
-            (double reference, double nearest, double farthest) =
-                (double.Pow(state.Depth, -middleDepth.ToDouble()), double.Pow(state.Depth, -middleDepth.Subtract(depthWidth).ToDouble()), double.Pow(state.Depth, -middleDepth.Add(depthWidth).ToDouble()));
-            ERational cell = ERational.FromSingle(cells.Spacing).Multiply(ERational.FromDouble(reference));
-            ERational support = ERational.FromDouble(Grown(side * ((cells.Spacing * nearest * cells.Draw(Vector4.Zero).Radius)
-                + (state.Defocus * double.Max(double.Abs(nearest - focus), double.Abs(farthest - focus))))) / side);
-            ERational[] wind = [lowWind.Multiply(ERational.FromDouble(nearest)), lowWind.Multiply(ERational.FromDouble(farthest)), highWind.Multiply(ERational.FromDouble(nearest)), highWind.Multiply(ERational.FromDouble(farthest))];
-            (ERational windLow, ERational windHigh) = (wind.Aggregate(ERational.Min).Multiply(ERational.FromSingle(state.Turbulence)), wind.Aggregate(ERational.Max).Multiply(ERational.FromSingle(state.Turbulence)));
-            ((ERational Low, ERational High) horizontal, (ERational Low, ERational High) vertical) = (Travel(heading.X, nearest, farthest), Travel(heading.Y, nearest, farthest));
-            (EInteger left, EInteger top, EInteger right, EInteger bottom) =
-                (Lattice(frame.Window.Left, middle.X, horizontal.High.Add(windHigh).Add(support), cell).Subtract(1),
-                    Lattice(frame.Window.Top, middle.Y, vertical.High.Add(windHigh).Add(support), cell).Subtract(1),
-                    Lattice(frame.Window.Right, middle.X, horizontal.Low.Add(windLow).Subtract(support), cell),
-                    Lattice(frame.Window.Bottom, middle.Y, vertical.Low.Add(windLow).Subtract(support), cell));
-            EInteger width = right.Subtract(left).Add(1);
-            EInteger count = width.Multiply(bottom.Subtract(top).Add(1));
-            for (EInteger index = EInteger.Zero; index.CompareTo(count) < 0; index = index.Add(1)) {
-                (EInteger column, EInteger line) = (left.Add(index.Remainder(width)), top.Add(index.Divide(width)));
-                LatticePoint point = new(ERational.FromEInteger(column), ERational.FromEInteger(line), ERational.FromInt32(layer), ERational.Zero);
-                Vector4 position = point.White(presence);
-                if (position.X >= cells.Density)
-                    continue;
-                (Vector4 draw, ERational depth) = (point.White(tone),
-                    middleDepth.Add(ERational.FromSingle(position.W).Subtract(ERational.One.Divide(2)).Multiply(ERational.FromSingle(state.DepthVariation)).Divide(state.Layers)));
-                (double scale, (double radius, double gain)) = (double.Pow(state.Depth, -depth.ToDouble()), cells.Draw(draw));
-                double core = side * (double)cells.Spacing * scale * radius;
-                double optical = core + (side * (double)state.Defocus * double.Abs(scale - focus));
-                Vector4 spectrum = colors.Sample(draw.X);
-                Vector3 tint = Vector3.Lerp(Vector3.One, thermal(draw.X), state.Incandescence);
-                Vector256<double> area = iris.Integral(optical, cells.Softness * optical, state.Fringe);
-                double energy = radiance * spectrum.W * gain * double.Pi * core * core;
-                Vector256<double> light = Vector256.Create(area[0] is 0d ? 0d : spectrum.X * (double)tint.X * energy / area[0],
-                    area[1] is 0d ? 0d : spectrum.Y * (double)tint.Y * energy / area[1], area[2] is 0d ? 0d : spectrum.Z * (double)tint.Z * energy / area[2], 0d);
-                motes.Add(new(depth, layer, column, line, point,
-                    (ERational.FromEInteger(column).Add(ERational.FromSingle(position.Y)).Multiply(cell), ERational.FromEInteger(line).Add(ERational.FromSingle(position.Z)).Multiply(cell)),
-                    scale, optical, gain, state.Covering ? coating.Sample(draw.X) : Vector4.Zero, light));
-            }
-        }
-        Mote[] ordered = [.. motes.OrderByDescending(static mote => mote.Depth).ThenBy(static mote => mote.Layer).ThenBy(static mote => mote.Line).ThenBy(static mote => mote.Column)];
+        (double X, double Y) heading = double.SinCos(state.Heading) switch { var (sin, cos) => ((double)state.Speed * cos, (double)state.Speed * -sin) };
+        (double lowWind, double highWind) = ((2d * bounded.Range.Lower) - 1d, (2d * bounded.Range.Upper) - 1d);
+        Mote[] ordered = [.. Enumerable.Range(0, state.Layers).SelectMany(Layer).OrderByDescending(static mote => mote.Depth).ThenBy(static mote => mote.Layer).ThenBy(static mote => mote.Line).ThenBy(static mote => mote.Column)];
         return state.Layer.Pass((row, column, line) => {
             long y = context.Extent.Height - 1L - line;
             for (int x = 0; x < row.Length; x++) {
                 Vector256<double> integrated = Vector256<double>.Zero;
                 for (int sample = 0; sample < Shutters.Order; sample++) {
                     double u = Shutters.GetAbscissa(sample);
-                    ERational tau = time.Subtract(shutter.Multiply(ERational.FromDouble(1d - u)));
+                    double tau = time - (shutter * (1d - u));
                     double weight = Shutters.GetWeight(sample) * (1d - state.Fade + (state.Fade * u)) / (1d - (state.Fade / 2d));
                     integrated += Spatial(column + x, y, tau) * weight;
                 }
                 row[x] = new((float)integrated[0], (float)integrated[1], (float)integrated[2], (float)integrated[3]);
             }
-        });
+        }, context.Working.Luminance);
 
-        EInteger Lattice(long pixel, ERational center, ERational displacement, ERational cell) =>
-            LatticePoint.Split(ERational.FromInt64(pixel).Subtract(center).Divide(side).Subtract(displacement).Divide(cell)).Cell;
+        IEnumerable<Mote> Layer(int layer) {
+            double middleDepth = (layer + 0.5d) / state.Layers;
+            double depthWidth = state.DepthVariation / 2d / state.Layers;
+            (double reference, double nearest, double farthest) =
+                (double.Pow(state.Depth, -middleDepth), double.Pow(state.Depth, -(middleDepth - depthWidth)), double.Pow(state.Depth, -(middleDepth + depthWidth)));
+            double cell = cells.Spacing * reference;
+            double support = Grown(side * ((cells.Spacing * nearest * cells.Draw(Vector4.Zero).Radius)
+                + (state.Defocus * double.Max(double.Abs(nearest - focus), double.Abs(farthest - focus))))) / side;
+            double[] wind = [lowWind * nearest, lowWind * farthest, highWind * nearest, highWind * farthest];
+            (double windLow, double windHigh) = (wind.Min() * state.Turbulence, wind.Max() * state.Turbulence);
+            ((double Low, double High) horizontal, (double Low, double High) vertical) = (Travel(heading.X, nearest, farthest), Travel(heading.Y, nearest, farthest));
+            (long left, long top, long right, long bottom) =
+                (Lattice(frame.Window.Left, middle.X, horizontal.High + windHigh + support, cell) - 1L,
+                    Lattice(frame.Window.Top, middle.Y, vertical.High + windHigh + support, cell) - 1L,
+                    Lattice(frame.Window.Right, middle.X, horizontal.Low + windLow - support, cell),
+                    Lattice(frame.Window.Bottom, middle.Y, vertical.Low + windLow - support, cell));
+            for (long line = top; line <= bottom; line++) {
+                for (long column = left; column <= right; column++) {
+                    Vector256<double> point = Vector256.Create(column, line, layer, 0d);
+                    Vector4 position = CoordinateHash.White(point, presence);
+                    if (position.X < cells.Density)
+                        yield return Placed(layer, middleDepth, cell, (column, line), point, position);
+                }
+            }
+        }
 
-        (ERational Low, ERational High) Travel(ERational rate, double near, double far) {
-            ERational[] endpoints = [
-                rate.Multiply(ERational.FromDouble(near)).Multiply(time), rate.Multiply(ERational.FromDouble(far)).Multiply(time),
-                rate.Multiply(ERational.FromDouble(near)).Multiply(time.Subtract(shutter)), rate.Multiply(ERational.FromDouble(far)).Multiply(time.Subtract(shutter))];
-            return (endpoints.Aggregate(ERational.Min), endpoints.Aggregate(ERational.Max));
+        Mote Placed(int layer, double middleDepth, double cell, (long Column, long Line) site, Vector256<double> point, Vector4 position) {
+            (Vector4 draw, double depth) = (CoordinateHash.White(point, tone), middleDepth + ((position.W - 0.5d) * state.DepthVariation / state.Layers));
+            (double scale, (double radius, double gain)) = (double.Pow(state.Depth, -depth), cells.Draw(draw));
+            double core = side * (double)cells.Spacing * scale * radius;
+            double optical = core + (side * (double)state.Defocus * double.Abs(scale - focus));
+            Vector4 spectrum = colors.Sample(draw.X);
+            Vector3 tint = Vector3.Lerp(Vector3.One, thermal(draw.X), state.Incandescence);
+            Vector256<double> area = iris.Integral(optical, cells.Softness * optical, state.Fringe);
+            double energy = radiance * spectrum.W * gain * double.Pi * core * core;
+            Vector256<double> light = Vector256.Create(area[0] is 0d ? 0d : spectrum.X * (double)tint.X * energy / area[0],
+                area[1] is 0d ? 0d : spectrum.Y * (double)tint.Y * energy / area[1], area[2] is 0d ? 0d : spectrum.Z * (double)tint.Z * energy / area[2], 0d);
+            return new(depth, layer, site.Column, site.Line, point, ((site.Column + (double)position.Y) * cell, (site.Line + (double)position.Z) * cell),
+                scale, optical, gain, state.Covering ? coating.Sample(draw.X) : Vector4.Zero, light);
+        }
+
+        long Lattice(long pixel, double center, double displacement, double cell) => (long)double.Floor((((pixel - center) / side) - displacement) / cell);
+
+        (double Low, double High) Travel(double rate, double near, double far) {
+            double[] endpoints = [rate * near * time, rate * far * time, rate * near * (time - shutter), rate * far * (time - shutter)];
+            return (endpoints.Min(), endpoints.Max());
         }
 
         double Grown(double radius) => (iris.Circumradius * radius) + (cells.Softness * radius / 2d);
 
-        (ERational X, ERational Y) Moved(Mote mote, ERational tau) {
-            ERational scale = ERational.FromDouble(mote.Scale);
-            (ERational X, ERational Y) = (mote.Rest.X.Add(heading.X.Multiply(scale).Multiply(tau)), mote.Rest.Y.Add(heading.Y.Multiply(scale).Multiply(tau)));
-            if (state.Turbulence == ShortSideLength.Neutral)
-                return (middle.X.Add(X.Multiply(side)), middle.Y.Add(Y.Multiply(side)));
-            ERational size = scale.Multiply(ERational.FromSingle(state.Eddy));
-            LatticePoint sample = new(X.Divide(size), Y.Divide(size), ERational.FromSingle(state.Evolution).Multiply(tau), ERational.Zero);
-            ERational gain = ERational.FromSingle(state.Turbulence).Multiply(scale);
-            return (middle.X.Add(X.Add(gain.Multiply(ERational.FromSingle(bounded.Sample(sample, across).Value).Multiply(2).Subtract(1))).Multiply(side)),
-                middle.Y.Add(Y.Add(gain.Multiply(ERational.FromSingle(bounded.Sample(sample, down).Value).Multiply(2).Subtract(1))).Multiply(side)));
+        (double X, double Y) Moved(Mote mote, double tau) {
+            (double X, double Y) = (mote.Rest.X + (heading.X * mote.Scale * tau), mote.Rest.Y + (heading.Y * mote.Scale * tau));
+            if (state.Turbulence == ShortSideLength.Zero)
+                return (middle.X + (X * side), middle.Y + (Y * side));
+            double size = mote.Scale * state.Eddy;
+            Vector256<double> sample = Vector256.Create(X / size, Y / size, (double)state.Evolution * tau, 0d);
+            double gain = state.Turbulence * mote.Scale;
+            return (middle.X + ((X + (gain * ((2d * bounded.Sample(sample, across).Value) - 1d))) * side),
+                middle.Y + ((Y + (gain * ((2d * bounded.Sample(sample, down).Value) - 1d))) * side));
         }
 
-        Vector256<double> Spatial(long column, long line, ERational tau) {
-            (ERational left, ERational top, ERational right, ERational bottom) = (ERational.FromInt64(column), ERational.FromInt64(line), ERational.FromInt64(column + 1), ERational.FromInt64(line + 1));
-            (Mote Mote, (ERational X, ERational Y) Point, ERational LowX, ERational HighX, ERational LowY, ERational HighY, double Modulation)[] active = [..
+        Vector256<double> Spatial(long column, long line, double tau) {
+            (double left, double top, double right, double bottom) = (column, line, column + 1L, line + 1L);
+            (Mote Mote, (double X, double Y) Point, double LowX, double HighX, double LowY, double HighY, double Modulation)[] active = [..
                 from mote in ordered
                 let point = Moved(mote, tau)
-                let reach = ERational.FromDouble(Grown(mote.Radius))
-                let lowX = ERational.Max(left, point.X.Subtract(reach))
-                let highX = ERational.Min(right, point.X.Add(reach))
-                let lowY = ERational.Max(top, point.Y.Subtract(reach))
-                let highY = ERational.Min(bottom, point.Y.Add(reach))
-                where lowX.CompareTo(highX) < 0 && lowY.CompareTo(highY) < 0
-                let modulation = 1d - (state.Twinkle * plain(mote.Point with { W = ERational.FromSingle(state.TwinkleRate).Multiply(tau) }, twinkle).Value)
+                let reach = Grown(mote.Radius)
+                let lowX = double.Max(left, point.X - reach)
+                let highX = double.Min(right, point.X + reach)
+                let lowY = double.Max(top, point.Y - reach)
+                let highY = double.Min(bottom, point.Y + reach)
+                where lowX < highX && lowY < highY
+                let modulation = 1d - (state.Twinkle * plain(mote.Point.WithElement(3, (double)state.TwinkleRate * tau), twinkle).Value)
                 select (Mote: mote, Point: point, LowX: lowX, HighX: highX, LowY: lowY, HighY: highY, Modulation: modulation)];
-            ERational[] xs = [.. new SortedSet<ERational>(active.SelectMany(static item => new[] { item.LowX, item.HighX }).Append(left).Append(right))];
-            ERational[] ys = [.. new SortedSet<ERational>(active.SelectMany(static item => new[] { item.LowY, item.HighY }).Append(top).Append(bottom))];
+            double[] xs = [.. new SortedSet<double>(active.SelectMany(static item => new[] { item.LowX, item.HighX }).Append(left).Append(right))];
+            double[] ys = [.. new SortedSet<double>(active.SelectMany(static item => new[] { item.LowY, item.HighY }).Append(top).Append(bottom))];
             Vector256<double> total = Vector256<double>.Zero;
             foreach ((int x, int y) in from y in Enumerable.Range(0, ys.Length - 1) from x in Enumerable.Range(0, xs.Length - 1) select (x, y)) {
-                (ERational width, ERational height) = (xs[x + 1].Subtract(xs[x]), ys[y + 1].Subtract(ys[y]));
-                double area = width.Multiply(height).ToDouble();
+                (double width, double height) = (xs[x + 1] - xs[x], ys[y + 1] - ys[y]);
+                double area = width * height;
                 foreach ((int acrossNode, int downNode) in from down in Enumerable.Range(0, Shutters.Order) from across in Enumerable.Range(0, Shutters.Order) select (across, down)) {
-                    (ERational X, ERational Y) = (xs[x].Add(width.Multiply(ERational.FromDouble(Shutters.GetAbscissa(acrossNode)))), ys[y].Add(height.Multiply(ERational.FromDouble(Shutters.GetAbscissa(downNode)))));
+                    (double X, double Y) = (xs[x] + (width * Shutters.GetAbscissa(acrossNode)), ys[y] + (height * Shutters.GetAbscissa(downNode)));
                     Vector256<double> folded = Vector256<double>.Zero;
-                    foreach ((Mote Mote, (ERational X, ERational Y) Point, ERational LowX, ERational HighX, ERational LowY, ERational HighY, double Modulation) item in active) {
-                        (double reach, double edge) = iris.Outline((X.Subtract(item.Point.X).ToDouble(), Y.Subtract(item.Point.Y).ToDouble()));
+                    foreach ((Mote Mote, (double X, double Y) Point, double LowX, double HighX, double LowY, double HighY, double Modulation) item in active) {
+                        (double reach, double edge) = iris.Outline((X - item.Point.X, Y - item.Point.Y));
                         Vector256<double> profile = iris.Weights(reach, edge, item.Mote.Radius, cells.Softness * item.Mote.Radius, state.Fringe);
                         double opacity = profile[3] * item.Mote.Gain * item.Mote.Coating.W;
                         Vector256<double> coat = Vector256.Create(item.Mote.Coating.X, item.Mote.Coating.Y, item.Mote.Coating.Z, 1d);
@@ -940,27 +926,27 @@ public sealed partial class ShapeFit {
 
 [SmartEnum<string>]
 public sealed partial class ShapeKind {
-    public static readonly ShapeKind Ellipse = new("ellipse", static (shape, half, math) => DistanceField.Ellipse(half, shape.Exponent, math));
-    public static readonly ShapeKind Box = new("box", static (shape, half, math) => DistanceField.Box(half, shape.Roundness, math));
-    public static readonly ShapeKind Polygon = new("polygon", static (shape, half, math) => DistanceField.Polygon(half, shape.Sides, shape.Inset, shape.Roundness, math));
-    public static readonly ShapeKind Ring = new("ring", static (shape, half, math) => DistanceField.Ring(half, shape.Exponent, shape.Inset, math));
-    public static readonly ShapeKind Cross = new("cross", static (shape, half, math) => DistanceField.Cross(half, shape.Inset, shape.Roundness, math));
-    public static readonly ShapeKind Heart = new("heart", static (_, half, math) => DistanceField.Heart(half, math));
-    public static readonly ShapeKind Triangle = new("triangle", static (shape, half, math) => DistanceField.Triangle(half, shape.Apex, shape.Roundness, math));
+    public static readonly ShapeKind Ellipse = new("ellipse", static (shape, half) => DistanceField.Ellipse(half, shape.Exponent));
+    public static readonly ShapeKind Box = new("box", static (shape, half) => DistanceField.Box(half, shape.Roundness));
+    public static readonly ShapeKind Polygon = new("polygon", static (shape, half) => DistanceField.Polygon(half, shape.Sides, shape.Inset, shape.Roundness));
+    public static readonly ShapeKind Ring = new("ring", static (shape, half) => DistanceField.Ring(half, shape.Exponent, shape.Inset));
+    public static readonly ShapeKind Cross = new("cross", static (shape, half) => DistanceField.Cross(half, shape.Inset, shape.Roundness));
+    public static readonly ShapeKind Heart = new("heart", static (_, half) => DistanceField.Heart(half));
+    public static readonly ShapeKind Triangle = new("triangle", static (shape, half) => DistanceField.Triangle(half, shape.Apex, shape.Roundness));
 
     [UseDelegateFromConstructor]
-    public partial DistanceField Field(ShapePrimitive shape, (EFloat X, EFloat Y) half, EContext math);
+    public partial DistanceField Field(ShapePrimitive shape, (double X, double Y) half);
 }
 
 [SmartEnum<string>]
 public sealed partial class ShapeOperation {
-    public static readonly ShapeOperation Union = new("union", static (first, second, smoothing, _, math) => first.Union(second, smoothing, math));
-    public static readonly ShapeOperation Difference = new("difference", static (first, second, smoothing, _, math) => first.Difference(second, smoothing, math));
-    public static readonly ShapeOperation Intersection = new("intersection", static (first, second, smoothing, _, math) => first.Intersection(second, smoothing, math));
-    public static readonly ShapeOperation Morph = new("morph", static (first, second, _, progress, _) => first.Morph(second, progress));
+    public static readonly ShapeOperation Union = new("union", static (first, second, smoothing, _) => DistanceField.Union(first, second, smoothing));
+    public static readonly ShapeOperation Difference = new("difference", static (first, second, smoothing, _) => DistanceField.Difference(first, second, smoothing));
+    public static readonly ShapeOperation Intersection = new("intersection", static (first, second, smoothing, _) => DistanceField.Intersection(first, second, smoothing));
+    public static readonly ShapeOperation Morph = new("morph", static (first, second, _, progress) => DistanceField.Morph(first, second, progress));
 
     [UseDelegateFromConstructor]
-    public partial FieldSample Join(FieldSample first, FieldSample second, EFloat smoothing, float progress, EContext math);
+    public partial (double Distance, double Width) Join((double Distance, double Width) first, (double Distance, double Width) second, double smoothing, float progress);
 }
 
 [SmartEnum<string>]
@@ -983,7 +969,7 @@ public sealed partial class GradientKind {
 [SmartEnum<string>]
 public sealed partial class GridPattern {
     public static readonly GridPattern Lines = new("lines", static (lattice, line, _, _, _) => point => new Vector4(line, lattice.Lines(point)));
-    public static readonly GridPattern Checker = new("checker", static (lattice, line, cell, alternate, _) => point => new Vector4(lattice.Cells(point, (i, j) => i.Add(j).IsEven ? cell : alternate, line), 1f));
+    public static readonly GridPattern Checker = new("checker", static (lattice, line, cell, alternate, _) => point => new Vector4(lattice.Cells(point, (i, j) => long.IsEvenInteger(i + j) ? cell : alternate, line), 1f));
     public static readonly GridPattern Brick = new("brick", static (lattice, line, cell, alternate, field) => point =>
         new Vector4(lattice.Cells(point, (i, j) => Vector3.Lerp(cell, alternate, CoordinateHash.Uniforms(i, j, field).X), line), 1f));
 
@@ -1004,10 +990,10 @@ public sealed record ShapePrimitive(
     [property: Display(Name = "Fit", Description = "Frame side figure dimensions follow")] ShapeFit Fit) {
     public static ShapePrimitive Default { get; } = new(ShapeKind.Ellipse, Placement.Default, ShortSideLength.Create(0.5f), ShortSideLength.Create(0.5f), 0f, 2f, 5, 0f, 0f, ShapeFit.ShortSide);
 
-    public (FieldFrame Frame, Func<long, long, FieldSample> Sample) Field(PixelExtent extent, EContext math) =>
+    public (FieldFrame Frame, Func<long, long, (double Distance, double Width)> Sample) Field(PixelExtent extent) =>
         (Placement.Frame(extent), Fit.Scale(extent)) switch {
-            var (frame, _) when Width == ShortSideLength.Neutral || Height == ShortSideLength.Neutral => (frame, static (_, _) => FieldSample.Empty),
-            var (frame, scale) => Kind.Field(this, (EFloat.FromSingle(Width) * scale.X, EFloat.FromSingle(Height) * scale.Y), math) switch {
+            var (frame, _) when Width == ShortSideLength.Zero || Height == ShortSideLength.Zero => (frame, static (_, _) => DistanceField.Outside),
+            var (frame, scale) => Kind.Field(this, (Width * scale.X, Height * scale.Y)) switch {
                 var field => (frame, (column, line) => field.Sample(frame.Upward(column, line))),
             },
         };
@@ -1024,23 +1010,22 @@ public sealed record ShapeStyle(
     private static readonly NoiseBasis Gate = NoiseBasis.RidgedMultifractal.Default with { Dimensions = NoiseDimensions.Four, Octaves = new(15f, 0.9f, 2f), Distortion = 1.9f, Gain = 74.5f };
 
     public static ShapeStyle Default { get; } = new(new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d),
-        ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, Inverted: false);
+        ShortSideLength.Zero, ShortSideLength.Zero, ShortSideLength.Zero, ShortSideLength.Zero, Inverted: false);
 
-    public Func<FieldSample, (double X, double Y), Vector4> Shading(PassContext context, uint field, EContext math) {
+    public Func<(double Distance, double Width), (double X, double Y), Vector4> Shading(PassContext context, uint field) {
         Gamut working = context.Working;
         Func<Unicolour, Vector3> light = context.Formed ? Presets.Shown : color => RampLight.Light(color, working).AsVector3();
-        (Vector4 fill, Vector3 outline, EFloat pixels, EFloat band) =
-            (Optional(Fill).Map(color => new Vector4(light(color), 1f)).IfNone(Vector4.Zero), light(Outline), EFloat.FromInt32(context.Extent.ShortSide), EFloat.FromDouble(ShapeEdge.Band(Feather, context.Extent)));
-        (EFloat offset, EFloat width, EFloat reach) = (EFloat.FromSingle(OutlineOffset) * pixels, EFloat.FromSingle(OutlineWidth) * pixels, EFloat.FromSingle(Roughness) * pixels);
-        (EFloat near, EFloat far) = (-reach - (band * 0.5d), offset + width + reach + (band * 0.5d));
-        Func<LatticePoint, uint, NoiseSample<LatticePoint>> gate = Gate.Sampler;
-        Func<EFloat, (double X, double Y), EFloat> rough = reach.IsZero ? static (distance, _) => distance
-            : (distance, local) => distance.CompareTo(near) < 0 || distance.CompareTo(far) > 0 ? distance
-                : distance + (reach * ((2f * float.Clamp(gate(new(ERational.FromDouble(2.5d * local.X), ERational.FromDouble(2.5d * local.Y), ERational.Zero, ERational.Zero), field).Value, 0f, 1f)) - 1f));
+        (Vector4 fill, Vector3 outline, double band) = (Optional(Fill).Map(color => new Vector4(light(color), 1f)).IfNone(Vector4.Zero), light(Outline), ShapeEdge.Band(Feather, context.Extent));
+        (double pixels, double offset, double width, double reach) = (context.Extent.ShortSide, OutlineOffset.Pixels(context.Extent), OutlineWidth.Pixels(context.Extent), Roughness.Pixels(context.Extent));
+        (double near, double far) = (-reach - (band * 0.5d), offset + width + reach + (band * 0.5d));
+        Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> gate = Gate.Sampler;
+        Func<double, (double X, double Y), double> rough = reach is 0d ? static (distance, _) => distance
+            : (distance, local) => distance < near || distance > far ? distance
+                : distance + (reach * ((2f * float.Clamp(gate(Vector256.Create(2.5d * local.X, 2.5d * local.Y, 0d, 0d), field).Value, 0f, 1f)) - 1f));
         bool inverted = Inverted;
-        return (sample, local) => (inverted ? sample.Inverted : sample) switch {
-            var (distance, narrowest) => new FieldSample(rough(distance * pixels, local), narrowest * pixels) switch {
-                var edge => ((fill.W * edge.Coverage(EFloat.Zero, band, math)).ToDouble(), (edge.Coverage(offset + width, band, math) - edge.Coverage(offset, band, math)).ToDouble()) switch {
+        return (sample, local) => (inverted ? DistanceField.Inverted(sample) : sample) switch {
+            var (distance, narrowest) => (rough(distance * pixels, local), narrowest * pixels) switch {
+                var edge => (fill.W * DistanceField.Coverage(edge, 0d, band), DistanceField.Coverage(edge, offset + width, band) - DistanceField.Coverage(edge, offset, band)) switch {
                     var (covered, ring) when covered + ring > 0d => new Vector4((float)(((covered * fill.X) + (ring * outline.X)) / (covered + ring)),
                         (float)(((covered * fill.Y) + (ring * outline.Y)) / (covered + ring)), (float)(((covered * fill.Z) + (ring * outline.Z)) / (covered + ring)), (float)(covered + ring)),
                     _ => Vector4.Zero,
@@ -1062,21 +1047,20 @@ public sealed record Shapes(
     public const uint Stream = 16u;
 
     public static Shapes Default { get; } = new(
-        ShapePrimitive.Default, Operation: null, ShapePrimitive.Default with { Kind = ShapeKind.Box, Roundness = 0.3f }, ShortSideLength.Neutral, 0f, ShapeStyle.Default, GeneratedLayer.Default, Seed.MinValue);
+        ShapePrimitive.Default, Operation: null, ShapePrimitive.Default with { Kind = ShapeKind.Box, Roundness = 0.3f }, ShortSideLength.Zero, 0f, ShapeStyle.Default, GeneratedLayer.Default, Seed.MinValue);
 
     public static Option<PixelPass> Pass(Shapes state, PassContext context) {
-        EContext math = DistanceField.Precision(context.Extent);
-        (FieldFrame frame, Func<long, long, FieldSample> first) = state.First.Field(context.Extent, math);
-        Func<long, long, FieldSample> field = Optional(state.Operation).Match(
-            Some: operation => (state.Second.Field(context.Extent, math).Sample, EFloat.FromSingle(state.Smoothing), state.Progress) switch {
-                var (second, smoothing, progress) => (column, line) => operation.Join(first(column, line), second(column, line), smoothing, progress, math),
+        (FieldFrame frame, Func<long, long, (double Distance, double Width)> first) = state.First.Field(context.Extent);
+        Func<long, long, (double Distance, double Width)> field = Optional(state.Operation).Match(
+            Some: operation => (state.Second.Field(context.Extent).Sample, (double)state.Smoothing, state.Progress) switch {
+                var (second, smoothing, progress) => (column, line) => operation.Join(first(column, line), second(column, line), smoothing, progress),
             },
             None: () => first);
-        Func<FieldSample, (double X, double Y), Vector4> shade = state.Style.Shading(context, state.Seed.Field(Stream, 0u), math);
+        Func<(double Distance, double Width), (double X, double Y), Vector4> shade = state.Style.Shading(context, state.Seed.Field(Stream, 0u));
         return Some(state.Layer.Pass((row, column, line) => {
             for (int i = 0; i < row.Length; i++)
                 row[i] = shade(field(column + i, line), frame.Upward(column + i, line));
-        }));
+        }, context.Working.Luminance));
     }
 }
 
@@ -1104,17 +1088,16 @@ public sealed record Lightning(
 
     public static Option<PixelPass> Pass(Lightning state, PassContext context) {
         (uint field, float clock, double chord) = (state.Seed.Field(17u, 0u), 2f * state.Speed * state.Hold.Held(state.Timing.At(context)), 2d * state.Length);
-        Func<int, int, int, float> noise = (x, y, z) => 0.5f + (0.5f * NoiseDimensions.Four.Gradient(new Vector4((2f * x) + 0.5f, (2f * y) + 0.5f, (2f * z) + 0.5f, clock), field));
+        Func<int, int, int, float> noise = (x, y, z) => 0.5f + (0.5f * NoiseDimensions.Four.Gradient(Vector256.Create((2d * x) + 0.5d, (2d * y) + 0.5d, (2d * z) + 0.5d, clock), field));
         Bolt[] channel = Bolt.Path((0d, state.Length), (0d, -1d), chord, Levels, state.Depth, state.Displacement, k => noise(k, 0, 0), _ => state.Thickness / 2d);
         Bolt[] pieces = [.. channel, .. Enumerable.Range(1, state.Branches).SelectMany(i => (BitOperations.Log2((uint)i), (i % 2 is 0 ? 1f : -1f) * state.Spread * (0.5f + noise(i, 0, 1))) switch {
             var (level, turn) => Bolt.Path(
                 channel[((2 * (i - (1 << level))) + 1) * channel.Length / (2 << level)].Start, double.SinCos(turn) switch { var (sin, cos) => (sin, -cos) },
                 state.Reach * chord * (0.5f + noise(i, 0, 2)), 3, state.Depth, state.Displacement, j => noise(j, i, 0), along => state.Taper * state.Thickness * (1d - along) / 2d),
         })];
-        EContext math = DistanceField.Precision(context.Extent);
-        Func<FieldSample, (double X, double Y), Vector4> shade = state.Style.Shading(context, CoordinateHash.Branch(field, 0u), math);
+        Func<(double Distance, double Width), (double X, double Y), Vector4> shade = state.Style.Shading(context, CoordinateHash.Branch(field, 0u));
         return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-            shade(pieces.Aggregate(FieldSample.Empty, (nearest, piece) => piece.Sample(point, math) switch { var next => next.Distance.CompareTo(nearest.Distance) < 0 ? next : nearest }), point))));
+            shade(pieces.Aggregate(DistanceField.Outside, (nearest, piece) => piece.Sample(point) switch { var next => next.Distance < nearest.Distance ? next : nearest }), point)), context.Working.Luminance));
     }
 }
 
@@ -1130,7 +1113,7 @@ public sealed record Gradient(
     public static Option<PixelPass> Pass(Gradient state, PassContext context) =>
         (state.Kind.Parameter(((float)state.Width, (float)state.Height)), RampFootprint.Of(state.Colors, None)) switch {
             var (parameter, footprint) => Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-                parameter(point) switch { var (position, slope) => footprint.Mean(position, slope / context.Extent.ShortSide, state.Kind.Periodic) }))),
+                parameter(point) switch { var (position, slope) => footprint.Mean(position, slope / context.Extent.ShortSide, state.Kind.Periodic) }), context.Working.Luminance)),
         };
 }
 
@@ -1153,7 +1136,7 @@ public sealed record CornerGradient(
                 float across = (float)ShapeEdge.Smoother(double.Clamp((column + i + 0.5d) / extent.Width, 0d, 1d));
                 row[i] = new Vector4(Vector3.Lerp(Vector3.Lerp(topLeft, topRight, across), Vector3.Lerp(bottomLeft, bottomRight, across), down), 1f);
             }
-        }));
+        }, context.Working.Luminance));
     }
 }
 
@@ -1170,17 +1153,14 @@ public sealed record Grid(
     [property: Display(Name = "Alternate color", Description = "Display color of alternate checker cells and far brick tint end")][property: JsonConverter(typeof(UnicolourConverter))] Unicolour AlternateColor,
     [property: Display(Name = "Layer", Description = "Blend and brightness of generated layer")] GeneratedLayer Layer,
     [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed) : IPixelStage<Grid> {
-    public static Grid Default { get; } = (Size: 3f, Thickness: 0.2f, Scale: 0.1f) switch {
-        var (size, thickness, scale) => new(
-            GridPattern.Lines, Placement.Default, ShortSideExtent.Create(1f / size), 1f, 0f, ShortSideLength.Create(2f * (0.02f + (0.18f * thickness)) * (0.1f + (0.4f * scale)) / size), ShortSideLength.Neutral,
-            new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), GeneratedLayer.Default, Seed.MinValue),
-    };
+    public static Grid Default { get; } = new(
+        GridPattern.Lines, Placement.Default, ShortSideExtent.Create(1f / 3f), 1f, 0f, ShortSideLength.Create(2f * (0.02f + (0.18f * 0.2f)) * (0.1f + (0.4f * 0.1f)) / 3f), ShortSideLength.Zero,
+        new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), GeneratedLayer.Default, Seed.MinValue);
 
     public static Option<PixelPass> Pass(Grid state, PassContext context) =>
         Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(state.Pattern.Shade(
-            new GridLattice(ERational.FromSingle(state.Cell), ERational.FromSingle(state.Cell).Multiply(ERational.FromSingle(state.Aspect)), ERational.FromSingle(state.Offset),
-                state.LineWidth, ShapeEdge.Band(state.Feather, context.Extent) / context.Extent.ShortSide),
-            Presets.Shown(state.LineColor), Presets.Shown(state.CellColor), Presets.Shown(state.AlternateColor), state.Seed.Field(18u, 0u)))));
+            new GridLattice(state.Cell, (double)state.Cell * state.Aspect, state.Offset, state.LineWidth, ShapeEdge.Band(state.Feather, context.Extent) / context.Extent.ShortSide),
+            Presets.Shown(state.LineColor), Presets.Shown(state.CellColor), Presets.Shown(state.AlternateColor), state.Seed.Field(18u, 0u))), context.Working.Luminance));
 }
 
 public sealed record Stripes(
@@ -1196,12 +1176,10 @@ public sealed record Stripes(
     public static Stripes Default { get; } = new(WaveProfile.Sine, Placement.Default, ShortSideExtent.Create(float.Tau / 20f), 0f, 0f, 0f, Presets.Grayscale, GeneratedLayer.Default, Timing.Default);
 
     public static Option<PixelPass> Pass(Stripes state, PassContext context) {
-        ((double sin, double cos), ERational start, ERational wavelength) = (double.SinCos(state.Bend),
-            ERational.FromSingle(state.Phase).Add(ERational.FromSingle(state.Speed).Multiply(ERational.FromSingle(state.Timing.At(context)))), ERational.FromSingle(state.Wavelength));
-        (ERational width, RampFootprint footprint) = (ERational.One.Divide(wavelength.Multiply(context.Extent.ShortSide)), RampFootprint.Of(state.Colors, Some(state.Profile)));
+        ((double sin, double cos), double start, double wavelength) = (double.SinCos(state.Bend), state.Phase + ((double)state.Speed * state.Timing.At(context)), state.Wavelength);
+        (double width, RampFootprint footprint) = (1d / state.Wavelength.Pixels(context.Extent), RampFootprint.Of(state.Colors, Some(state.Profile)));
         return Some(state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point =>
-            footprint.Mean(ERational.FromDouble(point.Y).Multiply(ERational.FromDouble(cos)).Add(ERational.FromDouble(double.Abs(point.X)).Multiply(ERational.FromDouble(sin))).Divide(wavelength).Add(start),
-                width, periodic: true))));
+            footprint.Mean((((point.Y * cos) + (double.Abs(point.X) * sin)) / wavelength) + start, width, periodic: true)), context.Working.Luminance));
     }
 }
 
@@ -1213,29 +1191,26 @@ public sealed record Letterbox(
     [property: Display(Name = "Layer", Description = "Blend and brightness of generated layer")] GeneratedLayer Layer,
     [property: Display(Name = "Seed", Description = "Number selecting pattern")] Seed Seed) : IPixelStage<Letterbox> {
     public static Letterbox Default { get; } = new(
-        2.39f, ShortSideLength.Neutral, ShortSideLength.Neutral, ShapeStyle.Default with { Fill = new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), Inverted = true }, GeneratedLayer.Default, Seed.MinValue);
+        2.39f, ShortSideLength.Zero, ShortSideLength.Zero, ShapeStyle.Default with { Fill = new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), Inverted = true }, GeneratedLayer.Default, Seed.MinValue);
 
-    public static Letterbox FilmGate { get; } = (Padding: 40f, Radius: 40f, Blur: 10f, Intensity: 6f) switch {
-        var (padding, radius, blur, intensity) => Default with {
-            Aspect = null,
-            Inset = ShortSideLength.Create(padding / ReferenceFrame.Height),
-            Radius = ShortSideLength.Create(radius / ReferenceFrame.Height),
-            Style = Default.Style with { Feather = ShortSideLength.Create(blur / 3f * float.Sqrt(float.Tau) / ReferenceFrame.Height), Roughness = ShortSideLength.Create(intensity / ReferenceFrame.Height) },
-        },
+    public static Letterbox FilmGate { get; } = Default with {
+        Aspect = null,
+        Inset = ShortSideLength.Create(40f / ReferenceFrame.Height),
+        Radius = ShortSideLength.Create(40f / ReferenceFrame.Height),
+        Style = Default.Style with { Feather = ShortSideLength.Create(10f / 3f * float.Sqrt(float.Tau) / ReferenceFrame.Height), Roughness = ShortSideLength.Create(6f / ReferenceFrame.Height) },
     };
 
     public static Seq<(string Name, Func<Letterbox, Letterbox> Look)> Looks { get; } = [(nameof(FilmGate), static _ => FilmGate)];
 
     public static Option<PixelPass> Pass(Letterbox state, PassContext context) {
-        EContext math = DistanceField.Precision(context.Extent);
         (double X, double Y) frame = ((double)context.Extent.Width / context.Extent.ShortSide, (double)context.Extent.Height / context.Extent.ShortSide);
         (double X, double Y) = Optional(state.Aspect).Map(aspect => aspect >= frame.X / frame.Y ? (frame.X, frame.X / aspect) : (frame.Y * aspect, frame.Y)).IfNone(frame) switch {
             var (x, y) => ((x / 2d) - state.Inset, (y / 2d) - state.Inset),
         };
-        (double small, Func<FieldSample, (double X, double Y), Vector4> shade) = (double.Min(X, Y), state.Style.Shading(context, state.Seed.Field(Shapes.Stream, 0u), math));
-        EFloat radius = EFloat.FromDouble(double.Min(state.Radius, small));
+        (double small, Func<(double Distance, double Width), (double X, double Y), Vector4> shade) = (double.Min(X, Y), state.Style.Shading(context, state.Seed.Field(Shapes.Stream, 0u)));
+        double radius = double.Min(state.Radius, small);
         return Some(state.Layer.Pass(FieldFrame.Centered(context.Extent).Fill(point =>
-            shade(small <= 0d ? FieldSample.Empty : new(DistanceField.Rounded(point, (X, Y), radius, math), 2d * small), point))));
+            shade(small <= 0d ? DistanceField.Outside : (DistanceField.Rounded(point, (X, Y), radius), 2d * small), point)), context.Working.Luminance));
     }
 }
 
@@ -1318,7 +1293,7 @@ public sealed record LensFlare(
     private static readonly ShortSideLength SourceRadius = ShortSideLength.Create(0.2f * 0.3f / 2f * ReferenceFrame.GreaterSide);
 
     public static LensFlare Default { get; } = new(
-        FlareSource.Default with { Position = new(FrameAxis.Create(0.3f), FrameAxis.Create(1f - 0.6f)) },
+        FlareSource.Default with { Position = new(0.3f, 1f - 0.6f) },
         0f, Presets.White, SourceRadius, ShortSideLength.Create(0.01f * ReferenceFrame.GreaterSide),
         0f, Presets.White, ShortSideLength.Create(0.5f), NoiseBasis.Fbm.Default with { Octaves = NoiseBasis.Fbm.Default.Octaves with { Roughness = 0.563f } }, 30f, 3f, 0f, Hold.MinValue,
         0f, Presets.White, ShortSideLength.Create(0.972f / 2f * ReferenceFrame.GreaterSide), ShortSideLength.Create(0.004f * ReferenceFrame.GreaterSide), 0f,
@@ -1337,7 +1312,7 @@ public sealed record LensFlare(
 
     public static Option<PixelPass> Pass(LensFlare state, PassContext context) =>
         state.Source.Pass(context, (point, occlusion) => (frame, progress) =>
-            Fill(state, context, point).Map(fill => state.Layer.Pass(fill(occlusion.Map(occluder => occluder.Visible(point, state.HotspotSize.Pixels(context.Extent))).IfNone(1f))).Run(frame, progress))
+            Fill(state, context, point).Map(fill => state.Layer.Pass(fill(occlusion.Map(occluder => occluder.Visible(point, state.HotspotSize.Pixels(context.Extent))).IfNone(1f)), context.Working.Luminance).Run(frame, progress))
                 .IfNone(unit));
 
     private static Option<Func<float, Action<Span<Vector4>, long, long>>> Fill(LensFlare state, PassContext context, (double X, double Y) source) {
@@ -1346,8 +1321,8 @@ public sealed record LensFlare(
         (double first, double last, uint draws, uint field) = (state.GhostFirst, state.GhostLast, state.Seed.Field(19u, 1u), state.Seed.Field(19u, 0u));
         (double hotspot, double edge, double burst, double density, float sharpness) =
             (state.HotspotSize, ShapeEdge.Band(state.HotspotSoftness, context.Extent), state.StarburstLength, state.StarburstDensity / double.Tau, state.StarburstSharpness);
-        Func<LatticePoint, uint, NoiseSample<LatticePoint>> basis = state.Basis.Sampler;
-        ERational shimmer = ERational.FromSingle(state.Shimmer).Multiply(ERational.FromSingle(state.Hold.Held(state.Timing.At(context))));
+        Func<Vector256<double>, uint, (float Value, Vector256<double> Site)> basis = state.Basis.Sampler;
+        double shimmer = (double)state.Shimmer * state.Hold.Held(state.Timing.At(context));
         (Matrix3x2 turn, (double X, double Y) halo, double width, double rim) =
             (Matrix3x2.CreateRotation(state.BarAngle), (state.RingMagnification * X, state.RingMagnification * Y), state.RingWidth, ShapeEdge.Band(state.RingSoftness, context.Extent));
         RampLight ghostTable = RampLight.Of(state.GhostColors, context.Working);
@@ -1381,9 +1356,9 @@ public sealed record LensFlare(
         };
 
         float Noise((double X, double Y) d) =>
-            double.SinCos(double.Atan2(d.Y, d.X)) switch { var (sin, cos) => basis(new(ERational.FromDouble(density * cos), ERational.FromDouble(density * sin), shimmer, ERational.Zero), field).Value };
+            double.SinCos(double.Atan2(d.Y, d.X)) switch { var (sin, cos) => basis(Vector256.Create(density * cos, density * sin, shimmer, 0d), field).Value };
 
-        (float, Vector3) Anamorphic((double X, double Y) q) => state.BarLength == ShortSideLength.Neutral ? (0f, Vector3.Zero) : (q.X - X, q.Y - Y) switch {
+        (float, Vector3) Anamorphic((double X, double Y) q) => state.BarLength == ShortSideLength.Zero ? (0f, Vector3.Zero) : (q.X - X, q.Y - Y) switch {
             var (x, y) => double.Min(double.Abs((x * turn.M11) + (y * turn.M21)) / state.BarLength, 1d) switch {
                 var u => ((float)u, new Vector3((float)((1d - u) * (1d - u)) * ShapeEdge.Strip(double.Abs((x * turn.M12) + (y * turn.M22)) * side, state.BarThickness.Pixels(context.Extent), 1d))),
             },
@@ -1433,7 +1408,7 @@ public sealed record LightRays(
                         keys[y, x] = hidden(((long)frame.Origin.X + x + 0.5d, (long)frame.Origin.Y + y + 0.5d)) ? Vector4.Zero : state.Highlight.Extract(light[y, x]);
                 }
             });
-            return state.Layer.Pass(Fill(state, context, point, key)).Run(frame, progress);
+            return state.Layer.Pass(Fill(state, context, point, key), context.Working.Luminance).Run(frame, progress);
         });
 
     private static Action<Span<Vector4>, long, long> Fill(LightRays state, PassContext context, (double X, double Y) source, PixelFrame key) {
@@ -1467,10 +1442,10 @@ public sealed record LightRays(
 }
 
 file sealed record Mote(
-    ERational Depth, int Layer, EInteger Column, EInteger Line, LatticePoint Point, (ERational X, ERational Y) Rest, double Scale, double Radius, double Gain, Vector4 Coating, Vector256<double> Light);
+    double Depth, int Layer, long Column, long Line, Vector256<double> Point, (double X, double Y) Rest, double Scale, double Radius, double Gain, Vector4 Coating, Vector256<double> Light);
 
 file sealed record Bolt((double X, double Y) Start, (double X, double Y) End, double From, double To) {
-    public FieldSample Sample((double X, double Y) point, EContext math) => FieldSample.Tapered(point, Start, End, From, To, math);
+    public (double Distance, double Width) Sample((double X, double Y) point) => DistanceField.Tapered(point, Start, End, From, To);
 
     public static Bolt[] Path((double X, double Y) start, (double X, double Y) direction, double length, int levels, int depth, float displacement, Func<int, float> draw, Func<double, double> radius) {
         int segments = 1 << levels;

@@ -27,9 +27,10 @@ from blender.bpy.render.outputs.results import built, Production, production, PR
 from blender.bpy.ui.images.views import RESULT
 from blender.bpy.ui.layout.rows import alerted
 from blender.imaging.color.processors import converted, DisplayView
-from blender.imaging.files.dng import LinearRaw, Optics
-from blender.imaging.files.documents import Document
-from blender.imaging.files.images import Compressions, Depth, Format, ImageFile, Rounded, Storage, unassociated
+from blender.imaging.files.buffers import unassociated
+from blender.imaging.files.coding import Depth, Rounded
+from blender.imaging.files.documents import Document, LinearRaw, Optics
+from blender.imaging.files.images import Compressions, Format, ImageFile, Storage
 from blender.imaging.files.multilayer import Channel, Layer, Multilayer
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 

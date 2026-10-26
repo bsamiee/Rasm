@@ -18,7 +18,7 @@ import PyOpenColorIO
 from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import processor, Stops
-from blender.imaging.files.images import applied
+from blender.imaging.files.buffers import applied
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
 
@@ -122,6 +122,8 @@ class Matched(Case, frozen=True, kw_only=True):
             red, green, blue = (np.multiply(self.tint, color) / peak(color)).tolist()
             return red, green, blue
 
+        @catch(exception=FloatingPointError)
+        @np.errstate(over="raise", divide="raise", invalid="raise")
         def lit(hardness: float) -> Arranged:
             azimuth, elevation = (component * math.pi / 2.0 for component in reading.direction)
             scale = max(hardness, abs(reading.contrast))
@@ -154,10 +156,11 @@ class Matched(Case, frozen=True, kw_only=True):
                 .to_optional(),
             )
 
-        with np.errstate(over="raise", divide="raise", invalid="raise"):
-            return catch(lambda: lit(reading.hardness) if reading.hardness > 0.0 else Arranged(lights=(), ambient=Ambient(color=filtered(reading.key))), exception=FloatingPointError)().map_error(
-                lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(reading), cause=error),)
-            )
+        return (
+            lit(reading.hardness).map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(reading), cause=error),))
+            if reading.hardness > 0.0
+            else Ok(Arranged(lights=(), ambient=Ambient(color=filtered(reading.key))))
+        )
 
 
 class Placement(msgspec.Struct, frozen=True, kw_only=True):
@@ -323,10 +326,9 @@ def rig_catalog() -> Mapping[str, Rig]:
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> Outcome[float]:
     """Returns product times 2**stops as float, overflow as numeric fault."""
-    with np.errstate(over="raise"):
-        return catch(lambda: float(np.prod(factors) * np.exp2(stops)), exception=FloatingPointError)().map_error(
-            lambda error: (Fault(reason=RecordReason.NUMERIC, subject=f"{factors} x 2^{stops}", cause=error),)
-        )
+    return catch(np.errstate(over="raise")(lambda: float(np.prod(factors) * np.exp2(stops))), exception=FloatingPointError)().map_error(
+        lambda error: (Fault(reason=RecordReason.NUMERIC, subject=f"{factors} x 2^{stops}", cause=error),)
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

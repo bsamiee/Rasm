@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using TinyEXR;
@@ -10,12 +11,12 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+[ValueObject<int>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<ImagingFault>]
-public readonly partial struct CurveLength {
+public sealed partial class CurveLength {
     public static CurveLength ResolveShaper { get; } = new(65_536);
 
-    public static Fin<CurveLength> Validated(int value) => TryCreate(value, out CurveLength length, out ImagingFault? fault) ? length : fault;
+    public static Fin<CurveLength> Validated(int value) => TryCreate(value, out CurveLength? length, out ImagingFault? fault) ? length : fault;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int value) =>
         validationError = value is >= 2 and <= 300_000 ? null : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"Curve length {value} lies outside [2, 300000]"));
@@ -26,9 +27,10 @@ public sealed class Lut1D {
 
     private Lut1D(CurveLength length, ReadOnlySpan<float> rows, Vector3 domainMinimum, Vector3 domainMaximum) {
         float[] planar = GC.AllocateUninitializedArray<float>(rows.Length);
-        ReadOnlySpan<Vector3> entries = MemoryMarshal.Cast<float, Vector3>(rows);
-        for (int entry = 0; entry < entries.Length; entry++)
-            (planar[entry], planar[length + entry], planar[(2 * length) + entry]) = (entries[entry].X, entries[entry].Y, entries[entry].Z);
+        ReadOnlySpan2D<float> entries = rows.AsSpan2D(length, 3);
+        Span2D<float> channels = planar.AsSpan().AsSpan2D(3, length);
+        for (int channel = 0; channel < 3; channel++)
+            entries.GetColumn(channel).CopyTo(channels.GetRowSpan(channel));
         (Length, DomainMinimum, DomainMaximum, planes) = (length, domainMinimum, domainMaximum, ImmutableCollectionsMarshal.AsImmutableArray(planar));
     }
 
@@ -37,15 +39,18 @@ public sealed class Lut1D {
     public Vector3 DomainMaximum { get; }
 
     public static Fin<Lut1D> From(CurveLength length, ReadOnlyMemory<float> rows, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        LutTables.Accepts(length, 3 * length, rows.Span, domainMinimum, domainMaximum).Map(_ => new Lut1D(length, rows.Span, domainMinimum, domainMaximum));
+        LutTables.Accepts(length, rows.Span, domainMinimum, domainMaximum).Map(_ => new Lut1D(length, rows.Span, domainMinimum, domainMaximum));
 
-    public ReadOnlySpan<float> Channel(int channel) => planes.AsSpan(channel * Length, Length);
+    public ReadOnlySpan<float> Channel(int channel) => planes.AsSpan().AsSpan2D(3, Length).GetRowSpan(channel);
 
     public void Apply(Span<Vector4> row) {
         (Vector3 span, Vector3 top) = (DomainMaximum - DomainMinimum, new Vector3(Length - 1));
+        ReadOnlySpan<float> red = Channel(0);
+        ReadOnlySpan<float> green = Channel(1);
+        ReadOnlySpan<float> blue = Channel(2);
         foreach (ref Vector4 pixel in row) {
             Vector3 position = Vector3.Min(Vector3.MaxNumber((pixel.AsVector3() - DomainMinimum) / span * top, Vector3.Zero), top);
-            pixel = new Vector4(Sample(Channel(0), position.X), Sample(Channel(1), position.Y), Sample(Channel(2), position.Z), pixel.W);
+            pixel = new Vector4(Sample(red, position.X), Sample(green, position.Y), Sample(blue, position.Z), pixel.W);
         }
     }
 
@@ -63,7 +68,7 @@ public sealed class InverseLut1D {
     public Lut1D Forward { get; }
 
     public static Fin<InverseLut1D> From(Lut1D forward) =>
-        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"non-monotonic LUT channel {channel} has no exact inverse")))).As()
+        toSeq(Range(0, 3)).Traverse(channel => Monotonic(forward.Channel(channel)).ToFin(new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"non-monotonic LUT channel {channel} has no exact inverse")))).As()
             .Map(ranges => new InverseLut1D(forward, ranges));
 
     public void Apply(Span<Vector4> row) {
@@ -75,7 +80,7 @@ public sealed class InverseLut1D {
         MonotonicRange range = ranges[channel];
         ReadOnlySpan<float> table = Forward.Channel(channel)[range.Start..(range.End + 1)];
         float bounded = float.IsNaN(value) ? table[0] : float.Clamp(value, float.Min(table[0], table[^1]), float.Max(table[0], table[^1]));
-        int above = ~table.BinarySearch(new LowerBound(bounded, range.Sign));
+        int above = ~table.BinarySearch(bounded, range.Order);
         float position = range.Start + (above is 0 ? 0f : above - 1 + ((bounded - table[above - 1]) / (table[above] - table[above - 1])));
         return Forward.DomainMinimum[channel] + (position / (Forward.Length - 1) * (Forward.DomainMaximum[channel] - Forward.DomainMinimum[channel]));
     }
@@ -84,17 +89,13 @@ public sealed class InverseLut1D {
         float sign = float.Sign(table[^1] - table[0]);
         for (int entry = 1; entry < table.Length && sign is not 0f; entry++)
             sign = sign * (table[entry] - table[entry - 1]) < 0f ? 0f : sign;
-        return sign is 0f ? None : new MonotonicRange(sign, table.IndexOfAnyExcept(table[0]) - 1, table.LastIndexOfAnyExcept(table[^1]) + 1);
+        return sign is 0f ? None : new MonotonicRange(Comparer<float>.Create((value, entry) => sign * value <= sign * entry ? -1 : 1), table.IndexOfAnyExcept(table[0]) - 1, table.LastIndexOfAnyExcept(table[^1]) + 1);
     }
 
-    private readonly record struct MonotonicRange(float Sign, int Start, int End);
-
-    private readonly struct LowerBound(float value, float sign) : IComparable<float> {
-        public int CompareTo(float other) => sign * value <= sign * other ? -1 : 1;
-    }
+    private sealed record MonotonicRange(Comparer<float> Order, int Start, int End);
 }
 
-public readonly record struct RemapBound(float In, float Out);
+public sealed record RemapBound(float In, float Out);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RemapBounds {
@@ -122,13 +123,15 @@ public abstract partial record RemapBounds {
     }
 }
 
-public readonly record struct CameraSegment(Vector3 Break, Vector3 Slope);
+public sealed record CameraSegment(Vector3 Break, Vector3 Slope);
 
-public readonly record struct LogCurve(float Base, Vector3 LogSlope, Vector3 LogOffset, Vector3 LinSlope, Vector3 LinOffset, Option<CameraSegment> Camera) {
+public sealed record LogCurve(float Base, Vector3 LogSlope, Vector3 LogOffset, Vector3 LinSlope, Vector3 LinOffset) {
     private static readonly Vector3 Floor = new(float.ScaleB(1f, -126));
 
+    public Option<CameraSegment> Camera { get; init; }
+
     public static LogCurve Allocation(float minimum, float maximum, float offset) =>
-        new(2f, new(1f / (maximum - minimum)), new(-minimum / (maximum - minimum)), Vector3.One, new(offset), None);
+        new(2f, new(1f / (maximum - minimum)), new(-minimum / (maximum - minimum)), Vector3.One, new(offset));
 
     public Vector3 Forward(Vector3 linear) =>
         Logarithmic(linear) switch {
@@ -232,7 +235,7 @@ public abstract partial record LutTable {
             Span<float> components = MemoryMarshal.Cast<Vector4, float>(row);
             Lattice.Apply(components, components, 4, Interpolation);
         }
-        public override Fin<LutTable> Inverse() => Error.New("3D lattice step has no exact inverse");
+        public override Fin<LutTable> Inverse() => new ImagingFault("3D lattice step has no exact inverse");
     }
 
     public sealed record ChannelCurve(Lut1D Table) : LutTable {
@@ -245,19 +248,25 @@ public abstract partial record LutTable {
         public override Fin<LutTable> Inverse() => new ChannelCurve(Table.Forward);
     }
 
-    public sealed record Affine(Matrix<double> Matrix, (double X, double Y, double Z) Offset = default) : LutTable {
+    public sealed record Affine : LutTable {
+        private readonly ColorMatrix3x3 baked;
+        private readonly Vector4 shift;
+
+        public Affine(Matrix<double> matrix, (double X, double Y, double Z) offset = default) =>
+            (Matrix, Offset, baked, shift) = (matrix, offset, LutTables.Baked(matrix), new Vector4((float)offset.X, (float)offset.Y, (float)offset.Z, 0f));
+
+        public Matrix<double> Matrix { get; }
+        public (double X, double Y, double Z) Offset { get; }
+
         public override void Apply(Span<Vector4> row) {
-            DenseVector source = new(3);
-            DenseVector mapped = new(3);
-            foreach (ref Vector4 pixel in row) {
-                (source[0], source[1], source[2]) = (pixel.X, pixel.Y, pixel.Z);
-                Matrix.Multiply(source, mapped);
-                pixel = new Vector4((float)(mapped[0] + Offset.X), (float)(mapped[1] + Offset.Y), (float)(mapped[2] + Offset.Z), pixel.W);
-            }
+            Span<float> samples = MemoryMarshal.Cast<Vector4, float>(row);
+            ImageProcessing.ApplyColorMatrix(samples, samples, 4, baked);
+            if (shift != Vector4.Zero)
+                foreach (ref Vector4 pixel in row) pixel += shift;
         }
         public override Fin<LutTable> Inverse() =>
             Matrix.LU() switch {
-                var factorization when factorization.U.Diagonal().Contains(0d) => Error.New("singular affine step has no exact inverse"),
+                var factorization when factorization.U.Diagonal().Contains(0d) => new ImagingFault("singular affine step has no exact inverse"),
                 var factorization => factorization.Inverse() switch {
                     var inverse => inverse.Multiply(new DenseVector([Offset.X, Offset.Y, Offset.Z])) switch {
                         var offset => new Affine(inverse, (-offset[0], -offset[1], -offset[2])),
@@ -270,7 +279,7 @@ public abstract partial record LutTable {
         public override void Apply(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Bounds.Apply(pixel.AsVector3()), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(Error.New("constant remap step has no exact inverse"));
+        public override Fin<LutTable> Inverse() => Bounds.Inverse().Map(static bounds => (LutTable)new Remap(bounds)).ToFin(new ImagingFault("constant remap step has no exact inverse"));
     }
 
     public sealed record Log(LogCurve Curve) : LutTable {
@@ -350,18 +359,29 @@ public abstract partial record LutSpace {
 public static class LutTables {
     extension(Lut3D) {
         public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-            Accepts(size, 3 * size * size * size, samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run());
+            Sampled(samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run()
+                .MapFail(cause => new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT lattice of size {size} refused"), cause)));
     }
 
-    internal static Fin<Unit> Accepts(int size, int count, ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        (samples.Length == count
+    internal static ColorMatrix3x3 Baked(Matrix<double> matrix) =>
+        new((float)matrix[0, 0], (float)matrix[0, 1], (float)matrix[0, 2], (float)matrix[1, 0], (float)matrix[1, 1], (float)matrix[1, 2], (float)matrix[2, 0], (float)matrix[2, 1], (float)matrix[2, 2]);
+
+    internal static Fin<Unit> Accepts(CurveLength length, ReadOnlySpan<float> rows, Vector3 domainMinimum, Vector3 domainMaximum) =>
+        (rows.Length == 3 * length
                 ? Fin.Succ(unit)
-                : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT of size {size} needs {count} samples, not {samples.Length}")),
-         TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : Error.New("LUT holds non-finite sample"),
-         Vector3.AllWhereAllBitsSet(Vector3.LessThan(domainMinimum, domainMaximum) & Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT curve of length {length} needs {3 * length} samples, not {rows.Length}")),
+         Sampled(rows, domainMinimum, domainMaximum),
+         Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum))
                 ? Fin.Succ(unit)
-                : Error.New(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must be finite and ascending")))
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must be finite")))
             .Apply(static (_, _, _) => unit).As();
+
+    private static Fin<Unit> Sampled(ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
+        (TensorPrimitives.IsFiniteAll(samples) ? Fin.Succ(unit) : new ImagingFault("LUT holds non-finite sample"),
+         Vector3.AllWhereAllBitsSet(Vector3.LessThan(domainMinimum, domainMaximum))
+                ? Fin.Succ(unit)
+                : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"LUT domain [{domainMinimum}, {domainMaximum}] must ascend")))
+            .Apply(static (_, _) => unit).As();
 
     public static Seq<LutTable> Between(Gamut source, Gamut target) =>
         source == target ? [] : [new LutTable.Affine(source.MatrixTo(target))];

@@ -6,6 +6,7 @@ using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rasm.Rhino.UI.Surfaces;
 using Rasm.UI;
+using Rasm.UI.Components;
 using Rhino.Resources;
 using Rhino.UI;
 using Rhino.UI.Controls;
@@ -96,47 +97,26 @@ public static class TextRows {
             label, RowShape.Inline, (value, form, browse, edited), static (latest, scope, retain) =>
                 from row in latest
                 from entry in row.Row.Form.Switch(retain,
-                    singleLine: static (keep, _) => Line(keep),
-                    multiLine: static (keep, multi) => Area(multi.Visible, keep),
+                    singleLine: static (keep, _) => HostInput.Line(keep),
+                    multiLine: static (keep, multi) => HostInput.Area(Some(multi.Visible), keep),
                     rich: static (keep, rich) => Rich(rich.Visible, keep),
                     secret: static (keep, _) => Secret(keep))
-                let edit = (Func<Edit<string>, IO<Unit>>)(change => latest.Bind(current => current.Row.Edited(change)))
-                let changed = Callbacks.Handler<EventArgs>(_ => IO.lift(entry.Read).Bind(typed => edit(new Edit<string>.Preview(typed))),
-                    new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(TextControl.TextChanged)))
-                from previewed in Subscriptions.Attach(h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h, changed, retain)
-                let shown = latest.Bind(current => Subscriptions.Detached(h => entry.Field.TextChanged += h, h => entry.Field.TextChanged -= h, changed,
-                    IO.lift(entry.Read).Bind(text => when(!string.Equals(text, current.Row.Value, StringComparison.Ordinal), IO.lift(() => entry.Write(current.Row.Value))).As())))
-                let committed = (Func<string, IO<Unit>>)(typed => edit(new Edit<string>.Commit(typed)))
-                let answers = HashMap((entry.Commit, IO.lift(entry.Read).Bind(committed)), (Keys.Escape, edit(new Edit<string>.Cancel()).Bind(_ => shown)))
-                from keys in Subscriptions.Attach(h => entry.Field.KeyDown += h, h => entry.Field.KeyDown -= h,
-                    Callbacks.Synchronous<KeyEventArgs>(args => Pressed(args, answers), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Control.KeyDown))), retain)
-                from lost in Subscriptions.Attach(h => entry.Field.LostFocus += h, h => entry.Field.LostFocus -= h,
-                    Callbacks.Handler<EventArgs>(_ => IO.lift(entry.Read).Bind(committed), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Control.LostFocus))), retain)
+                from shown in HostInput.Bound(entry, latest.Map(static current => (current.Row.Value, current.Row.Edited)), scope.Sink, retain)
                 from picked in row.Row.Browse.Traverse(asked =>
-                    Browsed(new LocalizeStringPair(row.Label, RowText.Localize(row.Label, scope.Sink).Local), asked, entry.Field, committed, scope, retain)).As()
+                    Browsed(new LocalizeStringPair(row.Label, RowText.Localize(row.Label, scope.Sink).Local), asked, entry.Field,
+                        typed => latest.Bind(current => current.Row.Edited(Edit.Commit(typed))), scope, retain)).As()
                 select new RowCells(entry.Shown, shown) { Pick = picked });
 
-    private static IO<Entry> Line(Action<IDisposable> retain) =>
-        from box in DisposalOps.Acquire(IO.lift(static () => new TextBox()), retain)
-        select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
-
-    private static IO<Entry> Area(int visible, Action<IDisposable> retain) =>
-        from area in DisposalOps.Acquire(IO.lift(static () => new TextArea()), retain)
-        from fitted in IO.lift(() => {
-            (area.Wrap, area.AcceptsReturn, area.AcceptsTab, area.SpellCheck, area.Height) = (true, true, false, false, (int)MathF.Ceiling(area.Font.LineHeight * visible));
-        })
-        select new Entry(area, area, Application.Instance.CommonModifier | Keys.Enter, () => area.Text, text => area.Text = text);
-
-    private static IO<Entry> Rich(int visible, Action<IDisposable> retain) =>
+    private static IO<HostInput.Entry> Rich(int visible, Action<IDisposable> retain) =>
         from rich in DisposalOps.Acquire(IO.lift(static () => new RichTextAreaWithAlternateText()), retain)
         from fitted in IO.lift(() => {
             (rich.HideAlternateTextWhenValueChanges, rich.SelectAllOnGotFocus, rich.Height) = (true, false, (int)MathF.Ceiling(rich.RichTextArea.Font.LineHeight * visible));
         })
-        select new Entry(rich, rich.RichTextArea, Application.Instance.CommonModifier | Keys.Enter, () => rich.RichTextArea.Rtf, rtf => rich.RichTextArea.Rtf = rtf);
+        select new HostInput.Entry(rich, rich.RichTextArea, Application.Instance.CommonModifier | Keys.Enter, () => rich.RichTextArea.Rtf, rtf => rich.RichTextArea.Rtf = rtf);
 
-    private static IO<Entry> Secret(Action<IDisposable> retain) =>
+    private static IO<HostInput.Entry> Secret(Action<IDisposable> retain) =>
         from box in DisposalOps.Acquire(IO.lift(static () => new PasswordBox()), retain)
-        select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
+        select new HostInput.Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
 
     private static IO<Unit> Indicated<T>(ProgressBar bar, Content<T> work) where T : notnull =>
         IO.lift(() => {
@@ -148,11 +128,6 @@ public static class TextRows {
                 empty: static _ => (false, false, 1, 0),
                 failed: static _ => (false, false, 1, 0));
         });
-
-    private static IO<Unit> Pressed(KeyEventArgs args, HashMap<Keys, IO<Unit>> answers) =>
-        answers.Find(args.KeyData)
-            .Traverse(answer => IO.lift(() => args.Handled = true).Bind(_ => answer)).As()
-            .Map(unit);
 
     private static IO<Control> Browsed(
         LocalizeStringPair title, (FileAction Action, Seq<FileTypeRow> Types) browse, TextControl box, Func<string, IO<Unit>> commit, RowScope scope, Action<IDisposable> retain) =>
@@ -195,6 +170,4 @@ public static class TextRows {
             cell: static (_, cell) => IO.lift(() => (cell.Held.Value, Subscriptions.Changed(cell.Held))),
             scoped: static (held, reading) => reading.Read(held.Scope).Map(value => (value, new HostEvent<TState>(typeof(RowScope), nameof(RowScope.Listen),
                 (deliver, _, keep) => held.Scope.Listen(_ => reading.Read(held.Scope).Bind(deliver), keep)))));
-
-    private sealed record Entry(Control Shown, TextControl Field, Keys Commit, Func<string> Read, Action<string> Write);
 }

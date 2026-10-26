@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-enum-item-without-value
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+rule:
+    kind: tuple
+    pattern: $ITEM
+    any:
+        - pattern: ($I.identifier, $I.name, $I.description)
+        - pattern: ($I.identifier, $I.name, $I.description, $I.icon)
+    inside:
+        kind: 'generator_expression, list_comprehension, set_comprehension'
+        field: body
+        has:
+            kind: for_in_clause
+            all:
+                - has: {field: left, kind: identifier, pattern: $I}
+                - has: {field: right, kind: attribute, has: {field: attribute, regex: '^enum_items(_static(_ui)?)?$'}}
+message: '`$ITEM` drops `$I.value`, and Blender numbers each item by position'
+note: 'Build `(<item>.identifier, <item>.name, <item>.description, <item>.icon, <item>.value)`'

@@ -36,7 +36,6 @@ from blender.bpy.render.outputs.paths import OutputPath
 from blender.bpy.render.outputs.results import produced, Production
 from blender.bpy.render.view_layers.passes import PassRouting, PassSet
 from blender.bpy.settings.attachments import Attached, Attachment, Recovery
-from blender.bpy.settings.history import Retention
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import Member, OperatorButton, Property, Pulldown
 from blender.bpy.ui.layout.sections import Single
@@ -45,6 +44,7 @@ from blender.bpy.ui.layout.values import Hosted, Listing, Store
 from blender.bpy.ui.surfaces.menus import Captured, PresetMenu
 from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.identity import content_hash, ContentHash
+from blender.records.trees import Retention
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

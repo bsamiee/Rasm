@@ -22,10 +22,11 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import annotated, Attached, Attachment, Host, Slot
-from blender.bpy.settings.history import Retention, ValueHistory
+from blender.bpy.settings.history import ValueHistory
 from blender.bpy.settings.presets import copied, pasted, Preset, PresetName, removed
 from blender.bpy.ui.layout.rows import acquired, alerted, invoking, Line, Member, OperatorButton, Popover, pressed, realized, refused, RowContent, RowDraw
 from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.trees import Retention
 
 if typing.TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import IconItems

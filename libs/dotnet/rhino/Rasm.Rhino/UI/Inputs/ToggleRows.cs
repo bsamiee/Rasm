@@ -12,7 +12,7 @@ public static class ToggleRows {
         new ControlRow.Bound<(bool Value, Func<Edit<bool>, IO<Unit>> Edited)>(label, RowShape.Inline, (value, edited), static (latest, scope, retain) =>
             from box in DisposalOps.Acquire(IO.lift(static () => new CheckBox()), retain)
             let handler = Callbacks.Handler<EventArgs>(
-                _ => latest.Bind(row => Optional(box.Checked).Traverse(state => row.Row.Edited(new Edit<bool>.Commit(state))).As()).Map(static _ => unit),
+                _ => latest.Bind(row => Optional(box.Checked).Traverse(state => row.Row.Edited(Edit.Commit(state))).As()).Map(static _ => unit),
                 new CallbackSite(scope.Sink, typeof(CheckBox), nameof(CheckBox.CheckedChanged)))
             from attached in Subscriptions.Attach(h => box.CheckedChanged += h, h => box.CheckedChanged -= h, handler, retain)
             select new RowCells(box, latest.Bind(row =>

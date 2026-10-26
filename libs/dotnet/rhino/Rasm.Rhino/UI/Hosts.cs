@@ -324,8 +324,7 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row, IPlugInView
         row.Icon.Bind(glyph => glyph.Switch(
             GetType().Assembly,
             tinted: static (_, _) => Option<string>.None,
-            paired: static (own, art) => art.Assembly == own ? Some(art.Light) : None,
-            picture: static (_, _) => Option<string>.None)).ValueUnsafe();
+            paired: static (own, art) => art.Assembly == own ? Some(art.Light) : None)).ValueUnsafe();
 
     public override Icon? PageIcon(Size sizeInPixels) =>
         Callbacks.Answer(row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, sizeInPixels)).As(),

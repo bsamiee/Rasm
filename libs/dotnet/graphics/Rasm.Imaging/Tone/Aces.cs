@@ -1,13 +1,15 @@
+using System.Globalization;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using MathNet.Numerics.LinearAlgebra;
-using MathNet.Numerics.LinearAlgebra.Double;
+using MathNet.Numerics.RootFinding;
 using Rasm.Imaging.Color;
 using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record JmhSpace(Gamut Gamut, Matrix<double> ToCone, Matrix<double> FromCone);
+internal sealed record JmhSpace(Gamut Gamut, Matrix4x4 ToCone, Matrix4x4 FromCone);
 
 internal sealed record AcesPeak(
     float Ceiling, float ForwardLimit, float S2, float M2, float LimitJ, float MidJ,
@@ -28,6 +30,7 @@ public static class Aces {
     private const float SmoothCusps = 0.12f;
     private const float ReferenceLuminance = 100f;
     private const float PqPeak = 10_000f;
+    private const int RootIterations = 100;
 
     private static readonly double Adaptation = double.Pow(1d / ((5d * AdaptingLuminance) + 1d), 4d) switch {
         var k4 => (0.2d * k4 * 5d * AdaptingLuminance) + (0.1d * double.Pow(1d - k4, 2d) * double.Cbrt(5d * AdaptingLuminance)),
@@ -35,29 +38,28 @@ public static class Aces {
     private static readonly float LuminanceScale = (float)(Adaptation / ReferenceLuminance);
     private static readonly float ModelGamma = (float)(0.59d * (1.48d + double.Sqrt(20d / ReferenceLuminance)));
     private static readonly float WhiteResponse = Compressed((float)Adaptation);
-    private static readonly Matrix<double> ConeToAab = (1d / ((2d + 1d + (1d / 20d)) * WhiteResponse), 400d * 43d * 0.9d) switch {
-        var (achromatic, chromatic) => Matrix<double>.Build.DenseOfRowMajor(3, 3, [
+    private static readonly (Matrix4x4 ConeToAab, Matrix4x4 AabToCone) Opponent = (1d / ((2d + 1d + (1d / 20d)) * WhiteResponse), 400d * 43d * 0.9d) switch {
+        var (achromatic, chromatic) => Baked(Matrix<double>.Build.DenseOfRowMajor(3, 3, [
             2d * achromatic, achromatic, achromatic / 20d,
             chromatic, -12d / 11d * chromatic, chromatic / 11d,
             chromatic / 9d, chromatic / 9d, -2d / 9d * chromatic,
-        ]),
+        ])),
     };
-    private static readonly Matrix<double> AabToCone = ConeToAab.Inverse();
     private static readonly JmhSpace Reach = Space(Gamut.Acescg);
-    private static readonly Func<(Gamut Limit, float Peak), AcesGamut> Gamuts = memoUnsafe<(Gamut Limit, float Peak), AcesGamut>(Limited);
+    private static readonly Seq<Vector3> Corners = Seq(new Vector3(1f, 0f, 0f), new Vector3(1f, 1f, 0f), new Vector3(0f, 1f, 0f), new Vector3(0f, 1f, 1f), new Vector3(0f, 0f, 1f), new Vector3(1f, 0f, 1f));
+    private static readonly Func<(Gamut Limit, float Peak), Fin<AcesGamut>> Gamuts = memoUnsafe<(Gamut Limit, float Peak), Fin<AcesGamut>>(Limited);
 
-    public static Action<Span<Vector4>> Formed(Gamut working, DisplayDevice device) =>
+    public static Fin<Action<Span<Vector4>>> Formed(Gamut working, DisplayDevice device) =>
         Gamuts((device.Map(
             srgb: Gamut.StandardRgb, displayP3: Gamut.DisplayP3, rec1886: Gamut.StandardRgb, rec2020: Gamut.DisplayP3,
-            rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb), (float)device.Peak.Nits.ToDouble())) switch {
-                var gamut => device.Formed(
-                    working, Gamut.Acescg,
-                    Seq<Action<Span<Vector4>>>(row => {
-                        foreach (ref Vector4 pixel in row)
-                            pixel = new Vector4(Rendered(pixel.AsVector3(), gamut), pixel.W);
-                    }),
-                    new ColorEncoding(gamut.Limit.Gamut, new Transfer.Linear())),
-            };
+            rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb), (float)device.Peak.Nits.ToDouble()))
+            .Map(gamut => device.Formed(
+                working, Gamut.Acescg,
+                Seq<Action<Span<Vector4>>>(row => {
+                    foreach (ref Vector4 pixel in row)
+                        pixel = new Vector4(Rendered(pixel.AsVector3(), gamut), pixel.W);
+                }),
+                new ColorEncoding(gamut.Limit.Gamut, new Transfer.Linear())));
 
     private static Vector3 Rendered(Vector3 scene, AcesGamut gamut) {
         AcesPeak peak = gamut.Peak;
@@ -164,16 +166,10 @@ public static class Aces {
     private static Vector3 Aab(float j, float m, float cos, float sin) => new(float.Pow(j / LightnessScale, 1f / ModelGamma), m * cos, m * sin);
 
     private static Vector3 Aab(Vector3 rgb, JmhSpace space) =>
-        ConeToAab.Multiply(space.ToCone.Multiply(new DenseVector([rgb.X, rgb.Y, rgb.Z])).Map(static value =>
-            double.Pow(double.Abs(value), ConeExponent) switch { var response => double.CopySign(response / (ConeOffset + response), value) })) switch {
-                var aab => new((float)aab[0], (float)aab[1], (float)aab[2]),
-            };
+        Vector3.Transform(Vector3.Transform(rgb, space.ToCone) switch { var cone => new Vector3(Compressed(cone.X), Compressed(cone.Y), Compressed(cone.Z)) }, Opponent.ConeToAab);
 
     private static Vector3 Rgb(Vector3 aab, JmhSpace space) =>
-        space.FromCone.Multiply(AabToCone.Multiply(new DenseVector([aab.X, aab.Y, aab.Z])).Map(static value =>
-            double.Min(double.Abs(value), 0.99d) switch { var limited => double.CopySign(double.Pow(ConeOffset * limited / (1d - limited), 1d / ConeExponent), value) })) switch {
-                var rgb => new((float)rgb[0], (float)rgb[1], (float)rgb[2]),
-            };
+        Vector3.Transform(Vector3.Transform(aab, Opponent.AabToCone) switch { var cone => new Vector3(Uncompressed(cone.X), Uncompressed(cone.Y), Uncompressed(cone.Z)) }, space.FromCone);
 
     private static float Lightness(float luminance) => LightnessScale * float.Pow(Compressed(luminance * LuminanceScale) / WhiteResponse, ModelGamma);
 
@@ -193,13 +189,23 @@ public static class Aces {
         };
         (double, double, double) Cone((double, double, double) value) => new Unicolour(sharpened, ColourSpace.Xyz, new Unicolour(own, ColourSpace.RgbLinear, value).Xyz.Tuple).RgbLinear.Tuple;
         (double red, double green, double blue) = Cone((1d, 1d, 1d));
-        Matrix<double> toCone = Gamut.Columns(basis => Cone(basis) switch {
+        return Baked(Gamut.Columns(basis => Cone(basis) switch {
             var (r, g, b) => (Adaptation * r / red, Adaptation * g / green, Adaptation * b / blue),
-        });
-        return new(gamut, toCone, toCone.Inverse());
+        })) switch {
+            var (toCone, fromCone) => new(gamut, toCone, fromCone),
+        };
     }
 
-    private static AcesPeak Peaked(float nits) {
+    private static (Matrix4x4 Forward, Matrix4x4 Inverse) Baked(Matrix<double> forward) {
+        static Matrix4x4 Transposed(Matrix<double> matrix) => new(
+            (float)matrix[0, 0], (float)matrix[1, 0], (float)matrix[2, 0], 0f,
+            (float)matrix[0, 1], (float)matrix[1, 1], (float)matrix[2, 1], 0f,
+            (float)matrix[0, 2], (float)matrix[1, 2], (float)matrix[2, 2], 0f,
+            0f, 0f, 0f, 1f);
+        return (Transposed(forward), Transposed(forward.Inverse()));
+    }
+
+    private static Fin<AcesPeak> Peaked(float nits) {
         double peak = nits;
         double ceiling = peak / ReferenceLuminance;
         double hit = double.Lerp(128d, 896d, double.Log(ceiling) / double.Log(PqPeak / ReferenceLuminance));
@@ -211,39 +217,46 @@ public static class Aces {
         double grayWeight = Exposure.MiddleGray / (-(m1 * lifted) / (lifted - 1d));
         double logPeak = double.Log10(ceiling);
         float limitJ = Lightness((float)peak);
-        return new(
+        return toSeq(Range(0, Degrees)).Traverse(hue => Reached(hue, limitJ)).As().Map(reach => new AcesPeak(
             (float)ceiling, (float)(8d * hit), (float)(grayWeight * m1), (float)(m1 / double.Pow(scaled / (scaled + grayWeight), Surround)), limitJ, Lightness((float)(gray * ReferenceLuminance)),
             (float)double.Max(0.2d, 1.3d - (1.3d * 0.69d * logPeak)), (float)(0.5d / peak), (float)(2.4d + (2.4d * 3.3d * logPeak)), (float)(double.Pow(0.03379d * peak, 0.30596d) - 0.45135d),
             (float)(1.35d + (1.35d * 1.75d * logPeak)), (float)(1d / (1.14d + (0.07d * logPeak))),
-            Wrapped(toSeq(Range(0, Degrees)).Map(hue => Reached(hue, limitJ)), static (value, _) => value));
+            Wrapped(reach, static (value, _) => value)));
     }
 
-    private static float Reached(float hue, float limitJ) {
+    private static Fin<float> Reached(float hue, float limitJ) {
         (float sin, float cos) = float.SinCos(float.DegreesToRadians(hue));
-        bool Outside(float m) => Rgb(Aab(limitJ, m, cos, sin), Reach) is var rgb && (rgb.X < 0f || rgb.Y < 0f || rgb.Z < 0f);
-        (float Low, float High) Widened(float low, float high) => high < 1300f && !Outside(high) ? Widened(high, high + 50f) : (low, high);
-        float Narrowed(float low, float high) => high - low > 1e-2f ? ((low + high) / 2f) switch { var middle => Outside(middle) ? Narrowed(low, middle) : Narrowed(middle, high) } : high;
-        return Widened(0f, 50f) switch { var (low, high) => Narrowed(low, high) };
+        return Root(hue, m => Rgb(Aab(limitJ, (float)m, cos, sin), Reach) switch { var rgb => float.Min(rgb.X, float.Min(rgb.Y, rgb.Z)) }, 0d, 1300d, 1e-2, Reach);
     }
 
-    private static AcesGamut Limited((Gamut Limit, float Peak) key) {
-        AcesPeak peak = Peaked(key.Peak);
-        JmhSpace limit = Space(key.Limit);
-        float limitA = float.Pow(peak.LimitJ / LightnessScale, 1f / ModelGamma);
-        Seq<Vector3> corners = Seq(new Vector3(1f, 0f, 0f), new Vector3(1f, 1f, 0f), new Vector3(0f, 1f, 0f), new Vector3(0f, 1f, 1f), new Vector3(0f, 0f, 1f), new Vector3(1f, 0f, 1f));
-        float Scaled(Vector3 corner, float lower, float upper) =>
-            upper - lower > 1e-3f
-                ? ((lower + upper) / 2f) switch { var test => Aab(test * corner, Reach).X switch { var a when a < limitA => Scaled(corner, test, upper), var a when a == limitA => test, _ => Scaled(corner, lower, test) } }
-                : upper;
-        ImmutableArray<(Vector3 Rgb, Vector3 Jmh)> reached = Cycled(corners.Map(corner => (Scaled(corner, 0f, peak.ForwardLimit) * corner) switch { var rgb => (rgb, Jmh(Aab(rgb, Reach))) }));
-        ImmutableArray<(Vector3 Rgb, Vector3 Jmh)> bounded = Cycled(corners.Map(corner => (corner * peak.Ceiling) switch { var rgb => (rgb, Jmh(Aab(rgb, limit))) }));
-        Seq<float> nominal = Nominal(toSeq(toSeq(Range(1, 6)).Bind(i => Seq(reached[i].Jmh.Z, bounded[i].Jmh.Z)).Distinct().Order()));
-        Seq<Vector3> cusps = nominal.Fold((Cusps: Seq<Vector2>(), Segment: 0, Position: 0f), (state, hue) => Cusp(hue, bounded, limit, state.Segment, state.Position) switch {
-            var (cusp, segment, position) => (state.Cusps.Add(cusp * new Vector2(1f, 1f + (0.27f * SmoothCusps))), segment, position),
-        }).Cusps.Zip(nominal).Map(pair => new Vector3(pair.First, Hull(pair.First, pair.Second, peak, limit)));
-        Seq<int> offsets = nominal.Map(static (hue, index) => index - (int)hue);
-        return new(peak, limit, Wrapped(nominal, static (hue, turn) => hue + (Degrees * turn)), Wrapped(cusps, static (cusp, _) => cusp), offsets.Fold(0, int.Min), offsets.Fold(0, int.Max) + 1);
-    }
+    private static Fin<float> Scaled(Vector3 corner, AcesPeak peak) =>
+        float.Pow(peak.LimitJ / LightnessScale, 1f / ModelGamma) switch {
+            var limitA => Root(corner, s => limitA - Aab((float)s * corner, Reach).X, 0d, peak.ForwardLimit, 1e-3, Reach),
+        };
+
+    private static Fin<float> Root<T>(
+        T subject, Func<double, double> margin, double lower, double upper, double accuracy, JmhSpace space,
+        [CallerArgumentExpression(nameof(subject))] string named = "", [CallerMemberName] string search = "") =>
+        margin(upper) >= 0d ? (float)upper
+        : Bisection.TryFindRoot(margin, lower, upper, accuracy, RootIterations, out double root) ? (float)root
+        : new ImagingFault(string.Create(CultureInfo.InvariantCulture, $"ACES {search} search at {named} {subject} in {space.Gamut.Rgb.Name} brackets no root over [{lower}, {upper}]"));
+
+    private static Fin<AcesGamut> Limited((Gamut Limit, float Peak) key) =>
+        from peak in Peaked(key.Peak)
+        from scales in Corners.Traverse(corner => Scaled(corner, peak)).As()
+        let limit = Space(key.Limit)
+        let reached = Cycled(Corners.Zip(scales).Map(static pair => (pair.First * pair.Second) switch { var rgb => (rgb, Jmh(Aab(rgb, Reach))) }))
+        let bounded = Cycled(Corners.Map(corner => (corner * peak.Ceiling) switch { var rgb => (rgb, Jmh(Aab(rgb, limit))) }))
+        let nominal = Nominal(toSeq(toSeq(Range(1, 6)).Bind(i => Seq(reached[i].Jmh.Z, bounded[i].Jmh.Z)).Distinct().Order()))
+        from found in nominal.Fold(Fin.Succ((Cusps: Seq<Vector2>(), Segment: 0, Position: 0f)), (state, hue) =>
+            from held in state
+            from cusp in Cusp(hue, bounded, limit, held.Segment, held.Position)
+            select (held.Cusps.Add(cusp.Cusp * new Vector2(1f, 1f + (0.27f * SmoothCusps))), cusp.Segment, cusp.Position))
+        from hulls in found.Cusps.Zip(nominal).Traverse(pair => Hull(pair.First, pair.Second, peak, limit)).As()
+        let offsets = nominal.Map(static (hue, index) => index - (int)hue)
+        select new AcesGamut(
+            peak, limit, Wrapped(nominal, static (hue, turn) => hue + (Degrees * turn)), Wrapped(found.Cusps.Zip(hulls).Map(static pair => new Vector3(pair.First, pair.Second)), static (cusp, _) => cusp),
+            offsets.Fold(0, int.Min), offsets.Fold(0, int.Max) + 1);
 
     private static ImmutableArray<(Vector3 Rgb, Vector3 Jmh)> Cycled(Seq<(Vector3 Rgb, Vector3 Jmh)> corners) =>
         Range(0, corners.Count).Fold(0, (least, i) => corners[i].Jmh.Z < corners[least].Jmh.Z ? i : least) switch {
@@ -265,27 +278,24 @@ public static class Aces {
     private static Seq<float> Spread((float Low, float High) hues, (int Low, int High) slots) =>
         toSeq(Range(0, slots.High - slots.Low)).Map(i => hues.Low + (i * ((hues.High - hues.Low) / (slots.High - slots.Low))));
 
-    private static (Vector2 Cusp, int Segment, float Position) Cusp(float hue, ImmutableArray<(Vector3 Rgb, Vector3 Jmh)> corners, JmhSpace limit, int segment, float position) {
+    private static Fin<(Vector2 Cusp, int Segment, float Position)> Cusp(float hue, ImmutableArray<(Vector3 Rgb, Vector3 Jmh)> corners, JmhSpace limit, int segment, float position) {
         int upper = 1 + toSeq(Range(1, corners.Length - 1)).Filter(i => corners[i].Jmh.Z <= hue).Count;
-        ((Vector3 lowerRgb, Vector3 lowerJmh), (Vector3 upperRgb, Vector3 upperJmh)) = (corners[upper - 1], corners[upper]);
-        Vector3 Sampled(float t) => Jmh(Aab(Vector3.Lerp(lowerRgb, upperRgb, t), limit));
-        float Split(float low, float high, float t, float h) => h < lowerJmh.Z || (h < upperJmh.Z && h > hue) ? Bisected(low, t) : Bisected(t, high);
-        float Bisected(float low, float high) => high - low > 1e-7f ? ((low + high) / 2f) switch { var t => Split(low, high, t, Sampled(t).Z) } : (low + high) / 2f;
+        ((Vector3 lowerRgb, Vector3 lowerJmh), (Vector3 upperRgb, _)) = (corners[upper - 1], corners[upper]);
+        Vector3 Sampled(double t) => Jmh(Aab(Vector3.Lerp(lowerRgb, upperRgb, (float)t), limit));
         return lowerJmh.Z == hue
-            ? (new Vector2(lowerJmh.X, lowerJmh.Y), segment, position)
-            : Bisected(upper == segment ? position : 0f, 1f) switch { var t => Sampled(t) switch { var jmh => (new Vector2(jmh.X, jmh.Y), upper, t) } };
+            ? Fin.Succ((new Vector2(lowerJmh.X, lowerJmh.Y), segment, position))
+            : Root(hue, t => float.Ieee754Remainder(hue - Sampled(t).Z, Degrees), upper == segment ? position : 0d, 1d, 1e-4, limit)
+                .Map(t => Sampled(t) switch { var jmh => (new Vector2(jmh.X, jmh.Y), upper, t) });
     }
 
-    private static float Hull(Vector2 cusp, float hue, AcesPeak peak, JmhSpace limit) {
+    private static Fin<float> Hull(Vector2 cusp, float hue, AcesPeak peak, JmhSpace limit) {
         (float sin, float cos) = float.SinCos(float.DegreesToRadians(hue));
         Vector3 point = new(cusp, 0f);
         Seq<(float Source, float Slope, float Crossing)> tests = Seq(0.01f, 0.1f, 0.5f, 0.8f, 0.99f).Map(position => Projected(float.Lerp(cusp.X, peak.LimitJ, position), cusp.Y, point, peak)).Strict();
-        bool Fits(float gamma) => tests.ForAll(test => Boundary(point with { Z = 1f / gamma }, peak, test.Source, test.Slope, test.Crossing) switch {
-            var m => Rgb(Aab(test.Source + (test.Slope * m), m, cos, sin), limit) is var rgb && (rgb.X > peak.Ceiling || rgb.Y > peak.Ceiling || rgb.Z > peak.Ceiling),
+        double Margin(double gamma) => tests.Max(test => Boundary(point with { Z = (float)(1d / gamma) }, peak, test.Source, test.Slope, test.Crossing) switch {
+            var m => Rgb(Aab(test.Source + (test.Slope * m), m, cos, sin), limit) switch { var rgb => 1f - (float.Max(rgb.X, float.Max(rgb.Y, rgb.Z)) / peak.Ceiling) },
         });
-        (float Low, float High) Widened(float low, float high) => high < 5f && !Fits(high) ? Widened(high, high + 0.4f) : (low, high);
-        float Narrowed(float low, float high) => high - low > 1e-5f ? ((low + high) / 2f) switch { var middle => Fits(middle) ? Narrowed(low, middle) : Narrowed(middle, high) } : high;
-        return 1f / (Widened(0f, 0.4f) switch { var (low, high) => Narrowed(low, high) });
+        return Root(hue, Margin, 1e-3, 5.2, 1e-5, limit).Map(static gamma => 1f / gamma);
     }
 
     private static ImmutableArray<T> Wrapped<T>(Seq<T> nominal, Func<T, int, T> turned) =>

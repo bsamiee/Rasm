@@ -26,7 +26,7 @@ public static class ChoiceRows {
             let handler = Callbacks.Handler<EventArgs>(_ =>
                 from picked in popup.Picked
                 from current in latest
-                from committed in picked.Traverse(pick => current.Row.Edited(new Edit<TModel>.Commit(pick))).As()
+                from committed in picked.Traverse(pick => current.Row.Edited(Edit.Commit(pick))).As()
                 select unit, site)
             from attached in Subscriptions.Attach(h => popup.Control.SelectedValueChanged += h, h => popup.Control.SelectedValueChanged -= h, handler, retain)
             select new RowCells(popup.Control, latest.Bind(current => Subscriptions.Detached(
@@ -41,7 +41,7 @@ public static class ChoiceRows {
             let handler = Callbacks.Handler<EventArgs>(_ =>
                 from picked in strip.Picked
                 from current in latest
-                from committed in current.Row.Edited(new Edit<Seq<TModel>>.Commit(picked))
+                from committed in current.Row.Edited(Edit.Commit(picked))
                 select unit, site)
             from attached in Subscriptions.Attach(h => strip.Control.SelectedItemsChanged += h, h => strip.Control.SelectedItemsChanged -= h, handler, retain)
             select new RowCells(strip.Control, latest.Bind(current => Subscriptions.Detached(

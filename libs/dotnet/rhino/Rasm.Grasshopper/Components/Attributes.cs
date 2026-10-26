@@ -21,7 +21,7 @@ using SkiaSharp;
 namespace Rasm.Grasshopper.Components;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReading, Node> View) {
+public sealed record PlotBody<TReading>(Sizing.Fixed Width, Sizing.Fixed Height, Func<TReading, Node> View) {
     public Padding ResizeEdges { get; init; } = new(ResizableAttributes<Component>.EdgeSize);
     public Option<Action<PlotAttributes<TReading>>> Configure { get; init; }
 
@@ -30,8 +30,8 @@ public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReadi
         (Axis(width), Axis(height))
             .Apply((wide, high) => new PlotBody<TReading>(wide, high, view)).As();
 
-    private static Fin<Extent> Axis((float Minimum, float Ideal, float Maximum) axis) =>
-        Extent.TryCreate(axis.Minimum, axis.Ideal, axis.Maximum, out Extent? extent, out RhinoFault? fault) ? extent : fault;
+    private static Fin<Sizing.Fixed> Axis((float Minimum, float Ideal, float Maximum) axis) =>
+        Limits.Validated(axis.Minimum, axis.Maximum).Map(limits => new Sizing.Fixed(axis.Ideal) { Limits = limits });
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -78,7 +78,6 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             }).Bind(static _ => Editors.Canvas.Bind(SnapSession.End)).Map(Response.Handled)).Bind(resized => Or(resized, guest.Keyed(args))),
             _ => guest.Keyed(args),
         }, nameof(Responses.KeyDown));
-        Responder.TextInputHook += Reply<TextInputEventArgs>(args => guest.Receive(new Input.Perform(new Act.Insert(args.Text), new Target.Focused())), nameof(Responses.TextInput));
         Responder.GotFocus += Callbacks.Handler<EventArgs>(_ => guest.Rehost(Visibility.Active), Site(nameof(Responses.GotFocus))).Invoke;
         Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled.Bind(__ => guest.Rehost(Visibility.Shown)), Site(nameof(Responses.LostFocus))).Invoke;
         _ = body.Configure.Iter(configure => configure(this));
@@ -87,7 +86,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     // --- [LAYOUT]
     SizeF IResizableAttributes.Size {
         get {
-            SizeF held = Owner.CustomValues.Get(SizeKey, new SizeF(body.Width.Ideal, body.Height.Ideal));
+            SizeF held = Owner.CustomValues.Get(SizeKey, new SizeF(body.Width.Extent, body.Height.Extent));
             SizeF preferred = guest.Preferred(new SKSize(held.Width, held.Height)).Map(static size => new SizeF(size.Width, size.Height)).IfNone(held);
             (bool wide, bool high) = Stretched;
             return SizeF.Max(Minimum, SizeF.Min(new SizeF(wide ? held.Width : preferred.Width, high ? held.Height : preferred.Height), Maximum));
@@ -136,10 +135,10 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
 
     private static bool Stretches(Option<Sizing> sizing) => sizing.Exists(static held => held is Sizing.Grow or Sizing.Percent);
 
-    private SizeF Minimum => SizeF.Max(new SizeF(body.Width.Minimum, body.Height.Minimum),
+    private SizeF Minimum => SizeF.Max(new SizeF(body.Width.Limits.Min, body.Height.Limits.Min),
         new SizeF(0f, (StandardLayout.ParameterMinHeight * int.Max(component.ModularInputs.VisibleCount, component.ModularOutputs.VisibleCount)) - Rim));
 
-    private SizeF Maximum => SizeF.Max(Minimum, new SizeF(body.Width.Maximum, body.Height.Maximum));
+    private SizeF Maximum => SizeF.Max(Minimum, new SizeF(body.Width.Limits.Max, body.Height.Limits.Max));
 
     private PaddingF Margins => new(CentralBox.Left - Bounds.Left, CentralBox.Top - Bounds.Top, Bounds.Right - CentralBox.Right, Bounds.Bottom - CentralBox.Bottom);
 

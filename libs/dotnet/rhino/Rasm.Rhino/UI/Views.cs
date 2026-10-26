@@ -255,7 +255,7 @@ public static class ViewOps {
     private static IO<(Control Body, bool Fill)> Part(IPlugInViews owner, (Child Lead, Seq<Child> Run) run, RowScope scope, Action<IDisposable> retain) =>
         run.Lead.Switch(
                 (Owner: owner, run.Run, Scope: scope, Retain: retain),
-                control: static (state, _) => RowGrid.Realize(Joined(state.Run.Map(static child => child.AsControl)), state.Scope, state.Retain).Map(static grid => (Control)grid.View),
+                control: static (state, _) => RowGrid.Realize(Joined(state.Run.Map(static child => child.AsControl)), state.Scope, state.Retain).Map(static grid => grid.View),
                 holder: static (state, holder) => SectionHolder.Hold(state.Owner, holder, state.Scope, state.Retain).Map(static held => (Control)held),
                 container: static (state, container) => Containers.Realize(state.Owner, container, state.Scope, state.Retain))
             .Map(body => (Body: body, Fill: run.Run.Exists(static child => child.Fill)));

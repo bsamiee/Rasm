@@ -4,6 +4,7 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rasm.UI;
+using Rasm.UI.Components;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.UI;

@@ -43,8 +43,8 @@ class LutLayout(IntEnum):
         """
 
         def decoded(image: ImageFile[np.float32]) -> Outcome[PyOpenColorIO.GroupTransform]:
-            if (pixels := (image.pixels)).ndim != 3:
-                return Error((Fault(reason=ImagingReason.SHAPE, subject=f"LUT image {path}", member=str(pixels.shape)),))
+            if (pixels := image.pixels).ndim != 3:
+                return Error((Fault(reason=ImagingReason.SHAPE, subject=path, member=str(pixels.shape)),))
             height, width, channels = pixels.shape
             rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
             level = round(np.cbrt(width))
@@ -56,7 +56,7 @@ class LutLayout(IntEnum):
                     size = height
                     plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
                 case _:
-                    return Error((Fault(reason=ImagingReason.SHAPE, subject=f"LUT image {path}", member=str(pixels.shape)),))
+                    return Error((Fault(reason=ImagingReason.SHAPE, subject=path, member=str(pixels.shape)),))
             return catch(Lattice(size=size).transform, exception=PyOpenColorIO.Exception)(plane).map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),))
 
         options = OpenImageIO.ImageSpec()
@@ -77,8 +77,8 @@ class LutLayout(IntEnum):
         cube = table.getData().reshape(size, size, size, 3).transpose(2, 1, 0, 3)
         match self:
             case LutLayout.HALD:
-                if (level := (math.isqrt(size))) * level != size:
-                    return Error((Fault(reason=ImagingReason.SHAPE, subject=f"LUT image {path}", member=str(cube.shape)),))
+                if (level := math.isqrt(size)) * level != size:
+                    return Error((Fault(reason=ImagingReason.SHAPE, subject=path, member=str(cube.shape)),))
                 side = level**3
                 pixels = cube.reshape(side, side, 3)
             case LutLayout.KEYSHOT:
@@ -126,15 +126,15 @@ class Uniform(Case, frozen=True, kw_only=True):
     """Nodes evenly spaced between allocation endpoints."""
 
     limit: ClassVar[float] = float(np.nextafter(np.float32(np.inf), np.float32(0)))
-    low: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at first node")] = 0.0
-    high: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at last node")] = 1.0
+    low: Annotated[float, msgspec.Meta(ge=-limit, le=limit)] = 0.0
+    high: Annotated[float, msgspec.Meta(ge=-limit, le=limit)] = 1.0
 
 
 class Logarithmic(Case, frozen=True, kw_only=True):
     """Nodes evenly spaced in stops, scene zero on first node."""
 
-    low: Annotated[float, msgspec.Meta(ge=-24.0, le=16.0, description="Stops from 1.0 to first nonzero node")] = -10.0
-    span: Annotated[float, msgspec.Meta(gt=0.0, le=40.0, description="Stops from low to high allocation")] = 20.0
+    low: Annotated[float, msgspec.Meta(ge=-24.0, le=16.0)] = -10.0
+    span: Annotated[float, msgspec.Meta(gt=0.0, le=40.0)] = 20.0
 
 
 class Rational(Case, frozen=True):
@@ -147,8 +147,8 @@ type Spacing = Uniform | Logarithmic | Rational
 class Lattice(msgspec.Struct, frozen=True, kw_only=True):
     """Cube edge length and node encoding."""
 
-    size: Annotated[int, msgspec.Meta(ge=2, le=129, description="Nodes along each axis")] = 33
-    spacing: Annotated[Spacing, msgspec.Meta(description="Encoding before table")] = Uniform()
+    size: Annotated[int, msgspec.Meta(ge=2, le=129)] = 33
+    spacing: Spacing = Uniform()
 
     @property
     def head(self) -> Option[PyOpenColorIO.Transform]:
@@ -200,6 +200,7 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
         """Encodes every source before publishing each path atomically in mapping order."""
 
         def baked(source: PyOpenColorIO.GroupTransform, lattice: Lattice) -> Outcome[str]:
+            @catch(exception=PyOpenColorIO.Exception)
             def text() -> str:
                 config = PyOpenColorIO.Config()
                 entry = PyOpenColorIO.ColorSpace(name="source")
@@ -217,18 +218,19 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
                     shaperSpace=shapers[0].getName() if shapers else "",
                 ).bake()
 
-            return catch(text, exception=PyOpenColorIO.Exception)().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=self.format.name, cause=error),))
+            return text().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=self.format.name, cause=error),))
 
         def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[str, str]]:
             path, source = item
+
+            @catch(exception=PyOpenColorIO.Exception)
+            def exact() -> str:
+                return source.write(formatName=self.format.name, config=PyOpenColorIO.Config())
+
             return (
                 self.lattice
                 .map(lambda lattice: baked(source, lattice))
-                .default_with(
-                    lambda: catch(lambda: source.write(formatName=self.format.name, config=PyOpenColorIO.Config()), exception=PyOpenColorIO.Exception)().map_error(
-                        lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)
-                    )
-                )
+                .default_with(lambda: exact().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)))
                 .map(lambda text: (path, text))
             )
 

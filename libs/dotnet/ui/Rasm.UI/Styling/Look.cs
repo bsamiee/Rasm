@@ -3,72 +3,16 @@ using System.Numerics;
 using HarfBuzzSharp;
 using SkiaSharp;
 using Topten.RichTextKit;
-using Wacton.Unicolour;
 
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
-public abstract partial record ColorValue {
-    public sealed record Fixed(Unicolour Color) : ColorValue {
-        public Fixed(string hex) : this(new Unicolour(hex)) { }
-    }
-
-    public sealed record Host(Option<Role> Role, Channel Channel) : ColorValue {
-        public Fraction Alpha { get; init; } = Fraction.MaxValue;
-        public Option<Condition> Condition { get; init; }
-        public Option<ColorValue> Fallback { get; init; }
-    }
-
-    public sealed record Data : ColorValue {
-        public Fraction Alpha { get; init; } = Fraction.MaxValue;
-    }
-
-    public sealed record Mixed(ColorValue From, ColorValue To, Fraction Amount) : ColorValue {
-        public ColourSpace Space { get; init; } = ColourSpace.Oklab;
-        public HueSpan Hue { get; init; } = HueSpan.Shorter;
-    }
-
-    public sealed record Contrasting(ColorValue Over, Seq<ColorValue> Candidates) : ColorValue;
-
-    public sealed record Relative(ColorValue From, ColourSpace Space, ChannelShift First, ChannelShift Second, ChannelShift Third) : ColorValue {
-        public ChannelShift Alpha { get; init; } = new ChannelShift.Kept();
-
-        internal SKColorF Shifted(SKColorF origin) =>
-            origin.ToUnicolour() switch {
-                var colour => colour.GetRepresentation(Space).Tuple switch {
-                    var (first, second, third) => new Unicolour(Space, First.Applied(Kept(first)), Second.Applied(Kept(second)), Third.Applied(Kept(third)),
-                            double.Clamp(Alpha.Applied(colour.Alpha.A), 0d, 1d))
-                        .MapToRgbGamut(GamutMap.OklchChromaReduction).ToSKColorF(),
-                },
-            };
-
-        private static double Kept(double channel) => double.IsNaN(channel) ? 0d : channel;
-    }
-}
-
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ChannelShift {
-    internal double Applied(double kept) =>
-        Switch(kept, kept: static (held, _) => held, literal: static (_, literal) => literal.Value, offset: static (held, offset) => held + offset.By, scaled: static (held, scaled) => held * scaled.By);
-
-    public sealed record Kept : ChannelShift;
-
-    public sealed record Literal(double Value) : ChannelShift;
-
-    public sealed record Offset(double By) : ChannelShift;
-
-    public sealed record Scaled(double By) : ChannelShift;
-}
-
-public sealed record Series(uint Ordinal) {
-    public Option<SKColorF> Color { get; init; }
-}
-
 public sealed record Halo(ColorValue Color, float Width, float Blur);
 
 public sealed record TextFace : Monoid<TextFace> {
     public static TextFace Empty { get; } = new();
+
+    public static TextFace Tabular { get; } = new() { Features = Seq(new Feature(Tag.Parse("tnum"))) };
 
     public Option<string> Family { get; init; }
     public Option<SKFontStyleWeight> Weight { get; init; }
@@ -99,8 +43,6 @@ public sealed record TextFace : Monoid<TextFace> {
 }
 
 [SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilterFunction {
     private static readonly Vector3 Luminance = new(0.2126f, 0.7152f, 0.0722f);
     private static readonly Vector3 Saturation = new(0.213f, 0.715f, 0.072f);
@@ -168,10 +110,14 @@ public sealed partial class Filter {
             None: () => Some(filter.Function.Built(filter.Amount, input: null))));
 }
 
-public sealed record Stop<TColor>(TColor Color, Fraction At);
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Material {
+    internal Material Opaqued =>
+        SwitchPartially(
+            @default: static held => held,
+            backdrop: static backdrop => new Solid(backdrop.Fallback),
+            blurred: static blurred => new Solid(blurred.Tint));
+
     public sealed record Solid(ColorValue Color) : Material;
 
     public sealed record Gradient(Seq<Stop<ColorValue>> Stops, float Angle) : Material;
@@ -194,92 +140,35 @@ public sealed record Stroke(ColorValue Color, Seq<Seq<float>> Dash = default) {
     public Seq<float> Rhythm(uint ordinal) => Dash.IsEmpty ? [] : Dash[(int)(ordinal % (uint)Dash.Count)];
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Shadow {
-    public required ColorValue Color { get; init; }
-    public required float Blur { get; init; }
+public sealed record Shadow(ColorValue Color, float Blur) {
     public float X { get; init; }
     public float Y { get; init; }
     public float Spread { get; init; }
+    public bool Inside { get; init; }
 
-    internal abstract SKClipOperation Clip { get; }
+    internal (float Outset, Shadow Graph) Outlined => Inside ? (0f, this) : (Spread, this with { Spread = 0f });
 
-    internal abstract float Overhang { get; }
-
-    internal abstract void Cast(SKCanvas canvas, Func<float, SKPath> outline, SKColorF color);
-
-    internal abstract SKImageFilter Filtered(SKColorF color, float scale);
-
-    private protected T Masked<T>(SKColorF color, Func<SKPaint, T> use) {
-        using SKMaskFilter? blur = Blur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Blur) : null;
-        using SKPaint paint = new() { IsAntialias = true, ColorF = color, MaskFilter = blur };
-        return use(paint);
-    }
-
-    private protected static SKImageFilter? Morphed(float by) =>
-        by switch {
-            > 0f => SKImageFilter.CreateDilate(by, by),
-            < 0f => SKImageFilter.CreateErode(-by, -by),
-            _ => null,
-        };
-
-    public sealed record Drop : Shadow {
-        internal override SKClipOperation Clip => SKClipOperation.Difference;
-
-        internal override float Overhang => Masked(SKColorF.Empty, paint => FastBounds.Beyond(paint, Spread, new SKPoint(X, Y)));
-
-        internal override SKImageFilter Filtered(SKColorF color, float scale) {
-            using SKImageFilter? grown = Morphed(Spread * scale);
-            return SKImageFilter.CreateDropShadowOnly(X * scale, Y * scale, Blur * scale, Blur * scale, (SKColor)color, grown);
-        }
-
-        internal override void Cast(SKCanvas canvas, Func<float, SKPath> outline, SKColorF color) =>
-            _ = Masked(color, paint => {
-                using SKPath shape = outline(Spread);
-                shape.Offset(X, Y);
-                canvas.DrawPath(shape, paint);
-                return unit;
-            });
-    }
-
-    public sealed record Inset : Shadow {
-        internal override SKClipOperation Clip => SKClipOperation.Intersect;
-
-        internal override float Overhang => 0f;
-
-        internal override SKImageFilter Filtered(SKColorF color, float scale) {
-            using SKImageFilter? kept = Morphed(-Spread * scale);
-            using SKColorFilter hollow = SKColorFilter.CreateColorMatrix([
-                0f, 0f, 0f, 0f, color.Red,
-                0f, 0f, 0f, 0f, color.Green,
-                0f, 0f, 0f, 0f, color.Blue,
-                0f, 0f, 0f, -color.Alpha, color.Alpha,
-            ]);
-            using SKImageFilter outside = SKImageFilter.CreateColorFilter(hollow, kept);
-            using SKImageFilter moved = SKImageFilter.CreateOffset(X * scale, Y * scale, outside);
-            using SKImageFilter blurred = SKImageFilter.CreateBlur(Blur * scale, Blur * scale, moved);
-            return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, background: null, foreground: blurred);
-        }
-
-        internal override void Cast(SKCanvas canvas, Func<float, SKPath> outline, SKColorF color) =>
-            _ = Masked(color, paint => {
-                using SKPath frame = outline(0f);
-                using SKPath hole = outline(-Spread);
-                hole.Offset(X, Y);
-                _ = paint.GetFastBounds(frame.Bounds, out SKRect reach);
-                using SKPath ring = Figure.Traced(path => {
-                    path.FillType = SKPathFillType.EvenOdd;
-                    path.AddRect(SKRect.Union(reach, hole.Bounds), SKPathDirection.Clockwise);
-                    path.AddPath(hole, SKPathAddMode.Append);
-                });
-                canvas.DrawPath(ring, paint);
-                return unit;
-            });
+    internal SKImageFilter Filtered(SKColorF color) {
+        float grown = Inside ? -Spread : Spread;
+        using SKImageFilter? morphed = grown switch { > 0f => SKImageFilter.CreateDilate(grown, grown), < 0f => SKImageFilter.CreateErode(-grown, -grown), _ => null };
+        using SKImageFilter moved = SKImageFilter.CreateOffset(X, Y, morphed);
+        using SKImageFilter blurred = SKImageFilter.CreateBlur(Blur, Blur, moved);
+        using SKColorFilter inked = SKColorFilter.CreateColorMatrix([
+            0f, 0f, 0f, 0f, color.Red,
+            0f, 0f, 0f, 0f, color.Green,
+            0f, 0f, 0f, 0f, color.Blue,
+            0f, 0f, 0f, Inside ? -color.Alpha : color.Alpha, Inside ? color.Alpha : 0f,
+        ]);
+        if (!Inside) return SKImageFilter.CreateColorFilter(inked, blurred);
+        using SKImageFilter hollow = SKImageFilter.CreateColorFilter(inked, blurred);
+        return SKImageFilter.CreateBlendMode(SKBlendMode.SrcIn, background: null, foreground: hollow);
     }
 }
 
 public sealed record Look : Monoid<Look> {
     public static Look Empty { get; } = new();
+
+    public static Look Bare { get; } = new() { Fills = Seq<Material>(), Strokes = Seq<Stroke>() };
 
     public Option<Seq<Material>> Fills { get; init; }
     public Option<Seq<Stroke>> Strokes { get; init; }
@@ -309,26 +198,4 @@ public sealed record Look : Monoid<Look> {
             When = When.Union(rhs.When, Merge: static (_, under, over) => under.Combine(over)),
             Within = Within.Union(rhs.Within, Merge: static (_, under, over) => under.Combine(over)),
         };
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class FastBounds {
-    private static readonly SKRect Probe = SKRect.Create(1f, 1f);
-
-    internal static float Beyond(SKPaint paint, float grown, SKPoint offset) {
-        SKRect drawn = SKRect.Inflate(Probe, grown, grown);
-        drawn.Offset(offset);
-        _ = paint.GetFastBounds(drawn, out SKRect bounds);
-        return float.Max(float.Max(Probe.Left - bounds.Left, Probe.Top - bounds.Top), float.Max(bounds.Right - Probe.Right, bounds.Bottom - Probe.Bottom));
-    }
-}
-
-internal static class Colours {
-    extension(SKColorF color) {
-        internal Unicolour ToUnicolour() => new(ColourSpace.Rgb, color.Red, color.Green, color.Blue, color.Alpha);
-    }
-
-    extension(Unicolour colour) {
-        internal SKColorF ToSKColorF() => new((float)colour.Rgb.R, (float)colour.Rgb.G, (float)colour.Rgb.B, (float)colour.Alpha.A);
-    }
 }
