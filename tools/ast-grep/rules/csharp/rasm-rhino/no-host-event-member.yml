@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-host-event-member
+language: csharp
+severity: error
+files: ['**/Rasm.Grasshopper/**']
+utils:
+    handler-write:
+        kind: lambda_expression
+        has: {field: body, kind: assignment_expression, has: {field: operator, regex: '^(\+|-)=$'}}
+    restating-argument:
+        kind: argument
+        has:
+            any:
+                - kind: typeof_expression
+                - matches: handler-write
+                - kind: lambda_expression
+                  has: {field: body, kind: member_access_expression, has: {field: name, regex: '^Invoke$'}}
+                - kind: invocation_expression
+                  has: {field: function, kind: identifier, regex: '^nameof$'}
+    member-value:
+        any:
+            - inside: {kind: variable_declarator, has: {field: name, pattern: $NAME}, inside: {kind: variable_declaration, inside: {kind: field_declaration}}}
+            - inside: {kind: arrow_expression_clause, inside: {kind: 'method_declaration, property_declaration', has: {field: name, pattern: $NAME}}}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Subscriptions$'}, member: {regex: '^(Host|During)$', pattern: $FACTORY}}}}
+        - has: {field: arguments, has: {kind: argument, has: {matches: handler-write}}}
+        - not: {has: {field: arguments, has: {kind: argument, not: {matches: restating-argument}}}}
+        - matches: member-value
+message: '`$NAME` restates one host event through `Subscriptions.$FACTORY`'
+note: 'Delete the member and call `Subscriptions.<factory>` with the event at each subscriber'

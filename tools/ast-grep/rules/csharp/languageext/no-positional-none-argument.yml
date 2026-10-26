@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-positional-none-argument
+language: csharp
+severity: error
+utils:
+    none-argument:
+        kind: argument
+        has: {nthChild: {position: 1, reverse: true}, matches: languageext-none-value}
+rule:
+    kind: 'object_creation_expression, implicit_object_creation_expression'
+    all:
+        - has:
+            kind: argument_list
+            has: {matches: none-argument, follows: {stopBy: end, matches: none-argument}}
+        - any:
+            - has: {field: type, pattern: $TYPE}
+            - pattern: $TYPE
+message: '`$TYPE` takes absent parts as `None` arguments'
+note: 'Declare optional parts as `init` members defaulting to `None`, set present ones in the object initializer'

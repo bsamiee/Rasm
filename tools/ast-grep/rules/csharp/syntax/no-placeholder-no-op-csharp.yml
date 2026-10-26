@@ -44,6 +44,7 @@ utils:
     unit-result:
         any:
             - matches: completed-task
+              not: {kind: implicit_object_creation_expression}
             - kind: identifier, member_access_expression
               matches: {csharp-type-name: {name: {regex: '^unit(IO|Eff)?$'}}}
             - matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}
@@ -66,9 +67,9 @@ utils:
                     - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     member-value:
         any:
-            - inside: {kind: property_declaration, field: value}
             - inside: {kind: assignment_expression, field: right, inside: {kind: initializer_expression}}
             - inside: {kind: with_initializer}
+            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: 'object_creation_expression, implicit_object_creation_expression'}}}
 rule:
     any:
         - kind: lambda_expression, anonymous_method_expression
@@ -90,4 +91,4 @@ rule:
             - has: {field: name, regex: '^DisposeAsync$', pattern: $PLACEHOLDER}
             - has: {field: body, matches: completed-body}
 message: '`$PLACEHOLDER` stands in for an absent callback or resource'
-note: 'Hold absence as `Option<Action>` or `Option<IDisposable>`, a member hook as a `Seq` its consumer runs, and a resource in `use` or `Bracket`'
+note: 'Declare an optional callback as an `init` member holding its default, a member hook as a `Seq` its consumer runs, and a resource in `use` or `Bracket`'

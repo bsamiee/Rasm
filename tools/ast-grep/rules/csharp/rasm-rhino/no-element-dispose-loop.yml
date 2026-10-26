@@ -195,4 +195,4 @@ rule:
                     - has: {kind: argument, nthChild: 2, matches: release-callback}
                     - not: {has: {kind: argument, nthChild: 3}}
 message: '`$SEQ` releases each element'
-note: 'Call `DisposalOps.Release(<seq>)`, `DisposalOps.Within(<retain> => <body>, DisposalOps.Release)` where a scope acquires the disposables'
+note: 'Acquire each element through `use` so the owning `Bracket()` releases it, `release(<element>)` for an early release'

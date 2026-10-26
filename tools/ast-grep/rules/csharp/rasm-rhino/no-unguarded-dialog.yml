@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unguarded-dialog
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    guard:
+        kind: identifier
+        regex: '^(Attended|IsRunningUnattended)$'
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Dialogs$'}, member: {regex: '^Show'}}}, pattern: $SHOW}
+        - inside:
+            stopBy: &member {kind: 'method_declaration, property_declaration, field_declaration, constructor_declaration'}
+            kind: 'method_declaration, property_declaration, field_declaration, constructor_declaration'
+            not: {has: {stopBy: end, matches: guard}}
+        - not:
+            inside:
+                stopBy: *member
+                kind: invocation_expression
+                all:
+                    - has: {field: function, kind: identifier, pattern: $ADAPTER}
+                    - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: method_declaration, all: [{has: {field: name, pattern: $ADAPTER}}, {has: {stopBy: end, matches: guard}}]}}
+message: '`$SHOW` opens a modal dialog with no `Attended` guard'
+note: 'Bind `HostDialogs.Attended` before the dialog, unattended scripts block on it'

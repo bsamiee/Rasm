@@ -4,8 +4,6 @@ namespace Rasm.Rhino.Persistence.Settings {
     internal sealed class SettingType {
         internal static bool Read(PersistentSettings settings) => settings.TryGetBool("held", out bool value) && value;
     }
-
-    internal sealed class SettingType<T>;
 }
 
 internal static class DirectSettingsRead {

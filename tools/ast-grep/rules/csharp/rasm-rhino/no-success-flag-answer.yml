@@ -270,94 +270,7 @@ rule:
         - not: {inside: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, kind: ERROR}}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
-rewriters:
-    - id: drop-identity
-      rule:
-        kind: invocation_expression
-        all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select)$'}}, {has: {field: expression, pattern: $IDENTITY_SOURCE}}]}
-            - has:
-                field: arguments
-                has:
-                    kind: argument
-                    has:
-                        kind: lambda_expression
-                        all:
-                            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $RUN}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $RUN}}}]}
-                            - has:
-                                field: body
-                                kind: invocation_expression
-                                all:
-                                    - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select|Bind)$'}}, {has: {field: expression, pattern: $RUN}}]}
-                                    - has: {field: arguments, has: {kind: argument, has: {any: [{matches: always}, {matches: pure-true}]}}}
-      fix: $IDENTITY_SOURCE
-    - id: drop-flag
-      rule:
-        kind: return_statement
-        regex: '^return\s+true\s*;$'
-        inside: {kind: block, inside: {kind: lambda_expression}}
-      fix: ''
-    - id: drop-true
-      rule:
-        kind: invocation_expression
-        all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select|Bind)$'}}, {has: {field: expression, pattern: $TRUE_SOURCE}}]}
-            - has: {field: arguments, has: {kind: argument, has: {any: [{matches: always}, {matches: pure-true}]}}}
-      fix: $TRUE_SOURCE
 transform:
-    VOIDED:
-        rewrite:
-            source: $MAPPED
-            rewriters: [drop-identity, drop-true]
-    ABSENT_TAIL:
-        replace:
-            source: $ABSENT
-            replace: '(?s)^(.+)$'
-            by: '$1, '
-    VOID_BODY:
-        rewrite:
-            source: $LIFTED
-            rewriters: [drop-flag]
-    VOID_LINE:
-        replace:
-            source: $VOID_BODY
-            replace: '\n[ \t]*(\n[ \t]*\}$)'
-            by: '$1'
-    VOID_TAIL:
-        replace:
-            source: $VOID_LINE
-            replace: ';[ \t]+\}$'
-            by: '; }'
-    VOID:
-        replace:
-            source: $VOID_TAIL
-            replace: '(?s)^(.+)$'
-            by: 'IO.lift($1)'
-    OPEN:
-        replace:
-            source: $LOCAL
-            replace: '(?s)^.*$'
-            by: 'return '
-    CLOSE:
-        replace:
-            source: $LOCAL
-            replace: '(?s)^.*$'
-            by: ';'
-    NOT:
-        replace:
-            source: $INVERTED
-            replace: '(?s)^.*$'
-            by: '!'
-    SUCCEEDED:
-        replace:
-            source: $READ
-            replace: '(?s)^.*$'
-            by: Callbacks.Succeeded(
-    RUN:
-        replace:
-            source: $DISCARD
-            replace: '(?s)^.*$'
-            by: Callbacks.Run(
     BUILT:
         replace:
             source: $READ
@@ -368,8 +281,5 @@ transform:
             source: $DISCARD
             replace: '(?s)^.*$'
             by: discarded
-fix:
-    template: $OPEN$NOT$SUCCEEDED$RUN$EFFECT$VOID$VOIDED, $ABSENT_TAIL$SITE)$CLOSE
-    expandStart: {stopBy: end, any: [{kind: local_declaration_statement}, {kind: identifier, regex: '^_$', inside: {kind: assignment_expression}}]}
 message: 'Success flag at `$SITE` is $BUILT$DROPPED'
-note: 'Call `Callbacks.Succeeded(<effect>, [<absent>,] <site>)`, negated for a failure flag, `Callbacks.Run(<effect>, <site>)` for a discarded flag'
+note: 'Call `<owner>.Answer(<effect>, <failed>)` with the member its `[CallerMemberName]` derives, negated for a failure flag, `<owner>.Run(<effect>)` for a discarded flag'

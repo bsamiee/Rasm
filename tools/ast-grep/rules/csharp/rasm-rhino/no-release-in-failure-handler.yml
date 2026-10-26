@@ -100,4 +100,4 @@ rule:
         - matches: checked-release
     not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
 message: '`$EFFECT` runs a release on failure and keeps its error'
-note: 'Call `DisposalOps.OnFailure(<effect>, <release>)`'
+note: 'Acquire through `use(<acquire>, <release>)` and close the scope with `BracketFail()`'

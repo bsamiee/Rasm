@@ -84,5 +84,5 @@ rule:
                     - has: {kind: argument, nthChild: 3, not: {matches: lease-retain}}
                     - not: {has: {kind: argument, nthChild: 4}}
             - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^Acquire$'}}}}
-message: '`$LEASE` restates the lease `DisposalOps.Acquire` builds from a release'
-note: 'Call `DisposalOps.Acquire(<acquire>, <held> => <release>, <retain>)`, `IO.pure(<held>)` for a held value, `Disposal<T>` where code reads `Held` or `Relinquish`'
+message: '`$LEASE` builds by hand the lease `use` states from a release'
+note: 'Acquire through `use(<acquire>, <release>)`, `release(<held>)` for an early release'

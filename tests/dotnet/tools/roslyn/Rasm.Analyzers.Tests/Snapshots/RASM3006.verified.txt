@@ -1,0 +1,3 @@
+#0 `Assembly` clashes with `System.Reflection.Assembly`, rename the project declaration
+#1 `Proximity` clashes with `Rasm.Modeling.Proximity<T>`, rename the project declaration
+#2 `Proximity<T>` clashes with `Rasm.Modeling.Proximity`, rename the project declaration

@@ -1,6 +1,6 @@
-#0 Cast or type test in `Copied` narrows `curve.Duplicate()` to `Curve`, bind `IO<Curve>` from `Copies.Duplicate(curve, <retain>)`
-#1 Cast or type test in `Tested` narrows `curve.Duplicate()` to `Curve`, bind `IO<Curve>` from `Copies.Duplicate(curve, <retain>)`
-#2 Cast or type test in `Narrowed` narrows `curve.Duplicate()` to `Curve`, bind `IO<Curve>` from `Copies.Duplicate(curve, <retain>)`
-#3 Cast or type test in `Kind` narrows `curve.Duplicate()` to `Curve`, bind `IO<Curve>` from `Copies.Duplicate(curve, <retain>)`
-#4 Cast or type test in `Typed` narrows `curve.DuplicateShallow()` to `Curve`, bind `IO<Curve>` from `Copies.DuplicateShallow(curve, <retain>)`
-#5 Cast or type test in `Held` narrows `curve.Duplicate()` to `Curve`, bind `IO<Curve>` from `Copies.Duplicate(curve, <retain>)`
+#0 Cast or type test in `Copied` narrows `curve.Duplicate()` to `Curve`, acquire the typed copy with `use(() => <product>)` under the owner's `Bracket()`
+#1 Cast or type test in `Tested` narrows `curve.Duplicate()` to `Curve`, acquire the typed copy with `use(() => <product>)` under the owner's `Bracket()`
+#2 Cast or type test in `Narrowed` narrows `curve.Duplicate()` to `Curve`, acquire the typed copy with `use(() => <product>)` under the owner's `Bracket()`
+#3 Cast or type test in `Kind` narrows `curve.Duplicate()` to `Curve`, acquire the typed copy with `use(() => <product>)` under the owner's `Bracket()`
+#4 Cast or type test in `Typed` narrows `curve.DuplicateShallow()` to `Curve`, acquire the typed copy with `use(() => <product>)` under the owner's `Bracket()`
+#5 Cast or type test in `Held` narrows `curve.Duplicate()` to `Curve`, acquire the typed copy with `use(() => <product>)` under the owner's `Bracket()`

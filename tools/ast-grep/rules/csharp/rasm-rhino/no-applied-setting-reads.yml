@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-applied-setting-reads
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    read:
+        kind: invocation_expression
+        has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^Current$'}
+                - has: {field: expression, pattern: $READER}
+rule:
+    kind: tuple_expression
+    all:
+        - inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Apply$'}}
+        - has: {kind: argument, nthChild: 1, has: {matches: read}}
+        - not: {has: {kind: argument, not: {has: {matches: read}}}}
+message: 'Tuple of `$READER.Current` reads builds a settings record by hand'
+note: 'Declare the record as `IStateRecord<T>` and read it through `PlugInSettings.Record<T>(<node>, <applied>)`'

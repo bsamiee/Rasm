@@ -35,8 +35,9 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 
     private static readonly string EditorConfig = File.ReadAllText(Path.Combine(AttributeReader.GetSolutionDirectory(typeof(Analysis).Assembly), ".editorconfig"));
 
-    internal Analysis(string source, params IEnumerable<DiagnosticResult> expected) {
-        TestCode = source;
+    internal Analysis(IEnumerable<(string Path, string Source)> sources, IEnumerable<(string Path, string Source)> fixes, IEnumerable<DiagnosticResult> expected) {
+        TestState.Sources.AddRange(sources.Select(static source => (source.Path, SourceText.From(source.Source))));
+        FixedState.Sources.AddRange(fixes.Select(static source => (source.Path, SourceText.From(source.Source))));
         ReferenceAssemblies = ReferenceAssemblies.Net.Net100;
         TestState.AdditionalReferences.Add(typeof(Fin<>).Assembly);
         TestState.AdditionalReferences.Add(typeof(UnionAttribute).Assembly);
@@ -64,33 +65,54 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 public sealed class Samples {
     private static readonly string Root = Path.Combine(AttributeReader.GetProjectDirectory(typeof(Samples).Assembly), nameof(Samples));
 
-    public static TheoryData<string> Rules => [.. Directory.EnumerateFiles(Root, "*.txt").Select(static path => Path.GetFileNameWithoutExtension(path)).Order(StringComparer.Ordinal)];
+    public static TheoryData<string> Rules => [.. Directory.EnumerateFileSystemEntries(Root).Select(static path => Path.GetFileNameWithoutExtension(path)).Order(StringComparer.Ordinal)];
 
     [Theory]
     [MemberData(nameof(Rules))]
     public async Task Verified(string rule) {
         CancellationToken token = TestContext.Current.CancellationToken;
-        TestFileMarkupParser.GetSpans(await File.ReadAllTextAsync(Path.Combine(Root, $"{rule}.txt"), token), out string source, out ImmutableDictionary<string, ImmutableArray<TextSpan>> markers);
-        TextLineCollection lines = SourceText.From(source).Lines;
+        string folder = Path.Combine(Root, rule);
+        ImmutableArray<(string Path, string File)> files = Directory.Exists(folder)
+            ? [.. Directory.EnumerateFiles(folder, "*.txt", SearchOption.AllDirectories).Order(StringComparer.Ordinal).Select(file => ($"/{Path.ChangeExtension(Path.GetRelativePath(folder, file), "cs").Replace('\\', '/')}", file))]
+            : [($"/{rule}.cs", Path.Combine(Root, $"{rule}.txt"))];
+        string[] texts = await Task.WhenAll(files.Select(file => File.ReadAllTextAsync(file.File, token)));
+        ImmutableArray<(string Path, string Source, ImmutableDictionary<string, ImmutableArray<TextSpan>> Markers)> samples = [
+            .. files.Zip(texts).Select(static file => {
+                TestFileMarkupParser.GetSpans(file.Second, out string source, out ImmutableDictionary<string, ImmutableArray<TextSpan>> markers);
+                return (file.First.Path, source, markers);
+            }),
+        ];
+        ImmutableArray<(string Path, string Source)> sources = [.. samples.Select(static sample => (sample.Path, sample.Source))];
         DiagnosticDescriptor descriptor = Analysis.Analyzers.SelectMany(static analyzer => analyzer.SupportedDiagnostics).Single(held => string.Equals(held.Id, rule, StringComparison.Ordinal));
         DiagnosticResult[] expected = [
-            .. markers.Values.Select(spans => new DiagnosticResult(descriptor)
-                .WithSpan(new FileLinePositionSpan("",lines.GetLinePositionSpan(spans.Single())))
+            .. from sample in samples
+            from spans in sample.Markers.Values
+            select new DiagnosticResult(descriptor)
+                .WithSpan(new FileLinePositionSpan(sample.Path, SourceText.From(sample.Source).Lines.GetLinePositionSpan(spans.Single())))
                 .WithMessage(null)
-                .WithOptions(DiagnosticOptions.IgnoreAdditionalLocations)),
+                .WithOptions(DiagnosticOptions.IgnoreAdditionalLocations),
         ];
         CodeAction? applied = null;
-        _ = await Record.ExceptionAsync(() => new Analysis(source, expected) { FixedCode = "", CodeFixTestBehaviors = CodeFixTestBehaviors.SkipFixAllCheck, CodeActionVerifier = (action, _) => applied = action }.RunAsync(token));
-        Option<string> repaired = applied is null ? None : (await (await applied.GetOperationsAsync(token)).OfType<ApplyChangesOperation>().Single().ChangedSolution.Projects.Single().Documents.Single().GetTextAsync(token)).ToString();
-        ImmutableDictionary<TextSpan, string> marked = markers.ToImmutableDictionary(static marker => marker.Value.Single(), static marker => marker.Key);
-        Atom<ImmutableSortedDictionary<int, string>> reported = Atom(ImmutableSortedDictionary<int, string>.Empty);
-        await new Analysis(source, expected) {
-            FixedCode = repaired.IfNone(source),
+        _ = await Record.ExceptionAsync(() => new Analysis(sources, sources.Select(static source => (source.Path, "")), expected) {
+            CodeFixTestBehaviors = CodeFixTestBehaviors.SkipFixAllCheck,
+            CodeActionVerifier = (action, _) => applied = action,
+        }.RunAsync(token));
+        ImmutableArray<Document> documents = applied is null ? [] : [.. (await applied.GetOperationsAsync(token)).OfType<ApplyChangesOperation>().Single().ChangedSolution.Projects.Single().Documents];
+        SourceText[] changed = await Task.WhenAll(documents.Select(document => document.GetTextAsync(token)));
+        Option<ImmutableArray<(string Path, string Source)>> repaired = applied is null ? None : ImmutableArray.CreateRange(documents.Zip(changed, static (document, text) => (document.FilePath ?? document.Name, text.ToString())));
+        string Marked(Location location) =>
+            samples.Single(sample => string.Equals(sample.Path, location.SourceTree?.FilePath, StringComparison.Ordinal)).Markers.Single(marker => marker.Value.Single() == location.SourceSpan).Key;
+        Atom<ImmutableSortedDictionary<(string Path, int Start), string>> reported = Atom(ImmutableSortedDictionary.Create<(string Path, int Start), string>(Comparer<(string Path, int Start)>.Create(
+            static (left, right) => string.CompareOrdinal(left.Path, right.Path) is var order and not 0 ? order : left.Start.CompareTo(right.Start)), StringComparer.Ordinal));
+        await new Analysis(sources, repaired.IfNone(sources), expected) {
             DiagnosticVerifier = (diagnostic, _, _) => _ = reported.Swap(held => held.SetItem(
-                diagnostic.Location.SourceSpan.Start,
-                $"{marked[diagnostic.Location.SourceSpan]} {diagnostic.GetMessage(CultureInfo.InvariantCulture)}\n")),
+                (diagnostic.Location.SourceTree?.FilePath ?? "", diagnostic.Location.SourceSpan.Start),
+                $"{Marked(diagnostic.Location)} {diagnostic.GetMessage(CultureInfo.InvariantCulture)}\n")),
         }.RunAsync(token);
-        _ = await Verify(string.Concat(reported.Value.Values), repaired.Map(static text => new Target("txt", text, "fixed")).ToSeq()).UseDirectory("Snapshots").UseFileName(rule);
+        Seq<Target> repairs = from fixes in repaired.ToSeq()
+                              from fix in toSeq(fixes)
+                              select new Target("txt", fix.Source, fixes.Length is 1 ? "fixed" : $"fixed-{Path.GetFileNameWithoutExtension(fix.Path)}");
+        _ = await Verify(string.Concat(reported.Value.Values), repairs).UseDirectory("Snapshots").UseFileName(rule);
     }
 
     [Fact]
@@ -162,7 +184,7 @@ public sealed class Samples {
                 ];
                 return (Source: Sample(members.Select(static member => member.Source)), Fixed: Sample(members.Select(static member => member.Fixed)));
             })
-            .SampleAsync(static sample => new Analysis(sample.Source) { FixedCode = sample.Fixed }.RunAsync(TestContext.Current.CancellationToken));
+            .SampleAsync(static sample => new Analysis([], [], []) { TestCode = sample.Source, FixedCode = sample.Fixed }.RunAsync(TestContext.Current.CancellationToken));
     }
 }
 

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-listed-static-instances
+language: csharp
+severity: error
+utils:
+    own-field:
+        kind: identifier
+        pattern: $ITEM
+        inside:
+            kind: declaration_list
+            stopBy: end
+            has:
+                kind: field_declaration
+                all:
+                    - has: {kind: modifier, regex: '^static$'}
+                    - has: {kind: modifier, regex: '^readonly$'}
+                    - has: {kind: variable_declaration, all: [{has: {field: type, pattern: $TYPE}}, {has: {kind: variable_declarator, has: {field: name, pattern: $ITEM}}}]}
+    element:
+        kind: collection_element, argument
+    own-instance:
+        matches: element
+        any:
+            - has: {kind: expression_element, has: {matches: own-field}}
+            - has: {matches: own-field}
+    instance-list:
+        any:
+            - kind: collection_expression
+            - kind: argument_list
+              inside: {kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Seq|toSeq|Arr|Lst|Set|HashSet|Array|List)$'}}}}}
+rule:
+    matches: instance-list
+    all:
+        - has: {matches: element, nthChild: 2}
+        - inside:
+            kind: declaration_list
+            stopBy: {kind: declaration_list}
+            inside:
+                kind: 'record_declaration, class_declaration'
+                has: {field: name, pattern: $TYPE}
+                not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^SmartEnum(Attribute)?$'}}}}}}}
+        - not: {has: {matches: element, not: {matches: own-instance}}}
+message: '`$TYPE` lists its own static instances by hand'
+note: 'Declare `<type>` a `[SmartEnum]` and read its generated `Items`'

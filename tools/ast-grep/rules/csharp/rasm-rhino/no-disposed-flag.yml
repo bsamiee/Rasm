@@ -127,4 +127,4 @@ rule:
                 - inside: {stopBy: end, matches: release-member}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Dispose$'}}}}
 message: 'Release runs once through flag `$FLAG`'
-note: 'Hold `<held>` in `new Disposal<T>(<held>, <release>)` in place of the flag'
+note: 'Acquire `<held>` through `use(<acquire>, <release>)`, `release(<held>)` runs the release once'

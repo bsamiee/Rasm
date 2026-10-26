@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-data-free-smart-enum
+language: csharp
+severity: error
+utils:
+    empty-item:
+        kind: field_declaration
+        has:
+            kind: variable_declaration
+            has:
+                kind: variable_declarator
+                has:
+                    kind: 'implicit_object_creation_expression, object_creation_expression'
+                    not: {has: {kind: argument_list, has: {kind: argument}}}
+rule:
+    kind: class_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^SmartEnum(Attribute)?$'}}}}}}
+        - has: {field: body, has: {matches: empty-item}}
+        - not: {has: {field: body, has: {pattern: $_, not: {any: [{kind: comment}, {matches: empty-item}]}}}}
+message: 'Smart enum `$NAME` holds items with no key, data, or behavior'
+note: 'Declare `<name>` as a plain `enum`'

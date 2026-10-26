@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-platform-package-in-library
+language: xml
+severity: error
+files: ['libs/**/*.csproj']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^PackageReference$'}}}
+        - matches:
+            msbuild-metadata:
+                name: {regex: '^Include$'}
+                value: {regex: '(?i)[.-](osx|macos|linux|win|debian|ubuntu|alpine|ios|android)([.-][^"'']*)?["'']?$|LinuxRuntime', pattern: _PACKAGE}
+message: 'Library `PackageReference` $PACKAGE pins native binaries of one platform'
+note: Reference the platform package from the app or host package that runs on that platform

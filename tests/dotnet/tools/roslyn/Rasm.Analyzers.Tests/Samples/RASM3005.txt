@@ -1,0 +1,11 @@
+namespace {|#0:Thinktecture|} {
+    internal static class Squatted;
+}
+
+namespace {|#1:System.Text.Json.Serialization|} {
+    internal static class Converted;
+}
+
+namespace Rasm.Core {
+    internal static class Owned;
+}

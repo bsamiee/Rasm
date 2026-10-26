@@ -1,11 +1,4 @@
-using LanguageExt;
 using LanguageExt.Common;
-
-namespace Thinktecture {
-    internal static class ValidationResults {
-        internal static Fin<T> ToFin<T>(ValidationError? error, T value) => error is null ? value : Error.New(error.Message);
-    }
-}
 
 internal static class ConvertedByHand {
     internal static Error Raised(Thinktecture.ValidationError error) => {|#0:Error.New(error.Message)|};

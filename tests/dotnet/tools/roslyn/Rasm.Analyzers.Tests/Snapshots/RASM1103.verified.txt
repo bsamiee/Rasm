@@ -1,2 +1,2 @@
-#0 `Error.New(error.Message)` converts a `ValidationError` message to an `Error` by hand, call `ValidationResults.ToFin(error, <value>)`
-#1 `new Expected(error.Message, 0)` converts a `ValidationError` message to an `Error` by hand, call `ValidationResults.ToFin(error, <value>)`
+#0 `Error.New(error.Message)` converts a `ValidationError` message to an `Error` by hand, declare `[ValidationError<Invalid>]` on the value object so `Validate` returns the package error that converts to `Fin`
+#1 `new Expected(error.Message, 0)` converts a `ValidationError` message to an `Error` by hand, declare `[ValidationError<Invalid>]` on the value object so `Validate` returns the package error that converts to `Fin`

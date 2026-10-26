@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-dll-search-path
+language: csharp
+severity: error
+rule:
+    kind: attribute
+    pattern: $ATTRIBUTE
+    all:
+        - has: {field: name, regex: '^((global::)?System\.Runtime\.InteropServices\.)?DefaultDllImportSearchPaths(Attribute)?$'}
+        - inside:
+            kind: attribute_list
+            inside:
+                kind: method_declaration
+                follows: {stopBy: end, kind: method_declaration, has: {kind: attribute_list, has: {kind: attribute, pattern: $ATTRIBUTE}}}
+message: '`$ATTRIBUTE` repeats the search path of an earlier import'
+note: 'Declare `[assembly: DefaultDllImportSearchPaths(<paths>)]` once, a method attribute only where an import differs'

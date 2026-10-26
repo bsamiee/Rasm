@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ordinal-smart-enum-comparer
+language: csharp
+severity: error
+utils:
+    ordinal:
+        kind: attribute
+        has: {field: name, kind: generic_name, regex: '^KeyMemberEqualityComparer\s*<\s*((global::)?Thinktecture\.)?ComparerAccessors\.StringOrdinal\s*,\s*string\s*>$'}
+    cased-key:
+        kind: argument
+        nthChild: 1
+        inside: {kind: argument_list, inside: {kind: 'object_creation_expression, implicit_object_creation_expression'}}
+        has:
+            any:
+                - kind: string_literal
+                  regex: '[A-Z]'
+                - kind: 'invocation_expression, identifier, member_access_expression, interpolated_string_expression, binary_expression'
+rule:
+    kind: attribute
+    pattern: $ATTRIBUTE
+    all:
+        - matches: ordinal
+        - inside:
+            kind: attribute_list
+            inside:
+                kind: class_declaration
+                all:
+                    - has: {kind: attribute_list, has: {kind: attribute, regex: '^((global::)?Thinktecture\.)?SmartEnum\s*<\s*string\s*>'}}
+                    - has: {field: name, pattern: $TYPE}
+                    - not: {has: {field: body, has: {stopBy: end, matches: cased-key}}}
+message: '`$ATTRIBUTE` on smart enum `$TYPE` sets a case-sensitive comparer over lowercase keys'
+note: 'Delete the `KeyMemberEqualityComparer` and `KeyMemberComparer` pair, the case-insensitive default compares lowercase keys'

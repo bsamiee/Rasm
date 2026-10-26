@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-linked-project-item
+language: xml
+severity: error
+files: ['**/*.csproj']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^(Compile|EmbeddedResource|Content|None|AdditionalFiles|Resource)$', pattern: _ITEM}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {regex: '^["'']?(\$\(MSBuild(ThisFile|Project)Directory\)[\\/]?)?\.\.[\\/]', pattern: _PATH}}}
+message: '`$ITEM` item links $PATH from outside the project folder'
+note: Move the file into the project declaring its content, a shared type into a core project the consumers reference

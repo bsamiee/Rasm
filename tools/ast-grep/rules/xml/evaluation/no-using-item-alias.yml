@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-using-item-alias
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Using$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Alias$'}, value: {pattern: _ALIAS}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {regex: '^["'']?Rasm\.'}}}
+message: '`Using` item aliases a project type as $ALIAS'
+note: Rename the clashing project declaration and import its namespace through `Using`

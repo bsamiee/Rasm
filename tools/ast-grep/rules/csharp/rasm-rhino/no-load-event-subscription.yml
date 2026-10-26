@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-load-event-subscription
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    event-name:
+        kind: identifier
+        regex: '^(LoadComplete|UnLoad)$'
+        pattern: $EVENT
+rule:
+    any:
+        - kind: assignment_expression
+          all:
+            - has: {field: operator, regex: '^\+=$'}
+            - has: {field: left, any: [{matches: event-name}, {kind: member_access_expression, has: {field: name, matches: event-name}}]}
+            - not: {inside: {stopBy: end, kind: 'method_declaration, property_declaration', has: {field: name, regex: '^Loaded$'}}}
+        - kind: method_declaration
+          all:
+            - has: {kind: modifier, regex: '^override$'}
+            - has: {field: name, regex: '^On(Load|LoadComplete|UnLoad)$', pattern: $EVENT}
+            - has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, has: {field: type, regex: 'EventArgs$'}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
+message: '`$EVENT` restates the control lifetime'
+note: 'Fold load-scoped work over the `Loaded(<control>)` host event'

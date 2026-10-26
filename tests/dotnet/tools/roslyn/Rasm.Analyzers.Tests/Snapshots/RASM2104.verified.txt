@@ -1,2 +1,2 @@
-#0 `conduit.Enabled = true` toggles a conduit outside `Conduits`, declare it as a `ConduitDefinition` for `Conduits.Enable`
-#1 `conduit.Enabled = false` toggles a conduit outside `Conduits`, declare it as a `ConduitDefinition` for `Conduits.Enable`
+#0 `conduit.Enabled = true` toggles a conduit outside `Conduits`, toggle the conduit through the one library enable operation
+#1 `conduit.Enabled = false` toggles a conduit outside `Conduits`, toggle the conduit through the one library enable operation

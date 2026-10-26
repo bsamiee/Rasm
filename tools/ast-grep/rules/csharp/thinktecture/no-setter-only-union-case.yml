@@ -122,4 +122,4 @@ rule:
         - matches: setter-arm
         - inside: {kind: argument, inside: {matches: union-switch}}
 message: '`$ARM` arm writes host members from its case''s fields alone'
-note: 'Replace setter cases with one `Set(Action<<host>> Write)` case, arm `IO.lift(() => set.Write(<target>))`, and move caller setters into `Write`'
+note: 'Replace setter cases with `Func<<host>, IO<Unit>>` closures folded in order, each caller writing `h => IO.lift(() => h.<member> = <value>)`'

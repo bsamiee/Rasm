@@ -45,8 +45,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
     protected abstract void Start(CompilationStartAnalysisContext context);
 
     // --- [REPORTS]
-    protected static DiagnosticDescriptor Rule(string id, string category, string title, string message, string description) =>
-        new(id, title, message, category, DiagnosticSeverity.Error, isEnabledByDefault: true, description);
+    protected static DiagnosticDescriptor Rule(string id, string category, string title, string message, string description, params string[] tags) =>
+        new(id, title, message, category, DiagnosticSeverity.Error, isEnabledByDefault: true, description, customTags: tags);
 
     protected static void Report<T>(CompilationStartAnalysisContext context, ImmutableArray<OperationKind> kinds, Func<T, OperationAnalysisContext, IEnumerable<Diagnostic>> found) where T : IOperation =>
         context.RegisterOperationAction(
@@ -233,6 +233,12 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public INamedTypeSymbol? FunctionPointer { get; } = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedFunctionPointerAttribute");
 
         public INamedTypeSymbol? CallersOnly { get; } = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute");
+
+        public INamedTypeSymbol? Type { get; } = compilation.GetTypeByMetadataName("System.Type");
+
+        public INamedTypeSymbol? UnsafeAccessor { get; } = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.UnsafeAccessorAttribute");
+
+        public INamedTypeSymbol? UnsafeAccessorType { get; } = compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.UnsafeAccessorTypeAttribute");
     }
 
     private protected sealed class LanguageExtSymbols(Compilation compilation) {
@@ -254,9 +260,19 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public INamedTypeSymbol? Option { get; } = compilation.GetTypeByMetadataName("LanguageExt.Option`1");
 
+        public INamedTypeSymbol? Prelude { get; } = compilation.GetTypeByMetadataName("LanguageExt.Prelude");
+
+        public ISymbol? Namespace { get; } = Declared(compilation, "N:LanguageExt").FirstOrDefault();
+
         public ImmutableArray<IMethodSymbol> Lifts => Members(IO, "lift", "pure");
 
-        public ImmutableArray<IMethodSymbol> Optional { get; } = Members(compilation.GetTypeByMetadataName("LanguageExt.Prelude"), "Optional");
+        public ImmutableArray<IMethodSymbol> Optional => Members(Prelude, "Optional");
+
+        public ImmutableArray<IMethodSymbol> Uses => Members(Prelude, "use");
+
+        public ImmutableArray<IMethodSymbol> Releases => Members(Prelude, "release");
+
+        public ImmutableArray<IMethodSymbol> Conversions => Members(Option, "ToFin");
 
         public ImmutableArray<ISymbol> Factories { get; } = Declared(
             compilation,
@@ -304,7 +320,13 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public INamedTypeSymbol? SmartEnumAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute");
 
+        public INamedTypeSymbol? ValueObjectAttribute1 { get; } = compilation.GetTypeByMetadataName("Thinktecture.ValueObjectAttribute`1");
+
+        public INamedTypeSymbol? ComplexValueObjectAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.ComplexValueObjectAttribute");
+
         public ImmutableArray<INamedTypeSymbol> Marks => [.. new[] { UnionAttributeBase, SmartEnumAttribute1, UnionAttribute, SmartEnumAttribute }.OfType<INamedTypeSymbol>()];
+
+        public ImmutableArray<INamedTypeSymbol> Validated => [.. new[] { ValueObjectAttribute1, ComplexValueObjectAttribute, SmartEnumAttribute1, SmartEnumAttribute }.OfType<INamedTypeSymbol>()];
 
         public ISymbol? Validate { get; } = Declared(compilation, "M:Thinktecture.IObjectFactory`3.Validate(`1,System.IFormatProvider,`0@)").FirstOrDefault();
 
@@ -317,6 +339,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public INamedTypeSymbol? Logger { get; } = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
 
         public ImmutableArray<IMethodSymbol> Calls => Members(Logger, "Log", "BeginScope");
+
+        public INamedTypeSymbol? Message { get; } = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessageAttribute");
     }
 
     private protected sealed class RhinoCommonSymbols(Compilation compilation) {
@@ -392,6 +416,10 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public ISymbol? Floating { get; } = Declared(compilation, "P:Rhino.Display.RhinoView.Floating").FirstOrDefault();
 
         public ISymbol? ConduitEnabled { get; } = Declared(compilation, "P:Rhino.Display.DisplayConduit.Enabled").FirstOrDefault();
+
+        public ImmutableArray<IMethodSymbol> ExceptionReport { get; } = Members(compilation.GetTypeByMetadataName("Rhino.Runtime.HostUtils"), "ExceptionReport");
+
+        public ISymbol? Render { get; } = Declared(compilation, "N:Rhino.Render").FirstOrDefault();
     }
 
     private protected sealed class EtoSymbols(Compilation compilation) {
@@ -410,6 +438,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public INamedTypeSymbol? Font { get; } = compilation.GetTypeByMetadataName("Eto.Drawing.Font");
 
         public ImmutableArray<IMethodSymbol> AddMethod { get; } = Members(compilation.GetTypeByMetadataName("Eto.Mac.ObjCExtensions"), "AddMethod");
+
+        public ImmutableArray<IMethodSymbol> Handlers { get; } = [.. Members(compilation.GetTypeByMetadataName("Eto.Platform"), "Add", "Find").Where(static method => method.TypeParameters.Length is 1)];
     }
 
     private protected sealed class MacSymbols(Compilation compilation) {
@@ -464,6 +494,10 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public INamedTypeSymbol? SettingType1 { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Persistence.Settings.SettingType`1");
 
         public ISymbol? UI { get; } = Declared(compilation, "N:Rasm.Rhino.UI").FirstOrDefault();
+
+        public ISymbol? Render { get; } = Declared(compilation, "N:Rasm.Rhino.Render").FirstOrDefault();
+
+        public ImmutableArray<IMethodSymbol> Subscriptions { get; } = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Events.Subscriptions"), "Host", "During");
     }
 
     // --- [LIFETIMES]
@@ -474,12 +508,13 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
                 && method.Parameters[0].Type is INamedTypeSymbol { TypeArguments.Length: 1 } holder
                 && (Same(holder, languageExt.IO1) || Same(holder, system.Thunk)) && SymbolEqualityComparer.Default.Equals(holder.TypeArguments[0], method.TypeParameters[0]);
             (Dispose, Action) = (dispose, action);
-            Acquires = [.. rasm.Acquire.Concat(rasm.Found).Concat(rasm.Owned).Where(Acquiring)];
-            Releases = rasm.Release;
+            Acquires = [.. rasm.Acquire.Concat(rasm.Found).Concat(rasm.Owned).Concat(languageExt.Uses).Where(Acquiring)];
+            Releases = [.. rasm.Release, .. languageExt.Releases];
             Failures = rasm.OnFailure;
             Holders = rasm.Disposal;
             Retains = rasm.Retain;
             Lifts = languageExt.Lifts;
+            Conversions = [.. languageExt.Optional, .. languageExt.Conversions];
         }
 
         public IMethodSymbol Dispose { get; }
@@ -497,6 +532,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public ImmutableArray<IMethodSymbol> Retains { get; }
 
         public ImmutableArray<IMethodSymbol> Lifts { get; }
+
+        public ImmutableArray<IMethodSymbol> Conversions { get; }
 
         public static Lifetimes? Of(SystemSymbols system, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt) =>
             system is { Dispose: { } dispose, Action: { } action } ? new Lifetimes(system, rasm, languageExt, dispose, action) : null;
@@ -520,6 +557,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
                 ? Followed(range, value, held, reading, seen)
                 : Consumer(value) switch {
                     IInvocationOperation call when Disposes(call.TargetMethod) => [call.TargetMethod.Name],
+                    IInvocationOperation call when Among(call.TargetMethod, Conversions) => Released(call, held, reading, seen),
                     IInvocationOperation call => Passed(call, held, reading, seen),
                     IMethodReferenceOperation reference when Disposes(reference.Method) => [reference.Method.Name],
                     IArgumentOperation { Parent: IInvocationOperation call, Parameter: { } parameter } => Argued(call, parameter, held, reading, seen),
@@ -543,7 +581,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         private IEnumerable<string> Argued(IInvocationOperation call, IParameterSymbol parameter, ITypeSymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
             (Among(call.TargetMethod, Acquires) && parameter.Ordinal is 0) || Among(call.TargetMethod, Releases) || Retaining(call, parameter) ? [Label(call)]
-            : Among(call.TargetMethod, Lifts) ? Released(call, held, reading, seen)
+            : Among(call.TargetMethod, Lifts) || Among(call.TargetMethod, Conversions) ? Released(call, held, reading, seen)
             : call.TargetMethod.IsExtensionMethod && parameter.Ordinal is 0 ? Passed(call, held, reading, seen)
             : [];
     }

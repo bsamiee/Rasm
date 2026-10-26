@@ -1,0 +1,32 @@
+using System;
+using Rhino.Geometry;
+using Thinktecture;
+
+[Union]
+internal abstract partial record {|#0:MeshEdit|} {
+    internal sealed record Weld(double Angle, bool Pure) : MeshEdit;
+
+    internal sealed record Heal(double Distance) : MeshEdit;
+
+    internal void Switch<TState>(TState state, Action<TState, Weld> weld, Action<TState, Heal> heal) {
+        if (this is Weld welded) weld(state, welded);
+        else heal(state, (Heal)this);
+    }
+}
+
+[Union]
+internal abstract partial record Spacing {
+    internal sealed record Fixed(double Gap) : Spacing;
+
+    internal sealed record Scaled(double Factor) : Spacing;
+
+    internal TResult Switch<TResult>(Func<Fixed, TResult> gap, Func<Scaled, TResult> scaled) => this is Fixed held ? gap(held) : scaled((Scaled)this);
+}
+
+internal static class PickedEdits {
+    internal static void Applied(Mesh mesh, MeshEdit edit) => edit.Switch(mesh, static (m, c) => m.Weld(c.Angle, c.Pure), static (m, c) => m.HealNakedEdges(c.Distance));
+}
+
+internal static class SpacedEdits {
+    internal static double Gap(Spacing spacing) => spacing.Switch(static c => Math.Max(c.Gap, 0d), static c => c.Factor * 2d);
+}

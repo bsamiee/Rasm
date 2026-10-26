@@ -1,4 +1,4 @@
-#0 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`
-#1 `viewport.DisplayMode` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`
-#3 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`
-#2 `DisplayModeDescription.FindByName(name)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `DisposalOps.Found`
+#0 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire `Optional(DisplayModeDescription.GetDisplayMode(id)).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text
+#1 `viewport.DisplayMode` returns an owned `DisplayModeDescription` copy no release reaches, acquire `Optional(viewport.DisplayMode).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text
+#3 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire `Optional(DisplayModeDescription.GetDisplayMode(id)).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text
+#2 `DisplayModeDescription.FindByName(name)` returns an owned `DisplayModeDescription` copy no release reaches, acquire `Optional(DisplayModeDescription.FindByName(name)).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text

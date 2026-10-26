@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-enclosing-member-nameof
+language: csharp
+severity: error
+rule:
+    kind: invocation_expression
+    pattern: $LABEL
+    all:
+        - has: {field: function, kind: identifier, regex: '^nameof$'}
+        - has: {field: arguments, all: [{not: {has: {kind: argument, nthChild: 2}}}, {has: {kind: argument, has: {kind: identifier, pattern: $NAME}}}]}
+        - inside:
+            kind: argument
+            inside:
+                kind: argument_list
+                any:
+                    - inside: {kind: invocation_expression}
+                    - inside:
+                        kind: 'object_creation_expression, implicit_object_creation_expression'
+                        not: {has: {field: type, regex: 'Exception$'}}
+        - inside:
+            stopBy: {kind: 'method_declaration, property_declaration, event_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, indexer_declaration, field_declaration, local_function_statement'}
+            kind: 'method_declaration, property_declaration, event_declaration'
+            has: {field: name, pattern: $NAME}
+message: '`$LABEL` names the enclosing member'
+note: 'Take the member name through a `[CallerMemberName]` parameter of the callee and drop the `nameof` argument'

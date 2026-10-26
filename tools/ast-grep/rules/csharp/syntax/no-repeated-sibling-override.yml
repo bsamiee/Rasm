@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-sibling-override
+language: csharp
+severity: error
+utils:
+    derived:
+        kind: record_declaration, class_declaration
+        has: {kind: base_list, has: {nthChild: 1, pattern: $BASE}}
+    stating:
+        matches: derived
+        has: {field: body, has: {pattern: $MEMBER}}
+rule:
+    kind: property_declaration, method_declaration, indexer_declaration
+    pattern: $MEMBER
+    all:
+        - has: {kind: modifier, regex: '^override$'}
+        - has: {field: name, pattern: $NAME}
+        - inside:
+            kind: declaration_list
+            inside:
+                matches: derived
+                any:
+                    - precedes: {stopBy: end, matches: stating}
+                    - follows: {stopBy: end, matches: stating}
+                inside:
+                    kind: declaration_list, compilation_unit, file_scoped_namespace_declaration
+                    not: {has: {matches: derived, not: {matches: stating}}}
+message: '`$NAME` override repeats in every sibling subclass of `$BASE`'
+note: 'Declare `<name>` once in `<base>`, taking members it reads as base parameters'

@@ -43,16 +43,55 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         "Catch-all arm over `{0}` maps {1} to one result, replace it with arms naming {1}, joined by `or` per shared result",
         "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms leaving members unnamed.");
 
+    public static readonly DiagnosticDescriptor Borrowed = Rule(
+        "RASM3005",
+        Category,
+        "Namespace owned by a referenced assembly",
+        "`{0}` is declared by `{1}`, declare the type under the project's namespace",
+        "Namespace declaration naming a namespace a referenced assembly declares.");
+
+    public static readonly DiagnosticDescriptor Clash = Rule(
+        "RASM3006",
+        Category,
+        "Type name clashes with an imported type",
+        "`{0}` clashes with `{1}`, rename the project declaration",
+        "Namespace-level type sharing name and arity with a public type of an imported metadata namespace or a referenced project assembly, or sharing name with a type of another arity in its namespace.");
+
+    public static readonly DiagnosticDescriptor Tested = Rule(
+        "RASM3007",
+        Category,
+        "Type test on a type parameter",
+        "`{0}` tests `{1}` for concrete `{2}`, declare the behavior as a static virtual member on the constraint of `{1}`",
+        "Type pattern, `is`, or `as` on a type parameter value naming a concrete project type, or `Type` equality with `typeof` of one outside an override of an external member.");
+
+    public static readonly DiagnosticDescriptor Folder = Rule(
+        "RASM3008",
+        Category,
+        "File named after its folder",
+        "`{0}` takes its folder's name, name the file for its concept family",
+        "Source file named as its parent directory.");
+
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback, Borrowed, Clash, Tested, Folder];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         SystemSymbols symbols = new(context.Compilation);
         Readers(context, symbols.Sets, symbols.Collections);
         if (symbols.Flags is { } flags) Enums(context, flags);
         Awaitables(context);
+        Namespaces(context);
+        ImmutableArray<IAssemblySymbol> projects = Projects(context.Compilation);
+        Clashes(context, projects);
+        if (symbols.Type is { } type) Tests(context, projects, type);
+        Files(context);
     }
+
+    // --- [PROJECTS]
+    private static ImmutableArray<IAssemblySymbol> Projects(Compilation compilation) =>
+        compilation.AssemblyName?.Split('.') is { Length: > 1 } segments
+            ? [.. compilation.SourceModule.ReferencedAssemblySymbols.Where(assembly => assembly.Name.StartsWith($"{segments[0]}.", StringComparison.Ordinal))]
+            : [];
 
     // --- [READERS]
     private static void Readers(CompilationStartAnalysisContext context, ImmutableArray<INamedTypeSymbol> sets, ImmutableArray<ISymbol> collections) {
@@ -261,4 +300,88 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 ? [Diagnostic.Create(Discarded, assignment.Syntax.GetLocation(), awaited.Syntax)]
                 : []);
     }
+
+    // --- [NAMESPACES]
+    private static void Namespaces(CompilationStartAnalysisContext context) =>
+        context.RegisterSyntaxNodeAction(
+            static node => {
+                BaseNamespaceDeclarationSyntax declaration = (BaseNamespaceDeclarationSyntax)node.Node;
+                if (node.SemanticModel.GetDeclaredSymbol(declaration, node.CancellationToken) is INamespaceSymbol declared
+                    && node.Compilation.GetCompilationNamespace(declared)?.ConstituentNamespaces.FirstOrDefault(space => space.ContainingAssembly is { } owner && !Same(owner, node.Compilation.Assembly)) is { ContainingAssembly: { } assembly })
+                    node.ReportDiagnostic(Diagnostic.Create(Borrowed, declaration.Name.GetLocation(), declared.ToDisplayString(), assembly.Name));
+            },
+            SyntaxKind.NamespaceDeclaration,
+            SyntaxKind.FileScopedNamespaceDeclaration);
+
+    // --- [CLASHES]
+    private static void Clashes(CompilationStartAnalysisContext context, ImmutableArray<IAssemblySymbol> projects) =>
+        context.RegisterSyntaxNodeAction(
+            node => {
+                if (node.SemanticModel.GetDeclaredSymbol(node.Node, node.CancellationToken) is not INamedTypeSymbol { ContainingType: null, ContainingNamespace: { } space } type
+                    || type.DeclaringSyntaxReferences.FirstOrDefault() is not { } first || first.SyntaxTree != node.Node.SyntaxTree || first.Span != node.Node.Span) return;
+                IAssemblySymbol own = node.Compilation.Assembly;
+                bool Exposed(INamedTypeSymbol other) => other.DeclaredAccessibility is Accessibility.Public && !Same(other.ContainingAssembly, own);
+                IEnumerable<INamedTypeSymbol> imported = node.SemanticModel.GetImportScopes(node.Node.SpanStart, node.CancellationToken)
+                    .SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType).OfType<INamespaceSymbol>()
+                    .SelectMany(held => held.GetTypeMembers(type.Name, type.Arity)).Where(Exposed);
+                IEnumerable<INamedTypeSymbol> declared = projects.Where(project => project.TypeNames.Contains(type.Name))
+                    .SelectMany(project => project.NamespaceNames.Select(name => project.GetTypeByMetadataName(name.Length is 0 ? type.MetadataName : $"{name}.{type.MetadataName}")))
+                    .OfType<INamedTypeSymbol>().Where(Exposed);
+                IEnumerable<INamedTypeSymbol> siblings = space.GetTypeMembers(type.Name).Where(other => other.Arity != type.Arity && Sourced(other));
+                if (imported.Concat(declared).Concat(siblings).FirstOrDefault() is { } clash)
+                    node.ReportDiagnostic(Diagnostic.Create(Clash, node.Node switch {
+                        BaseTypeDeclarationSyntax declaration => declaration.Identifier.GetLocation(),
+                        DelegateDeclarationSyntax declaration => declaration.Identifier.GetLocation(),
+                        var other => other.GetLocation(),
+                    }, type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), clash.ToDisplayString()));
+            },
+            SyntaxKind.ClassDeclaration,
+            SyntaxKind.StructDeclaration,
+            SyntaxKind.RecordDeclaration,
+            SyntaxKind.RecordStructDeclaration,
+            SyntaxKind.InterfaceDeclaration,
+            SyntaxKind.EnumDeclaration,
+            SyntaxKind.DelegateDeclaration);
+
+    // --- [TESTS]
+    private static void Tests(CompilationStartAnalysisContext context, ImmutableArray<IAssemblySymbol> projects, INamedTypeSymbol type) {
+        IAssemblySymbol own = context.Compilation.Assembly;
+        static bool Open(ITypeSymbol? input) => input is ITypeParameterSymbol || (input is INamedTypeSymbol { TypeArguments: var arguments } && arguments.Any(Open));
+        bool Concrete(ITypeSymbol? tested) =>
+            tested is INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Struct, IsAbstract: false } named
+            && (Same(named.ContainingAssembly, own) || projects.Any(project => Same(named.ContainingAssembly, project)));
+        static bool External(ISymbol owner) => Overridden(owner).Skip(1).LastOrDefault() is { } origin && !Sourced(origin);
+        static (IOperation Site, ITypeSymbol? Input, ITypeSymbol? Tested)? Test(IOperation operation) =>
+            operation switch {
+                IPatternOperation pattern => (pattern.Parent is IIsPatternOperation test ? test : pattern, pattern.InputType, pattern.NarrowedType),
+                IIsTypeOperation test => (test, test.ValueOperand.Type, test.TypeOperand),
+                IConversionOperation { IsTryCast: true } cast => (cast, cast.Operand.Type, cast.Type),
+                _ => null,
+            };
+        Report<IOperation>(
+            context,
+            [OperationKind.DeclarationPattern, OperationKind.TypePattern, OperationKind.RecursivePattern, OperationKind.IsType, OperationKind.Conversion],
+            (operation, _) =>
+                Test(operation) is ( { } site, var input, var tested) && Open(input) && Concrete(tested)
+                    ? [Diagnostic.Create(Tested, site.Syntax.GetLocation(), site.Syntax, input!.Name, tested!.Name)]
+                    : []);
+        Report<IBinaryOperation>(context, [OperationKind.Binary], (binary, analysis) =>
+            binary is { OperatorKind: BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals } && Same(binary.LeftOperand.Type, type) && Same(binary.RightOperand.Type, type)
+            && !External(Member(analysis.ContainingSymbol))
+            && (Stripped(binary.LeftOperand), Stripped(binary.RightOperand)) switch {
+                (ITypeOfOperation typed, var other) when Concrete(typed.TypeOperand) => (Other: other, Typed: typed.TypeOperand),
+                (var other, ITypeOfOperation typed) when Concrete(typed.TypeOperand) => (Other: other, Typed: typed.TypeOperand),
+                _ => default,
+            } is { Other: { } compared, Typed: { } concrete }
+                ? [Diagnostic.Create(Tested, binary.Syntax.GetLocation(), binary.Syntax, compared.Syntax, concrete.Name)]
+                : []);
+    }
+
+    // --- [FILES]
+    private static void Files(CompilationStartAnalysisContext context) =>
+        context.RegisterSyntaxTreeAction(static tree => {
+            string path = tree.Tree.FilePath;
+            if (Path.GetFileNameWithoutExtension(path) is { Length: > 0 } name && string.Equals(name, Path.GetFileName(Path.GetDirectoryName(path)), StringComparison.Ordinal))
+                tree.ReportDiagnostic(Diagnostic.Create(Folder, tree.Tree.GetRoot(tree.CancellationToken).GetFirstToken().GetLocation(), Path.GetFileName(path)));
+        });
 }

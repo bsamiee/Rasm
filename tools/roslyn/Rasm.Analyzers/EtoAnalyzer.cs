@@ -18,34 +18,42 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         Category,
         "Cached system font disposed",
         "`{1}` disposes font `SystemFonts.{0}` caches for every caller, read it without a release",
-        "`SystemFonts` font reaching `Dispose`, `using`, `DisposalOps` or `Copies.Owned` acquire, `DisposalOps` release, `new Disposal<T>`, or `retain` call, directly or through a local, range variable, or lambda parameter.");
+        "`SystemFonts` font reaching `Dispose`, `using`, `use`, `release`, an acquire, a holder, or a retaining call, directly or through a local, range variable, or lambda parameter.");
 
     public static readonly DiagnosticDescriptor Framed = Rule(
         "RASM2202",
         Category,
         "Eto container acquired by plain dispose",
-        "`{0}` disposes `{1}` with its children attached, acquire `{1}` through `Containers.Frame`",
-        "`Eto.Forms.Container` reaching a plain-dispose `DisposalOps` overload, `new Disposal<T>` with a release that only disposes, or `retain` call, while its acquiring member attaches a child held before it, or any child to a `StackLayout`.");
+        "`{0}` disposes `{1}` with its children attached, acquire `{1}` with `use` and a release that detaches its children before `Dispose`",
+        "`Eto.Forms.Container` reaching a plain-dispose acquire, a holder with a release that only disposes, or a retaining call, while its acquiring member attaches a child held before it, or any child to a `StackLayout`.");
 
     public static readonly DiagnosticDescriptor Twice = Rule(
         "RASM2203",
         Category,
         "Retained control disposed on failure",
         "`{0}` disposes `{1}` on failure after `{2}` handed it to its owner, delete the release",
-        "`DisposalOps.OnFailure` release disposing an `Eto.Widget` a plain-dispose `DisposalOps.Acquire` or `retain` call handed to its owner earlier on the same path.");
+        "Failure release disposing an `Eto.Widget` that a plain-dispose acquire or a retaining call handed to its owner earlier on the same path.");
 
     public static readonly DiagnosticDescriptor Escaped = Rule(
         "RASM2204",
         Category,
         "Native callback outside Callbacks boundary",
-        "Native callback `{0}` runs `{1}` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `Callbacks.Run(<effect>, <site>)`",
+        "Native callback `{0}` runs `{1}` outside the `Callbacks` boundary where an exception aborts Rhino, route it through `<owner>.Answer(<effect>, <failed>)` with `[CallerMemberName]`",
         "Body of a delegate handed to an Objective-C binding or `ObjCExtensions.AddMethod`, an `[UnmanagedFunctionPointer]` delegate, or an `[Export]`, `[UnmanagedCallersOnly]`, or `NSObject` override that is more than one `Callbacks` call, or a host member read before the boundary in a `Callbacks` call of such a body or an Eto override.");
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Cached, Framed, Twice, Escaped];
+    public static readonly DiagnosticDescriptor Handler = Rule(
+        "RASM2205",
+        Category,
+        "Delegate registered as platform handler",
+        "`{0}` registers delegate `{1}` as a platform handler, declare one handler interface each platform implements",
+        "`Eto.Platform.Add<T>` or `Find<T>` call with a delegate type argument.");
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Cached, Framed, Twice, Escaped, Handler];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
         (SystemSymbols system, EtoSymbols eto, RasmRhinoSymbols rasm) = (new(compilation), new(compilation), new(compilation));
+        if (!eto.Handlers.IsEmpty) Handlers(context, eto.Handlers);
         if (Lifetimes.Of(system, rasm, new LanguageExtSymbols(compilation)) is not { } lifetimes) return;
         if (eto is { SystemFonts: { } fonts, Font: { } font }) Fonts(context, lifetimes, fonts, font);
         if (eto is { Container: { } container, Control: { } control }) Frames(context, lifetimes, container, control, eto.StackLayout);
@@ -281,6 +289,13 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 block.ReportDiagnostic(Diagnostic.Create(Escaped, site.Syntax.GetLocation(), method.Name, run));
         });
     }
+
+    // --- [HANDLERS]
+    private static void Handlers(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> handlers) =>
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, _) =>
+            Among(invocation.TargetMethod, handlers) && invocation.TargetMethod.TypeArguments[0] is { TypeKind: TypeKind.Delegate } handed
+                ? [Diagnostic.Create(Handler, Named(invocation), Label(invocation.TargetMethod), handed.Name)]
+                : []);
 
     // --- [BINDINGS]
     private static ISymbol? Held(IOperation reference, Reading reading) =>

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unset-comparison
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    unset:
+        pattern: $UNSET
+        any:
+            - matches: {csharp-owner-member: {type: {regex: '^RhinoMath$'}, member: {regex: '^Unset(Value|Single)$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^(Point[23][df]|Vector[23][df]|Plane|Line|Arc|Circle|Interval|Transform|BoundingBox|ComponentIndex)$'}, member: {regex: '^Unset$'}}}
+rule:
+    kind: binary_expression, invocation_expression
+    any:
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^[!=]=$'}
+            - any:
+                - has: {field: right, matches: unset}
+                - has: {field: left, matches: unset}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '(^|\.)Equals$'}
+            - has: {field: arguments, has: {kind: argument, has: {matches: unset}}}
+message: '`$UNSET` comparison tests validity by sentinel equality'
+note: 'Test `RhinoMath.IsValidDouble(<value>)`, `RhinoMath.IsValidSingle(<value>)`, `<value>.IsValid`, or `<index>.IsUnset()`, and lift through `Conversions.Present` for an `Option`'

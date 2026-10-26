@@ -103,35 +103,6 @@ utils:
                         - has: {kind: argument, nthChild: 2, pattern: $MEMBER, has: {matches: member-text}}
                         - has: {kind: argument, nthChild: 3, pattern: $INDEX, not: {has: {matches: member-text}}}
                         - not: {has: {kind: argument, nthChild: 4}}
-rewriters:
-    - id: optional-owner
-      rule:
-        kind: invocation_expression
-        all:
-            - has: {field: function, regex: '^Optional(\s*<.+>)?$', pattern: $LIFT}
-            - has: {field: arguments, has: {kind: argument, pattern: $LIFTED}}
-      transform:
-        GUARD: {replace: {source: $LIFT, replace: '^Optional', by: Refused.UnlessFound}}
-      fix: $GUARD($LIFTED, $MEMBER)
-    - id: unchanged-arguments
-      rule: {kind: argument_list, pattern: $ARGUMENTS}
-      fix: $ARGUMENTS
-    - id: optional-refusal
-      rule:
-        kind: invocation_expression
-        pattern: $ANSWER.ToFin(new Refused($MEMBER, Refused.Absent))
-      transform:
-        OWNED: {rewrite: {source: $ANSWER, rewriters: [unchanged-arguments, optional-owner]}}
-      fix: $OWNED
-    - id: mapped-unless
-      rule:
-        kind: invocation_expression
-        all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select)$'}}, {has: {field: expression, matches: unless-call}}]}
-            - has: {field: arguments, all: [{has: {matches: discarding-lift}}, {not: {has: {kind: argument, nthChild: 2}}}]}
-      transform:
-        INDEXED: {replace: {source: $INDEX, replace: '(?s)^(.+)$', by: ', $1'}}
-      fix: Refused.Unless($CHECKED, $VALUE, $MEMBER$INDEXED)
 rule:
     kind: invocation_expression, conditional_expression
     pattern: $MATCH
@@ -163,11 +134,8 @@ rule:
                         - all: [{has: {field: alternative, matches: absent-refusal}}, {has: {field: consequence, matches: unit-value}}]
                         - all: [{has: {field: consequence, matches: absent-refusal}}, {has: {field: alternative, matches: unit-value}}]
         - not: {matches: {csharp-owner-body: {type: {regex: '^Refused$'}, member: {regex: '^Unless\w*$'}}}}
-transform:
-    GUARDED: {rewrite: {source: $MATCH, rewriters: [optional-refusal, mapped-unless]}}
-fix: $GUARDED
 labels:
     CHECKED: {style: primary, message: 'Condition the guard takes'}
     REFUSAL: {style: secondary, message: 'Refusal the guard builds'}
 message: '`$CHECKED` chooses between a value and `Refused`'
-note: 'Call `Refused.Unless` for `Declined`, `Refused.UnlessFound` for `Absent`, `Refused.UnlessValid` for `Invalid`'
+note: 'Call `Refused.Unless(<condition>)` with the label its `[CallerArgumentExpression]` derives'

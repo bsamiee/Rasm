@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unit-resource-scope
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    unit-value:
+        any:
+            - kind: identifier
+              regex: '^(unit|unitIO)$'
+            - kind: invocation_expression
+              all:
+                - has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}, {kind: identifier, regex: '^Pure$'}]}
+                - has: {field: arguments, has: {kind: argument, has: {kind: identifier, regex: '^unit$'}}, not: {has: {kind: argument, nthChild: 2}}}
+    unit-thunk:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+            - has: {field: body, matches: unit-value}
+rule:
+    kind: invocation_expression
+    any:
+        - all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Within$', pattern: $SCOPE}}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: unit-thunk}}}
+        - has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^Bracket(Fail)?$', pattern: $SCOPE}
+                - has: {field: expression, matches: unit-value}
+message: '`$SCOPE` acquires `unit` to run a release after its body'
+note: 'Write `<body>.Finally(<release>)`'

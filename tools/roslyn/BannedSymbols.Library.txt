@@ -1,2 +1,7 @@
 P:System.TimeProvider.System;Take the clock as a `TimeProvider` argument, app composition root names `TimeProvider.System`
 T:System.Console;Log through an `ILogger` the composition root creates, app composes its console sink
+M:System.Drawing.Bitmap.GetHicon;Build the `Icon` from an ICO stream with `new Icon(Stream)`, `GetHicon` returns a handle no `Icon` releases
+T:Svg.Model.Services.SvgService;Load an SVG through `SKSvg.CreateFromStream` and read `SKSvg.Picture`
+M:System.Linq.Expressions.Expression`1.Compile;Take the delegate and its call text through `[CallerArgumentExpression]`
+M:System.Linq.Expressions.Expression`1.Compile(System.Boolean);Take the delegate and its call text through `[CallerArgumentExpression]`
+M:System.Linq.Expressions.Expression`1.Compile(System.Runtime.CompilerServices.DebugInfoGenerator);Take the delegate and its call text through `[CallerArgumentExpression]`

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-post-only-sink
+language: csharp
+severity: error
+utils:
+    unit-io:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}
+            - has: {field: arguments, has: {kind: argument, regex: '^(unit|Unit\.Default|default)$'}}
+    stub:
+        kind: method_declaration
+        all:
+            - has: {kind: modifier, regex: '^override$'}
+            - has: {field: body, any: [{kind: arrow_expression_clause, has: {any: [{matches: unit-io}, {kind: identifier, regex: '^unitIO$'}]}}, {kind: block, not: {has: {pattern: $_, not: {kind: comment}}}}]}
+rule:
+    kind: 'record_declaration, class_declaration'
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^Sink$'}}}, pattern: $SINK}}
+        - has: {field: body, has: {matches: stub, has: {field: name, regex: '^Complete$'}}}
+        - has: {field: body, has: {matches: stub, has: {field: name, regex: '^Fail$'}}}
+message: '`$NAME` implements `$SINK` for `Post` alone'
+note: 'Pass the callback `Func<A, IO<Unit>>` in place of the sink'

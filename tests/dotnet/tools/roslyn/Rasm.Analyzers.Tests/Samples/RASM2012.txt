@@ -46,4 +46,15 @@ internal static class ReleasedMode {
     }
 
     internal static void Assigned(RhinoViewport viewport, DisplayModeDescription mode) => viewport.DisplayMode = mode;
+
+    internal static IO<Guid> Acquired(Guid id) =>
+        from mode in use(() => DisplayModeDescription.GetDisplayMode(id))
+        select mode.Id;
+
+    internal static IO<Guid> Checked(string name) =>
+        from found in IO.lift(Optional(DisplayModeDescription.FindByName(name)).ToFin(Error.New(name)))
+        from mode in use(() => found)
+        select mode.Id;
+
+    internal static IO<Unit> Released(RhinoViewport viewport) => release(viewport.DisplayMode);
 }

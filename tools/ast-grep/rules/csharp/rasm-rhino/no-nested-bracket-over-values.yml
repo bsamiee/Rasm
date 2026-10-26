@@ -52,4 +52,4 @@ rule:
 transform:
     HEAD: {replace: {source: $VALUES, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
 message: '`$HEAD` opens a second `Bracket` inside a `Bracket` over acquired values'
-note: 'Call `IO.pure<Seq<IDisposable>>([.. <a>, .. <b>]).Bracket(<body>, DisposalOps.Release)`, `DisposalOps.Release([.. <a>, .. <b>])` with no body'
+note: 'Acquire each value through `use` and close the operation with one `Bracket()`'

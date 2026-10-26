@@ -80,7 +80,7 @@ public static class TestAssertions {
     }
 
     // --- [APPROXIMATION]
-    public static void Equal(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, NumericComparison comparison, string label = nameof(Equal)) {
+    public static void Equal(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, NumericComparison comparison, [CallerMemberName] string label = "") {
         Assert.True(left.Length == right.Length, string.Create(CultureInfo.InvariantCulture, $"{label}: length {left.Length} != {right.Length}"));
         Assert.True(comparison.Matches(left, right, tolerance), $"{label} ({comparison}): {Render(left)} != {Render(right)} within {tolerance}");
     }
@@ -104,13 +104,13 @@ public static class TestAssertions {
         }, seed, iter, time, threads);
     public static void Differential<T>(Gen<T> generator, Func<T, double> implementation, Func<T, double> reference, Tolerance tolerance, NumericComparison comparison,
         string? seed = null, long iter = -1L, int time = -1, int threads = -1) =>
-        ForAll(generator, value => Equal([implementation(value)], [reference(value)], tolerance, comparison, label: nameof(Differential)), seed, iter, time, threads);
+        ForAll(generator, value => Equal([implementation(value)], [reference(value)], tolerance, comparison), seed, iter, time, threads);
 
     // --- [RESULT_ASSERTIONS]
-    public static T SuccValue<T>(Fin<T> result, string label) =>
+    public static T SuccValue<T>(Fin<T> result, [CallerMemberName] string label = "") =>
         result.IfFail(error => throw new XunitException($"{label}: expected Succ, got Fail({error.Message})"));
     public static void Succ<T>(Fin<T> result, Action<T>? then = null) {
-        T value = SuccValue(result, nameof(Succ));
+        T value = SuccValue(result);
         then?.Invoke(value);
     }
     public static void Fail<T>(Fin<T> result, Action<Error>? then = null) =>

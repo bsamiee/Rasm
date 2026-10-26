@@ -1,0 +1,25 @@
+using LanguageExt;
+using LanguageExt.Common;
+using Microsoft.Extensions.Logging;
+using Rhino.Runtime;
+using static LanguageExt.Prelude;
+
+internal sealed class Sink(ILogger logger) {
+    internal Fin<Unit> Report(Error error) {
+        Failed(logger, error.Message);
+        return unit;
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "{Failure}")]
+    private static void Failed(ILogger logger, string failure) { }
+}
+
+internal static class ReportedTwice {
+    internal static Unit Reported(Sink sink, Error error) => sink.Report(error).{|#0:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
+}
+
+internal static class ReportedOnce {
+    internal static Unit Reported(Sink sink, Error error) => sink.Report(error).IfFail(static _ => unit);
+
+    internal static Unit Crashed(Fin<Unit> result) => result.IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
+}

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-same-shape-union-case
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    shaped-case:
+        kind: record_declaration
+        all:
+            - has: {kind: parameter_list, pattern: $PARAMETERS, has: {kind: parameter}}
+            - not: {has: {field: body, kind: declaration_list}}
+rule:
+    kind: record_declaration
+    all:
+        - has: {field: name, pattern: $CASE}
+        - matches: shaped-case
+        - inside: {kind: declaration_list, inside: {matches: {thinktecture-union: {name: {kind: identifier}}}}}
+        - follows: {stopBy: end, matches: shaped-case}
+message: '`$CASE` repeats parameters `$PARAMETERS` of an earlier case'
+note: 'Replace cases that differ only by name with one record holding a tag enum and the shared parameters'

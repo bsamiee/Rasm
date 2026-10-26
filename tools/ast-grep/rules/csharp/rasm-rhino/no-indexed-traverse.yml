@@ -100,4 +100,4 @@ rule:
                     - has: {field: arguments, not: {has: {kind: argument}}}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Each$'}}}}
 message: '`$ITEMS` pairs each element with its index for `$RECORD.Unless`'
-note: 'Call `Callbacks.Each(<items>, <call>, <member>)` for a `bool` call, `Callbacks.Each(<items>, (<item>, <index>) => <element>)` for a `Fin`'
+note: 'Call `Callbacks.Each(<items>, <call>)` for a `bool` call with the label its `[CallerArgumentExpression]` derives, `Callbacks.Each(<items>, (<item>, <index>) => <element>)` for a `Fin`'

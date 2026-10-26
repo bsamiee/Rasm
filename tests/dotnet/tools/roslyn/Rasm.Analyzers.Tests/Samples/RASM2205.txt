@@ -1,0 +1,22 @@
+using System;
+using Eto;
+
+internal delegate bool FrameLink(Action tick);
+
+internal interface IDrawnPlatform {
+    int Order { get; }
+}
+
+internal sealed class AppKitDrawn : IDrawnPlatform {
+    public int Order => 1;
+}
+
+internal static class DelegateHandlers {
+    internal static void Registered(Platform platform) => platform.{|#0:Add<FrameLink>(static () => static _ => true)|};
+
+    internal static object? Found(Platform platform) => platform.{|#1:Find<FrameLink>()|};
+}
+
+internal static class InterfaceHandlers {
+    internal static void Registered(Platform platform) => platform.Add<IDrawnPlatform>(static () => new AppKitDrawn());
+}

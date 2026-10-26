@@ -1,3 +1,3 @@
-#0 `capture.GrayscaleDib()` returns null on macOS, read it through `Refused.UnlessFound`, `Optional`, or the `DisposalOps.Found` acquire
-#1 `capture.GrayscaleDib()` returns null on macOS, read it through `Refused.UnlessFound`, `Optional`, or the `DisposalOps.Found` acquire
-#2 `capture.GrayscaleDib()` returns null on macOS, read it through `Refused.UnlessFound`, `Optional`, or the `DisposalOps.Found` acquire
+#0 `capture.GrayscaleDib()` returns null on macOS, acquire `Optional(capture.GrayscaleDib()).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text
+#1 `capture.GrayscaleDib()` returns null on macOS, acquire `Optional(capture.GrayscaleDib()).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text
+#2 `capture.GrayscaleDib()` returns null on macOS, acquire `Optional(capture.GrayscaleDib()).ToFin(new Refused(...))` with `use` and `[CallerArgumentExpression]` call text

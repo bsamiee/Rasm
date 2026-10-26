@@ -1,0 +1,11 @@
+using System.Reflection;
+
+namespace Rasm.Modeling {
+    internal static class {|#0:Assembly|};
+
+    internal sealed record {|#1:Proximity|}(double Distance);
+
+    internal sealed record {|#2:Proximity|}<T>(T Value, double Distance);
+
+    internal static class Solids;
+}

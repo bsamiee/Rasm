@@ -1,0 +1,41 @@
+using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+internal abstract record Stage;
+
+internal sealed record Dither(int Levels) : Stage;
+
+internal sealed record Exposure(double Stops) : Stage;
+
+internal interface IReplayed {
+    static abstract bool Replayed { get; }
+}
+
+internal sealed record Recorded<TState>(TState Record) where TState : Stage;
+
+internal static class ConcreteTests {
+    internal static bool Dithered<TState>(Recorded<TState> value) where TState : Stage => {|#0:value.Record is Dither|};
+
+    internal static int Levels<TState>(TState state) where TState : Stage => state switch { {|#1:Dither dither|} => dither.Levels, _ => 0 };
+
+    internal static Exposure? Exposed<TState>(TState state) where TState : Stage => {|#2:state as Exposure|};
+
+    internal static bool Kind(Type state) => {|#3:state != typeof(Dither)|};
+}
+
+internal static class StatedBehavior {
+    internal static bool Replayed<TState>() where TState : IReplayed => TState.Replayed;
+
+    internal static bool Staged(Stage stage) => stage is Dither;
+
+    internal static bool Abstract<TState>(TState state) => state is Stage;
+}
+
+internal sealed class StageConverter : JsonConverter<Stage> {
+    public override bool CanConvert(Type typeToConvert) => typeToConvert == typeof(Dither);
+
+    public override Stage? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => null;
+
+    public override void Write(Utf8JsonWriter writer, Stage value, JsonSerializerOptions options) { }
+}

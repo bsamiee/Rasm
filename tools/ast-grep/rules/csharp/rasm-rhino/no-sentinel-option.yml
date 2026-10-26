@@ -98,9 +98,8 @@ utils:
               has: {field: pattern, regex: '^0[uU]?$'}
     unset-value:
         any:
-            - matches: {csharp-owner-member: {type: {regex: '^(Point3d|Vector3d|Plane|Line|Arc|Transform|ComponentIndex|PointContainment)$'}, member: {regex: '^Unset$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^PointContainment$'}, member: {regex: '^Unset$'}}}
             - matches: {csharp-owner-member: {type: {regex: '^CurveOrientation$'}, member: {regex: '^Undefined$'}}}
-            - matches: {csharp-owner-member: {type: {regex: '^RhinoMath$'}, member: {regex: '^(UnsetValue|UnsetSingle)$'}}}
     unset-present:
         any:
             - kind: binary_expression

@@ -37,6 +37,19 @@ utils:
     error-write:
         kind: assignment_expression
         has: {field: right, matches: error-creation}
+    fixed-bound:
+        any:
+            - kind: integer_literal, real_literal
+            - kind: prefix_unary_expression
+              regex: '^-'
+              has: {kind: 'integer_literal, real_literal'}
+            - kind: identifier, member_access_expression
+              regex: '(^|\.)(MinValue|MaxValue)(\._value)?$'
+    range-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^ValidationResults$'}, member: {regex: '^OutsideRange$'}}}}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: key-read}}}, {has: {kind: argument, nthChild: 2, has: {matches: fixed-bound}}}, {has: {kind: argument, nthChild: 3, has: {matches: fixed-bound}}}]}
     key-parameter:
         kind: identifier
         pattern: $KEY
@@ -59,6 +72,8 @@ rule:
                 - has: {field: condition, has: {stopBy: end, matches: key-parameter}}
                 - has: {field: condition, matches: range-test}
                 - has: {field: consequence, any: [{has: {stopBy: end, matches: error-write}}, {kind: expression_statement, has: {matches: error-write}}]}
+            - matches: range-call
+              has: {field: arguments, has: {kind: argument, nthChild: 1, has: {stopBy: end, matches: key-parameter}}}
         - inside: {stopBy: end, matches: thinktecture-factory-validation}
 message: '`ValidateFactoryArguments` tests `$KEY` against both bounds'
-note: 'Assign `validationError = ValidationResults.OutsideRange(<key>, MinValue, MaxValue)`, `MinValue._value` and `MaxValue._value` in a class value object'
+note: 'Declare one value object per bound rule, a specific bound through the bound generator attribute, lengths and angles as UnitsNet quantities'

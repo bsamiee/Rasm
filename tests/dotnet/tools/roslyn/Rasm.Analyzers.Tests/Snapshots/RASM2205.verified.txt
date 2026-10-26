@@ -1,0 +1,2 @@
+#0 `Platform.Add` registers delegate `FrameLink` as a platform handler, declare one handler interface each platform implements
+#1 `Platform.Find` registers delegate `FrameLink` as a platform handler, declare one handler interface each platform implements

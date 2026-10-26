@@ -217,51 +217,10 @@ rule:
 constraints:
     ALWAYS: {matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}
 transform:
-    UNPARENTHESIZED:
-        replace:
-            source: $CONSTANT
-            replace: '^\(+\s*((?s).*?)\s*\)+$'
-            by: '$1'
-    STATIC_THUNK:
-        replace:
-            source: $STATIC
-            replace: '(?s)^.*$'
-            by: 'static '
-    DISCARD:
-        replace:
-            source: $DISCARDED
-            replace: '(?s)^(.+)$'
-            by: '.Map(static _ => $1)'
-    UNIT_THUNK:
-        replace:
-            source: $UNIT
-            replace: '(?s)^.*$'
-            by: 'static '
-    UNIT_FALLBACK:
-        replace:
-            source: $UNIT
-            replace: '(?s)^.*$'
-            by: unit
-    NEW_SITE:
-        replace:
-            source: $SINK
-            replace: '(?s)^(.+)$'
-            by: 'new CallbackSite($1, '
-    SITE_OWNER:
-        replace:
-            source: $OWNER
-            replace: '(?s)^(.+)$'
-            by: '$1, '
-    SITE_MEMBER:
-        replace:
-            source: $MEMBER
-            replace: '(?s)^(.+)$'
-            by: '$1)'
     EFFECT_HEAD:
         replace:
             source: $EFFECT
             replace: '(?s)^([@\w.]+).*$'
             by: '$1'
-fix: Callbacks.Answer($EFFECT$FIN$DISCARD, $STATIC_THUNK$UNIT_THUNK() => $UNPARENTHESIZED$LAZY$UNIT_FALLBACK, $SITE$NEW_SITE$SITE_OWNER$SITE_MEMBER)
 message: '`$EFFECT_HEAD$FIN` reports its failure through `Sink.Report`'
-note: 'Call `Callbacks.Answer(<effect or fin>, () => <fallback>, <site>)`'
+note: 'Call `<owner>.Answer(<effect>, <fallback>)` with the member its `[CallerMemberName]` derives, `<fin>.ToIO()` for a `Fin`'

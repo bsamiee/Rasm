@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-release-callback
+language: csharp
+severity: error
+rule:
+    kind: generic_name
+    pattern: $TYPE
+    regex: '^(Action\s*<\s*((global::)?System\.)?IDisposable\s*>|Func\s*<\s*((global::)?System\.)?IDisposable\s*,\s*(Unit|IO\s*<\s*Unit\s*>)\s*>)$'
+message: '`$TYPE` passes a release callback'
+note: 'Acquire through `use` and release at the `Bracket` of the operation that owns the resource, a lifetime-long one on the owner''s `EnvIO`'

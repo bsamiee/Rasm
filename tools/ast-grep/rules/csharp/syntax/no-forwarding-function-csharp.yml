@@ -101,9 +101,15 @@ utils:
                 any:
                     - has: {matches: thunk, has: {field: body, any: [{matches: call}, {matches: member-read}, {matches: setter}]}}
                     - has: {matches: member-read}
+    acquired:
+        kind: invocation_expression
+        all:
+            - has: {field: function, any: [{kind: identifier, regex: '^use$'}, {matches: {csharp-owner-member: {type: {regex: '^Host$'}, member: {regex: '^(Made|Many|Ok)$'}}}}]}
+            - has: {field: arguments, all: [{not: {has: {kind: argument, nthChild: 2}}}, {has: {kind: argument, any: [{has: {matches: thunk, has: {field: body, matches: call}}}, {has: {matches: call}}]}}]}
     forwarded:
         any:
             - matches: lifted
+            - matches: acquired
             - matches: call
               not: {inside: {stopBy: {matches: function}, matches: function, has: {field: parameters, not: {has: {kind: parameter}}}}}
     unit-return:

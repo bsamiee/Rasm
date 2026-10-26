@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nameof-call-label
+language: csharp
+severity: error
+utils:
+    label:
+        kind: invocation_expression
+        has: {field: function, kind: identifier, regex: '^nameof$'}
+    named:
+        any:
+            - kind: identifier
+              pattern: $NAME
+            - kind: generic_name
+              has: {kind: identifier, nthChild: 1, pattern: $NAME}
+    call:
+        any:
+            - kind: invocation_expression
+              has:
+                field: function
+                any:
+                    - matches: named
+                    - kind: member_access_expression
+                      has: {field: name, matches: named}
+            - kind: object_creation_expression
+              has: {field: type, any: [{matches: named}, {kind: qualified_name, has: {field: name, matches: named}}]}
+    read:
+        kind: member_access_expression
+        all:
+            - has: {field: name, matches: named}
+            - not: {inside: {kind: invocation_expression, field: function}}
+            - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {matches: label}}}}
+            - not: {inside: {kind: assignment_expression, field: left, has: {field: operator, regex: '^[+-]=$'}}}
+    labelled:
+        any:
+            - any: [{matches: call}, {matches: read}]
+              pattern: $CALL
+            - has: {stopBy: end, matches: call, pattern: $CALL}
+            - has: {stopBy: {kind: lambda_expression}, matches: read, pattern: $CALL}
+    sibling:
+        kind: argument
+        not: {has: {matches: label}}
+    row:
+        all:
+            - has: {kind: argument, nthChild: 1, has: {matches: label}}
+            - has: {kind: argument, has: {kind: lambda_expression}, follows: {stopBy: end, kind: argument, has: {kind: lambda_expression}}}
+rule:
+    kind: invocation_expression
+    pattern: $LABEL
+    all:
+        - matches: label
+        - has:
+            field: arguments
+            all:
+                - not: {has: {kind: argument, nthChild: 2}}
+                - has: {kind: argument, has: {any: [{matches: named}, {kind: member_access_expression, has: {field: name, matches: named}}]}}
+        - inside:
+            kind: argument
+            inside:
+                kind: argument_list
+                any:
+                    - inside: {kind: invocation_expression}
+                      not: {matches: row}
+                      has:
+                        matches: sibling
+                        any:
+                            - has: {stopBy: end, matches: call, pattern: $CALL}
+                            - has: {stopBy: {kind: lambda_expression}, matches: read, pattern: $CALL}
+                    - inside: {kind: 'object_creation_expression, implicit_object_creation_expression'}
+                      has: {matches: sibling, has: {stopBy: end, matches: call, pattern: $CALL}}
+                    - inside:
+                        kind: 'object_creation_expression, implicit_object_creation_expression'
+                        any:
+                            - inside:
+                                kind: argument
+                                inside:
+                                    kind: argument_list
+                                    inside:
+                                        kind: invocation_expression
+                                        has: {field: function, kind: member_access_expression, has: {field: expression, matches: labelled}}
+                            - inside:
+                                kind: conditional_expression
+                                has: {field: condition, matches: labelled}
+message: '`$LABEL` restates the name of `$CALL` beside it'
+note: 'Take the label through a `[CallerArgumentExpression]` parameter of the callee and drop the `nameof` argument'

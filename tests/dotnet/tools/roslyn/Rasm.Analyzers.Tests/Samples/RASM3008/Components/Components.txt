@@ -1,0 +1,3 @@
+{|#0:namespace|} Rasm.Grasshopper.Components;
+
+internal static class Registry;
