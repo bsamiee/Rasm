@@ -276,7 +276,6 @@ utils:
                       all:
                         - has: {field: attribute, regex: '^written$'}
                         - has: {field: object, matches: descriptors-module}
-            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^apply_all$'}}
             - has:
                 field: function
                 kind: attribute

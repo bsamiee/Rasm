@@ -213,9 +213,6 @@ public static class ComponentOps {
     public static Message Rendered(Func<string, string, MessageAction[], Message> level, Error note, Seq<MessageAction> actions) =>
         level(note.Message, Conversions.Unset(note.Inner.Map(static cause => ErrorOps.Localize(cause))), [.. actions]);
 
-    public static IO<Unit> Note(IDataAccess access, Func<string, string, MessageAction[], Message> level, Error note, Seq<MessageAction> actions) =>
-        IO.lift(() => access.AddMessage(Rendered(level, note, actions)));
-
     // --- [STATE]
     public static ValueStore<TRecord> State<TRecord>(IDocumentObject owner, string key, TRecord fallback) where TRecord : IStateRecord<TRecord> {
         KeyedText text = KeyedText.Of(owner.CustomValues, key);

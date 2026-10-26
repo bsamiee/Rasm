@@ -142,21 +142,21 @@ public sealed record FrameSampling(IO<(FrameShown Current, Option<FrameShown> Re
 
 public sealed record FrameGuide((long Left, long Top, long Right, long Bottom) Frame, MarkStyle.Stroke Style);
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record FrameOverlay {
     public sealed record AreaPick(Option<PixelExtent> Aspect, Func<FrameRegion, string> Readout) : FrameOverlay;
     public sealed record GuideSet(Seq<FrameGuide> Guides) : FrameOverlay;
     public sealed record QuadCage(Func<FrameQuad, Seq<QuadPatch>> Patches, Gamut Working, OverlayOpacity Opacity) : FrameOverlay;
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record FrameEdit {
     public sealed record AreaEdited(FrameRegion Area) : FrameEdit;
     public sealed record QuadEdited(FrameQuad Quad) : FrameEdit;
     public sealed record PixelPicked((double X, double Y) Pixel) : FrameEdit;
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record FramePart {
     public sealed record Ground : FramePart;
     public sealed record Rule : FramePart;
@@ -165,7 +165,7 @@ public abstract partial record FramePart {
     public sealed record Corner(QuadCorner Handle) : FramePart;
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record FrameDrag {
     public sealed record Panning(Vector2 Start) : FrameDrag;
     public sealed record Wiping : FrameDrag;
@@ -292,7 +292,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             None: static () => IO.pure(unit))).Uninterruptible();
 
     private IO<Unit> PickCursor =>
-        DisposalOps.Replace(Icons.PickCursor, (shape, lease) => {
+        DisposalOps.Acquire(Icons.PickCursor, (shape, lease) => {
             Option<(Option<Cursor> Shape, Seq<(Cursor Shape, IDisposable Lease)> Owned)> prior = cache.Pick;
             Cursor selected = Cursor;
             Seq<(Cursor Shape, IDisposable Lease)> reserved = prior.ToSeq().Bind(static pick => pick.Owned).Add((shape, lease));
@@ -494,16 +494,13 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         !state.Picking && !state.Comparing ? state.Overlay : None;
 
     private static Option<FrameOverlay.AreaPick> Picked(FrameViewState state) =>
-        Overlaid(state).Bind(static overlay => overlay.Switch<Option<FrameOverlay.AreaPick>>(
-            areaPick: static pick => pick, guideSet: static _ => None, quadCage: static _ => None));
+        Overlaid(state).Bind(static overlay => overlay.SwitchPartially<Option<FrameOverlay.AreaPick>>(@default: static _ => None, areaPick: static pick => pick));
 
     private static Seq<FrameGuide> Guides(FrameViewState state) =>
-        Overlaid(state).ToSeq().Bind(static overlay => overlay.Switch(
-            areaPick: static _ => [], guideSet: static set => set.Guides, quadCage: static _ => []));
+        Overlaid(state).ToSeq().Bind(static overlay => overlay.SwitchPartially(@default: static _ => [], guideSet: static set => set.Guides));
 
     private static Option<(FrameOverlay.QuadCage Cage, FrameQuad Quad)> Caged(FrameViewState state) =>
-        from cage in Overlaid(state).Bind(static overlay => overlay.Switch<Option<FrameOverlay.QuadCage>>(
-            areaPick: static _ => None, guideSet: static _ => None, quadCage: static cage => cage))
+        from cage in Overlaid(state).Bind(static overlay => overlay.SwitchPartially<Option<FrameOverlay.QuadCage>>(@default: static _ => None, quadCage: static cage => cage))
         from quad in state.Quad
         select (cage, quad);
 
@@ -564,16 +561,14 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             : Viewed(state with { Drag = None });
 
     protected override Option<Transition<FrameViewState, FrameEdit>> DoubleClicked(FrameViewState state, SizeF size, float scale, Option<FramePart> part, MouseEventArgs e) =>
-        part.Bind(key => key.Switch(
+        part.Bind(key => key.SwitchPartially(
             state,
-            ground: static (_, _) => None,
+            @default: static (_, _) => Option<Transition<FrameViewState, FrameEdit>>.None,
             rule: static (held, _) => Viewed(held with { Split = AxisFraction.Half, Drag = None }),
             edge: static (held, edge) => edge.Handle == RegionHandle.Inside
                 ? Some(new Transition<FrameViewState, FrameEdit>(
                     held with { Area = FrameRegion.Whole, Drag = None }, Some<Edit<FrameEdit>>(new Edit<FrameEdit>.Commit(new FrameEdit.AreaEdited(FrameRegion.Whole)))))
-                : None,
-            flip: static (_, _) => None,
-            corner: static (_, _) => None));
+                : None));
 
     protected override Option<Transition<FrameViewState, FrameEdit>> Scrolled(FrameViewState state, SizeF size, float scale, Option<FramePart> part, MouseEventArgs e) =>
         from at in At(state, size, scale, e.Location)
@@ -590,13 +585,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         };
 
     protected override Option<Transition<FrameViewState, FrameEdit>> Activated(FrameViewState state, SizeF size, float scale, FramePart part) =>
-        part.Switch<FrameViewState, Option<Transition<FrameViewState, FrameEdit>>>(
-            state,
-            ground: static (_, _) => None,
-            rule: static (_, _) => None,
-            edge: static (_, _) => None,
-            flip: static (held, flip) => Flip(held, flip.Axis),
-            corner: static (_, _) => None);
+        part.SwitchPartially<FrameViewState, Option<Transition<FrameViewState, FrameEdit>>>(state, @default: static (_, _) => None, flip: static (held, flip) => Flip(held, flip.Axis));
 
     private static Transition<FrameViewState, FrameEdit> Viewed(FrameViewState state) => new(state, None);
 
@@ -622,10 +611,9 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
                 .IfNone(() => Viewed(state with { Drag = Some<FrameDrag>(new FrameDrag.Panning(at.Center)) }));
 
     private static Option<Transition<FrameViewState, FrameEdit>> Claimed(FrameViewState state, FramePart key) =>
-        key.Switch(
+        key.SwitchPartially(
             state,
-            ground: static (_, _) => None,
-            rule: static (_, _) => None,
+            @default: static (_, _) => Option<Transition<FrameViewState, FrameEdit>>.None,
             edge: static (held, edge) => Viewed(held with { Drag = Some<FrameDrag>(new FrameDrag.Sizing(edge.Handle, held.Area.Edges)) }),
             flip: static (held, flip) => Flip(held, flip.Axis),
             corner: static (held, corner) => held.Quad.Map(quad => Viewed(held with { Drag = Some<FrameDrag>(new FrameDrag.Cornering(corner.Handle, QuadMapper.ToCorners(quad))) })));
@@ -653,12 +641,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         };
 
     private static bool Still(FrameTransform transform, FrameDrag drag) =>
-        drag.Switch(
+        drag.SwitchPartially(
             transform,
-            panning: static (held, pan) => held.Switch(pan.Start, fitted: static (_, _) => true, placed: static (start, placed) => placed.Center == start),
-            wiping: static (_, _) => false,
-            sizing: static (_, _) => false,
-            cornering: static (_, _) => false);
+            @default: static (_, _) => false,
+            panning: static (held, pan) => held.Switch(pan.Start, fitted: static (_, _) => true, placed: static (start, placed) => placed.Center == start));
 
     private static Transition<FrameViewState, FrameEdit> Sized(FrameViewState state, Placement at, FrameDrag.Sizing sizing, Vector2 delta) {
         RectangleF stretched = sizing.Handle == RegionHandle.Inside
@@ -709,11 +695,9 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         };
 
     private static Option<Transition<FrameViewState, FrameEdit>> Spreaded(FrameViewState state, FrameDrag drag, float factor) =>
-        drag.Switch<(FrameViewState State, float Factor), Option<Transition<FrameViewState, FrameEdit>>>(
+        drag.SwitchPartially<(FrameViewState State, float Factor), Option<Transition<FrameViewState, FrameEdit>>>(
             (state, factor),
-            panning: static (_, _) => None,
-            wiping: static (_, _) => None,
-            sizing: static (_, _) => None,
+            @default: static (_, _) => None,
             cornering: static (held, corner) => corner.Handle.Point.Get(corner.Raw) switch {
                 var pivot => Bent(held.State, corner, point => (pivot.X + ((point.X - pivot.X) * held.Factor), pivot.Y + ((point.Y - pivot.Y) * held.Factor)), other => other != corner.Handle),
             });
@@ -749,9 +733,9 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         Outlined(at, patch.Corners) switch {
             var outline => Seq(
                 new PlotMark<FramePart>(
-                    new MarkShape.Polygon(outline), Some<MarkStyle>(new MarkStyle.Fill(new MarkColor.Fixed(Plots.Encoded(cage.Working, patch.Fill)), cage.Opacity)), None),
+                    new MarkShape.Polygon(outline), Some<MarkStyle>(new MarkStyle.Fill(Plots.Encoded(cage.Working, patch.Fill), cage.Opacity)), None),
                 new PlotMark<FramePart>(
-                    new MarkShape.Polygon(outline), Some<MarkStyle>(new MarkStyle.Stroke(new MarkColor.Fixed(Plots.Encoded(cage.Working, patch.Outline)), 1f, 1f)), None)),
+                    new MarkShape.Polygon(outline), Some<MarkStyle>(new MarkStyle.Stroke(Plots.Encoded(cage.Working, patch.Outline), 1f, 1f)), None)),
         };
 
     private static IReadOnlyList<PointF> Outlined(Placement at, QuadCorners corners) =>
@@ -782,10 +766,10 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
     private const float GripSide = 4f;
     private const float FlipSide = 16f;
 
-    private static readonly MarkStyle Outline = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Highlight), 1f, 1f);
-    private static readonly MarkStyle Knob = new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Highlight), 1f);
-    private static readonly MarkStyle.Stroke Wipe = new(new MarkColor.Fixed(Colors.White), 1f, 1f);
-    private static readonly MarkStyle Letter = new MarkStyle.Fill(new MarkColor.Fixed(Colors.White), 1f);
+    private static readonly MarkStyle Outline = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f);
+    private static readonly MarkStyle Knob = new MarkStyle.Fill(PaintSlot.Highlight, 1f);
+    private static readonly MarkStyle.Stroke Wipe = new(Colors.White, 1f, 1f);
+    private static readonly MarkStyle Letter = new MarkStyle.Fill(Colors.White, 1f);
 
     private static float CaptionInset => RhinoLayout.Padding(RhinoLayout.PaddingType.RhinoPanel).Top;
 
@@ -891,7 +875,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             Some: divided =>
                 from shadow in Plots.Paint(canvas, state.Mode.Rule.ToSeq().Map(_ => new PlotMark<FramePart>(
                     Ruler(divided.Along, divided.Position + Wipe.Width, divided.Bounds),
-                    Some<MarkStyle>(new MarkStyle.Stroke(new MarkColor.Fixed(Colors.Black), Shade(canvas), Wipe.Width)),
+                    Some<MarkStyle>(new MarkStyle.Stroke(Colors.Black, Shade(canvas), Wipe.Width)),
                     None)))
                 from before in Caption(canvas, divided.Left.Side.Caption, divided.Along, divided.Position, divided.Bounds, before: true)
                 from after in Caption(canvas, divided.Right.Side.Caption, divided.Along, divided.Position, divided.Bounds, before: false)
@@ -919,7 +903,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         IO.lift(() => {
             canvas.Graphics.DrawText(
                 canvas.Font,
-                Plots.Resolve(canvas, new MarkStyle.Fill(new MarkColor.Fixed(Colors.Black), Shade(canvas))),
+                Plots.Resolve(canvas, new MarkStyle.Fill(Colors.Black, Shade(canvas))),
                 location + (along is Orientation.Vertical ? new PointF(Wipe.Width, 0f) : new PointF(0f, Wipe.Width)),
                 text);
             canvas.Graphics.DrawText(canvas.Font, Plots.Resolve(canvas, Letter), location, text);

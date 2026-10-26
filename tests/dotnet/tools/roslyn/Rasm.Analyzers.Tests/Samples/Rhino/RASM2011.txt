@@ -1,0 +1,17 @@
+using Rhino.Display;
+
+internal static class DockedView {
+    internal static void Docked(RhinoView view) => {|#0:view.Floating = false|};
+
+    internal static void Statement(RhinoView view) {
+        {|#1:view.Floating = false|};
+    }
+}
+
+internal static class FloatedView {
+    internal static void Floated(RhinoView view) => view.Floating = true;
+
+    internal static void Restored(RhinoView view, bool floating) => view.Floating = floating;
+
+    internal static bool Read(RhinoView view) => view.Floating;
+}

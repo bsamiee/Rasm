@@ -11,10 +11,8 @@ using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Drawing;
-using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Rhino.Render.Effects;
 
@@ -28,63 +26,14 @@ internal sealed partial class TileRank {
     public bool Viewed { get; }
 }
 
-[ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct TileBatch : System.Numerics.IMinMaxValue<TileBatch> {
-    public static TileBatch MinValue { get; } = new(1);
-    public static TileBatch MaxValue { get; } = new(8);
-    public static TileBatch Default { get; } = new(2);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+public sealed record TileLimits(int Batch, Duration Budget, int Capacity) {
+    public static TileLimits Default { get; } = new(2, Duration.FromMilliseconds(250), 256);
 }
 
-[ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct TileBudget : System.Numerics.IMinMaxValue<TileBudget> {
-    public static TileBudget MinValue { get; } = new(20);
-    public static TileBudget MaxValue { get; } = new(2000);
-    public static TileBudget Default { get; } = new(250);
-
-    public Duration Span => Duration.FromMilliseconds(_value);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct TileCapacity : System.Numerics.IMinMaxValue<TileCapacity> {
-    public static TileCapacity MinValue { get; } = new(16);
-    public static TileCapacity MaxValue { get; } = new(4096);
-    public static TileCapacity Default { get; } = new(256);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-public sealed record TileLimits(TileBatch Batch, TileBudget Budget, TileCapacity Capacity) {
-    public static TileLimits Default { get; } = new(TileBatch.Default, TileBudget.Default, TileCapacity.Default);
-}
-
-public sealed record TileLimitRows(
-    PlugInSetting<TileBatch, int> Batch,
-    PlugInSetting<TileBudget, int> Budget,
-    PlugInSetting<TileCapacity, int> Capacity) {
-    public static TileLimitRows Default { get; } = new(
-        Batch: new(ValueKey.Numeric("PreviewBatch", "Tiles per tick", "Preview tiles formed in one scheduling tick", TileBatch.Default,
-            NumericDomain.Bounded<TileBatch, int>(new() { Form = NumberForm.Field })), SettingType.Integer),
-        Budget: new(ValueKey.Numeric("PreviewBudget", "Time budget", "Time limit for preview tiles per scheduling tick", TileBudget.Default,
-            NumericDomain.Bounded<TileBudget, int>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Millisecond) })), SettingType.Integer),
-        Capacity: new(ValueKey.Numeric("PreviewCapacity", "Cached tiles", "Preview tiles kept while offscreen", TileCapacity.Default,
-            NumericDomain.Bounded<TileCapacity, int>(new() { Form = NumberForm.Field })), SettingType.Integer));
-
-    public Seq<PlugInSetting> Rows => [Batch, Budget, Capacity];
-
-    public Seq<Child> Children => [
-        new ControlRow.Group("Preview tiles", RowRules.Always) { Wording = Wording.Library },
-        .. SectionRows.Setting(Batch, RowRules.Always),
-        .. SectionRows.Setting(Budget, RowRules.Always),
-        .. SectionRows.Setting(Capacity, RowRules.Always),
-    ];
-
+public sealed record TileLimitRows(PlugInSetting<int, int> Batch, PlugInSetting<int, int> Budget, PlugInSetting<int, int> Capacity) {
     public IO<TileLimits> Limits(ISettingReader reader) =>
         IO.lift(() => (reader.Current(Batch), reader.Current(Budget), reader.Current(Capacity))
-            .Apply(static (batch, budget, capacity) => new TileLimits(batch, budget, capacity))
+            .Apply(static (batch, budget, capacity) => new TileLimits(batch, Duration.FromMilliseconds(budget), capacity))
             .As());
 }
 
@@ -138,7 +87,7 @@ public sealed class PreviewTiles {
         DisposalOps.Acquire(owned =>
             from derivations in DisposalOps.Acquire(IO.lift(static () => new Derivations()), owned)
             from tiles in IO.lift(() => new PreviewTiles(owner, clock, derivations))
-            from images in DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(tiles.Emptied, static close => Callbacks.Settled(close, CancellationToken.None).ThrowIfFail())), owned)
+            from images in DisposalOps.Acquire(IO.pure(tiles), static held => held.Emptied, owned)
             from watched in limits.TraverseM(source =>
                 from initial in source.Read.Bind(tiles.Limit)
                 from saved in source.Changed.Choose(static _ => Some((unit, unit)))
@@ -178,7 +127,7 @@ public sealed class PreviewTiles {
 
     public long Bytes => held.Value.Bytes;
 
-    public IO<Option<Unit>> Paint(object source, Option<Control> view, PixelFrame frame, PixelExtent extent, Imaging.Color.Transfer encoding, Action<Bitmap> draw) =>
+    public IO<Option<Unit>> Paint(object source, Option<Control> view, PixelFrame frame, PixelExtent extent, Transfer encoding, Action<Bitmap> draw) =>
         from now in IO.lift(clock.GetTimestamp)
         let key = (Source: source, View: view, Frame: frame, Extent: frame.Size.Fitted(extent), Encoding: encoding)
         from pixels in IO.lift(() => rasters.Value.Find(row => row.Key == key)).Bind(found => found.Match(
@@ -201,7 +150,7 @@ public sealed class PreviewTiles {
         }).Bind(DisposalOps.Release).Uninterruptible()
         select painted;
 
-    private IO<Bitmap> Rastered((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Imaging.Color.Transfer Encoding) key, long now) {
+    private IO<Bitmap> Rastered((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Transfer Encoding) key, long now) {
         Action<Bitmap> kept = bitmap => _ = atomic(() => rasters.Swap(rows => rows.Add(new Raster(key, bitmap, now))));
         return from reduced in IO.lift(() => key.Frame.Downscaled(key.Extent))
                from image in key.View.Match(
@@ -251,7 +200,7 @@ public sealed class PreviewTiles {
                 TileLimits policy = bounds.Value;
                 return atomic(() => {
                     (int count, Duration spent, int running) = usage.Value;
-                    bool accepted = count < policy.Batch && (count is 0 || spent < policy.Budget.Span);
+                    bool accepted = count < policy.Batch && (count is 0 || spent < policy.Budget);
                     if (accepted) usage.Value = (count + 1, spent, running + 1);
                     return accepted;
                 }) ? Some(clock.GetTimestamp()) : Option<long>.None;
@@ -290,7 +239,7 @@ public sealed class PreviewTiles {
     private Func<long, bool> Recent(long now) => at => clock.GetElapsedTime(at, now).ToDuration() < Tick * 2;
 
     // --- [LEDGER]
-    private sealed record Raster((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Imaging.Color.Transfer Encoding) Key, Bitmap Pixels, long Drawn);
+    private sealed record Raster((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Transfer Encoding) Key, Bitmap Pixels, long Drawn);
 
     private sealed record Pending(ContentKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
         public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => !rank.Viewed || recent(at));

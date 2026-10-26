@@ -60,10 +60,8 @@ internal readonly record struct FieldSample(EFloat Distance, EFloat Width);
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ShapeFit : ICaptioned {
-    public static readonly ShapeFit ShortSide = new("short-side", "Short side", static _ => (1d, 1d));
-    public static readonly ShapeFit LongSide = new("long-side", "Long side", static extent => ((double)int.Max(extent.Width, extent.Height) / extent.ShortSide) switch { var scale => (scale, scale) });
-
-    public string Caption { get; }
+    public static readonly ShapeFit ShortSide = new("short-side", static _ => (1d, 1d));
+    public static readonly ShapeFit LongSide = new("long-side", static extent => ((double)int.Max(extent.Width, extent.Height) / extent.ShortSide) switch { var scale => (scale, scale) });
 
     [UseDelegateFromConstructor]
     public partial (double X, double Y) Scale(PixelExtent extent);
@@ -73,11 +71,11 @@ public sealed partial class ShapeFit : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ShapeKind : ICaptioned {
-    public static readonly ShapeKind Ellipse = new("ellipse", "Ellipse", static (shape, half, math) => (point => ShapeFields.Ellipse(point, half, (float)shape.Exponent, math), 2 * EFloat.Min(half.X, half.Y)));
-    public static readonly ShapeKind Box = new("box", "Box", static (shape, half, math) => EFloat.Min(half.X, half.Y) switch {
+    public static readonly ShapeKind Ellipse = new("ellipse", static (shape, half, math) => (point => ShapeFields.Ellipse(point, half, (float)shape.Exponent, math), 2 * EFloat.Min(half.X, half.Y)));
+    public static readonly ShapeKind Box = new("box", static (shape, half, math) => EFloat.Min(half.X, half.Y) switch {
         var small => (point => ShapeFields.Box(point, half, (float)shape.Roundness * small, math), 2 * small),
     });
-    public static readonly ShapeKind Polygon = new("polygon", "Polygon", static (shape, half, math) => {
+    public static readonly ShapeKind Polygon = new("polygon", static (shape, half, math) => {
         double wedge = double.Pi / shape.Sides;
         EFloat radius = (float)shape.Roundness * half.X;
         (double sine, double cosine) = double.SinCos(wedge);
@@ -89,13 +87,13 @@ public sealed partial class ShapeKind : ICaptioned {
             },
         }, half.X * (1 + depth));
     });
-    public static readonly ShapeKind Ring = new("ring", "Ring", static (shape, half, math) => ((float)shape.Inset * EFloat.Min(half.X, half.Y)) switch {
+    public static readonly ShapeKind Ring = new("ring", static (shape, half, math) => ((float)shape.Inset * EFloat.Min(half.X, half.Y)) switch {
         var band => (point => (ShapeFields.Ellipse(point, half, (float)shape.Exponent, math) + (band * 0.5d)).Abs() - (band * 0.5d), band),
     });
-    public static readonly ShapeKind Cross = new("cross", "Cross", static (shape, half, math) => ((1 - EFloat.FromSingle(shape.Inset)) * EFloat.Min(half.X, half.Y)) switch {
+    public static readonly ShapeKind Cross = new("cross", static (shape, half, math) => ((1 - EFloat.FromSingle(shape.Inset)) * EFloat.Min(half.X, half.Y)) switch {
         var arm => ((float)shape.Roundness * arm) switch { var radius => (point => EFloat.Min(ShapeFields.Box(point, (half.X, arm), radius, math), ShapeFields.Box(point, (arm, half.Y), radius, math)), 2 * arm) },
     });
-    public static readonly ShapeKind Heart = new("heart", "Heart", static (_, half, math) => (Center: (X: (EFloat)0.25d, Y: (EFloat)0.75d), Radius: EFloat.FromInt32(2).Sqrt(math) * 0.25d) switch {
+    public static readonly ShapeKind Heart = new("heart", static (_, half, math) => (Center: (X: (EFloat)0.25d, Y: (EFloat)0.75d), Radius: EFloat.FromInt32(2).Sqrt(math) * 0.25d) switch {
         var lobe => (Lobe: lobe, Scale: half.X.Divide(lobe.Center.X + lobe.Radius, math), Middle: (lobe.Center.Y + lobe.Radius) * 0.5d),
     } switch {
         var (lobe, scale, middle) => (point => (X: point.X.Abs().Divide(scale, math), Y: point.Y.Divide(scale, math) + middle) switch {
@@ -105,7 +103,7 @@ public sealed partial class ShapeKind : ICaptioned {
             var (q, diagonal) => scale * EFloat.Min(ShapeFields.Length((q.X, q.Y - 1), math), ShapeFields.Length((q.X - diagonal, q.Y - diagonal), math)) * (q.X - q.Y).Sign,
         }, 2 * lobe.Radius * scale),
     });
-    public static readonly ShapeKind Triangle = new("triangle", "Triangle", static (shape, half, math) => {
+    public static readonly ShapeKind Triangle = new("triangle", static (shape, half, math) => {
         ((EFloat X, EFloat Y) a, (EFloat X, EFloat Y) b, (EFloat X, EFloat Y) c) = ((-half.X, -half.Y), (half.X, -half.Y), ((float)shape.Apex * half.X, half.Y));
         (EFloat opposite, EFloat across, EFloat under) = (ShapeFields.Length((b.X - c.X, b.Y - c.Y), math), ShapeFields.Length((c.X - a.X, c.Y - a.Y), math), ShapeFields.Length((a.X - b.X, a.Y - b.Y), math));
         (EFloat perimeter, EFloat twiceArea) = (opposite + across + under, 4 * half.X * half.Y);
@@ -120,8 +118,6 @@ public sealed partial class ShapeKind : ICaptioned {
             ShapeFields.Offset(point, start, end, math).Offset switch { var offset => (ShapeFields.Length(offset, math), ShapeFields.Side(point, start, end)) };
     });
 
-    public string Caption { get; }
-
     [UseDelegateFromConstructor]
     internal partial (Func<(EFloat X, EFloat Y), EFloat> Distance, EFloat Width) Field(ShapePrimitive primitive, (EFloat X, EFloat Y) half, EContext math);
 }
@@ -130,16 +126,14 @@ public sealed partial class ShapeKind : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ShapeOperation : ICaptioned {
-    public static readonly ShapeOperation Union = new("union", "Union", static (first, second, smoothing, _, math) => new(Smooth(first.Distance, second.Distance, smoothing, math), EFloat.Max(first.Width, second.Width)));
-    public static readonly ShapeOperation Difference = new("difference", "Difference", static (first, second, smoothing, _, math) => new(-Smooth(-first.Distance, second.Distance, smoothing, math), first.Width));
-    public static readonly ShapeOperation Intersection = new("intersection", "Intersection", static (first, second, smoothing, _, math) => new(-Smooth(-first.Distance, -second.Distance, smoothing, math), EFloat.Min(first.Width, second.Width)));
-    public static readonly ShapeOperation Morph = new("morph", "Morph", static (first, second, _, progress, _) => progress switch {
+    public static readonly ShapeOperation Union = new("union", static (first, second, smoothing, _, math) => new(Smooth(first.Distance, second.Distance, smoothing, math), EFloat.Max(first.Width, second.Width)));
+    public static readonly ShapeOperation Difference = new("difference", static (first, second, smoothing, _, math) => new(-Smooth(-first.Distance, second.Distance, smoothing, math), first.Width));
+    public static readonly ShapeOperation Intersection = new("intersection", static (first, second, smoothing, _, math) => new(-Smooth(-first.Distance, -second.Distance, smoothing, math), EFloat.Min(first.Width, second.Width)));
+    public static readonly ShapeOperation Morph = new("morph", static (first, second, _, progress, _) => progress switch {
         0f => first,
         1f => second,
         _ => new(first.Width.IsZero || second.Width.IsZero ? EFloat.PositiveInfinity : first.Distance + ((second.Distance - first.Distance) * progress), first.Width + ((second.Width - first.Width) * progress)),
     });
-
-    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     internal partial FieldSample Join(FieldSample first, FieldSample second, EFloat smoothing, float progress, EContext math);
@@ -155,14 +149,13 @@ public sealed partial class ShapeOperation : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GradientKind : ICaptioned {
-    public static readonly GradientKind Linear = new("linear", "Linear", periodic: false, static extent => point => (0.5d + (point.X / (2d * extent.X)), 1d / (2d * extent.X)));
-    public static readonly GradientKind Radial = new("radial", "Radial", periodic: false, static extent => point => double.Hypot(point.X / extent.X, point.Y / extent.Y) switch {
+    public static readonly GradientKind Linear = new("linear", periodic: false, static extent => point => (0.5d + (point.X / (2d * extent.X)), 1d / (2d * extent.X)));
+    public static readonly GradientKind Radial = new("radial", periodic: false, static extent => point => double.Hypot(point.X / extent.X, point.Y / extent.Y) switch {
         var level => (level, level > 0d ? double.Hypot(point.X / (extent.X * extent.X * level), point.Y / (extent.Y * extent.Y * level)) : 1d / extent.Y),
     });
-    public static readonly GradientKind Angular = new("angular", "Angular", periodic: true, static _ => static point => ((double.Atan2(point.Y, point.X) / double.Tau) + 0.5d, 1d / (double.Tau * double.Hypot(point.X, point.Y))));
-    public static readonly GradientKind Box = new("box", "Box", periodic: false, static extent => point => (X: double.Abs(point.X) / extent.X, Y: double.Abs(point.Y) / extent.Y) switch { var reach => reach.X >= reach.Y ? (reach.X, 1d / extent.X) : (reach.Y, 1d / extent.Y) });
+    public static readonly GradientKind Angular = new("angular", periodic: true, static _ => static point => ((double.Atan2(point.Y, point.X) / double.Tau) + 0.5d, 1d / (double.Tau * double.Hypot(point.X, point.Y))));
+    public static readonly GradientKind Box = new("box", periodic: false, static extent => point => (X: double.Abs(point.X) / extent.X, Y: double.Abs(point.Y) / extent.Y) switch { var reach => reach.X >= reach.Y ? (reach.X, 1d / extent.X) : (reach.Y, 1d / extent.Y) });
 
-    public string Caption { get; }
     internal bool Periodic { get; }
 
     [UseDelegateFromConstructor]
@@ -173,11 +166,9 @@ public sealed partial class GradientKind : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GridPattern : ICaptioned {
-    public static readonly GridPattern Lines = new("lines", "Lines");
-    public static readonly GridPattern Checker = new("checker", "Checker");
-    public static readonly GridPattern Brick = new("brick", "Brick");
-
-    public string Caption { get; }
+    public static readonly GridPattern Lines = new("lines");
+    public static readonly GridPattern Checker = new("checker");
+    public static readonly GridPattern Brick = new("brick");
 }
 
 public sealed record ShapePrimitive(

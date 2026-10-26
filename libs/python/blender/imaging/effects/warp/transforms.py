@@ -31,10 +31,7 @@ class Tilt(msgspec.Struct, frozen=True, kw_only=True):
 class Shake(msgspec.Struct, frozen=True, kw_only=True):
     """Seeded camera motion on position, rotation, and scale over time."""
 
-    position: Annotated[tuple[NonNegative, NonNegative], msgspec.Meta(description="Peak offset per frame axis"), Presentation(soft=Some((0.0, 0.1)), quantity=Some(Quantity.FRAME_GREATER))] = (
-        0.01,
-        0.01,
-    )
+    position: Annotated[tuple[NonNegative, NonNegative], msgspec.Meta(description="Peak offset per frame axis"), Presentation(soft=Some((0.0, 0.1)), quantity=Some(Quantity.FRAME))] = (0.01, 0.01)
     rotation: Annotated[NonNegative, msgspec.Meta(description="Peak turn about frame center"), Presentation(soft=Some((0.0, math.pi / 18.0)), quantity=Some(Quantity.ANGLE))] = math.radians(5.0)
     scale: Annotated[NonNegative, msgspec.Meta(description="Peak zoom in stops"), Presentation(soft=Some((0.0, 1.0)))] = math.log2(1.1)
     motion: Annotated[Motion, msgspec.Meta(description="Shake clock, continuous within exposure")] = Motion(speed=1.0 / 24.0)

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
@@ -83,13 +84,6 @@ public abstract partial record EffectRequest {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EffectRegistry {
-    // --- [DEFINITIONS]
-    extension(Seq<EffectKind> chain) {
-        public Seq<EffectKind> Add<TEffect>(Option<BuiltinEffect> replaces = default)
-            where TEffect : PostEffect, IEffectDefinition =>
-            chain.Add(TEffect.Kind with { Replaces = replaces });
-    }
-
     // --- [SCOPE]
     public static IO<Seq<EffectEntry>> Read(RenderSettings settings) =>
         Within(settings, static (effects, held) => IO.lift(() => {
@@ -200,9 +194,14 @@ public static class EffectRegistry {
     public static IO<BindingGroup> Bindings(EffectSource source, IPlugInSink sink) =>
         Kinds.Of(sink).Map(kinds => new BindingGroup(kinds.Bind(kind => kind.Binding(source))));
 
-    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register(Seq<EffectKind> kinds) =>
-        (sink, retain) => DisposalOps.Acquire(
+    public static IO<Unit> Register(IPlugInViews sink, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(
             owned =>
+                from kinds in IO.lift(() => toSeq(sink.PlugIn.Assembly.GetExportedTypes())
+                    .Filter(static type => !type.IsAbstract && type.IsAssignableTo(typeof(IEffectDefinition)))
+                    .Map(static type => (EffectKind)type.GetInterfaceMap(typeof(IEffectDefinition)).TargetMethods[0]
+                        .Invoke(null, BindingFlags.DoNotWrapExceptions, binder: null, parameters: null, culture: null)!)
+                    .Strict())
                 from published in Kinds.Publish(sink, kinds)
                 from arrived in EventKind.DocumentArrived.Choose(static serial => Some((serial, unit))).Through(Subscriptions.Idle<uint, Unit>(serials =>
                     Arrange(kinds, () => toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))), static (doc, arranged) =>

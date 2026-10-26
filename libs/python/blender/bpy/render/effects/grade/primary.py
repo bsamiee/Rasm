@@ -1,118 +1,72 @@
 """Gain and offset wheels, signed contrast, and working-space vibrance."""
 
-import bpy
-from expression import Result
+from expression import Ok
 
-from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult
-from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, math, node, switched, vector
-from blender.bpy.nodes.interface import item_key
-from blender.bpy.render.effects.stack import CompositorEffect, Shell
+from blender.bpy.faults import BlenderResult
+from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
+from blender.bpy.render.effects.rows import Alpha, CompositorEffect, Shell
 from blender.imaging.chain import GREY
 from blender.imaging.color.processors import luma
 from blender.imaging.effects.grade.primary import Contrast, Primary, Saturation, Wheel
-from blender.imaging.parameters import Rgb
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [WHEELS]
 
 
-def graded(shell: Shell[Primary]) -> BlenderResult[tuple[Fragment, End]]:
+def graded(shell: Shell[Primary]) -> BlenderResult[Expr]:
     """Returns additive offset of color less white plus master, then gain of color times two to the master."""
     color, master = Wheel.__struct_fields__
     gain, offset = Primary.__struct_fields__
-    return Fragment.joined(
-        math(item_key(gain, master), "POWER", 2.0, End(node=INPUTS, socket=item_key(gain, master))),
-        vector("gain", "SCALE", End(node=INPUTS, socket=item_key(gain, color)), End(node=item_key(gain, master))),
-        vector(item_key(offset, color), "SUBTRACT", End(node=INPUTS, socket=item_key(offset, color)), (1.0, 1.0, 1.0)),
-        vector(item_key(offset, master), "ADD", End(node=item_key(offset, color), socket="Vector"), End(node=INPUTS, socket=item_key(offset, master))),
-        vector("offset", "ADD", shell.source, End(node=item_key(offset, master), socket="Vector")),
-        vector("graded", "MULTIPLY", End(node="offset", socket="Vector"), End(node="gain", socket="Vector")),
-    ).map(ended("graded", "Vector"))
+    shifted = vector("ADD", vector("SUBTRACT", shell.input(offset, color), (1.0, 1.0, 1.0)), shell.input(offset, master))
+    return Ok(vector("MULTIPLY", vector("ADD", shell.color, shifted), vector("SCALE", shell.input(gain, color), 2.0 ** shell.input(gain, master))))
 
 
 # --- [CONTRAST]
 
 
-def contrasted(shell: Shell[Contrast]) -> BlenderResult[tuple[Fragment, End]]:
+def contrasted(shell: Shell[Contrast]) -> BlenderResult[Expr]:
     """Returns signed power contrast around grey pivot."""
-    pivot, power = End(node="pivot"), End(node="pivot_power")
-    red, green, blue = Rgb.__struct_fields__
-    channels = (("X", red), ("Y", green), ("Z", blue))
-    slope, pivot_field = Contrast.__struct_fields__
-    return Fragment.joined(
-        math(power.node, "POWER", 2.0, End(node=INPUTS, socket=item_key(pivot_field))),
-        math(pivot.node, "MULTIPLY", GREY, power),
-        node("channels", bpy.types.ShaderNodeSeparateXYZ, {"Vector": shell.source}, {}),
-        *(
-            Fragment.joined(
-                math(sign.node, "SIGN", value),
-                math(magnitude.node, "ABSOLUTE", value),
-                math(normalized.node, "DIVIDE", magnitude, pivot),
-                math(raised.node, "POWER", normalized, End(node=INPUTS, socket=item_key(slope))),
-                math(scaled.node, "MULTIPLY", raised, pivot),
-                math(channel, "MULTIPLY", scaled, sign),
-            )
-            for axis, channel in channels
-            for value in (End(node="channels", socket=axis),)
-            for sign, magnitude, normalized, raised, scaled in (tuple(End(node=item_key(channel, term)) for term in ("sign", "magnitude", "normalized", "power", "scaled")),)
-        ),
-        node("contrasted", bpy.types.ShaderNodeCombineXYZ, {axis: End(node=channel) for axis, channel in channels}, {}),
-    ).map(ended("contrasted", "Vector"))
+    slope, pivot = (shell.input(field) for field in Contrast.__struct_fields__)
+    center, color = GREY * 2.0**pivot, shell.color
+
+    def signed(value: Expr) -> Expr:
+        return (abs(value) / center) ** slope * center * math("SIGN", value)
+
+    return Ok(xyz(signed(color["X"]), signed(color["Y"]), signed(color["Z"])))
 
 
 # --- [SATURATION]
 
 
-def saturated(shell: Shell[Saturation]) -> BlenderResult[tuple[Fragment, End]]:
+def saturated(shell: Shell[Saturation]) -> BlenderResult[Expr]:
     """Returns saturation and multiplicative vibrance about configured luminance.
 
     Args:
         shell: Entry inputs and working configuration supplying luminance coefficients.
 
     Returns:
-        Body and result endpoint, or imaging and graph faults.
+        Saturated color, or luminance coefficient faults.
     """
-    entering = shell.source
-    scale, vibrance = (End(node=INPUTS, socket=item_key(field)) for field in Saturation.__struct_fields__)
-    red, green, blue = (End(node="channels", socket=axis) for axis in ("X", "Y", "Z"))
-    low_pair, low, high_pair, high, positive, ratio, sigma, inverse = (End(node=key) for key in ("low_pair", "low", "high_pair", "high", "positive", "ratio", "sigma", "inverse"))
-    positive_weight, negative_square, negative_weight, increasing, weighted, multiplier, gain = (
-        End(node=key) for key in ("positive_weight", "negative_square", "negative_weight", "increasing", "weighted", "multiplier", "gain")
-    )
+    scale, vibrance = (shell.input(field) for field in Saturation.__struct_fields__)
+    color = shell.color
+    red, green, blue = color["X"], color["Y"], color["Z"]
+    sigma = 1.0 - math("MAXIMUM", math("MINIMUM", math("MINIMUM", red, green), blue), 0.0) / math("MAXIMUM", math("MAXIMUM", red, green), blue)
+    inverse = 1.0 - sigma
+    gain = scale * math("MULTIPLY_ADD", vibrance, switched(vibrance > 0.0, sigma * sigma * 0.5, inverse * inverse), 1.0)
 
-    def built(weights: tuple[float, ...]) -> BlenderResult[tuple[Fragment, End]]:
-        return Fragment.joined(
-            node("channels", bpy.types.ShaderNodeSeparateXYZ, {"Vector": entering}, {}),
-            math(low_pair.node, "MINIMUM", red, green),
-            math(low.node, "MINIMUM", low_pair, blue),
-            math(high_pair.node, "MAXIMUM", red, green),
-            math(high.node, "MAXIMUM", high_pair, blue),
-            math(positive.node, "MAXIMUM", low, 0.0),
-            math(ratio.node, "DIVIDE", positive, high),
-            math(sigma.node, "SUBTRACT", 1.0, ratio),
-            math(inverse.node, "SUBTRACT", 1.0, sigma),
-            math(positive_weight.node, "MULTIPLY", inverse, inverse),
-            math(negative_square.node, "MULTIPLY", sigma, sigma),
-            math(negative_weight.node, "MULTIPLY", negative_square, 0.5),
-            math(increasing.node, "GREATER_THAN", vibrance, 0.0),
-            switched(weighted.node, "FLOAT", increasing, negative_weight, positive_weight),
-            math(multiplier.node, "MULTIPLY_ADD", vibrance, End(node=weighted.node, socket="Output"), 1.0),
-            math(gain.node, "MULTIPLY", scale, multiplier),
-            vector("luma", "DOT_PRODUCT", entering, weights),
-            vector("chroma", "SUBTRACT", entering, End(node="luma")),
-            vector("saturated", "MULTIPLY_ADD", End(node="chroma", socket="Vector"), gain, End(node="luma")),
-        ).map(ended("saturated", "Vector"))
+    def built(weights: tuple[float, ...]) -> Expr:
+        luminance = vector("DOT_PRODUCT", color, weights)
+        return vector("MULTIPLY_ADD", vector("SUBTRACT", color, luminance), gain, luminance)
 
-    weights: BlenderResult[tuple[float, ...]] = luma(shell.config).map(lambda values: tuple(float(value) for value in values)).map_error(BlenderImagingFault.lifted)
-    return Result[tuple[float, ...], BlenderFaults].bind(weights, built)
+    return luma(shell.config).map(lambda values: built(tuple(map(float, values))))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-primary = CompositorEffect(record=Primary, graph=graded, straight=True)
-contrast = CompositorEffect(record=Contrast, graph=contrasted, straight=True)
-saturation = CompositorEffect(record=Saturation, graph=saturated, straight=True)
+primary = CompositorEffect(record=Primary, graph=graded, alpha=Alpha.STRAIGHT)
+contrast = CompositorEffect(record=Contrast, graph=contrasted, alpha=Alpha.STRAIGHT)
+saturation = CompositorEffect(record=Saturation, graph=saturated, alpha=Alpha.STRAIGHT)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

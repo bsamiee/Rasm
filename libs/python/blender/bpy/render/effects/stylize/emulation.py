@@ -3,33 +3,34 @@
 from collections.abc import Mapping
 from enum import IntEnum
 from fractions import Fraction
+from functools import partial
 from itertools import product
 from math import ceil, floor, tau
+from typing import Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Some
+import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.data.rna.animation import sampled as sampled_channel
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels, sampled
-from blender.bpy.nodes.graphs import Clock, End, ended, Fragment, math, menu, mixed, nested, node, NodeGroup, Operand, origin, switched, vector
-from blender.bpy.nodes.interface import item_key, MenuItems
+from blender.bpy.faults import BlenderResult
+from blender.bpy.nodes.graphs import Component, Expr, math, mixed, rgba, Scalar, switched, vector, xyz
+from blender.bpy.nodes.interface import MenuItems
+from blender.bpy.render.effects.coordinates import clocked, extended, origin, pixels, sampled
 from blender.bpy.render.effects.generators.noise import gaussian
 from blender.bpy.render.effects.optics.distortion import radial
-from blender.bpy.render.effects.stack import camera_frame, CameraFrame, CompositorEffect, Context, Coverage, path, precise, Shell
-from blender.bpy.render.effects.warp.transforms import extended
-from blender.bpy.render.outputs.framing import capacity, FrameSize
+from blender.bpy.render.effects.rows import Alpha, CameraFrame, CompositorEffect, precise, Shell
+from blender.bpy.render.outputs.framing import capacity
 from blender.imaging.color.processors import unassociated
-from blender.imaging.effects.generators.noise import Estimate, Precision
 from blender.imaging.effects.stylize.emulation import Corruption, Display, Emulation, Ghost, Layout, Phosphors, Scanlines, Signal, Tape
 from blender.imaging.faults import accumulated, ImagingBufferFault, ImagingNumericFault, ImagingResult, paired
 from blender.imaging.geometry.stmaps import Extension
 from blender.imaging.parameters import Gated, Motion
+from blender.imaging.sampling import Estimate, Precision
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -46,90 +47,55 @@ class Noise(IntEnum):
     CHROMA = 6
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+RGB: Final[tuple[Component, Component, Component]] = ("Red", "Green", "Blue")
+YCC: Final = (("mode", "YCC"), ("ycc_mode", "ITUBT601"))
+BORDERS: Final = MenuItems.of(Extension)
+CENTER: Final = 128.0 / 255.0
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-
-def validated(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: Emulation, context: Context) -> BlenderResult[None]:
-    """Accepts finite Tape canvases at every rendered frame before writes.
-
-    Args:
-        identity: Identity resolving entry inputs.
-        scene: Render range, animation owner, and compositor receiving capacity.
-        entry: Existing entry with keyed channels overriding proposed scalar values.
-        record: Proposed Emulation parameters.
-        context: Evaluated entering raster dimensions and camera framing.
-
-    Returns:
-        None when every Tape canvas fits, or animation, framing, missing raster, and compositor size faults.
-    """
-    frames = tuple(range(scene.frame_start, scene.frame_end + 1, scene.frame_step))
-    _, _, tape, _, _, lines_field, _, _ = Emulation.__struct_fields__
-
-    def samples(key: str, proposed: float) -> BlenderResult[tuple[float, ...]]:
-        return entry.map(lambda held: path(identity, held, key).bind(lambda at: sampled_channel(scene, at, frames, proposed=Some(proposed)))).default_with(lambda: Ok(tuple(proposed for _ in frames)))
-
-    def taped(enabled: tuple[float, ...]) -> BlenderResult[None]:
-        if not any(enabled):
-            return Ok(None)
-
-        def sized(height: int, scale: float, lines: tuple[float, ...], periods: tuple[float, ...]) -> BlenderResult[None]:
-            share = Fraction(scale)
-            margin = (1 - share) / 2
-            first = (Fraction(1, 2 * height) - margin) / share
-            last = (1 - Fraction(1, 2 * height) - margin) / share
-            return accumulated(
-                capacity(scene, size)
-                for active, count, period in zip(enabled, lines, periods)
-                if active
-                for radius in (ceil(Fraction(count) * Fraction(period)),)
-                for reached in (floor(last * Fraction(count)) - floor(first * Fraction(count)) + 1,)
-                for size in ((1, 4 * radius + 1), (1, reached + 2 * radius))
-            ).map(lambda _: None)
-
-        _, value = Gated.__struct_fields__
-        _, jitter_period, _, _, _, _, _, _, _, _, _ = Tape.__struct_fields__
-        dimensions: BlenderResult[tuple[int, int]] = context.map(lambda held: held[0]).to_result_with(lambda: (BlenderAbsentFault(owner=Emulation.title, key="entering raster dimensions"),))
-        return Result[tuple[int, int], BlenderFaults].bind(
-            dimensions,
-            lambda size: paired(
-                FrameSize().bound(identity).bind(lambda framed: camera_frame(framed, scene)),
-                paired(samples(lines_field, float(record.lines)), samples(item_key(tape, value, jitter_period), record.tape.value.jitter_period)),
-            ).bind(lambda values: sized(size[0], values[0].scale, *values[1])),
-        )
-
-    return samples(tape, float(record.tape.enabled)).bind(taped)
+# --- [PREPARATION]
 
 
 def prepared(
     _identity: Identity,
-    _scene: bpy.types.Scene,
+    scene: bpy.types.Scene,
     record: Emulation,
     _config: PyOpenColorIO.Config,
     source: OpenImageIO.ImageBuf,
     _precision: Precision,
-    _frame: CameraFrame,
+    frame: CameraFrame,
     _entry: bpy.types.SceneCompositorEffect,
 ) -> BlenderResult[tuple[Emulation, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Codes captured display image before remaining sections.
+    """Accepts the Tape canvases of the captured raster and codes the captured display image before remaining sections.
 
     Args:
         _identity: Extension owning stage job.
-        _scene: Evaluated frame of stage job.
-        record: Evaluated compression and later section parameters.
+        scene: Evaluated frame of stage job, its compositor device bounding canvases.
+        record: Evaluated compression, tape, and later section parameters.
         _config: Validated color configuration, capture holds row encoding.
         source: Associated display RGBA with captured data and display windows.
         _precision: Sampling policy, unused by JPEG cycle.
-        _frame: Evaluated original camera units, coded resize reads captured full window.
+        frame: Evaluated original camera share of the captured raster.
         _entry: Evaluated stage entry.
 
     Returns:
-        Unchanged record with published replacement image, empty mapping without compression, or imaging faults.
+        Unchanged record with the coded image, or the captured image without compression, or canvas, imaging, and codec faults.
     """
-    if not record.compression.enabled:
-        return Ok((record, {}))
+    compression = record.compression.value
+
+    def fitted(height: int) -> BlenderResult[None]:
+        share = Fraction(frame.scale)
+        margin = (1 - share) / 2
+        lines = Fraction(record.lines)
+        first, last = (floor((edge - margin) / share * lines) for edge in (Fraction(1, 2 * height), 1 - Fraction(1, 2 * height)))
+        radius = ceil(lines * Fraction(record.tape.value.jitter_period))
+        return accumulated(capacity(scene, size) for size in ((1, 4 * radius + 1), (1, last - first + 1 + 2 * radius))).map(lambda _: None)
 
     def coded(image: OpenImageIO.ImageBuf) -> Option[OpenImageIO.ImageSpec]:
-        if not (width := (record.compression.value.coded_width)).enabled:
+        if not (width := compression.coded_width).enabled:
             return Nothing
         original = image.spec()
         height = max(1, round(Fraction(original.full_height * width.value, original.full_width)))
@@ -141,549 +107,247 @@ def prepared(
         spec.full_x, spec.full_y, spec.full_width, spec.full_height = 0, 0, width.value, height
         return Some(spec)
 
-    def compressed(plane: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
-        straight = unassociated(plane)
+    def cycled(rgb: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
+        try:
+            return compression.applied(rgb, coded(rgb))
+        except (TypeError, OverflowError, MemoryError) as error:
+            return Error((ImagingNumericFault(request=compression, error=error),))
 
-        def associated(image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
-            def restored(rgb: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
-                straight[..., :3] = rgb
-                alpha = straight[..., 3:]
-                np.multiply(straight[..., :3], alpha, out=straight[..., :3], where=alpha != 0.0)
-                return ImagingBufferFault.located(straight, source)
+    def associated(alpha: npt.NDArray[np.float32], rgb: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
+        return ImagingBufferFault.located(np.concatenate((np.where(alpha != 0.0, rgb * alpha, rgb), alpha), axis=-1), source)
 
-            return ImagingBufferFault.pixels(image).bind(restored)
-
+    def compressed(straight: npt.NDArray[np.float32]) -> ImagingResult[OpenImageIO.ImageBuf]:
         return (
             ImagingBufferFault
             .located(straight, source)
             .bind(lambda image: ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.channels(image, (0, 1, 2))))
-            .bind(lambda rgb: record.compression.value.applied(rgb, coded(rgb)))
-            .bind(associated)
+            .bind(cycled)
+            .bind(ImagingBufferFault.pixels)
+            .bind(lambda rgb: associated(straight[..., 3:], rgb))
         )
 
-    try:
-        return ImagingBufferFault.pixels(source).bind(compressed).map_error(BlenderImagingFault.lifted).map(lambda image: (record, {Shell.image: image}))
-    except (TypeError, OverflowError, MemoryError) as error:
-        return Error((BlenderImagingFault(faults=(ImagingNumericFault(request=record.compression.value, error=error),)),))
+    return paired(
+        fitted(source.spec().height) if record.tape.enabled else Ok(None), ImagingBufferFault.pixels(source).map(unassociated).bind(compressed) if record.compression.enabled else Ok(source)
+    ).map(lambda parts: (record, {Shell.image: parts[1]}))
 
 
-def raster_noise(key: str, lattice: Operand, offset: Operand, pattern: Operand) -> BlenderResult[tuple[tuple[Fragment, End], ...]]:
-    """Builds four Gaussian samples at one raster lattice and pattern.
+# --- [GRAPH]
 
-    Enclosing row requests full compositor precision.
+
+def raster_noise(lattice: Scalar, offset: Scalar, pattern: Scalar) -> tuple[Expr, Expr, Expr, Expr]:
+    """Builds four Gaussian samples at one raster lattice and pattern, the enclosing row requesting full compositor precision.
 
     Args:
-        key: Node key prefix.
         lattice: Raster sample or line coordinates in XY.
         offset: Seed and noise key offset from owning origin.
         pattern: Integer pattern index as fourth noise coordinate.
 
     Returns:
-        Four normal fragment and end pairs in cosine and sine order, or accumulated graph faults.
+        Four normals in cosine and sine order of two Box-Muller pairs.
     """
-    return (
-        vector(f"{key}_shifted", "ADD", lattice, offset)
-        .bind(lambda shifted: node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": shifted}, {}))
-        .bind(
-            lambda axes: accumulated(
-                Fragment.joined(
-                    node(f"{key}_stream_{stream}", bpy.types.ShaderNodeCombineXYZ, {"X": ended(f"{key}_axes", "X")(axes), "Y": ended(f"{key}_axes", "Y")(axes), "Z": stream}, {}),
-                    node(f"{key}_uniform_{stream}", bpy.types.ShaderNodeTexWhiteNoise, {"Vector": End(node=f"{key}_stream_{stream}", socket="Vector"), "W": pattern}, {"noise_dimensions": "4D"}),
-                ).map(ended(f"{key}_uniform_{stream}", "Value"))
-                for stream in range(4)
-            )
-        )
-        .bind(lambda uniforms: paired(gaussian(f"{key}_first", uniforms[0], uniforms[1]), gaussian(f"{key}_second", uniforms[2], uniforms[3])))
-        .map(lambda pairs: (*pairs[0], *pairs[1]))
-    )
+    axes = vector("ADD", lattice, offset)
+    first, second, third, fourth = (_white(xyz(axes["X"], axes["Y"], stream), pattern) for stream in range(4))
+    return (*gaussian(first, second), *gaussian(third, fourth))
 
 
-def emulated(shell: Shell[Emulation]) -> BlenderResult[tuple[Fragment, End]]:
+def emulated(shell: Shell[Emulation]) -> BlenderResult[Expr]:
     """Builds corruption, tape, reception, and display after codec section.
 
     Args:
-        shell: Codec-processed image, camera frame, and parameter endpoints.
+        shell: Codec-processed image, camera frame, and parameter group inputs.
 
     Returns:
-        Displayed color with graph, or accumulated graph faults.
+        Displayed color.
     """
-    socket, source = shell.socket, shell.source
     _, value = Gated.__struct_fields__
-    _, corruption_field, tape_field, signal_field, display_field, lines_field, motion, seed_field = Emulation.__struct_fields__
+    _, corruption, tape, signal, display, lines_field, motion, seed_field = Emulation.__struct_fields__
     speed, hold = Motion.__struct_fields__
-    corruption, tape, signal, display = ((field, value) for field in (corruption_field, tape_field, signal_field, display_field))
-    seed, lines = socket(seed_field), socket(lines_field)
-    clock = Clock(key="clock", speed=socket(motion, speed), hold=socket(motion, hold))
-    gates = {field: item_key(field, "gate") for field in (corruption_field, tape_field, signal_field, display_field)}
-    center = 128.0 / 255.0
+    _, share, _ = CameraFrame.__struct_fields__
+    source, frame, gate = shell.color, shell.space, shell.gate
+    scale, seed, lines = shell.input(Shell.frame, share), shell.input(seed_field), shell.input(lines_field)
+    time = clocked(shell.input(motion, speed), shell.input(motion, hold))
+    pattern = math("FLOOR", time)
+    x, y = frame.fraction["X"], frame.fraction["Y"]
+    aspect = frame.extent["X"] / frame.extent["Y"]
+    line = math("FLOOR", y * lines)
+    line_cell, sample_cell = xyz(line), xyz(math("FLOOR", x * math("ROUND", lines * aspect)), line)
+    dimensions = Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", source),), socket="Dimensions", shape="VECTOR")
+    half_x, half_y = (0.5 / (dimensions[axis] * scale) for axis in ("X", "Y"))
 
-    def built(frame: FrameSpace, time: Operand, pattern: Operand, lens: NodeGroup) -> BlenderResult[tuple[Fragment, End]]:
-        x, y = End(node="fraction", socket="X"), End(node="fraction", socket="Y")
-        aspect = End(node="aspect")
+    def sample(image: Scalar, position: Expr, across: Extension = Extension.EXTEND, up: Extension = Extension.EXTEND) -> Expr:
+        return extended(image, sampled(frame, position), ((across.label, BORDERS), (up.label, BORDERS)), clipped=True)
 
-        def sample(
-            key: str, image: Operand, position: Operand, across: Extension = Extension.EXTEND, up: Extension = Extension.EXTEND, interpolation: str = "Bilinear"
-        ) -> BlenderResult[tuple[Fragment, End]]:
-            return sampled(f"{key}_uv", frame, position).bind(
-                lambda uv: (
-                    extended(key, image, uv, across.label, MenuItems.of(Extension), vertical=Some((up.label, MenuItems.of(Extension))))
-                    if interpolation == "Bilinear"
-                    else node(key, bpy.types.CompositorNodeMapUV, {"Image": image, "UV": uv, "Interpolation": interpolation, "Extension X": across.label, "Extension Y": up.label}, {}).map(
-                        ended(key, "Image")
-                    )
-                )
-            )
+    def shifted(image: Scalar, horizontal: Scalar, vertical: Scalar = y, across: Extension = Extension.EXTEND, up: Extension = Extension.EXTEND) -> Expr:
+        return sample(image, xyz(horizontal, vertical), across, up)
 
-        def shifted(
-            key: str, image: Operand, horizontal: Operand, vertical: Operand = y, across: Extension = Extension.EXTEND, up: Extension = Extension.EXTEND
-        ) -> BlenderResult[tuple[Fragment, End]]:
-            return node(f"{key}_at", bpy.types.ShaderNodeCombineXYZ, {"X": horizontal, "Y": vertical}, {}).map(ended(f"{key}_at", "Vector")).bind(lambda at: sample(key, image, at, across, up))
+    def banded(image: Scalar, horizontal: Scalar, vertical: Scalar) -> Expr:
+        return _blurred(image, pixels(frame, xyz(horizontal, vertical) * frame.extent, "VECTOR"))
 
-        def banded(key: str, image: Operand, horizontal: Operand, vertical: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            return (
-                node(f"{key}_fraction", bpy.types.ShaderNodeCombineXYZ, {"X": horizontal, "Y": vertical}, {})
-                .map(ended(f"{key}_fraction", "Vector"))
-                .bind(lambda radius: vector(f"{key}_radius", "MULTIPLY", radius, frame.extent))
-                .bind(lambda radius: pixels(f"{key}_pixels", frame, radius, "VECTOR"))
-                .bind(lambda radius: node(key, bpy.types.CompositorNodeBlur, {"Image": image, "Size": radius, "Type": "Gaussian"}, {}))
-                .map(ended(key, "Image"))
-            )
+    def fetched(image: Scalar, uv: Scalar | tuple[float, ...]) -> Expr:
+        clip = Extension.CLIP.label
+        return Expr(kind=bpy.types.CompositorNodeMapUV, inputs=(("Image", image), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", clip), ("Extension Y", clip)), socket="Image", shape="RGBA")
 
-        def draw(key: str, identity: Noise, lattice: Operand) -> BlenderResult[Fragment]:
-            return (
-                origin(f"{key}_origin", seed, identity)
-                .bind(lambda offset: vector(f"{key}_coordinate", "ADD", lattice, offset))
-                .bind(lambda coordinate: node(key, bpy.types.ShaderNodeTexWhiteNoise, {"Vector": coordinate, "W": pattern}, {"noise_dimensions": "4D"}))
-            )
+    def drawn(noise: Noise, lattice: Scalar | tuple[float, ...]) -> Expr:
+        return _white(vector("ADD", lattice, origin(seed, noise)), pattern)
 
-        def normal(key: str, identity: Noise, lattice: Operand) -> BlenderResult[tuple[tuple[Fragment, End], ...]]:
-            return origin(f"{key}_origin", seed, identity).bind(lambda offset: raster_noise(key, lattice, offset, pattern))
+    def corrupted(image: Expr) -> Expr:
+        coverage, cell_width, cell_height, displacement, split, chroma = Corruption.__struct_fields__
+        held = partial(shell.input, corruption, value)
+        cells = drawn(Noise.CELLS, vector("FLOOR", vector("DIVIDE", frame.point, xyz(held(cell_width), held(cell_height), 1.0))))
+        tone = msgspec.structs.replace(cells, socket="Color", shape="RGBA")
+        struck = cells < held(coverage)
+        cell_x = x + math("MULTIPLY_ADD", tone["Red"], 2.0, -1.0) * held(displacement) * struck
+        red, green, blue = (
+            shifted(image, math("MULTIPLY_ADD", held(split), direction, cell_x), across=Extension.REPEAT, up=Extension.CLIP)[channel] for channel, direction in zip(RGB, (-1.0, 0.0, 1.0))
+        )
+        luma, blue_difference, red_difference = (_split(rgba(red, green, blue), channel) for channel in RGB)
+        power = 2.0 ** math("MULTIPLY_ADD", tone["Green"], 4.0, -2.0)
 
-        def corrupted(image: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            coverage, cell_width, cell_height, displacement, split, chroma = Corruption.__struct_fields__
-            return Fragment.joined(
-                node("cell_size", bpy.types.ShaderNodeCombineXYZ, {"X": socket(*corruption, cell_width), "Y": socket(*corruption, cell_height), "Z": 1.0}, {}),
-                vector("corruption_scaled", "DIVIDE", frame.point, End(node="cell_size", socket="Vector")),
-                vector("corruption_cell", "FLOOR", End(node="corruption_scaled", socket="Vector")),
-                draw("cells", Noise.CELLS, End(node="corruption_cell", socket="Vector")),
-                node("cell_color", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="cells", socket="Color")}, {"mode": "RGB"}),
-                math("struck", "LESS_THAN", End(node="cells", socket="Value"), socket(*corruption, coverage)),
-                math("cell_signed", "MULTIPLY_ADD", End(node="cell_color", socket="Red"), 2.0, -1.0),
-                math("cell_displacement", "MULTIPLY", End(node="cell_signed"), socket(*corruption, displacement)),
-                math("cell_shift", "MULTIPLY", End(node="cell_displacement"), End(node="struck")),
-                math("cell_x", "ADD", x, End(node="cell_shift")),
-                *(
-                    part
-                    for channel, direction in (("Red", -1.0), ("Green", 0.0), ("Blue", 1.0))
-                    for part in (
-                        math(f"split_{channel.lower()}", "MULTIPLY_ADD", socket(*corruption, split), direction, End(node="cell_x")),
-                        shifted(f"cell_{channel.lower()}", image, End(node=f"split_{channel.lower()}"), across=Extension.REPEAT, up=Extension.CLIP),
-                        node(f"cell_{channel.lower()}_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=f"cell_{channel.lower()}", socket="Image")}, {"mode": "RGB"}),
-                    )
-                ),
-                node("shifted", bpy.types.CompositorNodeCombineColor, {channel: End(node=f"cell_{channel.lower()}_channels", socket=channel) for channel in ("Red", "Green", "Blue")}, {"mode": "RGB"}),
-                node("corruption_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="shifted", socket="Image")}, {"mode": "YCC", "ycc_mode": "ITUBT601"}),
-                math("cell_exponent", "MULTIPLY_ADD", End(node="cell_color", socket="Green"), 4.0, -2.0),
-                math("cell_power", "POWER", 2.0, End(node="cell_exponent")),
-                math("cell_chroma", "MULTIPLY", socket(*corruption, chroma), End(node="struck")),
-                *(
-                    part
-                    for channel in ("Green", "Blue")
-                    for part in (
-                        math(f"cell_{channel.lower()}_centered", "SUBTRACT", End(node="corruption_channels", socket=channel), center),
-                        math(f"cell_{channel.lower()}_sign", "SIGN", End(node=f"cell_{channel.lower()}_centered")),
-                        math(f"cell_{channel.lower()}_absolute", "ABSOLUTE", End(node=f"cell_{channel.lower()}_centered")),
-                        math(f"cell_{channel.lower()}_doubled", "MULTIPLY", End(node=f"cell_{channel.lower()}_absolute"), 2.0),
-                        math(f"cell_{channel.lower()}_raised", "POWER", End(node=f"cell_{channel.lower()}_doubled"), End(node="cell_power")),
-                        math(f"cell_{channel.lower()}_signed", "MULTIPLY", End(node=f"cell_{channel.lower()}_sign"), End(node=f"cell_{channel.lower()}_raised")),
-                        math(f"cell_{channel.lower()}_offset", "MULTIPLY_ADD", End(node=f"cell_{channel.lower()}_signed"), 0.5, center),
-                        mixed(f"cell_{channel.lower()}_mixed", "FLOAT", End(node="cell_chroma"), End(node="corruption_channels", socket=channel), End(node=f"cell_{channel.lower()}_offset")),
-                    )
-                ),
-                node(
-                    "corrupted",
-                    bpy.types.CompositorNodeCombineColor,
-                    {"Red": End(node="corruption_channels", socket="Red"), **{channel: End(node=f"cell_{channel.lower()}_mixed", socket="Result_Float") for channel in ("Green", "Blue")}},
-                    {"mode": "YCC", "ycc_mode": "ITUBT601"},
-                ),
-                switched(gates[corruption_field], "RGBA", socket(corruption_field), image, End(node="corrupted", socket="Image")),
-            ).map(ended(gates[corruption_field], "Output"))
+        def powered(difference: Expr) -> Expr:
+            centered = difference - CENTER
+            return mixed(held(chroma) * struck, difference, math("MULTIPLY_ADD", math("SIGN", centered) * (abs(centered) * 2.0) ** power, 0.5, CENTER))
 
-        def played(image: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            jitter, jitter_period, bounce, head_switching, skew, tracking_shift, tracking_height, tracking_rate, mistracking, dropouts, dropout_length = Tape.__struct_fields__
-            return Fragment.joined(
-                node("dimensions", bpy.types.CompositorNodeImageInfo, {"Image": source}, {}),
-                node("dimensions_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="dimensions", socket="Dimensions")}, {}),
-                math("half_pixel_y", "DIVIDE", 0.5, End(node="dimensions_axes", socket="Y")),
-                math("margin", "MULTIPLY_ADD", shell.scale, -0.5, 0.5),
-                math("first_y", "SUBTRACT", End(node="half_pixel_y"), End(node="margin")),
-                math("first_fraction", "DIVIDE", End(node="first_y"), shell.scale),
-                math("first_scan", "MULTIPLY", End(node="first_fraction"), lines),
-                math("first_line", "FLOOR", End(node="first_scan")),
-                math("last_y", "SUBTRACT", 1.0, End(node="half_pixel_y")),
-                math("last_camera", "SUBTRACT", End(node="last_y"), End(node="margin")),
-                math("last_fraction", "DIVIDE", End(node="last_camera"), shell.scale),
-                math("last_scan", "MULTIPLY", End(node="last_fraction"), lines),
-                math("last_line", "FLOOR", End(node="last_scan")),
-                math("reached_span", "SUBTRACT", End(node="last_line"), End(node="first_line")),
-                math("reached_lines", "ADD", End(node="reached_span"), 1.0),
-                math("jitter_radius", "MULTIPLY", socket(*tape, jitter_period), lines),
-                math("jitter_support", "CEIL", End(node="jitter_radius")),
-                math("jitter_padding", "MULTIPLY", End(node="jitter_support"), 2.0),
-                math("jitter_height", "ADD", End(node="reached_lines"), End(node="jitter_padding")),
-                math("impulse_height", "MULTIPLY_ADD", End(node="jitter_support"), 4.0, 1.0),
-                node("jitter_size", bpy.types.ShaderNodeCombineXYZ, {"X": 1.0, "Y": End(node="jitter_height")}, {}),
-                node("impulse_size", bpy.types.ShaderNodeCombineXYZ, {"X": 1.0, "Y": End(node="impulse_height")}, {}),
-                node("jitter_canvas", bpy.types.CompositorNodeBlankImage, {"Size": End(node="jitter_size", socket="Vector")}, {}),
-                node("impulse_canvas", bpy.types.CompositorNodeBlankImage, {"Size": End(node="impulse_size", socket="Vector")}, {}),
-                node("jitter_coordinates", bpy.types.CompositorNodeImageCoordinates, {"Image": End(node="jitter_canvas", socket="Image")}, {}),
-                node("jitter_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="jitter_coordinates", socket="Pixel")}, {}),
-                math("jitter_origin_line", "SUBTRACT", End(node="first_line"), End(node="jitter_support")),
-                math("jitter_conceptual_line", "ADD", End(node="jitter_axes", socket="Y"), End(node="jitter_origin_line")),
-                node("jitter_lattice", bpy.types.ShaderNodeCombineXYZ, {"X": End(node="jitter_conceptual_line")}, {}),
-                normal("jitter_normal", Noise.JITTER, End(node="jitter_lattice", socket="Vector")).bind(
-                    lambda normals: node("jitter_blur", bpy.types.CompositorNodeBlur, {"Image": normals[0], "Size": End(node="jitter_filter_size", socket="Vector"), "Type": "Gaussian"}, {})
-                ),
-                node("jitter_filter_size", bpy.types.ShaderNodeCombineXYZ, {"Y": End(node="jitter_radius")}, {}),
-                node("impulse_coordinates", bpy.types.CompositorNodeImageCoordinates, {"Image": End(node="impulse_canvas", socket="Image")}, {}),
-                node("impulse_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="impulse_coordinates", socket="Pixel")}, {}),
-                math("impulse", "COMPARE", End(node="impulse_axes", socket="Y"), End(node="jitter_padding"), 0.0),
-                node("impulse_first", bpy.types.CompositorNodeBlur, {"Image": End(node="impulse"), "Size": End(node="jitter_filter_size", socket="Vector"), "Type": "Gaussian"}, {}),
-                node(
-                    "impulse_second",
-                    bpy.types.CompositorNodeBlur,
-                    {"Image": End(node="impulse_first", socket="Image"), "Size": End(node="jitter_filter_size", socket="Vector"), "Type": "Gaussian"},
-                    {},
-                ),
-                node(
-                    "impulse_center",
-                    bpy.types.CompositorNodeMapUV,
-                    {"Image": End(node="impulse_second", socket="Image"), "UV": (0.5, 0.5, 1.0), "Interpolation": "Nearest", "Extension X": "Clip", "Extension Y": "Clip"},
-                    {},
-                ),
-                node("impulse_value", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="impulse_center", socket="Image")}, {"mode": "RGB"}),
-                node("jitter_value", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="jitter_blur", socket="Image")}, {"mode": "RGB"}),
-                math("jitter_norm", "SQRT", End(node="impulse_value", socket="Red")),
-                math("jitter_normalized", "DIVIDE", End(node="jitter_value", socket="Red"), End(node="jitter_norm")),
-                math("jitter_relative_line", "SUBTRACT", End(node="line"), End(node="first_line")),
-                math("jitter_canvas_line", "ADD", End(node="jitter_relative_line"), End(node="jitter_support")),
-                math("jitter_canvas_center", "ADD", End(node="jitter_canvas_line"), 0.5),
-                math("jitter_canvas_y", "DIVIDE", End(node="jitter_canvas_center"), End(node="jitter_height")),
-                node("jitter_uv", bpy.types.ShaderNodeCombineXYZ, {"X": 0.5, "Y": End(node="jitter_canvas_y"), "Z": 1.0}, {}),
-                node(
-                    "jitter_sample",
-                    bpy.types.CompositorNodeMapUV,
-                    {"Image": End(node="jitter_normalized"), "UV": End(node="jitter_uv", socket="Vector"), "Interpolation": "Nearest", "Extension X": "Clip", "Extension Y": "Clip"},
-                    {},
-                ),
-                math("jitter_shift", "MULTIPLY", End(node="jitter_sample", socket="Image"), socket(*tape, jitter)),
-                draw("bounce", Noise.BOUNCE, (0.0, 0.0, 0.0)),
-                math("bounce_signed", "MULTIPLY_ADD", End(node="bounce", socket="Value"), 2.0, -1.0),
-                math("bounce_shift", "MULTIPLY", End(node="bounce_signed"), socket(*tape, bounce)),
-                math("head_t", "DIVIDE", y, socket(*tape, head_switching)),
-                math("head_rising", "DIVIDE", End(node="head_t"), 0.9),
-                math("head_falling", "MULTIPLY_ADD", End(node="head_t"), -10.0, 10.0),
-                math("head_shape", "MINIMUM", End(node="head_rising"), End(node="head_falling")),
-                math("head_negative", "LESS_THAN", y, 0.0),
-                math("head_above", "SUBTRACT", 1.0, End(node="head_negative")),
-                math("head_below", "LESS_THAN", y, socket(*tape, head_switching)),
-                math("head_band", "MULTIPLY", End(node="head_above"), End(node="head_below")),
-                math("head_active", "MULTIPLY", End(node="head_shape"), End(node="head_band")),
-                math("head_shift", "MULTIPLY", End(node="head_active"), socket(*tape, skew)),
-                math("tracking_at", "MULTIPLY", time, socket(*tape, tracking_rate)),
-                math("tracking_center", "FRACT", End(node="tracking_at")),
-                math("tracking_delta", "SUBTRACT", y, End(node="tracking_center")),
-                math("tracking_signed", "WRAP", End(node="tracking_delta"), 0.5, -0.5),
-                math("tracking_distance", "ABSOLUTE", End(node="tracking_signed")),
-                math("tracking_relative", "DIVIDE", End(node="tracking_distance"), socket(*tape, tracking_height)),
-                math("tracking_weight", "MULTIPLY_ADD", End(node="tracking_relative"), -2.0, 1.0, clamp=True),
-                math("tracking_shift", "MULTIPLY", End(node="tracking_weight"), socket(*tape, tracking_shift)),
-                math("played_jitter", "ADD", x, End(node="jitter_shift")),
-                math("played_head", "ADD", End(node="played_jitter"), End(node="head_shift")),
-                math("played_x", "ADD", End(node="played_head"), End(node="tracking_shift")),
-                math("played_y", "ADD", y, End(node="bounce_shift")),
-                shifted("played", image, End(node="played_x"), End(node="played_y"), up=Extension.CLIP),
-                node("played_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="played", socket="Image")}, {"mode": "YCC", "ycc_mode": "ITUBT601"}),
-                draw("mistracking", Noise.MISTRACKING, End(node="line_cell", socket="Vector")),
-                math("mistracking_weight", "MULTIPLY", End(node="tracking_weight"), socket(*tape, mistracking)),
-                mixed("mistracked_luma", "FLOAT", End(node="mistracking_weight"), End(node="played_channels", socket="Red"), End(node="mistracking", socket="Value")),
-                node(
-                    "mistracked",
-                    bpy.types.CompositorNodeCombineColor,
-                    {"Red": End(node="mistracked_luma", socket="Result_Float"), "Green": End(node="played_channels", socket="Green"), "Blue": End(node="played_channels", socket="Blue")},
-                    {"mode": "YCC", "ycc_mode": "ITUBT601"},
-                ),
-                math("dropout_at", "DIVIDE", x, socket(*tape, dropout_length)),
-                math("dropout_cell", "FLOOR", End(node="dropout_at")),
-                node("dropout_lattice", bpy.types.ShaderNodeCombineXYZ, {"X": End(node="dropout_cell"), "Y": End(node="line")}, {}),
-                draw("dropouts", Noise.DROPOUTS, End(node="dropout_lattice", socket="Vector")),
-                math("dropout_struck", "LESS_THAN", End(node="dropouts", socket="Value"), socket(*tape, dropouts)),
-                math("dropout_fraction", "FRACT", End(node="dropout_at")),
-                math("dropout_fade", "SUBTRACT", 1.0, End(node="dropout_fraction")),
-                math("dropout_weight", "MULTIPLY", End(node="dropout_fade"), End(node="dropout_struck")),
-                mixed("dropout_picture", "RGBA", End(node="dropout_weight"), End(node="mistracked", socket="Image"), (1.0, 1.0, 1.0, 1.0)),
-                switched(gates[tape_field], "RGBA", socket(tape_field), image, End(node="dropout_picture", socket="Result_Color")),
-            ).map(ended(gates[tape_field], "Output"))
+        return switched(gate(corruption), image, _joined(luma, powered(blue_difference), powered(red_difference)))
 
-        def received(image: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            luma_blur, chroma_blur, chroma_vertical, chroma_delay, saturation, ringing, cross_color, noise_field, chroma_noise, hum, ghost_field = Signal.__struct_fields__
-            amplitude, delay = Ghost.__struct_fields__
-            ghost = (*signal, ghost_field, value)
-            return paired(normal("luma_noise", Noise.LUMA, End(node="sample_cell", socket="Vector")), normal("chroma_noise", Noise.CHROMA, End(node="sample_cell", socket="Vector"))).bind(
-                lambda normals: Fragment.joined(
-                    node("signal_channels", bpy.types.CompositorNodeSeparateColor, {"Image": image}, {"mode": "YCC", "ycc_mode": "ITUBT601"}),
-                    banded("carrier_low", End(node="signal_channels", socket="Red"), 1.0 / 377.0, 0.0),
-                    math("carrier_detail", "SUBTRACT", End(node="signal_channels", socket="Red"), End(node="carrier_low", socket="Image")),
-                    math("carrier_strength", "MULTIPLY", End(node="carrier_detail"), socket(*signal, cross_color)),
-                    math("carrier_scan", "ADD", End(node="line"), pattern),
-                    math("carrier_half_line", "MULTIPLY", End(node="carrier_scan"), 0.5),
-                    math("carrier_at", "MULTIPLY_ADD", x, 188.3, End(node="carrier_half_line")),
-                    math("carrier_phase", "MULTIPLY", End(node="carrier_at"), tau),
-                    math("carrier_cosine", "COSINE", End(node="carrier_phase")),
-                    math("carrier_sine", "SINE", End(node="carrier_phase")),
-                    math("luma_noisy", "MULTIPLY_ADD", normals[0][0], socket(*signal, noise_field), End(node="signal_channels", socket="Red")),
-                    *(
-                        part
-                        for channel, wave, noise in (("Green", "cosine", normals[1][0]), ("Blue", "sine", normals[1][1]))
-                        for part in (
-                            math(f"carrier_{channel.lower()}", "MULTIPLY_ADD", End(node="carrier_strength"), End(node=f"carrier_{wave}"), End(node="signal_channels", socket=channel)),
-                            math(f"noisy_{channel.lower()}", "MULTIPLY_ADD", noise, socket(*signal, chroma_noise), End(node=f"carrier_{channel.lower()}")),
-                        )
-                    ),
-                    node("chroma_noisy", bpy.types.CompositorNodeCombineColor, {"Red": End(node="noisy_green"), "Green": End(node="noisy_blue")}, {"mode": "RGB"}),
-                    banded("luma_band", End(node="luma_noisy"), socket(*signal, luma_blur), 0.0),
-                    banded("chroma_band", End(node="chroma_noisy", socket="Image"), socket(*signal, chroma_blur), socket(*signal, chroma_vertical)),
-                    math("chroma_x", "SUBTRACT", x, socket(*signal, chroma_delay)),
-                    shifted("chroma_delayed", End(node="chroma_band", socket="Image"), End(node="chroma_x")),
-                    node("chroma_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="chroma_delayed", socket="Image")}, {"mode": "RGB"}),
-                    math("ringing_radius", "DIVIDE", socket(*signal, luma_blur), 3.0),
-                    *(
-                        part
-                        for key, direction in (("left", -1.0), ("right", 1.0))
-                        for part in (
-                            math(f"ringing_{key}_x", "MULTIPLY_ADD", End(node="ringing_radius"), direction, x),
-                            shifted(f"ringing_{key}", End(node="luma_band", socket="Image"), End(node=f"ringing_{key}_x")),
-                        )
-                    ),
-                    math("ringing_neighbors", "ADD", End(node="ringing_left", socket="Image"), End(node="ringing_right", socket="Image")),
-                    math("ringing_second", "MULTIPLY_ADD", End(node="luma_band", socket="Image"), -2.0, End(node="ringing_neighbors")),
-                    math("ringing_negative", "MULTIPLY", End(node="ringing_second"), -1.0),
-                    math("luma_ringed", "MULTIPLY_ADD", End(node="ringing_negative"), socket(*signal, ringing), End(node="luma_band", socket="Image")),
-                    *(
-                        part
-                        for output, channel in (("Green", "Red"), ("Blue", "Green"))
-                        for part in (
-                            math(f"saturated_{output.lower()}_centered", "SUBTRACT", End(node="chroma_channels", socket=channel), center),
-                            math(f"saturated_{output.lower()}", "MULTIPLY_ADD", End(node=f"saturated_{output.lower()}_centered"), socket(*signal, saturation), center),
-                        )
-                    ),
-                    node(
-                        "signal_packed",
-                        bpy.types.CompositorNodeCombineColor,
-                        {"Red": End(node="luma_ringed"), "Green": End(node="saturated_green"), "Blue": End(node="saturated_blue")},
-                        {"mode": "RGB"},
-                    ),
-                    math("ghost_x", "SUBTRACT", x, socket(*ghost, delay)),
-                    shifted("ghost_copy", End(node="signal_packed", socket="Image"), End(node="ghost_x")),
-                    math("ghost_denominator", "ADD", socket(*ghost, amplitude), 1.0),
-                    math("ghost_weight", "DIVIDE", socket(*ghost, amplitude), End(node="ghost_denominator")),
-                    mixed("ghosted", "RGBA", End(node="ghost_weight"), End(node="signal_packed", socket="Image"), End(node="ghost_copy", socket="Image")),
-                    switched(item_key(*signal, ghost_field, "gate"), "RGBA", socket(*signal, ghost_field), End(node="signal_packed", socket="Image"), End(node="ghosted", socket="Result_Color")),
-                    node("received_channels", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=item_key(*signal, ghost_field, "gate"), socket="Output")}, {"mode": "RGB"}),
-                    math("hum_at", "MULTIPLY_ADD", time, -0.002, y),
-                    math("hum_phase", "MULTIPLY", End(node="hum_at"), tau),
-                    math("hum_sine", "SINE", End(node="hum_phase")),
-                    math("hum_wave", "MULTIPLY_ADD", End(node="hum_sine"), 0.5, 0.5),
-                    math("hum_loss", "MULTIPLY", End(node="hum_wave"), socket(*signal, hum)),
-                    math("hum_gain", "SUBTRACT", 1.0, End(node="hum_loss")),
-                    math("received_luma", "MULTIPLY", End(node="received_channels", socket="Red"), End(node="hum_gain")),
-                    node(
-                        "received",
-                        bpy.types.CompositorNodeCombineColor,
-                        {"Red": End(node="received_luma"), "Green": End(node="received_channels", socket="Green"), "Blue": End(node="received_channels", socket="Blue")},
-                        {"mode": "YCC", "ycc_mode": "ITUBT601"},
-                    ),
-                    switched(gates[signal_field], "RGBA", socket(signal_field), image, End(node="received", socket="Image")),
-                ).map(ended(gates[signal_field], "Output"))
-            )
+    def played(image: Expr) -> Expr:
+        jitter, jitter_period, bounce, head_switching, skew, tracking_shift, tracking_height, tracking_rate, mistracking, dropouts, dropout_length = Tape.__struct_fields__
+        held = partial(shell.input, tape, value)
+        margin = math("MULTIPLY_ADD", scale, -0.5, 0.5)
+        half = 0.5 / dimensions["Y"]
+        first, last = (math("FLOOR", (edge - margin) / scale * lines) for edge in (half, 1.0 - half))
+        radius = held(jitter_period) * lines
+        support = math("CEIL", radius)
+        padding = support * 2.0
+        height = last - first + 1.0 + padding
+        jitter_canvas, impulse_canvas = (
+            Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", xyz(1.0, extent)),), socket="Image", shape="RGBA") for extent in (height, math("MULTIPLY_ADD", support, 4.0, 1.0))
+        )
+        jitter_row, impulse_row = (Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", canvas),), socket="Pixel", shape="VECTOR")["Y"] for canvas in (jitter_canvas, impulse_canvas))
+        filtered = xyz(0.0, radius)
+        jittered = _blurred(_normals(seed, Noise.JITTER, xyz(jitter_row + (first - support)), pattern)[0], filtered)
+        impulse = fetched(_blurred(_blurred(math("COMPARE", impulse_row, padding, 0.0), filtered), filtered), (0.5, 0.5, 1.0))
+        normalized = jittered["Red"] / math("SQRT", impulse["Red"])
+        jitter_shift = math("MULTIPLY", fetched(normalized, xyz(0.5, (line - first + support + 0.5) / height, 1.0)), held(jitter))
+        bounce_shift = math("MULTIPLY_ADD", drawn(Noise.BOUNCE, (0.0, 0.0, 0.0)), 2.0, -1.0) * held(bounce)
+        head = y / held(head_switching)
+        head_shift = math("MINIMUM", head / 0.9, math("MULTIPLY_ADD", head, -10.0, 10.0)) * ((1.0 - (y < 0.0)) * (y < held(head_switching))) * held(skew)
+        tracking = math("MULTIPLY_ADD", abs(math("WRAP", y - math("FRACT", time * held(tracking_rate)), 0.5, -0.5)) / held(tracking_height), -2.0, 1.0, clamp=True)
+        picture = shifted(image, x + jitter_shift + head_shift + tracking * held(tracking_shift), y + bounce_shift, up=Extension.CLIP)
+        luma, blue_difference, red_difference = (_split(picture, channel) for channel in RGB)
+        mistracked = _joined(mixed(tracking * held(mistracking), luma, drawn(Noise.MISTRACKING, line_cell)), blue_difference, red_difference)
+        position = x / held(dropout_length)
+        struck = drawn(Noise.DROPOUTS, xyz(math("FLOOR", position), line)) < held(dropouts)
+        return switched(gate(tape), image, mixed((1.0 - math("FRACT", position)) * struck, mistracked, (1.0, 1.0, 1.0, 1.0)))
 
-        def primitive(key: str, at: Operand, gain: Operand, start: Operand, width: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            return Fragment.joined(
-                math(f"{key}_period", "DIVIDE", at, 2.0),
-                math(f"{key}_whole", "FLOOR", End(node=f"{key}_period")),
-                math(f"{key}_fraction", "MULTIPLY_ADD", End(node=f"{key}_whole"), -2.0, at),
-                math(f"{key}_shifted", "SUBTRACT", End(node=f"{key}_fraction"), start),
-                math(f"{key}_positive", "MAXIMUM", End(node=f"{key}_shifted"), 0.0),
-                math(f"{key}_partial", "MINIMUM", End(node=f"{key}_positive"), width),
-                math(key, "MULTIPLY_ADD", End(node=f"{key}_whole"), gain, End(node=f"{key}_partial")),
-            ).map(ended(key, "Value"))
+    def received(image: Expr) -> Expr:
+        luma_blur, chroma_blur, chroma_vertical, chroma_delay, saturation, ringing, cross_color, noise_field, chroma_noise, hum, ghost_field = Signal.__struct_fields__
+        amplitude, delay = Ghost.__struct_fields__
+        held, ghost = partial(shell.input, signal, value), partial(shell.input, signal, value, ghost_field, value)
+        luma, blue_difference, red_difference = (_split(image, channel) for channel in RGB)
+        luma_noise, chroma_noises = _normals(seed, Noise.LUMA, sample_cell, pattern), _normals(seed, Noise.CHROMA, sample_cell, pattern)
+        strength = math("SUBTRACT", luma, banded(luma, 1.0 / 377.0, 0.0)) * held(cross_color)
+        phase = math("MULTIPLY_ADD", x, 188.3, (line + pattern) * 0.5) * tau
+        green, blue = (
+            math("MULTIPLY_ADD", noise, held(chroma_noise), math("MULTIPLY_ADD", strength, wave, difference))
+            for difference, wave, noise in ((blue_difference, math("COSINE", phase), chroma_noises[0]), (red_difference, math("SINE", phase), chroma_noises[1]))
+        )
+        band = banded(math("MULTIPLY_ADD", luma_noise[0], held(noise_field), luma), held(luma_blur), 0.0)
+        chroma = shifted(banded(rgba(green, blue, 0.0), held(chroma_blur), held(chroma_vertical)), x - held(chroma_delay))
+        ringed = (shifted(band, math("MULTIPLY_ADD", held(luma_blur) / 3.0, direction, x)) for direction in (-1.0, 1.0))
+        overshoot = -math("MULTIPLY_ADD", band, -2.0, math("ADD", *ringed))
+        packed = rgba(math("MULTIPLY_ADD", overshoot, held(ringing), band), *(math("MULTIPLY_ADD", chroma[channel] - CENTER, held(saturation), CENTER) for channel in RGB[:2]))
+        echoed = switched(gate(signal, value, ghost_field), packed, mixed(ghost(amplitude) / (ghost(amplitude) + 1.0), packed, shifted(packed, x - ghost(delay))))
+        loss = math("MULTIPLY_ADD", math("SINE", math("MULTIPLY_ADD", time, -0.002, y) * tau), 0.5, 0.5) * held(hum)
+        return switched(gate(signal), image, _joined(echoed["Red"] * (1.0 - loss), echoed["Green"], echoed["Blue"]))
 
-        def displayed(image: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            glow_field, scanlines, phosphors_field, curvature, roll, collapse = Display.__struct_fields__
-            strength, interlaced = Scanlines.__struct_fields__
-            layout, triads, strength_phosphors = Phosphors.__struct_fields__
-            scan = (*display, scanlines, value)
-            phosphors = (*display, phosphors_field, value)
-            glow = (*display, glow_field)
-            scan_gate = item_key(*display, scanlines, "gate")
-            phosphor_gate = item_key(*display, phosphors_field, "gate")
-            glow_gate = item_key(*glow, "gate")
-            cells = tuple(product(range(2), repeat=2))
-            return Fragment.joined(
-                math("roll_y", "MULTIPLY_ADD", socket(*display, roll), time, y),
-                shifted("rolled", image, x, End(node="roll_y"), up=Extension.REPEAT),
-                math("minimum_span", "DIVIDE", 1.0, lines),
-                math("collapse_y_raw", "MULTIPLY_ADD", socket(*display, collapse), -2.0, 1.0),
-                math("collapse_y", "MAXIMUM", End(node="collapse_y_raw"), End(node="minimum_span")),
-                math("collapse_x_raw", "ADD", End(node="collapse_y_raw"), 1.0),
-                math("collapse_x_positive", "MAXIMUM", End(node="collapse_x_raw"), End(node="minimum_span")),
-                math("collapse_x", "MINIMUM", End(node="collapse_x_positive"), 1.0),
-                node("collapse_span", bpy.types.ShaderNodeCombineXYZ, {"X": End(node="collapse_x"), "Y": End(node="collapse_y"), "Z": 1.0}, {}),
-                vector("collapse_centered", "SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)),
-                vector("collapse_relative", "DIVIDE", End(node="collapse_centered", socket="Vector"), End(node="collapse_span", socket="Vector")),
-                vector("collapse_at", "ADD", End(node="collapse_relative", socket="Vector"), (0.5, 0.5, 0.0)),
-                sample("collapse_sample", End(node="rolled", socket="Image"), End(node="collapse_at", socket="Vector"), Extension.CLIP, Extension.CLIP),
-                math("collapse_area", "MULTIPLY", End(node="collapse_x"), End(node="collapse_y")),
-                vector("collapsed", "DIVIDE", End(node="collapse_sample", socket="Image"), End(node="collapse_area")),
-                node("glow_fraction", bpy.types.ShaderNodeCombineXYZ, {"X": socket(*glow, value), "Y": socket(*glow, value)}, {}),
-                pixels("glow_pixels", frame, End(node="glow_fraction", socket="Vector"), "VECTOR"),
-                node("glow_first", bpy.types.CompositorNodeBlur, {"Image": End(node="collapsed", socket="Vector"), "Size": End(node="glow_pixels", socket="Vector"), "Type": "Gaussian"}, {}),
-                vector("glow_wide_radius", "MULTIPLY", End(node="glow_pixels", socket="Vector"), (4.0, 1.0, 0.0)),
-                node("glow_wide", bpy.types.CompositorNodeBlur, {"Image": End(node="glow_first", socket="Image"), "Size": End(node="glow_wide_radius", socket="Vector"), "Type": "Gaussian"}, {}),
-                mixed("glowing", "RGBA", 0.890909, End(node="glow_wide", socket="Image"), End(node="glow_first", socket="Image")),
-                switched(glow_gate, "RGBA", socket(*glow), End(node="collapsed", socket="Vector"), End(node="glowing", socket="Result_Color")),
-                node("display_dimensions", bpy.types.CompositorNodeImageInfo, {"Image": source}, {}),
-                node("display_dimension_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="display_dimensions", socket="Dimensions")}, {}),
-                *(
-                    part
-                    for axis in ("X", "Y")
-                    for part in (
-                        math(f"camera_pixels_{axis.lower()}", "MULTIPLY", End(node="display_dimension_axes", socket=axis), shell.scale),
-                        math(f"half_footprint_{axis.lower()}", "DIVIDE", 0.5, End(node=f"camera_pixels_{axis.lower()}")),
-                    )
-                ),
-                math("field_parity", "PINGPONG", pattern, 1.0),
-                *(
-                    part
-                    for end, sign in (("low", -1.0), ("high", 1.0))
-                    for part in (
-                        math(f"scan_{end}_y", "MULTIPLY_ADD", End(node="half_footprint_y"), sign, y),
-                        math(f"scan_{end}_centered", "SUBTRACT", End(node=f"scan_{end}_y"), 0.5),
-                        math(f"scan_{end}_relative", "DIVIDE", End(node=f"scan_{end}_centered"), End(node="collapse_y")),
-                        math(f"scan_{end}_row", "ADD", End(node=f"scan_{end}_relative"), 0.5),
-                        math(f"scan_{end}_raster", "MULTIPLY", End(node=f"scan_{end}_row"), lines),
-                        math(f"scan_{end}_field_sum", "ADD", End(node=f"scan_{end}_raster"), End(node="field_parity")),
-                        math(f"scan_{end}_field", "MULTIPLY", End(node=f"scan_{end}_field_sum"), 0.5),
-                        switched(f"scan_{end}", "FLOAT", socket(*scan, interlaced), End(node=f"scan_{end}_raster"), End(node=f"scan_{end}_field")),
-                        math(f"scan_{end}_phase", "MULTIPLY", End(node=f"scan_{end}", socket="Output"), tau),
-                        math(f"scan_{end}_sine", "SINE", End(node=f"scan_{end}_phase")),
-                    )
-                ),
-                math("scan_integral", "SUBTRACT", End(node="scan_high_sine"), End(node="scan_low_sine")),
-                math("scan_span", "SUBTRACT", End(node="scan_high", socket="Output"), End(node="scan_low", socket="Output")),
-                math("scan_denominator", "MULTIPLY", End(node="scan_span"), 2.0 * tau),
-                math("scan_relative", "DIVIDE", End(node="scan_integral"), End(node="scan_denominator")),
-                math("scan_mean", "ADD", End(node="scan_relative"), 0.5),
-                math("scan_loss", "MULTIPLY", End(node="scan_mean"), socket(*scan, strength)),
-                math("scan_light", "SUBTRACT", 1.0, End(node="scan_loss")),
-                math("scan_period_mean", "MULTIPLY_ADD", socket(*scan, strength), -0.5, 1.0),
-                math("scan_gain", "DIVIDE", End(node="scan_light"), End(node="scan_period_mean")),
-                vector("scanned", "SCALE", End(node=glow_gate, socket="Output"), End(node="scan_gain")),
-                switched(scan_gate, "RGBA", socket(*display, scanlines), End(node=glow_gate, socket="Output"), End(node="scanned", socket="Vector")),
-                menu("layout", "VECTOR", socket(*phosphors, layout), shell.items[*phosphors, layout], {member.label: member.geometry for member in Layout}),
-                node("layout_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="layout", socket="Output")}, {}),
-                math("matrix_fill", "SUBTRACT", 1.0, End(node="layout_axes", socket="X")),
-                math("triad_x", "MULTIPLY", x, socket(*phosphors, triads)),
-                math("triad_rows", "DIVIDE", socket(*phosphors, triads), aspect),
-                math("triad_y", "MULTIPLY", y, End(node="triad_rows")),
-                math("triad_half_x", "MULTIPLY", End(node="half_footprint_x"), socket(*phosphors, triads)),
-                math("triad_half_y", "MULTIPLY", End(node="half_footprint_y"), End(node="triad_rows")),
-                *(
-                    part
-                    for parity in range(2)
-                    for axis, stagger in (("x", "Z"), ("y", "Y"))
-                    for part in (
-                        math(f"triad_{axis}_{parity}", "MULTIPLY_ADD", End(node="layout_axes", socket=stagger), parity, End(node=f"triad_{axis}")),
-                        *(
-                            math(f"triad_{axis}_{parity}_{end}", "MULTIPLY_ADD", End(node=f"triad_half_{axis}"), sign, End(node=f"triad_{axis}_{parity}"))
-                            for end, sign in (("low", -1.0), ("high", 1.0))
-                        ),
-                    )
-                ),
-                math("matrix_span", "MULTIPLY", End(node="triad_half_y"), 2.0),
-                math("stripe_span", "MULTIPLY", End(node="triad_half_x"), 2.0),
-                math("phosphor_area", "MULTIPLY", End(node="matrix_span"), End(node="stripe_span")),
-                *(
-                    part
-                    for row, column in cells
-                    for part in (
-                        *(primitive(f"matrix_{row}_{column}_{end}", End(node=f"triad_y_{column}_{end}"), End(node="matrix_fill"), row, End(node="matrix_fill")) for end in ("low", "high")),
-                        math(f"matrix_{row}_{column}", "SUBTRACT", End(node=f"matrix_{row}_{column}_high"), End(node=f"matrix_{row}_{column}_low")),
-                    )
-                ),
-                math("phosphor_plain", "SUBTRACT", 1.0, socket(*phosphors, strength_phosphors)),
-                *(
-                    part
-                    for index, channel in enumerate(("Red", "Green", "Blue"))
-                    for part in (
-                        *(
-                            part
-                            for row, column in cells
-                            for part in (
-                                *(primitive(f"stripe_{channel.lower()}_{row}_{column}_{end}", End(node=f"triad_x_{row}_{end}"), 1.0 / 3.0, column + index / 3.0, 1.0 / 3.0) for end in ("low", "high")),
-                                math(
-                                    f"stripe_{channel.lower()}_{row}_{column}",
-                                    "SUBTRACT",
-                                    End(node=f"stripe_{channel.lower()}_{row}_{column}_high"),
-                                    End(node=f"stripe_{channel.lower()}_{row}_{column}_low"),
-                                ),
-                                math(f"phosphor_{channel.lower()}_{row}_{column}", "MULTIPLY", End(node=f"stripe_{channel.lower()}_{row}_{column}"), End(node=f"matrix_{row}_{column}")),
-                            )
-                        ),
-                        *(math(f"phosphor_{channel.lower()}_{row}", "ADD", End(node=f"phosphor_{channel.lower()}_{row}_0"), End(node=f"phosphor_{channel.lower()}_{row}_1")) for row in range(2)),
-                        math(f"phosphor_{channel.lower()}_integral", "ADD", End(node=f"phosphor_{channel.lower()}_0"), End(node=f"phosphor_{channel.lower()}_1")),
-                        math(f"phosphor_{channel.lower()}_coverage", "DIVIDE", End(node=f"phosphor_{channel.lower()}_integral"), End(node="phosphor_area")),
-                        math(f"phosphor_{channel.lower()}_normalized", "DIVIDE", End(node=f"phosphor_{channel.lower()}_coverage"), End(node="matrix_fill")),
-                        math(f"phosphor_{channel.lower()}_unit", "MULTIPLY", End(node=f"phosphor_{channel.lower()}_normalized"), 3.0),
-                        math(f"phosphor_{channel.lower()}_gain", "MULTIPLY_ADD", End(node=f"phosphor_{channel.lower()}_unit"), socket(*phosphors, strength_phosphors), End(node="phosphor_plain")),
-                    )
-                ),
-                node("phosphor_gains", bpy.types.CompositorNodeCombineColor, {channel: End(node=f"phosphor_{channel.lower()}_gain") for channel in ("Red", "Green", "Blue")}, {"mode": "RGB"}),
-                vector("masked", "MULTIPLY", End(node=scan_gate, socket="Output"), End(node="phosphor_gains", socket="Image")),
-                switched(phosphor_gate, "RGBA", socket(*display, phosphors_field), End(node=scan_gate, socket="Output"), End(node="masked", socket="Vector")),
-                math("curvature_denominator", "ADD", socket(*display, curvature), 1.0),
-                math("curvature_scale", "DIVIDE", 1.0, End(node="curvature_denominator")),
-                nested(
-                    "glass", lens, {"point": frame.point, "extent": frame.extent, "share": shell.scale, "distortion": socket(*display, curvature), "scale": End(node="curvature_scale")}, "rectilinear"
-                ),
-                extended("glass_sample", End(node=phosphor_gate, socket="Output"), End(node="glass", socket="rectilinear"), Extension.CLIP.label, MenuItems.of(Extension)),
-                switched(gates[display_field], "RGBA", socket(display_field), image, End(node="glass_sample", socket="Image")),
-            ).map(ended(gates[display_field], "Output"))
+    def displayed(image: Expr) -> Expr:
+        glow, scanlines, phosphors_field, curvature, roll, collapse = Display.__struct_fields__
+        strength, interlaced = Scanlines.__struct_fields__
+        layout, triads, phosphor_strength = Phosphors.__struct_fields__
+        held, scan, phosphors = partial(shell.input, display, value), partial(shell.input, display, value, scanlines, value), partial(shell.input, display, value, phosphors_field, value)
+        rolled = shifted(image, x, math("MULTIPLY_ADD", held(roll), time, y), up=Extension.REPEAT)
+        least = 1.0 / lines
+        lowered = math("MULTIPLY_ADD", held(collapse), -2.0, 1.0)
+        height, width = math("MAXIMUM", lowered, least), math("MINIMUM", math("MAXIMUM", lowered + 1.0, least), 1.0)
+        at = vector("ADD", vector("DIVIDE", vector("SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)), xyz(width, height, 1.0)), (0.5, 0.5, 0.0))
+        collapsed = vector("DIVIDE", sample(rolled, at, Extension.CLIP, Extension.CLIP), width * height)
+        radius = pixels(frame, xyz(held(glow, value), held(glow, value)), "VECTOR")
+        near = _blurred(collapsed, radius)
+        glowed = switched(gate(display, value, glow), collapsed, mixed(0.890909, _blurred(near, radius * (4.0, 1.0, 0.0)), near))
+        field = math("PINGPONG", pattern, 1.0)
 
-        return Fragment.joined(
-            node("fraction", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.fraction}, {}),
-            node("extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {}),
-            math("aspect", "DIVIDE", End(node="extent", socket="X"), End(node="extent", socket="Y")),
-            math("scan", "MULTIPLY", y, lines),
-            math("line", "FLOOR", End(node="scan")),
-            math("raster_width", "MULTIPLY", lines, aspect),
-            math("raster_samples", "ROUND", End(node="raster_width")),
-            math("sample_at", "MULTIPLY", x, End(node="raster_samples")),
-            math("sample", "FLOOR", End(node="sample_at")),
-            node("line_cell", bpy.types.ShaderNodeCombineXYZ, {"X": End(node="line")}, {}),
-            node("sample_cell", bpy.types.ShaderNodeCombineXYZ, {"X": End(node="sample"), "Y": End(node="line")}, {}),
-        ).bind(lambda base: corrupted(source).bind(played).bind(received).bind(displayed).bind(lambda result: Fragment.merged((base, result[0])).map(lambda joined: (joined, result[1]))))
+        def scanned_row(sign: float) -> Expr:
+            raster = ((math("MULTIPLY_ADD", half_y, sign, y) - 0.5) / height + 0.5) * lines
+            return switched(scan(interlaced), raster, (raster + field) * 0.5)
 
-    return paired(paired(framed("frame", source, shell.aspect, shell.scale), paired(clock.value, clock.pattern)), radial()).bind(lambda inputs: built(inputs[0][0], *inputs[0][1], inputs[1]))
+        low, high = scanned_row(-1.0), scanned_row(1.0)
+        light = 1.0 - ((math("SINE", high * tau) - math("SINE", low * tau)) / ((high - low) * (2.0 * tau)) + 0.5) * scan(strength)
+        scanned = switched(gate(display, value, scanlines), glowed, vector("SCALE", glowed, light / math("MULTIPLY_ADD", scan(strength), -0.5, 1.0)))
+        geometry = shell.menu(display, value, phosphors_field, value, layout, cases={member.label: member.geometry for member in Layout}, kind="VECTOR")
+        fill = 1.0 - geometry["X"]
+        rows_per_frame = phosphors(triads) / aspect
+        reach = {"x": (x * phosphors(triads), half_x * phosphors(triads), geometry["Z"]), "y": (y * rows_per_frame, half_y * rows_per_frame, geometry["Y"])}
+        ends = {
+            (axis, parity, sign): math("MULTIPLY_ADD", half, sign, math("MULTIPLY_ADD", stagger, parity, center))
+            for axis, (center, half, stagger) in reach.items()
+            for parity in range(2)
+            for sign in (-1.0, 1.0)
+        }
+
+        def covered(axis: str, parity: int, gain: Scalar, start: Scalar, span: Scalar) -> Expr:
+            return _primitive(ends[axis, parity, 1.0], gain, start, span) - _primitive(ends[axis, parity, -1.0], gain, start, span)
+
+        matrix = {(row, column): covered("y", column, fill, float(row), fill) for row, column in product(range(2), repeat=2)}
+        area = reach["y"][1] * 2.0 * (reach["x"][1] * 2.0)
+
+        def gained(index: int) -> Expr:
+            lit = {(row, column): covered("x", row, 1.0 / 3.0, column + index / 3.0, 1.0 / 3.0) * cell for (row, column), cell in matrix.items()}
+            integral = lit[0, 0] + lit[0, 1] + (lit[1, 0] + lit[1, 1])
+            return math("MULTIPLY_ADD", integral / area / fill * 3.0, phosphors(phosphor_strength), 1.0 - phosphors(phosphor_strength))
+
+        masked = switched(gate(display, value, phosphors_field), scanned, vector("MULTIPLY", scanned, rgba(gained(0), gained(1), gained(2))))
+        lens = radial(frame.point, frame.extent, scale, held(curvature), 1.0 / (held(curvature) + 1.0))
+        return switched(gate(display), image, extended(masked, lens, ((Extension.CLIP.label, BORDERS), (Extension.CLIP.label, BORDERS)), clipped=True))
+
+    return Ok(displayed(received(played(corrupted(source)))))
+
+
+def _white(coordinate: Scalar, pattern: Scalar) -> Expr:
+    """Builds 4D White Noise over a coordinate and pattern, its `Value` read."""
+    return Expr(kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", coordinate), ("W", pattern)), members=(("noise_dimensions", "4D"),))
+
+
+def _blurred(image: Scalar, size: Scalar) -> Expr:
+    """Builds Gaussian blur of an image over a per-axis pixel size."""
+    return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image), ("Size", size), ("Type", "Gaussian")), socket="Image", shape="RGBA")
+
+
+def _normals(seed: Scalar, noise: Noise, lattice: Scalar, pattern: Scalar) -> tuple[Expr, Expr, Expr, Expr]:
+    """Builds four Gaussian samples of one noise key at a raster lattice."""
+    return raster_noise(lattice, origin(seed, noise), pattern)
+
+
+def _split(image: Scalar, channel: Component) -> Expr:
+    """Reads one BT.601 YCbCr channel of an image."""
+    return Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", image),), members=YCC, socket=channel)
+
+
+def _joined(luma: Scalar, blue: Scalar, red: Scalar) -> Expr:
+    """Combines BT.601 luma and color differences into an image."""
+    return Expr(kind=bpy.types.CompositorNodeCombineColor, inputs=(("Red", luma), ("Green", blue), ("Blue", red)), members=YCC, socket="Image", shape="RGBA")
+
+
+def _primitive(at: Expr, gain: Scalar, start: Scalar, width: Scalar) -> Expr:
+    """Integrates a two-cell periodic box of `width` starting at `start` from zero to `at`, `gain` per whole period."""
+    whole = math("FLOOR", at / 2.0)
+    return math("MULTIPLY_ADD", whole, gain, math("MINIMUM", math("MAXIMUM", math("MULTIPLY_ADD", whole, -2.0, at) - start, 0.0), width))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-emulation: CompositorEffect[Emulation] = CompositorEffect(
-    record=Emulation, graph=emulated, straight=True, coverage=Coverage.INPUT, requested=Some(precise), native_validated=Some(validated), preparation=Some(prepared)
-)
+emulation = CompositorEffect(record=Emulation, graph=emulated, alpha=Alpha.STRAIGHT, requested=Some(precise), preparation=Some(prepared))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Noise", "emulated", "emulation", "prepared", "raster_noise", "validated"]
+__all__ = ["Noise", "emulated", "emulation", "prepared", "raster_noise"]

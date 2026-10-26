@@ -1,10 +1,11 @@
 """World environments, graphs, swaps, sun-following nodes, and studio worlds."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextlib import ExitStack
-from itertools import starmap
+from functools import reduce
 import math
-from typing import Annotated, ClassVar
+from types import MappingProxyType
+from typing import Annotated, ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some
@@ -14,21 +15,20 @@ import numpy as np
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.ownership import kept, Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle, vacant
-from blender.bpy.data.rna.descriptors import Value, written
-from blender.bpy.extension.identity import Identity
+from blender.bpy.data.rna.descriptors import Descriptor, Value, written
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.nodes.changes import reconciled
-from blender.bpy.nodes.graphs import End, ended, Fragment, Graph, Loaded, mixed, node, Operand
+from blender.bpy.nodes.graphs import Expr, Graph, Loaded, mixed, Term
 from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.settings.attachments import Attached, Attachment, reconciling
+from blender.bpy.settings.history import Retention
 from blender.bpy.settings.properties import Choices, Definition
 from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
-from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
-from blender.bpy.ui.surfaces.panels import enumerated
-from blender.imaging.faults import accumulated, paired
+from blender.bpy.ui.layout.sections import Section, Single
+from blender.bpy.ui.layout.values import Hosted, Store
 from blender.imaging.parameters import Case, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb
-from blender.rendering.history import Retention
 from blender.rendering.lighting.solar import SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -39,10 +39,15 @@ type WorldMode = Hdri | Scattering | Preetham | HosekWilkie | FlatColor
 type Scenery = WorldMode | FrameGradient | Plate
 type Follower = bpy.types.ShaderNodeTexSky | EnvironmentNode
 
-# --- [METADATA] -------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-sky_properties = {prop.identifier: prop for prop in bpy.types.ShaderNodeTexSky.bl_rna.properties if isinstance(prop, bpy.types.FloatProperty)}
-sky_presentations = {name: Presentation(step=Some(prop.step / 100.0), decimals=Some(prop.precision)) for name, prop in sky_properties.items()}
+_SKY: Final = MappingProxyType({
+    name: Descriptor.declared(bpy.types.ShaderNodeTexSky, name, bpy.types.FloatProperty)
+    for name in ("sun_size", "sun_intensity", "altitude", "air_density", "aerosol_density", "ozone_density", "turbidity", "ground_albedo")
+})
+_SKY_TYPE: Final = Descriptor.declared(bpy.types.ShaderNodeTexSky, "sky_type", bpy.types.EnumProperty)
+_PROJECTION: Final = Descriptor.declared(bpy.types.ShaderNodeTexEnvironment, "projection", bpy.types.EnumProperty)
+_RAYS: Final[Mapping[str, str]] = MappingProxyType({"glossy": "Is Glossy Ray", "camera": "Is Camera Ray"})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -63,53 +68,43 @@ class Solar(Case, frozen=True, kw_only=True, tag=2):
 class Disc(msgspec.Struct, frozen=True, kw_only=True):
     """Scattering sky sun disc."""
 
-    sun_size: Annotated[
-        float, msgspec.Meta(ge=sky_properties["sun_size"].hard_min, le=sky_properties["sun_size"].hard_max, title="Size"), sky_presentations["sun_size"], Presentation(quantity=Some(Quantity.ANGLE))
-    ] = sky_properties["sun_size"].default
-    sun_intensity: Annotated[float, msgspec.Meta(ge=sky_properties["sun_intensity"].hard_min, le=sky_properties["sun_intensity"].hard_max, title="Intensity"), sky_presentations["sun_intensity"]] = (
-        sky_properties["sun_intensity"].default
-    )
+    sun_size: Annotated[float, _SKY["sun_size"].meta, _SKY["sun_size"].presentation] = _SKY["sun_size"].prop.default
+    sun_intensity: Annotated[float, _SKY["sun_intensity"].meta, _SKY["sun_intensity"].presentation] = _SKY["sun_intensity"].prop.default
 
 
 class Scattering(Case, frozen=True, kw_only=True, tag=2):
     """Scattering sky."""
 
     title = "Sky"
-    sky_type: Annotated[
-        str,
-        msgspec.Meta(title="Model"),
-        Choices(lambda *_: (row for row in enumerated(bpy.types.ShaderNodeTexSky.bl_rna.properties["sky_type"]) if row[0] in {"SINGLE_SCATTERING", "MULTIPLE_SCATTERING"})),
-    ] = "MULTIPLE_SCATTERING"
+    sky_type: Annotated[str, msgspec.Meta(title="Model"), Choices.mirrored(_SKY_TYPE.prop, lambda identifier: identifier in {"SINGLE_SCATTERING", "MULTIPLE_SCATTERING"})] = "MULTIPLE_SCATTERING"
     sun: SkySun = Still()
     disc: Annotated[Gated[Disc], msgspec.Meta(title="Sun Disc")] = Gated(enabled=True, value=Disc())
-    altitude: Annotated[
-        float, msgspec.Meta(ge=sky_properties["altitude"].hard_min, le=sky_properties["altitude"].hard_max), sky_presentations["altitude"], Presentation(quantity=Some(Quantity.LENGTH))
-    ] = sky_properties["altitude"].default
-    air_density: Annotated[float, msgspec.Meta(ge=sky_properties["air_density"].hard_min, le=sky_properties["air_density"].hard_max, title="Air"), sky_presentations["air_density"]] = sky_properties[
-        "air_density"
-    ].default
-    aerosol_density: Annotated[
-        float, msgspec.Meta(ge=sky_properties["aerosol_density"].hard_min, le=sky_properties["aerosol_density"].hard_max, title="Aerosols"), sky_presentations["aerosol_density"]
-    ] = sky_properties["aerosol_density"].default
-    ozone_density: Annotated[float, msgspec.Meta(ge=sky_properties["ozone_density"].hard_min, le=sky_properties["ozone_density"].hard_max, title="Ozone"), sky_presentations["ozone_density"]] = (
-        sky_properties["ozone_density"].default
-    )
+    altitude: Annotated[float, _SKY["altitude"].meta, _SKY["altitude"].presentation] = _SKY["altitude"].prop.default
+    air_density: Annotated[float, _SKY["air_density"].meta, _SKY["air_density"].presentation] = _SKY["air_density"].prop.default
+    aerosol_density: Annotated[float, _SKY["aerosol_density"].meta, _SKY["aerosol_density"].presentation] = _SKY["aerosol_density"].prop.default
+    ozone_density: Annotated[float, _SKY["ozone_density"].meta, _SKY["ozone_density"].presentation] = _SKY["ozone_density"].prop.default
 
 
-class Preetham(Case, frozen=True, kw_only=True, tag=3):
+class Analytic(Case, frozen=True, kw_only=True):
+    """Analytic sky model over sun and turbidity."""
+
+    sky_type: ClassVar[str]
+    sun: SkySun = Still()
+    turbidity: Annotated[float, _SKY["turbidity"].meta, _SKY["turbidity"].presentation] = _SKY["turbidity"].prop.default
+
+
+class Preetham(Analytic, frozen=True, kw_only=True, tag=3):
     """Preetham analytic sky."""
 
-    sun: SkySun = Still()
-    turbidity: Annotated[float, msgspec.Meta(ge=sky_properties["turbidity"].hard_min, le=sky_properties["turbidity"].hard_max), sky_presentations["turbidity"]] = 2.2
+    sky_type = "PREETHAM"
 
 
-class HosekWilkie(Case, frozen=True, kw_only=True, tag=4):
+class HosekWilkie(Analytic, frozen=True, kw_only=True, tag=4):
     """Hosek-Wilkie analytic sky."""
 
     title = "Hosek / Wilkie"
-    sun: SkySun = Still()
-    turbidity: Annotated[float, msgspec.Meta(ge=sky_properties["turbidity"].hard_min, le=sky_properties["turbidity"].hard_max), sky_presentations["turbidity"]] = 2.2
-    ground_albedo: Annotated[float, msgspec.Meta(ge=sky_properties["ground_albedo"].hard_min, le=sky_properties["ground_albedo"].hard_max), sky_presentations["ground_albedo"]] = 0.3
+    sky_type = "HOSEK_WILKIE"
+    ground_albedo: Annotated[float, _SKY["ground_albedo"].meta, _SKY["ground_albedo"].presentation] = _SKY["ground_albedo"].prop.default
 
 
 class FixedTurn(Case, frozen=True, kw_only=True, tag=1):
@@ -131,7 +126,7 @@ class Hdri(Case, frozen=True, kw_only=True, tag=1):
 
     title = "HDRI"
     path: Annotated[str, msgspec.Meta(title="Image"), Definition(text="FILE_PATH")] = ""
-    projection: Annotated[str, Choices(lambda *_: enumerated(bpy.types.ShaderNodeTexEnvironment.bl_rna.properties["projection"]))] = "EQUIRECTANGULAR"
+    projection: Annotated[str, Choices.mirrored(_PROJECTION.prop)] = _PROJECTION.prop.default
     turn: ImageTurn = FixedTurn()
 
 
@@ -189,8 +184,10 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
     def refreshed(world: Handle[bpy.types.World], identity: Identity) -> BlenderResult[Option[str]]:
         """Reconciles world tree to stored environment, naming no undo step."""
         return (
-            paired(world.resolve().bind(tree_of), WorldEnvironment.attachment.bound(identity))
-            .bind(lambda pair: pair[1].read(pair[0]).bind(world_graph).bind(lambda graph: reconciled(graph, pair[0], identity)))
+            world
+            .resolve()
+            .bind(tree_of)
+            .bind(lambda tree: WorldEnvironment.attachment.read(identity, tree).bind(world_graph).bind(lambda graph: reconciled(graph, tree, identity)))
             .map(lambda _: Nothing)
         )
 
@@ -199,9 +196,10 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
         """Shows owned environment world on scene, defaults when none is stored."""
         identity, row = call.identity, WorldEnvironment.ownership
         return (
-            WorldEnvironment.attachment
-            .bound(identity)
-            .bind(lambda attached: _shown(row, scene, identity).bind(lambda world: Option.of_optional(world.node_tree)).map(attached.read).default_with(lambda: Ok(Environment())))
+            _shown(row, scene, identity)
+            .bind(lambda world: Option.of_optional(world.node_tree))
+            .map(lambda tree: WorldEnvironment.attachment.read(identity, tree))
+            .default_with(lambda: Ok(Environment()))
             .bind(lambda environment: world_graph(environment).map(lambda graph: (environment, graph)))
             .bind(lambda prepared: swapped(row, prepared, scene, identity))
             .map(lambda _: Done())
@@ -240,7 +238,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
             title="Environment",
             rows=tuple(Property(target=Member(root=bpy.types.Context, path=f"scene.world.{member}")) for member in ("sun_threshold", "lightgroup")),
             header=(OperatorButton(target=self.place), OperatorButton(target=self.restore)),
-            store=Some(Hosted(host=Member(root=bpy.types.Context, path="scene.world.node_tree"), store=Store(attachment=self.attachment, retention=self.retention))),
+            store=Some(Hosted(host=Some(Member(root=bpy.types.Context, path="scene.world.node_tree")), store=Store(attachment=self.attachment, retention=self.retention))),
         )
 
 
@@ -248,7 +246,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
 # --- [GRAPH]
 
 
-def _slots(environment: Environment) -> tuple[tuple[str, str, Backdrop[WorldMode] | Backdrop[Scenery]], ...]:
+def _slots(environment: Environment) -> tuple[tuple[str, Key, Backdrop[WorldMode] | Backdrop[Scenery]], ...]:
     """Returns lighting, then enabled glossy and camera slots, with source keys."""
     slots: tuple[tuple[str, bool, Backdrop[WorldMode] | Backdrop[Scenery]], ...] = (
         ("lighting", True, environment.lighting),
@@ -259,83 +257,58 @@ def _slots(environment: Environment) -> tuple[tuple[str, str, Backdrop[WorldMode
 
 
 def world_graph(environment: Environment) -> BlenderResult[Graph]:
-    """Builds world graph from enabled ray slots, accumulating node faults."""
+    """Builds world graph from enabled ray slots, each source node under its slot key."""
 
-    def sourced(key: str, mode: Scenery) -> BlenderResult[Operand]:
+    def image(kind: type[bpy.types.Node], key: Key, path: str, inputs: tuple[tuple[str, Term], ...], members: tuple[tuple[str, Value], ...]) -> Expr:
+        return Expr(
+            kind=kind,
+            inputs=inputs,
+            members=(*members, *(() if path else (("image", None),))),
+            content=Option.of_optional(path or None).map(lambda chosen: Loaded(path=chosen)),
+            socket="Color",
+            shape="RGBA",
+            label=Some(key),
+        )
+
+    def sourced(key: Key, mode: Scenery) -> Term:
         match mode:
             case FlatColor(color=color):
-                return Ok((*msgspec.structs.astuple(color), 1.0))
-            case Scattering() | Preetham() | HosekWilkie():
-                members: dict[str, Value] = {field.name: value for field in msgspec.structs.fields(type(mode)) if isinstance(value := getattr(mode, field.name), float)}
-                members.update({
-                    "sky_type": mode.sky_type if isinstance(mode, Scattering) else "PREETHAM" if isinstance(mode, Preetham) else "HOSEK_WILKIE",
+                return (*msgspec.structs.astuple(color), 1.0)
+            case Scattering() | Analytic():
+                members: dict[str, Value] = {
+                    **{field.name: value for field in msgspec.structs.fields(mode) if isinstance(value := getattr(mode, field.name), float)},
+                    "sky_type": mode.sky_type,
                     "texture_mapping.rotation": (0.0, 0.0, 0.0),
-                })
+                }
                 match mode.sun:
                     case Still(sun_elevation=elevation, sun_rotation=rotation):
-                        members.update({
-                            "sun_elevation": elevation,
-                            "sun_rotation": rotation,
-                            "sun_direction": tuple(
-                                float(value) for value in SunPosition(azimuth=np.asarray(rotation, dtype=np.float64), elevation=np.asarray(elevation, dtype=np.float64), north=0.0).vectors
-                            ),
-                        })
+                        toward = SunPosition.toward(np.asarray(rotation, dtype=np.float64), np.asarray(elevation, dtype=np.float64))
+                        members |= {"sun_elevation": elevation, "sun_rotation": rotation, "sun_direction": tuple(float(value) for value in toward)}
                     case Solar():
                         pass
                 if isinstance(mode, Scattering):
-                    members.update({"sun_disc": mode.disc.enabled if isinstance(mode.sun, Still) else False} | msgspec.structs.asdict(mode.disc.value))
-                return node(key, bpy.types.ShaderNodeTexSky, {}, members).map(ended(key, "Color"))
+                    members |= {"sun_disc": mode.disc.enabled and isinstance(mode.sun, Still)} | msgspec.structs.asdict(mode.disc.value)
+                return Expr(kind=bpy.types.ShaderNodeTexSky, members=tuple(members.items()), socket="Color", shape="RGBA", label=Some(key))
             case Hdri(path=path, projection=projection, turn=turn):
-                return node(
-                    key,
-                    bpy.types.ShaderNodeTexEnvironment,
-                    {},
-                    {"projection": projection, **({"texture_mapping.rotation": (0.0, 0.0, turn.rotation)} if isinstance(turn, FixedTurn) else {}), **({} if path else {"image": None})},
-                    Option.of_optional(path or None).map(lambda chosen: Loaded(path=chosen)),
-                ).map(ended(key, "Color"))
+                turned = (("texture_mapping.rotation", (0.0, 0.0, turn.rotation)),) if isinstance(turn, FixedTurn) else ()
+                return image(bpy.types.ShaderNodeTexEnvironment, key, path, (), (("projection", projection), *turned))
             case FrameGradient(top=top, bottom=bottom):
-                window, split = f"{key}_window", f"{key}_split"
-                return (
-                    node(window, bpy.types.ShaderNodeTexCoord, {}, {})
-                    .map(ended(window, "Window"))
-                    .bind(lambda coordinate: node(split, bpy.types.ShaderNodeSeparateXYZ, {"Vector": coordinate}, {}).map(ended(split, "Y")))
-                    .bind(lambda factor: mixed(key, "RGBA", factor, (*msgspec.structs.astuple(bottom), 1.0), (*msgspec.structs.astuple(top), 1.0)))
-                )
+                window = Expr(kind=bpy.types.ShaderNodeTexCoord, socket="Window", shape="VECTOR")
+                return mixed(window["Y"], (*msgspec.structs.astuple(bottom), 1.0), (*msgspec.structs.astuple(top), 1.0)).named(key)
             case Plate(path=path):
-                window = f"{key}_window"
-                return (
-                    node(window, bpy.types.ShaderNodeTexCoord, {}, {})
-                    .map(ended(window, "Window"))
-                    .bind(
-                        lambda coordinate: node(
-                            key, bpy.types.ShaderNodeTexImage, {"Vector": coordinate}, {} if path else {"image": None}, Option.of_optional(path or None).map(lambda chosen: Loaded(path=chosen))
-                        ).map(ended(key, "Color"))
-                    )
-                )
+                return image(bpy.types.ShaderNodeTexImage, key, path, (("Vector", Expr(kind=bpy.types.ShaderNodeTexCoord, socket="Window", shape="VECTOR")),), ())
 
-    def background(slot: str, source: str, backdrop: Backdrop[WorldMode] | Backdrop[Scenery]) -> BlenderResult[tuple[Fragment, End]]:
-        tint, output = f"{slot}_tint", f"{slot}_background"
-        return (
-            sourced(source, backdrop.mode)
-            .bind(lambda color: mixed(tint, "RGBA", 1.0, color, (*msgspec.structs.astuple(backdrop.tint), 1.0), "MULTIPLY"))
-            .bind(lambda color: node(output, bpy.types.ShaderNodeBackground, {"Color": color, "Strength": backdrop.strength}, {}).map(ended(output, "Background")))
-        )
+    def background(source: Key, backdrop: Backdrop[WorldMode] | Backdrop[Scenery]) -> Expr:
+        tinted = mixed(1.0, sourced(source, backdrop.mode), (*msgspec.structs.astuple(backdrop.tint), 1.0), blend="MULTIPLY")
+        return Expr(kind=bpy.types.ShaderNodeBackground, inputs=(("Color", tinted), ("Strength", backdrop.strength)), socket="Background")
 
-    def joined(sources: tuple[tuple[Fragment, End], ...]) -> BlenderResult[Graph]:
-        path = "rays"
-        rays = node(path, bpy.types.ShaderNodeLightPath, {}, {})
-        result: BlenderResult[tuple[Fragment, End]] = Ok(sources[0])
-        for (slot, _, _), source in zip(slots[1:], sources[1:]):
-            key = f"{slot}_join"
-            result = paired(result, rays.map(ended(path, "Is Glossy Ray" if slot == "glossy" else "Is Camera Ray"))).bind(
-                lambda pair: node(key, bpy.types.ShaderNodeMixShader, {"Fac": pair[1], "Shader": pair[0], "Shader_001": source}, {}).map(ended(key, "Shader"))
-            )
-        return result.bind(lambda shader: node("output", bpy.types.ShaderNodeOutputWorld, {"Surface": shader}, {"is_active_output": True})).map(
-            lambda fragment: Graph(kind=bpy.types.ShaderNodeTree, nodes=fragment.nodes, links=fragment.links)
-        )
+    def joined(shader: Expr, slot: tuple[str, Key, Backdrop[WorldMode] | Backdrop[Scenery]]) -> Expr:
+        ray = Expr(kind=bpy.types.ShaderNodeLightPath, socket=_RAYS[slot[0]])
+        return Expr(kind=bpy.types.ShaderNodeMixShader, inputs=(("Fac", ray), ("Shader", shader), ("Shader_001", background(*slot[1:]))), socket="Shader")
 
-    slots = _slots(environment)
-    return accumulated(starmap(background, slots)).bind(joined)
+    (_, key, lighting), *overrides = _slots(environment)
+    surface = reduce(joined, overrides, background(key, lighting))
+    return Graph.lowered(bpy.types.ShaderNodeTree, Expr(kind=bpy.types.ShaderNodeOutputWorld, inputs=(("Surface", surface),), members=(("is_active_output", True),)))
 
 
 # --- [HOLDERS]
@@ -389,7 +362,7 @@ def followers(tree: bpy.types.NodeTree, identity: Identity) -> BlenderResult[tup
 
     def followed(mode: Scenery, source: bpy.types.Node) -> tuple[Follower, ...]:
         match mode, source:
-            case Scattering(sun=Solar()) | Preetham(sun=Solar()) | HosekWilkie(sun=Solar()), bpy.types.ShaderNodeTexSky() as sky:
+            case Scattering(sun=Solar()) | Analytic(sun=Solar()), bpy.types.ShaderNodeTexSky() as sky:
                 return (sky,)
             case Hdri(turn=SolarTurn(heading=heading)), bpy.types.ShaderNodeTexEnvironment() as image:
                 return (EnvironmentNode(node=image, heading=heading),)
@@ -414,9 +387,9 @@ def studio(name: str, preferences: bpy.types.Preferences) -> BlenderResult[str]:
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
-studios = Choices(
+studios = Choices.named(
     lambda _identity, _owner, context: (
-        (light.name, light.name, "")
+        light.name
         for context in Option.of_optional(context).to_list()
         for light in context.preferences.studio_lights  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         if light.type == "WORLD"
@@ -426,6 +399,7 @@ studios = Choices(
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "Analytic",
     "Backdrop",
     "Disc",
     "Environment",

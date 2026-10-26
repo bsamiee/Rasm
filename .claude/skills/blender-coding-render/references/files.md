@@ -6,11 +6,13 @@ Covers written render files, from multilayer parts and channels to cryptomatte l
 
 Multilayer EXR parts follow which stage produced the image:
 
-| [INDEX] | [CASE]                                   | [PARTS]                                           |
-| :-----: | :--------------------------------------- | :------------------------------------------------ |
-|  [01]   | No enabled effect returns a color image  | `<layer>.<pass>` for each layer with `use` on     |
-|  [02]   | Last effect returns a color image        | `Composite.Combined` first, then view layer parts |
-|  [03]   | Strips in the editor, `use_sequencer` on | One unnamed part with channels `R`, `G`, `B`, `A` |
+| [INDEX] | [CASE]                                   | [PARTS]                                                            |
+| :-----: | :--------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | No enabled effect returns a color image  | `<layer>.<pass>` for each layer with `use` on                      |
+|  [02]   | Last effect returns a color image        | `Composite.Combined`, then view layer parts in `view_layers` order |
+|  [03]   | Strips in the editor, `use_sequencer` on | One unnamed part with channels `R`, `G`, `B`, `A`                  |
+
+Interleaved files (`use_exr_interleave`) hold every channel in one part sorted by name, and reads pick a layer by name
 
 Parts take pass display names, and channels take component suffixes in file order:
 - Light passes write `<Light> Direct`, `<Light> Indirect`, and `<Light> Color` (`Diffuse Color`)

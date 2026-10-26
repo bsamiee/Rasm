@@ -1,5 +1,5 @@
-<svg aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" >
-  <path d="M1.5 4.5H14.5M1.5 11.5H14.5" stroke="#212529"/>
-  <circle cx="5.5" cy="4.5" fill="#74c0fc" r="2.5" stroke="#212529"/>
-  <circle cx="10.5" cy="11.5" fill="#74c0fc" r="2.5" stroke="#212529"/>
+<svg aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="0.5" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" >
+  <path d="M1.25 4.25H14.75M1.25 11.75H14.75" stroke="#212529"/>
+  <circle cx="5.25" cy="4.25" fill="#74c0fc" r="2.5" stroke="#212529"/>
+  <circle cx="10.75" cy="11.75" fill="#74c0fc" r="2.5" stroke="#212529"/>
 </svg>

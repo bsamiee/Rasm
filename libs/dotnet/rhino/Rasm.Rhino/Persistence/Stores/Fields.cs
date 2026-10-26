@@ -121,16 +121,13 @@ public static class FieldTexts {
 
     // --- [NUMBERS]
     public static (Func<TKey, string> Shown, Func<TKey, string> Entry) Number<TKey>(Presentation<TKey> presentation, (TKey Low, TKey High) bounds)
-        where TKey : struct, System.Numerics.INumber<TKey> =>
-        Number(Quantities.Scalar(presentation, bounds), presentation, bounds);
-
-    public static (Func<TKey, string> Shown, Func<TKey, string> Entry) Number<TKey>(ScalarDisplay display, Presentation<TKey> presentation, (TKey Low, TKey High) bounds)
         where TKey : struct, System.Numerics.INumber<TKey> {
+        ScalarDisplay display = Quantities.Scalar(presentation, bounds);
         string digits = display.Decimals is 0 ? "0" : $"0.{new string('0', display.Decimals)}";
         string format = presentation.Soft.IfNone(bounds).Low < TKey.Zero ? $"+{digits};-{digits};{digits}" : digits;
-        Func<TKey, CultureInfo, string> number = (key, culture) => display.Shown(double.CreateChecked(key)).ToString(format, culture);
+        Func<TKey, string> number = key => display.Shown(double.CreateChecked(key)).ToString(format, RowText.Culture);
         return (
-            key => display.Symbol.Match(Some: symbol => $"{number(key, RowText.Culture)} {symbol}", None: () => number(key, RowText.Culture)),
+            key => display.Symbol.Match(Some: symbol => $"{number(key)} {symbol}", None: () => number(key)),
             key => display.Shown(double.CreateChecked(key)).ToString("R", CultureInfo.InvariantCulture));
     }
 

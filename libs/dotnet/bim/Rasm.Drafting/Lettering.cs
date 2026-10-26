@@ -50,11 +50,11 @@ public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator
     private Length Stroke => TextHeight / Form.Divisor;
 
     // --- [DIMENSIONING]
-    public Length MaskOffset => SymbolLineWidth * 2;
+    public Length MaskOffset => SymbolLineWidth * Size.Convention.Dimensioning.Mask;
     public Length ArrowLength => TextHeight * Terminator.Proportion;
-    public Length ExtensionLineOffset => SymbolLineWidth * 8;
-    public Length ExtensionLineExtension => SymbolLineWidth * 8;
-    public Length LeaderLandingLength => SymbolLineWidth * 20;
+    public Length ExtensionLineOffset => SymbolLineWidth * Size.Convention.Dimensioning.Offset;
+    public Length ExtensionLineExtension => SymbolLineWidth * Size.Convention.Dimensioning.Extension;
+    public Length LeaderLandingLength => SymbolLineWidth * Size.Convention.Dimensioning.Landing;
 
     private Length SymbolLineWidth => TextHeight / 10;
 

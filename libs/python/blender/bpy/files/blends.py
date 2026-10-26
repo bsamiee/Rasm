@@ -1,19 +1,14 @@
-"""Blend file saves, loads, dependency packs, projects, and comparison."""
+"""Blend file saves, loads, dependency packs, and projects."""
 
-from collections import Counter
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
-from contextlib import contextmanager, ExitStack
+from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import auto, Enum
-from itertools import accumulate, batched, count, starmap, takewhile
-from math import prod
+from itertools import starmap
 import os
 from pathlib import Path
-import re
 import shutil
-import struct
 from typing import Literal, Self
 
-from _blendfile_header import BlendFileHeader, BlendHeaderError, BlockHeader
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
@@ -21,10 +16,10 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.data.ids.ownership import committed
-from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.descriptors import Value, written
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderReadFault, BlenderResult, BlenderWriteFault
-from blender.imaging.faults import accumulated, paired
+from blender.bpy.data.ids.store import Handle, STORES
+from blender.bpy.data.rna.descriptors import assigned, Value
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
+from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -138,15 +133,6 @@ class Project(msgspec.Struct, frozen=True, kw_only=True):
     libraries: Mapping[str, str] = msgspec.field(default_factory=dict)
 
 
-class Difference(msgspec.Struct, frozen=True, kw_only=True):
-    """Unequal normalized block counts for one code and DNA struct."""
-
-    code: str
-    name: str
-    left: int
-    right: int
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [LIFTS]
@@ -154,7 +140,11 @@ class Difference(msgspec.Struct, frozen=True, kw_only=True):
 
 def folder_made(folder: Path) -> BlenderResult[Path]:
     """Returns existing or created folder, or write fault."""
-    return catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map(lambda _: folder).map_error(lambda error: (BlenderWriteFault(request=folder, error=error),))
+    return (
+        catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)()
+        .map(lambda _: folder)
+        .map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=folder, error=error),))
+    )
 
 
 def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path, ...]]:
@@ -164,7 +154,9 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
 
     def one(source: Path, target: Path) -> BlenderResult[Path]:
-        return folder_made(target.parent).bind(lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=target, error=error),)))
+        return folder_made(target.parent).bind(
+            lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=target, error=error),))
+        )
 
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 
@@ -172,15 +164,17 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path
 def sourced[T](
     data: bpy.types.BlendData, path: Path, take: Callable[[object], tuple[T, Mapping[str, Sequence[str]]]], **keywords: bool
 ) -> BlenderResult[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
-    """Returns source selection with loaded destination slots."""
-    try:
-        with data.libraries.load(str(path), **keywords) as (source, target):  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[invalid-context-manager]
-            value, chosen = take(source)
-            for name, names in chosen.items():
-                setattr(target, name, list(names))
-        return Ok((value, {name: tuple(getattr(target, name)) for name in chosen}))
-    except (OSError, ValueError) as error:
-        return Error((BlenderReadFault(request=path, error=error),))
+    """Returns source selection with loaded destination slots, read fault when the library load refuses the file."""
+    load: AbstractContextManager[tuple[object, object]] = data.libraries.load(str(path), **keywords)  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
+    with ExitStack() as loading:
+        try:
+            source, target = loading.enter_context(load)
+        except (OSError, ValueError) as error:
+            return Error((ImagingFileFault(access=Access.READ, request=path, error=error),))
+        value, chosen = take(source)
+        for name, names in chosen.items():
+            setattr(target, name, list(names))
+    return Ok((value, {name: tuple(getattr(target, name)) for name in chosen}))
 
 
 # --- [SAVE]
@@ -202,11 +196,6 @@ def saved(path: Path, kind: SaveMode, *, compress: Option[bool] = Nothing, remap
     return folder_made(path.parent).bind(lambda _: written())
 
 
-def snapshot(path: Path) -> BlenderResult[Path]:
-    """Saves uncompressed comparison copy with unchanged paths."""
-    return saved(path, SaveMode.COPY, compress=Some(False), remap=Some(False))
-
-
 # --- [LOAD]
 
 
@@ -226,13 +215,9 @@ def session_loaded(load: Load) -> BlenderResult[BlendFile]:
 
 @contextmanager
 def inspected(path: Path) -> Generator[BlenderResult[bpy.types.BlendData]]:
-    """Yields temporary BlendData of another file until scope exit."""
+    """Yields temporary BlendData of another file until scope exit, libraries and workspaces left unlinked."""
+    stores = frozenset(identifier for kind, identifier in STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
     with bpy.data.temp_data(filepath="") as data:  # type: ignore[var-annotated]
-        stores = frozenset(
-            prop.identifier
-            for prop in bpy.types.BlendData.bl_rna.properties
-            if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, (bpy.types.Library, bpy.types.WorkSpace))
-        )
         yield sourced(data, path, lambda source: (None, {name: getattr(source, name) for name in sorted(stores.intersection(dir(source)))}), link=True).map(lambda _: data)  # ty: ignore[unsound-yield]
 
 
@@ -309,18 +294,23 @@ def packed(root: Path, *, compress: Option[bool] = Nothing) -> BlenderResult[Pac
 
 
 def projected(project: Project) -> BlenderResult[None]:
-    """Reconciles open project with desired state."""
+    """Reconciles open project with desired state, removing items it created when any write refuses."""
 
     def initialized() -> BlenderResult[bpy.types.BlenderProject]:
-        try:
-            bpy.data.project_init(project.name, str(project.root))
-        except RuntimeError as error:
-            return Error((BlenderEditFault(request="bpy.data", error=error),))
-        return Option.of_optional(bpy.data.project).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.data", key="project"),))
+        return BlenderEditFault.attempted("bpy.data", lambda: bpy.data.project_init(project.name, str(project.root))).bind(
+            lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.data", key="project"),))
+        )
 
     def reconciled(current: bpy.types.BlenderProject) -> BlenderResult[None]:
         variables, libraries = dict(current.variables.items()), tuple(current.asset_libraries.items())
         with ExitStack() as cleanup:
+
+            def created[T](request: str, name: str, made: Callable[[], T | None], removed: Callable[[T], object]) -> BlenderResult[T]:
+                def held(item: T) -> T:
+                    cleanup.callback(removed, item)
+                    return item
+
+                return BlenderEditFault.attempted(request, made).bind(lambda item: Option.of_optional(item).map(held).to_result_with(lambda: (BlenderAbsentFault(owner=request, key=name),)))
 
             def placed(name: str, variable: TemplateVariable) -> BlenderResult[None]:
                 kind: Literal["STRING", "INTEGER", "FLOAT"]
@@ -334,39 +324,30 @@ def projected(project: Project) -> BlenderResult[None]:
                         kind, values = "INTEGER", {"value": number}
                     case float(number):
                         kind, values = "FLOAT", {"value": number}
-                match Option.of_optional(variables.get(name)):
-                    case Option(tag="some", some=item) if item.type == kind:
-                        made = Some(item)
-                    case held:
-                        for item in held.to_list():
-                            current.variables.remove(item)
-                        try:
-                            made = Option.of_optional(current.variables.new(name, type=kind))
-                        except RuntimeError as error:
-                            return Error((BlenderEditFault(request=repr(current.variables), error=error),))
-                        for item in made.to_list():
-                            cleanup.callback(current.variables.remove, item)
-                return made.map(lambda item: accumulated(written(item, key, value) for key, value in {**values, "description": variable.description}.items()).map(lambda _: None)).default_with(
-                    lambda: Error((BlenderAbsentFault(owner=repr(current.variables), key=name),))
+
+                def replaced() -> BlenderResult[bpy.types.ProjectVariable]:
+                    for item in Option.of_optional(variables.get(name)).to_list():
+                        current.variables.remove(item)
+                    return created(repr(current.variables), name, lambda: current.variables.new(name, type=kind), current.variables.remove)
+
+                return (
+                    Option
+                    .of_optional(variables.get(name))
+                    .filter(lambda item: item.type == kind)
+                    .map(Ok)
+                    .default_with(replaced)
+                    .bind(lambda item: assigned(item, {**values, "description": variable.description}))
                 )
 
             def library(name: str, path: str) -> BlenderResult[None]:
                 match tuple(item for held, item in libraries if held == name):
                     case ():
-                        try:
-                            made = Option.of_optional(current.asset_libraries.new(name=name, directory=path)).to_result_with(
-                                lambda: (BlenderAbsentFault(owner=repr(current.asset_libraries), key=name),)
-                            )
-                        except RuntimeError as error:
-                            return Error((BlenderEditFault(request=repr(current.asset_libraries), error=error),))
-                        for item in made.to_option().to_list():
-                            cleanup.callback(current.asset_libraries.remove, item)
-                        return made.map(lambda _: None)
+                        return created(repr(current.asset_libraries), name, lambda: current.asset_libraries.new(name=name, directory=path), current.asset_libraries.remove).map(lambda _: None)
                     case items:
-                        return accumulated(written(item, "path", path) for item in items).map(lambda _: None)
+                        return accumulated(assigned(item, {"path": path}) for item in items).map(lambda _: None)
 
             return committed(
-                accumulated((written(current, "name", project.name).map(lambda _: None), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items()))).bind(
+                accumulated((assigned(current, {"name": project.name}), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items()))).bind(
                     lambda _: called(bpy.ops.project.save_project, {}).map(lambda _: None) if current.is_dirty else Ok(None)
                 ),
                 cleanup,
@@ -379,119 +360,11 @@ def projected(project: Project) -> BlenderResult[None]:
             return initialized().bind(reconciled)
 
 
-# --- [COMPARISON]
-
-
-def compared(left: Path, right: Path) -> BlenderResult[tuple[Difference, ...]]:
-    """Returns unequal normalized block counts of both files."""
-    type BlockKey = tuple[bytes, bytes, int]
-    type Normal = bytes | tuple[BlockKey | None, ...]
-    type Canonical = tuple[str, str, bytes | tuple[Normal, ...]]
-
-    class Pointers(msgspec.Struct, frozen=True, kw_only=True):
-        offset: int
-        codec: struct.Struct
-
-        def normalized(self, data: bytes, start: int, addressed: Mapping[int, BlockKey]) -> Normal:
-            return tuple(addressed.get(address) for address in self.codec.unpack_from(data, start + self.offset))
-
-    class Span(msgspec.Struct, frozen=True, kw_only=True):
-        name: str
-        offset: int
-        size: int
-        text: bool
-
-        def normalized(self, data: bytes, start: int) -> bytes:
-            held = data[start + self.offset : start + self.offset + self.size]
-            return held.partition(b"\0")[0] if self.text else held
-
-    class StructLayout(msgspec.Struct, frozen=True, kw_only=True):
-        name: str
-        size: int
-        members: tuple[Pointers | Span, ...]
-
-        def normalized(self, data: bytes, total: int, addressed: Mapping[int, BlockKey]) -> bytes | tuple[Normal, ...]:
-            return (
-                tuple(
-                    member.normalized(data, start, addressed) if isinstance(member, Pointers) else member.normalized(data, start) for start in range(0, len(data), self.size) for member in self.members
-                )
-                if 0 < len(data) == self.size * total
-                else data
-            )
-
-    def layouts(dna: bytes, order: str, pointer: int) -> tuple[StructLayout, ...]:
-        int32, address = struct.Struct(f"{order}i"), "Q" if pointer == 8 else "I"
-
-        def strings(offset: int) -> tuple[tuple[str, ...], int]:
-            (total,) = int32.unpack_from(dna, offset)
-            items = dna[offset + int32.size :].split(b"\0", total)[:total]
-            return tuple(item.decode() for item in items), (offset + int32.size + sum(len(item) + 1 for item in items) + 3) & ~3
-
-        names, typed = strings(8)
-        types, sized = strings(typed + 4)
-        lengths = struct.unpack_from(f"{order}{len(types)}H", dna, sized + 4)
-        offset = ((sized + 4 + 2 * len(types) + 3) & ~3) + 4
-        (total,) = int32.unpack_from(dna, offset)
-        offset += int32.size
-        structures: dict[int, tuple[tuple[int, int], ...]] = {}
-        for _ in range(total):
-            kind, width = struct.unpack_from(f"{order}2H", dna, offset)
-            structures[kind] = tuple(batched(struct.unpack_from(f"{order}{2 * width}H", dna, offset + 4), 2))
-            offset += 4 + 4 * width
-
-        def members(kind: int, offset: int) -> tuple[Pointers | Span, ...]:
-            found: list[Pointers | Span] = []
-            for member, name in structures[kind]:
-                size = (pointer if "*" in names[name] else lengths[member]) * prod(int(n) for n in re.findall(r"\[(\d+)\]", names[name]))
-                if "*" in names[name]:
-                    found.append(Pointers(offset=offset, codec=struct.Struct(f"{order}{size // pointer}{address}")))
-                elif member in structures:
-                    found.extend(leaf for start in range(offset, offset + size, lengths[member]) for leaf in members(member, start))
-                else:
-                    found.append(Span(name=names[name].partition("[")[0], offset=offset, size=size, text=types[member] == "char" and "[" in names[name]))
-                offset += size
-            return tuple(found)
-
-        return tuple(StructLayout(name=types[kind], size=lengths[kind], members=members(kind, 0)) for kind in structures)
-
-    def canonical(path: Path) -> BlenderResult[Counter[Canonical]]:
-        try:
-            with path.open("rb") as file:
-                header = BlendFileHeader(file)  # type: ignore[call-arg]  # ty: ignore[too-many-positional-arguments]
-                shape = header.create_block_header_struct()  # type: ignore[func-returns-value]
-                blocks = tuple(takewhile(lambda block: block[0].code != b"ENDB", ((head, file.read(head.size)) for head in (BlockHeader(file, shape) for _ in count()))))  # type: ignore[call-arg]  # ty: ignore[too-many-positional-arguments]
-        except OSError as error:
-            return Error((BlenderReadFault(request=path, error=error),))
-        except BlendHeaderError:  # type: ignore[misc]  # ty: ignore[invalid-exception-caught]
-            return Error((BlenderAbsentFault(owner=str(path), key=BlendFileHeader.__name__),))
-        shapes = layouts(next(data for head, data in blocks if head.code == b"DNA1"), "<" if header.is_little_endian else ">", header.pointer_size)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        named = next(member for member in next(layout for layout in shapes if layout.name == "ID").members if isinstance(member, Span) and member.name == "name")
-
-        def owned(above: BlockKey, block: tuple[BlockHeader, bytes]) -> BlockKey:
-            code = block[0].code
-            if len(code) == 4:
-                return above[0], above[1], above[2] + 1
-            name = named.normalized(block[1], 0)
-            return (name, name, 0) if code == b"LI" else (above[0], name, 0)
-
-        keys = tuple(accumulate(blocks, owned, initial=(b"", b"", 0)))[1:]
-        addressed = {head.addr_old: key for (head, _), key in zip(blocks, keys)}
-        return Ok(Counter((head.code.decode(), shapes[head.sdna_index].name, shapes[head.sdna_index].normalized(data, head.count, addressed)) for head, data in blocks if head.code != b"TEST"))
-
-    def differences(before: Counter[Canonical], after: Counter[Canonical]) -> tuple[Difference, ...]:
-        lost = Counter(key[:2] for key in (before - after).elements())
-        gained = Counter(key[:2] for key in (after - before).elements())
-        return tuple(Difference(code=code, name=name, left=lost[code, name], right=gained[code, name]) for code, name in sorted(lost.keys() | gained.keys()))
-
-    return paired(canonical(left), canonical(right)).map(lambda pair: differences(*pair))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "BlendFile",
     "Dependency",
-    "Difference",
     "Home",
     "Load",
     "Mirrored",
@@ -504,7 +377,6 @@ __all__ = [
     "Revert",
     "SaveMode",
     "TemplateVariable",
-    "compared",
     "dependencies",
     "files_copied",
     "folder_made",
@@ -515,6 +387,5 @@ __all__ = [
     "relinked",
     "saved",
     "session_loaded",
-    "snapshot",
     "sourced",
 ]

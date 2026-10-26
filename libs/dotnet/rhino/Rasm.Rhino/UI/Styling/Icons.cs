@@ -6,7 +6,6 @@ using Rasm.Rhino.Persistence.Settings;
 using Rhino.PlugIns;
 using Rhino.Resources;
 using Rhino.Runtime;
-using Rhino.UI;
 
 namespace Rasm.Rhino.UI.Styling;
 
@@ -33,8 +32,6 @@ public sealed partial class GlyphRole : IGlyph {
     public static readonly GlyphRole Options = new("options.svg", Own);
     public static readonly GlyphRole Grid = new("grid.svg", Own);
     public static readonly GlyphRole List = new("list.svg", Own);
-    public static readonly GlyphRole FavoriteOn = new("favorite-on.svg", Own);
-    public static readonly GlyphRole FavoriteOff = new("favorite-off.svg", Own);
     public static readonly GlyphRole VerticalWipe = new("vertical-wipe.svg", Own);
     public static readonly GlyphRole HorizontalWipe = new("horizontal-wipe.svg", Own);
     public static readonly GlyphRole SideBySide = new("side-by-side.svg", Own);
@@ -50,17 +47,14 @@ public sealed partial class GlyphRole : IGlyph {
 public sealed partial class IconSlot {
     public static readonly IconSlot PanelTab = new(static () => Accessors.Scoped(nameof(Accessors.TabIconSize), IO.lift(static () => Accessors.TabIconSize(owner: null))));
     public static readonly IconSlot PanelButton = new(static () => Accessors.Scoped(nameof(Accessors.Get), IO.lift(static () => Accessors.Get(Accessors.PrivatePanelButtonSize(Accessors.ToolbarButtons)))));
-    public static readonly IconSlot PickButton = new(static () => IO.pure(16));
-    public static readonly IconSlot ListCell = new(static () => IO.pure(16));
+    public static readonly IconSlot Small = new(static () => IO.pure(16));
     public static readonly IconSlot DropDownItem = new(static () => IO.pure(HostUtils.RunningOnOSX ? 14 : 16));
-    public static readonly IconSlot MenuItem = new(static () => IO.pure(16));
-    public static readonly IconSlot Window = new(static () => IO.pure(16));
     public static readonly IconSlot Banner = new(static () => IO.pure(44));
-    public static readonly IconSlot ContentMenu = new(static () => IO.pure(16));
     public static readonly IconSlot SectionHeader = new(static () => IO.pure(20));
     public static readonly IconSlot RenderTab = new(static () => IO.pure(HostUtils.RunningOnOSX ? 20 : 16));
-    public static readonly IconSlot PropertiesPage = new(static () => IO.lift(static () => Panels.IconSize.Width));
     public static readonly IconSlot Cursor = new(static () => IO.pure(24));
+
+    public IO<Size> Pixels => Size().Bind(static size => HostTheme.Device(new(size, size)));
 
     [UseDelegateFromConstructor]
     public partial IO<int> Size();
@@ -84,11 +78,7 @@ public static class Icons {
         Frames(GlyphRole.Pick, IconSlot.Cursor).Bind(icon => DisposalOps.Acquire(IO.lift(() => new Cursor(icon, new(0f, icon.Height))), retain));
 
     // --- [DRAWING]
-    public static IO<Bitmap> Raster(IGlyph glyph, IconSlot slot) =>
-        from size in slot.Size()
-        from pixels in HostTheme.Device(new(size, size))
-        from bitmap in Raster(glyph, pixels)
-        select bitmap;
+    public static IO<Bitmap> Raster(IGlyph glyph, IconSlot slot) => slot.Pixels.Bind(pixels => Raster(glyph, pixels));
 
     public static IO<Bitmap> Raster(IGlyph glyph, Size pixels) =>
         IO.lift(() => glyph.Assets.SystemDrawing.Bitmaps.Get(glyph.Key, pixels));

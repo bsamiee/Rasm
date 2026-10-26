@@ -23,29 +23,12 @@ using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
 using UnitsNet;
-using UnitsNet.Units;
 using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HistorySettingRows(PlugInSetting<int, int> Capacity, PlugInSetting<int, int> Window) {
-    public static HistorySettingRows Default { get; } = new(
-        Capacity: new(ValueKey.Numeric("HistorySteps", "Undo steps", "Edits per section for undo, redo, and restore, 0 disables history", HistoryLimits.Default.Capacity,
-            new NumericDomain<int, int>(Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((1, 100)) })), SettingType.Integer),
-        Window: new(ValueKey.Numeric("HistoryMergeWindow", "Merge edits within", "Joins consecutive section edits into one undo step",
-            (int)HistoryLimits.Default.Window.TotalSeconds,
-            new NumericDomain<int, int>(Fin.Succ, identity, (0, int.MaxValue), new() { Form = NumberForm.Field, Soft = Some((0, 600)), Unit = Quantity.GetUnitInfo(DurationUnit.Second) })),
-            SettingType.Integer));
-
-    public Seq<PlugInSetting> Rows => [Capacity, Window];
-
-    public Seq<Child> Children => [
-        new ControlRow.Group("Section history", RowRules.Always) { Wording = Wording.Library },
-        .. SectionRows.Setting(Capacity, RowRules.Always),
-        .. SectionRows.Setting(Window, RowRules.Always),
-    ];
-
     public IO<HistoryLimits> Limits(ISettingReader reader) =>
         IO.lift(() => (reader.Current(Capacity), reader.Current(Window))
             .Apply(static (capacity, seconds) => new HistoryLimits(capacity, Duration.FromSeconds(seconds)))
@@ -161,7 +144,7 @@ public static class SectionRows {
 
     private static Seq<ControlRow> Amount<TState>(EffectState<TState> state, EtoPostEffectCollapsibleSection section)
         where TState : IStateRecord<TState> =>
-        state.Default.Amount.ToSeq().Bind(factory => Accepted(Library(RowSource.Keyed(state.Owner, EffectStates.AmountKey(factory), _ => Mixed(state, section, factory))), RowRules.Always));
+        state.Default.Amount.ToSeq().Bind(factory => Accepted(RowSource.Keyed(state.Owner, EffectStates.AmountKey(factory), _ => Mixed(state, section, factory)), RowRules.Always));
 
     // --- [SCOPES]
     public static IO<Option<ScopeFrames>> Scoped<TState>(PostEffectType stage, EffectState<TState> state, Atom<StageFrame> input) where TState : IPixelStage<TState> =>
@@ -241,10 +224,9 @@ public static class SectionRows {
     public static (RowSource<TValue> Source, RowField<TValue> Field) Setting<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
         where TRaw : notnull =>
-        Library(RowSource.Keyed(nameof(PlugInSettings), row.Value, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)));
-
-    private static (RowSource<T> Source, RowField<T> Field) Library<T>((RowSource<T> Source, RowField<T> Field) pair) where T : notnull =>
-        (pair.Source, pair.Field with { Wording = Wording.Library });
+        RowSource.Keyed(nameof(PlugInSettings), row.Value, scope => PlugInSettings.Store(((IPlugInViews)scope.Sink).Settings, row)) switch {
+            var (source, field) => (source with { Setting = Some<PlugInSetting>(row) }, field),
+        };
 
     private static Seq<ControlRow> Accepted<T>((RowSource<T> Source, RowField<T> Field) pair, RowRules rules) where T : notnull =>
         pair.Field.Parameter.Kind.Accept(new ItemRow<T>(pair.Source, pair.Field, None, rules));
@@ -288,7 +270,7 @@ public static class SectionRows {
                             current => StateCase<TValue>.Items.First(item => item.Holds(lens.Get(current))),
                             picked => current => picked.Holds(lens.Get(current)) ? current : lens.Set(picked.Default, current)),
                         scope => IO.pure(cases.Map(each => new ChoiceItem<StateCase<TValue>>(
-                            each.Item, Wording.English.Shown(each.Item.Caption, scope.Sink), None))), rules)
+                            each.Item, RowText.Localize(each.Item.Caption, scope.Sink).Local, None))), rules)
                     .Cons(cases.Bind(static each => each.Rows)),
             };
 
@@ -296,7 +278,7 @@ public static class SectionRows {
             [ChoiceRows.Choice(source, field, lens, scope => IO.pure(ChoiceRows.Members(caption, scope.Sink)), rules)];
 
         public Seq<ControlRow> Record<TNested>(Lens<TState, TNested> lens) where TNested : IStateRecord<TNested> =>
-            new ControlRow.Group(field.Caption, rules) { Wording = field.Wording }.Cons(Nested(source, Seq(field.Parameter.Key), lens, stage, rules));
+            new ControlRow.Group(field.Caption, rules).Cons(Nested(source, Seq(field.Parameter.Key), lens, stage, rules));
 
         public Seq<ControlRow> OptionalRecord<TNested>(Lens<TState, Gated<TNested>> lens) where TNested : IStateRecord<TNested> =>
             ToggleRows.Check(source, field, Prelude.lens(lens, Gated<TNested>.EnabledEntry.Lens), rules).Cons(Nested(
@@ -411,9 +393,9 @@ public static class SectionRows {
                 .Bind(available => IO.lift(() => command.Enabled = available.IsSome)).Map(unit)
             let site = new CallbackSite(scope.Sink, typeof(Eto.Forms.Command), nameof(Eto.Forms.Command.Executed))
             from executed in Subscriptions.Attach(handler => command.Executed += handler, handler => command.Executed -= handler, Callbacks.Handler<System.EventArgs>(_ => Metered(scope, exposure, stage, mailbox, retain), site), retain)
-            from button in ButtonRows.Push(command, retain)
+            from button in ButtonRows.Push(command, None, scope.Sink, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), show, None, None),
-            "Exposure meter", "Meters stage input once and writes exposure", RowRules.Always) { Wording = Wording.Library };
+            "Exposure meter", "Meters stage input once and writes exposure", RowRules.Always);
 
     private static IO<Unit> Metered(
         RowScope scope, RowSource<ExposureState> exposure, Option<StageInput> stage, Func<(Unit Key, Fin<ExposureState> Value), IO<Unit>> mailbox, Action<IDisposable> retain) =>
@@ -428,7 +410,7 @@ public static class SectionRows {
     // --- [CDL_FILES]
     private static ControlRow Opened(RowSource<CdlState> cdl) =>
         Pushed(new CommandRow.Run(
-            new CommandFace("cdl-open", "Open CDL...", "Read correction from ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
+            new CommandFace("cdl-open", "Open CDL...", "Read correction from ASC .cc, .ccc, or .cdl file", None, None),
             None,
             scope => (
                 from paths in HostDialogs.ShowOpenDialog(new OpenFileDialog {
@@ -449,7 +431,7 @@ public static class SectionRows {
 
     private static ControlRow Saved(RowSource<CdlState> cdl) =>
         Pushed(new CommandRow.Run(
-            new CommandFace("cdl-save", "Save CDL...", "Write correction as ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
+            new CommandFace("cdl-save", "Save CDL...", "Write correction as ASC .cc, .ccc, or .cdl file", None, None),
             None,
             scope => (
                 from held in scope.Read(cdl)
@@ -469,7 +451,7 @@ public static class SectionRows {
     public static ControlRow Pushed(CommandRow.Run run) =>
         new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
             from realized in run.Realize(scope, retain)
-            from button in ButtonRows.Push(realized.Commands, retain)
+            from button in ButtonRows.Push(realized.Commands, None, scope.Sink, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), realized.Refresh, None, None),
-            run.Face.Caption, run.Face.Help, new RowRules(run.Enabled, None)) { Wording = run.Face.Wording };
+            run.Face.Caption, run.Face.Help, new RowRules(run.Enabled, None));
 }

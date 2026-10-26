@@ -1,6 +1,6 @@
-<svg aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" >
-  <rect fill="#74c0fc" height="4" rx="1" stroke="#212529" width="4" x="1.5" y="1.5" />
-  <rect fill="#74c0fc" height="4" rx="1" stroke="#212529" width="4" x="1.5" y="6" />
-  <rect fill="#74c0fc" height="4" rx="1" stroke="#212529" width="4" x="1.5" y="10.5" />
-  <path d="M8 3.5H14.5M8 8H14.5M8 12.5H14.5" stroke="#212529"/>
+<svg aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="0.5" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" >
+  <rect fill="#74c0fc" height="3.5" rx="1" stroke="#212529" width="3.5" x="1.25" y="1.25" />
+  <rect fill="#74c0fc" height="3.5" rx="1" stroke="#212529" width="3.5" x="1.25" y="6.25" />
+  <rect fill="#74c0fc" height="3.5" rx="1" stroke="#212529" width="3.5" x="1.25" y="11.25" />
+  <path d="M7.75 2.75H14.75M7.75 7.75H14.75M7.75 12.75H14.75" stroke="#212529"/>
 </svg>

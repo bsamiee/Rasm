@@ -26,8 +26,6 @@ internal class DataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugi
     : TypeAssistant<T>(RowText.Localize(name, plugin).Local), GrasshopperIO.ICustomIoId {
     public Guid CustomIoId { get; } = parameterId;
 
-    protected IGrasshopperPlugin Plugin { get; } = plugin;
-
     public sealed override IIcon Icon { get; } = icon;
 
     public override T Copy(T instance) => copy(instance);
@@ -40,8 +38,9 @@ internal class DataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugi
 internal sealed class ImageDataAssistant(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon)
     : DataAssistant<PixelFrame>(parameterId, name, plugin, icon, static frame => frame.Copy(),
         static frame => string.Create(CultureInfo.InvariantCulture, $"{frame.Size.Width} × {frame.Size.Height} at {frame.Origin} in {frame.Extent.Width} × {frame.Extent.Height}")) {
-    public override IValueDisplay Show(Pear<PixelFrame> pear) =>
-        pear is null ? base.Show(pear) : new ImageValueDisplay(pear, base.Show(pear), new(Plugin, typeof(ImageValueDisplay), nameof(IValueDisplay.Draw)));
+    private readonly CallbackSite site = new(plugin, typeof(ImageValueDisplay), nameof(IValueDisplay.Draw));
+
+    public override IValueDisplay Show(Pear<PixelFrame> pear) => pear is null ? base.Show(pear) : new ImageValueDisplay(pear, base.Show(pear), site);
 }
 
 internal sealed class ImageValueDisplay(Pear<PixelFrame> image, IValueDisplay text, CallbackSite site) : IValueDisplay {
@@ -207,20 +206,27 @@ public static class DataTypes {
     public static Func<IGrasshopperPlugin, IO<Unit>> Stored<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe, Func<T, string> capture, Func<string, Fin<T>> recall) =>
         plugin => Registered(new StoredDataAssistant<T>(parameterId, name, plugin, icon, copy, describe, capture, recall));
 
-    public static Func<IGrasshopperPlugin, IO<Unit>> Number<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
+    public static Func<IGrasshopperPlugin, IO<Unit>> Number<TValue, TKey>(
+        Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, Option<Func<TValue, string>> describe = default)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
-        Numeric(parameterId, name, icon, value => StoredText.Capture(value, key), create, key, arithmetic: !typeof(IQuantity).IsAssignableFrom(typeof(TValue)));
+        plugin => Registered(
+            new NumericDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, describe.IfNone(value => StoredText.Capture(value, key)), create, key),
+            [
+                Converted<double, TValue>(NumberConversions<TValue, TKey>.Inbound),
+                Converted<TValue, double>(NumberConversions<TValue, TKey>.Outbound),
+                Converted<int, TValue>(NumberConversions<TValue, TKey>.Inbound),
+                Converted<TValue, int>(NumberConversions<TValue, TKey>.Outbound),
+                .. typeof(IQuantity).IsAssignableFrom(typeof(TValue))
+                    ? []
+                    : Seq(typeof(ValueArithmetic<TValue, TKey>), typeof(OperandArithmetic<TValue, TKey, double>), typeof(OperandArithmetic<TValue, TKey, int>))
+                        .Map<(string, Func<bool>)>(static repository => (nameof(Arithmetic.AddRepository), () => Arithmetic.AddRepository(repository) > 0)),
+            ]);
 
     internal static Func<IGrasshopperPlugin, IO<Unit>> OptionalNumber<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
         Schema(FieldTexts.Gate(FieldTexts.Leaf(value => StoredText.Capture(value, key), text => StoredText.Recall(text, create, key))), parameterId, name, icon);
-
-    public static Func<IGrasshopperPlugin, IO<Unit>> Integer<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
-        where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>
-        where TKey : struct, System.Numerics.IBinaryInteger<TKey> =>
-        Numeric(parameterId, name, icon, describe, ValidationResults.Validated<TValue, TKey>, static value => value.ToValue());
 
     public static Func<IGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
@@ -232,23 +238,6 @@ public static class DataTypes {
                 Converted<TValue, TRaw>(KeyConversions<TValue, TRaw>.Outbound)));
 
     // --- [REGISTRATION]
-    private static Func<IGrasshopperPlugin, IO<Unit>> Numeric<TValue, TKey>(
-        Guid parameterId, string name, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, bool arithmetic = true)
-        where TValue : notnull
-        where TKey : struct, System.Numerics.INumber<TKey> =>
-        plugin => Registered(
-            new NumericDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, describe, create, key),
-            [
-                Converted<double, TValue>(NumberConversions<TValue, TKey>.Inbound),
-                Converted<TValue, double>(NumberConversions<TValue, TKey>.Outbound),
-                Converted<int, TValue>(NumberConversions<TValue, TKey>.Inbound),
-                Converted<TValue, int>(NumberConversions<TValue, TKey>.Outbound),
-                .. arithmetic
-                    ? Seq(typeof(ValueArithmetic<TValue, TKey>), typeof(OperandArithmetic<TValue, TKey, double>), typeof(OperandArithmetic<TValue, TKey, int>))
-                        .Map<(string, Func<bool>)>(static repository => (nameof(Arithmetic.AddRepository), () => Arithmetic.AddRepository(repository) > 0))
-                    : [],
-            ]);
-
     internal static (Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register) Field<T>(Func<Guid, string, IIcon, Func<IGrasshopperPlugin, IO<Unit>>> create) =>
         (typeof(T), plugin =>
             from assistant in IO.lift(static () => Optional(TypeAssistantServer.Find<T>()))

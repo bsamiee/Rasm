@@ -5,8 +5,8 @@ using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Rhino.UI;
@@ -15,9 +15,9 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record CommitMode {
-    public bool Drafts => Map(immediate: false, revertible: false, deferred: true, targets: false, contents: false);
+    public bool Drafts => MapPartially(@default: false, deferred: true);
 
     public sealed record Immediate : CommitMode;
 
@@ -40,8 +40,6 @@ public abstract partial record CommitMode {
 
 public sealed record RowField<TRecord>(IStateParameter<TRecord> Parameter, string Caption, string Help) where TRecord : notnull {
     public RowField(IStateParameter<TRecord> parameter) : this(parameter, parameter.Text.Caption, parameter.Text.Help) { }
-
-    public Wording Wording { get; init; } = Wording.English;
 }
 
 public abstract record RowSource {
@@ -49,6 +47,8 @@ public abstract record RowSource {
     private protected RowSource(string owner) => Owner = owner;
 
     public string Owner { get; }
+
+    public Option<PlugInSetting> Setting { get; init; }
 
     public abstract ValueBinding Values(RowScope scope);
 
@@ -170,20 +170,10 @@ public sealed record RowSource<TRecord> : RowSource where TRecord : notnull {
         Stores(scope).Map(static stores => stores.Choose(static store => store.Changed));
 }
 
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class Wording {
-    public static readonly Wording English = new(static (text, sink) => RowText.Localize(text, sink).Local);
-    public static readonly Wording Library = new(static (text, _) => RowText.Localize(text).Local);
-    public static readonly Wording Localized = new(static (text, _) => text);
-
-    [UseDelegateFromConstructor]
-    public partial string Shown(string text, IPlugInSink sink);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlRow {
-    private ControlRow(string caption, Option<string> help, Seq<EntryKey> keys, RowRules rules, Wording wording) =>
-        (Caption, Help, Keys, Rules, Wording) = (caption, help, keys, rules, wording);
+    private ControlRow(string caption, Option<string> help, Seq<EntryKey> keys, RowRules rules, Option<(RowShape Shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize)> cells, Option<RowSource> bound) =>
+        (Caption, Help, Keys, Rules, Cells, Bound) = (caption, help, keys, rules, cells, bound);
 
     public string Caption { get; }
 
@@ -193,25 +183,15 @@ public abstract partial record ControlRow {
 
     public RowRules Rules { get; }
 
-    public Wording Wording { get; init; }
+    public Option<(RowShape Shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize)> Cells { get; }
 
-    public Option<RowSource> Bound =>
-        Switch(
-            field: static row => Some(row.Source),
-            readout: static _ => Option<RowSource>.None,
-            group: static _ => Option<RowSource>.None);
+    public Option<RowSource> Bound { get; }
 
-    public Option<RowShape> Layout =>
-        Switch(
-            field: static row => Some(row.Shape),
-            readout: static readout => Some(readout.Shape),
-            group: static _ => Option<RowShape>.None);
-
-    public bool Fill => Layout.Exists(static shape => shape.Fills);
+    public bool Fill => Cells.Exists(static cells => cells.Shape.Fills);
 
     public static ControlRow Of<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
         where TRecord : notnull =>
-        Of(source, IterableNE.create(field), field.Caption, field.Help, shape, realize, rules) with { Wording = field.Wording };
+        Of(source, IterableNE.create(field), field.Caption, field.Help, shape, realize, rules);
 
     public static ControlRow Of<TRecord>(
         RowSource<TRecord> source, IterableNE<RowField<TRecord>> fields, string caption, string help, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, RowRules rules)
@@ -220,30 +200,22 @@ public abstract partial record ControlRow {
 
     public sealed record Field : ControlRow {
         public Field(RowSource source, Seq<EntryKey> keys, RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, string caption, string help, RowRules rules)
-            : base(caption, Some(help), keys, rules, Wording.English) =>
-            (Source, Shape, Realize) = (source, shape, realize);
-
-        public RowSource Source { get; }
-        public RowShape Shape { get; }
-        public Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize { get; }
+            : base(caption, Some(help), keys, rules, Some((shape, realize)), Some(source)) { }
     }
 
     public sealed record Readout : ControlRow {
         public Readout(RowShape shape, Func<RowScope, Action<IDisposable>, IO<RowCells>> realize, string caption, string help, RowRules rules)
-            : base(caption, Some(help), [], rules, Wording.English) =>
-            (Shape, Realize) = (shape, realize);
-
-        public RowShape Shape { get; }
-        public Func<RowScope, Action<IDisposable>, IO<RowCells>> Realize { get; }
+            : base(caption, Some(help), [], rules, Some((shape, realize)), None) { }
     }
 
-    public sealed record Group(string Caption, RowRules Rules) : ControlRow(Caption, None, [], Rules, Wording.English);
+    public sealed record Group(string Caption, RowRules Rules) : ControlRow(Caption, None, [], Rules, None, None);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RowScope {
     // --- [STATE]
     private static readonly LanguageExt.HashSet<EntryKey> Unlocked = [];
+    private static readonly Refused Untargeted = new(nameof(CommitMode.Targets), Refused.Absent);
 
     private readonly Atom<CommitMode> mode;
     private readonly Atom<LanguageExt.HashSet<Func<Seq<EntryKey>, IO<Unit>>>> listeners;
@@ -283,11 +255,8 @@ public sealed class RowScope {
         .Bind(held => Callbacks.Each(toSeq(held.Listeners).Map(listener => listener(visible)))).Map(unit);
 
     public IO<Unit> OnVisibility(Func<bool, IO<Unit>> heard, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => {
-            _ = ignore(visibility.Swap(held => held with { Listeners = held.Listeners.TryAdd(heard) }));
-            return new Disposal<Func<bool, IO<Unit>>>(heard,
-                released => ignore(visibility.Swap(held => held with { Listeners = held.Listeners.Remove(released) })));
-        }), retain).Bind(_ => Visibility).Bind(heard);
+        DisposalOps.Acquire(visibility.SwapIO(held => held with { Listeners = held.Listeners.TryAdd(heard) }),
+            _ => visibility.SwapIO(held => held with { Listeners = held.Listeners.Remove(heard) }).Map(unit), retain).Bind(_ => Visibility).Bind(heard);
 
     // --- [CHANGES]
     public IO<Unit> Changed(Seq<EntryKey> keys) =>
@@ -296,20 +265,24 @@ public sealed class RowScope {
             .Bind(static fails => unless(fails.IsEmpty, IO.fail<Unit>(Error.Many(fails))).As());
 
     public IO<Unit> Listen(Func<Seq<EntryKey>, IO<Unit>> heard, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => {
-            _ = ignore(listeners.Swap(held => held.TryAdd(heard)));
-            return new Disposal<Func<Seq<EntryKey>, IO<Unit>>>(heard, released => ignore(listeners.Swap(held => held.Remove(released))));
-        }), retain).Map(unit);
+        DisposalOps.Acquire(listeners.SwapIO(held => held.TryAdd(heard)), _ => listeners.SwapIO(held => held.Remove(heard)).Map(unit), retain).Map(unit);
 
     // --- [STORES]
     public IO<Seq<ValueStore<T>>> Objects<T>(Func<RhinoObject, ValueStore<T>> store) where T : notnull =>
-        Selected(targets => Conversions.Rows(new ObjectPropertiesPageEventArgs(targets.Page).Objects).Map(store).Strict(), static _ => Seq<ValueStore<T>>());
+        Selected(
+            targets => IO.lift(() => Conversions.Rows(new ObjectPropertiesPageEventArgs(targets.Page).Objects).Map(store).Strict()),
+            static _ => IO.pure(Seq<ValueStore<T>>()));
 
-    public IO<Seq<ValueStore<T>>> Viewport<T>(Func<RhinoViewport, ValueStore<T>> store) where T : notnull =>
-        Selected(targets => Optional(new ObjectPropertiesPageEventArgs(targets.Page).Viewport).ToSeq().Map(store).Strict(), static _ => Seq<ValueStore<T>>());
+    public IO<Seq<ValueStore<T>>> Viewport<T>(Func<RhinoDoc, ViewportTarget, ValueStore<T>> store) where T : notnull =>
+        Selected(
+            targets => DocumentIO.Map(doc => Optional(new ObjectPropertiesPageEventArgs(targets.Page).Viewport)
+                .ToSeq().Map(port => store(doc, new ViewportTarget.Id(port.Id))).Strict()),
+            static _ => IO.fail<Seq<ValueStore<T>>>(Untargeted));
 
     public IO<Seq<ValueStore<T>>> Contents<T>(Func<RenderContent, ValueStore<T>> store) where T : notnull =>
-        Selected(static _ => Seq<ValueStore<T>>(), contents => toSeq(contents.Section.GetSelection()).Map(store).Strict());
+        Selected(
+            static _ => IO.pure(Seq<ValueStore<T>>()),
+            contents => IO.lift(() => toSeq(contents.Section.GetSelection()).Map(store).Strict()));
 
     public ValueStore<TRecord> Store<TRecord>(RowSource<TRecord> source) where TRecord : notnull =>
         new(source.Stores(this).Bind(static stores => stores.Head.Match(Some: static store => store.Read, None: static () => IO.pure(Option<TRecord>.None))),
@@ -336,16 +309,14 @@ public sealed class RowScope {
             return ValueStore.Between(before, next);
         }), EqualityComparer<T>.Default.Equals, Applied.Live, Some(Subscriptions.Changed(cell).Choose(static _ => Some(unit))));
 
-    internal IO<bool> Paced => mode.ValueIO.Map(static held => held.Map(immediate: true, revertible: true, deferred: true, targets: false, contents: false));
+    internal IO<bool> Paced => mode.ValueIO.Map(static held => held.MapPartially(@default: true, targets: false, contents: false));
 
-    internal IO<bool> Records => mode.ValueIO.Map(static held => held.Map(immediate: true, revertible: true, deferred: false, targets: false, contents: false));
+    internal IO<bool> Records => mode.ValueIO.Map(static held => held.MapPartially(@default: false, immediate: true, revertible: true));
 
-    private IO<Seq<ValueStore<T>>> Selected<T>(Func<CommitMode.Targets, Seq<ValueStore<T>>> targets, Func<CommitMode.Contents, Seq<ValueStore<T>>> contents) where T : notnull =>
-        mode.ValueIO.Map(held => held.Switch(
+    private IO<Seq<ValueStore<T>>> Selected<T>(Func<CommitMode.Targets, IO<Seq<ValueStore<T>>>> targets, Func<CommitMode.Contents, IO<Seq<ValueStore<T>>>> contents) where T : notnull =>
+        mode.ValueIO.Bind(held => held.SwitchPartially(
             (Targets: targets, Contents: contents),
-            immediate: static (_, _) => Seq<ValueStore<T>>(),
-            revertible: static (_, _) => Seq<ValueStore<T>>(),
-            deferred: static (_, _) => Seq<ValueStore<T>>(),
+            @default: static (_, _) => IO.fail<Seq<ValueStore<T>>>(Untargeted),
             targets: static (of, page) => of.Targets(page),
             contents: static (of, section) => of.Contents(section)));
 
@@ -378,11 +349,9 @@ public sealed class RowScope {
         select edits.Over(captured, Unlocked);
 
     internal IO<A> Within<A>(IO<A> body) =>
-        mode.ValueIO.Bind(held => held.Switch(
+        mode.ValueIO.Bind(held => held.SwitchPartially(
             (Scope: this, Body: body),
-            immediate: static (state, _) => state.Body,
-            revertible: static (state, _) => state.Body,
-            deferred: static (state, _) => state.Body,
+            @default: static (state, _) => state.Body,
             targets: static (state, targets) => Callbacks.Captured<ObjectPropertiesPageEventArgs, A>(
                 targets.Page.ModifyPage, _ => state.Scope.Recorded(targets, state.Body), nameof(ObjectPropertiesPage.ModifyPage)),
             contents: static (state, contents) => Recorded(contents, state.Body)));
@@ -404,46 +373,35 @@ public sealed class RowScope {
     public IO<bool> Pending => Edits.Map(static edits => !edits.Entries.IsEmpty);
 
     public IO<Unit> Opened(BindingGroup bound) =>
-        mode.ValueIO.Bind(held => held.Switch(
+        mode.ValueIO.Bind(held => held.SwitchPartially(
             (Scope: this, Group: bound),
-            immediate: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             revertible: static (state, _) => state.Group.Capture.Bind(opening => state.Scope.Swapped(new CommitMode.Revertible(opening))),
-            deferred: static (state, _) => state.Scope.Swapped(new CommitMode.Deferred(ValueSet.Empty)),
-            targets: static (_, _) => IO.pure(unit),
-            contents: static (_, _) => IO.pure(unit)));
+            deferred: static (state, _) => state.Scope.Swapped(new CommitMode.Deferred(ValueSet.Empty))));
 
     public IO<Unit> Apply(BindingGroup bound) =>
-        mode.ValueIO.Bind(held => held.Switch(
+        mode.ValueIO.Bind(held => held.SwitchPartially(
             (Scope: this, Group: bound),
-            immediate: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             revertible: static (state, _) => state.Scope.Opened(state.Group),
             deferred: static (state, deferred) =>
                 from written in state.Scope.Written(state.Group, deferred.Edits, Unlocked)
                 from cleared in state.Scope.Swapped(new CommitMode.Deferred(ValueSet.Empty))
                 from changed in state.Scope.Changed(toSeq(deferred.Edits.Entries.Keys))
-                select unit,
-            targets: static (_, _) => IO.pure(unit),
-            contents: static (_, _) => IO.pure(unit)));
+                select unit));
 
     public IO<Unit> Revert(BindingGroup bound) =>
-        mode.ValueIO.Bind(held => held.Switch(
+        mode.ValueIO.Bind(held => held.SwitchPartially(
             (Scope: this, Group: bound),
-            immediate: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             revertible: static (state, revertible) =>
                 state.Scope.Written(state.Group, revertible.Opening, Unlocked).Bind(diff => state.Scope.Changed(toSeq(diff.Changes.Keys))),
             deferred: static (state, deferred) =>
-                state.Scope.Swapped(new CommitMode.Deferred(ValueSet.Empty)).Bind(_ => state.Scope.Changed(toSeq(deferred.Edits.Entries.Keys))),
-            targets: static (_, _) => IO.pure(unit),
-            contents: static (_, _) => IO.pure(unit)));
+                state.Scope.Swapped(new CommitMode.Deferred(ValueSet.Empty)).Bind(_ => state.Scope.Changed(toSeq(deferred.Edits.Entries.Keys)))));
 
     // --- [DRAFTS]
     private IO<ValueSet> Edits =>
-        mode.ValueIO.Map(static held => held.Switch(
-            immediate: static _ => ValueSet.Empty,
-            revertible: static _ => ValueSet.Empty,
-            deferred: static deferred => deferred.Edits,
-            targets: static _ => ValueSet.Empty,
-            contents: static _ => ValueSet.Empty));
+        mode.ValueIO.Map(static held => held.SwitchPartially(@default: static _ => ValueSet.Empty, deferred: static deferred => deferred.Edits));
 
     private IO<Unit> Swapped(CommitMode next) => writeIO(mode, next).Map(unit);
 

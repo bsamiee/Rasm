@@ -5,7 +5,7 @@ from enum import auto
 import math
 import operator
 from types import MappingProxyType
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
@@ -15,8 +15,9 @@ import OpenImageIO
 from skimage.metrics import structural_similarity
 
 from blender.imaging.chain import Domain
-from blender.imaging.faults import ImagingComparisonFault, ImagingMismatchFault, ImagingResult, paired
+from blender.imaging.faults import ImagingBufferFault, ImagingResult, ImagingShapeFault, paired
 from blender.imaging.parameters import Choice
+from blender.imaging.sampling import Frozen
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -69,7 +70,7 @@ class Bar(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Comparison(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     """Axis measures, difference planes, and SSIM map."""
 
     bars: ClassVar[tuple[Bar, ...]] = (Bar(axis=Axis.PSNR, advisory=35.0, refuse=30.0), Bar(axis=Axis.NRMSE, advisory=0.05, refuse=0.10), Bar(axis=Axis.SSIM, advisory=0.98, refuse=0.95))
@@ -79,55 +80,44 @@ class Comparison(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     perceptual: npt.NDArray[np.float32]
     structural: Option[npt.NDArray[np.float64]]
 
+    @classmethod
+    def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: Annotated[float, msgspec.Meta(gt=0.0)]) -> ImagingResult[Self]:
+        """Compares equal-shape planes, `data_range` as SSIM input range."""
+        if reference.shape != test.shape:
+            return Error((ImagingShapeFault(subject="Image", shape=test.shape, expected=Some(reference.shape)),))
+        first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
+        result = OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)
+        compared: ImagingResult[OpenImageIO.CompareResults] = Error((ImagingBufferFault(request=reference.shape, error=OpenImageIO.geterror()),)) if result.error else Ok(result)
+
+        def measured(parts: tuple[OpenImageIO.CompareResults, npt.NDArray[np.float32], npt.NDArray[np.float32]]) -> ImagingResult[Self]:
+            signal, difference, flip = parts
+            reference_color, test_color = reference[..., :3].astype(np.float64), test[..., :3].astype(np.float64)
+            scale = math.sqrt(float(np.square(reference_color).mean(dtype=np.float64)))
+            side = min(cls.structural_window, *reference.shape[:2])
+            window = side - 1 + side % 2
+            structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing  # type: ignore[no-untyped-call]
+            measures = {
+                Axis.MEAN_ERROR: signal.meanerror,
+                Axis.RMS_ERROR: signal.rms_error,
+                Axis.MAX_ERROR: signal.maxerror,
+                Axis.PSNR: signal.PSNR,
+                **({Axis.NRMSE: signal.rms_error / scale} if scale > 0.0 else {}),
+                Axis.FLIP: float(flip.mean(dtype=np.float64)),
+                **dict(structural.map(lambda answer: (Axis.SSIM, float(answer[0]))).to_list()),
+            }
+            return Ok(cls(measures=MappingProxyType(measures), difference=difference, perceptual=flip, structural=structural.map(lambda answer: answer[1])))
+
+        return paired(
+            compared,
+            ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.absdiff(first, second)).bind(ImagingBufferFault.pixels),
+            ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(ImagingBufferFault.pixels),
+        ).bind(measured)
+
     def verdict(self, bars: Iterable[Bar]) -> Verdict:
         """Returns worst grade across thresholds."""
         return max((bar.graded(self.measures) for bar in bars), default=Verdict.PASS)
 
 
-def comparison_of(reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: Domain, *, data_range: Annotated[float, msgspec.Meta(gt=0.0)]) -> ImagingResult[Comparison]:
-    """Compares equal-shape planes, `data_range` as SSIM input range."""
-    if reference.shape != test.shape:
-        return Error((ImagingMismatchFault(reference=reference.shape, test=test.shape),))
-    first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
-    result = OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)
-    compared: ImagingResult[OpenImageIO.CompareResults] = Error((ImagingComparisonFault(request=reference.shape, error=OpenImageIO.geterror()),)) if result.error else Ok(result)
-
-    def pixels(image: OpenImageIO.ImageBuf) -> ImagingResult[npt.NDArray[np.float32]]:
-        if image.has_error:
-            return Error((ImagingComparisonFault(request=reference.shape, error=image.geterror()),))
-        match image.get_pixels(OpenImageIO.FLOAT):
-            case None:
-                return Error((ImagingComparisonFault(request=reference.shape, error=image.geterror()),))
-            case values:
-                values.setflags(write=False)
-                return Ok(values)
-
-    difference = pixels(OpenImageIO.ImageBufAlgo.absdiff(first, second))
-    perceptual = pixels(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR)))
-
-    def measured(pair: tuple[OpenImageIO.CompareResults, tuple[npt.NDArray[np.float32], npt.NDArray[np.float32]]]) -> Comparison:
-        signal, (difference, flip) = pair
-        reference_color, test_color = reference[..., :3].astype(np.float64), test[..., :3].astype(np.float64)
-        scale = math.sqrt(float(np.square(reference_color).mean(dtype=np.float64)))
-        side = min(Comparison.structural_window, *reference.shape[:2])
-        window = side - 1 + side % 2
-        structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing  # type: ignore[no-untyped-call]
-        measures = {
-            Axis.MEAN_ERROR: signal.meanerror,
-            Axis.RMS_ERROR: signal.rms_error,
-            Axis.MAX_ERROR: signal.maxerror,
-            Axis.PSNR: signal.PSNR,
-            **({Axis.NRMSE: signal.rms_error / scale} if scale > 0.0 else {}),
-            Axis.FLIP: float(flip.mean(dtype=np.float64)),
-            **dict(structural.map(lambda answer: (Axis.SSIM, float(answer[0]))).to_list()),
-        }
-        for answer in structural.to_list():
-            answer[1].setflags(write=False)
-        return Comparison(measures=MappingProxyType(measures), difference=difference, perceptual=flip, structural=structural.map(lambda answer: answer[1]))
-
-    return paired(compared, paired(difference, perceptual)).map(measured)
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Axis", "Bar", "Comparison", "Verdict", "comparison_of"]
+__all__ = ["Axis", "Bar", "Comparison", "Verdict"]

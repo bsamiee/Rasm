@@ -23,21 +23,17 @@ public static class DrawnViews {
     private static readonly Lazy<Fin<nint>> HostClass = new(static () => NativeControls.Subclass(Class.GetHandle(typeof(NSView)),
         Seq((Selector.GetHandle("hitTest:"), (Delegate)PassThrough))));
 
-    public static IO<Unit> Layers(Control control, CALayer layer, IPlugInSink sink, Action<IDisposable> retain) {
-        Action<NSView> release = static held => DisposalOps.Release<IDisposable>(held,
-            new Disposal<NSView>(held, static view => view.Layer = null),
-            new Disposal<NSView>(held, static view => view.RemoveFromSuperview())).Run();
-        return NativeControls.Lifetime(control, owned =>
+    public static IO<Unit> Layers(Control control, CALayer layer, IPlugInSink sink, Action<IDisposable> retain) =>
+        NativeControls.Lifetime(control, owned =>
             from parent in IO.lift(() => Refused.UnlessFound(control.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
             from nativeClass in IO.lift(static () => HostClass.Value)
             let site = new CallbackSite(sink, typeof(DrawnViews), nameof(Layers))
-            from view in DisposalOps.Acquire(IO.lift(() => new NSView(parent.Bounds)), held => IO.lift(() => release(held)), held => {
-                _ = SafeNativeMethods.object_setClass(held.Handle, nativeClass);
-                held.Layer = layer;
-                held.WantsLayer = true;
-                held.AutoresizingMask = NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable;
-                parent.AddSubview(held);
-                owned(new Disposal<NSView>(held, release));
+            from view in DisposalOps.Acquire(IO.lift(() => new NSView(parent.Bounds)), static held =>
+                Callbacks.Each(Seq(IO.lift(held.RemoveFromSuperview), IO.lift(() => { held.Layer = null; }), IO.lift(held.Dispose))).Map(unit), owned)
+            from placed in IO.lift(() => {
+                _ = SafeNativeMethods.object_setClass(view.Handle, nativeClass);
+                (view.Layer, view.WantsLayer, view.AutoresizingMask) = (layer, true, NSViewResizingMask.WidthSizable | NSViewResizingMask.HeightSizable);
+                parent.AddSubview(view);
             })
             from fitted in Fit(parent, view, layer)
             from bounds in DisposalOps.Acquire(IO.lift(() => NSView.Notifications.ObserveBoundsChanged(parent,
@@ -51,7 +47,6 @@ public static class DrawnViews {
                 handler => control.LoadComplete += handler, handler => control.LoadComplete -= handler, update, owned)
             select unit,
             new CallbackSite(sink, typeof(DrawnViews), nameof(Layers)), retain);
-    }
 
     private static IO<Unit> Fit(NSView parent, NSView view, CALayer layer) =>
         DisposalOps.Within(static () => { CATransaction.Begin(); return unit; },
@@ -116,16 +111,12 @@ public static class DrawnViews {
                 slider: NSAccessibilityRoles.SliderRole),
             AccessibilityLabel = placement.Label,
             AccessibilityParent = view,
-            AccessibilityCustomActions = [.. Actions(control, placement.Role, placement.Frame.Center)],
+            AccessibilityCustomActions = NativeControls.Actions(Seq<(bool Taken, NSString Action, Func<bool> Perform)>(
+                    (placement.Role.Activates, NSAccessibilityActions.PressAction, () => control.Activate(placement.Frame.Center)),
+                    (placement.Role.Adjusts, NSAccessibilityActions.IncrementAction, () => control.Adjust(placement.Frame.Center, 1)),
+                    (placement.Role.Adjusts, NSAccessibilityActions.DecrementAction, () => control.Adjust(placement.Frame.Center, -1)))
+                .Filter(static row => row.Taken).Map(static row => (row.Action, row.Perform))),
         };
-
-    private static Seq<NSAccessibilityCustomAction> Actions(ComponentControl control, PartRole role, PointF center) =>
-        Seq<(bool Taken, NSString Action, Func<bool> Perform)>(
-                (role.Activates, NSAccessibilityActions.PressAction, () => control.Activate(center)),
-                (role.Adjusts, NSAccessibilityActions.IncrementAction, () => control.Adjust(center, 1)),
-                (role.Adjusts, NSAccessibilityActions.DecrementAction, () => control.Adjust(center, -1)))
-            .Filter(static row => row.Taken)
-            .Choose(static row => Optional(NSAccessibility.GetActionDescription(row.Action)).Map(name => new NSAccessibilityCustomAction { Name = name, Handler = row.Perform }));
 
     private static IO<Unit> Updated(ComponentControl control, NSView view, PartFacet facet, Shown shown) =>
         from before in IO.lift(() => Optional(shown.Element.AccessibilityValue).Map(static value => value.ToString()))

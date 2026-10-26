@@ -80,8 +80,8 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
             for key in sorted(self.filters)
         )
 
-        def built(parts: tuple[tuple[str, tuple[tuple[str, Operator[Empty], str], ...]], tuple[tuple[str, ...], SurfaceDraw]]) -> Acquisitions:
-            (name, operators), (filters, paint) = parts
+        def built(parts: tuple[str, tuple[tuple[str, Operator[Empty], str], ...], tuple[str, ...], SurfaceDraw]) -> Acquisitions:
+            name, operators, filters, paint = parts
             kind = type(
                 name,
                 (bpy.types.AssetShelf,),
@@ -105,7 +105,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
             )
             return (*(row for _, row, _ in operators), *acquired(self.menu), (Band.INTERFACE, kind))
 
-        return paired(paired(identity.name(Name.SHELF, self.key), named), paired(filtered, placed(self.menu, identity).map(painted))).map(built)
+        return paired(identity.name(Name.SHELF, self.key), named, filtered, placed(self.menu, identity).map(painted)).map(built)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -4,10 +4,11 @@ from collections.abc import Iterable
 import functools
 import importlib.resources
 import math
-import re
-from typing import ClassVar, get_args, Literal, Self, TYPE_CHECKING
+from typing import Annotated, ClassVar, Literal, Self, TYPE_CHECKING
 
 import bpy
+from expression import Option
+from expression.collections import Block
 import mathutils
 import msgspec
 import numpy as np
@@ -18,14 +19,12 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Color = tuple[float, float, float, float]
-type Channel = Literal["fill", "edge", "text"]
-type Ink = Color | HostInk | DataInk
+type Hex = Annotated[str, msgspec.Meta(pattern=r"\A#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\Z")]
+type SkiaBlend = Literal["src-over", "plus"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 CLEAR: Color = (0.0, 0.0, 0.0, 0.0)
-CHANNELS: frozenset[str] = frozenset(get_args(Channel.__value__))
-HEX: re.Pattern[str] = re.compile(r"#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?")
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -94,26 +93,15 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         """Style spacings at interface scale."""
         return StyleSpacing(**{name: int(self.scaled(value)) for name, value in msgspec.structs.asdict(Metrics.unscaled).items()})
 
-    def sized(self, role: str, metric: str) -> float:
-        """Returns a shared metric in device pixels, ``font-size`` scaling the widget font, ``stroke`` through ``line``, lengths by interface scale."""
-        value = Shipped.read().metric(role, metric)
-        match metric:
-            case "font-size":
-                return float(self.scaled(value * self.preferences.ui_styles[0].widget.points))
-            case "stroke":
-                return self.line(value)
-            case _:
-                return float(self.scaled(value))
-
     def line(self, width: float) -> float:
         """Returns device-pixel line width."""
         return max(1.0, float(np.float32(width) * self.pixel_size))
 
     # --- [STYLING]
 
-    def text(self, style: bpy.types.ThemeFontStyle) -> float:
-        """Returns text style font size in device pixels."""
-        return float(self.scaled(style.points))
+    def points(self, factor: float = 1.0) -> float:
+        """Returns the widget font size times `factor` in device pixels."""
+        return float(self.scaled(self.preferences.ui_styles[0].widget.points * factor))
 
     def checker(self) -> Checker:
         """Reads transparency checker."""
@@ -202,71 +190,96 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
         return (red, green, blue, alpha if self.overlaps else 1.0)
 
 
-class HostInk(msgspec.Struct, frozen=True, kw_only=True):
-    """Host chrome ink, the resolving role's own channel without a role."""
+class Ink(msgspec.Struct, frozen=True, kw_only=True):
+    """Part of a look in one fixed ink."""
 
-    role: str | None
-    channel: str
-    alpha: float
+    ink: Hex
 
 
-class DataInk(msgspec.Struct, frozen=True, kw_only=True):
-    """Ink the drawn mark's data series supplies."""
-
-    alpha: float
+class Solid(Ink, frozen=True, kw_only=True, tag_field="kind", tag="solid"):
+    """Solid fill of a look in one fixed ink."""
 
 
-class Solid(msgspec.Struct, frozen=True, tag_field="kind", tag="solid"):
-    """Solid fill material."""
+class Stroke(Ink, frozen=True, kw_only=True):
+    """Stroke without dash, `Canvas` drawing none."""
 
-    ink: str
-
-
-class Stroke(msgspec.Struct, frozen=True, kw_only=True):
-    """Line ink of a look."""
-
-    ink: str
+    dash: Annotated[tuple[tuple[float, ...], ...], msgspec.Meta(max_length=0)] = ()
 
 
-class Shadow(msgspec.Struct, frozen=True, kw_only=True):
-    """Shadow ink, its offset, blur, and spread drawn by each host's own convention."""
+class Shadow(Ink, frozen=True, kw_only=True):
+    """Hard text shadow offset in points with y down, one per blf font."""
 
-    ink: str
+    blur: Annotated[float, msgspec.Meta(ge=0.0, le=0.0)]
+    x: float = 0.0
+    y: float = 0.0
+    spread: Annotated[float, msgspec.Meta(ge=0.0, le=0.0)] = 0.0
 
 
 class Look(msgspec.Struct, frozen=True, kw_only=True):
-    """Shared appearance row, the parts Blender draws, with the rows it scopes onto its subtree."""
+    """Shared appearance row in fixed inks, the parts Blender draws, with the rows it scopes onto its subtree decoded where read."""
 
     fills: tuple[Solid, ...] = ()
     strokes: tuple[Stroke, ...] = ()
-    text: str | None = None
-    shadows: tuple[Shadow, ...] = ()
-    within: dict[str, "Look"] = {}
+    shadows: Annotated[tuple[Shadow, ...], msgspec.Meta(max_length=1)] = ()
+    lettering: Hex | None = msgspec.field(default=None, name="text")
+    blend: SkiaBlend = "src-over"
+    within: dict[str, msgspec.Raw] = {}
 
-    def color(self, channel: Channel) -> Color:
-        """Returns a channel's first fixed ink, clear where the row states none."""
-        match channel:
-            case "fill":
-                return fixed(self.fills[0].ink if self.fills else None)
-            case "edge":
-                return fixed(self.strokes[0].ink if self.strokes else None)
-            case "text":
-                return fixed(self.text)
+    # --- [READING]
+
+    @property
+    def fill(self) -> Color:
+        """First fill ink, clear where the row states none."""
+        return next((rgba(part.ink) for part in self.fills), CLEAR)
+
+    @property
+    def edge(self) -> Color:
+        """First stroke ink, clear where the row states none."""
+        return next((rgba(part.ink) for part in self.strokes), CLEAR)
+
+    @property
+    def shadow(self) -> Option[Shadow]:
+        """Text shadow, absent where the row states none."""
+        return Block.of_seq(self.shadows).try_head()
+
+    @property
+    def text(self) -> Color:
+        """Text ink, clear where the row states none."""
+        return Option.of_optional(self.lettering).map(rgba).default_value(CLEAR)
+
+    @property
+    def mode(self) -> Literal["ALPHA", "ADDITIVE"]:
+        """Blend mode drawing the row's Skia blend in `gpu` over straight-alpha inks."""
+        match self.blend:
+            case "src-over":
+                return "ALPHA"
+            case "plus":
+                return "ADDITIVE"
+
+    def scoped(self, role: str) -> Self:
+        """Decodes the look this row scopes onto a role in its subtree, refusing host and data inks."""
+        return msgspec.json.decode(self.within[role], type=type(self))
 
 
-class Native(msgspec.Struct, frozen=True, kw_only=True, rename="kebab"):
-    """Native rows Blender draws, the file's other rows left undecoded."""
+class Sizes(msgspec.Struct, frozen=True, kw_only=True, rename="kebab", forbid_unknown_fields=True):
+    """Shared metrics of one role in points, font size as a factor of the widget font."""
 
-    well: Look
-    overlay_caption: Look
-    clip_over: Look
-    clip_under: Look
+    extent: float
+    reach: float
+    inset: float
+    gap: float
+    radius: float
+    stroke: float
+    icon: float
+    font_size: float
+    spacing: float
+    slop: float
 
 
 class Shipped(msgspec.Struct, frozen=True, kw_only=True):
-    """Native rows, metric defaults, and regular metrics of the appearance file Rasm.UI embeds."""
+    """Native looks, metric defaults, and regular metrics of the appearance file Rasm.UI embeds, each look decoded where read."""
 
-    native: Native
+    native: dict[str, msgspec.Raw]
     defaults: dict[str, float]
     regular: dict[str, dict[str, float]]
 
@@ -276,41 +289,16 @@ class Shipped(msgspec.Struct, frozen=True, kw_only=True):
         """Reads the packaged appearance file once."""
         return msgspec.json.decode(importlib.resources.files(__name__).joinpath("appearances.json").read_bytes(), type=cls)
 
-    def metric(self, role: str, metric: str) -> float:
-        """Returns a role's regular metric in points, the file's default where the row names none."""
-        return self.regular.get(role, {}).get(metric, self.defaults[metric])
+    def look(self, role: str) -> Look:
+        """Decodes a native role's look, refusing host and data inks."""
+        return msgspec.json.decode(self.native[role], type=Look)
+
+    def sizes(self, role: str) -> Sizes:
+        """Returns a role's regular metrics over the file's defaults."""
+        return msgspec.convert(self.defaults | self.regular.get(role, {}), type=Sizes)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def ink(text: str) -> Ink:
-    """Parses ``#RRGGBB[AA]``, ``[role.]channel[/alpha]``, or ``data[/alpha]`` with alpha in [0, 1], the grammar Rasm.UI reads."""
-    reference, slash, written = text.partition("/")
-    scale = float(written) if slash else 1.0
-    match reference.split(".") if 0.0 <= scale <= 1.0 else []:
-        case [hexed] if not slash and HEX.fullmatch(hexed):
-            red, green, blue, *opacity = bytes.fromhex(hexed[1:])
-            return (red / 255.0, green / 255.0, blue / 255.0, opacity[0] / 255.0 if opacity else 1.0)
-        case ["data"]:
-            return DataInk(alpha=scale)
-        case [channel] if channel in CHANNELS:
-            return HostInk(role=None, channel=channel, alpha=scale)
-        case [role, channel] if role and channel in CHANNELS:
-            return HostInk(role=role, channel=channel, alpha=scale)
-        case _:
-            raise ValueError(f"ink {text!r} is neither #RRGGBB[AA], [role.]channel[/alpha], nor data[/alpha] with alpha in [0, 1]")
-
-
-def fixed(text: str | None) -> Color:
-    """Returns a fixed ink as RGBA, clear for an absent one."""
-    match None if text is None else ink(text):
-        case None:
-            return CLEAR
-        case HostInk() | DataInk() as held:
-            raise TypeError(f"{held!r} resolves through host chrome or series data, not the shared file")
-        case color:
-            return color
 
 
 def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) -> Color:
@@ -323,6 +311,11 @@ def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) 
             return (red, green, blue, alpha[0] if alpha else 1.0)
 
 
+def rgba(ink: Hex) -> Color:
+    """Returns `#RRGGBB[AA]` as display RGBA, alpha 1 when absent."""
+    return color(byte / 255.0 for byte in bytes.fromhex(ink[1:]))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CLEAR", "Channel", "Checker", "Color", "DataInk", "HostInk", "Ink", "Look", "Metrics", "Native", "Shadow", "Shipped", "Solid", "Stroke", "StyleSpacing", "Theme", "color", "fixed", "ink"]
+__all__ = ["CLEAR", "Checker", "Color", "Hex", "Ink", "Look", "Metrics", "Shadow", "Shipped", "Sizes", "SkiaBlend", "Solid", "Stroke", "StyleSpacing", "Theme", "color", "rgba"]

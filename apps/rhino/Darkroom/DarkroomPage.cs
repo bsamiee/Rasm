@@ -1,6 +1,4 @@
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.Render.Queue;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
@@ -25,10 +23,10 @@ public sealed class DarkroomPage() : DefinedOptionsPage(Row) {
         Commit = new CommitMode.Immediate(),
         Store = Some<ViewStore>(new ViewStore.ApplicationStores()),
         Children = [
-            .. QueueSettingRows.Default.Children,
-            .. HistorySettingRows.Default.Children,
-            .. ComparisonSettingRows.Default.Children,
-            .. TileLimitRows.Default.Children,
+            .. RenderQueueSection.Page,
+            .. HistorySection.Page,
+            .. CompareSection.Page,
+            .. LooksSection.Page,
         ],
     };
 }

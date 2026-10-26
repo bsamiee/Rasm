@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-location-before-two-point-projection
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    location:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^SetCameraLocations?$'}}
+    located:
+        any:
+            - matches: location
+            - has: {stopBy: end, matches: location}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ChangeToTwoPointPerspectiveProjection$'}}, {has: {field: expression, pattern: $CAMERA}}]}
+        - inside:
+            stopBy: {kind: &member 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration'}
+            not: {kind: *member}
+            follows: {stopBy: end, matches: located}
+        - not:
+            inside:
+                stopBy: {kind: *member}
+                not: {kind: *member}
+                precedes: {stopBy: end, matches: located}
+message: '`$CAMERA.ChangeToTwoPointPerspectiveProjection` levels an earlier camera location to target height'
+note: 'Call `SetCameraLocation` or `SetCameraLocations` after the projection change'

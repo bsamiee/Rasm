@@ -1,7 +1,8 @@
 """Layered TIFF documents with Photoshop layer data."""
 
+import functools
 import struct
-from typing import BinaryIO
+from typing import IO
 
 from expression import Nothing, Option
 from expression.extra.result import catch
@@ -13,8 +14,8 @@ import PyOpenColorIO
 import tifffile
 
 from blender.imaging.compositing.blending import BlendMode
-from blender.imaging.faults import ImagingFaults, ImagingResult, ImagingWriteFault, paired
-from blender.imaging.files.images import profile, published, streamed
+from blender.imaging.faults import Access, ImagingFileFault, ImagingResult, paired
+from blender.imaging.files.images import profile, written
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -129,33 +130,29 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
         )
 
-        def refused(error: struct.error) -> ImagingFaults:
-            return (ImagingWriteFault(request=path, error=error),)
+        def tiff(tag: tuple[int, int, int, bytes, bool], icc: Option[bytes], output: IO[bytes]) -> None:
+            tifffile.imwrite(
+                output,
+                self.composite,
+                photometric=tifffile.PHOTOMETRIC.RGB,
+                planarconfig=tifffile.PLANARCONFIG.CONTIG,
+                extrasamples=(tifffile.EXTRASAMPLE.UNASSALPHA,),
+                compression=tifffile.COMPRESSION.ADOBE_DEFLATE,
+                predictor=tifffile.PREDICTOR.HORIZONTAL if np.issubdtype(self.composite.dtype, np.integer) else tifffile.PREDICTOR.NONE,
+                iccprofile=icc.to_optional(),
+                resolution=(self.density * 0.0254, self.density * 0.0254),
+                resolutionunit=tifffile.RESUNIT.INCH,
+                byteorder=source.byteorder,
+                metadata=None,
+                software=False,
+                bigtiff=False,
+                extratags=[tag],
+            )
 
-        def encode(stage: str, tag: tuple[int, int, int, bytes, bool], icc: Option[bytes]) -> ImagingResult[None]:
-            def tiff(output: BinaryIO) -> None:
-                tifffile.imwrite(
-                    output,
-                    self.composite,
-                    photometric=tifffile.PHOTOMETRIC.RGB,
-                    planarconfig=tifffile.PLANARCONFIG.CONTIG,
-                    extrasamples=(tifffile.EXTRASAMPLE.UNASSALPHA,),
-                    compression=tifffile.COMPRESSION.ADOBE_DEFLATE,
-                    predictor=tifffile.PREDICTOR.HORIZONTAL if np.issubdtype(self.composite.dtype, np.integer) else tifffile.PREDICTOR.NONE,
-                    iccprofile=icc.to_optional(),
-                    resolution=(self.density * 0.0254, self.density * 0.0254),
-                    resolutionunit=tifffile.RESUNIT.INCH,
-                    byteorder=source.byteorder,
-                    metadata=None,
-                    software=False,
-                    bigtiff=False,
-                    extratags=[tag],
-                )
-
-            return streamed(path, stage, tiff)
-
-        tagged = catch(lambda: source.tifftag(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS), exception=struct.error)().map_error(refused)
-        return paired(tagged, profile(config, self.colorspace)).bind(lambda pair: published(path, lambda stage: encode(stage, *pair)))
+        tagged = catch(lambda: source.tifftag(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS), exception=struct.error)().map_error(
+            lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),)
+        )
+        return paired(tagged, profile(config, self.colorspace)).bind(lambda pair: written(path, functools.partial(tiff, *pair)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

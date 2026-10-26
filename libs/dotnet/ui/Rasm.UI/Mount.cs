@@ -78,7 +78,7 @@ public sealed record Mount {
         Hover.Head.Bind(path => Scene.Above(path).Choose(elements.Find) switch {
             var above => Seq(
                     above.Choose(static element => element.Accessible.Help).Head
-                    | Scene.Index.Find(path).Bind(static laid => Scene.Preorder(laid).Choose(static held => held.Switch(box: static _ => Option<string>.None, text: static text => text.Typeset.Truncated ? Some(text.Source.Content) : None)).Head),
+                    | Scene.Index.Find(path).Bind(static laid => Scene.Preorder(laid).Choose(static held => held.Texted.Filter(static text => text.Typeset.Truncated).Map(static text => text.Source.Content)).Head),
                     above.Choose(static element => element.Accessible.Shortcut).Head)
                 .Somes() switch {
                     { IsEmpty: true } => Option<string>.None,
@@ -350,16 +350,9 @@ public sealed record Mount {
 
     // --- [STREAM]
     private Routed Notched(Gesture.Scroll notch) =>
-        Routing.Capture.Match(
-            Some: capture => capture.Switch(
-                (Mount: this, Notch: notch),
-                part: static (held, part) => held.Mount.Wheeled(part, held.Notch),
-                handle: static (held, _) => held.Mount.Unanswered),
-            None: () => Hits(notch.At) switch {
-                var hits => Preceded(hits, notch, (mount, owner, over) => mount.Performed(owner, over, notch), static (mount, scroll, scrollers) =>
-                    scrollers.Map(adjuster => mount.Changed(mount.Scene.Adjust(adjuster.Owner, value => value - adjuster.Axis.Of(scroll.Travel)))).Find(static moved => moved.Answer.IsSome)
-                        .IfNone(mount.Unanswered.Taken())),
-            });
+        Sampled(notch, _ => Preceded(Hits(notch.At), notch, (mount, owner, over) => mount.Performed(owner, over, notch), static (mount, scroll, scrollers) =>
+            scrollers.Map(adjuster => mount.Changed(mount.Scene.Adjust(adjuster.Owner, value => value - adjuster.Axis.Of(scroll.Travel)))).Find(static moved => moved.Answer.IsSome)
+                .IfNone(mount.Unanswered.Taken())));
 
     private Routed Streamed<TGesture, TIncrement>(SKPoint at, Phase<TIncrement> phase, LanguageExt.HashSet<Modifier> modifiers)
         where TGesture : Gesture, IStreamed<TGesture, TIncrement> where TIncrement : notnull =>
@@ -488,12 +481,13 @@ public sealed record Mount {
 
     private Routed Addressed(Gesture.Perform gesture, Seq<Key> target) =>
         gesture.Act.SwitchPartially(
-            (Mount: this, Gesture: gesture, Target: target),
-            @default: static (held, _) => held.Mount.Replied(held.Gesture, held.Target),
-            scrollToVisible: static (held, _) => held.Mount.Changed(held.Mount.Scene.Reveal(held.Target)),
-            increment: static (held, _) => held.Mount.Adjusting(held.Target, static adjuster => Some(adjuster.Value + adjuster.Step)).IfNone(() => held.Mount.Replied(held.Gesture, held.Target)),
-            decrement: static (held, _) => held.Mount.Adjusting(held.Target, static adjuster => Some(adjuster.Value - adjuster.Step)).IfNone(() => held.Mount.Replied(held.Gesture, held.Target)),
-            navigate: static (held, navigate) => held.Mount.Adjusting(held.Target, adjuster => adjuster.Navigated(navigate.Toward)).IfNone(() => held.Mount.Replied(held.Gesture, held.Target)));
+                (Mount: this, Target: target),
+                @default: static (_, _) => Option<Routed>.None,
+                scrollToVisible: static (held, _) => Some(held.Mount.Changed(held.Mount.Scene.Reveal(held.Target))),
+                increment: static (held, _) => held.Mount.Adjusting(held.Target, static adjuster => Some(adjuster.Value + adjuster.Step)),
+                decrement: static (held, _) => held.Mount.Adjusting(held.Target, static adjuster => Some(adjuster.Value - adjuster.Step)),
+                navigate: static (held, navigate) => held.Mount.Adjusting(held.Target, adjuster => adjuster.Navigated(navigate.Toward)))
+            .IfNone(() => Replied(gesture, target));
 
     private Routed Replied(Gesture gesture, Seq<Key> target) => Owner(target).Match(Some: owner => Performed(owner, target, gesture), None: () => Unanswered);
 

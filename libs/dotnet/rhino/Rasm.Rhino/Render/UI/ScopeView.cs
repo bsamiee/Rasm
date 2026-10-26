@@ -86,9 +86,9 @@ public abstract partial record ScopePlan {
     }
 }
 
-[SmartEnum]
+[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public sealed partial class WellShape {
-    public const float Floor = 100f;
+    internal const float Floor = 100f;
 
     public static readonly WellShape Banded = new(resizes: true, static (width, aspect) => float.Max(aspect * width, Floor));
     public static readonly WellShape Square = new(resizes: false, static (width, _) => width);
@@ -206,7 +206,7 @@ public abstract partial record ScopeEdit {
     public sealed record Points(Levels Value) : ScopeEdit;
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record ScopePart {
     public sealed record Plot(RectangleF Bounds) : ScopePart;
     public sealed record Clip(ClipEnd End) : ScopePart;
@@ -224,8 +224,6 @@ public sealed record ScopeViewState(
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, ScopeEdit> {
     // --- [STATE]
-    public const float GripHeight = 5f;
-    public const float StripHeight = 10f;
     private const float UnityGain = 1f;
 
     private readonly string caption;
@@ -280,7 +278,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         select unit;
 
     private IO<Unit> Requested(ScopeKind kind, ScopePlan plan) =>
-        DisposalOps.Replace(acquired =>
+        DisposalOps.Acquire(acquired =>
             from ready in IO.lift(static () => new TaskCompletionSource<Unit>(TaskCreationOptions.RunContinuationsAsynchronously))
             from forked in DisposalOps.Fork(
                 IO.liftVAsync(environment => new ValueTask<Unit>(ready.Task.WaitAsync(environment.Token)))
@@ -320,10 +318,6 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     // --- [LAYOUT]
     private const float ClipSide = 9f;
-    private const float ClipDimmed = 0.7f;
-    private static readonly SizeF HandleSize = new(10f, 5f);
-    private static readonly MarkStyle HandleFill = new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Text), 1f);
-    private static readonly MarkStyle Outlined = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), 1f, 1f);
 
     protected override Seq<PlotMark<ScopePart>> Layout(ScopeViewState state, SizeF size, float scale) =>
         Placed(state, size.Width) switch {
@@ -375,9 +369,9 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         state.Value.Switch(
             (Well: well, Plot: plot, state.Value.Chosen.Kind.Shape),
             chart: static (held, _) => held.Shape.Resizes
-                ? Some((new RectangleF(held.Well.Left, held.Well.Bottom, held.Well.Width, GripHeight), (ScopePart)new ScopePart.Grip(held.Well)))
+                ? Some((new RectangleF(held.Well.Left, held.Well.Bottom, held.Well.Width, Plots.Reach), (ScopePart)new ScopePart.Grip(held.Well)))
                 : None,
-            points: static (held, _) => Some((new RectangleF(held.Plot.Left, held.Well.Bottom, held.Plot.Width, StripHeight), (ScopePart)new ScopePart.Strip(held.Plot))));
+            points: static (held, _) => Some((new RectangleF(held.Plot.Left, held.Well.Bottom, held.Plot.Width, 2f * Plots.Reach), (ScopePart)new ScopePart.Strip(held.Plot))));
 
     private static PlotMark<ScopePart> Ground(RectangleF bounds, ScopePart part) =>
         new(new MarkShape.Band(bounds), None, new MarkPart<ScopePart>(part, 0f));
@@ -396,17 +390,17 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         from pair in state.Value.Pair.ToSeq()
         from handle in toSeq(LevelsParameter.Items)
         select new PlotMark<ScopePart>(
-            Triangle(new RectangleF(LevelX(state, plot, Level(handle, pair)) - (HandleSize.Width / 2f), well.Bottom, HandleSize.Width, HandleSize.Height)),
-            handle.Map(black: HandleFill, white: Outlined),
+            Triangle(new RectangleF(LevelX(state, plot, Level(handle, pair)) - Plots.Reach, well.Bottom, 2f * Plots.Reach, Plots.Reach)),
+            handle.Map(black: new MarkStyle.Fill(PaintSlot.Text, 1f), white: MarkStyle.Lifted),
             new MarkPart<ScopePart>(new ScopePart.Level(handle, plot), Plots.Reach));
 
     private static MarkShape.Polygon Triangle(RectangleF box) =>
         new([box.BottomLeft, box.MiddleTop, box.BottomRight]);
 
-    private static MarkStyle.Fill Lit(ChannelCounts counts, bool shown) =>
+    private static MarkStyle.Fill Lit(Channels<int> counts, bool shown) =>
         new Vector3(int.Sign(counts.Red), int.Sign(counts.Green), int.Sign(counts.Blue)) switch {
-            var lit when lit == Vector3.Zero => new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.TextDisabled), ClipDimmed),
-            var lit => new MarkStyle.Fill(new MarkColor.Fixed(Shade(lit)), shown ? 1f : ClipDimmed),
+            var lit when lit == Vector3.Zero => new MarkStyle.Fill(PaintSlot.TextDisabled, MarkStyle.Label.Alpha),
+            var lit => new MarkStyle.Fill(Shade(lit), shown ? 1f : MarkStyle.Label.Alpha),
         };
 
     private static Option<ScopeTraces.Histogram> HistogramOf(ScopeViewState state) =>
@@ -415,11 +409,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private static bool Covers(ClipEnd held, ClipEnd end) => (held.Below && end.Below) || (held.Above && end.Above);
 
     private static Option<int> Bin(ScopeViewState state, ScopePart part, PointF at) =>
-        part.Switch(
+        part.SwitchPartially(
             (State: state, At: at),
+            @default: static (_, _) => Option<int>.None,
             plot: static (held, plot) => HistogramOf(held.State).Map(_ => Binned(held.State, plot.Bounds, held.At.X)),
-            clip: static (_, _) => Option<int>.None,
-            grip: static (_, _) => Option<int>.None,
             strip: static (held, strip) => Some(Binned(held.State, strip.Bounds, held.At.X)),
             level: static (held, level) => Some(Binned(held.State, level.Bounds, held.At.X)));
 
@@ -478,15 +471,16 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         new(state with { Held = None }, None);
 
     protected override Option<Transition<ScopeViewState, ScopeEdit>> DoubleClicked(ScopeViewState state, SizeF size, float scale, Option<ScopePart> part, MouseEventArgs e) =>
-        part.Filter(static key => key is ScopePart.Plot).Bind(_ => state.Value.Chosen.Kind.Shape.Switch(
+        part.Filter(static key => key is ScopePart.Plot).Bind(_ => state.Value.Chosen.Kind.Shape.SwitchPartially(
             state,
+            @default: static (_, _) => Option<Transition<ScopeViewState, ScopeEdit>>.None,
             banded: static held => Some(new Transition<ScopeViewState, ScopeEdit>(held with { Gain = UnityGain }, None)),
-            square: static held => Some(new Transition<ScopeViewState, ScopeEdit>(held with { Zoom = held.Zoom.Map(normal: ChromaZoom.Doubled, doubled: ChromaZoom.Normal) }, None)),
-            diagram: static _ => Option<Transition<ScopeViewState, ScopeEdit>>.None));
+            square: static held => Some(new Transition<ScopeViewState, ScopeEdit>(held with { Zoom = held.Zoom.Map(normal: ChromaZoom.Doubled, doubled: ChromaZoom.Normal) }, None))));
 
     protected override Option<Transition<ScopeViewState, ScopeEdit>> Scrolled(ScopeViewState state, SizeF size, float scale, Option<ScopePart> part, MouseEventArgs e) =>
-        part.Filter(static key => key is ScopePart.Plot).Bind(_ => state.Value.Chosen.Kind.Shape.Switch(
+        part.Filter(static key => key is ScopePart.Plot).Bind(_ => state.Value.Chosen.Kind.Shape.SwitchPartially(
             (State: state, Notches: e.Delta.Height),
+            @default: static (_, _) => Option<Transition<ScopeViewState, ScopeEdit>>.None,
             banded: static held =>
                 from notches in Some(held.Notches)
                 where float.IsFinite(notches) && notches <= ((double)float.MaxValue - held.State.Gain) / GainStep
@@ -496,9 +490,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                             ? UnityGain
                             : (float)(held.State.Gain + (GainStep * (double)notches)),
                     },
-                    None),
-            square: static _ => Option<Transition<ScopeViewState, ScopeEdit>>.None,
-            diagram: static _ => Option<Transition<ScopeViewState, ScopeEdit>>.None));
+                    None)));
 
     protected override Option<Transition<ScopeViewState, ScopeEdit>> KeyPressed(ScopeViewState state, SizeF size, float scale, Option<ScopePart> part, KeyEventArgs e) =>
         e.Key is Keys.Escape && (state.Selection.IsSome || state.Clips.IsSome)
@@ -506,12 +498,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             : None;
 
     protected override Option<Transition<ScopeViewState, ScopeEdit>> Stepped(ScopeViewState state, SizeF size, float scale, ScopePart part, int steps) =>
-        part.Switch(
+        part.SwitchPartially(
             (State: state, Steps: steps),
-            plot: static (_, _) => Option<Transition<ScopeViewState, ScopeEdit>>.None,
-            clip: static (_, _) => Option<Transition<ScopeViewState, ScopeEdit>>.None,
-            grip: static (held, grip) => Some(Edited(held.State, Resized(held.State, grip.Well, held.Steps * GripHeight), AsStep)),
-            strip: static (_, _) => Option<Transition<ScopeViewState, ScopeEdit>>.None,
+            @default: static (_, _) => Option<Transition<ScopeViewState, ScopeEdit>>.None,
+            grip: static (held, grip) => Some(Edited(held.State, Resized(held.State, grip.Well, held.Steps * Plots.Reach), AsStep)),
             level: static (held, level) => held.State.Value.Pair.Map(pair => Moved(
                 held.State,
                 level.Handle,
@@ -577,7 +567,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private const float DisplayAlpha = 0.5f;
     private const float WorkingAlpha = 0.7f;
     private static readonly Seq<float> Quarters = toSeq(Range(1, 4)).Map(static quarter => quarter / 4f);
-    private static readonly MarkStyle Split = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), 0.5f, 1f);
+    private static readonly MarkStyle Split = new MarkStyle.Stroke(PaintSlot.Text, 0.5f, 1f);
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, ScopeViewState state, Seq<PlotMark<ScopePart>> marks, Interaction<ScopePart> interaction) =>
         Placed(state, bounds.Width) switch {
@@ -591,10 +581,10 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private static Seq<PlotMark<ScopePart>> Cue(Seq<PlotMark<ScopePart>> marks, Interaction<ScopePart> interaction) =>
         (from grip in marks.Choose(static mark => mark.Part.Bind(static part => part.Key is ScopePart.Grip held ? Some(held) : None)).Head
          from cued in interaction.Pressed | interaction.Hovered
-         let foot = grip.Well.Bottom + GripHeight - (GripHeight * 3f / 4f)
+         let foot = grip.Well.Bottom + (Plots.Reach / 4f)
          select new PlotMark<ScopePart>(
              new MarkShape.Rule(new PointF(grip.Well.Left + (grip.Well.Width * 3f / 8f), foot), new PointF(grip.Well.Left + (grip.Well.Width * 5f / 8f), foot)),
-             new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), cued is ScopePart.Grip ? 1f : 0.5f, GripHeight / 2f),
+             new MarkStyle.Stroke(PaintSlot.Text, cued is ScopePart.Grip ? 1f : 0.5f, Plots.Reach / 2f),
              None)).ToSeq();
 
     private static IO<Unit> Traced(PlotCanvas canvas, ScopeViewState state, RectangleF plot, ScopeTraces traces) =>
@@ -653,7 +643,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private static Seq<PlotMark<ScopePart>> Edges(RectangleF plot, Seq<(TraceChannel Channel, Vector3 Ink, float[] Heights)> fills, Option<float[]> scene) =>
         fills.Filter(static fill => fill.Channel.Lane.IsSome)
             .Map(fill => new PlotMark<ScopePart>(Outline(plot, fill.Heights), new MarkStyle.Stroke(fill.Channel.Mark, 1f, 1f), None))
-            .Concat(scene.Map(heights => new PlotMark<ScopePart>(Outline(plot, heights), Outlined, None)).ToSeq());
+            .Concat(scene.Map(heights => new PlotMark<ScopePart>(Outline(plot, heights), MarkStyle.Lifted, None)).ToSeq());
 
     private static MarkShape.Polyline Outline(RectangleF plot, float[] heights) =>
         new([.. heights.Select((height, column) => new PointF(plot.Left + ((column + 0.5f) * plot.Width / heights.Length), plot.Bottom - (height * plot.Height)))]);
@@ -715,9 +705,9 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         axes.Inverse.LeftMultiply(new DenseVector([0.5d, chroma.X, chroma.Y])) switch {
             var rgb => (Low: rgb.Minimum(), High: rgb.Maximum()) switch {
                 var (low, high) when high > low => rgb.Subtract(low).Divide(high - low) switch {
-                    var saturated => new MarkColor.Fixed(new Color((float)saturated[0], (float)saturated[1], (float)saturated[2])),
+                    var saturated => new Color((float)saturated[0], (float)saturated[1], (float)saturated[2]),
                 },
-                _ => new MarkColor.Themed(PaintSlot.Text),
+                _ => PaintSlot.Text,
             },
         };
 
@@ -735,7 +725,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         Aimed(polar, axes) switch {
             var targets =>
                 from boxed in Plots.Paint(canvas, targets.Map(static held => new PlotMark<ScopePart>(
-                    held.Box, new MarkStyle.Stroke(new MarkColor.Fixed(held.Target.Paint), TargetAlpha, 1f), None)))
+                    held.Box, new MarkStyle.Stroke(held.Target.Paint, TargetAlpha, 1f), None)))
                 from lettered in IO.lift(() => targets.Iter(held => canvas.Graphics.DrawText(
                     canvas.Font,
                     Plots.Resolve(canvas, MarkStyle.Label),
@@ -766,7 +756,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static IO<Unit> ChromaticityPlot(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) {
         PlotPlane.Cartesian square = PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot));
-        Vector3 ink = Ink(canvas, new MarkColor.Themed(PaintSlot.Text));
+        Vector3 ink = Ink(canvas, PaintSlot.Text);
         int peak = Peak(traces.Reading.Bins.Counts);
         Vector2 fit = ScopeTraces.Chromaticity.Fit;
         Seq<(string Role, Gamut Gamut, float Alpha)> roles = Roles(traces);
@@ -801,15 +791,15 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         from mark in Seq(
             new PlotMark<ScopePart>(
                 new MarkShape.Polygon([Xy(square, columns.Red), Xy(square, columns.Green), Xy(square, columns.Blue)]),
-                new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), role.Alpha, 1f),
+                new MarkStyle.Stroke(PaintSlot.Text, role.Alpha, 1f),
                 None),
             new PlotMark<ScopePart>(
                 new MarkShape.Band(RectangleF.FromCenter(white, new SizeF(2f * side, 2f * side))),
-                new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Text), role.Alpha),
+                new MarkStyle.Fill(PaintSlot.Text, role.Alpha),
                 None),
             new PlotMark<ScopePart>(
                 new MarkShape.Band(RectangleF.FromCenter(white, new SizeF(side, side))),
-                new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.ListBackground), 1f),
+                new MarkStyle.Fill(PaintSlot.ListBackground, 1f),
                 None))
         select mark;
 
@@ -825,7 +815,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             .Map((line, index) => (line.Text, line.Alpha, Top: plot.Top + (index * canvas.Font.LineHeight) + (line.Block * canvas.Font.LineHeight / 2f)))
             .Iter(line => canvas.Graphics.DrawText(
                 canvas.Font,
-                Plots.Resolve(canvas, new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Text), line.Alpha)),
+                Plots.Resolve(canvas, new MarkStyle.Fill(PaintSlot.Text, line.Alpha)),
                 new PointF(plot.Right - canvas.Graphics.MeasureString(canvas.Font, line.Text).Width, line.Top),
                 line.Text)));
 

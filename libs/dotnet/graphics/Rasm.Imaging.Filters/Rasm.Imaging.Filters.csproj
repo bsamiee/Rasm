@@ -17,6 +17,10 @@
         <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
+    <ItemGroup Label="Color">
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" />

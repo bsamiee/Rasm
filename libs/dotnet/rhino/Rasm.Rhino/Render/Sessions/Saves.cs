@@ -242,7 +242,7 @@ public static class Saves {
 
     // --- [FRAMES]
     private static IO<PixelFrame> Dib(RenderWindow window) =>
-        RenderWindows.Snapshot(window, static bitmap =>
+        DisposalOps.Found(window.GetBitmap, nameof(RenderWindow.GetBitmap), static bitmap =>
             from extent in IO.lift(() => EffectPipeline.Extent(bitmap.Size))
             from frame in DisposalOps.Within(
                 () => bitmap.LockBits(new Rectangle(System.Drawing.Point.Empty, bitmap.Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb),

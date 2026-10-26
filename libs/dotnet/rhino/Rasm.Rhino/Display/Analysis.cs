@@ -1,5 +1,5 @@
 using System.Drawing;
-using System.Numerics;
+using System.Runtime.CompilerServices;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence.Settings;
@@ -15,14 +15,14 @@ namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record FalseColorScale(Interval Range, RampTable Ramp) {
-    public Color ColorAt(double value) => Displayed(Ramp.Sample(Range.NormalizedParameterAt(value)));
-
-    public static Color Displayed(Vector4 linear) =>
-        new Unicolour(Configuration.Default, ColourSpace.RgbLinear, linear.X, linear.Y, linear.Z, linear.W).MapToRgbGamut() switch {
-            var mapped => mapped.Rgb.Byte255 switch {
-                var rgb => Color.FromArgb(mapped.Alpha.A255, rgb.R, rgb.G, rgb.B),
-            },
-        };
+    public Func<double, Color> Tabulate() =>
+        Enumerable.Range(0, byte.MaxValue + 1)
+            .Select(texel => Ramp.Sample(texel / (double)byte.MaxValue) switch {
+                var linear => Conversions.Displayed(new Unicolour(ColourSpace.RgbLinear, linear.X, linear.Y, linear.Z, linear.W)),
+            })
+            .ToArray() switch {
+                var table => value => table[(int)Math.Round(double.Clamp(Range.NormalizedParameterAt(value), 0d, 1d) * byte.MaxValue, MidpointRounding.ToEven)],
+            };
 }
 
 [Union]
@@ -41,16 +41,17 @@ public abstract partial record AnalysisDefinition {
     public sealed record FalseColor(LocalizeStringPair Name, Func<RhinoObject, int, Mesh, int, double> Measure, IO<FalseColorScale> Scale) : AnalysisDefinition(Name) {
         internal IO<Unit> Paint(RhinoObject obj, Mesh[] meshes) =>
             from scale in Scale
+            let color = scale.Tabulate()
             let colors = toSeq(
                 from entry in meshes.Select(static (mesh, face) => (Mesh: mesh, Face: face))
                 from mesh in Optional(entry.Mesh).ToSeq()
-                select (Mesh: mesh, entry.Face, Colors: Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => scale.ColorAt(Measure(obj, entry.Face, mesh, vertex))).ToArray()))
+                select (Mesh: mesh, entry.Face, Colors: Enumerable.Range(0, mesh.Vertices.Count).Select(vertex => color(Measure(obj, entry.Face, mesh, vertex))).ToArray()))
             from painted in IO.lift(() => Callbacks.Each(colors, static (entry, _) =>
                 Refused.Unless(entry.Mesh.VertexColors.SetColors(entry.Colors), nameof(MeshVertexColorList.SetColors), entry.Face)))
             select unit;
     }
 
-    public sealed record Texture(LocalizeStringPair Name, Func<RhinoObject, DisplayPipelineAttributes, IO<Unit>> SetUp) : AnalysisDefinition(Name);
+    public sealed record Texture(LocalizeStringPair Name, Func<RhinoObject, Seq<ModeEdit>> SetUp) : AnalysisDefinition(Name);
     public sealed record Wireframe(LocalizeStringPair Name) : AnalysisDefinition(Name);
 }
 
@@ -97,7 +98,7 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
             IO.pure((Object: obj, Attributes: attributes)).Bind(args => definition.Switch(
                 args,
                 falseColor: static (input, _) => IO.lift(() => { input.Attributes.ShadeVertexColors = true; }),
-                texture: static (input, texture) => texture.SetUp(input.Object, input.Attributes),
+                texture: static (input, texture) => IO.lift(() => texture.SetUp(input.Object).Traverse(edit => edit.Write(input.Attributes)).As()).Map(static _ => unit),
                 wireframe: static (_, _) => IO.pure(unit))),
             CallbackSite.Of(this));
 
@@ -111,32 +112,34 @@ public abstract class DefinedAnalysisMode(AnalysisDefinition definition) : Visua
             CallbackSite.Of(this));
 
     // --- [DRAWING]
-    protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(brep).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawCurveObject(CurveObject curve, DisplayPipeline pipeline) =>
+        definition.DrawObject.Match(
+            Some: draw => Callbacks.Run(IO.pure(curve).Bind(held => draw(held, pipeline)), CallbackSite.Of(this)),
+            None: () => base.DrawCurveObject(curve, pipeline));
 
-    protected sealed override void DrawExtrusionObject(ExtrusionObject extrusion, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(extrusion).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawBrepObject(BrepObject brep, DisplayPipeline pipeline) => Drawn(brep, pipeline);
 
-    protected sealed override void DrawMeshObject(MeshObject mesh, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(mesh).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawExtrusionObject(ExtrusionObject extrusion, DisplayPipeline pipeline) => Drawn(extrusion, pipeline);
 
-    protected sealed override void DrawSubDObject(SubDObject subd, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(subd).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawMeshObject(MeshObject mesh, DisplayPipeline pipeline) => Drawn(mesh, pipeline);
 
-    protected sealed override void DrawPointObject(PointObject point, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(point).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawSubDObject(SubDObject subd, DisplayPipeline pipeline) => Drawn(subd, pipeline);
 
-    protected sealed override void DrawPointCloudObject(PointCloudObject pointCloud, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(pointCloud).Bind(obj => draw(obj, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawPointObject(PointObject point, DisplayPipeline pipeline) => Drawn(point, pipeline);
 
-    protected sealed override void DrawMesh(RhinoObject obj, Mesh mesh, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(mesh).Bind(geometry => draw(obj, geometry, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawPointCloudObject(PointCloudObject pointCloud, DisplayPipeline pipeline) => Drawn(pointCloud, pipeline);
 
-    protected sealed override void DrawNurbsCurve(RhinoObject obj, NurbsCurve curve, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(curve).Bind(geometry => draw(obj, geometry, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawMesh(RhinoObject obj, Mesh mesh, DisplayPipeline pipeline) => Drawn(obj, mesh, pipeline);
 
-    protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) =>
-        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(surface).Bind(geometry => draw(obj, geometry, pipeline))), CallbackSite.Of(this));
+    protected sealed override void DrawNurbsCurve(RhinoObject obj, NurbsCurve curve, DisplayPipeline pipeline) => Drawn(obj, curve, pipeline);
+
+    protected sealed override void DrawNurbsSurface(RhinoObject obj, NurbsSurface surface, DisplayPipeline pipeline) => Drawn(obj, surface, pipeline);
+
+    private void Drawn(RhinoObject obj, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
+        Callbacks.Run(definition.DrawObject.Map(draw => IO.pure(obj).Bind(held => draw(held, pipeline))), CallbackSite.Of(this, member));
+
+    private void Drawn(RhinoObject obj, GeometryBase geometry, DisplayPipeline pipeline, [CallerMemberName] string member = "") =>
+        Callbacks.Run(definition.DrawGeometry.Map(draw => IO.pure(geometry).Bind(held => draw(obj, held, pipeline))), CallbackSite.Of(this, member));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Schema;
 using System.Text.Json.Serialization;
-using Eto;
 using NodaTime.Text;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
@@ -16,12 +15,8 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
-using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Inputs;
-using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -39,66 +34,15 @@ public abstract partial record QueueTarget {
 }
 
 public sealed record FlamencoSettingRows(
-    PlugInSetting<Uri, string> Manager,
+    PlugInSetting<HttpServer, string> Manager,
     PlugInSetting<Option<string>, string> Scripts,
     PlugInSetting<OSPlatform, string> WorkerPlatform,
     PlugInSetting<int, int> Priority,
     PlugInSetting<Option<Guid>, string> WorkerTag) {
-    public static FlamencoSettingRows Default { get; } = new(
-        Manager: new(new ValueKey<Uri, string>("FlamencoManager", "Manager", "Flamenco Manager address", new Uri("http://localhost:8080"),
-            new StateParameter<Uri>.Opaque<Uri>(Lens.identity<Uri>()), Address, static value => value.AbsoluteUri, Address), SettingType.String),
-        Scripts: new(new ValueKey<Option<string>, string>("FlamencoScripts", "Scripts folder", "Manager scripts folder for Rhino job compiler, empty for none", None,
-            new StateParameter<Option<string>>.Opaque<Option<string>>(Lens.identity<Option<string>>()), static text => Conversions.Present(text), Conversions.Unset,
-            static text => Conversions.Present(text)), SettingType.String),
-        WorkerPlatform: new(new ValueKey<OSPlatform, string>("FlamencoWorkerPlatform", "Worker platform", "Rhino worker operating system, mixed farms need matching worker tag",
-            Default: OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.OSX,
-            new StateParameter<OSPlatform>.Opaque<OSPlatform>(Lens.identity<OSPlatform>()), Platform, static value => value.ToString(), Platform), SettingType.String),
-        Priority: new(ValueKey.Numeric("FlamencoPriority", "Priority", "Priority of submitted Flamenco jobs", 50,
-            new NumericDomain<int, int>(Fin.Succ, identity, (1, 100), new() { Form = NumberForm.Field })), SettingType.Integer),
-        WorkerTag: new(new ValueKey<Option<Guid>, string>("FlamencoWorkerTag", "Worker tag", "Tag selecting workers of chosen platform, empty for any Rhino worker", None,
-            new StateParameter<Option<Guid>>.Opaque<Option<Guid>>(Lens.identity<Option<Guid>>()), Tag, static value => Conversions.Unset(value.Map(StoredText.Format)), Tag), SettingType.String));
-
-    public Seq<PlugInSetting> Rows => [Manager, Scripts, WorkerPlatform, Priority, WorkerTag];
-
-    public Seq<Child> Children =>
-        SectionRows.Setting(Scripts) switch {
-            var folder => [
-                Text(Manager, RowRules.Always),
-                Text(Scripts, RowRules.Always, Some((FileAction.SelectFolder, Seq<FileTypeRow>()))),
-                SectionRows.Setting(WorkerPlatform) switch {
-                    var pair => ChoiceRows.Choice(pair.Source, pair.Field, Lens.identity<OSPlatform>(), static _ => IO.pure(
-                        Seq(OSPlatform.OSX, OSPlatform.Windows).Map(static platform => new ChoiceItem<OSPlatform>(platform, platform.ToString(), None))), RowRules.Always),
-                },
-                .. SectionRows.Setting(Priority, RowRules.Always),
-                Text(WorkerTag, RowRules.Always),
-                SectionRows.Pushed(new CommandRow.Run(
-                    new CommandFace(nameof(Dispatch.InstallFlamencoCompiler), "Install Flamenco job type",
-                        "Write Rhino job compiler to Manager scripts folder", None, None) { Wording = Wording.Library },
-                    Some(RowRule.When(folder.Source, static held => held.IsSome, folder.Field.Parameter)),
-                    scope => IO.lift(() => ((IPlugInViews)scope.Sink).Settings.Current(Scripts).Bind(held => held.ToFin(new Refused(Scripts.Value.Name, Refused.Absent))))
-                        .Bind(Dispatch.InstallFlamencoCompiler))),
-            ],
-        };
-
     public IO<QueueTarget> Target(ISettingReader reader, Destination package) =>
         IO.lift(() => (reader.Current(Manager), reader.Current(WorkerPlatform), reader.Current(Priority), reader.Current(WorkerTag))
-            .Apply((manager, platform, priority, tag) => (QueueTarget)new QueueTarget.Flamenco(package, manager, platform, priority, tag))
+            .Apply((manager, platform, priority, tag) => (QueueTarget)new QueueTarget.Flamenco(package, manager.Address, platform, priority, tag))
             .As());
-
-    private static ControlRow Text<TValue>(PlugInSetting<TValue, string> row, RowRules rules, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse = default) where TValue : notnull =>
-        SectionRows.Setting(row) switch {
-            var pair => TextRows.Typed(pair.Source, pair.Field, row.Value.Text, (_, text) => row.Value.Read(text), new EntryForm.SingleLine(), browse, rules),
-        };
-
-    private static Fin<Uri> Address(string text) =>
-        Uri.TryCreate(text, UriKind.Absolute, out Uri? uri) && (string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal) || string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal))
-            ? uri
-            : Error.New(ErrorCodes.ValidationFailed, $"{text} is no absolute http or https address");
-
-    private static Fin<OSPlatform> Platform(string text) =>
-        Conversions.Present(text).Map(OSPlatform.Create).ToFin(Error.New(ErrorCodes.ValidationFailed, "Worker platform is empty"));
-
-    private static Fin<Option<Guid>> Tag(string text) => Conversions.Present(text).Traverse(StoredText.Parse<Guid>).As();
 }
 
 internal sealed record FlamencoJob(string Name, string Type, string TypeEtag, int Priority, string SubmitterPlatform, FlamencoJob.Parameters Settings, Guid? WorkerTag) {

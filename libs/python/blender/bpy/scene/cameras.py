@@ -4,7 +4,7 @@ from collections import Counter
 from collections.abc import Callable
 from contextlib import ExitStack
 from itertools import chain
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Final
 
 from bl_ui.properties_data_camera import CAMERA_PT_presets
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
@@ -19,22 +19,29 @@ from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.data.rna.snapshots import Endpoints, NativeValue, Persisted, Snapshot
+from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderReadFault, BlenderResult
-from blender.bpy.settings.attachments import Attachment, endpoints, reconciling, Stored
+from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderResult
+from blender.bpy.settings.attachments import Attachment, reconciling, Recovery
+from blender.bpy.settings.history import Retention
 from blender.bpy.ui.layout.rows import Caption, Member, Popover, Property
-from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
+from blender.bpy.ui.layout.sections import Section, Single
+from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.surfaces.appends import Append
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
 from blender.imaging.parameters import Case, Finite, Gated
-from blender.rendering.edits import merge, transfer, Tree
-from blender.rendering.history import Retention
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type ViewSet = Stereo | Multiview
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SCENE_CAMERA: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "camera.type", bpy.types.EnumProperty), accepted=("CAMERA",))
+_CAMERA_VIEW: Final = Setting(descriptor=Descriptor.declared(bpy.types.RegionView3D, "view_perspective", bpy.types.EnumProperty), accepted=("CAMERA",))
+_MULTIVIEW: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "render.use_multiview", bpy.types.BoolProperty))
+_VIEW_NAME: Final = Descriptor.declared(bpy.types.SceneRenderView, "name", bpy.types.StringProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -69,8 +76,6 @@ class RenderViews(msgspec.Struct, frozen=True, kw_only=True):
 class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
     """Scene camera display rows with context menu entry."""
 
-    camera: ClassVar[Setting] = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "camera.type", bpy.types.EnumProperty), accepted=("CAMERA",))
-
     @property
     def passepartout(self) -> tuple[Property, Property]:
         """Passepartout switch gating alpha row."""
@@ -78,8 +83,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns passepartout rows on object context menu in camera view."""
-        perspective = Descriptor(root=bpy.types.RegionView3D, owner="", prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"])
-        return Ok((Append(target=VIEW3D_MT_object_context_menu, rows=self.passepartout, condition=Some(AllOf(conditions=(Setting(descriptor=perspective, accepted=("CAMERA",)), self.camera)))),))
+        return Ok((Append(target=VIEW3D_MT_object_context_menu, rows=self.passepartout, condition=Some(AllOf(conditions=(_CAMERA_VIEW, _SCENE_CAMERA)))),))
 
     def section(self) -> Section:
         """Returns display rows under sensor preset popover."""
@@ -96,7 +100,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
                 *map(_camera_row, ("show_name", "show_sensor", "show_limits", "show_mist")),
             ),
             header=(Popover(panel=CAMERA_PT_presets),),
-            condition=Some(self.camera),
+            condition=Some(_SCENE_CAMERA),
         )
 
 
@@ -108,7 +112,7 @@ class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def synced(scene: Handle[bpy.types.Scene], identity: Identity) -> BlenderResult[Option[str]]:
         """Reconciles scene render views to stored views, naming no undo step."""
-        return paired(scene.resolve(), CameraViews.attachment.bound(identity)).bind(lambda pair: pair[1].read(pair[0]).bind(lambda views: reconciled(views, pair[0]))).map(lambda _: Nothing)
+        return scene.resolve().bind(lambda held: CameraViews.attachment.read(identity, held).bind(lambda views: reconciled(views, held))).map(lambda _: Nothing)
 
     attachment: ClassVar[Attachment[RenderViews]] = Attachment(key="render_views", form=RenderViews, owner=bpy.types.Scene, changed=Some(reconciling(bpy.types.Scene, synced)))
 
@@ -119,12 +123,11 @@ class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
     def section(self) -> Section:
         """Returns attached views and camera stereo rows."""
         stereo = tuple(f"stereo.{prop.identifier}" for prop in bpy.types.CameraStereoData.bl_rna.properties if not prop.is_hidden)
-        multiview = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="render", prop=bpy.types.RenderSettings.bl_rna.properties["use_multiview"]))
         return Single(
             key="render_views",
             title="Render Views",
-            rows=(Caption(rows=tuple(map(_camera_row, stereo)), heading=Some("Stereo"), separator=Nothing, condition=Some(multiview)),),
-            store=Some(Hosted(host=Member(root=bpy.types.Context, path="scene"), store=Store(attachment=self.attachment, retention=self.retention))),
+            rows=(Caption(rows=tuple(map(_camera_row, stereo)), heading=Some("Stereo"), separator=Nothing, condition=Some(_MULTIVIEW)),),
+            store=Some(Hosted(store=Store(attachment=self.attachment, retention=self.retention))),
         )
 
 
@@ -161,7 +164,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
             try:
                 points = msgspec.convert(coordinates.tolist(), Annotated[tuple[tuple[Finite, Finite, Finite], ...], msgspec.Meta(min_length=2)])
             except msgspec.ValidationError as error:
-                return Error((BlenderReadFault(request=repr(coordinates), error=error),))
+                return Error((ImagingFileFault(access=Access.READ, request=repr(coordinates), error=error),))
 
             def fitted(fit: tuple[Vector, float]) -> BlenderResult[None]:
                 location, scale = fit
@@ -187,56 +190,20 @@ def camera_type(*accepted: str) -> Setting:
 
 
 def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
-    """Applies requirements to render cameras, storing earliest prior and final values."""
-
-    def applied(stored: Stored[Endpoints]) -> BlenderResult[None]:
-        def prepared(camera: bpy.types.Camera) -> BlenderResult[tuple[bpy.types.Camera, Persisted, Tree[NativeValue], Option[Tree[NativeValue]]]]:
-            def rebased(
-                current: Tree[NativeValue], prior: Option[tuple[Tree[NativeValue], Tree[NativeValue]]]
-            ) -> BlenderResult[tuple[bpy.types.Camera, Persisted, Tree[NativeValue], Option[Tree[NativeValue]]]]:
-                earliest = prior.map(lambda ends: Snapshot.capture(camera, prior=Some(ends[0]), native=True)).default_value(Ok(current))
-                return earliest.bind(Snapshot.persisted).map(lambda before: (camera, before, current, prior.map(lambda ends: ends[1])))
-
-            held = stored.read(camera).bind(lambda found: found.map(lambda ends: ends.decoded(camera, stored.name).map(Some)).default_value(Ok(Nothing)))
-            return paired(Snapshot.capture(camera, native=True), held).bind(lambda pair: rebased(*pair))
-
-        def changed(row: tuple[bpy.types.Camera, Persisted, Tree[NativeValue], Option[Tree[NativeValue]]]) -> BlenderResult[None]:
-            camera, before, current, previous = row
-            endpoint = (
-                Snapshot
-                .capture(camera, native=True)
-                .map(lambda after: previous.map(lambda held: merge(merge(current, transfer(current, held)), transfer(current, after))).default_value(after))
-                .bind(Snapshot.persisted)
-                .bind(lambda after: stored.write(camera, Endpoints(before=before, after=after)))
-            )
-            return paired(values.apply(camera).outcome, endpoint).map(lambda _: None)
-
-        return accumulated(prepared(camera) for camera in dict.fromkeys(render_cameras(scene).values())).bind(
-            lambda rows: accumulated(stored.write(camera, Endpoints(before=before)) for camera, before, _, _ in rows).bind(lambda _: accumulated(changed(row) for row in rows)).map(lambda _: None)
-        )
-
-    return _priors(identity).bind(applied)
+    """Applies requirements to render cameras, recording earliest prior and final values."""
+    return _priors(identity).bind(
+        lambda recovery: accumulated(recovery.recorded(camera, ((camera, values),), lambda ends: ends) for camera in dict.fromkeys(render_cameras(scene).values())).map(lambda _: None)
+    )
 
 
 def released(identity: Identity) -> BlenderResult[None]:
     """Restores prior camera values unless later edits changed them."""
-
-    def restored(stored: Stored[Endpoints]) -> BlenderResult[None]:
-        def camera_back(camera: bpy.types.Camera) -> BlenderResult[None]:
-            return stored.read(camera).bind(
-                lambda held: held.map(
-                    lambda ends: ends.decoded(camera, stored.name).bind(lambda trees: Snapshot.restore(*trees).outcome).bind(lambda _: stored.removed(camera)).map(lambda _: None)
-                ).default_value(Ok(None))
-            )
-
-        return accumulated(camera_back(camera) for camera in bpy.data.cameras).map(lambda _: None)
-
-    return _priors(identity).bind(restored)
+    return _priors(identity).bind(lambda recovery: accumulated(map(recovery.reverted, bpy.data.cameras)).map(lambda _: None))
 
 
-def _priors(identity: Identity) -> BlenderResult[Stored[Endpoints]]:
-    """Returns camera storage of requirement endpoints."""
-    return identity.name(Name.ATTACHMENT, "camera_prior").map(endpoints)
+def _priors(identity: Identity) -> BlenderResult[Recovery[Endpoints]]:
+    """Returns camera recovery of requirement endpoints."""
+    return identity.name(Name.ATTACHMENT, "camera_prior").map(Recovery.endpoints)
 
 
 # --- [VIEWS]
@@ -275,12 +242,7 @@ def reconciled(views: RenderViews, scene: bpy.types.Scene) -> BlenderResult[None
     missing = tuple(view for view in stock if render.views.get(view.name) is None)
     with ExitStack() as rollback:
         return committed(
-            paired(
-                accumulated(Error((fault,)) for fault in collisions),
-                Descriptor.resolve(bpy.types.SceneRenderView, "name", bpy.types.StringProperty).bind(
-                    lambda name: accumulated(Descriptor.validated(name.prop, view.name) for view in (*missing, *named))
-                ),
-            )
+            paired(accumulated(Error((fault,)) for fault in collisions), accumulated(Descriptor.validated(_VIEW_NAME.prop, view.name) for view in (*missing, *named)))
             .bind(lambda _: paired(written(render, "use_multiview", views.views.enabled), written(render, "views_format", form)))
             .bind(lambda _: accumulated(map(placed, (*missing, *named))))
             .bind(lambda _: accumulated(map(removed, tuple(view for view in render.views if view.name not in kept)))),

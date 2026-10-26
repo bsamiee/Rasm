@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from blender.imaging.faults import accumulated, ImagingReadFault, ImagingResult
+from blender.imaging.faults import Access, accumulated, ImagingFileFault, ImagingResult
 from blender.imaging.files.images import Compressions, Deflate, emitted, opened, Storage, Subimage
 from blender.imaging.parameters import Choice
 
@@ -40,15 +40,6 @@ class Pass(msgspec.Struct, frozen=True, kw_only=True):
     layer: str
     channels: tuple[str, ...]
     role: Role
-
-
-class Window(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame offset and size inside data window."""
-
-    x: int
-    y: int
-    width: int
-    height: int
 
 
 class Channel(msgspec.Struct, frozen=True, kw_only=True):
@@ -137,89 +128,92 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 Option
                 .of_optional(image.read_image(layer.part, 0, first, last, OpenImageIO.FLOAT))
                 .map(lambda span: np.ascontiguousarray(span[..., [channel.index - first for channel in channels]]))
-                .to_result_with(lambda: (ImagingReadFault(request=self.path, error=image.geterror()),))
+                .to_result_with(lambda: (ImagingFileFault(access=Access.READ, request=self.path, error=image.geterror()),))
             )
 
         return opened(self.path, pixels)
 
+    @staticmethod
+    def written(
+        path: str, passes: tuple[Pass, ...], layout: Layout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], ImagingResult[npt.NDArray[np.float32]]]
+    ) -> ImagingResult[str]:
+        """Writes passes to one file, reading each plane when its part writes.
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
+        Args:
+            path: File to write.
+            passes: Passes in file order.
+            layout: One part per pass, or every pass in one part.
+            storage: Color pass stored type and file compression.
+            size: Width and height of every pass.
+            fields: Text fields stored in every part header.
+            plane: Plane of a pass, read once per pass.
 
+        Returns:
+            Path, or `write` fault.
+        """
+        groups = tuple((item,) for item in passes) if layout is Layout.PARTS else (passes,)
+        lossy = storage.compression.filter(lambda compression: compression.lossy).is_some()
 
-def written(
-    path: str, passes: tuple[Pass, ...], layout: Layout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], ImagingResult[npt.NDArray[np.float32]]]
-) -> ImagingResult[str]:
-    """Writes passes to one file, reading each plane when its part writes.
+        def subimage(group: tuple[Pass, ...]) -> Subimage[np.float32]:
+            channels = tuple(
+                (f"{item.layer}.{channel}", OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is Role.DATA or storage.depth == 32 else OpenImageIO.HALF))
+                for item in group
+                for channel in item.channels
+            )
+            spec = OpenImageIO.ImageSpec(*size, len(channels), channels[0][1])
+            spec.channelnames = tuple(name for name, _ in channels)
+            spec.channelformats = tuple(kind for _, kind in channels)
+            stored = msgspec.structs.replace(storage, compression=Some(Deflate())) if lossy and any(item.role is Role.DATA for item in group) else storage
+            named = (("name", OpenImageIO.TypeString, group[0].layer),) if layout is Layout.PARTS else ()
+            return Subimage(
+                spec=spec,
+                attributes=(*stored.attributes, *named, *((name, OpenImageIO.TypeString, text) for name, text in fields.items())),
+                pixels=lambda: accumulated(plane(item) for item in group).map(
+                    lambda planes: np.concatenate([stored.clipped(array) if item.role is Role.COLOR else array for item, array in zip(group, planes)], axis=-1)
+                ),
+            )
 
-    Args:
-        path: File to write.
-        passes: Passes in file order.
-        layout: One part per pass, or every pass in one part.
-        storage: Color pass stored type and file compression.
-        size: Width and height of every pass.
-        fields: Text fields stored in every part header.
-        plane: Plane of a pass, read once per pass.
+        return emitted(path, lambda _: tuple(subimage(group) for group in groups))
 
-    Returns:
-        Path, or `write` fault.
-    """
-    groups = tuple((item,) for item in passes) if layout is Layout.PARTS else (passes,)
-    lossy = storage.compression.filter(lambda compression: compression.lossy).is_some()
+    @staticmethod
+    def rewritten(path: str, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compressions]) -> ImagingResult[str]:
+        """Rewrites windows and channel names after closing file, skipping unchanged files.
 
-    def subimage(group: tuple[Pass, ...]) -> Subimage[np.float32]:
-        channels = tuple(
-            (f"{item.layer}.{channel}", OpenImageIO.TypeDesc(OpenImageIO.FLOAT if item.role is Role.DATA or storage.depth == 32 else OpenImageIO.HALF)) for item in group for channel in item.channels
-        )
-        spec = OpenImageIO.ImageSpec(*size, len(channels), channels[0][1])
-        spec.channelnames = tuple(name for name, _ in channels)
-        spec.channelformats = tuple(kind for _, kind in channels)
-        stored = msgspec.structs.replace(storage, compression=Some(Deflate())) if lossy and any(item.role is Role.DATA for item in group) else storage
-        named = (("name", OpenImageIO.TypeString, group[0].layer),) if layout is Layout.PARTS else ()
-        return Subimage(
-            spec=spec,
-            attributes=(*stored.attributes, *named, *((name, OpenImageIO.TypeString, text) for name, text in fields.items())),
-            pixels=lambda: accumulated(plane(item) for item in group).map(
-                lambda planes: np.concatenate([stored.clipped(array) if item.role is Role.COLOR else array for item, array in zip(group, planes)], axis=-1)
-            ),
-        )
+        Args:
+            path: File to rewrite.
+            display: Frame rectangle in data window pixels, `Nothing` keeping file windows.
+            channels: Pure channel-name transform per part, keeping order and count.
+            compression: Codec for parts whose header names none, `Nothing` adding none.
 
-    return emitted(path, lambda _: tuple(subimage(group) for group in groups))
+        Returns:
+            Path, or `read` or `write` fault.
+        """
 
+        def parts(image: OpenImageIO.ImageInput) -> ImagingResult[Option[tuple[Subimage[np.float32], ...]]]:
+            specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
+            renamed = tuple(channels(spec.channelnames) for spec in specs)
+            return (
+                Ok(Nothing)
+                if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
+                else accumulated(
+                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(
+                        lambda: (ImagingFileFault(access=Access.READ, request=path, error=image.geterror()),)
+                    )
+                    for index, spec in enumerate(specs)
+                ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
+            )
 
-def rewritten(path: str, display: Option[Window], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compressions]) -> ImagingResult[str]:
-    """Rewrites windows and channel names after closing file, skipping unchanged files.
+        def subimage(spec: OpenImageIO.ImageSpec, names: tuple[str, ...], array: npt.NDArray[np.float32]) -> Subimage[np.float32]:
+            for frame in display.to_list():
+                spec.x, spec.y, spec.full_x, spec.full_y, spec.full_width, spec.full_height = -frame.xbegin, -frame.ybegin, 0, 0, frame.width, frame.height
+            spec.channelnames = names
+            return Subimage(
+                spec=spec, attributes=compression.filter(lambda _: not spec.get_string_attribute("compression")).map(lambda held: held.attributes).default_value(()), pixels=lambda: Ok(array)
+            )
 
-    Args:
-        path: File to rewrite.
-        display: Frame inside data window, `Nothing` keeping file windows.
-        channels: Pure channel-name transform per part, keeping order and count.
-        compression: Codec for parts whose header names none, `Nothing` adding none.
-
-    Returns:
-        Path, or `read` or `write` fault.
-    """
-
-    def parts(image: OpenImageIO.ImageInput) -> ImagingResult[Option[tuple[Subimage[np.float32], ...]]]:
-        specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
-        renamed = tuple(channels(spec.channelnames) for spec in specs)
-        return (
-            Ok(Nothing)
-            if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
-            else accumulated(
-                Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
-                for index, spec in enumerate(specs)
-            ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
-        )
-
-    def subimage(spec: OpenImageIO.ImageSpec, names: tuple[str, ...], array: npt.NDArray[np.float32]) -> Subimage[np.float32]:
-        for window in display.to_list():
-            spec.x, spec.y, spec.full_x, spec.full_y, spec.full_width, spec.full_height = -window.x, -window.y, 0, 0, window.width, window.height
-        spec.channelnames = names
-        return Subimage(spec=spec, attributes=compression.filter(lambda _: not spec.get_string_attribute("compression")).map(lambda held: held.attributes).default_value(()), pixels=lambda: Ok(array))
-
-    return opened(path, parts).bind(lambda read: read.map(lambda parts: emitted(path, lambda _: parts)).default_value(Ok(path)))
+        return opened(path, parts).bind(lambda read: read.map(lambda parts: emitted(path, lambda _: parts)).default_value(Ok(path)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Channel", "Layer", "Layout", "Multilayer", "Part", "Pass", "Role", "Window", "rewritten", "written"]
+__all__ = ["Channel", "Layer", "Layout", "Multilayer", "Part", "Pass", "Role"]

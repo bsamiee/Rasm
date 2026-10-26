@@ -1,27 +1,25 @@
 """Procedural light and haze: noise, cellular, and wave fields emitting, absorbing, and scattering light."""
 
 from collections.abc import Callable
-from fractions import Fraction
-import hashlib
 import itertools
 import math
 from typing import Annotated, Final
 
-import cbor2
 from colour.colorimetry import planck_law
-from expression import Nothing, Ok, Option, Some
+from expression import Ok, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 from scipy.special import logsumexp
-from scipy.stats import qmc
 
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.color.observer import table
 from blender.imaging.color.processors import basis as color_basis
-from blender.imaging.faults import accumulated, guarded, ImagingNumericFault, ImagingResult
+from blender.imaging.faults import guarded, ImagingNumericFault, ImagingResult
+from blender.imaging.hashing import hashed
 from blender.imaging.parameters import Case, Choice, Finite, FrameExtent, Gated, GraphForm, Motion, NonNegative, Position, Positive, Presentation, Quantity, Ramp, Rgb, Seed, Stops, Unit
+from blender.imaging.sampling import Frozen, smoothstep
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -104,7 +102,7 @@ class Cut(msgspec.Struct, frozen=True, kw_only=True):
         value = np.clip((values - self.threshold) / self.softness, 0.0, 1.0)
         match self.interpolation:
             case Interpolation.SMOOTHSTEP:
-                value = value * value * (3.0 - 2.0 * value)
+                value = smoothstep(value)
             case Interpolation.SMOOTHERSTEP:
                 value = value**3 * (value * (6.0 * value - 15.0) + 10.0)
             case Interpolation.LINEAR:
@@ -112,63 +110,19 @@ class Cut(msgspec.Struct, frozen=True, kw_only=True):
         return 1.0 - value if self.invert else value
 
 
-class Precision(msgspec.Struct, frozen=True, kw_only=True):
-    """Scrambled Sobol resolution and independent error replicates."""
-
-    power: Annotated[int, msgspec.Meta(ge=0, le=64, title="Samples Exponent", description="Base-2 exponent of Sobol samples per support and replicate")] = 6
-    replicates: Annotated[int, msgspec.Meta(ge=2, description="Scrambles estimating standard error")] = 4
-    seed: Annotated[Seed, msgspec.Meta(title="Scramble Seed", description="Number selecting integration scrambles")] = 0
-    absolute: Annotated[NonNegative, msgspec.Meta(title="Profile Absolute Tolerance", description="Angular quadrature target in unit-radius profile area")] = 1e-4
-    relative: Annotated[NonNegative, msgspec.Meta(title="Profile Relative Tolerance", description="Angular quadrature target over profile area")] = 1e-3
-
-    def points(self, dimensions: int, replicate: int, *, key: tuple[int, ...] = ()) -> npt.NDArray[np.float64]:
-        """Returns complete scrambled Sobol net for one replicate."""
-        digest = hashlib.blake2b(cbor2.dumps((self.seed, replicate, key), canonical=True), digest_size=16).digest()
-        return qmc.Sobol(dimensions, scramble=True, bits=64, rng=np.random.Generator(np.random.Philox(int.from_bytes(digest, "little")))).random_base2(self.power)
-
-
-class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Estimate with replicate standard error and no exactness certificate."""
-
-    value: T
-    standard_error: npt.NDArray[np.float64]
-    precision: Precision
-    replicates: npt.NDArray[np.float64]
-    normalization: Option[tuple[float, float]] = Nothing
-
-    @staticmethod
-    def of(replicates: npt.NDArray[np.float64], precision: Precision) -> "Estimate[npt.NDArray[np.float64]]":
-        """Returns replicate mean and standard error of the mean."""
-        return Estimate(
-            value=np.asarray(np.mean(replicates, axis=0)), standard_error=np.asarray(np.std(replicates, axis=0, ddof=1) / math.sqrt(precision.replicates)), precision=precision, replicates=replicates
-        )
-
-    def holding[U](self, value: U) -> "Estimate[U]":
-        """Returns same statistics over another value."""
-        return Estimate(value=value, standard_error=self.standard_error, precision=self.precision, replicates=self.replicates, normalization=self.normalization)
-
-
-class CellularSample(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class CellularSample(Frozen, frozen=True, kw_only=True, eq=False):
     """Cellular value, nearest feature displacement, integer identity, and cell colors."""
 
     value: npt.NDArray[np.float64]
     delta: npt.NDArray[np.float64]
-    cell: tuple[tuple[int, ...], ...]
+    cell: npt.NDArray[np.int64]
     color: npt.NDArray[np.float64]
-
-
-class CellularSite(msgspec.Struct, frozen=True, kw_only=True):
-    """Candidate feature at exact lattice coordinates with coupled cell colors."""
-
-    cell: tuple[int, ...]
-    point: tuple[Fraction, ...]
-    color: tuple[float, float]
 
 
 class Octaves(msgspec.Struct, frozen=True, kw_only=True):
     """Fractal sum of a noise texture's octaves."""
 
-    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Detail past first octave"), Presentation(soft=Some((0.0, 8.0)), decimals=Some(1))] = 2.0
+    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Detail past first octave"), Presentation(soft=Some((0.0, 8.0)), precision=Some(1))] = 2.0
     roughness: Annotated[Unit, msgspec.Meta(description="Octave amplitude over previous")] = 0.5
     lacunarity: Annotated[NonNegative, msgspec.Meta(description="Octave frequency over previous"), Presentation(soft=Some((0.0, 4.0)))] = 2.0
 
@@ -178,21 +132,24 @@ class Perlin(Case, frozen=True, kw_only=True, tag=1):
 
     title = "Perlin Noise"
     dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Coordinate axes the noise reads"), GraphForm.SETTING] = 4
-    size: Annotated[FrameExtent, msgspec.Meta(description="Largest feature width over greater frame side"), Presentation(soft=Some((0.01, 1.0)), decimals=Some(3))] = _FIRE_SHORT_SIDE / 1.4
-    stretch: Annotated[Positive, msgspec.Meta(description="Feature height over width along field axes"), Presentation(soft=Some((0.25, 4.0)))] = 2.0
+    size: Annotated[FrameExtent, msgspec.Meta(description="Largest feature width over greater frame side"), Presentation(soft=Some((0.01, 1.0)), precision=Some(3))] = 1.0
+    stretch: Annotated[Positive, msgspec.Meta(description="Feature height over width along field axes"), Presentation(soft=Some((0.25, 4.0)))] = 1.0
     fractal: Annotated[Fractal, msgspec.Meta(description="Octave sum, ridged ignoring fractional detail"), GraphForm.SETTING] = Fractal.FBM
-    octaves: Annotated[Octaves, msgspec.Meta(description="Noise detail across scales")] = Octaves(detail=4.0)
+    octaves: Annotated[Octaves, msgspec.Meta(description="Noise detail across scales")] = Octaves()
     offset: Annotated[Finite, msgspec.Meta(description="Octave offset in ridged, hybrid, and hetero terrain sums"), Presentation(soft=Some((-2.0, 2.0)))] = 0.0
     gain: Annotated[NonNegative, msgspec.Meta(description="Octave weight passed on in ridged and hybrid sums"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
-    distortion: Annotated[Finite, msgspec.Meta(description="Warp noise by its own signal"), Presentation(soft=Some((-4.0, 4.0)))] = 1.0
-    cut: Annotated[Cut, msgspec.Meta(title="Density", description="Noise value mapped to density")] = Cut(threshold=0.17, softness=0.83, interpolation=Interpolation.LINEAR)
+    distortion: Annotated[Finite, msgspec.Meta(description="Warp noise by its own signal"), Presentation(soft=Some((-4.0, 4.0)))] = 0.0
+    cut: Annotated[Cut, msgspec.Meta(title="Density", description="Noise value mapped to density")] = Cut(interpolation=Interpolation.LINEAR)
+
+
+RIDGED: Final = Perlin(size=0.4, fractal=Fractal.RIDGED_MULTIFRACTAL, octaves=Octaves(detail=15.0, roughness=0.9), gain=74.5, distortion=1.9)
 
 
 class Voronoi(Case, frozen=True, kw_only=True, tag=2):
     """Cellular distances cut to a density by a soft threshold."""
 
     dimensions: Annotated[int, msgspec.Meta(ge=1, le=4, description="Coordinate axes the cells read"), GraphForm.SETTING] = 4
-    spacing: Annotated[FrameExtent, msgspec.Meta(description="Mean cell point spacing over greater frame side"), Presentation(soft=Some((0.002, 0.5)), decimals=Some(4))] = 0.1
+    spacing: Annotated[FrameExtent, msgspec.Meta(description="Mean cell point spacing over greater frame side"), Presentation(soft=Some((0.002, 0.5)), precision=Some(4))] = 0.1
     feature: Annotated[Feature, msgspec.Meta(description="Distance cells return"), GraphForm.SETTING] = Feature.F1
     metric: Annotated[Metric, msgspec.Meta(description="Distance measure"), GraphForm.SETTING] = Metric.EUCLIDEAN
     exponent: Annotated[Positive, msgspec.Meta(description="Minkowski exponent, 1 Manhattan and 2 Euclidean"), Presentation(soft=Some((0.1, 4.0)))] = 0.5
@@ -211,12 +168,12 @@ class Voronoi(Case, frozen=True, kw_only=True, tag=2):
 class Wave(Case, frozen=True, kw_only=True, tag=3):
     """Bands or rings of a periodic profile cut to a density by a soft threshold."""
 
-    wavelength: Annotated[FrameExtent, msgspec.Meta(description="Band or ring spacing over greater frame side"), Presentation(soft=Some((0.005, 1.0)), decimals=Some(4))] = 0.1
+    wavelength: Annotated[FrameExtent, msgspec.Meta(description="Band or ring spacing over greater frame side"), Presentation(soft=Some((0.005, 1.0)), precision=Some(4))] = 0.1
     pattern: Annotated[Pattern, msgspec.Meta(description="Bands across field or rings about center"), GraphForm.SETTING] = Pattern.BANDS
     profile: Annotated[Profile, msgspec.Meta(description="Shape of each period"), GraphForm.SETTING] = Profile.SIN
     phase: Annotated[Finite, msgspec.Meta(description="Profile phase offset"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
     distortion: Annotated[Finite, msgspec.Meta(description="Distortion noise phase offset in radians"), Presentation(soft=Some((-20.0, 20.0)))] = 0.0
-    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Distortion noise octaves past first"), Presentation(soft=Some((0.0, 8.0)), decimals=Some(1))] = 2.0
+    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Distortion noise octaves past first"), Presentation(soft=Some((0.0, 8.0)), precision=Some(1))] = 2.0
     detail_scale: Annotated[NonNegative, msgspec.Meta(description="Distortion noise frequency"), Presentation(soft=Some((0.0, 10.0)))] = 1.0
     detail_roughness: Annotated[Unit, msgspec.Meta(description="Distortion octave amplitude over previous")] = 0.5
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Wave value mapped to density")] = Cut()
@@ -261,8 +218,8 @@ class Tint(Case, frozen=True, kw_only=True, tag=1):
 class Incandescence(Case, frozen=True, kw_only=True, tag=2):
     """Unit-luminance blackbody color graded from cool to hot temperature by field tone."""
 
-    cool: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 0"), Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 1000.0
-    hot: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 1"), Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 2000.0
+    cool: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 0"), Presentation(step=Some(1.0), precision=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 1000.0
+    hot: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 1"), Presentation(step=Some(1.0), precision=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 2000.0
 
 
 class Gradient(Case, frozen=True, kw_only=True, tag=3):
@@ -288,10 +245,10 @@ class Extinction(msgspec.Struct, frozen=True, kw_only=True):
 class Vortex(msgspec.Struct, frozen=True, kw_only=True):
     """Polar twirl of the field about its center."""
 
-    radius: Annotated[FrameExtent, msgspec.Meta(description="Twirl and widening reach over greater frame side"), Presentation(soft=Some((0.01, 1.0)), decimals=Some(3))] = 0.25
+    radius: Annotated[FrameExtent, msgspec.Meta(description="Twirl and widening reach over greater frame side"), Presentation(soft=Some((0.01, 1.0)), precision=Some(3))] = 0.25
     twirl: Annotated[Finite, msgspec.Meta(description="Turn at center, falling to 0 at radius"), Presentation(soft=Some((-4.0 * math.pi, 4.0 * math.pi)), quantity=Some(Quantity.ANGLE))] = 3.0
     arms: Annotated[int, msgspec.Meta(ge=0, description="Field repeats around center, 0 leaving rings"), Presentation(soft=Some((0.0, 32.0)))] = 1
-    spin: Annotated[Finite, msgspec.Meta(description="Vortex turn in radians per clock frame"), Presentation(soft=Some((-math.pi / 12.0, math.pi / 12.0)), decimals=Some(4))] = 1.0 / 24.0
+    spin: Annotated[Finite, msgspec.Meta(description="Vortex turn in radians per clock frame"), Presentation(soft=Some((-math.pi / 12.0, math.pi / 12.0)), precision=Some(4))] = 1.0 / 24.0
     tunnel: Annotated[NonNegative, msgspec.Meta(description="Axial sample height per unit radius"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
 
 
@@ -307,14 +264,16 @@ class NoiseField(Effect, frozen=True, kw_only=True, tag=32):
 
     stage = Stage.GENERATE
     pointwise = False
-    basis: Annotated[Basis, msgspec.Meta(description="Procedural texture")] = Perlin()
+    basis: Annotated[Basis, msgspec.Meta(description="Procedural texture")] = Perlin(
+        size=_FIRE_SHORT_SIDE / 1.4, stretch=2.0, octaves=Octaves(detail=4.0), distortion=1.0, cut=Cut(threshold=0.17, softness=0.83, interpolation=Interpolation.LINEAR)
+    )
     emission: Annotated[Gated[Emission], msgspec.Meta(description="Light the field adds")] = Gated(enabled=True, value=Emission(spectrum=Incandescence(cool=800.0), intensity=0.0))
     extinction: Annotated[Gated[Extinction], msgspec.Meta(description="Light the field absorbs and scatters")] = Gated(enabled=False, value=Extinction())
     motion: Annotated[Motion, msgspec.Meta(description="Clock the field drifts and changes over")] = Motion()
     drift: Annotated[
-        tuple[Finite, Finite], msgspec.Meta(description="Velocity along field axes in greater frame sides per clock frame"), Presentation(decimals=Some(4), quantity=Some(Quantity.FRAME_GREATER))
+        tuple[Finite, Finite], msgspec.Meta(description="Velocity along field axes in greater frame sides per clock frame"), Presentation(precision=Some(4), quantity=Some(Quantity.FRAME))
     ] = (0.0, 5.0 * _FIRE_SHORT_SIDE / 24.0)
-    evolution: Annotated[Finite, msgspec.Meta(description="Signed feature evolution per clock frame"), Presentation(soft=Some((-0.2, 0.2)), decimals=Some(4))] = 0.0
+    evolution: Annotated[Finite, msgspec.Meta(description="Signed feature evolution per clock frame"), Presentation(soft=Some((-0.2, 0.2)), precision=Some(4))] = 0.0
     vortex: Annotated[Gated[Vortex], msgspec.Meta(description="Polar twirl of field about center")] = Gated(enabled=False, value=Vortex())
     envelope: Annotated[Gated[Envelope], msgspec.Meta(description="Falloff before density mapping")] = Gated(enabled=True, value=Envelope())
     center: Annotated[Position, msgspec.Meta(description="Axis pivot in frame fractions")] = (0.5, 0.0)
@@ -323,12 +282,6 @@ class NoiseField(Effect, frozen=True, kw_only=True, tag=32):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def uniforms(cell: tuple[int, ...], *, seed: int, stream: int = 0, count: int = 4) -> npt.NDArray[np.float64]:
-    """Returns stable Philox draws for an integer cell without truncating its key."""
-    key = hashlib.blake2b(cbor2.dumps((seed, stream, cell), canonical=True), digest_size=16).digest()
-    return np.random.Generator(np.random.Philox(key=int.from_bytes(key, "little"))).random(count)
 
 
 def spectrum(
@@ -356,23 +309,6 @@ def spectrum(
     return guarded(ImagingNumericFault, request, computed)
 
 
-def integrated(
-    request: msgspec.Struct, field: Callable[[npt.NDArray[np.float64]], ImagingResult[npt.NDArray[np.float64]]], bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision
-) -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
-    """Estimates a positive rectangular field integral with replicate standard error."""
-
-    def computed() -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
-        lower, upper = np.asarray(bounds, dtype=np.float64)
-        width = upper - lower
-        volume = np.prod(width)
-        results = accumulated(
-            field(lower + width * precision.points(len(lower), replicate)).map(lambda values: np.asarray(np.mean(values, axis=0) * volume)) for replicate in range(precision.replicates)
-        )
-        return results.map(lambda values: Estimate.of(np.stack(values), precision))
-
-    return guarded(ImagingNumericFault, request, computed)
-
-
 def cellular(basis: Voronoi, points: npt.NDArray[np.float64], *, seed: Seed, stream: int = 0) -> ImagingResult[CellularSample]:
     """Returns a base-octave cellular scan including stable nearest-cell evidence."""
 
@@ -380,21 +316,6 @@ def cellular(basis: Voronoi, points: npt.NDArray[np.float64], *, seed: Seed, str
         return Ok(_cellular(basis, _coordinates(points, basis.spacing, basis.dimensions), seed, stream))
 
     return guarded(ImagingNumericFault, basis, computed, frozenset(("over", "divide")))
-
-
-def cellular_sites(basis: Voronoi, spans: tuple[tuple[Fraction, Fraction], ...], *, seed: Seed, stream: int = 0) -> ImagingResult[tuple[CellularSite, ...]]:
-    """Enumerates all base-octave stencil candidates over each axis's positive lattice span."""
-
-    def computed() -> ImagingResult[tuple[CellularSite, ...]]:
-        axes = tuple(range(math.floor(first) - basis.reach, math.floor(last) + basis.reach + 1) for first, last in spans)
-        sites: list[CellularSite] = []
-        for cell in itertools.product(*axes):
-            draw = uniforms(cell, seed=seed, stream=stream, count=max(4, len(cell)))
-            point = tuple(Fraction(integer) + Fraction(basis.randomness) * Fraction(float(value)) for integer, value in zip(cell, draw[: len(cell)]))
-            sites.append(CellularSite(cell=cell, point=point, color=(float(draw[0]), float(draw[1]))))
-        return Ok(tuple(sites))
-
-    return guarded(ImagingNumericFault, basis, computed, frozenset())
 
 
 def density_range(basis: Basis) -> tuple[float, float]:
@@ -412,16 +333,10 @@ def sample(basis: Basis, points: npt.NDArray[np.float64], *, seed: Seed, stream:
         def gradient(at: npt.NDArray[np.float64], channel: int) -> npt.NDArray[np.float64]:
             cells, local = _lattice(at)
             fade = local**3 * (local * (6.0 * local - 15.0) + 10.0)
-            total = np.zeros(len(at), dtype=np.float64)
-            rank = at.shape[1]
-            sign_split = 0.5
-            for corner in itertools.product((0, 1), repeat=rank):
-                draws = np.array([uniforms(tuple(value + offset for value, offset in zip(cell, corner)), seed=seed, stream=channel, count=rank) for cell in cells])
-                slope = np.where(draws < sign_split, -1.0, 1.0)
-                weight = np.prod(np.where(np.array(corner), fade, 1.0 - fade), axis=1)
-                total += weight * np.sum(slope * (local - corner), axis=1)
-            total /= rank
-            return total
+            corners = np.array(tuple(itertools.product((0, 1), repeat=at.shape[1])))[:, None]
+            slopes = np.copysign(1.0, hashed(cells + corners, seed=seed, stream=channel, count=at.shape[1]) - 0.5)
+            weights = np.prod(np.where(corners.astype(np.bool), fade, 1.0 - fade), axis=-1)
+            return np.asarray((weights * np.sum(slopes * (local - corners), axis=-1)).sum(axis=0) / at.shape[1], dtype=np.float64)
 
         warped = at + field.distortion * np.stack([gradient(at, stream * 5 + axis + 1) for axis in range(at.shape[1])], axis=-1)
         value = np.zeros(len(at), dtype=np.float64)
@@ -490,32 +405,24 @@ def sample(basis: Basis, points: npt.NDArray[np.float64], *, seed: Seed, stream:
             return value / normalizer, tone
 
     def gabor(kernel: Gabor, at: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        rank = kernel.dimensions
+        rank, spread = kernel.dimensions, math.pi * (1.0 - kernel.anisotropy)
         cells, local = _lattice(at)
+        offsets = np.array(tuple(itertools.product((-1, 0, 1), repeat=rank)))[:, None]
         total = np.zeros(len(at), dtype=np.float64)
-        for offset in itertools.product((-1, 0, 1), repeat=rank):
-            keys = [tuple(value + shift for value, shift in zip(cell, offset)) for cell in cells]
-            for impulse in range(8):
-                center = np.array([uniforms(key, seed=seed, stream=stream * 17 + 2 * impulse) for key in keys])
-                turns = np.array([uniforms(key, seed=seed, stream=stream * 17 + 2 * impulse + 1, count=2) for key in keys])
-                delta = local - offset - center[:, :rank]
-                squared = np.sum(delta * delta, axis=1)
-                if rank == 2:
-                    angle = kernel.orientation + (turns[:, 0] - 0.5) * math.pi * (1.0 - kernel.anisotropy)
-                    direction = np.stack((np.cos(angle), np.sin(angle)), axis=-1)
-                else:
-                    inclination = math.pi / 2.0 + turns[:, 0] * math.pi * (1.0 - kernel.anisotropy)
-                    azimuth = kernel.orientation + turns[:, 1] * math.pi * (1.0 - kernel.anisotropy)
-                    direction = np.stack((np.sin(inclination) * np.cos(azimuth), np.sin(inclination) * np.sin(azimuth), np.cos(inclination)), axis=-1)
-                total += np.where(
-                    squared < 1.0,
-                    np.copysign(np.exp(-math.pi * squared) * (0.5 + 0.5 * np.cos(math.pi * squared)), center[:, 3] - 0.5) * np.sin(math.tau * kernel.frequency * np.sum(delta * direction, axis=1)),
-                    0.0,
-                )
-        total /= 6.0 * math.sqrt(4.0 * 2.0 ** (-1.0 - rank / 2.0))
-        total *= 0.5
-        total += 0.5
-        return total
+        for impulse in range(8):
+            center = hashed(cells + offsets, seed=seed, stream=stream * 17 + 2 * impulse, count=4)
+            turns = hashed(cells + offsets, seed=seed, stream=stream * 17 + 2 * impulse + 1, count=2)
+            delta = local - offsets - center[..., :rank]
+            squared = np.sum(delta * delta, axis=-1)
+            if rank == 2:
+                angle = kernel.orientation + (turns[..., 0] - 0.5) * spread
+                direction = np.stack((np.cos(angle), np.sin(angle)), axis=-1)
+            else:
+                inclination, azimuth = math.pi / 2.0 + turns[..., 0] * spread, kernel.orientation + turns[..., 1] * spread
+                direction = np.stack((np.sin(inclination) * np.cos(azimuth), np.sin(inclination) * np.sin(azimuth), np.cos(inclination)), axis=-1)
+            envelope = np.copysign(np.exp(-math.pi * squared) * (0.5 + 0.5 * np.cos(math.pi * squared)), center[..., 3] - 0.5)
+            total += np.where(squared < 1.0, envelope * np.sin(math.tau * kernel.frequency * np.sum(delta * direction, axis=-1)), 0.0).sum(axis=0)
+        return 0.5 + 0.5 * total / (6.0 * math.sqrt(4.0 * 2.0 ** (-1.0 - rank / 2.0)))
 
     def computed() -> ImagingResult[npt.NDArray[np.float64]]:
         if len(points) == 0:
@@ -531,8 +438,7 @@ def sample(basis: Basis, points: npt.NDArray[np.float64], *, seed: Seed, stream:
                 density = basis.cut.applied(raw)
                 return Ok(np.stack((density * color[:, 1], color[:, 0]) if basis.cell_color else (density, density), axis=-1))
             case White():
-                cells, _ = _lattice(_coordinates(points, basis.spacing, basis.dimensions))
-                raw = np.array([uniforms(cell, seed=seed, stream=stream, count=1)[0] for cell in cells])
+                raw = hashed(_lattice(_coordinates(points, basis.spacing, basis.dimensions))[0], seed=seed, stream=stream, count=1)[:, 0]
             case Gabor():
                 raw = gabor(basis, _coordinates(points, basis.size, basis.dimensions))
             case Magic():
@@ -558,7 +464,7 @@ def sample(basis: Basis, points: npt.NDArray[np.float64], *, seed: Seed, stream:
                 coordinates = points[:, :3] / basis.wavelength
                 phase = math.tau * (coordinates[:, 0] if basis.pattern == Pattern.BANDS else np.linalg.norm(coordinates[:, :2], axis=1)) + basis.phase - math.tau * points[:, 3]
                 if basis.distortion != 0.0:
-                    field = Perlin(dimensions=3, size=1.0, stretch=1.0, octaves=Octaves(detail=basis.detail, roughness=basis.detail_roughness), distortion=0.0)
+                    field = Perlin(dimensions=3, octaves=Octaves(detail=basis.detail, roughness=basis.detail_roughness))
                     phase += basis.distortion * (2.0 * fractal(field, coordinates * (math.pi / 10.0) * basis.detail_scale) - 1.0)
                 period = phase / math.tau
                 match basis.profile:
@@ -576,10 +482,9 @@ def sample(basis: Basis, points: npt.NDArray[np.float64], *, seed: Seed, stream:
     return guarded(ImagingNumericFault, basis, computed, frozenset(("over", "divide")))
 
 
-def _lattice(points: npt.NDArray[np.float64]) -> tuple[list[tuple[int, ...]], npt.NDArray[np.float64]]:
-    cells = [tuple(math.floor(float(points[row, axis])) for axis in range(points.shape[1])) for row in range(len(points))]
-    local = np.array([[float(points[row, axis]) - integer for axis, integer in enumerate(cell)] for row, cell in enumerate(cells)], dtype=np.float64)
-    return cells, local
+def _lattice(points: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    cells = np.floor(points)
+    return cells.astype(np.int64), points - cells
 
 
 def _distance(delta: npt.NDArray[np.float64], basis: Voronoi) -> npt.NDArray[np.float64]:
@@ -602,9 +507,9 @@ def _distance(delta: npt.NDArray[np.float64], basis: Voronoi) -> npt.NDArray[np.
 
 def _cellular(basis: Voronoi, points: npt.NDArray[np.float64], seed: int, stream: int) -> CellularSample:
     cells, local = _lattice(points)
-    offsets = tuple(itertools.product(range(-basis.reach, basis.reach + 1), repeat=points.shape[1]))
-    colors = np.array([[uniforms(tuple(value + offset for value, offset in zip(cell, neighbor)), seed=seed, stream=stream, count=max(4, points.shape[1])) for cell in cells] for neighbor in offsets])
-    delta = np.array(offsets)[:, None, :] + basis.randomness * colors[:, :, : points.shape[1]] - local
+    offsets = np.array(tuple(itertools.product(range(-basis.reach, basis.reach + 1), repeat=points.shape[1])))
+    colors = hashed(cells + offsets[:, None], seed=seed, stream=stream, count=max(4, points.shape[1]))
+    delta = offsets[:, None, :] + basis.randomness * colors[:, :, : points.shape[1]] - local
     distance = _distance(delta, basis)
     indices = np.argsort(distance, axis=0, kind="stable")
     columns = np.arange(len(points))
@@ -621,8 +526,7 @@ def _cellular(basis: Voronoi, points: npt.NDArray[np.float64], seed: int, stream
                     value = np.minimum(value, distance[index])
                 else:
                     span = basis.smoothness / 2.0
-                    blend = np.clip(0.5 + 0.5 * (value - distance[index]) / span, 0.0, 1.0)
-                    blend = blend * blend * (3.0 - 2.0 * blend)
+                    blend = smoothstep(np.clip(0.5 + 0.5 * (value - distance[index]) / span, 0.0, 1.0))
                     correction = span * blend * (1.0 - blend)
                     value = (1.0 - blend) * value + blend * distance[index] - correction
                     tone = (1.0 - blend[:, None]) * tone + blend[:, None] * colors[index, :, :2] - correction[:, None] / (1.0 + 3.0 * span)
@@ -634,8 +538,7 @@ def _cellular(basis: Voronoi, points: npt.NDArray[np.float64], seed: int, stream
             bisectors = np.divide(np.sum((closest + delta) * difference / 2.0, axis=-1), norm, out=np.full_like(norm, np.inf), where=norm > 0.0)
             value = bisectors.min(axis=0)
             tone = colors[selected, columns, :2]
-    labels = tuple(tuple(value + offset for value, offset in zip(cell, offsets[int(index)])) for cell, index in zip(cells, selected))
-    return CellularSample(value=value, delta=delta[selected, columns], cell=labels, color=tone)
+    return CellularSample(value=value, delta=delta[selected, columns], cell=cells + offsets[selected], color=tone)
 
 
 def _coordinates(points: npt.NDArray[np.float64], size: float, rank: int) -> npt.NDArray[np.float64]:
@@ -651,11 +554,9 @@ def _coordinates(points: npt.NDArray[np.float64], size: float, rank: int) -> npt
 __all__ = [
     "Basis",
     "CellularSample",
-    "CellularSite",
     "Cut",
     "Emission",
     "Envelope",
-    "Estimate",
     "Extinction",
     "Feature",
     "Fractal",
@@ -669,7 +570,6 @@ __all__ = [
     "Octaves",
     "Pattern",
     "Perlin",
-    "Precision",
     "Profile",
     "Spectrum",
     "Tint",
@@ -678,10 +578,7 @@ __all__ = [
     "Wave",
     "White",
     "cellular",
-    "cellular_sites",
     "density_range",
-    "integrated",
     "sample",
     "spectrum",
-    "uniforms",
 ]

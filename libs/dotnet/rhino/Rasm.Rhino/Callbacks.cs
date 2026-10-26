@@ -67,6 +67,9 @@ public static class Callbacks {
     public static EventHandler<TArgs> Handler<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) =>
         (_, args) => Started(IO.pure(args).Bind(deliver), site);
 
+    public static EventHandler<TArgs> Synchronous<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) =>
+        (_, args) => Run(IO.pure(args).Bind(deliver), site);
+
     internal static IO<Unit> Drained =>
         IO.liftAsync(static environment => Pending.JoinTillEmptyAsync(environment.Token).ToUnit());
 

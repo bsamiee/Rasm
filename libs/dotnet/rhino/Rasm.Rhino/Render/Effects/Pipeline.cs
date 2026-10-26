@@ -9,7 +9,6 @@ using Rasm.Imaging.Tone;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.UI;
-using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -91,23 +90,63 @@ public static class RenderRuns {
         RowText.Localize("After").Local);
 
     // --- [FRAMING]
-    private const float ApertureMinimum = 0.00001f;
-
     public static IO<RenderRun> Framing(RhinoDoc doc, ViewInfo view, PixelExtent extent, Option<TimeSpan> time, Func<Error, IO<Unit>> report) =>
         from optics in IO.lift(() => (view.Viewport.IsParallelProjection, (float)view.FocalBlurAperture) switch {
             var (parallel, aperture) => (
                     parallel ? Option<LensDistance>.None
                         : LensDistance.Validated((float)(view.Viewport.Camera35mmLensLength * LengthUnit.Scale(LengthUnit.Millimeters, LengthUnit.Meters))).Map(Some),
-                    parallel || view.FocalBlurMode is not ViewInfoFocalBlurModes.Manual || aperture < ApertureMinimum
+                    parallel || view.FocalBlurMode is not ViewInfoFocalBlurModes.Manual || aperture < 0.00001f
                         ? Option<PositiveMagnitude>.None
                         : PositiveMagnitude.Validated(aperture).Map(Some))
                 .Apply(static (focal, number) => (Focal: focal, Aperture: number)).As(),
         })
-        from lens in IO.lift(() => Cameras.Focus(view, doc.ModelUnits, optics.Focal, optics.Aperture))
+        from lens in IO.lift(() => Focus(view, doc.ModelUnits, optics.Focal, optics.Aperture))
             .Catch(static error => error.HasCode(ErrorCodes.ValidationFailed), error => report(error).Map(Option<LensFocus>.None))
-        from camera in IO.lift(() => Cameras.ToCamera(view, doc.ModelUnits, extent, lens))
-        from lights in Cameras.ToLights(doc)
+        from camera in IO.lift(() => ToCamera(view, doc.ModelUnits, extent, lens))
+        from lights in ToLights(doc)
         select RenderRun.Empty with { Camera = camera, Time = time, Lights = Some(lights), Meters = (float)LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters), FocalLength = optics.Focal, Aperture = optics.Aperture };
+
+    private static Fin<Matrix4x4> ToMatrix(Transform xform) =>
+        xform.ToFloatArray(rowDominant: false) is var entries && entries.All(float.IsFinite)
+            ? MemoryMarshal.Cast<float, Matrix4x4>(entries.AsSpan())[0]
+            : Error.New(ErrorCodes.ValidationFailed, "transform holds entry outside single precision");
+
+    private static Fin<Vector3> Numeric(Vector3d vector) =>
+        Seq(vector.X, vector.Y, vector.Z).ForAll(static value => value is >= float.MinValue and <= float.MaxValue)
+            ? new Vector3((float)vector.X, (float)vector.Y, (float)vector.Z)
+            : Error.New(ErrorCodes.ValidationFailed, "vector holds component outside single precision");
+
+    private static Fin<Option<LensFocus>> Focus(ViewInfo view, LengthUnit spaceUnit, Option<LensDistance> focal, Option<PositiveMagnitude> aperture) =>
+        aperture.IsSome
+            ? focal.Traverse(length => LensDistance.Validated((float)(view.FocalBlurDistance * LengthUnit.Scale(spaceUnit, LengthUnit.Meters)))
+                .Bind(focus => ValidationResults.ToFin(LensFocus.Validate(length, focus, out LensFocus held), held))).As()
+            : Option<LensFocus>.None;
+
+    private static Fin<Camera> ToCamera(ViewInfo view, LengthUnit spaceUnit, PixelExtent extent, Option<LensFocus> lens) =>
+        (LengthUnit.Scale(spaceUnit, LengthUnit.Meters), view.Viewport.IsParallelProjection, view.Viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World)) switch {
+            var (meters, parallel, xform) => (
+                    Refused.Unless(xform.IsValid, xform, nameof(ViewportInfo.GetXform))
+                        .Bind(frame => ToMatrix(frame with { M03 = frame.M03 * meters, M13 = frame.M13 * meters, M23 = frame.M23 * meters })),
+                    Refused.Unless(view.Viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _),
+                            (Left: parallel ? left * meters : left / near, Right: parallel ? right * meters : right / near,
+                                Bottom: parallel ? bottom * meters : bottom / near, Top: parallel ? top * meters : top / near), nameof(ViewportInfo.GetFrustum))
+                        .Bind(static window => ValidationResults.ToFin(ViewWindow.Validate((window.Left / 2d) + (window.Right / 2d), (window.Bottom / 2d) + (window.Top / 2d), window.Right - window.Left, window.Top - window.Bottom, out ViewWindow held), held)))
+                .Apply((pose, window) => new Camera(pose, parallel ? new Frustum.Parallel(window) : new Frustum.Perspective(window), extent, lens))
+                .As(),
+        };
+
+    private static IO<SceneLights> ToLights(RhinoDoc doc) =>
+        IO.lift(Fin<SceneLights> () => (LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters),
+                Conversions.Rows(doc.Lights).Filter(static light => !light.IsDeleted && light.LightGeometry.IsEnabled).Partition(static light => light.LightGeometry.IsDirectionalLight)) switch {
+                    var (meters, (directional, placed)) => (
+                        (doc.Lights.Sun is { Enabled: true } sun ? Some(-sun.Vector) : None).Traverse(Numeric).As(),
+                        (placed.Map(static light => (light.Id, light.LightGeometry.Location))
+                                + Conversions.Rows(doc.Objects.GetObjectsByType<PointObject>()).Map(static point => (point.Id, point.PointGeometry.Location))
+                                + Conversions.Rows(doc.Objects.GetObjectsByType<InstanceObject>()).Map(static block => (block.Id, Location: block.InsertionPoint)))
+                            .Traverse(row => Numeric((Vector3d)(row.Location * meters)).Map(position => (row.Id, position))).As(),
+                        directional.Traverse(static light => Numeric(-light.LightGeometry.Direction).Map(direction => (light.Id, direction))).As())
+                        .Apply(static (sun, points, directions) => new SceneLights(sun, toHashMap(points), toHashMap(directions))).As(),
+                });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -178,14 +217,12 @@ public static class EffectPipeline {
         });
 
     // --- [GAMMA]
-    private const string GammaKey = "gamma";
-
     public static IO<Option<PositiveMagnitude>> OutputGamma(PostEffectPipeline pipeline) =>
         IO.lift(() => Optional(((IPostEffects)pipeline).PostEffectFromId(PostEffectUuids.Gamma))
             .Filter(gamma => gamma.CanExecute(pipeline))
             .Traverse(static gamma => {
                 object? value = null;
-                return Refused.Unless(gamma.GetParam(GammaKey, ref value), nameof(PostEffect.GetParam))
+                return Refused.Unless(gamma.GetParam("gamma", ref value), nameof(PostEffect.GetParam))
                     .Bind(Fin<PositiveMagnitude> (Unit _) => value is float exponent
                         ? PositiveMagnitude.Validated(exponent)
                         : new Refused(nameof(PostEffect.GetParam), Refused.Invalid));

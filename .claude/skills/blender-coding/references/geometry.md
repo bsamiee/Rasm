@@ -6,7 +6,7 @@ Covers evaluated reads, BMesh, mesh attributes, buffer paths and costs, and anim
 
 Evaluated reads go through `blender.bpy.data.ids.evaluation` and follow host evaluation rules:
 - `evaluated(view_layer)` updates the layer and returns its depsgraph, or an edit fault while evaluation runs
-- `hit(obj, depsgraph, Ray(...) | Near(...))` runs an object-space ray cast or nearest-surface query and returns `BlenderResult[Option[Hit]]`, `Hit.face` indexing the evaluated mesh
+- `hit(obj, depsgraph, origin, distance, direction)` runs an object-space ray cast along `Some(direction)`, a nearest-surface query for `Nothing`, and returns `BlenderResult[Option[Hit]]`, `Hit.face` indexing the evaluated mesh
 - `Scene.ray_cast(depsgraph, origin, direction)` works in world space
 - `BMesh.from_object(obj, depsgraph)` and `BVHTree.FromObject(obj, depsgraph)` read the evaluated mesh
 - `obj.evaluated_get(depsgraph).evaluated_geometry()` answers a `GeometrySet` with `mesh`, `curves`, `pointcloud`, `volume`, `grease_pencil`, `instances_pointcloud()`, and `instance_references()`
@@ -72,6 +72,7 @@ Buffers follow host storage:
 - Buffers are flat, and `reshape(-1, 3)` follows the read
 - 2D buffers and wrong lengths raise `RuntimeError("internal error setting the array")`, the exception a `catch` names, and print `Array length mismatch`
 - Dynamic arrays (`MeshPolygon.vertices`) declare one length in `array_length` and `array_dimensions` while each item holds its own, and buffers take the resolved array's `len()`
+- `MATRIX` arrays of 9 or 16 items read as `Matrix` rows transposed from stored order, `path_resolve("<member>", False)` reading the stored array
 - Mesh shape keys read `co` through `ShapeKey.points`, 100k points in 25 µs against 3.5 ms through `data`
 - Curve shape keys hold an empty `points`, and `data` mixes `ShapeKeyBezierPoint` and `ShapeKeyCurvePoint` items, `co` 3 wide on both, with `fixed_type` reading `UnknownType`
 - Hair `curve_offset_data` and Grease Pencil `drawing.curve_offsets` hold curve offsets in `value`, one more than the curve count, outside the attributes

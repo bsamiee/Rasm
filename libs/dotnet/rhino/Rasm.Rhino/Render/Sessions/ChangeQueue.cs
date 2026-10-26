@@ -106,8 +106,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
             feed.Value = prior.Map(static value => value with { Pending = SceneFeed.Empty.Pending });
             return prior.Map(static current => current.Pending).ToFin(Errors.Cancelled);
         })),
-            static pending => DisposalOps.Release(pending.Owned),
-            pending => retain(new Disposal<SceneBatch>(pending.Batch, _ => DisposalOps.Release(pending.Owned).Run())))
+            static pending => new Disposal<SceneBatch>(pending.Batch, _ => DisposalOps.Release(pending.Owned).Run()), retain)
             .Map(static pending => pending.Batch);
 
     private IO<Unit> Drain =>
@@ -218,7 +217,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
     private static IO<SceneMesh> Mesh(NativeQueue.Mesh source, Action<IDisposable> retain) =>
         from mesh in DisposalOps.Within(() => source.SingleMesh, borrowed => Copies.Duplicate(borrowed, retain))
         from mappings in IO.lift(() => Conversions.Rows(source.Mappings)).Bind(channels => channels.TraverseM(channel =>
-            DisposalOps.Acquire(IO.lift(() => Optional(channel.Mapping)), static mapping => DisposalOps.Release(mapping.ToSeq()), mapping => mapping.Iter(retain))
+            DisposalOps.Acquire(IO.lift(() => Optional(channel.Mapping)), static mapping => DisposalOps.Release(mapping.ToSeq()), retain)
                 .Map(mapping => SceneMapper.ToMapping(channel, mapping))).As())
         from attributes in Attributes(() => source.Attributes, retain)
         from original in DisposalOps.Within(() => Optional(source.Object),
@@ -227,7 +226,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
         select SceneMapper.ToMesh(source, source.Id(), mesh, mappings, attributes, original);
 
     private static IO<SceneInstance> Instance(NativeQueue.MeshInstance instance, Action<IDisposable> retain) =>
-        from attributes in DisposalOps.Acquire(IO.lift(() => Optional(instance.ObjectAttributes)), static value => DisposalOps.Release(value.ToSeq()), value => value.Iter(retain))
+        from attributes in DisposalOps.Acquire(IO.lift(() => Optional(instance.ObjectAttributes)), static value => DisposalOps.Release(value.ToSeq()), retain)
         from ancestry in DisposalOps.Within(() => Conversions.Rows(instance.Ancestry),
             records => records.TraverseM(record => Attributes(() => record.ReferenceAttributes, retain)
                 .Map(copied => SceneMapper.ToAncestor(record, copied))).As(), DisposalOps.Release)
@@ -255,7 +254,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     // --- [ANSWERS]
     private void Collect(Func<Action<IDisposable>, IO<SceneBatch>> change, [CallerMemberName] string member = "") =>
-        Answer(DisposalOps.Replace(change, (batch, lease) => atomicIO(() => feed.Swap(held => held.Map(current => current.Collect(batch, lease))))
+        Answer(DisposalOps.Acquire(change, (batch, lease) => atomicIO(() => feed.Swap(held => held.Map(current => current.Collect(batch, lease))))
                 .Bind(static held => IO.lift(held.ToFin(Errors.Cancelled))).Map(unit))
             .Map(unit), member);
 

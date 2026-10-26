@@ -41,8 +41,8 @@ public static class Transfer {
             var gate =>
                 from changed in DisposalOps.Change(() => target.AllowDrop, held => target.AllowDrop = held, value: true, retain)
                 from attached in Seq(
-                        Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragEnter += h, h => target.DragEnter -= h, nameof(Control.DragEnter)).Inline(gate, sink, retain),
-                        Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragOver += h, h => target.DragOver -= h, nameof(Control.DragOver)).Inline(gate, sink, retain),
+                        Subscriptions.During<DragEventArgs>(target.GetType(), h => target.DragEnter += h, h => target.DragEnter -= h, nameof(Control.DragEnter)).Inline(gate, sink, retain),
+                        Subscriptions.During<DragEventArgs>(target.GetType(), h => target.DragOver += h, h => target.DragOver -= h, nameof(Control.DragOver)).Inline(gate, sink, retain),
                         Subscriptions.Host<DragEventArgs>(target.GetType(), h => target.DragDrop += h, h => target.DragDrop -= h, nameof(Control.DragDrop))
                             .Inline(args => IO.lift(() => Accepted(args.Data, accepted)).Bind(found => found.Match(Some: commit, None: static () => IO.pure(unit))), sink, retain))
                     .TraverseM(static attached => attached).As()

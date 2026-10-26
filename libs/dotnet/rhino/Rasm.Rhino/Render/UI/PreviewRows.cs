@@ -2,6 +2,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
+using Rasm.Rhino.Display;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
@@ -12,7 +13,6 @@ using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.Display;
 using Rhino.Resources;
 using Rhino.UI.Controls;
 
@@ -124,7 +124,7 @@ public static partial class PreviewRows {
     private static IO<Unit> Replaced(
         Atom<Option<(Option<(PassContext Context, Option<FramePicker> Pick)> Input, RowGrid Grid)>> held, Retained<IDisposable> owned, Panel panel,
         Option<(PassContext Context, Option<FramePicker> Pick)> context, Seq<ControlRow> children, Option<Func<RowGrid, Action<IDisposable>, IO<Unit>>> attached, RowScope scope) =>
-        DisposalOps.Replace(
+        DisposalOps.Acquire(
             keep => from grid in RowGrid.Realize(children, children, scope, keep)
                     from linked in attached.Traverse(attach => attach(grid, keep)).As()
                     select grid,
@@ -194,7 +194,7 @@ public static partial class PreviewRows {
     private static IO<(PixelFrame Tile, float Scale, Bitmap Staged, Icon Icon)> Staged(
         ImageView view, TileSource source, PixelFrame tile, float scale,
         Func<(PixelFrame Tile, float Scale, Bitmap Staged, Icon Icon), IDisposable, IO<Unit>> publish) =>
-        DisposalOps.Replace(acquired => DisposalOps.Within((Action<IDisposable> temporary) =>
+        DisposalOps.Acquire(acquired => DisposalOps.Within((Action<IDisposable> temporary) =>
             from raster in FrameView.Raster(view, tile, source.Encoding, temporary)
             from staged in DisposalOps.Acquire(IO.lift(() => new Bitmap(tile.Size.Width, tile.Size.Height, PixelFormat.Format32bppRgba)), acquired)
             from drawn in DisposalOps.Within(() => new Graphics(staged), graphics => Drawn(graphics, tile, raster))
@@ -238,7 +238,7 @@ public static partial class PreviewRows {
         where TRecord : notnull =>
         (view, scope, site, show, current, retain) => Bound(
             source, field, lens, shown, new FrameOverlay.AreaPick(aspect, readout), static area => new FrameEdit.AreaEdited(area),
-            static edit => edit.Switch(areaEdited: static held => Some(held.Area), quadEdited: static _ => Option<FrameRegion>.None, pixelPicked: static _ => Option<FrameRegion>.None),
+            static edit => edit.SwitchPartially(@default: static _ => Option<FrameRegion>.None, areaEdited: static held => Some(held.Area)),
             view, scope, site, show, current, retain);
 
     public static Func<FrameView, RowScope, CallbackSite, Func<Option<(FrameOverlay Case, FrameEdit Value)>, IO<Unit>>, IO<bool>, Action<IDisposable>, IO<IO<Unit>>> Quad<TRecord>(
@@ -246,7 +246,7 @@ public static partial class PreviewRows {
         where TRecord : notnull =>
         (view, scope, site, show, current, retain) => Bound(
             source, field, lens, shown, new FrameOverlay.QuadCage(patches, working, opacity), static quad => new FrameEdit.QuadEdited(quad),
-            static edit => edit.Switch(areaEdited: static _ => Option<FrameQuad>.None, quadEdited: static held => Some(held.Quad), pixelPicked: static _ => Option<FrameQuad>.None),
+            static edit => edit.SwitchPartially(@default: static _ => Option<FrameQuad>.None, quadEdited: static held => Some(held.Quad)),
             view, scope, site, show, current, retain);
 
     private static IO<IO<Unit>> Bound<TRecord, TValue>(
@@ -273,13 +273,13 @@ public static partial class PreviewRows {
         from sampling in DisposalOps.Acquire(IO.lift(() => {
             FrameSampling value = pane.Sample(scope);
             return (Value: value, Stop: new Disposal<FrameSampling>(value, static held => held.Stop.Run()));
-        }), static held => IO.lift(held.Stop.Dispose), held => retain(held.Stop))
+        }), static held => held.Stop, retain)
         from linked in IO.pure(sampling.Value with {
             Read = (pane.Link.Match(Some: static link => link.Masks.ValueIO, None: static () => IO.pure(Seq<FrameMask>())), sampling.Value.Read)
                 .Apply(static (masks, own) => (own.Current, own.Reference, Masks: masks + own.Masks)).As(),
         })
         from initial in linked.Read
-        from view in DisposalOps.Acquire(IO.lift(() => new FrameView(scope.Sink, Wording.English.Shown(pane.Empty, scope.Sink), initial, linked)), retain)
+        from view in DisposalOps.Acquire(IO.lift(() => new FrameView(scope.Sink, RowText.Localize(pane.Empty, scope.Sink).Local, initial, linked)), retain)
         from readout in DisposalOps.Acquire(IO.lift(static () => new Label { Font = HostTheme.Digits(EtoFonts.SmallFont), TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center }), retain)
         from cells in atomIO(toList(pane.Targets.Map(static _ => Option<(FrameOverlay Case, FrameEdit Value)>.None)))
         from ticks in IO.lift(static () => Ref(PaneTick.Initial))
@@ -340,8 +340,7 @@ public static partial class PreviewRows {
         edit.Switch(
             preview: static _ => None,
             step: static _ => None,
-            commit: static commit => commit.Value.Switch(
-                areaEdited: static _ => None, quadEdited: static _ => None, pixelPicked: static picked => Some(picked.Pixel)),
+            commit: static commit => commit.Value.SwitchPartially<Option<(double X, double Y)>>(@default: static _ => None, pixelPicked: static picked => picked.Pixel),
             cancel: static _ => None);
 
     private static IO<Unit> Ticked(
@@ -387,7 +386,7 @@ public static partial class PreviewRows {
                         from frame in stage.Read
                         from done in frame.Bind(held => square.Mean(held, pixel)).Match(Some: picked, None: static () => IO.pure(unit))
                         select done, owned)), site), owned)).As()
-        from button in ButtonRows.Pick(command, GlyphRole.Pick, scope.Sink, owned)
+        from button in ButtonRows.Push(command, Some<IGlyph>(GlyphRole.Pick), scope.Sink, owned)
         select button, retain);
 
     // --- [VIEWPORTS]
@@ -395,10 +394,9 @@ public static partial class PreviewRows {
         new ControlRow.Readout(RowShape.Filled, (scope, retain) => Viewed(caption, mode, pose, scope, retain), caption, help, rules);
 
     private static IO<RowCells> Viewed(string caption, Option<Guid> mode, Option<CameraPose> pose, RowScope scope, Action<IDisposable> retain) =>
-        from control in DisposalOps.Acquire(IO.lift(() => new ViewportControl(Wording.English.Shown(caption, scope.Sink))), retain)
-        from moded in mode.Traverse(id => DisposalOps.Found(() => DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode),
-            display => IO.lift(() => { control.Viewport.DisplayMode = display; }))).As()
-        from posed in pose.Traverse(held => IO.lift(() => Cameras.WritePose(control.Viewport, held))).As()
+        from control in DisposalOps.Acquire(IO.lift(() => new ViewportControl(RowText.Localize(caption, scope.Sink).Local)), retain)
+        from moded in mode.Traverse(id => DisplayModes.With(id, display => IO.lift(() => { control.Viewport.DisplayMode = display; }))).As()
+        from posed in pose.Traverse(held => IO.lift(() => Cameras.Write(control.Viewport, held))).As()
         from refreshed in IO.lift(control.Refresh)
         select new RowCells(control, None, None, None, [], [], new RowHelp(None, None), IO.lift(control.Refresh), None, None);
 

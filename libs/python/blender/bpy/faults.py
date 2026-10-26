@@ -1,17 +1,16 @@
 """Blender faults and result type of Blender operations."""
 
 from collections.abc import Callable
-from importlib.resources.abc import Traversable
 from pathlib import Path
 import typing
-from typing import Protocol, TYPE_CHECKING
+from typing import override, Protocol, TYPE_CHECKING
 import zoneinfo
 
 from expression import Error, Ok, Result
 import msgspec
 
-from blender.imaging.faults import Faults, ImagingFaults, Refusal
-from blender.rendering.faults import RenderingFaults
+from blender.imaging.faults import Fault, Faults, Refusal
+from blender.rendering.faults import RenderingFault
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -30,18 +29,7 @@ class Requirement(Protocol):
 
 type EditRefusal = AttributeError | ReferenceError | RuntimeError | KeyError | TypeError | ValueError | SystemError | msgspec.EncodeError | OverflowError | MemoryError
 type BlenderFault = (
-    BlenderRegisterFault
-    | BlenderEditFault
-    | BlenderChoiceFault
-    | BlenderAbsentFault
-    | BlenderCollisionFault
-    | BlenderUnmetFault
-    | BlenderOperatorFault
-    | BlenderReadFault
-    | BlenderWriteFault
-    | BlenderZoneFault
-    | BlenderImagingFault
-    | BlenderRenderingFault
+    BlenderRegisterFault | BlenderEditFault | BlenderChoiceFault | BlenderAbsentFault | BlenderCollisionFault | BlenderUnmetFault | BlenderOperatorFault | BlenderZoneFault | RenderingFault
 )
 type BlenderFaults = Faults[BlenderFault]
 type BlenderResult[T] = Result[T, BlenderFaults]
@@ -52,9 +40,17 @@ type BlenderResult[T] = Result[T, BlenderFaults]
 class BlenderRegisterFault(Refusal[tuple[str, ...], ValueError | RuntimeError | TypeError | msgspec.ValidationError], frozen=True):
     """Class ordering, registration, or generated name refused."""
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text listing the refused names."""
+        return f"Registration of {', '.join(self.request)} refused. {self.error}"
+
 
 class BlenderEditFault(Refusal[str, EditRefusal], frozen=True):
     """Host property or function refusing edit."""
+
+    template = "{request} refused edit. {error}"
 
     @classmethod
     def attempted[T](cls, request: str, call: Callable[[], T]) -> "BlenderResult[T]":
@@ -65,67 +61,69 @@ class BlenderEditFault(Refusal[str, EditRefusal], frozen=True):
             return Error((cls(request=request, error=error),))
 
 
-class BlenderChoiceFault(msgspec.Struct, frozen=True, kw_only=True):
+class BlenderChoiceFault(Fault, frozen=True, kw_only=True):
     """Identifier outside the set a host path accepts."""
 
     path: str
     identifier: str
     accepted: tuple[str, ...]
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text listing the accepted identifiers."""
+        return f"{self.path} accepts {', '.join(self.accepted)}, not {self.identifier}"
 
-class BlenderAbsentFault(msgspec.Struct, frozen=True, kw_only=True):
+
+class BlenderAbsentFault(Fault, frozen=True, kw_only=True):
     """Key absent from owner."""
 
     owner: str
     key: str | int
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming owner and key."""
+        return f"{self.owner} holds no {self.key}"
+
 
 class BlenderCollisionFault(Refusal[str, str | Path], frozen=True):
     """Requested name or placement occupied."""
 
+    template = "{request} is taken at {error}"
 
-class BlenderUnmetFault(msgspec.Struct, frozen=True, kw_only=True):
+
+class BlenderUnmetFault(Fault, frozen=True, kw_only=True):
     """Context lacking requirement."""
 
     requirement: Requirement
+
+    @property
+    @override
+    def message(self) -> str:
+        """Poll message of the requirement."""
+        return self.requirement.message
 
 
 class BlenderOperatorFault(Refusal[str, RuntimeError | frozenset["rna_enums.OperatorReturnItems"]], frozen=True):
     """Operator that refused its call or returned no success."""
 
-
-class BlenderReadFault(Refusal[str | Traversable, msgspec.DecodeError | TypeError | ValueError | OSError | KeyError | NotImplementedError | MemoryError], frozen=True):
-    """File or stored form its reader refused."""
-
-
-class BlenderWriteFault(Refusal[str | Path, OSError], frozen=True):
-    """Folder or file its writer refused."""
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming the answer set or the raised error."""
+        match self.error:
+            case frozenset():
+                return f"{self.request} answered {', '.join(sorted(self.error))}"
+            case _:
+                return f"{self.request} failed. {self.error}"
 
 
 class BlenderZoneFault(Refusal[str, ValueError | zoneinfo.ZoneInfoNotFoundError], frozen=True, kw_only=True):
     """Time zone `zoneinfo.ZoneInfo` refused."""
 
-
-class BlenderImagingFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Imaging faults as one Blender fault."""
-
-    faults: ImagingFaults
-
-    @classmethod
-    def lifted(cls, faults: ImagingFaults) -> BlenderFaults:
-        """Wraps faults in one Blender fault."""
-        return (cls(faults=faults),)
-
-
-class BlenderRenderingFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Rendering faults as one Blender fault."""
-
-    faults: RenderingFaults
-
-    @classmethod
-    def lifted(cls, faults: RenderingFaults) -> BlenderFaults:
-        """Wraps faults in one Blender fault."""
-        return (cls(faults=faults),)
+    template = "Time zone {request} is unavailable. {error}"
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -137,14 +135,10 @@ __all__ = [
     "BlenderEditFault",
     "BlenderFault",
     "BlenderFaults",
-    "BlenderImagingFault",
     "BlenderOperatorFault",
-    "BlenderReadFault",
     "BlenderRegisterFault",
-    "BlenderRenderingFault",
     "BlenderResult",
     "BlenderUnmetFault",
-    "BlenderWriteFault",
     "BlenderZoneFault",
     "Requirement",
 ]

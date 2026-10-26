@@ -43,7 +43,7 @@ public sealed class ScalarText<TValue, TKey> : NumberText<TKey> where TValue : n
 
     public ScalarText(NumericDomain<TValue, TKey> domain, string varies) {
         (Domain, Display, Ends, this.varies) = (domain, Quantities.Scalar(domain.Presentation, domain.Bounds), domain.Presentation.Soft.IfNone(domain.Bounds), varies);
-        number = FieldTexts.Number(Display, domain.Presentation, domain.Bounds);
+        number = FieldTexts.Number(domain.Presentation, domain.Bounds);
         stride = Display.Step / (double.CreateChecked(Ends.High) - double.CreateChecked(Ends.Low));
     }
 
@@ -75,7 +75,7 @@ public sealed class ScalarText<TValue, TKey> : NumberText<TKey> where TValue : n
     public TKey Key(double position, (TKey Low, TKey High) track) => NumericRows.Narrowed<TKey>(Domain.Presentation.Key(position, track, Domain.Bounds));
 }
 
-public sealed class DistanceText(LengthUnit spaceUnit, DistanceDisplay display, (Length Low, Length High) ends, string varies) : NumberText<Length> {
+internal sealed class DistanceText(LengthUnit spaceUnit, DistanceDisplay display, (Length Low, Length High) ends, string varies) : NumberText<Length> {
     private readonly Length step = display.Resolution(spaceUnit);
 
     public override (Length Low, Length High) Ends => ends;
@@ -100,7 +100,7 @@ public static class NumberText {
         new(domain, varies);
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal abstract partial record FieldState<TValue> where TValue : notnull {
     public sealed record Resting(Option<TValue> Shown) : FieldState<TValue>;
     public sealed record Pressed(TValue Shown, PointF At) : FieldState<TValue>;
@@ -175,8 +175,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
 
     private IO<Unit> Become(FieldState<TValue> next, Option<string> written) =>
         IO.lift(() => {
-            (state, TextColor, Cursor) = (next, PaintSlot.EntryText.Read(), next.Map(
-                resting: Cursors.VerticalSplit, pressed: Cursors.VerticalSplit, scrubbing: Cursors.VerticalSplit, editing: Cursors.IBeam));
+            (state, TextColor, Cursor) = (next, PaintSlot.EntryText.Read(), next.MapPartially(@default: Cursors.VerticalSplit, editing: Cursors.IBeam));
             _ = written.Iter(shown => Text = shown);
         });
 
@@ -199,20 +198,18 @@ public sealed class NumberField<TValue, TKey> : NumberField
         select edited;
 
     private IO<Unit> Interrupted =>
-        Current.Bind(held => held.Switch(
+        Current.Bind(held => held.SwitchPartially(
             this,
-            resting: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             pressed: static (owner, pressed) => owner.Released(Some(pressed.Shown)),
-            scrubbing: static (owner, scrubbing) => owner.Unscrubbed(Some(scrubbing.Shown), owner.Raised(new Edit<TValue>.Cancel())),
-            editing: static (_, _) => IO.pure(unit)));
+            scrubbing: static (owner, scrubbing) => owner.Unscrubbed(Some(scrubbing.Shown), owner.Raised(new Edit<TValue>.Cancel()))));
 
     private Option<IO<Unit>> Stepping(FieldState<TValue> held, double steps, Keys modifiers) =>
-        held.Switch(
+        held.SwitchPartially(
             (Field: this, Steps: steps, Modifiers: modifiers),
+            @default: static (_, _) => Option<IO<Unit>>.None,
             resting: static (s, resting) => resting.Shown.Bind(shown => s.Field.Stepped(shown, s.Steps, s.Modifiers).ToOption()).Map(stepped =>
                 s.Field.Become(new FieldState<TValue>.Resting(Some(stepped)), Some(s.Field.Showing(Some(stepped)))).Bind(_ => s.Field.Raised(new Edit<TValue>.Step(stepped)))),
-            pressed: static (_, _) => Option<IO<Unit>>.None,
-            scrubbing: static (_, _) => Option<IO<Unit>>.None,
             editing: static (s, editing) => (editing.Typed | editing.Shown).Bind(shown => s.Field.Stepped(shown, s.Steps, s.Modifiers).ToOption()).Map(stepped =>
                 from typed in s.Field.Become(editing with { Typed = Some(stepped) }, Some(s.Field.Entering(Some(stepped))))
                 from selected in IO.lift(s.Field.SelectAll)
@@ -252,22 +249,21 @@ public sealed class NumberField<TValue, TKey> : NumberField
 
     // --- [INPUT]
     protected override void OnMouseDown(MouseEventArgs e) {
-        Run(Current.Bind(held => held.Switch(
+        Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
+            @default: static (_, _) => IO.pure(unit),
             resting: static (s, resting) => resting.Shown.Filter(_ => s.Args.Buttons is MouseButtons.Primary && !s.Field.HasFocus)
                 .Match(Some: shown => s.Field.Pressing(shown, s.Args), None: static () => IO.pure(unit)),
-            pressed: static (_, _) => IO.pure(unit),
-            scrubbing: static (s, _) => when(s.Args.Buttons is MouseButtons.Alternate, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
-            editing: static (_, _) => IO.pure(unit))));
+            scrubbing: static (s, _) => when(s.Args.Buttons is MouseButtons.Alternate, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As())));
         if (e.Handled) return;
 
         base.OnMouseDown(e);
     }
 
     protected override void OnMouseMove(MouseEventArgs e) {
-        Run(Current.Bind(held => held.Switch(
+        Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
-            resting: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             pressed: static (s, pressed) => when(
                 PointF.Distance(pressed.At, s.Args.Location) > ComponentControl.DragThreshold,
                 s.Field.Become(new FieldState<TValue>.Scrubbing(pressed.Shown, Travel(s.Args, pressed.At), s.Args.Location, None), None).Bind(_ => s.Field.Started)).As(),
@@ -276,27 +272,23 @@ public sealed class NumberField<TValue, TKey> : NumberField
                 let moved = s.Field.Stepped(scrubbing.Shown, float.Truncate(travel), s.Args.Modifiers).ToOption().Filter(value => scrubbing.Moved != Some(value))
                 from shown in s.Field.Become(scrubbing with { Travel = travel, Last = s.Args.Location, Moved = moved | scrubbing.Moved }, moved.Map(value => s.Field.Showing(Some(value))))
                 from raised in s.Field.Raised(moved.Map<Edit<TValue>>(static value => new Edit<TValue>.Preview(value)))
-                select raised,
-            editing: static (_, _) => IO.pure(unit))));
+                select raised)));
         base.OnMouseMove(e);
     }
 
     protected override void OnMouseUp(MouseEventArgs e) {
-        Run(Current.Bind(held => held.Switch(
+        Run(Current.Bind(held => held.SwitchPartially(
             this,
-            resting: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             pressed: static (field, pressed) => field.Released(Some(pressed.Shown)).Bind(_ => IO.lift(field.Focus)),
-            scrubbing: static (field, scrubbing) => field.Unscrubbed(scrubbing.Moved | Some(scrubbing.Shown), field.Committed(scrubbing.Moved)),
-            editing: static (_, _) => IO.pure(unit))));
+            scrubbing: static (field, scrubbing) => field.Unscrubbed(scrubbing.Moved | Some(scrubbing.Shown), field.Committed(scrubbing.Moved)))));
         base.OnMouseUp(e);
     }
 
     protected override void OnMouseWheel(MouseEventArgs e) {
-        Run(Current.Bind(held => held.Switch(
+        Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
-            resting: static (_, _) => IO.pure(unit),
-            pressed: static (_, _) => IO.pure(unit),
-            scrubbing: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             editing: static (s, editing) => Claimed(() => s.Args.Handled = true,
                 s.Field.Stepping(editing, Math.Sign(s.Args.Delta.Height), s.Args.Modifiers).IfNone(IO.pure(unit))))));
         if (e.Handled) return;
@@ -305,10 +297,9 @@ public sealed class NumberField<TValue, TKey> : NumberField
     }
 
     protected override void OnKeyDown(KeyEventArgs e) {
-        Run(Current.Bind(held => held.Switch(
+        Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
-            resting: static (_, _) => IO.pure(unit),
-            pressed: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             scrubbing: static (s, _) => when(s.Args.Key is Keys.Escape, Claimed(() => s.Args.Handled = true, s.Field.Interrupted)).As(),
             editing: static (s, editing) => s.Args.Key switch {
                 Keys.Up => Claimed(() => s.Args.Handled = true, s.Field.Stepping(editing, 1, s.Args.Modifiers).IfNone(IO.pure(unit))),
@@ -325,31 +316,22 @@ public sealed class NumberField<TValue, TKey> : NumberField
     }
 
     protected override void OnTextChanging(TextChangingEventArgs e) {
-        Run(Current.Bind(held => held.Switch(
+        Run(Current.Bind(held => held.SwitchPartially(
             (Field: this, Args: e),
-            resting: static (_, _) => IO.pure(unit),
-            pressed: static (_, _) => IO.pure(unit),
-            scrubbing: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             editing: static (s, editing) => when(s.Args.FromUser, s.Field.Typed(editing, s.Args.NewText)).As())));
         base.OnTextChanging(e);
     }
 
     protected override void OnGotFocus(EventArgs e) {
         base.OnGotFocus(e);
-        Run(Current.Bind(held => held.Switch(
-            this,
-            resting: static (field, resting) => field.Entered(resting.Shown),
-            pressed: static (_, _) => IO.pure(unit),
-            scrubbing: static (_, _) => IO.pure(unit),
-            editing: static (_, _) => IO.pure(unit))));
+        Run(Current.Bind(held => held.SwitchPartially(this, @default: static (_, _) => IO.pure(unit), resting: static (field, resting) => field.Entered(resting.Shown))));
     }
 
     protected override void OnLostFocus(EventArgs e) {
-        Run(Current.Bind(held => held.Switch(
+        Run(Current.Bind(held => held.SwitchPartially(
             this,
-            resting: static (_, _) => IO.pure(unit),
-            pressed: static (_, _) => IO.pure(unit),
-            scrubbing: static (_, _) => IO.pure(unit),
+            @default: static (_, _) => IO.pure(unit),
             editing: static (field, editing) => (editing.Typed | editing.Shown) switch {
                 var shown => field.Become(new FieldState<TValue>.Resting(shown), Some(field.Showing(shown))).Bind(_ => field.Committed(editing.Typed)),
             })));

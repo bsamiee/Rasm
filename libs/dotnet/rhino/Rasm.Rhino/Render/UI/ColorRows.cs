@@ -54,10 +54,8 @@ public sealed class SwatchWell(IPlugInSink sink, SwatchEncoding encoding, Comman
     : ComponentControl<SwatchLook, Unit, Unit>(sink, new SwatchLook(None, Selected: false), None) {
     // --- [METRICS]
     private const float Rim = 1f;
-    private const float VariesInset = 4f;
 
-    private static readonly MarkStyle Varies = new MarkStyle.Fill(new MarkColor.Fixed(Colors.DarkGray), 1f);
-    private static readonly MarkStyle VariesRim = new MarkStyle.Stroke(new MarkColor.Fixed(Colors.Gray), 1f, Rim);
+    private static readonly MarkStyle Varies = new MarkStyle.Stroke(PaintSlot.TextDisabled, 1f, Rim);
 
     public SwatchEncoding Encoding { get; } = encoding;
 
@@ -99,14 +97,13 @@ public sealed class SwatchWell(IPlugInSink sink, SwatchEncoding encoding, Comman
                     Some: stored => Encoding.Shown(stored) switch {
                         var shown =>
                             from board in when(shown.A < 1f, Thumbnails.Checker(canvas, swatch, Checkerboard.Content)).As()
-                            from color in Plots.Paint(canvas, Seq(new PlotMark<Unit>(new MarkShape.Band(swatch), new MarkStyle.Fill(new MarkColor.Fixed(shown.ToEto()), shown.A), None)))
+                            from color in Plots.Paint(canvas, Seq(new PlotMark<Unit>(new MarkShape.Band(swatch), new MarkStyle.Fill(shown.ToEto(), shown.A), None)))
                             select unit,
                     },
                     None: () => Plots.Paint(canvas, Seq(
                         new PlotMark<Unit>(new MarkShape.Band(swatch), Varies, None),
-                        new PlotMark<Unit>(new MarkShape.Band(swatch), VariesRim, None),
                         new PlotMark<Unit>(new MarkShape.Rule(
-                            new PointF(swatch.Left + VariesInset, swatch.Bottom - VariesInset), new PointF(swatch.Right - VariesInset, swatch.Top + VariesInset)), VariesRim, None))))).As()
+                            new PointF(swatch.Left + Plots.Inset, swatch.Bottom - Plots.Inset), new PointF(swatch.Right - Plots.Inset, swatch.Top + Plots.Inset)), Varies, None))))).As()
                 from rim in Plots.Paint(canvas, Seq(new PlotMark<Unit>(
                     new MarkShape.Band(RectangleF.Inset(bounds, new PaddingF(Rim / 2f))),
                     new MarkStyle.Stroke(state.Selected || interaction.Hovered.IsSome ? PaintSlot.Highlight : PaintSlot.EntryBorder, 1f, Rim), None)))
@@ -259,7 +256,7 @@ public static class ColorRows {
         unless(strip.Edit.Editing,
         from columns in IO.lift(() => int.Max(strip.Panel.Width / SwatchSide, 1))
         from held in strip.State.ValueIO
-        from made in DisposalOps.Replace(keep => Built(strip, held, columns, keep),
+        from made in DisposalOps.Acquire(keep => Built(strip, held, columns, keep),
             (value, lease) =>
                 from published in DisposalOps.Published(strip.Owned, (Control?)value.Layout, lease, () => strip.Panel.Content, content => strip.Panel.Content = content)
                 from shown in writeIO(strip.Wells, value.Wells)
@@ -294,10 +291,7 @@ public static class ColorRows {
         select well;
 
     private static Func<Vector4, TRecord, Fin<TRecord>> Indexed<TRecord>(Strip<TRecord> strip, int index) where TRecord : notnull =>
-        (color, record) => strip.Revise(record, list => Replaced(list, index, Swatch.From(color)));
-
-    private static Seq<Swatch> Replaced(Seq<Swatch> list, int index, Swatch swatch) =>
-        list.Map((held, at) => at == index ? swatch : held);
+        (color, record) => strip.Revise(record, list => list.Map((held, at) => at == index ? Swatch.From(color) : held));
 
     private static IO<Unit> Session<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope, CallbackSite site, Action<IDisposable> retain)
         where TRecord : notnull =>
@@ -438,10 +432,9 @@ public static class ColorRows {
         RowSource<WheelsState> source, IterableNE<RowField<WheelsState>> members, Option<Gamut> working, RowScope scope, Action<IDisposable> retain) =>
         from record in scope.Read(source)
         from shown in atomIO(Opening(record))
-        let texts = (Hue: NumberText.Scalar(NumericDomain.Bounded<WheelHue, float>(WheelHue.Presentation), RowEdit.Varies), Strength: NumberText.Scalar(NumericDomain.Bounded<AxisFraction, float>(AxisFraction.Presentation), RowEdit.Varies))
-        let faced = fun((ToneWheel wheel) => new ShownWheel(Wording.English.Shown(wheel.Parameter.Text.Caption, scope.Sink), texts.Hue, texts.Strength))
+        let named = fun((ToneWheel wheel) => RowText.Localize(wheel.Parameter.Text.Caption, scope.Sink).Local)
         let current = fun(() => shown.Value)
-        from wheel in DisposalOps.Acquire(IO.lift(() => new GradingWheel(scope.Sink, faced(current()))), retain)
+        from wheel in DisposalOps.Acquire(IO.lift(() => new GradingWheel(scope.Sink, named(current()))), retain)
         let site = new CallbackSite(scope.Sink, typeof(GradingWheel), nameof(GradingWheel.Edited))
         from bound in RowEdit.Bind(source, members, h => wheel.Edited += h, h => wheel.Edited -= h,
             edit => Callbacks.Handler<EditEventArgs<WheelOffset>>(args => edit.Take(args.Edit, (offset, held) => current().Lens.Set(offset, held)).Map(unit), site),
@@ -456,16 +449,13 @@ public static class ColorRows {
             .TraverseM(static make => make).As()
         let lines = Lines(bound, scope.Read(source), Seq(hue.Show, strength.Show, luma.Show) + lanes.Map(static lane => lane.Show))
         from popup in ChoiceRows.Popup(
-                toSeq(ToneWheel.Items).Map(item => new ChoiceItem<ToneWheel>(item, Wording.English.Shown(item.Parameter.Text.Caption, scope.Sink), None)),
-                picked => Switched(shown, wheel, faced(picked), picked).Bind(_ => lines), scope.Sink, retain)
+                toSeq(ToneWheel.Items).Map(item => new ChoiceItem<ToneWheel>(item, named(item), None)),
+                picked => writeIO(shown, picked).Bind(_ => wheel.Show(named(picked))).Bind(_ => lines), scope.Sink, retain)
         select new RowCells(
             popup.Control, None, None, None, [],
             Seq(new RowLine(Some(""), wheel, None, None), hue.Line, strength.Line, luma.Line) + lanes.Map(static lane => lane.Line),
             new RowHelp(None, None), lines.Bind(_ => IO.lift(current)).Bind(chosen => popup.Show(Some(chosen))), Some<RowEdit>(bound),
             Some(ChoiceRows.Context(wheel, [], [], scope.Sink)));
-
-    private static IO<Unit> Switched(Atom<ToneWheel> shown, GradingWheel wheel, ShownWheel faced, ToneWheel picked) =>
-        writeIO(shown, picked).Bind(_ => wheel.Show(faced));
 
     private static ToneWheel Opening(WheelsState record) =>
         toSeq(ToneWheel.Items).Find(wheel => wheel.Lens.Get(record) != WheelOffset.Default).IfNone(ToneWheel.Global);
@@ -481,8 +471,7 @@ public static class ColorRows {
                from edited in Subscriptions.Attach(h => field.Edited += h, h => field.Edited -= h,
                    Callbacks.Handler<EditEventArgs<SignedMagnitude>>(args => edit.Take(args.Edit, (value, held) => Crossed(current(), lane, working, value, held)).Map(unit), new CallbackSite(sink, typeof(ColorRows), nameof(Wheels))), retain)
                select (
-                   new RowLine(Some(channel.Map(luma: "Luma", red: "Red", green: "Green", blue: "Blue")), field, None,
-                       Some(field.Fit)),
+                   new RowLine(Some(channel.Curve.Parameter.Text.Caption), field, None, Some(field.Fit)),
                    (Func<Option<WheelsState>, IO<Unit>>)(value => IO.lift(current).Bind(wheel => field.Receive(Lane(wheel, lane, working, value)))));
     }
 
@@ -534,7 +523,7 @@ public static class ColorRows {
         where TRecord : notnull {
         NumericDomain<RampPosition, double> domain = NumericDomain.Bounded<RampPosition, double>(new());
         NumberText<double> text = NumberText.Scalar(domain, RowEdit.Varies);
-        return from bar in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(field.Caption, scope.Sink), new GradientRampState.Editor(working, text, None, None, None))), retain)
+        return from bar in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, RowText.Localize(field.Caption, scope.Sink).Local, new GradientRampState.Editor(working, text, None, None, None))), retain)
                from stop in atomIO((Ramp: Option<Ramp>.None, Selected: Option<int>.None))
                let site = new CallbackSite(scope.Sink, typeof(GradientRamp), nameof(GradientRamp.Edited))
                from bound in RowEdit.Bind(source, IterableNE.create(field), h => bar.Edited += h, h => bar.Edited -= h,
@@ -549,7 +538,7 @@ public static class ColorRows {
                let stopped = Stopped(stop.ValueIO, well, position)
                from session in Session(well, bound, (color, record) => Recolored(lens, stop.Value.Selected, color, record), scope, site, retain)
                from selected in Subscriptions.Attach(h => bar.Selected += h, h => bar.Selected -= h,
-                   Callbacks.Handler<StopSelectedEventArgs>(selected => Chosen(stop, selected.Index).Bind(_ => stopped), site with { Member = nameof(GradientRamp.Selected) }), retain)
+                   Callbacks.Handler<StopSelectedEventArgs>(selected => stop.SwapIO(held => held with { Selected = selected.Index }).Bind(_ => stopped), site with { Member = nameof(GradientRamp.Selected) }), retain)
                from positioned in Subscriptions.Attach(h => position.Edited += h, h => position.Edited -= h,
                    Callbacks.Handler<EditEventArgs<RampPosition>>(args => Positioned(bound, stop, bar, lens, args.Edit), site with { Member = nameof(NumberField<,>.Edited) }), retain)
                select new RowCells(
@@ -562,9 +551,6 @@ public static class ColorRows {
     private static IO<Unit> Dragged<TRecord>(RowEdit<TRecord> edit, Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, Lens<TRecord, Ramp> lens, Edit<Ramp> change)
         where TRecord : notnull =>
         stop.SwapIO(held => held with { Ramp = change.Carried | held.Ramp }).Bind(_ => edit.Take(change, (ramp, record) => lens.Set(ramp, record))).Map(unit);
-
-    private static IO<Unit> Chosen(Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, Option<int> at) =>
-        stop.SwapIO(held => held with { Selected = at }).Map(unit);
 
     private static Fin<TRecord> Interpolated<TRecord>(Lens<TRecord, Ramp> lens, RampInterpolation interpolation, TRecord record) where TRecord : notnull =>
         ValidationResults.ToFin(Ramp.Validate(lens.Get(record).Stops, interpolation, out Ramp? ramp), ramp).Map(held => lens.Set(held, record));
@@ -613,26 +599,25 @@ public static class ColorRows {
     public static ControlRow Qualifier<TRecord>(
         RowSource<TRecord> source, string caption, string help, RangeAxis axis, Lens<TRecord, HueRange> range, RowField<TRecord> field,
         Option<Func<TRecord, Vector4, Vector4>> grade, Option<StageInput> stage, RowRules rules) where TRecord : notnull =>
-        ControlRow.Of(source, IterableNE.create(field), caption, help, RowShape.Block, (scope, retain) =>
-            Qualified(source, IterableNE.create(field), caption, axis, range, HueRangeParameter.Band(axis) switch {
-                var (center, width, softness) => (center.Text.Caption, width.Text.Caption, softness.Text.Caption),
-            }, grade, stage, scope, retain), rules);
+        IterableNE.create(field) switch {
+            var members => ControlRow.Of(source, members, caption, help, RowShape.Block, (scope, retain) => Qualified(source, members, caption, axis, range, grade, stage, scope, retain), rules),
+        };
 
     private static IO<RowCells> Qualified<TRecord>(
         RowSource<TRecord> source, IterableNE<RowField<TRecord>> members, string caption, RangeAxis axis, Lens<TRecord, HueRange> range,
-        (string Center, string Width, string Softness) band, Option<Func<TRecord, Vector4, Vector4>> grade, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
+        Option<Func<TRecord, Vector4, Vector4>> grade, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
-        from text in IO.pure(NumberText.Scalar(NumericDomain.Bounded<AxisFraction, float>(axis.Presentation), RowEdit.Varies))
-        from bar in DisposalOps.Acquire(IO.lift(() => new HueRangeBar(scope.Sink, axis, Wording.English.Shown(caption, scope.Sink), new BandTexts(text, text, text))), retain)
+        from bar in DisposalOps.Acquire(IO.lift(() => new HueRangeBar(scope.Sink, axis, RowText.Localize(caption, scope.Sink).Local)), retain)
         let site = new CallbackSite(scope.Sink, typeof(HueRangeBar), nameof(HueRangeBar.Edited))
         let lenses = axis.Members(range)
+        let band = HueRangeParameter.Band(axis)
         from bound in RowEdit.Bind(source, members, h => bar.Edited += h, h => bar.Edited -= h,
             edit => Callbacks.Handler<EditEventArgs<HueRange>>(args => edit.Take(args.Edit, (value, held) => range.Set(value, held)).Map(unit), site),
             value => Banded(bar, range, grade, value), scope, site, retain)
         from pick in stage.Traverse(input => Pick(input, bound, (color, held) => Centered(axis, lenses.Center, color, held), scope, retain)).As()
-        from center in NumericRows.Line(source, band.Center, lenses.Center, axis.Presentation, bound, pick.Map(static button => (Control)button), scope.Sink, retain)
-        from width in NumericRows.Line(source, band.Width, lenses.Width, axis.Presentation, bound, None, scope.Sink, retain)
-        from softness in NumericRows.Line(source, band.Softness, lenses.Softness, axis.Presentation, bound, None, scope.Sink, retain)
+        from center in NumericRows.Line(source, band.Center.Text.Caption, lenses.Center, axis.Presentation, bound, pick.Map(static button => (Control)button), scope.Sink, retain)
+        from width in NumericRows.Line(source, band.Width.Text.Caption, lenses.Width, axis.Presentation, bound, None, scope.Sink, retain)
+        from softness in NumericRows.Line(source, band.Softness.Text.Caption, lenses.Softness, axis.Presentation, bound, None, scope.Sink, retain)
         select new RowCells(
             bar, None, None, None, [], Seq(center.Line, width.Line, softness.Line), new RowHelp(None, None),
             Lines(bound, scope.Read(source), Seq(center.Show, width.Show, softness.Show)), Some<RowEdit>(bound),

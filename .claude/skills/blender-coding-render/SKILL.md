@@ -172,7 +172,9 @@ Light linking on an emitter names `obj.light_linking.receiver_collection` and `b
 - Later effects take the previous effect's first output, transparent black after no output socket, opaque black after a `NodeSocketFloat` one
 - Last effects lacking a color first output leave the render uncomposited
 - `NodeSocketFloat` first inputs take image luminance, and later inputs their `properties.inputs` values whatever their names
+- GPU compositing on Metal crashes Blender on a matrix value computed per pixel, Metal failing to compile matrix stores
 - Render Layers nodes in a group read layers and passes by name
+- Render Layers nodes from `nodes.new` read the context scene until code sets `scene`
 - First effects with no Group Input node and no Render Layers node on the scene skip its render
 - Compositor trees evaluate as they stood at frame start, stills taking edits through `render_pre` and animation frames edits before it
 - Per-frame compositor values come from keyframes on effect inputs or tree sockets

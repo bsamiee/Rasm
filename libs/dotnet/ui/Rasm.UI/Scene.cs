@@ -30,12 +30,13 @@ internal abstract partial record Laid {
         });
 
     public bool Timed =>
-        Node.Role.IsSome && Style.Fills.Exists(static fill => fill.Switch(
-            solid: static _ => false, gradient: static _ => false, drawn: static drawn => drawn.Timed, backdrop: static _ => false, blurred: static _ => false));
+        Node.Role.IsSome && Style.Fills.Exists(static fill => fill.SwitchPartially(@default: static _ => false, drawn: static drawn => drawn.Timed));
 
     internal SKRect LocalReach => Reach switch { var reach => SKRect.Create(reach.Location - Frame.Location, reach.Size) };
 
     internal float Inset => Node.Role.IsSome ? Style.Metrics[Metric.Inset] : 0f;
+
+    internal Option<Text> Texted => Switch(box: static _ => Option<Text>.None, text: static text => Some(text));
 
     private float Overhang => Node.Role.IsSome || Node.Traced.IsSome ? Style.Overhang : 0f;
 
@@ -72,7 +73,6 @@ public abstract partial record Adjuster {
             ? Some(toward.Grain.Switch(
                 (Adjuster: this, toward.Sign),
                 unit: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Step),
-                word: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Step),
                 page: static held => held.Adjuster.Value + (held.Sign * held.Adjuster.Switch(scroll: static scroll => scroll.Page, split: static split => split.Step)),
                 edge: static held => held.Sign < 0 ? held.Adjuster.Min : held.Adjuster.Max))
             : None;
@@ -225,12 +225,7 @@ public sealed class Scene {
         select (laid, at - frame.Location);
 
     private static Option<Adjuster> Adjusting(Laid owner, Option<Laid> handle, Option<float> stored) =>
-        owner.Node.Switch(
-            (Owner: owner, Handle: handle, Stored: stored),
-            box: Unadjusted, flex: Unadjusted, grid: Unadjusted, lazy: Unadjusted, overlay: Unadjusted, choice: Unadjusted, scroll: Scrolled, split: Divided, plot: Unadjusted,
-            pin: Unadjusted, mark: Unadjusted, text: Unadjusted, glyph: Unadjusted, image: Unadjusted, slot: Unadjusted, styled: Unadjusted);
-
-    private static Option<Adjuster> Unadjusted((Laid Owner, Option<Laid> Handle, Option<float> Stored) _, Node __) => None;
+        owner.Node.SwitchPartially((Owner: owner, Handle: handle, Stored: stored), @default: static (_, _) => Option<Adjuster>.None, scroll: Scrolled, split: Divided);
 
     private static Option<Adjuster> Scrolled((Laid Owner, Option<Laid> Handle, Option<float> Stored) held, Node.Scroll node) =>
         Layouts.Scrollable(held.Owner, node).Map(scroll => (Adjuster)new Adjuster.Scroll(scroll.Viewport) {
@@ -252,18 +247,14 @@ public sealed class Scene {
         toHashMap(toSeq(adjusted.AsIterable()).Choose(entry => index.Find(entry.Key).Bind(laid => Adjusting(laid, None, Some(entry.Value))).Map(adjuster => (entry.Key, adjuster.Value))));
 
     private static Seq<Hosted> Hosts(Laid laid, Place place) =>
-        laid.Node.Switch(
-            (Laid: laid, Frame: Absolute(laid.Frame, place.Origin), place.Clip),
-            box: Backed, flex: Backed, grid: Backed, lazy: Backed, overlay: Backed, choice: Backed, scroll: Backed, split: Backed, plot: Backed, pin: Backed, mark: Backed,
-            text: Backed, glyph: Backed, image: Backed, slot: Hosting, styled: Backed);
+        laid.Node.SwitchPartially((Laid: laid, Frame: Absolute(laid.Frame, place.Origin), place.Clip), @default: Backed, slot: Hosting);
 
     private static Seq<Hosted> Hosting((Laid Laid, SKRect Frame, SKRect Clip) held, Node.Slot _) => [new Hosted.Slot { Path = held.Laid.Path, Frame = held.Frame, Clip = held.Clip }];
 
     private static Seq<Hosted> Backed((Laid Laid, SKRect Frame, SKRect Clip) held, Node node) =>
         node.Role.IsNone
             ? []
-            : held.Laid.Style.Fills.Choose(static fill => fill.Switch(
-                    solid: static _ => None, gradient: static _ => None, drawn: static _ => None, backdrop: static backdrop => Some(backdrop), blurred: static _ => None))
+            : held.Laid.Style.Fills.Choose(static fill => fill.SwitchPartially(@default: static _ => Option<Material.Backdrop>.None, backdrop: static backdrop => Some(backdrop)))
                 .Map(backdrop => (Hosted)new Hosted.Backdrop(held.Laid.Style.Metrics[Metric.Radius], backdrop.Glass, backdrop.Tint.Bind(tint => held.Laid.Cascade.Theme.Color(tint, held.Laid.Style, None, None))) {
                     Path = held.Laid.Path, Frame = held.Frame, Clip = held.Clip,
                 });

@@ -9,10 +9,8 @@ public sealed record StageFrame(int Watchers, Option<(PixelFrame Frame, PassCont
     public bool Demanded => Watchers > 0;
 
     public static IO<Unit> Watch(Atom<StageFrame> stage, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => {
-            _ = stage.Swap(static held => held with { Watchers = held.Watchers + 1 });
-            return new Disposal<Atom<StageFrame>>(stage, static held => _ = held.Swap(static frame => frame.Watchers > 1 ? frame with { Watchers = frame.Watchers - 1 } : Unwatched));
-        }), retain)
+        DisposalOps.Acquire(IO.lift(() => stage.Swap(static held => held with { Watchers = held.Watchers + 1 })),
+            _ => IO.lift(() => stage.Swap(static frame => frame.Watchers > 1 ? frame with { Watchers = frame.Watchers - 1 } : Unwatched)).Map(unit), retain)
             .Map(static _ => unit);
 
     internal static Unit Fill(Atom<StageFrame> stage, PixelFrame input, PassContext context) =>

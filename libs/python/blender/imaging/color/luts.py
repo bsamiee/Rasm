@@ -13,8 +13,8 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.color.processors import applied, processor
-from blender.imaging.faults import accumulated, colored, ImagingLutShapeFault, ImagingResult, ImagingWriteFault
+from blender.imaging.color.processors import converted
+from blender.imaging.faults import Access, accumulated, colored, ImagingFileFault, ImagingResult, ImagingShapeFault
 from blender.imaging.files.images import emitted, ImageFile, published, read_file, Subimage
 from blender.imaging.parameters import Case, Choice
 
@@ -26,6 +26,62 @@ class LutLayout(Choice):
 
     HALD = 1
     KEYSHOT = 2, "KeyShot"
+
+    @classmethod
+    def read(cls, path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenColorIO.GroupTransform]:
+        """Reads Hald or KeyShot image as uniform cube.
+
+        Args:
+            path: Image with dimensions selecting layout.
+            config: Config resolving `data` role.
+
+        Returns:
+            Table group, or `read`, LUT shape, and `color` faults.
+        """
+
+        def decoded(image: ImageFile[np.float32]) -> ImagingResult[PyOpenColorIO.GroupTransform]:
+            if (pixels := (image.pixels)).ndim != 3:
+                return Error((ImagingShapeFault(subject=f"LUT image {path}", shape=pixels.shape),))
+            height, width, channels = pixels.shape
+            rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
+            level = round(np.cbrt(width))
+            match height, width:
+                case _ if height == width == level**3:
+                    size = level**2
+                    plane = rgb.reshape(size, size * size, 3)
+                case _ if width == height * height:
+                    size = height
+                    plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
+                case _:
+                    return Error((ImagingShapeFault(subject=f"LUT image {path}", shape=pixels.shape),))
+            return colored(path, lambda: Lattice(size=size).transform(plane))
+
+        options = OpenImageIO.ImageSpec()
+        options.attribute("oiio:UnassociatedAlpha", 1)
+        return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
+
+    def written(self, table: PyOpenColorIO.Lut3DTransform, path: str) -> ImagingResult[str]:
+        """Writes stored cube nodes as 16-bit image in this layout.
+
+        Args:
+            table: Uniform cube to write.
+            path: Image path with suffix of a UINT16 writer.
+
+        Returns:
+            Path, LUT shape fault when Hald size is no perfect square, or `write` fault.
+        """
+        size = table.getGridSize()
+        cube = table.getData().reshape(size, size, size, 3).transpose(2, 1, 0, 3)
+        match self:
+            case LutLayout.HALD:
+                if (level := (math.isqrt(size))) * level != size:
+                    return Error((ImagingShapeFault(subject=f"LUT image {path}", shape=cube.shape),))
+                side = level**3
+                pixels = cube.reshape(side, side, 3)
+            case LutLayout.KEYSHOT:
+                pixels = cube.transpose(1, 0, 2, 3)[::-1].reshape(size, size * size, 3)
+        height, width, channels = pixels.shape
+        return emitted(path, lambda _: (Subimage(spec=OpenImageIO.ImageSpec(width, height, channels, OpenImageIO.UINT16), attributes=(), pixels=lambda: Ok(np.ascontiguousarray(pixels))),))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -117,11 +173,12 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
         )
         blue, green, red = np.meshgrid(grid, grid, grid, indexing="ij")
         plane = np.stack((red, green, blue), axis=-1).reshape(self.size, self.size * self.size, 3)
-        return self.head.map(
-            lambda head: processor(PyOpenColorIO.Config(), PyOpenColorIO.GroupTransform([head], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)).map(
-                lambda built: plane if isinstance(self.spacing, Uniform) else applied(built.getDefaultCPUProcessor(), plane)
-            )
-        ).default_value(Ok(plane))
+        return (
+            self.head
+            .filter(lambda _: not isinstance(self.spacing, Uniform))
+            .map(lambda head: converted(PyOpenColorIO.Config(), PyOpenColorIO.GroupTransform([head], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE), plane))
+            .default_value(Ok(plane))
+        )
 
     def transform(self, outputs: npt.NDArray[np.float32]) -> PyOpenColorIO.GroupTransform:
         """Builds tetrahedral table of `outputs` after node encoding."""
@@ -147,69 +204,6 @@ type LutOutput = Bake | Exact
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [IMAGES]
-
-
-def image_read(path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenColorIO.GroupTransform]:
-    """Reads Hald or KeyShot image as uniform cube.
-
-    Args:
-        path: Image with dimensions selecting layout.
-        config: Config resolving `data` role.
-
-    Returns:
-        Table group, or `read`, LUT shape, and `color` faults.
-    """
-
-    def decoded(image: ImageFile[np.float32]) -> ImagingResult[PyOpenColorIO.GroupTransform]:
-        if (pixels := (image.pixels)).ndim != 3:
-            return Error((ImagingLutShapeFault(path=path, shape=pixels.shape),))
-        height, width, channels = pixels.shape
-        rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
-        level = round(np.cbrt(width))
-        match height, width:
-            case _ if height == width == level**3:
-                size = level**2
-                plane = rgb.reshape(size, size * size, 3)
-            case _ if width == height * height:
-                size = height
-                plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
-            case _:
-                return Error((ImagingLutShapeFault(path=path, shape=pixels.shape),))
-        return colored(path, lambda: Lattice(size=size).transform(plane))
-
-    options = OpenImageIO.ImageSpec()
-    options.attribute("oiio:UnassociatedAlpha", 1)
-    return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
-
-
-def image_written(layout: LutLayout, table: PyOpenColorIO.Lut3DTransform, path: str) -> ImagingResult[str]:
-    """Writes stored cube nodes as 16-bit image.
-
-    Args:
-        layout: Node arrangement in image.
-        table: Uniform cube to write.
-        path: Image path with suffix of a UINT16 writer.
-
-    Returns:
-        Path, LUT shape fault when Hald size is no perfect square, or `write` fault.
-    """
-    size = table.getGridSize()
-    cube = table.getData().reshape(size, size, size, 3).transpose(2, 1, 0, 3)
-    match layout:
-        case LutLayout.HALD:
-            if (level := (math.isqrt(size))) * level != size:
-                return Error((ImagingLutShapeFault(path=path, shape=cube.shape),))
-            side = level**3
-            pixels = cube.reshape(side, side, 3)
-        case LutLayout.KEYSHOT:
-            pixels = cube.transpose(1, 0, 2, 3)[::-1].reshape(size, size * size, 3)
-    height, width, channels = pixels.shape
-    return emitted(path, lambda _: (Subimage(spec=OpenImageIO.ImageSpec(width, height, channels, OpenImageIO.UINT16), attributes=(), pixels=lambda: Ok(np.ascontiguousarray(pixels))),))
-
-
-# --- [TEXT]
 
 
 def written(output: LutOutput, sources: Mapping[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, ...]]:
@@ -247,7 +241,7 @@ def written(output: LutOutput, sources: Mapping[str, PyOpenColorIO.GroupTransfor
         return published(
             path,
             lambda destination: catch(lambda: pathlib.Path(destination).write_text(text, encoding="utf-8", newline=""), exception=OSError)().map_error(
-                lambda error: (ImagingWriteFault(request=path, error=error),)
+                lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),)
             ),
         )
 
@@ -256,4 +250,4 @@ def written(output: LutOutput, sources: Mapping[str, PyOpenColorIO.GroupTransfor
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bake", "Exact", "Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "image_read", "image_written", "written"]
+__all__ = ["Bake", "Exact", "Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "written"]

@@ -18,21 +18,13 @@ public sealed partial class CdlFormat {
     public Seq<string> Ancestors { get; }
 }
 
-public sealed record CdlState(
-    Magnitude SlopeRed, Magnitude SlopeGreen, Magnitude SlopeBlue,
-    SignedMagnitude OffsetRed, SignedMagnitude OffsetGreen, SignedMagnitude OffsetBlue,
-    PositiveMagnitude PowerRed, PositiveMagnitude PowerGreen, PositiveMagnitude PowerBlue,
-    Magnitude Saturation)
+public sealed record CdlState(Channels<Magnitude> Slope, Channels<SignedMagnitude> Offset, Channels<PositiveMagnitude> Power, Magnitude Saturation)
     : IStateRecord<CdlState, CdlParameter>, IPixelStage<CdlState> {
     // --- [STAGE]
-    public static CdlState Default { get; } = new(
-        Magnitude.Unit, Magnitude.Unit, Magnitude.Unit,
-        SignedMagnitude.Zero, SignedMagnitude.Zero, SignedMagnitude.Zero,
-        PositiveMagnitude.Unit, PositiveMagnitude.Unit, PositiveMagnitude.Unit,
-        Magnitude.Unit);
+    public static CdlState Default { get; } = new(new(Magnitude.Unit), new(SignedMagnitude.Zero), new(PositiveMagnitude.Unit), Magnitude.Unit);
 
     public LutTable.Cdl Step =>
-        new(CdlStyle.FwdNoClamp, new(SlopeRed, SlopeGreen, SlopeBlue), new(OffsetRed, OffsetGreen, OffsetBlue), new(PowerRed, PowerGreen, PowerBlue), Saturation);
+        new(CdlStyle.FwdNoClamp, new(Slope.Red, Slope.Green, Slope.Blue), new(Offset.Red, Offset.Green, Offset.Blue), new(Power.Red, Power.Green, Power.Blue), Saturation);
 
     public LutTable.Sequence Table(Gamut working) =>
         LutTables.Bracketed(working, LogSpace.AgXLog.Gamut, LogSpace.AgXLog.Into, Step, LogSpace.AgXLog.Back);
@@ -61,12 +53,9 @@ public sealed record CdlState(
     private static Fin<CdlState> Corrected(XElement correction) =>
         LutFiles.CorrectionValues(correction, static name => Error.New($"CDL correction holds no readable {name}"))
             .Bind(static keys => (
-                    Magnitude.Validated(keys.Slope.X), Magnitude.Validated(keys.Slope.Y), Magnitude.Validated(keys.Slope.Z),
-                    SignedMagnitude.Validated(keys.Offset.X), SignedMagnitude.Validated(keys.Offset.Y), SignedMagnitude.Validated(keys.Offset.Z),
-                    PositiveMagnitude.Validated(keys.Power.X), PositiveMagnitude.Validated(keys.Power.Y), PositiveMagnitude.Validated(keys.Power.Z),
-                    Magnitude.Validated(keys.Saturation))
-                .Apply(static (slopeRed, slopeGreen, slopeBlue, offsetRed, offsetGreen, offsetBlue, powerRed, powerGreen, powerBlue, saturation) =>
-                    new CdlState(slopeRed, slopeGreen, slopeBlue, offsetRed, offsetGreen, offsetBlue, powerRed, powerGreen, powerBlue, saturation))
+                    Channels<Magnitude>.Validated(keys.Slope, Magnitude.Validated), Channels<SignedMagnitude>.Validated(keys.Offset, SignedMagnitude.Validated),
+                    Channels<PositiveMagnitude>.Validated(keys.Power, PositiveMagnitude.Validated), Magnitude.Validated(keys.Saturation))
+                .Apply(static (slope, offset, power, saturation) => new CdlState(slope, offset, power, saturation))
                 .As());
 }
 
@@ -74,28 +63,22 @@ public sealed record CdlState(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CdlParameter : IStateParameter<CdlState> {
-    private static Presentation<float> Slope { get; } = new() { Soft = (0f, 2f), Origin = (float)Magnitude.Unit };
-    private static Presentation<float> Offset { get; } = new() { Soft = (-1f, 1f), Origin = (float)SignedMagnitude.Zero };
-    private static Presentation<float> Power { get; } = new() { Soft = ((float)PositiveMagnitude.MinValue, 2f), Origin = (float)PositiveMagnitude.Unit };
+    private static readonly Lens<CdlState, Channels<Magnitude>> Slopes = Lens<CdlState, Channels<Magnitude>>.New(static state => state.Slope, static slope => state => state with { Slope = slope });
+    private static readonly Lens<CdlState, Channels<SignedMagnitude>> Offsets = Lens<CdlState, Channels<SignedMagnitude>>.New(static state => state.Offset, static offset => state => state with { Offset = offset });
+    private static readonly Lens<CdlState, Channels<PositiveMagnitude>> Powers = Lens<CdlState, Channels<PositiveMagnitude>>.New(static state => state.Power, static power => state => state with { Power = power });
+    private static readonly Presentation<float> Slope = new() { Soft = (0f, 2f), Origin = (float)Magnitude.Unit };
+    private static readonly Presentation<float> Offset = new() { Soft = (-1f, 1f), Origin = (float)SignedMagnitude.Zero };
+    private static readonly Presentation<float> Power = new() { Soft = ((float)PositiveMagnitude.MinValue, 2f), Origin = (float)PositiveMagnitude.Unit };
 
-    public static readonly CdlParameter SlopeRed = new("slope-red", StateParameter.Bounded(Lens<CdlState, Magnitude>.New(static state => state.SlopeRed, static slope => state => state with { SlopeRed = slope }), Slope),
-        new("Red slope", "Red multiplier before offset"));
-    public static readonly CdlParameter SlopeGreen = new("slope-green", StateParameter.Bounded(Lens<CdlState, Magnitude>.New(static state => state.SlopeGreen, static slope => state => state with { SlopeGreen = slope }), Slope),
-        new("Green slope", "Green multiplier before offset"));
-    public static readonly CdlParameter SlopeBlue = new("slope-blue", StateParameter.Bounded(Lens<CdlState, Magnitude>.New(static state => state.SlopeBlue, static slope => state => state with { SlopeBlue = slope }), Slope),
-        new("Blue slope", "Blue multiplier before offset"));
-    public static readonly CdlParameter OffsetRed = new("offset-red", StateParameter.Bounded(Lens<CdlState, SignedMagnitude>.New(static state => state.OffsetRed, static offset => state => state with { OffsetRed = offset }), Offset),
-        new("Red offset", "Value added to red after slope"));
-    public static readonly CdlParameter OffsetGreen = new("offset-green", StateParameter.Bounded(Lens<CdlState, SignedMagnitude>.New(static state => state.OffsetGreen, static offset => state => state with { OffsetGreen = offset }), Offset),
-        new("Green offset", "Value added to green after slope"));
-    public static readonly CdlParameter OffsetBlue = new("offset-blue", StateParameter.Bounded(Lens<CdlState, SignedMagnitude>.New(static state => state.OffsetBlue, static offset => state => state with { OffsetBlue = offset }), Offset),
-        new("Blue offset", "Value added to blue after slope"));
-    public static readonly CdlParameter PowerRed = new("power-red", StateParameter.Bounded(Lens<CdlState, PositiveMagnitude>.New(static state => state.PowerRed, static power => state => state with { PowerRed = power }), Power),
-        new("Red power", "Exponent on red after offset"));
-    public static readonly CdlParameter PowerGreen = new("power-green", StateParameter.Bounded(Lens<CdlState, PositiveMagnitude>.New(static state => state.PowerGreen, static power => state => state with { PowerGreen = power }), Power),
-        new("Green power", "Exponent on green after offset"));
-    public static readonly CdlParameter PowerBlue = new("power-blue", StateParameter.Bounded(Lens<CdlState, PositiveMagnitude>.New(static state => state.PowerBlue, static power => state => state with { PowerBlue = power }), Power),
-        new("Blue power", "Exponent on blue after offset"));
+    public static readonly CdlParameter SlopeRed = new("slope-red", StateParameter.Bounded(lens(Slopes, Channels<Magnitude>.RedOf), Slope), new("Red slope", "Red multiplier before offset"));
+    public static readonly CdlParameter SlopeGreen = new("slope-green", StateParameter.Bounded(lens(Slopes, Channels<Magnitude>.GreenOf), Slope), new("Green slope", "Green multiplier before offset"));
+    public static readonly CdlParameter SlopeBlue = new("slope-blue", StateParameter.Bounded(lens(Slopes, Channels<Magnitude>.BlueOf), Slope), new("Blue slope", "Blue multiplier before offset"));
+    public static readonly CdlParameter OffsetRed = new("offset-red", StateParameter.Bounded(lens(Offsets, Channels<SignedMagnitude>.RedOf), Offset), new("Red offset", "Value added to red after slope"));
+    public static readonly CdlParameter OffsetGreen = new("offset-green", StateParameter.Bounded(lens(Offsets, Channels<SignedMagnitude>.GreenOf), Offset), new("Green offset", "Value added to green after slope"));
+    public static readonly CdlParameter OffsetBlue = new("offset-blue", StateParameter.Bounded(lens(Offsets, Channels<SignedMagnitude>.BlueOf), Offset), new("Blue offset", "Value added to blue after slope"));
+    public static readonly CdlParameter PowerRed = new("power-red", StateParameter.Bounded(lens(Powers, Channels<PositiveMagnitude>.RedOf), Power), new("Red power", "Exponent on red after offset"));
+    public static readonly CdlParameter PowerGreen = new("power-green", StateParameter.Bounded(lens(Powers, Channels<PositiveMagnitude>.GreenOf), Power), new("Green power", "Exponent on green after offset"));
+    public static readonly CdlParameter PowerBlue = new("power-blue", StateParameter.Bounded(lens(Powers, Channels<PositiveMagnitude>.BlueOf), Power), new("Blue power", "Exponent on blue after offset"));
     public static readonly CdlParameter Saturation = new("saturation", StateParameter.Bounded(Lens<CdlState, Magnitude>.New(static state => state.Saturation, static saturation => state => state with { Saturation = saturation }), ContrastGradeParameter.Chroma),
         new("Saturation", "Distance from Rec.709 luma after power"));
 

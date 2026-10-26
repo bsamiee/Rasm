@@ -20,7 +20,7 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SunChanged;
 
     public static IO<SunState> Read(RenderSettingsScope scope) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun => IO.lift(() =>
+        DisposalOps.Within(() => scope.Settings.Sun, static sun => IO.lift(() =>
             (SunIntensity.Validated(sun.Intensity),
              sun.ManualControlOn ? NorthAngle.Validated(sun.Azimuth) : Default.Azimuth,
              sun.ManualControlOn ? SunAltitude.Validated(sun.Altitude) : Default.Altitude,
@@ -30,7 +30,7 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
 
     public static IO<SunState> Write(RenderSettingsScope scope, SunState state) =>
         (state.ManualControlOn ? state : state with { Azimuth = Default.Azimuth, Altitude = Default.Altitude }) switch {
-            var accepted => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, sun => IO.lift(() => {
+            var accepted => DisposalOps.Within(() => scope.Settings.Sun, sun => IO.lift(() => {
                 SunMapper.Update(accepted, sun);
                 return accepted;
             })),
@@ -46,7 +46,7 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
         };
 
     public static IO<SunAngles> Angles(RenderSettingsSource source) =>
-        RenderSettingsSources.Read(source, static scope => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun =>
+        RenderSettingsSources.Read(source, static scope => DisposalOps.Within(() => scope.Settings.Sun, static sun =>
             DisposalOps.Within(static () => new Sun(), copy => IO.lift(() => {
                 copy.CopyFrom(sun);
                 copy.Accuracy = Sun.Accuracies.Maximum;
@@ -55,8 +55,8 @@ public sealed record SunState : SunLight, IRenderSettingsRecord<SunState, SunPar
 
     public static ValueStore<SunMoment> Moment(RenderSettingsSource source, TimeProvider clock) =>
         ValueStore.Of(
-            RenderSettingsSources.Read(source, static scope => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, static sun => IO.lift(() => SunMoment.Read(sun).Map(static moment => Some(moment))))),
-            moment => moment.Traverse(held => RenderSettingsSources.Edit(source, scope => RenderSettingsSources.SubOwner(scope, static settings => settings.Sun, sun => IO.lift(held.Write(sun, clock))))).As().Map(unit),
+            RenderSettingsSources.Read(source, static scope => DisposalOps.Within(() => scope.Settings.Sun, static sun => IO.lift(() => SunMoment.Read(sun).Map(static moment => Some(moment))))),
+            moment => moment.Traverse(held => RenderSettingsSources.Edit(source, scope => DisposalOps.Within(() => scope.Settings.Sun, sun => IO.lift(held.Write(sun, clock))))).As().Map(unit),
             Applied.Live,
             RenderSettingsSources.Signal(source, EventKind.SunChanged));
 }

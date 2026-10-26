@@ -65,15 +65,13 @@ public sealed partial class InkScreenParameter : IStateParameter<InkScreen> {
 public sealed partial class ScreenShape : ICaptioned {
     private const double Elongation = double.Pi / 1.6d;
 
-    public static readonly ScreenShape Round = new("round", "Round", static (u, v) => (float)Quarter(double.Hypot(u, v), 1d, 1d));
-    public static readonly ScreenShape Ellipse = new("ellipse", "Ellipse", static (u, v) => (float)(Elongation * Quarter(double.Hypot(u, v / Elongation), 1d, 1d / Elongation)));
-    public static readonly ScreenShape Diamond = new("diamond", "Diamond", static (u, v) => (float.Abs(u) + float.Abs(v)) switch { <= 1f and var d => d * d / 2f, var d => 1f - ((2f - d) * (2f - d) / 2f) });
-    public static readonly ScreenShape Square = new("square", "Square", static (u, v) => float.Max(float.Abs(u), float.Abs(v)) switch { var m => m * m });
-    public static readonly ScreenShape Line = new("line", "Line", static (_, v) => float.Abs(v));
-    public static readonly ScreenShape WavyLine = new("wavy-line", "Wavy line", static (u, v) => (v - (0.5f * float.SinPi(u))) switch { var w => float.Abs(w - (2f * float.Floor((w + 1f) / 2f))) });
-    public static readonly ScreenShape Cross = new("cross", "Cross", static (u, v) => float.Min(float.Abs(u), float.Abs(v)) switch { var m => 1f - ((1f - m) * (1f - m)) });
-
-    public string Caption { get; }
+    public static readonly ScreenShape Round = new("round", static (u, v) => (float)Quarter(double.Hypot(u, v), 1d, 1d));
+    public static readonly ScreenShape Ellipse = new("ellipse", static (u, v) => (float)(Elongation * Quarter(double.Hypot(u, v / Elongation), 1d, 1d / Elongation)));
+    public static readonly ScreenShape Diamond = new("diamond", static (u, v) => (float.Abs(u) + float.Abs(v)) switch { <= 1f and var d => d * d / 2f, var d => 1f - ((2f - d) * (2f - d) / 2f) });
+    public static readonly ScreenShape Square = new("square", static (u, v) => float.Max(float.Abs(u), float.Abs(v)) switch { var m => m * m });
+    public static readonly ScreenShape Line = new("line", static (_, v) => float.Abs(v));
+    public static readonly ScreenShape WavyLine = new("wavy-line", static (u, v) => (v - (0.5f * float.SinPi(u))) switch { var w => float.Abs(w - (2f * float.Floor((w + 1f) / 2f))) });
+    public static readonly ScreenShape Cross = new("cross", static (u, v) => float.Min(float.Abs(u), float.Abs(v)) switch { var m => 1f - ((1f - m) * (1f - m)) });
 
     [UseDelegateFromConstructor]
     public partial float Spot(float u, float v);
@@ -201,10 +199,8 @@ public sealed partial class HalftoneParameter : IStateParameter<Halftone> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MosaicCell : ICaptioned {
-    public static readonly MosaicCell Square = new("square", "Square");
-    public static readonly MosaicCell Cellular = new("cellular", "Cellular");
-
-    public string Caption { get; }
+    public static readonly MosaicCell Square = new("square");
+    public static readonly MosaicCell Cellular = new("cellular");
 }
 
 public sealed record Mosaic(MosaicCell Cell, ShortSideExtent Size, Cellular Cells, Seed Seed, Timing Timing, Hold Hold)
@@ -395,11 +391,9 @@ public sealed partial class GlyphCellsParameter : IStateParameter<GlyphCells> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SortKey : ICaptioned {
-    public static readonly SortKey Luma = new("luma", "Luma", static (color, weights) => LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights));
-    public static readonly SortKey Hue = new("hue", "Hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
-    public static readonly SortKey Saturation = new("saturation", "Saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
-
-    public string Caption { get; }
+    public static readonly SortKey Luma = new("luma", static (color, weights) => LuminanceSamples.Luminance(color.X, color.Y, color.Z, weights));
+    public static readonly SortKey Hue = new("hue", static (color, _) => RangeAxis.Hue.Coordinate(Hsy.From(color)));
+    public static readonly SortKey Saturation = new("saturation", static (color, _) => RangeAxis.Saturation.Coordinate(Hsy.From(color)));
 
     [UseDelegateFromConstructor]
     public partial double Level(Vector4 color, (double X, double Y, double Z) weights);
@@ -409,14 +403,13 @@ public sealed partial class SortKey : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SortDirection : ICaptioned {
-    public static readonly SortDirection Right = new("right", order: 1, transposed: false, caption: "Right");
-    public static readonly SortDirection Left = new("left", order: -1, transposed: false, caption: "Left");
-    public static readonly SortDirection Down = new("down", order: 1, transposed: true, caption: "Down");
-    public static readonly SortDirection Up = new("up", order: -1, transposed: true, caption: "Up");
+    public static readonly SortDirection Right = new("right", order: 1, transposed: false);
+    public static readonly SortDirection Left = new("left", order: -1, transposed: false);
+    public static readonly SortDirection Down = new("down", order: 1, transposed: true);
+    public static readonly SortDirection Up = new("up", order: -1, transposed: true);
 
     public int Order { get; }
     public bool Transposed { get; }
-    public string Caption { get; }
 }
 
 public sealed record PixelSort(SortKey Key, AxisFraction Low, AxisFraction High, SortDirection Direction)

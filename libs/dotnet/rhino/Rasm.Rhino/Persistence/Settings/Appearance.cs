@@ -212,16 +212,10 @@ public static class Appearance {
             static enabled => IO.lift(() => { AppearanceSettings.BlackWhiteSwitching = enabled; }));
 
     public static ValueStore<bool> AutocompleteCommands { get; } =
-        Live(
-            Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetAutocompleteCommands), IO.lift(static () => Accessors.CRhinoAppSettings_GetAutocompleteCommands(owner: null, defaultValue: false))),
-            Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetAutocompleteCommands), IO.lift(static () => Accessors.CRhinoAppSettings_GetAutocompleteCommands(owner: null, defaultValue: true))),
-            static enabled => Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_SetAutocompleteCommands), IO.lift(() => Accessors.CRhinoAppSettings_SetAutocompleteCommands(owner: null, enabled))));
+        Native(Accessors.CRhinoAppSettings_GetAutocompleteCommands, Accessors.CRhinoAppSettings_SetAutocompleteCommands);
 
     public static ValueStore<bool> FuzzyAutocomplete { get; } =
-        Live(
-            Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetFuzzyAutocomplete), IO.lift(static () => Accessors.CRhinoAppSettings_GetFuzzyAutocomplete(owner: null, defaultValue: false))),
-            Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_GetFuzzyAutocomplete), IO.lift(static () => Accessors.CRhinoAppSettings_GetFuzzyAutocomplete(owner: null, defaultValue: true))),
-            static enabled => Accessors.Scoped(nameof(Accessors.CRhinoAppSettings_SetFuzzyAutocomplete), IO.lift(() => Accessors.CRhinoAppSettings_SetFuzzyAutocomplete(owner: null, enabled))));
+        Native(Accessors.CRhinoAppSettings_GetFuzzyAutocomplete, Accessors.CRhinoAppSettings_SetFuzzyAutocomplete);
 
     public static ValueStore<T> Member<T>(Func<AppearanceSettingsState, T> project, Action<T> set, Func<T, T, bool> same) where T : notnull =>
         Live(
@@ -233,18 +227,17 @@ public static class Appearance {
     private static ValueStore<T> Live<T>(IO<T> read, IO<T> factory, Func<T, IO<Unit>> write, Option<Func<T, T, bool>> same = default) where T : notnull =>
         ValueStore.Defaulted(read, factory, write, same.IfNone(EqualityComparer<T>.Default.Equals), Applied.Live, AppSettings.Changed);
 
+    private static ValueStore<bool> Native(Func<object?, bool, bool> get, Action<object?, bool> set,
+        [CallerArgumentExpression(nameof(get))] string getter = "", [CallerArgumentExpression(nameof(set))] string setter = "") =>
+        Live(Accessors.Scoped(getter, IO.lift(() => get(null, false))), Accessors.Scoped(getter, IO.lift(() => get(null, true))), enabled => Accessors.Scoped(setter, IO.lift(() => set(null, enabled))));
+
     // --- [MODES]
     public static IO<Unit> SetMode(bool darkMode) =>
         IO.lift(() => darkMode
             ? Refused.Unless(AppearanceSettings.SetToDarkMode(), nameof(AppearanceSettings.SetToDarkMode))
             : Refused.Unless(AppearanceSettings.SetToLightMode(), nameof(AppearanceSettings.SetToLightMode)));
 
-    public static IO<bool> UsingModeDefaults(bool darkMode) =>
-        IO.lift(() => darkMode ? AppearanceSettings.UsingDefaultDarkModeColors() : AppearanceSettings.UsingDefaultLightModeColors());
-
     // --- [COLORS]
-    public static IO<Color> Paint(PaintColor slot) => IO.lift(() => AppearanceSettings.GetPaintColor(slot, compute: false));
-
     public static IO<Unit> SetPaint(PaintColor slot, Option<Color> color) =>
         from writable in Accessors.Scoped(nameof(Accessors.GetPaintColorHook), IO.lift(() => Accessors.GetPaintColorHook(owner: null, slot) is null ? Fin.Succ(unit) : Error.New($"theme hook draws paint slot {slot}")))
         from written in IO.lift(() => AppearanceSettings.SetPaintColor(slot, color.IfNone(() => AppearanceSettings.DefaultPaintColor(slot, HostUtils.RunningInDarkMode))))

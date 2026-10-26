@@ -2,7 +2,7 @@
 
 import functools
 import math
-from typing import Annotated, ClassVar, Final
+from typing import Annotated, ClassVar
 
 from expression import Some
 import msgspec
@@ -25,11 +25,6 @@ type Source = Procedural | Scan
 type Medium = Film | Sensor
 type Deviation = Annotated[float, msgspec.Meta(ge=0.0, le=float(np.sqrt(np.finfo(np.float32).max)))]
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-SHOT_OVERFLOW: Final = math.sqrt(float(np.finfo(np.float32).max) * GREY)
-SHOT_LIMIT: Final = float(np.float32(SHOT_OVERFLOW) if float(np.float32(SHOT_OVERFLOW)) <= SHOT_OVERFLOW else np.nextafter(np.float32(SHOT_OVERFLOW), np.float32(0)))
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -38,7 +33,7 @@ class Procedural(Case, frozen=True, kw_only=True, tag=1):
 
     diameters: ClassVar[int] = 512
     side: ClassVar[int] = 2 * diameters
-    size: Annotated[FrameExtent, msgspec.Meta(description="Grain diameter over greater frame side"), Presentation(soft=Some((0.0002, 0.005)), decimals=Some(5))] = 2.0 / 1920.0
+    size: Annotated[FrameExtent, msgspec.Meta(description="Grain diameter over greater frame side"), Presentation(soft=Some((0.0002, 0.005)), precision=Some(5))] = 2.0 / 1920.0
 
     @staticmethod
     def key() -> ContentHash:
@@ -88,18 +83,20 @@ class Film(Case, frozen=True, kw_only=True, tag=1):
     shadows: Annotated[Unit, msgspec.Meta(description="Grain weight below shadow edge")] = 1.0
     midtones: Annotated[Unit, msgspec.Meta(description="Grain weight between shadow and highlight bands")] = 1.0
     highlights: Annotated[Unit, msgspec.Meta(description="Grain weight above highlight band")] = 1.0
-    shadow_edge: Annotated[NonNegative, msgspec.Meta(description="Luminance zeroing shadow weight"), Presentation(soft=Some((0.0, 0.5)), decimals=Some(3))] = 0.09
-    midtone_span: Annotated[NonNegative, msgspec.Meta(description="Luminance from shadow edge to highlight band"), Presentation(soft=Some((0.0, 2.0)), decimals=Some(3))] = 0.5 - 0.09
-    highlight_span: Annotated[NonNegative, msgspec.Meta(description="Luminance from highlight start to full weight"), Presentation(soft=Some((0.0, 4.0)), decimals=Some(3))] = 1.0 - 0.5
+    shadow_edge: Annotated[NonNegative, msgspec.Meta(description="Luminance zeroing shadow weight"), Presentation(soft=Some((0.0, 0.5)), precision=Some(3))] = 0.09
+    midtone_span: Annotated[NonNegative, msgspec.Meta(description="Luminance from shadow edge to highlight band"), Presentation(soft=Some((0.0, 2.0)), precision=Some(3))] = 0.5 - 0.09
+    highlight_span: Annotated[NonNegative, msgspec.Meta(description="Luminance from highlight start to full weight"), Presentation(soft=Some((0.0, 4.0)), precision=Some(3))] = 1.0 - 0.5
 
 
 class Sensor(Case, frozen=True, kw_only=True, tag=2):
     """Shot noise scaling with signal and constant read noise."""
 
-    shot: Annotated[float, msgspec.Meta(ge=0.0, le=SHOT_LIMIT, description="Photon noise deviation at scene-linear gray"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(4))] = (
-        0.1875 * 0.25 * math.sqrt(GREY)
-    )
-    read: Annotated[Deviation, msgspec.Meta(description="Signal-independent deviation"), Presentation(soft=Some((0.0, 0.05)), decimals=Some(4))] = 0.0
+    shot: Annotated[
+        float,
+        msgspec.Meta(ge=0.0, le=float(np.float32(math.sqrt(float(np.finfo(np.float32).max) * GREY))), description="Photon noise deviation at scene-linear gray"),
+        Presentation(soft=Some((0.0, 0.1)), precision=Some(4)),
+    ] = 0.1875 * 0.25 * math.sqrt(GREY)
+    read: Annotated[Deviation, msgspec.Meta(description="Signal-independent deviation"), Presentation(soft=Some((0.0, 0.05)), precision=Some(4))] = 0.0
 
 
 class Grain(Effect, frozen=True, kw_only=True, tag=22):

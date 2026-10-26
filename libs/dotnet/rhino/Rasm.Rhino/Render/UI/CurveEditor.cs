@@ -66,7 +66,7 @@ public sealed class AnchorShownEventArgs(Option<CurveAnchor> anchor) : EventArgs
 
 public sealed record CurveText(string Caption, Func<CurveKey, string> Curve, Func<CurveAxis, NumberText<double>> Axis);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record CurvePart {
     public sealed record Ground : CurvePart;
     public sealed record Fitted : CurvePart;
@@ -226,7 +226,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     private static Option<Plotted> Plotting(CurveEditorState state, SizeF size) => Editing(state).Bind(editing => Plotted.Of(editing, size));
 
     private static Option<int> Indexed(CurvePart part) =>
-        part.Switch<Option<int>>(ground: static _ => None, fitted: static _ => None, knot: static knot => knot.Index);
+        part.SwitchPartially<Option<int>>(@default: static _ => None, knot: static knot => knot.Index);
 
     private static float Step(Axis axis, float side) => axis.Range.Span / side;
 
@@ -390,7 +390,6 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     private const float HaloDiameter = 12f;
 
     private static readonly MarkStyle Halo = new MarkStyle.Fill(PaintSlot.Text, 0.1f);
-    private static new readonly MarkStyle Focus = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f);
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, CurveEditorState state, Seq<PlotMark<CurvePart>> marks, Interaction<CurvePart> interaction) =>
         from well in Plots.Well(canvas, bounds)
@@ -400,7 +399,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
         from painted in Plots.Paint(canvas, marks)
         from labels in Labelled(canvas, state, bounds.Size)
         from cue in Plots.Paint(canvas, Cue(state, bounds.Size, interaction))
-        from edge in Plots.Paint(canvas, canvas.Focused ? Seq(new PlotMark<CurvePart>(new MarkShape.Band(bounds), Focus, None)) : Seq<PlotMark<CurvePart>>())
+        from edge in Plots.Paint(canvas, canvas.Focused ? Seq(new PlotMark<CurvePart>(new MarkShape.Band(bounds), new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f), None)) : Seq<PlotMark<CurvePart>>())
         select unit;
 
     private IO<Unit> Labelled(PlotCanvas canvas, CurveEditorState state, SizeF size) =>
@@ -449,7 +448,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     protected override Transition<CurveEditorState, PlottedCurve> Dragged(
         CurveEditorState state, SizeF size, float scale, Option<CurvePart> part, PointF origin, PointF previous, MouseEventArgs e) =>
         (from plotted in Plotting(state, size)
-         from held in plotted.State.Selected.IsEmpty && part.Exists(static hit => hit.Map(ground: true, fitted: false, knot: false))
+         from held in plotted.State.Selected.IsEmpty && part.Exists(static hit => hit is CurvePart.Ground)
              ? plotted.Inserting(plotted.Placed.Value(origin).First)
              : Some(plotted)
          from anchor in held.Anchor
@@ -467,7 +466,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     protected override Option<Transition<CurveEditorState, PlottedCurve>> DoubleClicked(CurveEditorState state, SizeF size, float scale, Option<CurvePart> part, MouseEventArgs e) =>
         from editing in Editing(state)
         from hit in part
-        where hit.Map(ground: true, fitted: false, knot: false)
+        where hit is CurvePart.Ground
         select Reset(editing);
 
     protected override Option<Transition<CurveEditorState, PlottedCurve>> KeyPressed(CurveEditorState state, SizeF size, float scale, Option<CurvePart> part, KeyEventArgs e) =>

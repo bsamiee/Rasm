@@ -60,10 +60,7 @@ public static class Status {
         from window in IO.lift(() => Refused.UnlessFound(RhinoEtoApp.MainWindowForDocument(doc), nameof(RhinoEtoApp.MainWindowForDocument)))
         from answer in DisposalOps.Acquire(
             IO.lift(() => StatusBar.ShowProgressMeter(doc.RuntimeSerialNumber, 0, total, RowText.Localize(label, sink).Local, embedLabel: true, showPercentComplete: true)),
-            answer => when(answer is 1, IO.lift(() => StatusBar.HideProgressMeter(doc.RuntimeSerialNumber))).As(),
-            answer => {
-                if (answer is 1) retain(new Disposal<uint>(doc.RuntimeSerialNumber, static serial => StatusBar.HideProgressMeter(serial)));
-            })
+            answer => when(answer is 1, IO.lift(() => StatusBar.HideProgressMeter(doc.RuntimeSerialNumber))).As(), retain)
         from sampled in answer switch {
             1 => FrameClocks.Sample(window, Moved(reading, doc.RuntimeSerialNumber), new CallbackSite(sink, typeof(StatusBar), nameof(StatusBar.UpdateProgressMeter)), retain),
             -1 => IO.pure(unit),

@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-uncleared-object-effect
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    zero:
+        regex: '^0*\.?0+[fFdDmM]?$'
+    positional:
+        kind: argument
+        not: {has: {field: name, kind: identifier}}
+    fade-amount:
+        kind: argument
+        any:
+            - has: {field: name, regex: '^fadeAmount$'}
+            - {matches: positional, nthChild: 2}
+    lead-amount:
+        kind: argument
+        any:
+            - has: {field: name, regex: '^(transparencyAmount|hatchStrength)$'}
+            - {matches: positional, nthChild: 1}
+    effect:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^SetColorFadeEffect$'}}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 3}}}
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^SetDitherTransparencyEffect$'}}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^SetDiagonalHatchEffect$'}}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 3}}}
+    amount-argument:
+        kind: argument
+        any:
+            - all:
+                - matches: fade-amount
+                - inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, has: {field: name, regex: '^SetColorFadeEffect$'}}}}
+            - all:
+                - matches: lead-amount
+                - inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, has: {field: name, regex: '^(SetDitherTransparencyEffect|SetDiagonalHatchEffect)$'}}}}
+    draw-name:
+        regex: '^(PreDrawObjects?|PreDrawTransparentObjects|PostDrawObjects?|DrawForeground|DrawOverlay|OnDynamicDraw|OnPostDrawObjects|DynamicDraw|PostDraw)$'
+    draw-named:
+        matches: {csharp-type-name: {name: {matches: draw-name}}}
+    draw-callback:
+        any:
+            - kind: method_declaration, local_function_statement
+              has: {field: name, matches: draw-name}
+            - kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression
+              has: {field: parameters, has: {kind: parameter, has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Draw|DrawObject|DrawForeground|GetPointDraw)EventArgs$'}}}}}}
+            - kind: lambda_expression, anonymous_method_expression
+              inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside:
+                        any:
+                            - kind: object_creation_expression
+                              has: {field: type, matches: draw-named}
+                            - kind: invocation_expression
+                              has: {field: function, kind: member_access_expression, has: {field: expression, matches: draw-named}}
+            - kind: lambda_expression, anonymous_method_expression
+              inside: {kind: assignment_expression, field: right, has: {field: left, matches: draw-named}}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $ATTRS}}, {has: {field: name, pattern: $EFFECT}}]}
+        - matches: effect
+        - has: {field: arguments, has: {matches: amount-argument, has: {nthChild: {position: 1, reverse: true}, pattern: $AMOUNT, not: {matches: zero}}}}
+        - inside: {stopBy: end, matches: draw-callback}
+        - not:
+            inside:
+                stopBy: {matches: draw-callback}
+                not: {matches: draw-callback}
+                precedes:
+                    stopBy: end
+                    any:
+                        - kind: invocation_expression
+                          all: &cleared
+                            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $ATTRS}}, {has: {field: name, pattern: $EFFECT}}]}
+                            - has: {field: arguments, has: {matches: amount-argument, has: {nthChild: {position: 1, reverse: true}, matches: zero}}}
+                        - has: {stopBy: end, kind: invocation_expression, all: *cleared}
+message: '`$ATTRS.$EFFECT` sets amount `$AMOUNT` that every later object in the frame inherits'
+note: 'Call `<attributes>.<effect>` with amount `0` after the draw, in the same callback'

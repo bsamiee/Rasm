@@ -1,108 +1,88 @@
 """Mix node blend modes and premultiplied coverage."""
 
+from collections.abc import Mapping
 import functools
-from typing import overload
+from types import MappingProxyType
+from typing import Final, TYPE_CHECKING
 
 import bpy
-from expression import Ok
 from msgspec import structs
 
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, math, menu, mixed, nested, node, NodeGroup, Operand
+from blender.bpy.nodes.graphs import Expr, group_input, menu, mixed, NodeGroup, Term
 from blender.bpy.nodes.interface import Interface, MenuItems, Socket
 from blender.imaging.compositing.blending import Blend, BlendMode
-from blender.imaging.faults import accumulated, paired
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+BLENDS: Final[Mapping[BlendMode, "rna_enums.RampBlendItems"]] = MappingProxyType({
+    BlendMode.NORMAL: "MIX",
+    BlendMode.DARKEN: "DARKEN",
+    BlendMode.MULTIPLY: "MULTIPLY",
+    BlendMode.COLOR_BURN: "BURN",
+    BlendMode.LIGHTEN: "LIGHTEN",
+    BlendMode.SCREEN: "SCREEN",
+    BlendMode.COLOR_DODGE: "DODGE",
+    BlendMode.LINEAR_DODGE: "ADD",
+    BlendMode.OVERLAY: "OVERLAY",
+    BlendMode.SOFT_LIGHT: "SOFT_LIGHT",
+    BlendMode.LINEAR_LIGHT: "LINEAR_LIGHT",
+    BlendMode.DIFFERENCE: "DIFFERENCE",
+    BlendMode.EXCLUSION: "EXCLUSION",
+    BlendMode.SUBTRACT: "SUBTRACT",
+    BlendMode.DIVIDE: "DIVIDE",
+    BlendMode.HUE: "HUE",
+    BlendMode.SATURATION: "SATURATION",
+    BlendMode.COLOR: "COLOR",
+    BlendMode.VALUE: "VALUE",
+})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def blend_type(mode: BlendMode) -> str:
-    """Returns Mix node blend type, mode name where spellings match."""
-    match mode:
-        case BlendMode.NORMAL:
-            return "MIX"
-        case BlendMode.COLOR_BURN:
-            return "BURN"
-        case BlendMode.COLOR_DODGE:
-            return "DODGE"
-        case BlendMode.LINEAR_DODGE:
-            return "ADD"
-        case _:
-            return mode.name
-
-
 @functools.cache
 def mixback() -> BlenderResult[NodeGroup]:
-    """Returns shared HDR blend group."""
-    base, result = End(node=INPUTS, socket="base"), End(node=INPUTS, socket="result")
+    """Returns shared HDR blend group: straight colors blended per mode, re-covered by result alpha, mixed over base by coverage."""
     mode, opacity, _ = structs.fields(Blend)
-    items = MenuItems.of(BlendMode)
-
-    def blended(straight: tuple[tuple[Fragment, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
-        background, foreground = straight
-        return accumulated(Ok(foreground) if choice is BlendMode.NORMAL else mixed(f"pure_{choice.value}", "RGBA", 1.0, background, foreground, blend_type(choice)) for choice in BlendMode).bind(
-            lambda choices: menu("pure", "RGBA", End(node=INPUTS, socket="blend"), items, dict(zip((choice.label for choice in BlendMode), choices)))
-        )
-
-    pure = accumulated(
-        node(f"straight_{name}", bpy.types.CompositorNodePremulKey, {"Image": color, "Type": "To Straight"}, {}).map(ended(f"straight_{name}", "Image"))
-        for name, color in (("base", base), ("result", result))
-    ).bind(blended)
-    alphas = accumulated(
-        node(f"{name}_alpha", bpy.types.CompositorNodeSeparateColor, {"Image": color}, {"mode": "RGB"}).map(ended(f"{name}_alpha", "Alpha")) for name, color in (("base", base), ("result", result))
+    base, result = group_input("base", "RGBA"), group_input("result", "RGBA")
+    background, foreground = (Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", color), ("Type", "To Straight")), socket="Image", shape="RGBA") for color in (base, result))
+    pure = menu(
+        group_input("blend"),
+        MenuItems.of(BlendMode),
+        {choice.label: foreground if choice is BlendMode.NORMAL else mixed(1.0, background, foreground, blend=BLENDS[choice]) for choice in BlendMode},
+        kind="RGBA",
     )
-
-    def covered(parts: tuple[tuple[Fragment, End], tuple[tuple[Fragment, End], ...]]) -> BlenderResult[tuple[Fragment, End]]:
-        chosen, (base_alpha, result_alpha) = parts
-        return (
-            mixed("toward", "RGBA", base_alpha, End(node="straight_result", socket="Image"), chosen)
-            .bind(lambda toward: node("opaque", bpy.types.CompositorNodeSetAlpha, {"Image": toward, "Alpha": 1.0, "Type": "Replace Alpha"}, {}))
-            .bind(lambda opaque: node("premultiplied", bpy.types.CompositorNodeSetAlpha, {"Image": ended("opaque", "Image")(opaque), "Alpha": result_alpha, "Type": "Apply Mask"}, {}))
-            .bind(
-                lambda premultiplied: node(
-                    "foreground", bpy.types.CompositorNodeSwitch, {"Switch": End(node="pure", socket=BlendMode.NORMAL.label), "Off": ended("premultiplied", "Image")(premultiplied), "On": result}, {}
-                )
-            )
-            .bind(lambda foreground: mixed("covered", "RGBA", End(node=INPUTS, socket="coverage"), base, ended("foreground", "Image")(foreground)))
-        )
-
-    return paired(paired(pure, alphas).bind(covered), Interface.of(Blend)).bind(
-        lambda parts: NodeGroup.built(
+    opaque = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", mixed(base["Alpha"], foreground, pure)), ("Alpha", 1.0), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
+    covered = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", opaque), ("Alpha", result["Alpha"]), ("Type", "Apply Mask")), socket="Image", shape="RGBA")
+    blended = Expr(
+        kind=bpy.types.CompositorNodeSwitch, inputs=(("Switch", structs.replace(pure, socket=BlendMode.NORMAL.label, shape="FLOAT")), ("Off", covered), ("On", result)), socket="Image", shape="RGBA"
+    )
+    return Interface.of(Blend).bind(
+        lambda face: NodeGroup.built(
             "mixback",
             "Mix Back",
             Interface(
                 inputs=(
                     Socket(key="base", name="Base", kind=bpy.types.NodeSocketColor),
                     Socket(key="result", name="Result", kind=bpy.types.NodeSocketColor),
-                    *(structs.replace(socket, key={mode.name: "blend", opacity.name: "coverage"}[socket.key]) for socket in parts[1].inputs),
+                    *(structs.replace(socket, key={mode.name: "blend", opacity.name: "coverage"}[socket.key]) for socket in face.inputs),
                 ),
                 outputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),),
             ),
-            {"image": parts[0]},
+            {"image": mixed(group_input("coverage"), base, blended)},
         )
     )
 
 
-@overload
-def product(key: Key, factors: tuple[tuple[Fragment, End], *tuple[tuple[Fragment, End], ...]]) -> BlenderResult[tuple[Fragment, End]]: ...
-
-
-@overload
-def product(key: Key, factors: tuple[Operand, *tuple[Operand, ...]]) -> BlenderResult[Operand]: ...
-
-
-def product(key: Key, factors: tuple[Operand, *tuple[Operand, ...]]) -> BlenderResult[Operand]:
-    """Returns operand product with upstream graphs."""
-    first, *rest = factors
-    return functools.reduce(lambda done, item: done.bind(lambda held: math(f"{key}_{item[0]}", "MULTIPLY", held, item[1])), enumerate(rest, 1), Ok(first))
-
-
-def mixed_back(key: Key, base: Operand, result: Operand, mode: Operand, coverage: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Returns shared mix-back group node."""
-    return mixback().bind(lambda group: nested(f"{key}_mixback", group, {"base": base, "result": result, "blend": mode, "coverage": coverage}, "image"))
+def mixed_back(key: Key, base: Term, result: Term, mode: Term, coverage: Term) -> BlenderResult[Expr]:
+    """Places the shared mix-back group under the stored key `<key>_mixback`."""
+    return mixback().map(lambda group: group.placed({"base": base, "result": result, "blend": mode, "coverage": coverage}, "image").named(f"{key}_mixback"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["blend_type", "mixback", "mixed_back", "product"]
+__all__ = ["BLENDS", "mixback", "mixed_back"]

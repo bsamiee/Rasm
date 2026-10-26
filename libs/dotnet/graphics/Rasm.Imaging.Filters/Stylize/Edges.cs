@@ -29,14 +29,12 @@ public readonly partial struct SectorEccentricity : IMinMaxValue<SectorEccentric
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StrokePlacement : ICaptioned {
-    public static readonly StrokePlacement Center = new("center", "Center", static (near, nearWidth, far, farWidth) =>
+    public static readonly StrokePlacement Center = new("center", static (near, nearWidth, far, farWidth) =>
         near <= far ? ShapeEdge.Strip(near + 0.5f, nearWidth, 1f) : ShapeEdge.Strip(far + 0.5f, farWidth, 1f));
-    public static readonly StrokePlacement Inside = new("inside", "Inside", static (near, nearWidth, far, _) =>
+    public static readonly StrokePlacement Inside = new("inside", static (near, nearWidth, far, _) =>
         (float)double.Clamp(nearWidth - near, 0d, 1d) * ShapeEdge.Coverage((near - far) / 2d, 1d));
-    public static readonly StrokePlacement Outside = new("outside", "Outside", static (near, _, far, farWidth) =>
+    public static readonly StrokePlacement Outside = new("outside", static (near, _, far, farWidth) =>
         (float)double.Clamp(farWidth - far, 0d, 1d) * ShapeEdge.Coverage((far - near) / 2d, 1d));
-
-    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial float Cover(double near, double nearWidth, double far, double farWidth);
@@ -433,34 +431,33 @@ public abstract partial class EdgeOperator : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EdgeSource : ICaptioned {
-    public static readonly EdgeSource Color = new("color", 3, separate: true, "Color", static (row, plane, _) => {
+    public static readonly EdgeSource Color = new("color", 3, separate: true, static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             (plane[3 * x], plane[(3 * x) + 1], plane[(3 * x) + 2]) = (row[x].X, row[x].Y, row[x].Z);
     });
-    public static readonly EdgeSource Luma = new("luma", 1, separate: false, "Luma", static (row, plane, weights) => {
+    public static readonly EdgeSource Luma = new("luma", 1, separate: false, static (row, plane, weights) => {
         for (int x = 0; x < row.Length; x++)
             plane[x] = LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, weights);
     });
-    public static readonly EdgeSource Hue = new("hue", 2, separate: false, "Hue", static (row, plane, _) => {
+    public static readonly EdgeSource Hue = new("hue", 2, separate: false, static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             (plane[2 * x], plane[(2 * x) + 1]) = double.SinCos(Hsy.From(row[x]).Hue) switch { var (sine, cosine) => (cosine / double.Tau, sine / double.Tau) };
     });
-    public static readonly EdgeSource Saturation = new("saturation", 1, separate: false, "Saturation", static (row, plane, _) => {
+    public static readonly EdgeSource Saturation = new("saturation", 1, separate: false, static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             plane[x] = RangeAxis.Saturation.Coordinate(Hsy.From(row[x]));
     });
-    public static readonly EdgeSource Value = new("value", 1, separate: false, "Value", static (row, plane, _) => {
+    public static readonly EdgeSource Value = new("value", 1, separate: false, static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             plane[x] = float.Max(float.Max(row[x].X, row[x].Y), row[x].Z);
     });
-    public static readonly EdgeSource Alpha = new("alpha", 1, separate: false, "Alpha", static (row, plane, _) => {
+    public static readonly EdgeSource Alpha = new("alpha", 1, separate: false, static (row, plane, _) => {
         for (int x = 0; x < row.Length; x++)
             plane[x] = row[x].W;
     });
 
     public int Planes { get; }
     public bool Separate { get; }
-    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial void Read(ReadOnlySpan<Vector4> row, Span<double> plane, (double X, double Y, double Z) weights);
@@ -586,10 +583,8 @@ public sealed partial class EdgeDetectParameter : IStateParameter<EdgeDetect> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class KuwaharaKind : ICaptioned {
-    public static readonly KuwaharaKind Classic = new("classic", "Classic", static pixels => Math.Floor(pixels), Quadrants);
-    public static readonly KuwaharaKind Anisotropic = new("anisotropic", "Anisotropic", static pixels => pixels, Sectors);
-
-    public string Caption { get; }
+    public static readonly KuwaharaKind Classic = new("classic", static pixels => Math.Floor(pixels), Quadrants);
+    public static readonly KuwaharaKind Anisotropic = new("anisotropic", static pixels => pixels, Sectors);
 
     [UseDelegateFromConstructor]
     public partial double Radius(double pixels);

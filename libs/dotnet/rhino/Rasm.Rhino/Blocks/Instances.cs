@@ -1,7 +1,7 @@
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Modeling;
+using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 
@@ -14,7 +14,7 @@ public abstract partial record PieceVisibility {
 
     public sealed record Shown() : PieceVisibility;
 
-    public sealed record InViewport(RhinoViewport Viewport) : PieceVisibility;
+    public sealed record InViewport(ViewportTarget Viewport) : PieceVisibility;
 }
 
 public sealed record ExplodedPiece(RhinoObject Piece, ObjectAttributes Attributes, Transform Xform);
@@ -23,18 +23,21 @@ public sealed record ExplodedPiece(RhinoObject Piece, ObjectAttributes Attribute
 public static class Instances {
     // --- [READS]
     public static IO<TValue> Explode<TValue>(RhinoDoc doc, Guid instance, bool explodeNested, PieceVisibility visibility, Func<Seq<ExplodedPiece>, IO<TValue>> body) =>
-        ObjectTarget.Resolve<InstanceObject, InstanceReferenceGeometry>(doc, instance).Bind(resolved => DisposalOps.Within(
-         () => {
-             (bool skipHidden, Guid viewport) = visibility.Switch(
-                 every: static _ => (false, Guid.Empty),
-                 shown: static _ => (true, Guid.Empty),
-                 inViewport: static shown => (true, shown.Viewport.Id));
-             resolved.Object.Explode(skipHidden, viewport, explodeNested, out RhinoObject?[] objects, out ObjectAttributes[] attributes, out Transform[] xforms);
-             return (Objects: objects, Attributes: attributes, Xforms: xforms);
-         },
-         answer => IO.lift(() => Callbacks.Each(toSeq(answer.Objects.Zip(answer.Attributes, answer.Xforms)), static Fin<ExplodedPiece> (row, index) =>
-             row.First is { } piece ? new ExplodedPiece(piece, row.Second, row.Third) : new Refused(nameof(InstanceObject.Explode), Refused.Declined, index))).Bind(body),
-         static answer => DisposalOps.Release(toSeq(answer.Attributes))));
+        from resolved in ObjectTarget.Resolve<InstanceObject, InstanceReferenceGeometry>(doc, instance)
+        from shown in visibility.Switch(
+            doc,
+            every: static (_, _) => IO.pure((SkipHidden: false, Viewport: Guid.Empty)),
+            shown: static (_, _) => IO.pure((SkipHidden: true, Viewport: Guid.Empty)),
+            inViewport: static (document, shown) => Viewports.With(document, shown.Viewport, static row => IO.pure((SkipHidden: true, Viewport: row.Viewport.Id))))
+        from value in DisposalOps.Within(
+            () => {
+                resolved.Object.Explode(shown.SkipHidden, shown.Viewport, explodeNested, out RhinoObject?[] objects, out ObjectAttributes[] attributes, out Transform[] xforms);
+                return (Objects: objects, Attributes: attributes, Xforms: xforms);
+            },
+            answer => IO.lift(() => Callbacks.Each(toSeq(answer.Objects.Zip(answer.Attributes, answer.Xforms)), static Fin<ExplodedPiece> (row, index) =>
+                row.First is { } piece ? new ExplodedPiece(piece, row.Second, row.Third) : new Refused(nameof(InstanceObject.Explode), Refused.Declined, index))).Bind(body),
+            static answer => DisposalOps.Release(toSeq(answer.Attributes)))
+        select value;
 
     // --- [WRITES]
     public static IO<Seq<Guid>> Place(RhinoDoc doc, ComponentRef<InstanceDefinition> address, Seq<Transform> xforms, Option<ObjectAttributes> attributes, Option<HistoryRecord> history, bool reference) =>

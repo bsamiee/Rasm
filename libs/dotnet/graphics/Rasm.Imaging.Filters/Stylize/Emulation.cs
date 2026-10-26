@@ -7,7 +7,6 @@ using Emgu.CV.Util;
 using MathNet.Numerics.Integration;
 using MathNet.Numerics.LinearAlgebra;
 using PeterO.Numbers;
-using Rasm.Imaging.Color;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Filters.Generators;
 using Rasm.Imaging.Filters.Optics;
@@ -18,6 +17,7 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
+using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Filters.Stylize;
 
@@ -39,26 +39,25 @@ public readonly partial struct LineCount : IMinMaxValue<LineCount> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class YuvMatrix : ICaptioned {
-    public static readonly YuvMatrix Rec601 = new("rec601", (0.299d, 0.587d, 0.114d), "Rec. 601");
-    public static readonly YuvMatrix Rec709 = new("rec709", Gamut.StandardRgb.Luminance, "Rec. 709");
+    public static readonly YuvMatrix Rec601 = new("rec601", YbrConfiguration.Rec601);
+    public static readonly YuvMatrix Rec709 = new("rec709", YbrConfiguration.Rec709);
 
-    public (double X, double Y, double Z) Weights { get; }
-    public string Caption { get; }
+    public YbrConfiguration Ybr { get; }
+    public string Caption => Ybr.Name;
+    public (double X, double Y, double Z) Weights => (Ybr.Kr, Ybr.Kg, Ybr.Kb);
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PhosphorMask : ICaptioned {
-    public static readonly PhosphorMask ApertureGrille = new("aperture-grille", gap: 0d, columnStagger: 0d, rowStagger: 0d, caption: "Aperture grille");
-    public static readonly PhosphorMask SlotMask = new("slot-mask", gap: 1d / 3d, columnStagger: 0.5d, rowStagger: 0d, caption: "Slot mask");
-    public static readonly PhosphorMask ShadowMask = new("shadow-mask", gap: 1d / 3d, columnStagger: 0d, rowStagger: 0.5d, caption: "Shadow mask");
+    public static readonly PhosphorMask ApertureGrille = new("aperture-grille", gap: 0d, columnStagger: 0d, rowStagger: 0d);
+    public static readonly PhosphorMask SlotMask = new("slot-mask", gap: 1d / 3d, columnStagger: 0.5d, rowStagger: 0d);
+    public static readonly PhosphorMask ShadowMask = new("shadow-mask", gap: 1d / 3d, columnStagger: 0d, rowStagger: 0.5d);
 
     private readonly double _gap;
     private readonly double _columnStagger;
     private readonly double _rowStagger;
-
-    public string Caption { get; }
 
     public (double R, double G, double B) Coverage(long column, long row, ShortSideExtent pitch, PixelExtent extent) {
         ERational span = ERational.One.Divide(ERational.FromSingle(pitch).Multiply(extent.ShortSide));
@@ -93,18 +92,6 @@ public sealed record CrtDisplay(
     public static CrtDisplay Default { get; } = new(
         PhosphorMask.SlotMask, ShortSideExtent.Create(8f / ReferenceFrame.Height), AxisFraction.Create(0.8f), LineCount.Ntsc, Interlaced: false, AxisFraction.MaxValue,
         AxisFraction.MinValue, ShortSideLength.Neutral, Distortion.Neutral, LensFraming.Edges, Timing.Default);
-
-    public static CrtDisplay Monitor { get; } = Default with {
-        Mask = PhosphorMask.ApertureGrille,
-        Pitch = ShortSideExtent.Create(ReferenceFrame.GreaterSide / 640f),
-        MaskStrength = AxisFraction.Create(0.705394f),
-        Lines = LineCount.Create(240),
-        ScanlineDepth = AxisFraction.Create(0.5f),
-        Glow = ShortSideLength.Create(0.01f * ReferenceFrame.GreaterSide / 3f),
-        Curvature = Distortion.Create(0.0497677f),
-    };
-
-    public static CrtDisplay Scanlines { get; } = Default with { MaskStrength = AxisFraction.MinValue, ScanlineDepth = AxisFraction.Create(0.4f) };
 
     private bool Lit => MaskStrength != AxisFraction.MinValue || ScanlineDepth != AxisFraction.MinValue || Collapse != AxisFraction.MinValue;
 
@@ -222,8 +209,6 @@ public sealed record AnalogVideo(
     ShortSideOffset HeadSwitch, ShortSideExtent HeadSwitchHeight, ShortSideLength Bounce, Frequency RollRate, AxisFraction Hum, Frequency HumRate,
     Seed Seed, Timing Timing)
     : IStateRecord<AnalogVideo, AnalogVideoParameter>, IPixelStage<AnalogVideo> {
-    private const double SwitchCrest = 0.9d;
-
     public static AnalogVideo Default { get; } = new(
         YuvMatrix.Rec601, LineCount.Ntsc,
         ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideLength.Neutral, ShortSideOffset.Neutral,
@@ -232,11 +217,6 @@ public sealed record AnalogVideo(
         ShortSideOffset.Neutral, ShortSideLength.Neutral, ShortSideExtent.Create(1f / 65f), ShortSideOffset.Neutral, ShortSideExtent.Create(0.15f), Frequency.Neutral,
         ShortSideOffset.Neutral, ShortSideExtent.Create(0.31f / (32f - (28.8f * 0.5f))), ShortSideLength.Neutral, Frequency.Neutral, AxisFraction.MinValue, Frequency.Create(60f / 1001f),
         Seed.MinValue, Timing.Default);
-
-    public static AnalogVideo ChromaBlur { get; } = Default with {
-        ChromaBandwidth = ShortSideLength.Create(128f / ReferenceFrame.Height / 3f),
-        ChromaVertical = ShortSideLength.Create(128f * 0.1f / ReferenceFrame.Height / 3f),
-    };
 
     private bool Moves =>
         Interlace != ShortSideOffset.Neutral || Jitter != ShortSideLength.Neutral || Wrinkle != ShortSideOffset.Neutral
@@ -308,7 +288,7 @@ public sealed record AnalogVideo(
                         ERational distance = row.Subtract(crest);
                         distance = distance.Subtract(ERational.FromEInteger(NoiseFunctions.Split(distance.Divide(extent.Height).Add(ERational.One.Divide(2))).Cell).Multiply(extent.Height));
                         ERational band = ERational.FromInt32(extent.Height).Subtract(row).Divide(switchBand);
-                        ERational crestShare = ERational.FromDouble(SwitchCrest);
+                        ERational crestShare = ERational.FromDouble(0.9d);
                         ERational head = band.Sign >= 0 && band.CompareTo(ERational.One) < 0
                             ? switching.Multiply(band.CompareTo(crestShare) < 0 ? band.Divide(crestShare) : ERational.One.Subtract(band).Divide(ERational.One.Subtract(crestShare)))
                             : ERational.Zero;
@@ -553,11 +533,8 @@ public sealed partial class AnalogVideoParameter : IStateParameter<AnalogVideo> 
 public sealed record CodecDamage(JpegQuality Quality, JpegColorType ColorType, PositiveCount Generations, Gated<LineCount> Coded)
     : IStateRecord<CodecDamage, CodecDamageParameter>, IPixelStage<CodecDamage> {
     private const int Tile = 65504;
-    private static readonly DecoderOptions Decoding = new() { SkipMetadata = true };
 
     public static CodecDamage Default { get; } = new(JpegQuality.Standard, JpegColorType.YCbCrRatio420, PositiveCount.MinValue, new(Enabled: false, LineCount.Coarse));
-
-    public static CodecDamage Jpeg { get; } = Default with { Quality = JpegQuality.Create(60), Coded = new(Enabled: true, LineCount.Create(360)) };
 
     public static Option<PixelPass> Pass(CodecDamage state, PassContext context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, frame, progress)));
 
@@ -591,7 +568,7 @@ public sealed record CodecDamage(JpegQuality Quality, JpegColorType ColorType, P
         using MemoryStream stream = new();
         image.Save(stream, encoder);
         stream.Position = 0;
-        return JpegDecoder.Instance.Decode<Rgb24>(Decoding, stream);
+        return JpegDecoder.Instance.Decode<Rgb24>(new DecoderOptions { SkipMetadata = true }, stream);
     }
 }
 
@@ -634,22 +611,6 @@ public sealed record Glitch(
         ShortSideLength.Neutral, ShortSideExtent.Create(MathF.Tau / 20f), ShortSideOffset.Neutral, SignedAngle.Neutral, AxisFraction.MinValue,
         AxisFraction.MinValue, YuvMatrix.Rec601, AxisFraction.MinValue, AxisFraction.MinValue, WrapMode.Periodic,
         Seed.MinValue, Timing.Default, Hold.MinValue);
-
-    public static Glitch Corruption { get; } = Default with {
-        BlockWidth = ShortSideExtent.Create(0.03f * ReferenceFrame.GreaterSide),
-        BlockHeight = ShortSideExtent.Create(0.03f * ReferenceFrame.GreaterSide),
-        BlockDensity = AxisFraction.Create(0.2f),
-        BlockShift = ShortSideLength.Create(0.4f * 0.01f * ReferenceFrame.GreaterSide),
-        ChromaCorruption = AxisFraction.Create(0.6f),
-        Hold = Hold.Create(12f / 24f),
-    };
-
-    public static Glitch Displaced { get; } = Default with {
-        BlockDensity = AxisFraction.Create(0.2f),
-        BlockShift = ShortSideLength.Create(0.05f * ReferenceFrame.GreaterSide),
-        Split = ShortSideOffset.Create(0.6f * 0.05f * ReferenceFrame.GreaterSide),
-        Hold = Hold.Create(2f / 24f),
-    };
 
     private bool Blocks => BlockDensity != AxisFraction.MinValue && (BlockShift != ShortSideLength.Neutral || BlockLift != ShortSideLength.Neutral);
 

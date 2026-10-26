@@ -23,10 +23,7 @@ public sealed record PickRequest(ViewportTarget Viewport, PickRegion Region, Pic
 public static class Selections {
     // --- [FRUSTUM]
     public static IO<T> Frustum<T>(RhinoDoc doc, PickRequest request, Func<PickContext, IO<T>> body) =>
-        DisposalOps.Within<IDisposable, T>(retain =>
-         from row in Viewports.ResolveViewport(doc, request.Viewport, retain)
-         from picked in DisposalOps.Within(static () => new PickContext(), context => Activated(row, Picked(row, request, context, body)))
-         select picked, DisposalOps.Release);
+        Viewports.With(doc, request.Viewport, row => DisposalOps.Within(static () => new PickContext(), context => Activated(row, Picked(row, request, context, body))));
 
     private static IO<T> Picked<T>(ViewportRef row, PickRequest request, PickContext context, Func<PickContext, IO<T>> body) =>
         from frame in IO.lift(() => request.Region.Switch(
@@ -44,7 +41,7 @@ public static class Selections {
     private static IO<T> Activated<T>(ViewportRef row, IO<T> body) =>
         row.View is RhinoPageView page
             ? DisposalOps.Within(() => Conversions.Present(page.ActiveDetailId),
-                _ => Active(page, row.Detail.Map(static detail => detail.Id)).Bind(_ => body),
+                _ => Active(page, Callbacks.Found(row.Viewport.ViewportType is ViewportType.DetailViewport, row.Viewport.Id)).Bind(_ => body),
                 prior => Active(page, prior))
             : body;
 

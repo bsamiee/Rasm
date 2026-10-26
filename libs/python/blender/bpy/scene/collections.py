@@ -1,9 +1,10 @@
 """Collection membership, placement, instancing, and lifetimes."""
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from functools import reduce
 from itertools import chain, starmap
+from typing import Final
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -23,6 +24,10 @@ from blender.imaging.faults import accumulated
 type Member = bpy.types.Object | bpy.types.Collection
 type MembershipChange = Joined | Parted | Sorted
 type LayerPath = tuple[bpy.types.LayerCollection, tuple[bpy.types.LayerCollection, ...]]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_INVERSE: Final = Descriptor.declared(bpy.types.Object, "matrix_parent_inverse", bpy.types.FloatProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -55,6 +60,21 @@ class CollectionTree(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [WALKS]
+
+
+def preorder[T](seed: T, children: Callable[[T], Iterable[T]]) -> Block[T]:
+    """Returns seed and every node children reach from it, depth first in child order."""
+    frontier: tuple[T, ...] = (seed,)
+    return Block.unfold(lambda pending: Some((pending[0], (*children(pending[0]), *pending[1:]))) if pending else Nothing, frontier)
+
+
+def walked(root: bpy.types.LayerCollection) -> Block[LayerPath]:
+    """Returns layer tree in preorder, each node with ancestors root first."""
+    seed: LayerPath = (root, ())
+    return preorder(seed, lambda path: tuple((child, (*path[1], path[0])) for child in path[0].children))
+
+
 # --- [MEMBERSHIP]
 
 
@@ -83,9 +103,8 @@ def membership(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
     """Returns ordered membership changes, accumulating every expired member handle."""
 
     def listed(wanted: tuple[Handle[Member], ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
-        handles = tuple(dict.fromkeys(wanted))
         held = dict(zip((*collection.objects, *collection.children), (item.sort_index for item in (*collection.collection_objects, *collection.collection_children))))
-        return resolved(handles).map(
+        return resolved(tuple(dict.fromkeys(wanted))).map(
             lambda items: (
                 *(Parted(member=item) for item in held if type(item) in tree.kinds and item not in items),
                 *(Joined(member=item) for item in items if item not in held),
@@ -99,24 +118,17 @@ def membership(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
 def applied(collection: bpy.types.Collection, change: MembershipChange) -> BlenderResult[None]:
     """Applies membership change."""
 
-    def linked(item: Member, row: Joined | Parted) -> None:
-        match item:
-            case bpy.types.Object():
-                match row:
-                    case Joined():
-                        collection.objects.link(item)
-                    case Parted():
-                        collection.objects.unlink(item)
-            case bpy.types.Collection():
-                match row:
-                    case Joined():
-                        collection.children.link(item)
-                    case Parted():
-                        collection.children.unlink(item)
+    def linked(row: Joined | Parted) -> None:
+        joining = isinstance(row, Joined)
+        match row.member:
+            case bpy.types.Object() as item:
+                (collection.objects.link if joining else collection.objects.unlink)(item)
+            case bpy.types.Collection() as item:
+                (collection.children.link if joining else collection.children.unlink)(item)
 
     match change:
-        case Joined(member=member) | Parted(member=member):
-            return BlenderEditFault.attempted(repr(collection), lambda: linked(member, change))
+        case Joined() | Parted():
+            return BlenderEditFault.attempted(repr(collection), lambda: linked(change))
         case Sorted(member=member, index=index):
             return entry(collection, member).bind(lambda held: written(held, "sort_index", index)).map(lambda _: None)
 
@@ -131,54 +143,31 @@ def reconciled(tree: CollectionTree, collection: bpy.types.Collection) -> Blende
     )
 
 
+def changed(collection: bpy.types.Collection, members: tuple[Member, ...], kind: type[Joined | Parted]) -> BlenderResult[tuple[MembershipChange, ...]]:
+    """Links absent members or unlinks present ones once each, accumulating faults in input order."""
+    held = frozenset((*collection.objects, *collection.children))
+    rows = tuple(kind(member=item) for item in dict.fromkeys(members) if (item in held) is (kind is Parted))
+    return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
+
+
 def joined(collection: bpy.types.Collection, members: tuple[Member, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
     """Links absent members once, accumulating faults in input order."""
-    held = frozenset((*collection.objects, *collection.children))
-    rows = tuple(Joined(member=item) for item in dict.fromkeys(members) if item not in held)
-    return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
+    return changed(collection, members, Joined)
 
 
 def parted(collection: bpy.types.Collection, members: tuple[Member, ...]) -> BlenderResult[tuple[MembershipChange, ...]]:
     """Unlinks present members once, accumulating faults in input order."""
-    held = frozenset((*collection.objects, *collection.children))
-    rows = tuple(Parted(member=item) for item in dict.fromkeys(members) if item in held)
-    return accumulated(applied(collection, row) for row in rows).map(lambda _: rows)
+    return changed(collection, members, Parted)
 
 
 # --- [PLACEMENT]
 
 
-def walked(root: bpy.types.LayerCollection) -> Block[LayerPath]:
-    """Returns layer tree in preorder, each node with ancestors root first."""
-
-    def expanded(frontier: tuple[LayerPath, ...]) -> Option[tuple[LayerPath, tuple[LayerPath, ...]]]:
-        match frontier:
-            case ((node, ancestors) as head, *rest):
-                return Some((head, (*((child, (*ancestors, node)) for child in node.children), *rest)))
-            case _:
-                return Nothing
-
-    seed: tuple[LayerPath, ...] = ((root, ()),)
-    return Block.unfold(expanded, seed)
-
-
 def landing(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Collection]:
     """Returns active collection or nearest editable included ancestor."""
-    layers: dict[bpy.types.Collection, bpy.types.LayerCollection] = {}
-    for node, _ in walked(view_layer.layer_collection):
-        layers.setdefault(node.collection, node)
-
-    def climbed(frontier: tuple[bpy.types.Collection, ...]) -> Option[tuple[bpy.types.Collection, tuple[bpy.types.Collection, ...]]]:
-        match frontier:
-            case (held, *rest):
-                return Some((held, (*(parents(held) if held in layers else ()), *rest)))
-            case _:
-                return Nothing
-
-    seed: tuple[bpy.types.Collection, ...] = (view_layer.active_layer_collection.collection,)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    layers = {node.collection: node for node, _ in reversed(tuple(walked(view_layer.layer_collection)))}
     return (
-        Block
-        .unfold(climbed, seed)
+        preorder(view_layer.active_layer_collection.collection, lambda held: parents(held) if held in layers else ())  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         .filter(lambda held: held in layers and _editable(held) and not layers[held].exclude)
         .try_head()
         .to_result_with(lambda: (BlenderAbsentFault(owner=repr(view_layer), key="active_layer_collection"),))
@@ -218,16 +207,7 @@ def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection
 
 def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, copies: frozenset[type[bpy.types.ID]]) -> BlenderResult[bpy.types.Collection]:
     """Duplicates local hierarchy with object data of `copies` types, removing every copy on fault."""
-
-    def expanded(frontier: tuple[bpy.types.Collection, ...]) -> Option[tuple[bpy.types.Collection, tuple[bpy.types.Collection, ...]]]:
-        match frontier:
-            case (held, *rest):
-                return Some((held, (*(child for child in held.children if child.library is None), *rest)))
-            case _:
-                return Nothing
-
-    seed: tuple[bpy.types.Collection, ...] = (collection,)
-    tree = tuple(dict.fromkeys(Block.unfold(expanded, seed)))
+    tree = tuple(dict.fromkeys(preorder(collection, lambda held: (child for child in held.children if child.library is None))))
     with ExitStack() as rollback:
 
         def copied[T: bpy.types.ID](blocks: Iterable[T]) -> BlenderResult[dict[T, T]]:
@@ -241,7 +221,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
             owned: set[bpy.types.ID] = set(mapping.values())
 
             def custom(group: IDPropertyGroup) -> BlenderResult[None]:
-                def changed(name: str, value: object) -> BlenderResult[None]:
+                def rewired(name: str, value: object) -> BlenderResult[None]:
                     match value:
                         case bpy.types.ID() if value in mapping:
                             try:
@@ -256,7 +236,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                         case _:
                             return Ok(None)
 
-                return accumulated(starmap(changed, group.items())).map(lambda _: None)
+                return accumulated(starmap(rewired, group.items())).map(lambda _: None)
 
             def repointed(owner: "bpy.types.bpy_struct[object]") -> BlenderResult[None]:
                 if (identity := ((owner.as_pointer(), type(owner)))) in seen:
@@ -323,10 +303,9 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                     .map(lambda _: made)
                 )
 
-            inverse = Descriptor.resolve(bpy.types.Object, "matrix_parent_inverse", bpy.types.FloatProperty)
             return (
                 accumulated(repointed(made) for made in mapping.values())
-                .bind(lambda _: inverse.bind(lambda prop: accumulated(prop.write(made, prop.read(original)).map(lambda _: None) for original, made in objects.items())))
+                .bind(lambda _: accumulated(_INVERSE.write(made, _INVERSE.read(original)).map(lambda _: None) for original, made in objects.items()))
                 .bind(lambda _: accumulated(mirrored(held) for held in tree))
                 .bind(placed)
             )
@@ -352,7 +331,6 @@ def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> Blende
 def ungrouped(collection: bpy.types.Collection) -> BlenderResult[int]:
     """Dissolves collection into its parents, returning removed count."""
     members = (*collection.objects, *collection.children)
-
     return accumulated(
         joined(parent, tuple(member for member in members if not (isinstance(member, bpy.types.Collection) and parent in {member, *member.children_recursive}))) for parent in parents(collection)
     ).bind(lambda _: released((collection,)))
@@ -387,6 +365,7 @@ __all__ = [
     "Parted",
     "Sorted",
     "applied",
+    "changed",
     "cloned",
     "deleted",
     "duplicated",
@@ -400,6 +379,7 @@ __all__ = [
     "moved",
     "parents",
     "parted",
+    "preorder",
     "reconciled",
     "ungrouped",
     "walked",

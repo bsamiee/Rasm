@@ -74,9 +74,9 @@ public abstract class ComponentControl : Drawable {
         hosted.Match(Some: static read => Some(read()), None: () => Optional(ParentWindow).Map(window => ((SizeF)Size, window.LogicalPixelSize)));
 
     public virtual IO<Unit> Hosted(Control host, Func<(SizeF Size, float Scale)> surface, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new Disposal<Func<(SizeF Size, float Scale)>>(surface, held => {
-            if (hosted.Exists(read => ReferenceEquals(read, held))) hosted = None;
-        })), lease => { retain(lease); hosted = Some(surface); }).Map(unit);
+        DisposalOps.Acquire(IO.lift(() => hosted = Some(surface)), _ => IO.lift(() => {
+            if (hosted.Exists(read => ReferenceEquals(read, surface))) hosted = None;
+        }), retain).Map(unit);
 
     public abstract Seq<Part> Parts { get; }
     public abstract bool Adjust(PointF at, int steps);
@@ -265,31 +265,31 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     }
 
     protected override void OnMouseMove(MouseEventArgs e) {
-        Callbacks.Run(Move(Size, ParentWindow.LogicalPixelSize, e), Site());
+        Callbacks.Run(IO.lift(() => ParentWindow.LogicalPixelSize).Bind(scale => Move(Size, scale, e)), Site());
         base.OnMouseMove(e);
     }
 
     protected override void OnMouseUp(MouseEventArgs e) {
-        Callbacks.Run(Release(Size, ParentWindow.LogicalPixelSize, e), Site());
+        Callbacks.Run(IO.lift(() => ParentWindow.LogicalPixelSize).Bind(scale => Release(Size, scale, e)), Site());
         base.OnMouseUp(e);
     }
 
     protected override void OnMouseDoubleClick(MouseEventArgs e) {
-        Callbacks.Run(DoubleClick(Size, ParentWindow.LogicalPixelSize, e), Site());
+        Callbacks.Run(IO.lift(() => ParentWindow.LogicalPixelSize).Bind(scale => DoubleClick(Size, scale, e)), Site());
         if (e.Handled) return;
 
         base.OnMouseDoubleClick(e);
     }
 
     protected override void OnMouseWheel(MouseEventArgs e) {
-        if (HasFocus) Callbacks.Run(Scroll(Size, ParentWindow.LogicalPixelSize, e), Site());
+        Callbacks.Run(IO.lift(() => HasFocus).Bind(focused => when(focused, IO.lift(() => ParentWindow.LogicalPixelSize).Bind(scale => Scroll(Size, scale, e))).As()), Site());
         if (e.Handled) return;
 
         base.OnMouseWheel(e);
     }
 
     protected override void OnMouseLeave(MouseEventArgs e) {
-        Callbacks.Run(Leave(Size, ParentWindow.LogicalPixelSize), Site());
+        Callbacks.Run(IO.lift(() => ParentWindow.LogicalPixelSize).Bind(scale => Leave(Size, scale)), Site());
         base.OnMouseLeave(e);
     }
 
@@ -366,8 +366,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     private IO<Unit> Gestured<TGesture>(Func<TGesture, float, Option<Transition<TState, TValue>>> transition, Action<IDisposable> retain) where TGesture : Gesture, new() =>
         DisposalOps.Acquire(owned =>
             from gesture in DisposalOps.Acquire(IO.lift(static () => new TGesture()), owned)
-            from removal in DisposalOps.Acquire(IO.lift(() => new Disposal<Gesture>(gesture, held => Gestures.Remove(held))), owned)
-            from added in IO.lift(() => Gestures.Add(gesture))
+            from added in DisposalOps.Acquire(IO.lift(() => Gestures.Add(gesture)), _ => IO.lift(() => Gestures.Remove(gesture)).Map(unit), owned)
             from activated in Subscriptions.Host<EventArgs>(typeof(TGesture), handler => gesture.Activated += handler, handler => gesture.Activated -= handler, nameof(Gesture.Activated))
                 .Inline(_ => IO.lift(() => Apply(Size, ParentWindow.LogicalPixelSize, transition(gesture, ParentWindow.LogicalPixelSize))), Sink, owned)
             select activated, retain);

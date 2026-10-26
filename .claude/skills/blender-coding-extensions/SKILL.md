@@ -116,7 +116,7 @@ Each callback kind pairs one acquisition with one release on the same object, me
 |  [10]   | Presets      | `utils.register_preset_path(<folder holding presets/>)`            | `utils.unregister_preset_path(<same path>)`          |
 
 Acquisitions follow host identity rules:
-- Handler lists, timers, UI extensions, and manual maps hold one entry per acquisition call
+- Handler lists, timers, UI extensions, manual maps, and message bus keys hold one entry per acquisition call
 - Timers match callables by identity, each read of a bound method building a new object
 - Timer calls take one stored callable
 - `bpy.app.timers.unregister` raises `ValueError` for a function no longer registered, a timer that stopped itself included

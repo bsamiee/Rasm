@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-empty-string-delete
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    strings:
+        kind: member_access_expression
+        has: {field: name, regex: '^Strings$'}
+    string-table:
+        any:
+            - matches: strings
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^(StringTable|File3dmStringTable)$'}}}}}}
+            - kind: identifier
+              matches: {csharp-block-local: {declarator: {has: {matches: strings}}}}
+    value-argument:
+        kind: argument
+        any:
+            - has: {field: name, regex: '^value$'}
+            - nthChild: {position: 1, reverse: true}
+              not: {has: {field: name, kind: identifier}}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^SetString$'}}, {has: {field: expression, pattern: $TABLE, matches: string-table}}]}
+        - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 4}}}]}
+        - has:
+            field: arguments
+            has:
+                matches: value-argument
+                has:
+                    pattern: $VALUE
+                    matches:
+                        csharp-sentinel-value:
+                            sentinel:
+                                any:
+                                    - {kind: 'string_literal, verbatim_string_literal', regex: '^@?""$'}
+                                    - kind: null_literal
+                                    - matches: {csharp-owner-member: {type: {regex: '^(string|String)$'}, member: {regex: '^Empty$'}}}
+message: '`$TABLE.SetString` writes `$VALUE` in place of `Delete`'
+note: 'Call `<table>.Delete(<key>)` or `<table>.Delete(<section>, <entry>)` for an absent value, `SetString` for a present one'

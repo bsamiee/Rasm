@@ -18,9 +18,11 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.nodes.changes import made
 from blender.bpy.nodes.graphs import NodeGroup
-from blender.bpy.render.effects.stack import Context, EffectStack, ownerships, Placeable
+from blender.bpy.render.effects.rows import CompositorEffect, Context, ownerships
+from blender.bpy.render.effects.stack import EffectStack
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.surfaces.menus import Dropdown, Menu
+from blender.imaging.chain import Effect
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.faults import paired
 from blender.imaging.parameters import Choice
@@ -64,15 +66,9 @@ class StripEffect:
         """Declares one placement command per standalone stack row."""
         self.stack = stack
 
-        def offered(row: Placeable) -> Operator[Striping]:
+        def offered(row: CompositorEffect[Effect]) -> Operator[Striping]:
             def run(call: Call[Striping]) -> BlenderResult[Done]:
-                target: BlenderResult[tuple[bpy.types.Scene, bpy.types.SequenceEditor, bpy.types.Strip]] = (
-                    Option
-                    .of_optional(call.context.workspace)
-                    .bind(lambda workspace: Option.of_optional(workspace.sequencer_scene))
-                    .bind(lambda scene: Option.of_optional(scene.sequence_editor).bind(lambda editor: Option.of_optional(editor.active_strip).map(lambda strip: (scene, editor, strip))))
-                    .to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context.workspace), key="sequencer_scene.sequence_editor.active_strip"),))
-                )
+                target = active(call.context).to_result_with(lambda: (BlenderAbsentFault(owner=repr(call.context.workspace), key="sequencer_scene.sequence_editor.active_strip"),))
 
                 def built(target: tuple[bpy.types.Scene, bpy.types.SequenceEditor, bpy.types.Strip], config: PyOpenColorIO.Config) -> BlenderResult[Done]:
                     scene, editor, strip = target
@@ -122,7 +118,7 @@ class StripEffect:
             title="Effects",
             description="Add a stack effect to the active strip",
             condition=Some(StripEffect.placeable),
-            body=Dropdown(entries=tuple(OperatorButton(target=command, text=Some(row.record.title)) for row, command in zip(stack.standalone, self.operators)), search=True),
+            body=Dropdown(entries=tuple(OperatorButton(target=command, text=row.record.title) for row, command in zip(stack.standalone, self.operators)), search=True),
         )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
@@ -133,21 +129,20 @@ class StripEffect:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def striped(identity: Identity, scene: bpy.types.Scene, row: Placeable, config: PyOpenColorIO.Config, *, context: Context = Nothing) -> BlenderResult[NodeGroup]:
+def striped(identity: Identity, scene: bpy.types.Scene, row: CompositorEffect[Effect], config: PyOpenColorIO.Config, *, context: Context = Nothing) -> BlenderResult[NodeGroup]:
     """Builds effect group as strip modifier group, scene-linear in any sequencer space."""
     return (
         row.seeded(scene).bind(lambda effect: row.grouped(identity, scene, Entry(effect=effect), config, context=context)).map(lambda group: msgspec.structs.replace(group, key=f"{group.key}_strip"))
     )
 
 
-def active(context: bpy.types.Context) -> Option[bpy.types.CompositorStrip]:
-    """Returns active compositor strip of sequencer scene."""
-    scene = Option.of_optional(context.workspace).bind(lambda workspace: Option.of_optional(workspace.sequencer_scene))
+def active(context: bpy.types.Context) -> Option[tuple[bpy.types.Scene, bpy.types.SequenceEditor, bpy.types.Strip]]:
+    """Returns the workspace sequencer scene, its editor, and active strip."""
     return (
-        scene
-        .bind(lambda scene: Option.of_optional(scene.sequence_editor))
-        .bind(lambda editor: Option.of_optional(editor.active_strip))
-        .bind(lambda strip: Some(strip) if isinstance(strip, bpy.types.CompositorStrip) else Nothing)
+        Option
+        .of_optional(context.workspace)
+        .bind(lambda workspace: Option.of_optional(workspace.sequencer_scene))
+        .bind(lambda scene: Option.of_optional(scene.sequence_editor).bind(lambda editor: Option.of_optional(editor.active_strip).map(lambda strip: (scene, editor, strip))))
     )
 
 

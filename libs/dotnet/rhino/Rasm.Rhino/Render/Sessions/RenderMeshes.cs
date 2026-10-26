@@ -116,7 +116,7 @@ public static class Meshing {
                 RenderMeshProvider.Flags flags = request.Flags;
                 RenderMeshes? meshes = rhinoObject.RenderMeshes(request.Type, request.Viewport, [.. ancestry], ref flags, request.Requester.ValueUnsafe(), request.Display.ValueUnsafe());
                 return (Meshes: meshes, Flags: flags, Release: new Disposal<RenderMeshes?>(meshes, static held => held?.Dispose()));
-            }), static read => IO.lift(read.Release.Dispose), read => owned(read.Release))
+            }), static read => read.Release, owned)
              from meshes in IO.lift(() => Refused.UnlessFound(read.Meshes, nameof(RhinoObject.RenderMeshes)))
              from canceled in when(read.Flags.HasFlag(RenderMeshProvider.Flags.Canceled), IO.fail<Unit>(Errors.Cancelled)).As()
              from completed in read.Flags.HasFlag(RenderMeshProvider.Flags.Incomplete)

@@ -1,24 +1,25 @@
-"""Layout rows from typed declarations or callbacks."""
+"""Layout rows over UILayout functions, from typed declarations or callbacks."""
 
 from collections.abc import Callable, Iterable
 from enum import auto, Enum
 from itertools import pairwise, product, starmap
 from pathlib import PurePath
 import typing
-from typing import Annotated, ClassVar, Generic, Literal, overload, Protocol, runtime_checkable
+from typing import Annotated, ClassVar, Final, Generic, overload, override, Protocol, runtime_checkable, Self
 
 import _bpy_types
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
+from msgspec import UNSET, UnsetType
 
-from blender.bpy.commands import keymaps, operators
-from blender.bpy.commands.calls import Operation
+from blender.bpy.commands import operators
+from blender.bpy.commands.calls import idname, Operation, Placed, ShelfPopup, Writer
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Descriptor, Native, P_co, root_in
 from blender.bpy.data.rna.snapshots import Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, Registrable
+from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderResult
 from blender.bpy.settings import shapes
@@ -33,14 +34,13 @@ if typing.TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
+type At = tuple[Native, str]
 type RowDraw = Callable[[bpy.types.UILayout, bpy.types.bpy_struct[object], bpy.types.Context], None]
 type SurfaceDraw = Callable[[bpy.types.UILayout, bpy.types.Context], None]
 type Reach = Callable[[bpy.types.Context], Option[bpy.types.bpy_struct[object]]]
-type Binding = Member | Across | ResolvedMember | msgspec.structs.FieldInfo
-type Resolved = ResolvedMember | msgspec.structs.FieldInfo
+type Binding = Member | Across
+type Accept = Callable[[ResolvedMember], BlenderResult[ResolvedMember]]
 type Opener = operators.Command | Operation
-type Filter = Literal["ALL", "AVAILABLE"]
-type Template = Callable[[bpy.types.UILayout, Native, str, bpy.types.bpy_struct[object], bpy.types.Context], None]
 
 
 @runtime_checkable
@@ -75,23 +75,52 @@ class Flow(Enum):
         return inner
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+FUNCTIONS: "Final[bpy.types.bpy_prop_collection[bpy.types.Function]]" = bpy.types.UILayout.bl_rna.functions  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class ResolvedMember(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
-    """RNA definition with optional explicit root source."""
+    """RNA definition with its live root source and declared record shape."""
 
     descriptor: Descriptor[P_co]
     reach: "bpy.types.bpy_struct[object] | Option[Reach]" = Nothing
     scope: Option[Scoped] = Nothing
+    shape: Option[shapes.Shape] = Nothing
+
+    def at(self, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[At]:
+        """Locates property owner through fixed root, drawing holder, reach, or context."""
+        descriptor = self.descriptor
+        match self.reach:
+            case bpy.types.bpy_struct() as fixed:
+                root: Option[Native] = Some(fixed)
+            case _ if isinstance(holder, descriptor.root):
+                root = Some(holder)
+            case Option() as reach:
+                root = reach.map(lambda source: source(context)).default_with(lambda: root_in(descriptor.root, context))
+        return root.bind(descriptor.owner_of).map(lambda owner: (owner, descriptor.prop.identifier))
+
+    def accepts(self, kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]", forms: tuple[type[object], ...] = ()) -> BlenderResult[Self]:
+        """Accepts property or pointer target kinds, or declared record shapes, enum classes included."""
+        prop = self.descriptor.prop
+        target = prop.fixed_type if isinstance(prop, bpy.types.PointerProperty) else prop
+        shaped = self.shape.filter(lambda shape: isinstance(shape, forms) or (isinstance(shape, shapes.Enumerated) and issubclass(shape.enum, forms)))
+        return (
+            Ok(self)
+            if isinstance(prop, kinds) or isinstance(target, kinds) or shaped.is_some()
+            else Error(refused(self.descriptor.path, type(target).__name__, tuple(kind.__name__ for kind in (*kinds, *forms))))
+        )
 
 
 class Member(msgspec.Struct, frozen=True, kw_only=True):
-    """Property path rooted at its owner type."""
+    """Property path rooted at its owner type, record fields carrying their declared shape."""
 
     root: "type[bpy.types.bpy_struct[object]]"
     path: str
     reach: Option[Reach] = Nothing
+    shape: Option[shapes.Shape] = Nothing
 
     @overload
     def resolved(self, *, root: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[ResolvedMember]: ...
@@ -103,11 +132,11 @@ class Member(msgspec.Struct, frozen=True, kw_only=True):
         """Resolves metadata on root type, or on live `root` when given."""
         return root.map(
             lambda actual: (
-                Descriptor.resolve(actual, self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=actual))
+                Descriptor.resolve(actual, self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=actual, shape=self.shape))
                 if isinstance(actual, self.root)
                 else Error(refused(self.path, type(actual).__name__, (self.root.__name__,)))
             )
-        ).default_with(lambda: Descriptor.resolve(self.root, self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach)))
+        ).default_with(lambda: Descriptor.resolve(self.root, self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach, shape=self.shape)))
 
 
 class Across(msgspec.Struct, frozen=True, kw_only=True):
@@ -116,12 +145,16 @@ class Across(msgspec.Struct, frozen=True, kw_only=True):
     scope: Scoped
     path: str
 
+    def resolved(self) -> BlenderResult[ResolvedMember]:
+        """Resolves metadata on the scope's owner type."""
+        return Descriptor.resolve(self.scope.owner_type, self.path, bpy.types.Property).map(lambda descriptor: ResolvedMember(descriptor=descriptor, scope=Some(self.scope)))
+
 
 class PreviewGrid(msgspec.Struct, frozen=True, kw_only=True):
-    """Selector preview grid, zero taking Blender's count."""
+    """Selector preview grid, unset counts taking Blender's."""
 
-    rows: Annotated[int, msgspec.Meta(ge=0)] = 0
-    cols: Annotated[int, msgspec.Meta(ge=0)] = 0
+    rows: Annotated[int, msgspec.Meta(ge=0)] | UnsetType = UNSET
+    cols: Annotated[int, msgspec.Meta(ge=0)] | UnsetType = UNSET
 
 
 class DataBlocks(msgspec.Struct, frozen=True, kw_only=True):
@@ -131,7 +164,7 @@ class DataBlocks(msgspec.Struct, frozen=True, kw_only=True):
     new: Option[Opener] = Nothing
     open: Option[Opener] = Nothing
     unlink: Option[Opener] = Nothing
-    filter: Filter = "ALL"
+    filter: str | UnsetType = UNSET
 
 
 class Items(msgspec.Struct, frozen=True, kw_only=True):
@@ -167,167 +200,262 @@ class Toggle[R: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Line(msgspec.Struct, frozen=True, kw_only=True):
-    """Row with optional availability condition."""
+    """Row with optional availability condition, drawn inactive while it fails."""
 
     condition: Option[Condition] = Nothing
 
+    def guarded(self, draw: RowDraw) -> RowDraw:
+        """Wraps draw in column inactive while condition fails."""
 
-class Property(Line, frozen=True, kw_only=True):
-    """Setting drawn with its RNA widget."""
+        def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+            for required in self.condition.to_list():
+                layout = layout.column()
+                layout.active = holds(required, context, Some(holder))
+            draw(layout, holder, context)
+
+        return shown
+
+
+class Call(Line, frozen=True, kw_only=True):
+    """Row over one UILayout function, fields named after its parameters passing their scalar values, unset fields leaving host defaults."""
+
+    function: ClassVar[bpy.types.Function]
+
+    @property
+    def options(self) -> dict[str, object]:
+        """Set scalar fields the function names as parameters."""
+        parameters = self.function.parameters
+        return {name: value for name in self.__struct_fields__ if name in parameters and isinstance(value := getattr(self, name), bool | int | float | str)}
+
+    def called(self, layout: bpy.types.UILayout, *args: object, **options: object) -> object:
+        """Calls the function on layout, the one boundary call of every function row."""
+        return getattr(layout, self.function.identifier)(*args, **options)
+
+    def drawn(self, _identity: Identity, /) -> BlenderResult[RowDraw]:
+        """Draws the call over no bound member."""
+        options = self.options
+
+        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
+            self.called(layout, **options)
+
+        return Ok(shown)
+
+
+class Bound(Call, frozen=True, kw_only=True):
+    """Call over one bound RNA member, resolved once and located on each draw."""
 
     target: Binding
-    text: Option[str] = Nothing
+    kinds: "ClassVar[tuple[type[bpy.types.bpy_struct[object]], ...]]" = (bpy.types.Property,)
+    forms: ClassVar[tuple[type[object], ...]] = ()
+
+    def accepted(self, held: ResolvedMember) -> BlenderResult[ResolvedMember]:
+        """Accepts the target the row's function draws."""
+        return held.accepts(self.kinds, self.forms)
+
+    def values(self, _identity: Identity, /) -> BlenderResult[dict[str, object]]:
+        """Host values the row resolves once at acquisition."""
+        return Ok({})
+
+    def placed(self, layout: bpy.types.UILayout, at: At, _context: bpy.types.Context, options: dict[str, object], /) -> None:
+        """Calls the function over the located member."""
+        self.called(layout, *at, **options)
+
+    @override
+    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+        """Binds target, drawing at each located owner."""
+
+        def draw(options: dict[str, object]) -> BlenderResult[RowDraw]:
+            def place(held: tuple[ResolvedMember, ...]) -> RowDraw:
+                def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                    for at in held[0].at(holder, context).to_list():
+                        self.placed(layout, at, context, options)
+
+                return shown
+
+            return bound(((self.target, self.accepted),), place)
+
+        return self.values(identity).map(lambda resolved: self.options | resolved).bind(draw)
+
+
+class Property(Bound, frozen=True, kw_only=True):
+    """Setting drawn with its RNA widget, gated, flag, and component records as grouped widgets."""
+
+    function = FUNCTIONS["prop"]
+    kinds = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.StringProperty, bpy.types.EnumProperty, bpy.types.ID)
+    forms = (shapes.Gate, shapes.Flags, shapes.Components)
+    text: str | UnsetType = UNSET
+    icon_only: bool | UnsetType = UNSET
+    expand: bool | UnsetType = UNSET
+    slider: bool | UnsetType = UNSET
+    placeholder: str | UnsetType = UNSET
     icon: Option[Glyph] = Nothing
-    icon_only: bool = False
-    expand: bool = False
-    slider: bool = False
-    placeholder: Option[str] = Nothing
     action: Option[RowContent] = Nothing
 
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Acquires action row registrations."""
+        return Ok(acquired(self.action.to_list()))
+
+    @override
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Binds setting, glyph, and action once for every redraw."""
-        kinds = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.StringProperty, bpy.types.EnumProperty, bpy.types.ID)
-        forms = (shapes.Flag, shapes.Integer, shapes.Number, shapes.Text, shapes.Enumerated, shapes.Vector, shapes.Components, shapes.Flags, shapes.Pointer, shapes.Color, shapes.Gate)
+        options = {key: value for key, value in self.options.items() if key != "text"}
 
-        def valued(layout: bpy.types.UILayout, owner: Native, key: str, shape: Option[shapes.Shape], label: Option[str], icon: int, index: int = -1) -> None:
-            prop = owner.bl_rna.properties[key]  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        def headed(owner: Native, key: str, text: str | UnsetType) -> str:
+            return text if isinstance(text, str) else owner.bl_rna.properties[key].name  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+
+        def valued(layout: bpy.types.UILayout, owner: Native, key: str, shape: Option[shapes.Shape], text: str | UnsetType, icon: int, index: int = -1) -> None:
             match shape.to_optional():
                 case shapes.Gate(value=value):
                     group = getattr(owner, key)
-                    gate = layout.row(heading=label.default_value(prop.name), align=True)
+                    gate = layout.row(heading=headed(owner, key, text), align=True)
                     gate.prop(group, shapes.ENABLED, text="")
                     inner = gate.row(align=True)
                     inner.active = getattr(group, shapes.ENABLED)
                     for field, held in value.to_list():
-                        valued(inner, group, field.name, Some(held.shape), Some(""), icon)
+                        valued(inner, group, field.name, Some(held.shape), "", icon)
                 case shapes.Flags(enum=choices):
                     group = getattr(owner, key)
-                    inner = layout.column(heading=label.default_value(prop.name), align=True)
+                    inner = layout.column(heading=headed(owner, key, text), align=True)
                     for member in choices:
                         inner.prop(group, member.name)
                 case shapes.Components(items=items):
                     group = getattr(owner, key)
-                    inner = layout.column(heading=label.default_value(prop.name), align=True)
-                    for name, item in zip(type(group).__annotations__, items):
-                        valued(inner, group, name, Some(item.shape), Nothing, icon)
+                    inner = layout.column(heading=headed(owner, key, text), align=True)
+                    inherited = bpy.types.PropertyGroup.bl_rna.properties
+                    for prop, item in zip((prop for prop in group.bl_rna.properties if prop.identifier not in inherited), items):
+                        valued(inner, group, prop.identifier, Some(item.shape), UNSET, icon)
                 case _:
-                    layout.prop(
-                        owner, key, index=index, text=label.to_optional(), icon_value=icon, icon_only=self.icon_only, placeholder=self.placeholder.to_optional(), slider=self.slider, expand=self.expand
-                    )
+                    self.called(layout, owner, key, **options, index=index, icon_value=icon, **({} if isinstance(text, UnsetType) else {"text": text}))
 
-        def draw(held: Resolved, action: Option[RowDraw], shape: Option[shapes.Shape], icon: int) -> RowDraw:
-            index = held.descriptor.index.default_value(-1) if isinstance(held, ResolvedMember) else -1
+        def draw(held: ResolvedMember, action: Option[RowDraw], icon: int) -> RowDraw:
+            index = held.descriptor.index.default_value(-1)
 
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 line = layout.row() if action.is_some() else layout
-                match held:
-                    case ResolvedMember(descriptor=descriptor, scope=Option(tag="some", some=scope)):
-                        labelled = scope.owners(context).bind(lambda owners: marked(descriptor, owners)).map(lambda label: label.or_else(self.text))
-                    case _:
-                        labelled = Ok(self.text)
-                for owner, key in located(held, holder, context).to_list():
-                    alerted(line, labelled.map(lambda label: valued(line, owner, key, shape, label, icon, index)))
+                labelled = held.scope.map(lambda scope: scope.owners(context).bind(lambda owners: marked(held.descriptor, owners))).default_value(Ok(Nothing))
+                for owner, key in held.at(holder, context).to_list():
+                    alerted(line, labelled.map(lambda label: valued(line, owner, key, held.shape, label.default_value(self.text), icon, index)))
                     for extra in action.to_list():
                         extra(line, holder, context)
 
             return shown
 
-        action = self.action.map(lambda row: realized(row, identity).map(Some)).default_value(Ok(Nothing))
-        shape = shapes.field_shape(self.target.type).map(lambda declared: Some(declared.shape)) if isinstance(self.target, msgspec.structs.FieldInfo) else Ok(Nothing)
-        return bound(
-            ((self.target, lambda held: fits(held, kinds, forms)),), paired(paired(action, shape), iconed(identity, self.icon)).map(lambda parts: lambda held: draw(held[0], *parts[0], parts[1]))
+        return paired(self.action.map(lambda row: realized(row, identity).map(Some)).default_value(Ok(Nothing)), iconed(identity, self.icon)).bind(
+            lambda parts: bound(((self.target, self.accepted),), lambda held: draw(held[0], *parts))
         )
 
 
-class SearchField(Line, frozen=True, kw_only=True):
+class PropertyPopover(Bound, frozen=True, kw_only=True):
+    """Setting beside a button opening a stock or extension panel as popover."""
+
+    function = FUNCTIONS["prop_with_popover"]
+    panel: type[_bpy_types.Panel] | Key
+    text: str | UnsetType = UNSET
+    icon: "IconItems | UnsetType" = UNSET
+    icon_only: bool | UnsetType = UNSET
+
+    @override
+    def values(self, identity: Identity, /) -> BlenderResult[dict[str, object]]:
+        """Resolves panel idname."""
+        return idname(identity, Name.PANEL, self.panel).map(lambda panel: {"panel": panel})
+
+
+class PopoverGroup(Call, frozen=True, kw_only=True):
+    """Popover buttons of every panel registered in one space, region, context, and category."""
+
+    function = FUNCTIONS["popover_group"]
+    space_type: "rna_enums.SpaceTypeItems | UnsetType" = UNSET
+    region_type: "rna_enums.RegionTypeItems | UnsetType" = UNSET
+    context: str | UnsetType = UNSET
+    category: str | UnsetType = UNSET
+
+
+class SearchField(Call, frozen=True, kw_only=True):
     """String or pointer search over declared RNA collection."""
 
+    function = FUNCTIONS["prop_search"]
     target: Member
     collection: Member
-    text: Option[str] = Nothing
-    results_are_suggestions: bool = False
+    text: str | UnsetType = UNSET
+    results_are_suggestions: bool | UnsetType = UNSET
 
+    @override
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
         """Binds property and collection together."""
+        options = self.options
 
-        def draw(parts: tuple[Resolved, ...]) -> RowDraw:
+        def draw(parts: tuple[ResolvedMember, ...]) -> RowDraw:
             held, items = parts
 
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for owner, key in located(held, holder, context).to_list():
-                    for source, listed in located(items, holder, context).to_list():
-                        layout.prop_search(owner, key, source, listed, text=self.text.to_optional(), results_are_suggestions=self.results_are_suggestions)
+                for (owner, key), (source, listed) in product(held.at(holder, context).to_list(), items.at(holder, context).to_list()):
+                    self.called(layout, owner, key, source, listed, **options)
 
             return shown
 
         return bound(
-            ((self.target, lambda held: fits(held, (bpy.types.StringProperty, bpy.types.PointerProperty))), (self.collection, lambda held: fits(held, (bpy.types.CollectionProperty,)))), Ok(draw)
+            ((self.target, lambda held: held.accepts((bpy.types.StringProperty, bpy.types.PointerProperty))), (self.collection, lambda held: held.accepts((bpy.types.CollectionProperty,)))), draw
         )
 
 
 class Selector(Line, frozen=True, kw_only=True):
-    """Data-block or item pointer in ID or search template."""
+    """Data-block or item pointer in ID or search template, the browse's fields passing as the template's opener and filter values."""
 
-    target: Member | msgspec.structs.FieldInfo
+    target: Member
     browse: DataBlocks | Items = DataBlocks()
     preview: Option[PreviewGrid] = Nothing
     label: Option[str] = Nothing
 
+    @property
+    def function(self) -> bpy.types.Function:
+        """Template function of the browse and preview form."""
+        match self.browse:
+            case DataBlocks():
+                return FUNCTIONS["template_ID_preview" if self.preview.is_some() else "template_ID"]
+            case Items():
+                return FUNCTIONS["template_search_preview" if self.preview.is_some() else "template_search"]
+
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Acquires extension openers."""
+        return Ok(tuple(opener for value in msgspec.structs.asdict(self.browse).values() if isinstance(value, Option) for opener in value.to_list() if isinstance(opener, Registrable)))
+
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Resolves pointer, collection, and openers into template draw."""
+        template = self.function.identifier
+        grid = {key: value for preview in self.preview.to_list() for key, value in msgspec.structs.asdict(preview).items() if value is not UNSET}
 
-        def named(opener: Opener) -> BlenderResult[str]:
-            match opener:
-                case operators.Command(key=key):
-                    return identity.name(Name.OPERATOR, key)
+        def valued(name: str, value: object) -> BlenderResult[Option[tuple[str, object]]]:
+            match value:
+                case Option(tag="some", some=operators.Command(key=key)):
+                    return identity.name(Name.OPERATOR, key).map(lambda found: Some((name, found)))
+                case Option(tag="some", some=operation):
+                    return Ok(Some((name, operation.idname_py())))
+                case str():
+                    return Ok(Some((name, value)))
                 case _:
-                    return Ok(opener.idname_py())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    return Ok(Nothing)
 
-        def opened(opener: Option[Opener]) -> BlenderResult[str]:
-            return opener.map(named).default_value(Ok(""))
+        def draw(options: dict[str, object]) -> Callable[[tuple[ResolvedMember, ...]], RowDraw]:
+            def place(held: tuple[ResolvedMember, ...]) -> RowDraw:
+                def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                    line = gridded(layout, self.label)
+                    for at in held[0].at(holder, context).to_list():
+                        for searched in product(*(each.at(holder, context).to_list() for each in held[1:])):
+                            getattr(line, template)(*at, *(part for pair in searched for part in pair), **options)
 
-        def blocks(chosen: Filter, ids: tuple[str, ...]) -> Template:
-            new, open_, unlink = ids
+                return shown
 
-            def shown(line: bpy.types.UILayout, owner: Native, key: str, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
-                match self.preview.to_list():
-                    case [PreviewGrid(rows=rows, cols=cols)]:
-                        line.template_ID_preview(owner, key, new=new, open=open_, unlink=unlink, filter=chosen, rows=rows, cols=cols)
-                    case _:
-                        line.template_ID(owner, key, new=new, open=open_, unlink=unlink, filter=chosen)
+            return place
 
-            return shown
-
-        def searched(collection: Resolved, new: str, unlink: str) -> Template:
-
-            def shown(line: bpy.types.UILayout, owner: Native, key: str, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for items, listed in located(collection, holder, context).to_list():
-                    match self.preview.to_list():
-                        case [PreviewGrid(rows=rows, cols=cols)]:
-                            line.template_search_preview(owner, key, items, listed, new=new, unlink=unlink, rows=rows, cols=cols)
-                        case _:
-                            line.template_search(owner, key, items, listed, new=new, unlink=unlink)
-
-            return shown
-
-        def draw(held: Resolved, placed_template: Template) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                line = gridded(layout, self.label)
-                for owner, key in located(held, holder, context).to_list():
-                    placed_template(line, owner, key, holder, context)
-
-            return shown
-
-        match self.browse:
-            case DataBlocks(new=new, open=open_, unlink=unlink, filter=chosen):
-                template = accumulated(map(opened, (new, open_, unlink))).map(lambda ids: blocks(chosen, ids))
-                return bound(((self.target, lambda held: fits(held, self.browse.kinds, (shapes.Pointer,))),), template.map(lambda template: lambda held: draw(held[0], template)))
-            case Items(collection=collection, new=new, unlink=unlink):
-                openers = accumulated(map(opened, (new, unlink)))
-                return bound(
-                    ((self.target, lambda held: fits(held, self.browse.kinds, (shapes.Pointer,))), (collection, lambda held: fits(held, (bpy.types.CollectionProperty,)))),
-                    openers.map(lambda ids: lambda held: draw(held[0], searched(held[1], *ids))),
-                )
+        bindings: tuple[tuple[Binding, Accept], ...] = (
+            (self.target, lambda held: held.accepts(self.browse.kinds, (shapes.Pointer,))),
+            *(((self.browse.collection, lambda held: held.accepts((bpy.types.CollectionProperty,))),) if isinstance(self.browse, Items) else ()),
+        )
+        return (
+            accumulated(starmap(valued, msgspec.structs.asdict(self.browse).items()))
+            .map(lambda pairs: dict(pair for found in pairs for pair in found.to_list()) | grid)
+            .bind(lambda options: bound(bindings, draw(options)))
+        )
 
 
 class Matrix(Line, frozen=True, kw_only=True):
@@ -337,6 +465,10 @@ class Matrix(Line, frozen=True, kw_only=True):
     settings: tuple[str, ...]
     compound: "tuple[tuple[type[bpy.types.bpy_struct[object]], Callable[[bpy.types.UILayout, Native, str], None]], ...]" = ()
     action: Option[tuple[Registrable, Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]] = Nothing
+
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Acquires action owner."""
+        return Ok(tuple(owner for owner, _ in self.action.to_list()))
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Resolves leaf settings and owner names into table draw."""
@@ -350,7 +482,7 @@ class Matrix(Line, frozen=True, kw_only=True):
 
             def composed(place: Callable[[bpy.types.UILayout, Native, str], None], action: Option[RowDraw]) -> RowDraw:
                 def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                    for owner, key in located(ResolvedMember(descriptor=setting), holder, context).to_list():
+                    for owner, key in ResolvedMember(descriptor=setting).at(holder, context).to_list():
                         for draw in action.to_list():
                             draw(layout.row(align=True), holder, context)
                         place(layout, owner, key)
@@ -360,7 +492,7 @@ class Matrix(Line, frozen=True, kw_only=True):
             return (
                 template
                 .map(lambda place: action.map(lambda row: realized(row, identity).map(Some)).default_value(Ok(Nothing)).map(lambda draw: composed(place, draw)))
-                .default_with(lambda: Property(target=ResolvedMember(descriptor=setting), text=Some(""), action=action).drawn(identity))
+                .default_with(lambda: Property(target=Member(root=owner_type, path=setting.path), text="", action=action).drawn(identity))
                 .map(lambda draw: (setting, draw))
             )
 
@@ -413,6 +545,10 @@ class TreeMatrix[R: msgspec.Struct, L: "bpy.types.bpy_struct[object]", C: "bpy.t
     active: Option[Callable[[C], bool]] = Nothing
     marks: tuple[RowContent, ...] = ()
 
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Acquires toggle command and mark rows."""
+        return Ok((self.command, *acquired(self.marks)))
+
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Realizes label marks into tree draw."""
 
@@ -450,98 +586,126 @@ class TreeMatrix[R: msgspec.Struct, L: "bpy.types.bpy_struct[object]", C: "bpy.t
         return accumulated(realized(row, identity) for row in self.marks).map(draw)
 
 
-class OperatorButton(Line, frozen=True, kw_only=True):
+class OperatorButton(Call, frozen=True, kw_only=True):
     """Operator button over a keymap target."""
 
-    target: keymaps.Target
-    text: Option[str] = Nothing
+    function = FUNCTIONS["operator"]
+    target: Placed
+    text: str | UnsetType = UNSET
+    emboss: bool | UnsetType = UNSET
+    depress: bool | UnsetType = UNSET
+    search_weight: float | UnsetType = UNSET
     icon: Option[Glyph] = Nothing
     label: Option[str] = Nothing
-    emboss: bool = True
-    search_weight: float = 0.0
     context: "rna_enums.OperatorContextItems" = "INVOKE_REGION_WIN"
 
+    @property
+    def command(self) -> Placed:
+        """Placed command, an owned placement's operator."""
+        return self.target.command if isinstance(self.target, operators.Own) else self.target
+
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Acquires extension command."""
+        return Ok(tuple(command for command in (self.command,) if isinstance(command, Registrable)))
+
+    @override
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Resolves operator idname, writer, and call context into button draw."""
-        command = self.target.command if isinstance(self.target, operators.Own) else self.target
-        match command:
-            case operators.Operator():
+        options = self.options
+        match self.command:
+            case operators.Operator() as command:
                 glyph, invoked = self.icon.or_else(command.icon), command.invoked
             case operators.Macro() as macro:
                 glyph, invoked = self.icon.or_else(macro.icon), True
             case _:
                 glyph, invoked = self.icon, True
 
-        def draw(parts: tuple[tuple[str, operators.Writer], int]) -> RowDraw:
-            (idname, write), icon = parts
+        def draw(parts: tuple[tuple[str, Writer], int]) -> RowDraw:
+            (operator, write), icon = parts
 
             def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
                 line = gridded(layout, self.label)
-                alerted(line, operated(line.operator(idname, text=self.text.to_optional(), emboss=self.emboss, icon_value=icon, search_weight=self.search_weight), idname).bind(write))
+                alerted(line, operated(self.called(line, operator, **options, icon_value=icon), operator).bind(write))
 
             return invoking(shown, self.context) if invoked else shown
 
-        return paired(keymaps.invocation(self.target, identity), iconed(identity, glyph)).map(draw)
+        return paired(self.target.invocation(identity), iconed(identity, glyph)).map(draw)
 
 
-class Popover(Line, frozen=True, kw_only=True):
-    """Popover button for stock panel or extension panel key."""
+class Opens(Call, frozen=True, kw_only=True):
+    """Button opening a stock or extension panel, menu, or shelf by key or class, on the property grid when labelled."""
 
+    label: Option[str] = Nothing
+    icon: Option[Glyph] = Nothing
+
+    def opened(self, identity: Identity, /) -> BlenderResult[str]:
+        """Resolves the opened idname."""
+        raise NotImplementedError
+
+    @override
+    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+        """Resolves idname into the function's leading parameter and glyph once."""
+
+        def draw(options: dict[str, object]) -> RowDraw:
+            def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
+                self.called(gridded(layout, self.label), **options)
+
+            return shown
+
+        return paired(self.opened(identity), iconed(identity, self.icon)).map(lambda parts: draw(self.options | {self.function.parameters[0].identifier: parts[0], "icon_value": parts[1]}))
+
+
+class Popover(Opens, frozen=True, kw_only=True):
+    """Popover button over a panel."""
+
+    function = FUNCTIONS["popover"]
     panel: type[_bpy_types.Panel] | Key
-    text: Option[str] = Nothing
-    label: Option[str] = Nothing
-    icon: Option[Glyph] = Nothing
+    text: str | UnsetType = UNSET
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves panel idname and glyph once."""
-        named = identity.name(Name.PANEL, self.panel) if isinstance(self.panel, str) else Ok(self.panel.bl_rna.identifier)
-        return paired(named, iconed(identity, self.icon)).map(
-            lambda parts: lambda layout, _holder, _context: gridded(layout, self.label).popover(panel=parts[0], text=self.text.to_optional(), icon_value=parts[1])
-        )
+    @override
+    def opened(self, identity: Identity, /) -> BlenderResult[str]:
+        """Resolves panel idname."""
+        return idname(identity, Name.PANEL, self.panel)
 
 
-class Pulldown(Line, frozen=True, kw_only=True):
-    """Menu button for stock menu or extension menu key."""
+class Pulldown(Opens, frozen=True, kw_only=True):
+    """Menu button over a menu."""
 
+    function = FUNCTIONS["menu"]
     menu: type[_bpy_types.Menu] | Key
-    text: Option[str] = Nothing
-    label: Option[str] = Nothing
-    icon: Option[Glyph] = Nothing
+    text: str | UnsetType = UNSET
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves menu idname and glyph once."""
-        named = identity.name(Name.MENU, self.menu) if isinstance(self.menu, str) else Ok(self.menu.bl_rna.identifier)
-        return paired(named, iconed(identity, self.icon)).map(
-            lambda parts: lambda layout, _holder, _context: gridded(layout, self.label).menu(parts[0], text=self.text.to_optional(), icon_value=parts[1])
-        )
+    @override
+    def opened(self, identity: Identity, /) -> BlenderResult[str]:
+        """Resolves menu idname."""
+        return idname(identity, Name.MENU, self.menu)
 
 
-class Divider(Line, frozen=True, kw_only=True):
+class ShelfPopover(Opens, frozen=True, kw_only=True):
+    """Asset shelf popover button."""
+
+    function = FUNCTIONS["template_asset_shelf_popover"]
+    popup: ShelfPopup
+    name: str | UnsetType = UNSET
+
+    @override
+    def opened(self, identity: Identity, /) -> BlenderResult[str]:
+        """Resolves shelf idname."""
+        return idname(identity, Name.SHELF, self.popup.shelf)
+
+
+class Divider(Call, frozen=True, kw_only=True):
     """Gap or line between rows, a vertical bar in headers."""
 
-    type: Literal["AUTO", "SPACE", "LINE"] = "LINE"
-    factor: Annotated[float, msgspec.Meta(ge=0.0)] = 1.0
-
-    def separated(self, layout: bpy.types.UILayout) -> None:
-        """Draws separator into layout."""
-        layout.separator(type=self.type, factor=self.factor)
-
-    def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns separator draw."""
-        return Ok(lambda layout, _holder, _context: self.separated(layout))
+    function = FUNCTIONS["separator"]
+    type: str | UnsetType = "LINE"
+    factor: Annotated[float, msgspec.Meta(ge=0.0)] | UnsetType = UNSET
 
 
-class Spacer(Line, frozen=True, kw_only=True):
+class Spacer(Call, frozen=True, kw_only=True):
     """Header split pushing later rows to the far edge, each side drawn as its own section."""
 
-    @staticmethod
-    def separated(layout: bpy.types.UILayout) -> None:
-        """Draws spacer into layout."""
-        layout.separator_spacer()
-
-    def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns spacer draw."""
-        return Ok(lambda layout, _holder, _context: self.separated(layout))
+    function = FUNCTIONS["separator_spacer"]
 
 
 class Sizing(msgspec.Struct, frozen=True, kw_only=True):
@@ -567,13 +731,17 @@ class Caption(Line, frozen=True, kw_only=True):
     separator: Option[Divider | Spacer] = Some(Divider())
     sizing: Sizing = Sizing()
 
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Acquires registrable rows."""
+        return Ok(acquired(self.rows))
+
     def framed(self, draws: tuple[RowDraw, ...]) -> RowDraw:
         """Returns joined draws in caption arrangement."""
         draw = joined(draws)
 
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for separator in self.separator.to_list():
-                separator.separated(layout)
+                separator.called(layout, **separator.options)
             draw(self.flow.opened(self.sizing.applied(layout.column(heading=self.heading.default_value("")))), holder, context)
 
         return shown
@@ -581,6 +749,29 @@ class Caption(Line, frozen=True, kw_only=True):
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Places rows on enclosing property grid."""
         return placed(self.rows, identity).map(self.framed)
+
+
+class Rows(Line, frozen=True, kw_only=True):
+    """Rows built from the extension identity on one grid, hidden instead of inactive while condition fails when declared."""
+
+    rows: Callable[[Identity], BlenderResult[tuple[RowContent, ...]]]
+    hidden: bool = False
+
+    @override
+    def guarded(self, draw: RowDraw) -> RowDraw:
+        """Hides draw while condition fails when declared, else draws it inactive."""
+        if not self.hidden:
+            return super().guarded(draw)
+
+        def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+            if all(holds(required, context, Some(holder)) for required in self.condition.to_list()):
+                draw(layout, holder, context)
+
+        return shown
+
+    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+        """Places identity rows on one grid."""
+        return self.rows(identity).bind(lambda rows: placed(rows, identity)).map(joined)
 
 
 class Label(Line, frozen=True, kw_only=True):
@@ -608,40 +799,38 @@ class Label(Line, frozen=True, kw_only=True):
         return iconed(identity, self.icon).map(draw)
 
 
-class Text(Line, frozen=True, kw_only=True):
+class Text(Bound, frozen=True, kw_only=True):
     """String drawn in multiline text box."""
 
-    target: Binding
-    initial_visible_lines: Annotated[int, msgspec.Meta(ge=1)] = 3
-    placeholder: Option[str] = Nothing
+    function = FUNCTIONS["textbox"]
+    kinds = (bpy.types.StringProperty,)
+    text: str | UnsetType = UNSET
+    initial_visible_lines: Annotated[int, msgspec.Meta(ge=1)] | UnsetType = UNSET
+    placeholder: str | UnsetType = UNSET
     label: Option[str] = Nothing
 
-    def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
-        """Binds string property."""
-
-        def draw(held: Resolved) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for owner, key in located(held, holder, context).to_list():
-                    gridded(layout, self.label).textbox(owner, key, initial_visible_lines=self.initial_visible_lines, placeholder=self.placeholder.to_optional())
-
-            return shown
-
-        return bound(((self.target, lambda held: fits(held, (bpy.types.StringProperty,), (shapes.Text,))),), Ok(lambda held: draw(held[0])))
+    @override
+    def placed(self, layout: bpy.types.UILayout, at: At, _context: bpy.types.Context, options: dict[str, object], /) -> None:
+        """Draws text box on the property grid when labelled."""
+        self.called(gridded(layout, self.label), *at, **options)
 
 
-class Progress(Line, frozen=True, kw_only=True):
+class Progress(Call, frozen=True, kw_only=True):
     """Progress bars or rings over running work fractions."""
 
+    function = FUNCTIONS["progress"]
     runs: Callable[[bpy.types.Context], Iterable[Work]]
-    type: Literal["BAR", "RING"] = "BAR"
+    type: str | UnsetType = UNSET
     label: Option[str] = Nothing
 
+    @override
     def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
         """Returns draw of every running work."""
+        options = self.options
 
         def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             for run in self.runs(context):
-                gridded(layout, self.label).progress(text=run.text, factor=run.done, type=self.type)
+                self.called(gridded(layout, self.label), **options, text=run.text, factor=run.done)
 
         return Ok(shown)
 
@@ -656,85 +845,30 @@ def refused(path: str, found: str, accepted: tuple[str, ...]) -> BlenderFaults:
     return (BlenderChoiceFault(path=path, identifier=found, accepted=accepted),)
 
 
-def bound(bindings: tuple[tuple[Binding, Callable[[Resolved], BlenderResult[Resolved]]], ...], place: BlenderResult[Callable[[tuple[Resolved, ...]], RowDraw]]) -> BlenderResult[RowDraw]:
-    """Resolves static bindings once and reached sources each draw, drawing nothing while one is absent."""
+def bound(bindings: tuple[tuple[Binding, Accept], ...], place: Callable[[tuple[ResolvedMember, ...]], RowDraw]) -> BlenderResult[RowDraw]:
+    """Resolves static bindings once and reached members each draw, drawing nothing while one is absent."""
 
-    def resolved(binding: Binding, accept: Callable[[Resolved], BlenderResult[Resolved]]) -> BlenderResult[Resolved]:
+    def reader(binding: Binding, accept: Accept) -> BlenderResult[Callable[[bpy.types.Context], BlenderResult[Option[ResolvedMember]]]]:
         match binding:
-            case Member():
-                return binding.resolved().bind(accept)
-            case Across(scope=scope, path=path):
-                return Descriptor.resolve(scope.owner_type, path, bpy.types.Property).map(lambda descriptor: ResolvedMember(descriptor=descriptor, scope=Some(scope))).bind(accept)
-            case ResolvedMember() | msgspec.structs.FieldInfo():
-                return accept(binding)
+            case Member(reach=Option(tag="some", some=reach)):
+                return Ok(lambda context: reach(context).map(lambda root: binding.resolved(root=Some(root)).bind(accept).map(Some)).default_value(Ok(Nothing)))
+            case _:
+                return binding.resolved().bind(accept).map(lambda held: lambda _context: Ok(Some(held)))
 
-    def reached(binding: Resolved | tuple[Member, Callable[[Resolved], BlenderResult[Resolved]]], context: bpy.types.Context) -> BlenderResult[Option[Resolved]]:
-        match binding:
-            case tuple():
-                member, accept = binding
-                return member.reach.bind(lambda source: source(context)).map(lambda root: member.resolved(root=Some(root)).bind(accept).map(Some)).default_value(Ok(Nothing))
-            case ResolvedMember() | msgspec.structs.FieldInfo():
-                return Ok(Some(binding))
-
-    def draw(parts: tuple[tuple[Resolved | tuple[Member, Callable[[Resolved], BlenderResult[Resolved]]], ...], Callable[[tuple[Resolved, ...]], RowDraw]]) -> RowDraw:
-        held, placement = parts
-
+    def draw(readers: tuple[Callable[[bpy.types.Context], BlenderResult[Option[ResolvedMember]]], ...]) -> RowDraw:
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-            result = accumulated(reached(binding, context) for binding in held)
-            alerted(layout, result)
-            for found in result.to_option().to_list():
-                present = tuple(value for each in found for value in each.to_list())
-                if len(present) == len(found):
-                    placement(present)(layout, holder, context)
+            found = accumulated(read(context) for read in readers)
+            alerted(layout, found)
+            for held in found.to_option().to_list():
+                present = tuple(value for each in held for value in each.to_list())
+                if len(present) == len(held):
+                    place(present)(layout, holder, context)
 
         return shown
 
-    if not any(isinstance(binding, Member) and binding.reach.is_some() for binding, _ in bindings):
-        return paired(accumulated(starmap(resolved, bindings)), place).map(lambda parts: parts[1](parts[0]))
-    return paired(accumulated(Ok((binding, accept)) if isinstance(binding, Member) and binding.reach.is_some() else resolved(binding, accept) for binding, accept in bindings), place).map(draw)
-
-
-def fits(held: Resolved, kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]", forms: tuple[type[object], ...] = ()) -> BlenderResult[Resolved]:
-    """Accepts property kinds or field shapes a control draws, enum classes included."""
-    if isinstance(held, ResolvedMember):
-        descriptor = held.descriptor
-        prop = descriptor.prop
-        target = prop.fixed_type if isinstance(prop, bpy.types.PointerProperty) else prop
-        return Ok(held) if isinstance(prop, kinds) or isinstance(target, kinds) else Error(refused(descriptor.path, type(target).__name__, tuple(kind.__name__ for kind in kinds)))
-    return shapes.field_shape(held.type).bind(
-        lambda declared: (
-            Ok(held)
-            if isinstance(declared.shape, forms) or (isinstance(declared.shape, shapes.Enumerated) and issubclass(declared.shape.enum, forms))
-            else Error(refused(held.name, type(declared.shape).__name__, tuple(form.__name__ for form in forms)))
-        )
-    )
-
-
-def colored(held: Resolved) -> BlenderResult[Resolved]:
-    """Accepts RNA color arrays or domain RGB record."""
-    if isinstance(held, ResolvedMember):
-        match held.descriptor.prop:
-            case bpy.types.FloatProperty(is_array=True, subtype="COLOR" | "COLOR_GAMMA"):
-                return Ok(held)
-            case prop:
-                return Error(refused(held.descriptor.path, prop.subtype, ("COLOR", "COLOR_GAMMA")))
-    return fits(held, (), (shapes.Color,))
-
-
-def located(held: Resolved, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[tuple[Native, str]]:
-    """Locates property owner through root, holder, or context."""
-    match held:
-        case ResolvedMember(descriptor=descriptor, reach=reach):
-            root = (
-                Some(reach)
-                if isinstance(reach, bpy.types.bpy_struct)
-                else Some(holder)
-                if isinstance(holder, descriptor.root)
-                else reach.map(lambda source: source(context)).default_with(lambda: root_in(descriptor.root, context))
-            )
-            return root.bind(descriptor.owner_of).map(lambda owner: (owner, descriptor.prop.identifier))
-        case msgspec.structs.FieldInfo(name=name):
-            return Some((holder, name))
+    if any(isinstance(binding, Member) and binding.reach.is_some() for binding, _ in bindings):
+        return accumulated(starmap(reader, bindings)).map(draw)
+    return accumulated(binding.resolved().bind(accept) for binding, accept in bindings).map(place)
 
 
 def marked(setting: Descriptor, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> BlenderResult[Option[str]]:
@@ -752,9 +886,9 @@ def iconed(identity: Identity, icon: Option[Glyph]) -> BlenderResult[int]:
     return icon.map(lambda glyph: Icons.value(identity, glyph)).default_value(Ok(0))
 
 
-def operated(properties: bpy.types.OperatorProperties | None, idname: str) -> BlenderResult[bpy.types.OperatorProperties]:
+def operated(properties: object, operator: str) -> BlenderResult[bpy.types.OperatorProperties]:
     """Maps missing operator properties to absent fault."""
-    return Option.of_optional(properties).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.ops", key=idname),))
+    return Ok(properties) if isinstance(properties, bpy.types.OperatorProperties) else Error((BlenderAbsentFault(owner="bpy.ops", key=operator),))
 
 
 def pressed[T: msgspec.Struct, S](
@@ -819,58 +953,20 @@ def invoking(draw: RowDraw, mode: "rna_enums.OperatorContextItems" = "INVOKE_REG
 # --- [REALIZATION]
 
 
-def acquired(rows: tuple[RowContent, ...]) -> Acquisitions:
-    """Collects registrable declarations nested in composed rows."""
-    declarations: list[Registrable | tuple[Band, Acquisition]] = []
-    for row in rows:
-        match row:
-            case (Registrable() as owner, _):
-                declarations.append(owner)
-            case Callable():
-                continue
-            case Registrable():
-                declarations.append(row)
-            case Caption(rows=nested):
-                declarations.extend(acquired(nested))
-            case Property(action=action):
-                declarations.extend(acquired(tuple(action.to_list())))
-            case TreeMatrix(command=command, marks=marks):
-                declarations.extend((command, *acquired(marks)))
-            case Matrix(action=action):
-                declarations.extend(owner for owner, _ in action.to_list())
-            case OperatorButton(target=operators.Own(command=command)):
-                declarations.append(command)
-            case OperatorButton(target=operators.Operator() | operators.Macro() as command):
-                declarations.append(command)
-            case Selector(browse=browse):
-                openers = (browse.new, browse.open, browse.unlink) if isinstance(browse, DataBlocks) else (browse.new, browse.unlink)
-                declarations.extend(opener for placed in openers for opener in placed.to_list() if isinstance(opener, Registrable))
-            case Row():
-                continue
-    return tuple(declarations)
+def acquired(rows: Iterable[RowContent]) -> Acquisitions:
+    """Registrable rows and builder owners, each row registering what it nests."""
+    return tuple(owner for row in rows for owner in ((row[0],) if isinstance(row, tuple) else (row,) if isinstance(row, Registrable) else ()))
 
 
 def realized(row: RowContent, identity: Identity) -> BlenderResult[RowDraw]:
-    """Acquires typed row draw, passing callbacks through."""
+    """Acquires typed row draw guarded by its condition, passing callbacks through."""
     match row:
         case tuple():
             return row[1](identity)
         case Row():
-            return row.drawn(identity).map(lambda draw: guarded(draw, row.condition) if isinstance(row, Line) else draw)
+            return row.drawn(identity).map(lambda draw: row.guarded(draw) if isinstance(row, Line) else draw)
         case Callable():
             return Ok(row)
-
-
-def guarded(draw: RowDraw, condition: Option[Condition]) -> RowDraw:
-    """Wraps draw in column inactive while row condition fails."""
-
-    def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-        for required in condition.to_list():
-            layout = layout.column()
-            layout.active = holds(required, context, Some(holder))
-        draw(layout, holder, context)
-
-    return shown
 
 
 def placed(rows: tuple[RowContent, ...], identity: Identity, *, inherited: bool = False) -> BlenderResult[tuple[RowDraw, ...]]:
@@ -898,9 +994,9 @@ def placed(rows: tuple[RowContent, ...], identity: Identity, *, inherited: bool 
     def each(row: RowContent) -> BlenderResult[RowDraw]:
         match row:
             case Caption():
-                return placed(row.rows, identity, inherited=picked).map(row.framed).map(lambda draw: guarded(draw, row.condition))
+                return placed(row.rows, identity, inherited=picked).map(row.framed).map(row.guarded)
             case Property(action=action) if picked and action.is_none():
-                return row.drawn(identity).map(blanked).map(lambda draw: guarded(draw, row.condition))
+                return row.drawn(identity).map(blanked).map(row.guarded)
             case _:
                 return realized(row, identity)
 
@@ -926,9 +1022,13 @@ def painted(draws: tuple[RowDraw, ...]) -> SurfaceDraw:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "Accept",
     "Across",
+    "At",
     "Binding",
+    "Bound",
     "Branch",
+    "Call",
     "Caption",
     "DataBlocks",
     "Divider",
@@ -939,24 +1039,27 @@ __all__ = [
     "Matrix",
     "Member",
     "Opener",
+    "Opens",
     "OperatorButton",
     "Popover",
+    "PopoverGroup",
     "PreviewGrid",
     "Progress",
     "Property",
+    "PropertyPopover",
     "Pulldown",
     "Reach",
-    "Resolved",
     "ResolvedMember",
     "Row",
     "RowContent",
     "RowDraw",
+    "Rows",
     "SearchField",
     "Selector",
+    "ShelfPopover",
     "Sizing",
     "Spacer",
     "SurfaceDraw",
-    "Template",
     "Text",
     "Toggle",
     "Tree",
@@ -965,13 +1068,10 @@ __all__ = [
     "acquired",
     "alerted",
     "bound",
-    "colored",
-    "fits",
     "gridded",
     "iconed",
     "invoking",
     "joined",
-    "located",
     "operated",
     "painted",
     "placed",

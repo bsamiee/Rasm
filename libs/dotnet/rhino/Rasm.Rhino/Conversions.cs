@@ -7,6 +7,7 @@ using Rhino;
 using Rhino.Commands;
 using Rhino.Render;
 using Riok.Mapperly.Abstractions;
+using Wacton.Unicolour;
 
 [assembly: UseStaticMapper(typeof(Rasm.Rhino.Conversions))]
 
@@ -205,6 +206,15 @@ public static class Conversions {
 
     [UserMapping]
     public static Color Opaque(Swatch swatch) => Color.FromArgb(byte.MaxValue, Color.FromArgb(swatch));
+
+    public static Color Displayed(Unicolour colour) =>
+        colour.MapToRgbGamut() switch {
+            var mapped => mapped.Rgb.Byte255 switch {
+                var rgb => Color.FromArgb(mapped.Alpha.A255, rgb.R, rgb.G, rgb.B),
+            },
+        };
+
+    public static Unicolour Unicolour(Color color) => new(ColourSpace.Rgb255, color.R, color.G, color.B, color.A / (double)byte.MaxValue);
 
     [UserMapping]
     public static double Degrees(NorthAngle north) => north;

@@ -43,7 +43,7 @@ public abstract partial record AnimationKind {
 
     public sealed record Flythrough(AnimationPath Path) : AnimationKind;
 
-    public sealed record Sun(SunSite Site, SunWindow Window) : AnimationKind;
+    public sealed record Sun(GeoCoordinate Place, NorthAngle North, SunWindow Window) : AnimationKind;
 }
 
 public sealed record AnimationOutput {
@@ -66,50 +66,54 @@ public sealed record AnimationOutput {
             .As();
 }
 
-public sealed record AnimationSequence(AnimationKind Kind, FrameCount Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, Option<AnimationQuality> Quality);
+public sealed record AnimationSequence(AnimationKind Kind, FrameCount Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, AnimationQuality Quality);
 
-public sealed record AnimationSettings(AnimationProperties.CaptureTypes CaptureType, FrameCount Frames, int CurrentFrame, Option<string> ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, Seq<string> Images, Seq<string> Dates);
+public sealed record AnimationRecord(AnimationSequence Sequence, int CurrentFrame, Seq<string> Images, Seq<string> Dates);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 public static partial class Animations {
-    public static IO<Option<AnimationSettings>> Read(RhinoDoc doc) =>
-        DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() => Callbacks.Found(copy.CaptureType is not AnimationProperties.CaptureTypes.None, copy).Traverse(Settings).As()));
+    public static IO<Option<AnimationRecord>> Read(RhinoDoc doc) =>
+        DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() =>
+            Kind(copy).Bind(found => found.Traverse(kind => Sequence(copy, kind).Map(sequence => ToRecord(copy, sequence))).As())));
 
-    public static IO<Committed<Unit>> Write(RhinoDoc doc, string name, AnimationSequence sequence) =>
-        Commits.Commit(doc, name, new RedrawPolicy.Silent(), DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => {
-            Update(sequence, copy);
-            Update(sequence.Kind, copy);
-            _ = sequence.DisplayMode.IfSome(id => copy.DisplayMode = id);
+    public static IO<Committed<Unit>> Write(RhinoDoc doc, AnimationSequence sequence) =>
+        Commits.Commit(doc, nameof(RhinoDoc.AnimationProperties), new RedrawPolicy.Silent(), DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => {
+            (copy.FrameCount, copy.ViewportName, copy.DisplayMode) = (sequence.Frames, sequence.ViewportName, Conversions.Unset(sequence.DisplayMode));
+            copy.FolderName = Conversions.Unset(sequence.Output.Map(static output => output.Folder));
             _ = sequence.Output.IfSome(output => Update(output, copy));
-            _ = sequence.Quality.IfSome(quality => Update(quality, copy));
+            Update(sequence.Kind, copy);
+            Update(sequence.Quality, copy);
             doc.AnimationProperties = copy;
         })));
 
-    private static Fin<AnimationSettings> Settings(AnimationProperties copy) =>
+    private static Fin<Option<AnimationKind>> Kind(AnimationProperties copy) =>
+        copy.CaptureType switch {
+            AnimationProperties.CaptureTypes.Turntable => Some<AnimationKind>(new AnimationKind.Turntable()),
+            AnimationProperties.CaptureTypes.Path => Some<AnimationKind>(new AnimationKind.CameraAndTarget(Traced(copy.CameraPathId, copy.CameraPoints), Traced(copy.TargetPathId, copy.TargetPoints))),
+            AnimationProperties.CaptureTypes.Flythrough => Some<AnimationKind>(new AnimationKind.Flythrough(Traced(copy.CameraPathId, copy.CameraPoints))),
+            _ => SunWindow.Read(copy).Bind(window => window.Traverse(held =>
+                (GeoCoordinate.From(copy.Latitude, copy.Longitude), NorthAngle.Validated(copy.NorthAngle))
+                    .Apply((place, north) => (AnimationKind)new AnimationKind.Sun(place, north, held))
+                    .As()).As()),
+        };
+
+    private static Fin<AnimationSequence> Sequence(AnimationProperties copy, AnimationKind kind) =>
         (FrameCount.Validated(copy.FrameCount),
-         Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As())
-            .Apply((frames, output) => ToSettings(copy, frames, output))
+         Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As(),
+         Quality((copy.CaptureMethod, copy.RenderFull, copy.RenderPreview)))
+            .Apply((frames, output, quality) => new AnimationSequence(kind, frames, copy.ViewportName, Conversions.Present(copy.DisplayMode), output, quality))
             .As();
 
-    [MapperRequiredMapping(RequiredMappingStrategy.Target)]
-    [MapProperty(nameof(AnimationProperties.Images), nameof(AnimationSettings.Images), Use = nameof(@Conversions.Rows))]
-    [MapProperty(nameof(AnimationProperties.Dates), nameof(AnimationSettings.Dates), Use = nameof(@Conversions.Rows))]
-    private static partial AnimationSettings ToSettings(AnimationProperties properties, FrameCount frames, Option<AnimationOutput> output);
+    private static Fin<AnimationQuality> Quality((string Method, bool Full, bool Preview) held) =>
+        toSeq(AnimationQuality.Items).Find(quality => (quality.CaptureMethod, quality.RenderFull, quality.RenderPreview) == held)
+            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"animation capture {held.Method} with full {held.Full} and preview {held.Preview} is no quality"));
 
-    [MapProperty(nameof(AnimationSequence.Frames), nameof(AnimationProperties.FrameCount))]
-    [MapperIgnoreSource(nameof(AnimationSequence.Kind), Justification = "Written per case through Switch")]
-    [MapperIgnoreSource(nameof(AnimationSequence.DisplayMode), Justification = "Present ID replaces stored ID")]
-    [MapperIgnoreSource(nameof(AnimationSequence.Output), Justification = "Present output replaces stored folder, extension, and name")]
-    [MapperIgnoreSource(nameof(AnimationSequence.Quality), Justification = "Present quality replaces stored capture method and render flags")]
-    private static partial void Update(AnimationSequence sequence, AnimationProperties properties);
+    private static AnimationPath Traced(Guid curve, Point3d[] points) =>
+        Conversions.Present(curve).Match<AnimationPath>(Some: static id => new AnimationPath.FromCurve(id), None: () => new AnimationPath.FromPoints(toSeq(points)));
 
-    [MapProperty(nameof(AnimationOutput.Folder), nameof(AnimationProperties.FolderName))]
-    [MapProperty(nameof(AnimationOutput.Extension), nameof(AnimationProperties.FileExtension), Use = nameof(Undotted))]
-    [MapProperty(nameof(AnimationOutput.Name), nameof(AnimationProperties.AnimationName))]
-    private static partial void Update(AnimationOutput output, AnimationProperties properties);
-
-    private static partial void Update(AnimationQuality quality, AnimationProperties properties);
+    private static (Guid Curve, Point3d[] Points) Stored(AnimationPath path) =>
+        path.Switch<(Guid Curve, Point3d[] Points)>(fromCurve: static curve => (curve.CurveId, []), fromPoints: static points => (Guid.Empty, [.. points.Points]));
 
     private static void Update(AnimationKind kind, AnimationProperties properties) =>
         kind.Switch(
@@ -117,26 +121,32 @@ public static partial class Animations {
             turntable: static (target, _) => target.CaptureType = AnimationProperties.CaptureTypes.Turntable,
             cameraAndTarget: static (target, paths) => {
                 target.CaptureType = AnimationProperties.CaptureTypes.Path;
-                Camera(paths.Camera, target);
-                paths.Target.Switch(target, fromCurve: static (host, curve) => host.TargetPathId = curve.CurveId, fromPoints: static (host, points) => host.TargetPoints = [.. points.Points]);
+                (target.CameraPathId, target.CameraPoints) = Stored(paths.Camera);
+                (target.TargetPathId, target.TargetPoints) = Stored(paths.Target);
             },
             flythrough: static (target, flight) => {
                 target.CaptureType = AnimationProperties.CaptureTypes.Flythrough;
-                Camera(flight.Path, target);
+                (target.CameraPathId, target.CameraPoints) = Stored(flight.Path);
             },
             sun: static (target, sun) => {
-                SunMapper.Update(sun.Site, target);
+                (target.Latitude, target.Longitude, target.NorthAngle) = (sun.Place.Latitude, sun.Place.Longitude, sun.North);
                 SunMapper.Update(sun.Window, target);
             });
 
-    private static void Camera(AnimationPath path, AnimationProperties properties) =>
-        path.Switch(properties, fromCurve: static (target, curve) => target.CameraPathId = curve.CurveId, fromPoints: static (target, points) => target.CameraPoints = [.. points.Points]);
+    [MapperRequiredMapping(RequiredMappingStrategy.Target)]
+    [MapProperty(nameof(AnimationProperties.Images), nameof(AnimationRecord.Images), Use = nameof(@Conversions.Rows))]
+    [MapProperty(nameof(AnimationProperties.Dates), nameof(AnimationRecord.Dates), Use = nameof(@Conversions.Rows))]
+    private static partial AnimationRecord ToRecord(AnimationProperties properties, AnimationSequence sequence);
+
+    [MapProperty(nameof(AnimationOutput.Extension), nameof(AnimationProperties.FileExtension), Use = nameof(Undotted))]
+    [MapProperty(nameof(AnimationOutput.Name), nameof(AnimationProperties.AnimationName))]
+    [MapperIgnoreSource(nameof(AnimationOutput.Folder), Justification = "Written with absent output as the unset folder")]
+    private static partial void Update(AnimationOutput output, AnimationProperties properties);
+
+    private static partial void Update(AnimationQuality quality, AnimationProperties properties);
 
     [UserMapping(Default = false)]
     private static string Undotted(FileExtension extension) => ((string)extension).TrimStart(FileExtension.Mark);
-
-    [UserMapping]
-    private static int Count(FrameCount frames) => frames;
 
     [UserMapping]
     private static string Text(NamePart name) => name;

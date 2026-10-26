@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unset-host-default
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    unset:
+        matches: {csharp-sentinel-value: {sentinel: {matches: {csharp-owner-member: {type: {regex: '^(Point2d|Vector3d|Interval|Transform|ModelComponentType)$'}, member: {regex: '^Unset$'}}}}}}
+    unset-argument:
+        kind: argument
+        has: {pattern: $UNSET, matches: unset}
+    member:
+        any:
+            - kind: member_access_expression
+              has: {field: name, pattern: $MEMBER}
+            - kind: identifier
+              pattern: $MEMBER
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, matches: member}
+        - any:
+            - all:
+                - has: {field: function, regex: '(^|\.)SetRoadlikeUpDirection$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)(IsIsoparametric|FindId)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 2, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)SetTaper$'}
+                - has: {field: arguments, all: [{has: {nthChild: 2, matches: unset-argument}}, {has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)(Pushup|Pullback)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 3, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 4}}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)CreateHSpline$'}
+                - has: {field: arguments, all: [{has: {nthChild: 2, matches: unset-argument}}, {has: {nthChild: 3, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 4}}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)SetupDisplayMaterial$'}
+                - has: {field: arguments, all: [{has: {nthChild: 4, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 5}}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)Add$'}
+                - has: {field: arguments, all: [{has: {nthChild: 4, matches: unset-argument}}, {has: {kind: argument, nthChild: 5}}, {not: {has: {kind: argument, nthChild: 6}}}]}
+            - all:
+                - has: {field: function, regex: '(^|\.)CreateInterpolatedCurve$'}
+                - has: {field: arguments, all: [{has: {nthChild: 4, matches: unset-argument}}, {has: {nthChild: 5, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 6}}}]}
+message: '`$UNSET` restates the host default of `$MEMBER`'
+note: 'Call the `<member>` overload without `Unset` arguments, from the `None` arm of `<option>.Match` for an optional value, and `SetRoadlikeUpDirection` from the `Some` arm alone'

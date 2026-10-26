@@ -1,5 +1,5 @@
+using Rasm.Rhino.Viewport;
 using Rhino;
-using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 
@@ -16,7 +16,7 @@ public abstract partial record ObjectTarget {
 
     public sealed record Bounded(ObjectEnumeratorSettings Settings, Func<BoundingBox, bool> Predicate) : ObjectTarget;
 
-    public sealed record Window(RhinoViewport Viewport, Seq<Point3d> Region, bool Inside, bool Crossing, ObjectType Filter) : ObjectTarget;
+    public sealed record Window(ViewportTarget Viewport, Seq<Point3d> Region, bool Inside, bool Crossing, ObjectType Filter) : ObjectTarget;
 
     public IO<Seq<RhinoObject>> Objects(RhinoDoc document) =>
         Switch(
@@ -26,16 +26,16 @@ public abstract partial record ObjectTarget {
             lookup: static (doc, lookup) => IO.lift(() => Conversions.Rows(lookup.Find(doc.Objects))),
             bounded: static (doc, bounded) => IO.lift(() =>
                 Conversions.Rows(doc.Objects.GetObjectList(bounded.Settings)).Filter(found => RhinoObject.GetTightBoundingBox([found], out BoundingBox box) && bounded.Predicate(box)).Strict()),
-            window: static (doc, window) => DisposalOps.Within(
+            window: static (doc, window) => Viewports.With(doc, window.Viewport, row => DisposalOps.Within(
                 () => Conversions.Rows(doc.Objects.GetSelectedObjects(includeLights: true, includeGrips: false)).Map(static found => (Object: found, Persistent: found.IsSelected(checkSubObjects: false) is 2)).Strict(),
                 selected =>
                     from cleared in IO.lift(() => selected.Iter(static held => held.Object.Select(@on: false)))
                     from picked in IO.lift(() => Conversions.Rows(window.Crossing
-                        ? doc.Objects.FindByCrossingWindowRegion(window.Viewport, window.Region, window.Inside, window.Filter)
-                        : doc.Objects.FindByWindowRegion(window.Viewport, window.Region, window.Inside, window.Filter)))
+                        ? doc.Objects.FindByCrossingWindowRegion(row.Viewport, window.Region, window.Inside, window.Filter)
+                        : doc.Objects.FindByWindowRegion(row.Viewport, window.Region, window.Inside, window.Filter)))
                     select picked,
                 static selected => IO.lift(() => selected.Iter(static held =>
-                    held.Object.Select(on: true, syncHighlight: true, persistentSelect: held.Persistent, ignoreGripsState: true, ignoreLayerLocking: true, ignoreLayerVisibility: true)))));
+                    held.Object.Select(on: true, syncHighlight: true, persistentSelect: held.Persistent, ignoreGripsState: true, ignoreLayerLocking: true, ignoreLayerVisibility: true))))));
 
     public static IO<(TObject Object, TGeometry Geometry)> Resolve<TObject, TGeometry>(RhinoDoc document, Guid id) where TObject : RhinoObject where TGeometry : GeometryBase =>
         IO.lift(() =>

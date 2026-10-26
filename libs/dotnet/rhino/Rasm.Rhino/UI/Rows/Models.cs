@@ -16,8 +16,7 @@ public sealed class LiveModel<TState> where TState : notnull {
     internal IO<Unit> Show(IO<TState> read, Action<IDisposable> retain) =>
         from shown in DisposalOps.Acquire(
             IO.lift(() => state.Swap(static held => held with { Shown = held.Shown + 1 })),
-            _ => IO.lift(Hide),
-            _ => retain(new Disposal<LiveModel<TState>>(this, static held => held.Hide())))
+            _ => IO.lift(Hide), retain)
         from fresh in when(shown.Stale, read.Bind(Publish)).As()
         select fresh;
 

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-python-subclass-lookup
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+rule:
+    kind: call
+    pattern: $CALL
+    has: {field: function, kind: attribute, has: {field: attribute, regex: '^bl_rna_get_subclass_py$'}}
+message: '`$CALL` answers `None` for a built-in RNA class nothing read from `bpy.types` yet'
+note: 'Call `subclass(<base>, <identifier>)` from `blender.bpy.data.rna.descriptors`'

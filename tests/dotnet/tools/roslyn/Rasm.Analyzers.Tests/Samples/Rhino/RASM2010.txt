@@ -1,0 +1,65 @@
+using System;
+using Eto.Forms;
+using LanguageExt;
+using LanguageExt.UnsafeValueAccess;
+using Rasm.Rhino;
+using Rasm.Rhino.UI;
+using Rhino.UI;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino {
+    public static class DisposalOps {
+        public static IO<T> Acquire<T>(IO<T> acquire, Action<T> retain) where T : IDisposable => acquire.Map(held => { retain(held); return held; });
+    }
+}
+
+namespace Rasm.Rhino.UI {
+    public sealed class ViewBody : IDisposable {
+        public Control Content { get; } = new Panel();
+
+        public static IO<ViewBody> Open() => IO.lift(static () => new ViewBody());
+
+        public void Dispose() => Content.Dispose();
+    }
+}
+
+public abstract class RealizingPage : ObjectPropertiesPage {
+    private readonly Atom<Option<(ViewBody Body, Control Host)>> page = Atom(Option<(ViewBody Body, Control Host)>.None);
+
+    public override string EnglishPageTitle => "Realizing";
+
+    public override object? {|#0:PageControl|} => Realized.Map(static object (held) => held.Host).ValueUnsafe();
+
+    private Option<(ViewBody Body, Control Host)> Realized =>
+        page.Value || (from host in IO.lift(static () => new Panel())
+                       from body in DisposalOps.Acquire(ViewBody.Open(), static _ => { })
+                       from configured in IO.lift(() => host.Content = body.Content)
+                       from published in page.SwapIO(_ => Some((Body: body, Host: (Control)host)))
+                       select published).Run();
+}
+
+public abstract class DirectPage : ObjectPropertiesPage {
+    public override string EnglishPageTitle => "Direct";
+
+    public override object {|#1:PageControl|} => new Panel();
+}
+
+public abstract class HeldPage : ObjectPropertiesPage {
+    private readonly Atom<Option<(ViewBody Body, Control Host)>> page = Atom(Option<(ViewBody Body, Control Host)>.None);
+
+    public override string EnglishPageTitle => "Held";
+
+    public override object? PageControl => page.Value.Map(static object (held) => held.Host).ValueUnsafe();
+
+    public override bool OnActivate(bool active) => active ? Realized.IsSome : page.Value.IsSome;
+
+    private Option<(ViewBody Body, Control Host)> Realized =>
+        page.Value || (from host in IO.lift(static () => new Panel())
+                       from body in DisposalOps.Acquire(ViewBody.Open(), static _ => { })
+                       from published in page.SwapIO(_ => Some((Body: body, Host: (Control)host)))
+                       select published).Run();
+}
+
+public abstract class OptionsPage() : OptionsDialogPage("Options") {
+    public override object PageControl => new Panel();
+}

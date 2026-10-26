@@ -1,18 +1,13 @@
-"""Render queue jobs and stored records."""
+"""Render queue jobs, cameras, and frame ranges."""
 
-from collections.abc import Callable
 from graphlib import TopologicalSorter
-from pathlib import Path
 from typing import Annotated
 
-from expression import Error, Ok, Option
-from expression.extra.result import catch
+from expression import Option
 import msgspec
 
 from blender.imaging.hashing import content_hash, ContentHash
-from blender.imaging.parameters import Case
-from blender.rendering.faults import RenderingReadFault, RenderingResult, RenderingWriteFault
-from blender.rendering.outputs.framing import Side
+from blender.imaging.parameters import Case, Side
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -135,34 +130,6 @@ class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
         return tuple((index, frame) for index, job in enumerate(self.jobs) for frame in job.frames.numbers)
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def load[T](path: Path, kind: type[T]) -> RenderingResult[T]:
-    """Reads and decodes stored record."""
-    try:
-        return Ok(msgspec.json.decode(path.read_bytes(), type=kind))
-    except (OSError, msgspec.DecodeError) as error:
-        return Error((RenderingReadFault(request=path, error=error),))
-
-
-def store(path: Path, content: msgspec.Struct | bytes) -> RenderingResult[Path]:
-    """Writes sorted-key record or bytes through one rename."""
-
-    def replaced() -> Path:
-        staged = path.with_name(f"{path.name}.partial")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        staged.write_bytes(content if isinstance(content, bytes) else msgspec.json.encode(content, order="deterministic"))
-        return staged.replace(path)
-
-    return catch(replaced, exception=OSError)().map_error(lambda error: (RenderingWriteFault(request=path, error=error),))
-
-
-def revised[T: msgspec.Struct](path: Path, kind: type[T], change: Callable[[T], T]) -> RenderingResult[T]:
-    """Stores change to stored record and returns it."""
-    return load(path, kind).map(change).bind(lambda held: store(path, held).map(lambda _: held))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bound", "Fixed", "Frame", "Frames", "Job", "JobCamera", "Marker", "RenderFrames", "RenderQueue", "load", "revised", "store"]
+__all__ = ["Bound", "Fixed", "Frame", "Frames", "Job", "JobCamera", "Marker", "RenderFrames", "RenderQueue"]

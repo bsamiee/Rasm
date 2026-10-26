@@ -10,7 +10,7 @@ from blender.imaging.parameters import Presentation, Quantity, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Luminance = Annotated[float, msgspec.Meta(ge=0.0, le=10000.0), Presentation(soft=Some((100.0, 10000.0)), step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.LUMINANCE))]
+type Luminance = Annotated[float, msgspec.Meta(ge=0.0, le=10000.0), Presentation(soft=Some((100.0, 10000.0)), step=Some(1.0), precision=Some(0), quantity=Some(Quantity.LUMINANCE))]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -25,9 +25,9 @@ class PeakMapping(Effect, frozen=True, kw_only=True, tag=7):
     black: Annotated[
         Unit,
         msgspec.Meta(title="Display Black", description="Share of fitted peak luminance, inverse of display contrast ratio"),
-        Presentation(soft=Some((0.0, 0.001)), step=Some(0.00001), decimals=Some(6)),
+        Presentation(soft=Some((0.0, 0.001)), step=Some(0.00001), precision=Some(6)),
     ] = 0.0
-    knee_offset: Annotated[float, msgspec.Meta(ge=0.5, le=2.0, description="Offset from fitted peak down to knee, 0.5 in BT.2390"), Presentation(step=Some(0.01), decimals=Some(2))] = 0.5
+    knee_offset: Annotated[float, msgspec.Meta(ge=0.5, le=2.0, description="Offset from fitted peak down to knee, 0.5 in BT.2390"), Presentation(step=Some(0.01), precision=Some(2))] = 0.5
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

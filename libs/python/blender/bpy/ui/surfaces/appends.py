@@ -51,7 +51,7 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
                     return
                 if (
                     isinstance(destination, ContextMenu)
-                    and catch(lambda: context.path_resolve("button_pointer"), exception=ValueError)().to_option().filter(lambda pointer: isinstance(pointer, destination.hovered)).is_none()
+                    and catch(lambda: context.button_pointer, exception=AttributeError)().to_option().filter(lambda pointer: isinstance(pointer, destination.hovered)).is_none()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                 ):
                     return
                 for layout in Option.of_optional(surface.layout).to_list():

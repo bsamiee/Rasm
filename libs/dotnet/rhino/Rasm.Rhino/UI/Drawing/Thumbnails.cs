@@ -104,7 +104,7 @@ public sealed class DefinitionThumbnails : IDisposable {
         }).Bind(Released).Uninterruptible()
         let release = fun((Func<Key, bool> dropped) => Release(held, released, dropped))
         from attached in DisposalOps.Acquire(keep => Seq(
-                DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(close, static effect => effect.Run())), keep).Map(unit),
+                DisposalOps.Acquire(IO.pure(unit), _ => close, keep),
                 EventKind.InstanceDefinitionTableEvent.Inline(args => Changed(release, args), sink, keep),
                 Releasing(EventKind.CloseDocument, release, sink, keep),
                 Releasing(EventKind.WorksessionFileChanged, release, sink, keep))
@@ -179,7 +179,7 @@ public static class Thumbnails {
         select raster;
 
     internal static IO<Thumbnail.Raster> Owned(System.Drawing.Bitmap lent, Func<Thumbnail.Raster, IO<Unit>> publish) =>
-        DisposalOps.Replace(acquired => DisposalOps.Within(() => lent.ToEto(), shown => DisposalOps.Acquire(IO.lift(() => new Thumbnail.Raster(new Bitmap(shown))), static raster => IO.lift(raster.Pixels.Dispose), raster => acquired(raster.Pixels))),
+        DisposalOps.Acquire(acquired => DisposalOps.Within(() => lent.ToEto(), shown => DisposalOps.Acquire(IO.lift(() => new Thumbnail.Raster(new Bitmap(shown))), static raster => raster.Pixels, acquired)),
             (raster, _) => publish(raster));
 
     private static IO<Disposal<Thumbnail>> Lent(Func<System.Drawing.Bitmap> render, Action<Disposal<Thumbnail>> retain) =>

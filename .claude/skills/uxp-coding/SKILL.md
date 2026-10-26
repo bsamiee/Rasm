@@ -98,12 +98,10 @@ Typings declare a host module under its `require` name, under an `adobe:` scheme
 
 Each gap closes where its value is read, with types the package or a schema states:
 
-| [INDEX] | [GAP]                                     | [FORM]                                                         |
-| :-----: | :---------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | Member a host has and typings omit        | `Schema.decodeUnknownOption(schema)(Reflect.get(owner, name))` |
-|  [02]   | Value or failure with a misstated shape   | `Schema` decode at its read                                    |
-|  [03]   | Parameter type no host argument satisfies | `Reflect.apply(member, owner, [argument])`, under `satisfies`  |
-|  [04]   | Module object typed with no module        | Module passed as an argument of the package's type             |
+| [INDEX] | [GAP]                                              | [FORM]                                                     |
+| :-----: | :------------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | Member, value, or failure typings omit or misstate | Host value decoded through a declared `Schema` at its read |
+|  [02]   | Module object typed with no module                 | Module passed as an argument of the package's type         |
 
 Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, where the host returns an `ArrayBuffer` and a numeric `code`:
 
@@ -111,11 +109,14 @@ Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, w
 import { readFileSync } from 'adobe:fs';
 
 const Missing = Schema.Struct({ code: Schema.Literal(-2) });
-const bytes = (path: string): Effect.Effect<Option.Option<Uint8Array>, Cause.UnknownError> =>
-    Effect.try(() => Option.some(new Uint8Array(readFileSync(path)))).pipe(Effect.catchIf(({ cause }) => Schema.is(Missing)(cause), () => Effect.succeedNone));
+const bytes = (path: string): Effect.Effect<Option.Option<Uint8Array>, HostError> =>
+    Effect.try({
+        try: () => Option.some(new Uint8Array(readFileSync(path))),
+        catch: (cause) => new HostError({ step: path, cause }),
+    }).pipe(Effect.catchIf(({ cause }) => Schema.is(Missing)(cause), () => Effect.succeedNone));
 ```
 
-`new Uint8Array` accepts both representations. `Missing` decodes the numeric `code` a missing file throws into absence, and every other failure stays on the error channel.
+`new Uint8Array` accepts both representations. `Missing` decodes the numeric `code` a missing file throws into absence, and every other failure stays on the error channel as the package's `HostError`.
 
 ## [04]-[OBJECT_MODELS]
 
@@ -138,14 +139,23 @@ Object model facts come from the owner that states them for the installed build:
 
 ## [05]-[HOST_ERRORS]
 
-Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup. Host refusals fail `Cause.UnknownError` with the thrown value or returned failure as `cause` and a message naming the refused step. Lookups fail with their candidates, and independent writes accumulate every refusal in one cause:
+Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup.
+
+Each package declares one `Schema.TaggedError` with the refused step and the host's thrown value or returned failure as `cause`:
 
 ```ts
-const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<readonly string[], Cause.UnknownError> = Effect.fnUntraced(function* (target, values) {
+class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', {
+    step: Schema.String,
+    cause: Schema.Defect(),
+}) {}
+const written: (
+    target: object,
+    values: Record.ReadonlyRecord<string, unknown>,
+) => Effect.Effect<readonly string[], HostError> = Effect.fnUntraced(function* (target, values) {
     return yield* Effect.validate(
         Object.entries(values),
         Effect.fnUntraced(function* ([field, value]: readonly [string, unknown]) {
-            const refused = (cause: unknown) => new Cause.UnknownError(cause, field);
+            const refused = (cause: unknown) => new HostError({ step: field, cause });
             const inner: unknown = Predicate.isObject(value) ? yield* Effect.try({ try: () => Reflect.get(target, field), catch: refused }) : undefined;
             if (Predicate.isObject(value) && Predicate.isObject(inner)) {
                 return Array.map(yield* written(inner, value), (name) => `${field}.${name}`);
@@ -163,6 +173,7 @@ const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) 
 `written` writes every field and fails with one reason per refused field, a nested field named by its path. `Effect.validate` partitions each element through `Effect.result`, nested write reasons survive under `Effect.sandbox` alone, and `Cause.fromReasons` merges sandboxed causes. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks.
 
 - `catch` names the refused step from arguments of the failed call
+- Lookups fail with their candidates, and independent writes accumulate every refusal in one cause
 - Consumers decode a host code from `cause` where they branch on it
 - Plugins log a cause to the UXP console through `Cause.pretty`, MCP servers render one through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
 
@@ -170,6 +181,7 @@ const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) 
 | :-----: | :-------------------------------------------------------- | :---------------------------------------- | :----------------------- |
 |  [01]   | Host call built as a string template                      | Typed source, arguments passed as data    | Template skips compiler  |
 |  [02]   | `Effect.result` run in a host callback, then `fromResult` | One `Exit` returned through host callback | Failure translated twice |
+|  [03]   | `Cause.UnknownError`, or an error class per refused step  | One package error with step and cause     | Step lost or restated    |
 
 ## [06]-[SCOPES]
 
@@ -248,11 +260,16 @@ const plugin = <R, E, F, C extends string, P extends string>(
         commands: Record.map(entries.commands, run),
         panels: Record.map(entries.panels, Record.map(run)),
     } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>;
-    Reflect.apply(entrypoints.setup, entrypoints, [handlers]);
+    Effect.runFork(
+        Schema.decodeUnknownEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints).pipe(
+            Effect.flatMap(({ setup }) => Effect.sync(() => setup.call(entrypoints, handlers))),
+            Effect.tapCause(logged),
+        ),
+    );
 };
 ```
 
-`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`, and `Plugin` holds the manifest `Manifest.json` decodes from the plugin's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `ManagedRuntime` builds its layer before any entry's work runs, and `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP developer console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`, and `Plugin` holds the manifest `Manifest.json` decodes from the plugin's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `setup` decoded through a declared `Schema` runs under `call` with `entrypoints` as receiver and logs a throw as a defect. `ManagedRuntime` builds its layer before any entry's work runs, and `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP developer console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`

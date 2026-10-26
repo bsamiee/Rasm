@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-sentinel-value
+language: csharp
+arguments: [sentinel]
+rule:
+    any:
+        - matches: sentinel
+        - kind: invocation_expression
+          has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^Conversions$'}}, {has: {field: name, regex: '^Unset$'}}]}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^IfNone(Unsafe)?$'}}
+            - has: {field: arguments, has: {kind: argument, has: {any: [{matches: sentinel}, {kind: lambda_expression, has: {field: body, matches: sentinel}}]}}}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Match$'}}
+            - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^None$'}}, {has: {kind: lambda_expression, has: {field: body, matches: sentinel}}}]}}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\?\?$'}
+            - has: {field: right, matches: sentinel}
+        - kind: conditional_expression
+          any:
+            - has: {field: consequence, matches: sentinel}
+            - has: {field: alternative, matches: sentinel}

@@ -60,7 +60,4 @@ public static class UserStrings {
     public static IO<HashMap<EqStringOrdinalIgnoreCase, string, string>> Entries(RhinoDoc doc, KeyName section) =>
         IO.lift(() => toHashMap<EqStringOrdinalIgnoreCase, string, string>(
             toSeq(doc.Strings.GetEntryNames(section)).Map(entry => (entry, doc.Strings.GetValue(section, entry)))));
-
-    public static IO<Unit> Clear(RhinoDoc doc, KeyName section) =>
-        IO.lift(() => doc.Strings.Delete(section, entry: null));
 }

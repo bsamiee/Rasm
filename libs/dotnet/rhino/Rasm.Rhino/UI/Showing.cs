@@ -57,7 +57,7 @@ public static class Showing {
         from main in Appearance.InitialMainWindowPosition()
         from frame in DisposalOps.Acquire(IO.lift(static () => new ViewHost()), window.Owned.Retain)
         from body in DisposalOps.Acquire(ViewBody.Open(owner, window.Row, Some(doc), new CommitMode.Immediate(), None), frame.Owned.Retain)
-        from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Window, HostTheme.In(window), frames => window.Icon = frames, window.Owned.Retain)).As()
+        from icon in window.Row.Icon.TraverseM(glyph => Icons.Themed(owner, glyph, IconSlot.Small, HostTheme.In(window), frames => window.Icon = frames, window.Owned.Retain)).As()
         from seated in frame.Seat(window.Row, body.Content)
         from configured in IO.lift(() => {
             window.Title = RowText.Localize(window.Row.Caption, owner).Local;
@@ -67,8 +67,7 @@ public static class Showing {
             _ = main.Iter(bounds => window.Location = Eto.Drawing.Point.Round(bounds.ToEtoScreen().Center - ((SizeF)window.Size / 2f)));
             window.LocalizeAndRestore(window.Row.Identity);
         })
-        from edges in ViewOps.WhileLoaded(window, keep => DisposalOps.Acquire(
-            body.Shown(visible: true).Map(_ => new Disposal<ViewBody>(body, static held => held.Shown(visible: false).Run())), keep).Map(unit),
+        from edges in ViewOps.WhileLoaded(window, keep => DisposalOps.Acquire(body.Shown(visible: true), _ => body.Shown(visible: false), keep),
             CallbackSite.Of(window, nameof(window.LoadComplete)), window.Owned.Retain)
         select unit;
 
@@ -132,9 +131,6 @@ public static class Showing {
             ? Close(row, doc)
             : Open(row));
 
-    public static IO<Seq<TPanel>> GetPanels<TPanel>(RhinoDoc doc) where TPanel : DefinedPanel =>
-        IO.lift(() => Conversions.Rows(Panels.GetPanels<TPanel>(doc)));
-
     // --- [PAGES]
     public static IO<Option<Window>> WindowForPage(OptionsDialogPage page) =>
         IO.lift(() => PageDialog.Validated(page.OptionsPageType)
@@ -160,10 +156,7 @@ public static class Showing {
         let fields = ViewCatalog.Tree(view)
             .Bind(static held => held.Children)
             .Bind(static child => child.Controls)
-            .Choose(static row => row.Switch<Option<(string Caption, EntryKey Key)>>(
-                field: static field => field.Keys is [var key] ? (field.Caption, key) : None,
-                readout: static _ => None,
-                @group: static _ => None))
+            .Choose(static row => row.Keys is [var key] ? Some((row.Caption, Key: key)) : None)
         let pass =
             from shown in scope.Shown(bindings)
             from ended in Getters.Choice(doc, new GetterRequest<GetOption, bool>(view.Caption, site) {

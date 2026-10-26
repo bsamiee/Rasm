@@ -64,7 +64,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         BarHeight + Gap + state.Switch(editor: static _ => KnotHeight, key: static _ => EtoFonts.SmallFont.LineHeight);
 
     protected override Seq<PlotMark<RampPart>> Layout(GradientRampState state, SizeF size, float scale) =>
-        new PlotMark<RampPart>(new MarkShape.Band(Bar(state, size)), Frame, Some(new MarkPart<RampPart>(new RampPart.Bar(), 0f)))
+        new PlotMark<RampPart>(new MarkShape.Band(Bar(state, size)), MarkStyle.Ring, Some(new MarkPart<RampPart>(new RampPart.Bar(), 0f)))
             .Cons(state.Switch(size,
                 editor: static (held, editor) => Knots(editor, PlotPlane.Cartesian.Unit(Bar(editor, held))),
                 key: static (_, _) => Seq<PlotMark<RampPart>>()));
@@ -89,7 +89,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
             .Partition(static knot => knot.Current) switch {
                 var (current, rest) => (current + rest).Map(knot => new PlotMark<RampPart>(
                     Triangle(plane.Point((float)(double)knot.Stop.Position, 0f).X, plane.Plot.Bottom + Gap),
-                    knot.Current ? KnotSelected : KnotStroke,
+                    knot.Current ? KnotSelected : MarkStyle.Lifted,
                     Some(new MarkPart<RampPart>(new RampPart.Knot(knot.Index), Plots.Reach)))),
             };
 
@@ -99,8 +99,6 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
     // --- [PAINT]
     private const float Opaque = 0.25f;
 
-    private static readonly MarkStyle Frame = new MarkStyle.Stroke(PaintSlot.Text, 0.7f, 1f);
-    private static readonly MarkStyle KnotStroke = new MarkStyle.Stroke(PaintSlot.Text, 1f, 1f);
     private static readonly MarkStyle KnotSelected = new MarkStyle.Fill(PaintSlot.Text, 1f);
     private static readonly MarkStyle KnotFocused = new MarkStyle.Fill(PaintSlot.Highlight, 1f);
 

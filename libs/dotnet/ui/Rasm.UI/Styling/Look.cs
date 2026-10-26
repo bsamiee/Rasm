@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using HarfBuzzSharp;
@@ -9,14 +8,6 @@ using Wacton.Unicolour;
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Opacity : IMinMaxValue<Opacity> {
-    public static Opacity MinValue { get; } = new(0f);
-    public static Opacity MaxValue { get; } = new(1f);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -52,15 +43,15 @@ public abstract partial record Ink {
 
     private static Option<Ink> Referenced(string value) =>
         value.Split('/') switch {
-            [var reference] => Referenced(reference, Opacity.MaxValue),
+            [var reference] => Referenced(reference, Fraction.MaxValue),
             [var reference, var alpha] => Scaled(alpha).Bind(scale => Referenced(reference, scale)),
             _ => None,
         };
 
-    private static Option<Opacity> Scaled(string text) =>
-        float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float scale) ? Opacity.Validated(scale).ToOption() : None;
+    private static Option<Fraction> Scaled(string text) =>
+        float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float scale) ? Fraction.Validated(scale).ToOption() : None;
 
-    private static Option<Ink> Referenced(string reference, Opacity alpha) =>
+    private static Option<Ink> Referenced(string reference, Fraction alpha) =>
         reference.Split('.') switch {
             [DataKey] => new Data(alpha),
             [var channel] => from held in Channel.Validated(channel).ToOption() select (Ink)new Host(None, held, alpha),
@@ -70,16 +61,16 @@ public abstract partial record Ink {
 
     public sealed record Fixed(SKColorF Color) : Ink;
 
-    public sealed record Host(Option<Role> Role, Channel Channel, Opacity Alpha) : Ink;
+    public sealed record Host(Option<Role> Role, Channel Channel, Fraction Alpha) : Ink;
 
-    public sealed record Data(Opacity Alpha) : Ink;
+    public sealed record Data(Fraction Alpha) : Ink;
 }
 
 public sealed record Series(uint Ordinal, SKColorF Color);
 
 public sealed record Stop(Ink Ink, float At);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Solid), "solid")]
 [JsonDerivedType(typeof(Gradient), "gradient")]

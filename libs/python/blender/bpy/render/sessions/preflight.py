@@ -5,22 +5,24 @@ from functools import partial
 from itertools import groupby, starmap
 from math import prod
 from pathlib import Path
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Final, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.operators import Done, Empty, InvokePopup, Operator, Stock
+from blender.bpy.commands.calls import Stock
+from blender.bpy.commands.operators import Done, Empty, InvokePopup, Operator
 from blender.bpy.data.ids.evaluation import evaluated, Instance
 from blender.bpy.data.ids.store import resolved
 from blender.bpy.data.rna import conditions
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderRenderingFault, BlenderResult, BlenderUnmetFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.files.blends import dependencies, Dependency
+from blender.bpy.nodes.trees import nested
 from blender.bpy.render.outputs.paths import OutputPath, Pathed
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import OperatorButton
@@ -30,6 +32,10 @@ from blender.imaging.faults import accumulated, paired
 from blender.rendering.batch.processes import detached
 from blender.rendering.batch.queue import Bound, Fixed, Frames, JobCamera
 from blender.rendering.outputs.naming import Count, Number, Output, Slot, Word
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+PROJECTION: Final = Descriptor.declared(bpy.types.Camera, "type", bpy.types.EnumProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -54,7 +60,7 @@ class Unvaried(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def message(self) -> str:
         """Requirement text."""
-        return f"Requires {self.field.label} in output template to name one file per {self.field.label.lower()}"
+        return f"Requires {{{self.field}}} in output template to name one file per {self.field}"
 
 
 class Measure(msgspec.Struct, frozen=True, kw_only=True):
@@ -89,6 +95,15 @@ class JobScope(msgspec.Struct, frozen=True, kw_only=True):
     layer: str | None = None
     temporal: TemporalDenoise | None = None
 
+    @property
+    def base(self) -> Self:
+        """Render scope a temporal denoise job follows."""
+        return msgspec.structs.replace(self, temporal=None)
+
+    def followed(self, scopes: tuple["JobScope", ...]) -> bool:
+        """Whether a temporal denoise job among scopes follows this render scope."""
+        return any(other.base == self for other in scopes if other.temporal is not None)
+
 
 class Preflight(msgspec.Struct, frozen=True, kw_only=True):
     """Audit operators and dispatch condition."""
@@ -97,7 +112,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
     condition: ClassVar[conditions.AllOf] = conditions.AllOf(
         conditions=(
-            conditions.Not(condition=conditions.Setting(descriptor=Descriptor.declared(bpy.types.Context, "blend_data.filepath", bpy.types.StringProperty), accepted=("",))),
+            Pathed.unsaved,
             conditions.Count(
                 collection=Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty),
                 where=Some(conditions.Setting(descriptor=Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProperty))),
@@ -135,20 +150,14 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             run=lambda call: listed(call.record.kind),
             invoke=Some(InvokePopup.SEARCH),
             undo=False,
-            primary=Some(next(field for field in msgspec.structs.fields(Shader) if field.name == "kind")),
+            primary=Some(*msgspec.structs.fields(Shader)),
         ),
         Operator[Empty](
             key="measure",
             title="Measure View Layer",
             description="Report evaluated geometry and image memory",
             form=Empty,
-            run=lambda call: (
-                Option
-                .of_optional(call.context.view_layer)
-                .map(measured)
-                .default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key="view_layer"),)))
-                .map(lambda measure: Done(notes=tuple(("INFO", text) for text in measure.notes)))
-            ),
+            run=lambda call: call.root(bpy.types.ViewLayer).bind(measured).map(lambda measure: Done(notes=tuple(("INFO", text) for text in measure.notes))),
             undo=False,
         ),
         Operator(
@@ -185,7 +194,7 @@ def opened(block: bpy.types.ID, folder: Path) -> BlenderResult[Done]:
     """Opens block library in detached Blender process."""
     match block if isinstance(block, bpy.types.Library) else block.library:
         case bpy.types.Library() as library:
-            return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), folder / "library.log").map_error(BlenderRenderingFault.lifted).map(lambda _: Done())
+            return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), folder / "library.log").map(lambda _: Done())
         case None:
             return Error((BlenderAbsentFault(owner=repr(block), key="library"),))
 
@@ -239,11 +248,9 @@ def shader_kinds() -> tuple[type[bpy.types.ShaderNode], ...]:
 
 def shader_users(kind: type[bpy.types.ShaderNode]) -> tuple[bpy.types.Material, ...]:
     """Returns materials using shader class, groups included."""
-
-    def contains(tree: bpy.types.NodeTree) -> bool:
-        return any(isinstance(node, kind) or (isinstance(node, bpy.types.ShaderNodeGroup) and node.node_tree is not None and contains(node.node_tree)) for node in tree.nodes)
-
-    return tuple(material for material in bpy.data.materials if material.node_tree is not None and contains(material.node_tree))
+    return tuple(
+        material for material in bpy.data.materials for tree in Option.of_optional(material.node_tree).to_list() if any(isinstance(node, kind) for held in nested((tree,)) for node in held.nodes)
+    )
 
 
 # --- [MEASURES]
@@ -303,12 +310,15 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> BlenderR
 
         return accumulated((*(Error((BlenderAbsentFault(owner=repr(scene), key=frame),)) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
 
-    return Descriptor.resolve(bpy.types.Camera, "type", bpy.types.EnumProperty).bind(
-        lambda descriptor: verified(tuple(item.identifier for item in descriptor.prop.enum_items if item.identifier != custom))
-    )
+    return verified(tuple(item.identifier for item in PROJECTION.prop.enum_items if item.identifier != custom))
 
 
 # --- [DISPATCH]
+
+
+def ranged(scene: bpy.types.Scene) -> Frames:
+    """Returns inclusive frame range and step of scene."""
+    return Frames(start=scene.frame_start, end=scene.frame_end, step=scene.frame_step)
 
 
 def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames: Frames) -> BlenderResult[None]:
@@ -329,15 +339,7 @@ def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames:
 def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) -> BlenderResult[tuple[Measure, ...]]:
     """Audits every scope, then measures each distinct view layer."""
     planned = tuple(
-        (
-            scope,
-            scene,
-            Frames(
-                start=scene.frame_start,
-                end=scene.frame_end,
-                step=1 if scope.temporal is None and any(msgspec.structs.replace(other, temporal=None) == scope for other in scopes if other.temporal is not None) else scene.frame_step,
-            ),
-        )
+        (scope, scene, msgspec.structs.replace(ranged(scene), step=1) if scope.temporal is None and scope.followed(scopes) else ranged(scene))
         for scope in scopes
         for scene in (bpy.data.scenes[scope.scene],)
     )
@@ -355,4 +357,21 @@ def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) ->
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["JobScope", "Measure", "NotCamera", "Preflight", "Shader", "Unvaried", "audited", "cameras", "checked", "measured", "shader_kinds", "shader_users", "templated", "users"]
+__all__ = [
+    "PROJECTION",
+    "JobScope",
+    "Measure",
+    "NotCamera",
+    "Preflight",
+    "Shader",
+    "Unvaried",
+    "audited",
+    "cameras",
+    "checked",
+    "measured",
+    "ranged",
+    "shader_kinds",
+    "shader_users",
+    "templated",
+    "users",
+]

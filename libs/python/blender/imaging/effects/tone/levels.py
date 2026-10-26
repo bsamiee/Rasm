@@ -20,7 +20,7 @@ class Levels(Effect, frozen=True, kw_only=True, tag=3):
 
     stage = Stage.LEVELS
     pointwise = True
-    black: Annotated[Finite, msgspec.Meta(description="Scene-linear value mapping to 0"), Presentation(soft=Some((-0.1, 0.1)), decimals=Some(4))] = 0.0
+    black: Annotated[Finite, msgspec.Meta(description="Scene-linear value mapping to 0"), Presentation(soft=Some((-0.1, 0.1)), precision=Some(4))] = 0.0
     white: Annotated[Stops, msgspec.Meta(description="Stops from black point to value mapping to 1")] = 0.0
 
     # --- [CONSTRUCTION]

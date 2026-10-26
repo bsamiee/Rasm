@@ -43,7 +43,7 @@ class Shape(Case, frozen=True, kw_only=True, tag=1):
 
     outline: Annotated[Outline, msgspec.Meta(description="Box or ellipse")] = Outline.ELLIPSE
     position: Annotated[Position, msgspec.Meta(description="Center in frame fractions")] = (0.5, 0.5)
-    size: Annotated[tuple[float, float], msgspec.Meta(description="Half extents over greater frame side"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (0.1, 0.05)
+    size: Annotated[tuple[float, float], msgspec.Meta(description="Half extents over greater frame side"), Presentation(quantity=Some(Quantity.FRAME))] = (0.1, 0.05)
     rotation: Annotated[float, msgspec.Meta(description="Turn about center"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
     feather: Annotated[FrameLength, msgspec.Meta(description="Edge blur radius over greater frame side"), Presentation(soft=Some((0.0, 0.1)))] = 0.0
 

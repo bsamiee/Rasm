@@ -6,6 +6,7 @@ using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Rasm.Imaging.Pixels;
 using TinyEXR;
+using Wacton.Unicolour;
 
 namespace Rasm.Imaging.Color;
 
@@ -206,7 +207,7 @@ public sealed partial class CdlStyle {
     public static readonly CdlStyle RevNoClamp = new("RevNoClamp", "noClampRev", static (color, slope, offset, power, saturation) =>
         (Raised(Saturated(color, Reciprocal(new Vector3(saturation))), Reciprocal(power)) - offset) * Reciprocal(slope));
 
-    private static readonly Vector3 Luma = new(0.2126f, 0.7152f, 0.0722f);
+    private static readonly Vector3 Luma = new((float)YbrConfiguration.Rec709.Kr, (float)YbrConfiguration.Rec709.Kg, (float)YbrConfiguration.Rec709.Kb);
 
     public string Legacy { get; }
 

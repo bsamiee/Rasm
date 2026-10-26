@@ -85,12 +85,10 @@ public sealed partial class PanoramaParameter : IStateParameter<Panorama> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PolarConversion : ICaptioned {
-    public static readonly PolarConversion RectangularToPolar = new("rectangular-to-polar", "Rectangular to polar", static (point, extent) =>
+    public static readonly PolarConversion RectangularToPolar = new("rectangular-to-polar", static (point, extent) =>
         FramePosition.Center.Point(extent) switch { var center => ((point.X - center.X) / extent.ShortSide, (point.Y - center.Y) / extent.ShortSide) switch { var (x, y) => (extent.Width * (double.Pi + double.Atan2(-x, y)) / double.Tau, 2d * extent.Height * double.Hypot(x, y)) } });
-    public static readonly PolarConversion PolarToRectangular = new("polar-to-rectangular", "Polar to rectangular", static (point, extent) =>
+    public static readonly PolarConversion PolarToRectangular = new("polar-to-rectangular", static (point, extent) =>
         (double.SinCos(double.Tau * point.X / extent.Width), FramePosition.Center.Point(extent), extent.ShortSide * point.Y / (2d * extent.Height)) switch { var ((sin, cos), center, radius) => (center.X + (radius * sin), center.Y - (radius * cos)) });
-
-    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial (double X, double Y) Source((double X, double Y) point, PixelExtent extent);

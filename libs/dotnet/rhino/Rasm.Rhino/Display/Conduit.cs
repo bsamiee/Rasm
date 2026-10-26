@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Display;
@@ -74,61 +75,44 @@ public abstract partial record RenderState {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class CalculateBoundingBoxConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : DisplayConduit {
-    protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) =>
-        Callbacks.Run(
-            from found in IO.pure(e).Bind(box)
-            from included in IO.lift(() => found.Iter(e.IncludeBoundingBox))
-            select included,
-            new(sink, typeof(CalculateBoundingBoxConduit), nameof(CalculateBoundingBox)));
+internal abstract class SinkConduit(IPlugInSink sink) : DisplayConduit {
+    protected void Run<T>(IO<T> effect, [CallerMemberName] string member = "") => Callbacks.Run(effect, new CallbackSite(sink, GetType(), member));
 }
 
-internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : DisplayConduit {
-    protected override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) =>
-        Callbacks.Run(
-            from found in IO.pure(e).Bind(box)
-            from included in IO.lift(() => found.Iter(e.IncludeBoundingBox))
-            select included,
-            new(sink, typeof(CalculateBoundingBoxZoomExtentsConduit), nameof(CalculateBoundingBoxZoomExtents)));
+internal sealed class CalculateBoundingBoxConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) => Run(IO.pure(e).Bind(box).Bind(found => IO.lift(() => found.Iter(e.IncludeBoundingBox))));
 }
 
-internal sealed class ObjectCullingConduit(Func<CullObjectEventArgs, bool> cullObject, IPlugInSink sink) : DisplayConduit {
-    protected override void ObjectCulling(CullObjectEventArgs e) =>
-        Callbacks.Run(IO.lift(() => { if (cullObject(e)) e.CullObject = true; }), new(sink, typeof(ObjectCullingConduit), nameof(ObjectCulling)));
+internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) => Run(IO.pure(e).Bind(box).Bind(found => IO.lift(() => found.Iter(e.IncludeBoundingBox))));
 }
 
-internal sealed class PreDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
-    protected override void PreDrawObjects(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(PreDrawObjectsConduit), nameof(PreDrawObjects)));
+internal sealed class ObjectCullingConduit(Func<CullObjectEventArgs, bool> cullObject, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void ObjectCulling(CullObjectEventArgs e) => Run(IO.lift(() => { if (cullObject(e)) e.CullObject = true; }));
 }
 
-internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> drawObject, IPlugInSink sink) : DisplayConduit {
-    protected override void PreDrawObject(DrawObjectEventArgs e) =>
-        Callbacks.Run(
-            from drawn in IO.pure(e).Bind(drawObject)
-            from suppressed in IO.lift(() => { if (!drawn) e.DrawObject = false; })
-            select suppressed,
-            new(sink, typeof(PreDrawObjectConduit), nameof(PreDrawObject)));
+internal sealed class PreDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void PreDrawObjects(DrawEventArgs e) => Run(IO.pure(e).Bind(draw));
 }
 
-internal sealed class PostDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
-    protected override void PostDrawObjects(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(PostDrawObjectsConduit), nameof(PostDrawObjects)));
+internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> drawObject, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void PreDrawObject(DrawObjectEventArgs e) => Run(IO.pure(e).Bind(drawObject).Bind(drawn => IO.lift(() => { if (!drawn) e.DrawObject = false; })));
 }
 
-internal sealed class DrawForegroundConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
-    protected override void DrawForeground(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(DrawForegroundConduit), nameof(DrawForeground)));
+internal sealed class PostDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void PostDrawObjects(DrawEventArgs e) => Run(IO.pure(e).Bind(draw));
 }
 
-internal sealed class DrawOverlayConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
-    protected override void DrawOverlay(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(DrawOverlayConduit), nameof(DrawOverlay)));
+internal sealed class DrawForegroundConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void DrawForeground(DrawEventArgs e) => Run(IO.pure(e).Bind(draw));
 }
 
-internal sealed class PostProcessFrameBufferConduit(Func<PostProcessFrameBufferEventArgs, IO<Unit>> read, IPlugInSink sink) : DisplayConduit {
-    protected override void PostProcessFrameBuffer(PostProcessFrameBufferEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(read), new(sink, typeof(PostProcessFrameBufferConduit), nameof(PostProcessFrameBuffer)));
+internal sealed class DrawOverlayConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void DrawOverlay(DrawEventArgs e) => Run(IO.pure(e).Bind(draw));
+}
+
+internal sealed class PostProcessFrameBufferConduit(Func<PostProcessFrameBufferEventArgs, IO<Unit>> read, IPlugInSink sink) : SinkConduit(sink) {
+    protected override void PostProcessFrameBuffer(PostProcessFrameBufferEventArgs e) => Run(IO.pure(e).Bind(read));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -139,7 +123,7 @@ public static class Conduits {
             from rows in definition.Binding.Switch(
                 own,
                 everywhere: static (_, _) => IO.pure(Seq<ViewportRef>()),
-                bound: static (held, bound) => toSeq(bound.Sets).TraverseM(set => Viewports.ResolveViewports(bound.Document, set, held)).As().Map(static sets => sets.Flatten()))
+                bound: static (held, bound) => toSeq(bound.Sets).TraverseM(set => Viewports.Resolve(bound.Document, set, held)).As().Map(static sets => sets.Flatten()))
             from conduits in toSeq(definition.Channels).TraverseM(channel => Enabled(channel, definition.Filter, definition.Binding, rows, sink, own)).As()
             select unit,
             retain);
@@ -155,20 +139,19 @@ public static class Conduits {
             postDrawObjects: static (held, phase) => new PostDrawObjectsConduit(phase.Draw, held),
             drawForeground: static (held, phase) => new DrawForegroundConduit(phase.Draw, held),
             drawOverlay: static (held, phase) => new DrawOverlayConduit(phase.Draw, held),
-            postProcessFrameBuffer: static (held, frame) => new PostProcessFrameBufferConduit(frame.Read, held))),
-        static held => IO.lift(() => { held.Enabled = false; }),
-        conduit => {
-            conduit.GeometryFilter = filter.GeometryFilter;
-            conduit.SpaceFilter = filter.SpaceFilter;
-            conduit.SetSelectionFilter(filter.SelectionFilter.IsSome, filter.SelectionFilter.Exists(identity));
-            conduit.SetObjectIdFilter(filter.ObjectIds);
-            Action<RhinoViewport> bind = binding.Switch<DisplayConduit, Action<RhinoViewport>>(
-                conduit, everywhere: static (held, _) => held.Bind,
-                bound: static (held, bound) => bound.Exclusive ? held.ExclusiveBind : held.Bind);
-            _ = rows.Iter(row => bind(row.Viewport));
-            conduit.Enabled = true;
-            retain(new Disposal<DisplayConduit>(conduit, static held => held.Enabled = false));
-        });
+            postProcessFrameBuffer: static (held, frame) => new PostProcessFrameBufferConduit(frame.Read, held))).Map(conduit => {
+                conduit.GeometryFilter = filter.GeometryFilter;
+                conduit.SpaceFilter = filter.SpaceFilter;
+                conduit.SetSelectionFilter(filter.SelectionFilter.IsSome, filter.SelectionFilter.Exists(identity));
+                conduit.SetObjectIdFilter(filter.ObjectIds);
+                Action<RhinoViewport> bind = binding.Switch<DisplayConduit, Action<RhinoViewport>>(
+                    conduit, everywhere: static (held, _) => held.Bind,
+                    bound: static (held, bound) => bound.Exclusive ? held.ExclusiveBind : held.Bind);
+                _ = rows.Iter(row => bind(row.Viewport));
+                conduit.Enabled = true;
+                return conduit;
+            }),
+        static held => IO.lift(() => { held.Enabled = false; }), retain);
 
     // --- [PIPELINE]
     public static IO<TValue> WithState<TValue>(DisplayPipeline pipeline, Seq<RenderState> state, IO<TValue> draw) =>

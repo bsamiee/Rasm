@@ -16,8 +16,6 @@ namespace Rasm.Rhino.Render.Settings;
 public readonly partial struct PixelDimension : IPresented<PixelDimension, int> {
     public static PixelDimension MinValue { get; } = new(1);
     public static PixelDimension MaxValue { get; } = new(int.MaxValue);
-    public static PixelDimension DefaultWidth { get; } = new(800);
-    public static PixelDimension DefaultHeight { get; } = new(600);
     public static Presentation<int> Presentation { get; } = new() { Form = NumberForm.Field };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
@@ -28,7 +26,6 @@ public readonly partial struct PixelDimension : IPresented<PixelDimension, int> 
 public readonly partial struct Gamma : System.Numerics.IMinMaxValue<Gamma> {
     public static Gamma MinValue { get; } = new(0.2f);
     public static Gamma MaxValue { get; } = new(5f);
-    public static Gamma Default { get; } = new(2.2f);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -65,7 +62,7 @@ public sealed partial class ShadowmapQuality : ICaptioned {
 public sealed record ImageOutputState(bool UseViewportSize, PixelDimension ImageWidth, PixelDimension ImageHeight, PixelDensity ImageDpi, UnitSystem ImageUnitSystem)
     : IRenderSettingsRecord<ImageOutputState, ImageOutputParameter> {
     public static ImageOutputState Default { get; } = new(
-        UseViewportSize: true, ImageWidth: PixelDimension.DefaultWidth, ImageHeight: PixelDimension.DefaultHeight, ImageDpi: PixelDensity.Create(72d), ImageUnitSystem: UnitSystem.Inches);
+        UseViewportSize: true, ImageWidth: PixelDimension.Create(800), ImageHeight: PixelDimension.Create(600), ImageDpi: PixelDensity.Create(72d), ImageUnitSystem: UnitSystem.Inches);
 
     public static string Owner => "image-output";
 
@@ -248,17 +245,17 @@ public sealed partial class FrameParameter : IStateParameter<FrameState> {
 
 public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProcessGamma, bool PostProcessGammaOn)
     : IRenderSettingsRecord<LinearWorkflowState, LinearWorkflowParameter> {
-    public static LinearWorkflowState Default { get; } = new(PreProcessColors: true, PostProcessGamma: Gamma.Default, PostProcessGammaOn: true);
+    public static LinearWorkflowState Default { get; } = new(PreProcessColors: true, PostProcessGamma: Gamma.Create(2.2f), PostProcessGammaOn: true);
 
     public static string Owner => "linear-workflow";
 
     public static IO<LinearWorkflowState> Read(RenderSettingsScope scope) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.LinearWorkflow, static workflow => IO.lift(() =>
+        DisposalOps.Within(() => scope.Settings.LinearWorkflow, static workflow => IO.lift(() =>
             Gamma.Validated(workflow.PostProcessGamma)
                 .Map(gamma => new LinearWorkflowState(workflow.PreProcessColors, gamma, workflow.PostProcessGammaOn))));
 
     public static IO<LinearWorkflowState> Write(RenderSettingsScope scope, LinearWorkflowState state) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.LinearWorkflow, workflow => IO.lift(() => { RenderSettingsMapper.Update(state, workflow); return state; }));
+        DisposalOps.Within(() => scope.Settings.LinearWorkflow, workflow => IO.lift(() => { RenderSettingsMapper.Update(state, workflow); return state; }));
 }
 
 [SmartEnum<string>]
@@ -287,10 +284,10 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
     public static string Owner => "dithering";
 
     public static IO<DitheringState> Read(RenderSettingsScope scope) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
+        DisposalOps.Within(() => scope.Settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
 
     public static IO<DitheringState> Write(RenderSettingsScope scope, DitheringState state) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.Dithering, dithering => IO.lift(() => { RenderSettingsMapper.Update(state, dithering); return state; }));
+        DisposalOps.Within(() => scope.Settings.Dithering, dithering => IO.lift(() => { RenderSettingsMapper.Update(state, dithering); return state; }));
 }
 
 [SmartEnum<string>]
@@ -319,10 +316,10 @@ public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> Cu
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.RenderChannelsChanged;
 
     public static IO<RenderChannelsState> Read(RenderSettingsScope scope) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.RenderChannels, static channels => IO.lift(() => RenderSettingsMapper.ToState(channels)));
+        DisposalOps.Within(() => scope.Settings.RenderChannels, static channels => IO.lift(() => RenderSettingsMapper.ToState(channels)));
 
     public static IO<RenderChannelsState> Write(RenderSettingsScope scope, RenderChannelsState state) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.RenderChannels, channels => IO.lift(() => { RenderSettingsMapper.Update(state, channels); return state; }));
+        DisposalOps.Within(() => scope.Settings.RenderChannels, channels => IO.lift(() => { RenderSettingsMapper.Update(state, channels); return state; }));
 
     public static RowRules Rules(RowSource<RenderChannelsState> source, RenderChannelsParameter parameter) =>
         new RowRules(None, Some(RowRule.When(source, static state => state.Mode is RenderChannels.Modes.Custom, RenderChannelsParameter.Mode))) switch {
@@ -335,11 +332,7 @@ public sealed record RenderChannelsState(RenderChannels.Modes Mode, Set<Guid> Cu
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RenderChannelsParameter : IStateParameter<RenderChannelsState> {
     public static readonly RenderChannelsParameter Mode = new("mode", new StateParameter<RenderChannelsState>.Enumerated<RenderChannels.Modes>(
-        Lens<RenderChannelsState, RenderChannels.Modes>.New(static state => state.Mode, static mode => state => state with { Mode = mode }),
-        static mode => mode switch {
-            RenderChannels.Modes.Automatic => "Automatic",
-            RenderChannels.Modes.Custom => "Custom",
-        }),
+        Lens<RenderChannelsState, RenderChannels.Modes>.New(static state => state.Mode, static mode => state => state with { Mode = mode }), static mode => mode.ToString()),
         new("Render channels", "Channels renderer writes, Automatic adds channels post effects require"));
     public static readonly RenderChannelsParameter Distance = new("distance", Member(RenderWindow.StandardChannels.DistanceFromCamera), new("Distance", "Camera distance per pixel"));
     public static readonly RenderChannelsParameter Normals = new("normals", Member(RenderWindow.StandardChannels.NormalXYZ), new("Normals", "Surface normal per pixel"));

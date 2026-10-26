@@ -75,12 +75,10 @@ public sealed class Editor : ITextDocumentView {
 
     // --- [INPUT]
     internal Option<IO<Seq<Edit<string>>>> Next(Gesture gesture, Laid.Text next, SKRect bounds) =>
-        gesture.Switch(
+        gesture.SwitchPartially(
             (Editor: this, Laid: next, At: bounds.Location),
+            @default: static (_, _) => Option<IO<Seq<Edit<string>>>>.None,
             press: static (held, press) => Some(held.Editor.Changed(held.Laid, () => held.Editor.Pointed(press, press.At - held.At))),
-            scroll: static (_, _) => Option<IO<Seq<Edit<string>>>>.None,
-            magnify: static (_, _) => Option<IO<Seq<Edit<string>>>>.None,
-            rotate: static (_, _) => Option<IO<Seq<Edit<string>>>>.None,
             perform: static (held, perform) => Operation(held.Laid, perform).Map(operation => operation(held.Editor)));
 
     internal static Option<Func<Editor, IO<Seq<Edit<string>>>>> Operation(Laid.Text next, Gesture.Perform perform) =>
@@ -332,12 +330,10 @@ public static class Typesetting {
         Seq<Glyphs> runs =
             from line in reshaped
             from placed in line.Runs.Zip(line.Runs.Scan(lean * (reference - line.Advance), static (x, run) => x + run.Advance))
-            select Positioned(placed.First, placed.Second, line.Line.YCoord + line.Line.BaseLine);
+            let origin = new SKPoint(placed.Second, line.Line.YCoord + line.Line.BaseLine)
+            select new Glyphs(placed.First.Run.Style, placed.First.Run.Typeface, placed.First.Ids, [.. placed.First.Offsets.Map(at => at + origin)]);
         return new Typeset.Featured(lines, runs, advance, reference, runs.Fold(SKRect.Empty, static (ink, run) => Union(ink, Ink(run))), clipped);
     }
-
-    private static Glyphs Positioned(Shaped shaped, float x, float baseline) =>
-        new(shaped.Run.Style, shaped.Run.Typeface, shaped.Ids, [.. shaped.Offsets.Map(at => new SKPoint(at.X + x, at.Y + baseline))]);
 
     private static SKRect Ink(Glyphs run) {
         using SKFont font = new(run.Typeface, run.Style.FontSize);

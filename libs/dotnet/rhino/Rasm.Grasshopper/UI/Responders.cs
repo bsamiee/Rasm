@@ -53,13 +53,13 @@ public sealed class FrameResponder : Responses, IResponsive {
     // --- [REGISTER]
     public static IO<FrameResponder> Register(
         FlexControl control, RectangleF bounds, FrameLimits limits, Func<RectangleF, IO<Unit>> placed, IPlugInSink sink, Action<IDisposable> retain) =>
-        (from frame in IO.lift(() => new FrameResponder(control, bounds, limits, placed, sink))
-         let lease = new Disposal<FrameResponder>(frame, static held =>
-             Callbacks.Each(Seq(held.Cancelled, IO.lift(() => held.control.PopFocus(held)),
-                 IO.lift(() => held.control.UnregisterIResponsive(held)).Map(unit),
-                 IO.lift(() => { held.control.Cursor = Cursors.Default; }))).Map(static _ => unit).Uninterruptible().Run())
-         from registered in DisposalOps.OnFailure(IO.lift(() => { control.RegisterIResponsive(frame); retain(lease); }), IO.lift(lease.Dispose))
-         select frame).Uninterruptible();
+        DisposalOps.Acquire(IO.lift(() => {
+            FrameResponder frame = new(control, bounds, limits, placed, sink);
+            control.RegisterIResponsive(frame);
+            return frame;
+        }), static held => Callbacks.Each(Seq(held.Cancelled, IO.lift(() => held.control.PopFocus(held)),
+            IO.lift(() => held.control.UnregisterIResponsive(held)).Map(unit),
+            IO.lift(() => { held.control.Cursor = Cursors.Default; }))).Map(unit), retain);
 
     // --- [RESPONSES]
     public override Response MouseDown(ResponseMouseArgs e) =>
@@ -160,8 +160,7 @@ public static class Responders {
     public static IO<Unit> Menu(FlexControl control, Seq<Seq<CommandRow>> groups, RowScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
             from menus in IO.lift(static () => Ref(Some(HashMap<ContextMenu, IDisposable>())))
-            from live in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Option<HashMap<ContextMenu, IDisposable>>>>(menus, static held =>
-                atomicIO(() => Taken(held)).Bind(DisposalOps.Release).Uninterruptible().Run())), keep)
+            from live in DisposalOps.Acquire(IO.pure(menus), static held => atomicIO(() => Taken(held)).Bind(DisposalOps.Release).Uninterruptible(), keep)
             from attached in GrasshopperEvents.PopulateContextMenu(control).Inline(args => Populated(args, groups, scope, menus), scope.Sink, keep)
             select unit, retain);
 
@@ -179,7 +178,7 @@ public static class Responders {
             .Bind(joins => when(joins, Filled(args.Menu, groups, scope, menus)).As());
 
     private static IO<Unit> Filled(ContextMenu host, Seq<Seq<CommandRow>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
-        DisposalOps.Replace(keep =>
+        DisposalOps.Acquire(keep =>
             from site in IO.pure(new CallbackSite(scope.Sink, typeof(ContextMenu), nameof(ContextMenu.Closed)))
             from realized in groups.TraverseM(@group => @group.TraverseM(command => command.Commands(scope, keep)).As()).As()
             let menu = CommandRow.Menu(realized)
@@ -200,7 +199,7 @@ public static class Responders {
 
     // --- [NUDGE]
     public static IO<Unit> Nudge(Canvas canvas, IPlugInSink sink, Action<IDisposable> retain) =>
-        Subscriptions.Host<KeyEventArgs>(typeof(Control), handler => canvas.KeyDown += handler, handler => canvas.KeyDown -= handler, nameof(Control.KeyDown))
+        Subscriptions.During<KeyEventArgs>(typeof(Control), handler => canvas.KeyDown += handler, handler => canvas.KeyDown -= handler, nameof(Control.KeyDown))
             .Inline(args => Nudged(canvas, args, sink), sink, retain);
 
     private static IO<Unit> Nudged(Canvas canvas, KeyEventArgs args, IPlugInSink sink) =>

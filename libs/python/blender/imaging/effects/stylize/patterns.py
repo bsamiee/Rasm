@@ -62,7 +62,7 @@ class Process(Case, frozen=True, kw_only=True, tag=2):
 class Halftone(Case, frozen=True, kw_only=True, tag=1):
     """Prints tone as dots with edges antialiased over one pixel."""
 
-    pitch: Annotated[FrameExtent, msgspec.Meta(description="Screen lattice spacing"), Presentation(soft=Some((1 / 128, 0.125)), decimals=Some(4))] = 1 / 16
+    pitch: Annotated[FrameExtent, msgspec.Meta(description="Screen lattice spacing"), Presentation(soft=Some((1 / 128, 0.125)), precision=Some(4))] = 1 / 16
     angle: Annotated[Turn, msgspec.Meta(description="Screen turn about frame center")] = math.pi / 4
     jitter: Annotated[Unit, msgspec.Meta(description="Dot displacement within cell")] = 0.0
     inks: Annotated[Inks, msgspec.Meta(description="One luma screen or four process screens")] = Mono()
@@ -97,13 +97,13 @@ class Glyphs(Case, frozen=True, kw_only=True, tag=2):
 class Mosaic(Case, frozen=True, kw_only=True, tag=4):
     """Replaces frame with square blocks."""
 
-    size: Annotated[FrameExtent, msgspec.Meta(description="Block side"), Presentation(soft=Some((0.001, 0.1)), decimals=Some(4))] = 0.005
+    size: Annotated[FrameExtent, msgspec.Meta(description="Block side"), Presentation(soft=Some((0.001, 0.1)), precision=Some(4))] = 0.005
 
 
 class Cells(Case, frozen=True, kw_only=True, tag=5):
     """Fills each Voronoi cell with image color at its site."""
 
-    size: Annotated[FrameExtent, msgspec.Meta(description="Mean cell site spacing"), Presentation(soft=Some((0.003, 0.06)), decimals=Some(4))] = 0.0225
+    size: Annotated[FrameExtent, msgspec.Meta(description="Mean cell site spacing"), Presentation(soft=Some((0.003, 0.06)), precision=Some(4))] = 0.0225
     jitter: Annotated[Unit, msgspec.Meta(description="Site displacement within lattice cell")] = 1.0
     metric: Annotated[Metric, msgspec.Meta(description="Distance shaping cell borders")] = Metric.EUCLIDEAN
 
@@ -114,12 +114,12 @@ class PixelSort(Case, frozen=True, kw_only=True, tag=6):
     direction: Annotated[Direction, msgspec.Meta(description="Streak direction")] = Direction.RIGHT
     low: Annotated[Unit, msgspec.Meta(description="Lower luma boundary, wrapping when above High")] = 0.0
     high: Annotated[Unit, msgspec.Meta(description="Upper luma boundary")] = 0.3
-    length: Annotated[Unit, msgspec.Meta(description="Longest streak"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.3
-    softness: Annotated[FrameLength, msgspec.Meta(description="Luma blur along axis before band key"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(4))] = 0.01
-    falloff: Annotated[FrameLength, msgspec.Meta(description="Key blur along axis"), Presentation(soft=Some((0.0, 0.1)), decimals=Some(4))] = 0.04
+    length: Annotated[Unit, msgspec.Meta(description="Longest streak"), Presentation(quantity=Some(Quantity.FRAME))] = 0.3
+    softness: Annotated[FrameLength, msgspec.Meta(description="Luma blur along axis before band key"), Presentation(soft=Some((0.0, 0.1)), precision=Some(4))] = 0.01
+    falloff: Annotated[FrameLength, msgspec.Meta(description="Key blur along axis"), Presentation(soft=Some((0.0, 0.1)), precision=Some(4))] = 0.04
     scatter: Annotated[Unit, msgspec.Meta(description="Run start noise")] = 0.2
     clump: Annotated[Unit, msgspec.Meta(description="Streak field roughness across axis")] = 0.5
-    chunk: Annotated[FrameLength, msgspec.Meta(description="Streak map block size"), Presentation(soft=Some((0.0, 0.006)), decimals=Some(4))] = 0.0005
+    chunk: Annotated[FrameLength, msgspec.Meta(description="Streak map block size"), Presentation(soft=Some((0.0, 0.006)), precision=Some(4))] = 0.0005
     edge_fade: Annotated[Unit, msgspec.Meta(description="Streak fade toward frame ends along axis")] = 0.0
 
 

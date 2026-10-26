@@ -3,13 +3,10 @@ using Rasm.Rhino.Document.Files;
 using Rhino;
 using Rasm.Rhino.UI;
 using Rhino.Render;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ContentTypeState(Guid Id, Option<string> InternalName, Guid RenderEngineId, Guid PlugInId);
-
 public sealed record ContentLoad(
     Func<Option<RhinoDoc>, RenderContentKind, string, IO<Seq<ContentSource>>> Normal,
     Func<string, IO<ContentSource>> Preload);
@@ -106,19 +103,4 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
 
     private static IO<T> OnFile<T>(string path, Func<string, IO<T>> run) =>
         IO.pure(path).Bind(run).MapFail(error => new FileRefused(path, "failed", error));
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class ContentTypeMapper {
-    [MapPropertyFromSource(nameof(ContentTypeState.InternalName), Use = nameof(InternalName))]
-    internal static partial ContentTypeState ToState(RenderContentType type);
-
-    private static Option<string> InternalName(RenderContentType type) => Optional(type.InternalName);
-}
-
-public static class ContentRegistry {
-    public static IO<Seq<ContentTypeState>> Types { get; } =
-        DisposalOps.Within(static () => toSeq(RenderContentType.GetAllAvailableTypes()),
-            static types => IO.lift(() => types.Map(ContentTypeMapper.ToState).Strict()), DisposalOps.Release);
 }

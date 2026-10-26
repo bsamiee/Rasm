@@ -1,12 +1,13 @@
 """Persistent callbacks on `bpy.app.handlers` lists."""
 
+from abc import abstractmethod
 from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from enum import auto, Flag
 import inspect
 from pathlib import Path
 from types import MethodType
-from typing import Protocol
+from typing import Final, override, Protocol
 
 import bpy
 from expression import Nothing, Ok, Option
@@ -43,129 +44,108 @@ class Handlers[E](Protocol):
         """Iterates held callbacks."""
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+LOAD_PRE: Final[Handlers[Callable[[str, None], None]]] = bpy.app.handlers.load_pre  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+LOAD_POST: Final[Handlers[Callable[[str, None], None]]] = bpy.app.handlers.load_post  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+SAVE_PRE: Final[Handlers[Callable[[str, None], None]]] = bpy.app.handlers.save_pre  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+SAVE_POST: Final[Handlers[Callable[[str, None], None]]] = bpy.app.handlers.save_post  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class SceneHandler(msgspec.Struct, frozen=True, kw_only=True):
+class Handler[E](msgspec.Struct, frozen=True, kw_only=True):
+    """Callback row on one handler list, held on the extension's dispatcher."""
+
+    handlers: Handlers[E]
+
+    @abstractmethod
+    def entry(self, identity: Identity, /) -> E:
+        """Builds the callback the dispatcher holds.
+
+        Args:
+            identity: Extension holding reports and runtime scene mark.
+        """
+
+    def acquisitions(self, identity: Identity, /) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+        """Builds the app-handler acquisition.
+
+        Args:
+            identity: Extension owning the dispatcher.
+
+        Returns:
+            Ok of one app-handler acquisition.
+        """
+        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, self.entry(identity))),))
+
+
+class SceneHandler(Handler[Callable[[bpy.types.Scene], None]], frozen=True, kw_only=True):
     """Scene callback skipping extension's runtime scenes."""
 
-    handlers: Handlers[Callable[[bpy.types.Scene], None]]
     body: Callable[[bpy.types.Scene], BlenderResult[None]]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds scene callback acquisition.
-
-        Args:
-            identity: Extension holding reports and runtime scene mark.
-
-        Returns:
-            Ok of one app-handler acquisition.
-        """
+    @override
+    def entry(self, identity: Identity, /) -> Callable[[bpy.types.Scene], None]:
         body = identity.reports.reported(self.body)
-
-        def entry(scene: bpy.types.Scene) -> None:
-            """Runs body outside extension's runtime scenes."""
-            return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene).to_optional()  # type: ignore[operator]
-
-        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
+        return lambda scene: None if staged(identity, scene) else body(scene).to_optional()
 
 
-class FrameHandler(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame callback receiving evaluated depsgraph with no update filter."""
+class FrameHandler(Handler[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]], frozen=True, kw_only=True):
+    """Frame callback receiving evaluated depsgraph with no update filter, skipping extension's runtime scenes."""
 
-    handlers: Handlers[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]]
     body: Callable[[bpy.types.Scene, bpy.types.Depsgraph], BlenderResult[None]]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds frame callback acquisition.
-
-        Args:
-            identity: Extension holding reports and runtime scene mark.
-
-        Returns:
-            Ok of one app-handler acquisition.
-        """
+    @override
+    def entry(self, identity: Identity, /) -> Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]:
         body = identity.reports.reported(self.body)
-
-        def entry(scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph) -> None:
-            """Runs body outside extension's runtime scenes."""
-            return None if scene.is_runtime_data and identity.manifest.id in scene else body(scene, depsgraph).to_optional()  # type: ignore[operator]
-
-        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
+        return lambda scene, depsgraph: None if staged(identity, scene) else body(scene, depsgraph).to_optional()
 
 
-class PathHandler(msgspec.Struct, frozen=True, kw_only=True):
+class PathHandler(Handler[Callable[[str, None], None]], frozen=True, kw_only=True):
     """Load or save callback receiving Nothing for startup file."""
 
-    handlers: Handlers[Callable[[str, None], None]]
     body: Callable[[Option[Path]], BlenderResult[None]]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds file callback acquisition.
-
-        Args:
-            identity: Extension with reports holding callback faults.
-
-        Returns:
-            Ok of one app-handler acquisition.
-        """
+    @override
+    def entry(self, identity: Identity, /) -> Callable[[str, None], None]:
         body = identity.reports.reported(self.body)
-
-        def entry(path: str, _: None) -> None:
-            """Lifts empty startup file path to Nothing."""
-            return body(Option.of_optional(path or None).map(Path)).to_optional()
-
-        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
+        return lambda path, _: body(Option.of_optional(path or None).map(Path)).to_optional()
 
 
-class UpdateHandler(msgspec.Struct, frozen=True, kw_only=True):
+class UpdateHandler(Handler[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]], frozen=True, kw_only=True):
     """Scene callback receiving updates of its ID types and optional change kinds."""
 
-    handlers: Handlers[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]]
     ids: tuple[type[bpy.types.ID], ...]
     body: Callable[[bpy.types.Scene, tuple[bpy.types.DepsgraphUpdate, ...]], BlenderResult[None]]
     changes: Option[Change] = Nothing
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds depsgraph callback acquisition.
+    @override
+    def entry(self, identity: Identity, /) -> Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]:
+        return FrameHandler(handlers=self.handlers, body=self.matched).entry(identity)
+
+    def matched(self, scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph) -> BlenderResult[None]:
+        """Passes matching updates to body during handler call.
 
         Args:
-            identity: Extension holding reports and runtime scene mark.
+            scene: Scene the handler received.
+            depsgraph: Evaluated depsgraph holding this pass's updates.
 
         Returns:
-            Ok of one app-handler acquisition.
+            Body result, Ok(None) when no update matches.
         """
-
-        def entry(scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph) -> BlenderResult[None]:
-            """Passes matching updates to body during handler call."""
-            matched = tuple(item for item in depsgraph.updates if isinstance(item.id, self.ids) and all(changed(item) & kinds for kinds in self.changes.to_list()))
-            return self.body(scene, matched) if matched else Ok(None)
-
-        return FrameHandler(handlers=self.handlers, body=entry).acquisitions(identity)
+        updates = tuple(item for item in depsgraph.updates if isinstance(item.id, self.ids) and self.changes.map(lambda kinds: bool(changed(item) & kinds)).default_value(True))
+        return self.body(scene, updates) if updates else Ok(None)
 
 
-class ImportHandler(msgspec.Struct, frozen=True, kw_only=True):
+class ImportHandler(Handler[Callable[[bpy.types.BlendImportContext], None]], frozen=True, kw_only=True):
     """Append or link callback receiving read-only import context."""
 
-    handlers: Handlers[Callable[[bpy.types.BlendImportContext], None]]
     body: Callable[[bpy.types.BlendImportContext], BlenderResult[None]]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds import callback acquisition.
-
-        Args:
-            identity: Extension with reports holding callback faults.
-
-        Returns:
-            Ok of one app-handler acquisition.
-        """
+    @override
+    def entry(self, identity: Identity, /) -> Callable[[bpy.types.BlendImportContext], None]:
         body = identity.reports.reported(self.body)
-
-        def entry(context: bpy.types.BlendImportContext) -> None:
-            """Runs import body through reports."""
-            return body(context).to_optional()
-
-        return Ok(((Band.APP_HANDLERS, appended(identity, self.handlers, entry)),))
+        return lambda context: body(context).to_optional()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -198,6 +178,19 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def staged(identity: Identity, scene: bpy.types.Scene) -> bool:
+    """Answers whether scene is one of extension's runtime scenes.
+
+    Args:
+        identity: Extension whose manifest ID marks its runtime scenes.
+        scene: Scene a callback received.
+
+    Returns:
+        True for a runtime scene holding the extension's mark.
+    """
+    return scene.is_runtime_data and identity.manifest.id in scene  # type: ignore[operator]
 
 
 def changed(update: bpy.types.DepsgraphUpdate) -> Change:
@@ -239,4 +232,21 @@ def appended[E](identity: Identity, handlers: Handlers[E], entry: E) -> Generato
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Change", "Dispatcher", "FrameHandler", "Handlers", "ImportHandler", "PathHandler", "SceneHandler", "UpdateHandler", "appended", "changed"]
+__all__ = [
+    "LOAD_POST",
+    "LOAD_PRE",
+    "SAVE_POST",
+    "SAVE_PRE",
+    "Change",
+    "Dispatcher",
+    "FrameHandler",
+    "Handler",
+    "Handlers",
+    "ImportHandler",
+    "PathHandler",
+    "SceneHandler",
+    "UpdateHandler",
+    "appended",
+    "changed",
+    "staged",
+]

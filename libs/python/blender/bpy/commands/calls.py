@@ -1,50 +1,116 @@
-"""Operator calls and registered or drawn popups."""
+"""Operator calls, operator placements with property writers, and registered or drawn popups."""
 
+from abc import abstractmethod
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import override, Protocol, TYPE_CHECKING
 
 import _bpy_types
 import bpy
 from expression import Error, Nothing, Ok, Option
 import msgspec
 
+from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.faults import BlenderAbsentFault, BlenderOperatorFault, BlenderResult
+from blender.imaging.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type CalledPopup = MenuPopup | PanelPopup | ShelfPopup
 type Popup = CalledPopup | DrawnMenu | DrawnPopover
 type Operation = Callable[..., set[rna_enums.OperatorReturnItems]]  # type: ignore[explicit-any]
+type Writer = Callable[[bpy.types.OperatorProperties], BlenderResult[None]]
+
+
+class Placed(Protocol):
+    """Operator placement with property writer."""
+
+    def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
+        """Returns operator name and writer."""
+        ...
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class MenuPopup(msgspec.Struct, frozen=True, kw_only=True):
+class Stock(msgspec.Struct, frozen=True, kw_only=True):
+    """Placement of stock operator with RNA property values."""
+
+    operator: Operation
+    values: Mapping[str, Value] = msgspec.field(default_factory=dict)
+
+    def invocation(self, _identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
+        """Resolves stock operator name and property writer."""
+        identifier = self.operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
+        def member(kind: bpy.types.Struct, key: str) -> BlenderResult[Descriptor]:
+            return (
+                Option
+                .of_optional(kind.properties.get(key))
+                .map(lambda prop: Descriptor(root=bpy.types.OperatorProperties, owner="", prop=prop))
+                .to_result_with(lambda: (BlenderAbsentFault(owner=identifier, key=key),))
+            )
+
+        try:
+            kind = self.operator.get_rna_type()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        except KeyError:
+            return Error((BlenderAbsentFault(owner="bpy.ops", key=identifier),))
+        return accumulated(member(kind, key) for key in self.values).map(
+            lambda members: (identifier, lambda properties: accumulated(descriptor.write(properties, self.values[descriptor.prop.identifier]) for descriptor in members).map(lambda _: None))
+        )
+
+
+class CalledPopup(msgspec.Struct, frozen=True, kw_only=True):
+    """Registered menu, panel, or shelf the window manager opens through its call operator."""
+
+    @abstractmethod
+    def stock(self, identity: Identity, /) -> BlenderResult[Stock]:
+        """Returns the window manager call operator with its properties."""
+        ...
+
+    def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
+        """Returns call operator name and property writer."""
+        return self.stock(identity).bind(lambda stock: stock.invocation(identity))
+
+
+class MenuPopup(CalledPopup, frozen=True, kw_only=True):
     """Registered menu opened as popup or pie."""
 
     menu: type[_bpy_types.Menu] | Key
     pie: bool = False
 
+    @override
+    def stock(self, identity: Identity, /) -> BlenderResult[Stock]:
+        """Returns `wm.call_menu_pie` or `wm.call_menu` over the menu idname."""
+        return idname(identity, Name.MENU, self.menu).map(lambda name: Stock(operator=bpy.ops.wm.call_menu_pie if self.pie else bpy.ops.wm.call_menu, values={"name": name}))
 
-class PanelPopup(msgspec.Struct, frozen=True, kw_only=True):
+
+class PanelPopup(CalledPopup, frozen=True, kw_only=True):
     """Registered panel opened as popover."""
 
     panel: type[_bpy_types.Panel] | Key
     keep_open: bool = True
     auto_keymap: bool = False
 
+    @override
+    def stock(self, identity: Identity, /) -> BlenderResult[Stock]:
+        """Returns `wm.call_panel` over the panel idname."""
+        return idname(identity, Name.PANEL, self.panel).map(lambda name: Stock(operator=bpy.ops.wm.call_panel, values={"name": name, "keep_open": self.keep_open, "auto_keymap": self.auto_keymap}))
 
-class ShelfPopup(msgspec.Struct, frozen=True, kw_only=True):
+
+class ShelfPopup(CalledPopup, frozen=True, kw_only=True):
     """Registered asset shelf opened as popover."""
 
     shelf: type[_bpy_types.AssetShelf] | Key
+
+    @override
+    def stock(self, identity: Identity, /) -> BlenderResult[Stock]:
+        """Returns `wm.call_asset_shelf_popover` over the shelf idname."""
+        return idname(identity, Name.SHELF, self.shelf).map(lambda name: Stock(operator=bpy.ops.wm.call_asset_shelf_popover, values={"name": name}))
 
 
 class DrawnMenu(msgspec.Struct, frozen=True, kw_only=True):
@@ -67,6 +133,16 @@ class DrawnPopover(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def given[V](properties: Mapping[str, V | Option[V]]) -> dict[str, V]:
+    """Keywords with Option values unwrapped and Nothing-valued entries left out."""
+    return {key: value for key, held in properties.items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
+
+
+def idname(identity: Identity, form: Name, target: type[_bpy_types.Panel | _bpy_types.Menu | _bpy_types.AssetShelf] | Key) -> BlenderResult[str]:
+    """Resolves an extension key under its host name form, or a stock class's RNA identifier."""
+    return identity.name(form, target) if isinstance(target, str) else Ok(target.bl_rna.identifier)
+
+
 def called(
     operator: Operation,
     properties: Mapping[str, object],
@@ -77,31 +153,17 @@ def called(
     override: Option["bpy.types.ContextTempOverride"] = Nothing,
 ) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
     """Calls operator, leaving Nothing-valued properties unset."""
-    given = {key: value for key, held in properties.items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
-    idname = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    request = f"bpy.ops.{idname}({', '.join(f'{key}={value!r}' for key, value in given.items())})"
+    keywords = given(properties)
+    identifier = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    request = f"bpy.ops.{identifier}({', '.join(f'{key}={value!r}' for key, value in keywords.items())})"
     try:
         with override.default_with(nullcontext):
-            answer = frozenset(operator(context, undo, **given))
+            answer = frozenset(operator(context, undo, **keywords))
     except AttributeError:
-        return Error((BlenderAbsentFault(owner="bpy.ops", key=idname),))
+        return Error((BlenderAbsentFault(owner="bpy.ops", key=identifier),))
     except RuntimeError as error:
         return Error((BlenderOperatorFault(request=request, error=error),))
     return Ok(answer) if not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")) else Error((BlenderOperatorFault(request=request, error=answer),))
-
-
-def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Operation, dict[str, str | bool]]]:
-    """Returns registered popup operator and properties."""
-    target: type[_bpy_types.Menu | _bpy_types.Panel | _bpy_types.AssetShelf] | Key
-    match popup:
-        case MenuPopup(menu=menu, pie=pie):
-            target, form, operator, values = menu, Name.MENU, bpy.ops.wm.call_menu_pie if pie else bpy.ops.wm.call_menu, {}
-        case PanelPopup(panel=panel, keep_open=keep_open, auto_keymap=auto_keymap):
-            target, form, operator, values = panel, Name.PANEL, bpy.ops.wm.call_panel, {"keep_open": keep_open, "auto_keymap": auto_keymap}
-        case ShelfPopup(shelf=shelf):
-            target, form, operator, values = shelf, Name.SHELF, bpy.ops.wm.call_asset_shelf_popover, {}
-    named = identity.name(form, target) if isinstance(target, str) else Ok(target.bl_rna.identifier)
-    return named.map(lambda identifier: (operator, {"name": identifier} | values))
 
 
 def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, identity: Identity) -> BlenderResult[None]:
@@ -112,8 +174,8 @@ def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, ide
             draw(layout, held)
 
     match popup, context.window_manager:
-        case (MenuPopup() | PanelPopup() | ShelfPopup()) as registered, _:
-            return resolved(registered, identity).bind(lambda pair: called(*pair, context="INVOKE_DEFAULT")).map(lambda _: None)
+        case CalledPopup() as registered, _:
+            return registered.stock(identity).bind(lambda stock: called(stock.operator, stock.values, context="INVOKE_DEFAULT")).map(lambda _: None)
         case DrawnMenu(draw=draw, title=title, icon=icon, pie=True), bpy.types.WindowManager() as manager:
             manager.popup_menu_pie(event, partial(painted, draw), title=title, icon=icon)
         case DrawnMenu(draw=draw, title=title, icon=icon), bpy.types.WindowManager() as manager:
@@ -127,4 +189,4 @@ def opened(popup: Popup, context: bpy.types.Context, event: bpy.types.Event, ide
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CalledPopup", "DrawnMenu", "DrawnPopover", "MenuPopup", "Operation", "PanelPopup", "Popup", "ShelfPopup", "called", "opened", "resolved"]
+__all__ = ["CalledPopup", "DrawnMenu", "DrawnPopover", "MenuPopup", "Operation", "PanelPopup", "Placed", "Popup", "ShelfPopup", "Stock", "Writer", "called", "given", "idname", "opened"]

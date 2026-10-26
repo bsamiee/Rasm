@@ -1,8 +1,9 @@
-"""Scene-linear scope charts and false-color legends."""
+"""Scene-linear scope charts."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
+from contextlib import contextmanager
 import math
-from typing import ClassVar, Self
+from typing import ClassVar, Protocol, Self
 
 import bpy
 from expression import Nothing, Ok, Option, Some
@@ -14,15 +15,26 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.data.ids import images
-from blender.bpy.faults import BlenderImagingFault, BlenderResult
-from blender.bpy.ui.drawing.canvas import Align, Canvas, Rect
-from blender.bpy.ui.resources.textures import uploaded
-from blender.bpy.ui.resources.theme import CLEAR, Color, Metrics, Shipped
-from blender.imaging.analysis.scopes import Bands, Chromaticity, chromaticity_of, Histogram, histogram_of
-from blender.imaging.chain import GREY
+from blender.bpy.faults import BlenderResult
+from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, Rect
+from blender.bpy.ui.resources.theme import CLEAR, Color, Look, Metrics, Shipped, Sizes
+from blender.imaging.analysis.scopes import Bands, Chromaticity, Histogram
 from blender.imaging.color import observer
-from blender.imaging.color.processors import applied, DisplayView, processor
+from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.faults import paired
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class Plot(Protocol):
+    """Cached chart geometry drawing itself in its well."""
+
+    def drawn(self, canvas: Canvas, /) -> None:
+        """Draws chart on canvas."""
+        ...
+
+
+type Source = Callable[[], BlenderResult[Option[ChartFrame]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -45,10 +57,10 @@ class ChartFrame(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         match self.pixels:
             case bpy.types.Image() as image:
                 return images.read(image, config).bind(
-                    lambda file: (
-                        processor(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
-                        .map(lambda built: applied(built.getDefaultCPUProcessor(), np.repeat(file.pixels, 3, axis=-1) if file.pixels.shape[-1] == 1 else file.pixels))
-                        .map_error(BlenderImagingFault.lifted)
+                    lambda file: converted(
+                        config,
+                        PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR),
+                        np.repeat(file.pixels, 3, axis=-1) if file.pixels.shape[-1] == 1 else file.pixels,
                     )
                 )
             case np.ndarray() as plane:
@@ -56,15 +68,22 @@ class ChartFrame(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Well(msgspec.Struct, frozen=True, kw_only=True):
-    """Black chart well of the stock scopes, its inks read from the shared well looks."""
+    """Black chart well of the stock scopes, its inks and sizes read from the shared well looks and metrics."""
 
-    ground: ClassVar[Color] = Shipped.read().look("well").color("fill")
-    rim: ClassVar[Color] = Shipped.read().look("well").color("edge")
-    fine: ClassVar[Color] = Shipped.read().look("grid-fine").color("edge")
-    grid: ClassVar[Color] = Shipped.read().look("grid").color("edge")
-    major: ClassVar[Color] = Shipped.read().look("major").color("edge")
-    trace: ClassVar[Color] = Shipped.read().look("trace").color("edge")
-    label: ClassVar[Color] = Shipped.read().look("label").color("text")
+    look: ClassVar[Look] = Shipped.read().look("well")
+    sizes: ClassVar[Sizes] = Shipped.read().sizes("well")
+    ground: ClassVar[Color] = look.fill
+    rim: ClassVar[Color] = look.edge
+    fine: ClassVar[Color] = look.scoped("grid-fine").edge
+    grid: ClassVar[Color] = look.scoped("grid").edge
+    major: ClassVar[Color] = look.scoped("major").edge
+    trace: ClassVar[Color] = look.scoped("trace").edge
+    trace_mode: ClassVar[Blend] = look.scoped("trace").mode
+    label: ClassVar[Color] = look.scoped("label").text
+    grid_stroke: ClassVar[float] = Shipped.read().sizes("grid").stroke
+    major_stroke: ClassVar[float] = Shipped.read().sizes("major").stroke
+    trace_stroke: ClassVar[float] = Shipped.read().sizes("trace").stroke
+    label_size: ClassVar[float] = Shipped.read().sizes("label").font_size
     width: float
     height: float
 
@@ -82,16 +101,6 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
         square = cls(width=float(metrics.unit * 10), height=float(metrics.unit * 10))
         return msgspec.structs.replace(square, height=square.plot.width * float(extent[1] / extent[0]) + square.height - square.plot.height)
 
-    @classmethod
-    def inset(cls, metrics: Metrics) -> float:
-        """Returns well margin from region edges."""
-        return metrics.sized("well", "inset")
-
-    @classmethod
-    def font(cls, metrics: Metrics) -> float:
-        """Returns label font size in device pixels."""
-        return metrics.sized("label", "type")
-
     @property
     def plot(self) -> Rect:
         """Plot rectangle one pixel inside the well."""
@@ -99,13 +108,25 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [DRAWING]
 
-    def under(self, canvas: Canvas) -> None:
-        """Draws rounded black background."""
-        canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.ground, CLEAR, canvas.metrics.sized("well", "radius"))
+    @contextmanager
+    def placed(self, canvas: Canvas, x: float, y: float) -> Generator[None]:
+        """Draws the rounded black background at a corner, the body, then the outline above the lower edge."""
+        radius = float(canvas.metrics.scaled(Well.sizes.radius))
+        with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
+            gpu.matrix.translate((x, y))
+            canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.ground, CLEAR, radius)
+            try:
+                yield
+            finally:
+                canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), CLEAR, self.rim, radius)
 
-    def over(self, canvas: Canvas) -> None:
-        """Draws outline above lower edge."""
-        canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), CLEAR, self.rim, canvas.metrics.sized("well", "radius"))
+    @staticmethod
+    def ruled(canvas: Canvas, strokes: Iterable[tuple[gpu.types.GPUBatch, Color, float]]) -> None:
+        """Draws line batches at their role's stroke width."""
+        for batch, color, width in strokes:
+            shader = canvas.lines(width)
+            shader.uniform_float("color", color)
+            batch.draw(shader)
 
 
 class Grid(msgspec.Struct, frozen=True, kw_only=True):
@@ -117,7 +138,7 @@ class Grid(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Cached line chart geometry in a well."""
+    """Cached line chart geometry in a well, drawn at the lower-left corner."""
 
     well: Well
     grid: gpu.types.GPUBatch
@@ -173,36 +194,21 @@ class TracePlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             caption=caption,
         )
 
-
-class Outline(msgspec.Struct, frozen=True, kw_only=True):
-    """Read-only line chart over cached trace geometry."""
-
-    read: Callable[[Metrics], BlenderResult[Option[TracePlot]]]
-
-    def drawn(self, canvas: Canvas, geometry: TracePlot) -> None:
+    def drawn(self, canvas: Canvas) -> None:
         """Draws chart at lower-left corner."""
-        inset, points, plot = Well.inset(canvas.metrics), Well.font(canvas.metrics), geometry.well.plot
+        inset, points, plot = float(canvas.metrics.scaled(Well.sizes.inset)), canvas.metrics.points(Well.label_size), self.well.plot
         x, y = canvas.extent.x + inset, canvas.extent.y + inset
-        with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
-            gpu.matrix.translate((x, y))
-            geometry.well.under(canvas)
-            for batch, color, role in ((geometry.grid, geometry.rule, "grid"), (geometry.majors, Well.major, "major"), *((ticks, Well.major, "major") for ticks in geometry.ticks.to_list())):
-                shader = canvas.lines(Shipped.read().metric(role, "stroke"))
-                shader.uniform_float("color", color)
-                batch.draw(shader)
-            with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)), Canvas.blended("ADDITIVE"):
-                stroke = canvas.lines(Shipped.read().metric("trace", "stroke"))
-                for batch, color in geometry.traces:
-                    stroke.uniform_float("color", color)
-                    batch.draw(stroke)
-            for text, at_x, at_y, align in geometry.labels:
+        with self.well.placed(canvas, x, y):
+            Well.ruled(canvas, ((self.grid, self.rule, Well.grid_stroke), (self.majors, Well.major, Well.major_stroke), *((ticks, Well.major, Well.major_stroke) for ticks in self.ticks.to_list())))
+            with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)), Canvas.blended(Well.trace_mode):
+                Well.ruled(canvas, ((batch, color, Well.trace_stroke) for batch, color in self.traces))
+            for text, at_x, at_y, align in self.labels:
                 canvas.label(text, (at_x + points / 2 * (1 - 2 * align.value), at_y + points / 2), Well.label, points, align)
-            canvas.label(geometry.caption, (plot.x + points / 2, plot.y + plot.height - points * 1.5), Well.label, points)
-            geometry.well.over(canvas)
+            canvas.label(self.caption, (plot.x + points / 2, plot.y + plot.height - points * 1.5), Well.label, points)
 
 
 class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Cached chromaticity geometry at one interface scale."""
+    """Cached chromaticity geometry at one interface scale, drawn at the lower-right corner."""
 
     well: Well
     grid: gpu.types.GPUBatch
@@ -262,121 +268,44 @@ class GamutPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             lines=(*block(working, Well.label), *(line for named in display.to_list() for line in block(named, Well.label))),
         )
 
-
-class Gamuts(msgspec.Struct, frozen=True, kw_only=True):
-    """Chromaticity density with working and display gamuts."""
-
-    source: Callable[[], BlenderResult[Option[ChartFrame]]]
-
-    def read(self, metrics: Metrics) -> BlenderResult[Option[GamutPlot]]:
-        """Reads chromaticities at plot cell size."""
-        config, plot = PyOpenColorIO.GetCurrentConfig(), Well.gamut(metrics).plot
-
-        def charted(frame: ChartFrame) -> BlenderResult[GamutPlot]:
-            """Builds diagram from scene-linear frame."""
-            return (
-                frame
-                .plane(config)
-                .bind(lambda plane: chromaticity_of(config, plane, frame.view, (round(plot.width), round(plot.height))).map_error(BlenderImagingFault.lifted))
-                .map(lambda reading: GamutPlot.of(metrics, reading, config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(), frame.view.colorspace(config)))
-            )
-
-        return self.source().bind(lambda frame: frame.map(lambda held: charted(held).map(Some)).default_value(Ok(Nothing)))
-
-    def drawn(self, canvas: Canvas, geometry: GamutPlot) -> None:
+    def drawn(self, canvas: Canvas) -> None:
         """Draws diagram at lower-right corner."""
-        inset, points, plot = Well.inset(canvas.metrics), Well.font(canvas.metrics), geometry.well.plot
-        x, y = canvas.extent.x + canvas.extent.width - inset - geometry.well.width, canvas.extent.y + inset
+        inset, points, plot = float(canvas.metrics.scaled(Well.sizes.inset)), canvas.metrics.points(Well.label_size), self.well.plot
+        x, y = canvas.extent.x + canvas.extent.width - inset - self.well.width, canvas.extent.y + inset
         pitch = points + canvas.metrics.spacing.button_y
-        with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
-            gpu.matrix.translate((x, y))
-            geometry.well.under(canvas)
-            with canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)):
-                for batch, color, role in (
-                    (geometry.grid, Well.grid, "grid"),
-                    (geometry.locus, Well.major, "major"),
-                    (geometry.ticks, Well.major, "major"),
-                    *((display, Well.major, "major") for display in geometry.display.to_list()),
-                    (geometry.working, Well.trace, "trace"),
-                ):
-                    shader = canvas.lines(Shipped.read().metric(role, "stroke"))
-                    shader.uniform_float("color", color)
-                    batch.draw(shader)
-                with Canvas.blended("ADDITIVE"):
-                    for trace in geometry.trace.to_list():
-                        trace.draw(canvas.points())
-                for index, (text, color) in enumerate(geometry.lines, 1):
-                    canvas.label(text, (plot.x + plot.width - points / 2, plot.y + plot.height - points / 2 - index * pitch), color, points, Align.END)
-            geometry.well.over(canvas)
+        with self.well.placed(canvas, x, y), canvas.clipped(msgspec.structs.replace(plot, x=x + plot.x, y=y + plot.y)):
+            Well.ruled(
+                canvas,
+                (
+                    (self.grid, Well.grid, Well.grid_stroke),
+                    (self.locus, Well.major, Well.major_stroke),
+                    (self.ticks, Well.major, Well.major_stroke),
+                    *((display, Well.major, Well.major_stroke) for display in self.display.to_list()),
+                    (self.working, Well.trace, Well.trace_stroke),
+                ),
+            )
+            with Canvas.blended(Well.trace_mode):
+                for trace in self.trace.to_list():
+                    trace.draw(canvas.points())
+            for index, (text, color) in enumerate(self.lines, 1):
+                canvas.label(text, (plot.x + plot.width - points / 2, plot.y + plot.height - points / 2 - index * pitch), color, points, Align.END)
 
 
-class KeyPlot(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """False-color legend with exposure labels."""
+class Plotted[S: Plot](msgspec.Struct, frozen=True, kw_only=True):
+    """Part reading chart geometry per interface scale and drawing it in its well."""
 
-    well: Well
-    bar: Rect
-    texture: gpu.types.GPUTexture
-    labels: tuple[tuple[str, float, float], ...]
+    read: Callable[[Metrics], BlenderResult[Option[S]]]
 
     @staticmethod
-    def of(metrics: Metrics, bands: Bands) -> "BlenderResult[KeyPlot]":
-        """Builds nearest-filtered key."""
-        points, pad, width = Well.font(metrics), float(metrics.spacing.template), float(metrics.unit * 20)
-        stops = np.log2(bands.edges / GREY)
-        low, high = np.min(stops, initial=0.0) - 1.0, np.max(stops, initial=0.0) + 1.0
-        bar = Rect(x=pad, y=2 * pad + points, width=width - 2 * pad, height=float(metrics.unit // 2))
-        columns = round(bar.width)
-        values = GREY * np.exp2(low + (np.arange(columns) + 0.5) / columns * (high - low))
-        pixels = np.concatenate((bands.colors[np.searchsorted(bands.edges, values)], np.ones((columns, 1), np.float32)), axis=-1)[None]
-
-        def keyed(texture: gpu.types.GPUTexture) -> KeyPlot:
-            texture.filter_mode(False)
-            return KeyPlot(
-                well=Well(width=width, height=bar.y + bar.height + 2 * pad + points),
-                bar=bar,
-                texture=texture,
-                labels=tuple((f"{stop:+.1f}", bar.x + (stop - low) / (high - low) * bar.width, pad if index % 2 == 0 else bar.y + bar.height + pad) for index, stop in enumerate(stops)),
-            )
-
-        return uploaded(pixels).map(keyed)
-
-
-class FalseColor(msgspec.Struct, frozen=True, kw_only=True):
-    """False-color bands in stops from middle gray."""
-
-    source: Callable[[], BlenderResult[Option[DisplayView]]]
-
-    def read(self, metrics: Metrics) -> BlenderResult[Option[KeyPlot]]:
-        """Builds key at default display."""
-        config = PyOpenColorIO.GetCurrentConfig()
-
-        def keyed(view: DisplayView) -> BlenderResult[Option[KeyPlot]]:
-            """Builds key when view has constant bands."""
-            return (
-                Bands
-                .of(config, msgspec.structs.replace(view, display=config.getDefaultDisplay()))
-                .map_error(BlenderImagingFault.lifted)
-                .bind(lambda bands: bands.map(lambda held: KeyPlot.of(metrics, held).map(Some)).default_value(Ok(Nothing)))
-            )
-
-        return self.source().bind(lambda view: view.map(keyed).default_value(Ok(Nothing)))
-
-    def drawn(self, canvas: Canvas, geometry: KeyPlot) -> None:
-        """Draws key at upper-left corner."""
-        inset, points = Well.inset(canvas.metrics), Well.font(canvas.metrics)
-        with gpu.matrix.push_pop():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
-            gpu.matrix.translate((canvas.extent.x + inset, canvas.extent.y + canvas.extent.height - inset - geometry.well.height))
-            geometry.well.under(canvas)
-            canvas.picture(geometry.texture, geometry.bar, gpu.shader.from_builtin("IMAGE_COLOR"), blend="ALPHA")
-            for text, x, y in geometry.labels:
-                canvas.label(text, (x, y), Well.label, points, Align.CENTER)
-            geometry.well.over(canvas)
+    def drawn(canvas: Canvas, plot: S, /) -> None:
+        """Draws the plot on canvas."""
+        plot.drawn(canvas)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def histogram(source: Callable[[], BlenderResult[Option[ChartFrame]]], metrics: Metrics) -> BlenderResult[Option[TracePlot]]:
+def histogram(source: Source, metrics: Metrics) -> BlenderResult[Option[TracePlot]]:
     """Returns scene-linear histogram with exposure-band ticks."""
     config = PyOpenColorIO.GetCurrentConfig()
 
@@ -397,13 +326,26 @@ def histogram(source: Callable[[], BlenderResult[Option[ChartFrame]]], metrics: 
                 caption=config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(),
             )
 
-        return paired(
-            frame.plane(config).bind(lambda plane: histogram_of(config, plane).map_error(BlenderImagingFault.lifted)), Bands.of(config, frame.view).map_error(BlenderImagingFault.lifted)
-        ).map(plotted)
+        return paired(frame.plane(config).bind(lambda plane: Histogram.of(config, plane)), Bands.of(config, frame.view)).map(plotted)
 
     return source().bind(lambda frame: frame.map(lambda held: traced(held).map(Some)).default_value(Ok(Nothing)))
 
 
+def gamuts(source: Source, metrics: Metrics) -> BlenderResult[Option[GamutPlot]]:
+    """Returns chromaticity density with working and display gamuts at plot cell size."""
+    config, plot = PyOpenColorIO.GetCurrentConfig(), Well.gamut(metrics).plot
+
+    def charted(frame: ChartFrame) -> BlenderResult[GamutPlot]:
+        return (
+            frame
+            .plane(config)
+            .bind(lambda plane: Chromaticity.of(config, plane, frame.view, (round(plot.width), round(plot.height))))
+            .map(lambda reading: GamutPlot.of(metrics, reading, config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName(), frame.view.colorspace(config)))
+        )
+
+    return source().bind(lambda frame: frame.map(lambda held: charted(held).map(Some)).default_value(Ok(Nothing)))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ChartFrame", "FalseColor", "GamutPlot", "Gamuts", "Grid", "KeyPlot", "Outline", "TracePlot", "Well", "histogram"]
+__all__ = ["ChartFrame", "GamutPlot", "Grid", "Plot", "Plotted", "Source", "TracePlot", "Well", "gamuts", "histogram"]

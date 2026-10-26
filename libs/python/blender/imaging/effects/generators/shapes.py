@@ -7,7 +7,7 @@ from expression import Some
 import msgspec
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.effects.generators.noise import Basis, Cut, Emission, Fractal, Interpolation, Octaves, Perlin, Profile, Tint
+from blender.imaging.effects.generators.noise import Basis, Emission, Profile, RIDGED, Tint
 from blender.imaging.geometry.stmaps import Extension
 from blender.imaging.parameters import (
     AtLeastOne,
@@ -84,12 +84,12 @@ class Ellipse(Case, frozen=True, kw_only=True, tag=2):
 class Triangle(Case, frozen=True, kw_only=True, tag=3):
     """Triangle with vertices offset from figure position."""
 
-    a: Annotated[tuple[Finite, Finite], msgspec.Meta(title="Vertex A", description="First vertex offset over greater frame side"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (0.0, 0.1)
-    b: Annotated[tuple[Finite, Finite], msgspec.Meta(title="Vertex B", description="Second vertex offset over greater frame side"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (
+    a: Annotated[tuple[Finite, Finite], msgspec.Meta(title="Vertex A", description="First vertex offset over greater frame side"), Presentation(quantity=Some(Quantity.FRAME))] = (0.0, 0.1)
+    b: Annotated[tuple[Finite, Finite], msgspec.Meta(title="Vertex B", description="Second vertex offset over greater frame side"), Presentation(quantity=Some(Quantity.FRAME))] = (
         -0.05 * math.sqrt(3.0),
         -0.05,
     )
-    c: Annotated[tuple[Finite, Finite], msgspec.Meta(title="Vertex C", description="Third vertex offset over greater frame side"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (
+    c: Annotated[tuple[Finite, Finite], msgspec.Meta(title="Vertex C", description="Third vertex offset over greater frame side"), Presentation(quantity=Some(Quantity.FRAME))] = (
         0.05 * math.sqrt(3.0),
         -0.05,
     )
@@ -305,9 +305,7 @@ class Shapes(Effect, frozen=True, kw_only=True, tag=34):
     emission: Annotated[Gated[Emission], msgspec.Meta(description="Light the field adds")] = Gated(enabled=False, value=Emission(spectrum=Tint()))
     softness: Annotated[FrameLength, msgspec.Meta(description="Edge ramp past one pixel over greater frame side"), Presentation(soft=Some((0.0, 0.02)))] = 0.0
     roughness: Annotated[FrameLength, msgspec.Meta(description="Edge displacement amplitude"), Presentation(soft=Some((0.0, 0.05)))] = 0.0
-    edge_noise: Annotated[Basis, msgspec.Meta(description="Texture displacing field before coverage")] = Perlin(
-        size=0.4, stretch=1.0, fractal=Fractal.RIDGED_MULTIFRACTAL, octaves=Octaves(detail=15.0, roughness=0.9), distortion=1.9, gain=74.5, cut=Cut(interpolation=Interpolation.LINEAR)
-    )
+    edge_noise: Annotated[Basis, msgspec.Meta(description="Texture displacing field before coverage")] = RIDGED
     seed: Annotated[Seed, msgspec.Meta(description="Number selecting edge noise pattern")] = 0
     invert: Annotated[bool, msgspec.Meta(description="Fill outside field")] = False
 

@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-coerced-rna-array-read
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+utils:
+    reader:
+        kind: 'identifier, attribute'
+        all: [{matches: {builtins-attribute-function: {name: {regex: '^getattr$'}}}}]
+    length:
+        kind: 'identifier, attribute'
+        all: [{matches: {python-builtin-name: {name: {regex: '^len$'}}}}]
+    converter:
+        kind: 'identifier, attribute'
+        all: [{matches: {python-member-use: {module: {regex: '^numpy$'}, name: {regex: '^(asarray|array)$'}}}}]
+    identifier-read:
+        kind: attribute
+        has: {field: attribute, regex: '^identifier$'}
+    member-name:
+        any:
+            - matches: identifier-read
+            - kind: identifier
+              all: [{matches: {python-assigned-name: {value: {matches: identifier-read}}}}]
+    coerced:
+        kind: call
+        any:
+            - all:
+                - has: {field: function, matches: reader}
+                - has: {field: arguments, kind: argument_list, has: {nthChild: 2, matches: member-name}}
+                - not: {has: {field: arguments, kind: argument_list, has: {nthChild: 3}}}
+            - all:
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^path_resolve$'}}
+                - has: {field: arguments, kind: argument_list, has: {nthChild: 1}}
+                - not: {has: {field: arguments, kind: argument_list, has: {nthChild: 2, not: {kind: 'true'}}}}
+rule:
+    kind: call
+    any:
+        - all:
+            - has: {field: function, matches: length}
+            - has: {field: arguments, kind: argument_list, has: {nthChild: 1, pattern: $VALUE, matches: coerced}}
+        - all:
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(ravel|flatten)$'}}
+            - has:
+                field: function
+                kind: attribute
+                has:
+                    field: object
+                    kind: call
+                    all:
+                        - has: {field: function, matches: converter}
+                        - has: {field: arguments, kind: argument_list, has: {nthChild: 1, pattern: $VALUE, matches: coerced}}
+message: '`$VALUE` coerces RNA arrays, a 9- or 16-item `MATRIX` one to `Matrix` rows transposed from stored order'
+note: 'Read `<owner>.path_resolve(<member>, False)`, or `Descriptor.read` for a member of any kind'

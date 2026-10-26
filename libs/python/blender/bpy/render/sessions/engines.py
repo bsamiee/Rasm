@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
-from typing import Annotated, ClassVar, Literal
+from typing import Annotated, ClassVar, Final, Literal
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result
@@ -10,33 +10,32 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
+from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.render.outputs.exports import COMBINED
 from blender.imaging.faults import accumulated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type PassKind = Literal["VALUE", "VECTOR", "COLOR"]
+
+class Captured(msgspec.Struct, frozen=True, kw_only=True):
+    """Replayed tile key: frame, scene session UID, view layer, and view."""
+
+    frame: int
+    scene: int
+    layer: str
+    view: str
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+FLAGS: Final = tuple(prop for prop in bpy.types.RenderEngine.bl_rna.properties if isinstance(prop, bpy.types.BoolProperty) and prop.identifier.startswith("bl_"))
+POSTPROCESS: Final = Descriptor.declared(bpy.types.RenderEngine, "bl_use_postprocess", bpy.types.BoolProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Traits(msgspec.Struct, frozen=True, kw_only=True):
-    """Engine `bl_` flags without their prefix."""
-
-    use_preview: bool = False
-    use_postprocess: bool = False
-    use_eevee_viewport: bool = False
-    use_custom_freestyle: bool = False
-    use_image_save: bool = True
-    use_gpu_context: bool = False
-    use_shading_nodes_custom: bool = True
-    use_spherical_stereo: bool = False
-    use_stereo_viewport: bool = False
-    write_viewport_depth: bool = False
-    use_materialx: bool = False
 
 
 class Pass(msgspec.Struct, frozen=True, kw_only=True):
@@ -44,16 +43,11 @@ class Pass(msgspec.Struct, frozen=True, kw_only=True):
 
     name: str
     chanid: Annotated[str, msgspec.Meta(min_length=1, max_length=8)]
-    kind: PassKind
 
-
-class Shot(msgspec.Struct, frozen=True, kw_only=True):
-    """Engine with its render depsgraph, scene, and view layer."""
-
-    engine: bpy.types.RenderEngine
-    depsgraph: bpy.types.Depsgraph
-    scene: bpy.types.Scene
-    layer: bpy.types.ViewLayer
+    @property
+    def kind(self) -> Literal["VALUE", "VECTOR", "COLOR"]:
+        """Registered pass type: one channel a value, RGB or RGBA a color, others a vector."""
+        return "VALUE" if len(self.chanid) == 1 else "COLOR" if self.chanid in {"RGB", "RGBA"} else "VECTOR"
 
 
 class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -64,6 +58,40 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     planes: tuple[tuple[Pass, npt.NDArray[np.float32]], *tuple[tuple[Pass, npt.NDArray[np.float32]], ...]]
     view: Option[str] = Nothing
     stamps: tuple[tuple[str, str], ...] = ()
+
+
+class Shot(msgspec.Struct, frozen=True, kw_only=True):
+    """Engine with its render depsgraph, scene, and view layer."""
+
+    engine: bpy.types.RenderEngine
+    depsgraph: bpy.types.Depsgraph
+    scene: bpy.types.Scene
+    layer: bpy.types.ViewLayer
+
+    def written(self, tiles: Iterable[BlenderResult[Tile]]) -> BlenderResult[int]:
+        """Writes tiles until cancellation or first fault, returning written count."""
+        count, area = 0, 0
+        for answer in tiles:
+            if self.engine.test_break():
+                break
+            match answer:
+                case Result(tag="error", error=faults):
+                    return Error(faults)
+                case Result(ok=tile):
+                    height, width = tile.planes[0][1].shape[:2]
+                    if (result := self.engine.begin_result(tile.x, tile.y, width, height, layer=self.layer.name, view=tile.view.default_value(""))) is None:
+                        continue
+                    try:
+                        for pass_, plane in tile.planes:
+                            result.layers[0].passes[pass_.name].rect.foreach_set(plane[-result.resolution_y :, : result.resolution_x][::-1].ravel())  # type: ignore[arg-type]
+                        for field, value in tile.stamps:
+                            result.stamp_data_add_field(field, value)
+                        area += result.resolution_x * result.resolution_y
+                        count += 1
+                    finally:
+                        self.engine.end_result(result, cancel=self.engine.test_break())
+                    self.engine.update_progress(area / (self.engine.resolution_x * self.engine.resolution_y))
+        return Ok(count)
 
 
 class Baking(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -85,13 +113,13 @@ class Viewport(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Engine(msgspec.Struct, frozen=True, kw_only=True):
-    """Render engine built from traits and callback bodies."""
+    """Render engine built from enabled `bl_` flags, others at their RNA default, and callback bodies."""
 
-    combined: ClassVar[Pass] = Pass(name="Combined", chanid="RGBA", kind="COLOR")
+    combined: ClassVar[Pass] = Pass(name=COMBINED, chanid="RGBA")
     key: Key
     title: str
     render: Callable[[Shot], Iterable[BlenderResult[Tile]]]
-    traits: Traits = Traits()
+    enabled: frozenset[Descriptor[bpy.types.BoolProperty]] = frozenset()
     passes: tuple[Pass, ...] | Callable[[bpy.types.Scene, bpy.types.ViewLayer], tuple[Pass, ...]] = ()
     viewport: Option[Viewport] = Nothing
     bake: Option[Callable[[Baking], BlenderResult[npt.NDArray[np.float32]]]] = Nothing
@@ -117,14 +145,14 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda scene: Option.of_optional(depsgraph.view_layer).map(lambda layer: Shot(engine=engine, depsgraph=depsgraph, scene=scene, layer=layer)))
                 .to_result_with(lambda: (BlenderAbsentFault(owner=repr(depsgraph), key="view_layer"),))
             )
-            for _, text in Result[Shot, BlenderFaults].bind(shot, lambda held: written(held, self.render(held))).swap().map(rendered).default_value(()):
+            for _, text in Result[Shot, BlenderFaults].bind(shot, lambda held: held.written(self.render(held))).swap().map(rendered).default_value(()):
                 engine.report({"ERROR"}, text)
 
         namespace: dict[str, object] = {
             "__module__": identity.package,
             "bl_idname": name,
             "bl_label": self.title,
-            **{f"bl_{field.name}": getattr(self.traits, field.name) for field in msgspec.structs.fields(self.traits)},
+            **{prop.identifier: prop.default or any(prop == descriptor.prop for descriptor in self.enabled) for prop in FLAGS},
             "update_render_passes": update_render_passes,
             "render": render,
         }
@@ -166,29 +194,17 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     @contextmanager
-    def replayed(cls, identity: Identity, key: Key, planes: Mapping[tuple[int, int, str, str], Tile], frame: Callable[[], int]) -> Generator[BlenderResult[str]]:
+    def replayed(cls, identity: Identity, key: Key, planes: Mapping[Captured, Tile], frame: Callable[[], int]) -> Generator[BlenderResult[str]]:
         """Registers postprocess engine replaying captured planes until scope exit."""
 
+        def matching(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Iterable[Tile]:
+            current = frame()
+            return (tile for at, tile in planes.items() if (at.frame, at.scene, at.layer) == (current, scene.session_uid, layer.name))
+
         def passes(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> tuple[Pass, ...]:
-            current = frame()
-            return tuple(
-                {
-                    pass_.name: pass_
-                    for (at, source, name, _view), captured in planes.items()
-                    if at == current and source == scene.session_uid and name == layer.name
-                    for pass_, _image in captured.planes
-                    if pass_.name != cls.combined.name
-                }.values()
-            )
+            return tuple({held.name: held for tile in matching(scene, layer) for held, _image in tile.planes if held.name != cls.combined.name}.values())
 
-        def rendered(shot: Shot) -> Iterable[BlenderResult[Tile]]:
-            current = frame()
-            for (at, source, layer, _view), captured in planes.items():
-                if at != current or source != shot.scene.session_uid or layer != shot.layer.name:
-                    continue
-                yield Ok(captured)
-
-        replay = cls(key=key, title="Captured Render", render=rendered, passes=passes, traits=Traits(use_postprocess=True))
+        replay = cls(key=key, title="Captured Render", render=lambda shot: map(Ok, matching(shot.scene, shot.layer)), passes=passes, enabled=frozenset({POSTPROCESS}))
         with ExitStack() as scope:
             yield identity.name(Name.ENGINE, key).bind(lambda name: entered(scope, (replay.built(identity, name),)).map(lambda _: name))
 
@@ -215,35 +231,6 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
         return identity.name(Name.ENGINE, self.key).map(lambda name: ((Band.INTERFACE, self.built(identity, name)), (Band.INTERFACE, self.joined(name))))
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def written(shot: Shot, tiles: Iterable[BlenderResult[Tile]]) -> BlenderResult[int]:
-    """Writes tiles until cancellation or first fault, returning written count."""
-    count, area = 0, 0
-    for answer in tiles:
-        if shot.engine.test_break():
-            break
-        match answer:
-            case Result(tag="error", error=faults):
-                return Error(faults)
-            case Result(ok=tile):
-                height, width = tile.planes[0][1].shape[:2]
-                if (result := shot.engine.begin_result(tile.x, tile.y, width, height, layer=shot.layer.name, view=tile.view.default_value(""))) is None:
-                    continue
-                try:
-                    for pass_, plane in tile.planes:
-                        result.layers[0].passes[pass_.name].rect.foreach_set(plane[-result.resolution_y :, : result.resolution_x][::-1].ravel())  # type: ignore[arg-type]
-                    for field, value in tile.stamps:
-                        result.stamp_data_add_field(field, value)
-                    area += result.resolution_x * result.resolution_y
-                    count += 1
-                finally:
-                    shot.engine.end_result(result, cancel=shot.engine.test_break())
-                shot.engine.update_progress(area / (shot.engine.resolution_x * shot.engine.resolution_y))
-    return Ok(count)
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Baking", "Engine", "Pass", "PassKind", "Shot", "Tile", "Traits", "Viewport", "written"]
+__all__ = ["FLAGS", "POSTPROCESS", "Baking", "Captured", "Engine", "Pass", "Shot", "Tile", "Viewport"]

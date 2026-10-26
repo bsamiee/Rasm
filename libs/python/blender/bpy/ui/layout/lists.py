@@ -1,13 +1,16 @@
 """Collection lists with computed selection, filtering, and sorting."""
 
+import builtins
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
-from typing import Annotated, Literal
+import typing
+from typing import override
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
+from msgspec import UNSET, UnsetType
 
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Native, struct_at
@@ -15,8 +18,12 @@ from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, entered
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, pointed
-from blender.bpy.ui.layout.rows import acquired, alerted, Line, located, Member, placed, Property, Reach, realized, refused, ResolvedMember, RowContent, RowDraw
+from blender.bpy.settings.shapes import field_shapes
+from blender.bpy.ui.layout.rows import acquired, alerted, At, Call, FUNCTIONS, Member, placed, Property, Reach, realized, refused, ResolvedMember, RowContent, RowDraw
 from blender.imaging.faults import accumulated, paired
+
+if typing.TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -25,7 +32,7 @@ type Where[O: "bpy.types.bpy_struct[object]"] = Condition | Callable[[bpy.types.
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Listed(msgspec.Struct, frozen=True, kw_only=True):
+class _Listed(msgspec.Struct, frozen=True, kw_only=True):
     """List with host names resolved and rows realized."""
 
     name: str
@@ -40,27 +47,28 @@ class Listed(msgspec.Struct, frozen=True, kw_only=True):
     sides: tuple[RowDraw, ...]
 
 
-class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[object]" = "bpy.types.bpy_struct[object]"](Line, frozen=True, kw_only=True):
+class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[object]" = "bpy.types.bpy_struct[object]"](Call, frozen=True, kw_only=True):
     """`UIList` over host collection, attached fields before item columns."""
 
+    function = FUNCTIONS["template_list"]
     key: Key
     collection: Member
     active: Member
-    item: type[O]
+    item: builtins.type[O]
     attachment: Option[Attachment[T]] = Nothing
     columns: tuple[RowContent, ...] = ()
+    side: tuple[RowContent, ...] = ()
+    absent: tuple[RowContent, ...] = ()
     item_dyntip_propname: Option[str] = Nothing
     order: Option[str] = Nothing
     icon: Option[str] = Nothing
     where: Option[Where[O]] = Nothing
     enabled: Option[Callable[[bpy.types.Context, O], BlenderResult[bool]]] = Nothing
-    rows: Annotated[int, msgspec.Meta(ge=1)] = 5
-    maxrows: Annotated[int, msgspec.Meta(ge=1)] = 5
-    layout_type: Literal["DEFAULT", "COMPACT"] = "DEFAULT"
-    sort_reverse: bool = False
-    sort_lock: bool = False
-    side: tuple[RowContent, ...] = ()
-    absent: tuple[RowContent, ...] = ()
+    rows: int | UnsetType = UNSET
+    maxrows: int | UnsetType = UNSET
+    type: "rna_enums.UilistLayoutTypeItems | UnsetType" = UNSET
+    sort_reverse: bool | UnsetType = UNSET
+    sort_lock: bool | UnsetType = UNSET
 
     def selection(self, identity: Identity) -> BlenderResult[Member]:
         """Names selection property on shared owner or window manager."""
@@ -68,8 +76,8 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
         root, reach = (self.active.root, self.active.reach) if shared else (bpy.types.WindowManager, Nothing)
         return identity.name(Name.ATTACHMENT, self.key).map(lambda name: Member(root=root, path=name, reach=reach))
 
-    def resolved(self, identity: Identity) -> BlenderResult[Listed]:
-        """Resolves selection, attached fields, and row draws."""
+    def resolved(self, identity: Identity) -> BlenderResult[_Listed]:
+        """Resolves selection, item members, attached fields, and row draws."""
 
         def itemized(bound: ResolvedMember[bpy.types.CollectionProperty]) -> BlenderResult[tuple[ResolvedMember[bpy.types.CollectionProperty], O, str]]:
             item = bound.descriptor.prop.fixed_type
@@ -82,7 +90,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 .to_result_with(lambda: (BlenderAbsentFault(owner=bound.descriptor.path, key="name_property"),))
             )
 
-        def over(parts: tuple[str, tuple[tuple[ResolvedMember[bpy.types.CollectionProperty], O, str], ResolvedMember]]) -> BlenderResult[Listed]:
+        def over(parts: tuple[str, tuple[tuple[ResolvedMember[bpy.types.CollectionProperty], O, str], ResolvedMember]]) -> BlenderResult[_Listed]:
             name, ((collection, item, label), active) = parts
             match active.descriptor.prop:
                 case bpy.types.IntProperty(is_array=True):
@@ -94,36 +102,15 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 case prop:
                     return Error(refused(active.descriptor.path, type(prop).__name__, (bpy.types.IntProperty.__name__, bpy.types.PointerProperty.__name__)))
 
-            def path[P: bpy.types.Property](found: Option[str], kind: type[P]) -> BlenderResult[Option[ResolvedMember[P]]]:
-                return found.map(lambda text: Member(root=type(item), path=text).resolved(kind).map(Some)).default_value(Ok(Nothing))
-
-            def tooltip(held: Option[ResolvedMember]) -> BlenderResult[Option[ResolvedMember]]:
-                return (
-                    held
-                    .filter(lambda member: bool(member.descriptor.owner))
-                    .map(lambda member: Error(refused(member.descriptor.path, member.descriptor.owner, ("direct item string property",))))
-                    .default_value(Ok(held))
-                )
-
-            def sortable(held: Option[ResolvedMember]) -> BlenderResult[Option[ResolvedMember]]:
-                return (
-                    held
-                    .filter(
-                        lambda member: (
-                            not isinstance(member.descriptor.prop, (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.StringProperty, bpy.types.EnumProperty))
-                        )
+            def member(found: Option[str], kinds: "tuple[type[bpy.types.bpy_struct[object]], ...]", admitted: Callable[[ResolvedMember], bool], expected: str) -> BlenderResult[Option[ResolvedMember]]:
+                return found.map(
+                    lambda path: (
+                        Member(root=type(item), path=path)
+                        .resolved()
+                        .bind(lambda held: held.accepts(kinds))
+                        .bind(lambda held: Ok(Some(held)) if admitted(held) else Error(refused(held.descriptor.path, type(held.descriptor.prop).__name__, (expected,))))
                     )
-                    .map(lambda member: Error(refused(member.descriptor.path, type(member.descriptor.prop).__name__, ("ordered value property",))))
-                    .default_value(Ok(held))
-                )
-
-            def scalar(held: Option[ResolvedMember[bpy.types.IntProperty]]) -> BlenderResult[Option[ResolvedMember[bpy.types.IntProperty]]]:
-                return (
-                    held
-                    .filter(lambda member: member.descriptor.prop.is_array and member.descriptor.index.is_none())
-                    .map(lambda member: Error(refused(member.descriptor.path, "array", ("integer component",))))
-                    .default_value(Ok(held))
-                )
+                ).default_value(Ok(Nothing))
 
             def chosen() -> BlenderResult[Option[ResolvedMember]]:
                 match active.descriptor.prop:
@@ -132,44 +119,49 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                     case _:
                         return Ok(Nothing)
 
-            def grouped(attached: Attached[T]) -> Callable[[RowDraw], RowDraw]:
-                return lambda draw: lambda layout, holder, context: draw(layout, getattr(holder, attached.name), context)
-
             def fielded(attachment: Attachment[T]) -> BlenderResult[tuple[RowDraw, ...]]:
+                def grouped(attached: Attached[T], draw: RowDraw) -> RowDraw:
+                    return lambda layout, holder, context: draw(layout, getattr(holder, attached.name), context)
+
                 return (attachment.bound(identity) if isinstance(item, attachment.owner) else Error(refused(collection.descriptor.path, type(item).__name__, (attachment.owner.__name__,)))).bind(
-                    lambda attached: accumulated(
-                        realized(Property(target=row, text=Some("")), identity)
-                        for row in msgspec.structs.fields(attached.group.record)
-                        if row.name in attached.group.struct.__annotations__ or row.name in attached.group.struct.bl_rna.properties
-                    ).map(lambda draws: tuple(map(grouped(attached), draws)))
+                    lambda attached: field_shapes(attached.group.record).bind(
+                        lambda rows: accumulated(
+                            realized(Property(target=Member(root=attached.group.struct, path=row.name, shape=Some(declared.shape)), text=""), identity).map(lambda draw: grouped(attached, draw))
+                            for row, declared in rows
+                            if row.name in attached.group.struct.bl_rna.properties
+                        )
+                    )
                 )
 
-            def listed(
-                found: tuple[
-                    tuple[Option[ResolvedMember], tuple[Option[ResolvedMember], tuple[Option[ResolvedMember], Option[ResolvedMember]]]],
-                    tuple[tuple[tuple[RowDraw, ...], tuple[RowDraw, ...]], tuple[RowDraw, ...]],
-                ],
-            ) -> Listed:
-                (picked, (tip, (order, icon))), ((fields, columns), sides) = found
-                return Listed(name=name, label=label, collection=collection, active=active, chosen=picked, item_dyntip_propname=tip, order=order, icon=icon, columns=(*fields, *columns), sides=sides)
+            def listed(found: tuple[tuple[Option[ResolvedMember], ...], tuple[tuple[RowDraw, ...], ...]]) -> _Listed:
+                (picked, tip, order, icon), (fields, columns, sides) = found
+                return _Listed(name=name, label=label, collection=collection, active=active, chosen=picked, item_dyntip_propname=tip, order=order, icon=icon, columns=(*fields, *columns), sides=sides)
 
             return paired(
-                paired(
+                accumulated((
                     chosen(),
-                    paired(
-                        path(self.item_dyntip_propname, bpy.types.StringProperty).bind(tooltip),
-                        paired(path(self.order, bpy.types.Property).bind(sortable), path(self.icon, bpy.types.IntProperty).bind(scalar)),
+                    member(self.item_dyntip_propname, (bpy.types.StringProperty,), lambda held: not held.descriptor.owner, "direct item string property"),
+                    member(
+                        self.order, (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.StringProperty, bpy.types.EnumProperty), lambda _: True, "ordered value property"
                     ),
-                ),
-                paired(
-                    paired(self.attachment.map(fielded).default_value(Ok(())), accumulated(realized(row, identity) for row in self.columns)), accumulated(realized(row, identity) for row in self.side)
-                ),
+                    member(
+                        self.icon,
+                        (bpy.types.IntProperty,),
+                        lambda held: not (isinstance(held.descriptor.prop, bpy.types.IntProperty) and held.descriptor.prop.is_array) or held.descriptor.index.is_some(),
+                        "integer component",
+                    ),
+                )),
+                accumulated((
+                    self.attachment.map(fielded).default_value(Ok(())),
+                    accumulated(realized(row, identity) for row in self.columns),
+                    accumulated(realized(row, identity) for row in self.side),
+                )),
             ).map(listed)
 
         held = paired(self.collection.resolved(bpy.types.CollectionProperty).bind(itemized), self.active.resolved())
         return paired(identity.name(Name.LIST, self.key), held).bind(over)
 
-    def uilist(self, listed: Listed) -> type[bpy.types.UIList]:
+    def uilist(self, listed: _Listed) -> builtins.type[bpy.types.UIList]:
         """Builds list class, filtering when `where` or `order` is set."""
 
         def accepts(where: Where[O], context: bpy.types.Context, item: O) -> bool:
@@ -240,14 +232,14 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 return Error(refused(active.descriptor.path, type(pointer.fixed_type).__name__, (type(collection.descriptor.prop.fixed_type).__name__,)))
 
             def selected(owner: "bpy.types.bpy_struct[object]") -> int:
-                items = located(collection, owner, bpy.context).starmap(getattr)
-                pointer = located(active, owner, bpy.context).starmap(getattr)
+                items = collection.at(owner, bpy.context).starmap(getattr)
+                pointer = active.at(owner, bpy.context).starmap(getattr)
                 return next((index for members in items.to_list() for index, item in enumerate(members) for held in pointer.to_list() if item == held), -1)
 
             def written(owner: "bpy.types.bpy_struct[object]", index: int) -> None:
-                for source in located(collection, owner, bpy.context).to_list():
+                for source in collection.at(owner, bpy.context).to_list():
                     members = getattr(*source)
-                    for holder, key in located(active, owner, bpy.context).to_list():
+                    for holder, key in active.at(owner, bpy.context).to_list():
                         setattr(holder, key, members[index] if index >= 0 else None)
 
             return Ok(((Band.ATTACHMENTS, pointed(member.root, member.path, bpy.props.IntProperty(get=selected, set=written, options={"HIDDEN", "SKIP_SAVE"}))),))
@@ -264,48 +256,38 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
     def picked(self, identity: Identity) -> BlenderResult[Reach]:
         """Returns reach of the active item the list highlights, through the selection the list draws."""
 
-        def reach(listed: Listed) -> Reach:
-            def indexed(found: tuple[Native, str], pick: tuple[Native, str]) -> "Option[bpy.types.bpy_struct[object]]":
+        def reach(listed: _Listed) -> Reach:
+            def indexed(found: At, pick: At) -> "Option[bpy.types.bpy_struct[object]]":
                 items, index = getattr(*found), getattr(*pick)
                 return Some(items[index]) if 0 <= index < len(items) else Nothing
 
             def active(context: bpy.types.Context) -> "Option[bpy.types.bpy_struct[object]]":
                 match listed.active.descriptor.prop:
                     case bpy.types.PointerProperty():
-                        return located(listed.active, context, context).bind(lambda pair: Option.of_optional(getattr(*pair)))
+                        return listed.active.at(context, context).bind(lambda pair: Option.of_optional(getattr(*pair)))
                     case _:
-                        return located(listed.collection, context, context).bind(lambda found: located(listed.active, context, context).bind(lambda pick: indexed(found, pick)))
+                        return listed.collection.at(context, context).bind(lambda found: listed.active.at(context, context).bind(lambda pick: indexed(found, pick)))
 
             return active
 
         return self.resolved(identity).map(reach)
 
+    @override
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Draws list with its side column, absent rows while no owner holds the collection."""
+        options = self.options
 
-        def draw(parts: tuple[Listed, tuple[RowDraw, ...]]) -> RowDraw:
+        def draw(parts: tuple[_Listed, tuple[RowDraw, ...]]) -> RowDraw:
             listed, absent = parts
+            tip = listed.item_dyntip_propname.map(lambda held: {"item_dyntip_propname": held.descriptor.prop.identifier}).default_value({})
 
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                found = located(listed.collection, holder, context)
+                found = listed.collection.at(holder, context)
                 for draw in () if found.is_some() else absent:
                     draw(layout, holder, context)
-                for (owner, key), (picked, member) in ((held, pick) for held in found.to_list() for pick in located(listed.chosen.default_value(listed.active), holder, context).to_list()):
+                for (owner, key), (picked, member) in ((held, pick) for held in found.to_list() for pick in listed.chosen.default_value(listed.active).at(holder, context).to_list()):
                     row = layout.row()
-                    row.template_list(
-                        listed.name,
-                        keyed(owner),
-                        owner,
-                        key,
-                        picked,
-                        member,
-                        item_dyntip_propname=listed.item_dyntip_propname.map(lambda bound: bound.descriptor.prop.identifier).default_value(""),
-                        rows=self.rows,
-                        maxrows=self.maxrows,
-                        type=self.layout_type,
-                        sort_reverse=self.sort_reverse,
-                        sort_lock=self.sort_lock,
-                    )
+                    self.called(row, listed.name, keyed(owner), owner, key, picked, member, **options, **tip)
                     column = row.column(align=True)
                     for side in listed.sides:
                         side(column, holder, context)
@@ -333,4 +315,4 @@ def keyed(struct: Native) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ItemList", "Listed", "Where", "keyed"]
+__all__ = ["ItemList", "Where", "keyed"]

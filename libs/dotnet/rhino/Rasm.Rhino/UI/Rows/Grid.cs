@@ -26,9 +26,9 @@ public sealed partial class RowShape {
 public sealed record FieldFit(Control Field, float Width);
 
 public sealed record RowHelp(Option<(string Low, string High)> Range, Option<string> Default) {
-    public string Text(string help, Wording wording, IPlugInSink sink) =>
+    public string Text(string help, IPlugInSink sink) =>
         string.Join(Environment.NewLine, [
-            wording.Shown(help, sink),
+            RowText.Localize(help, sink).Local,
             .. Range.Map(static range => RowText.Localize("{0} – {1}", arguments: [range.Low, range.High]).Local).ToSeq(),
             .. Default.Map(static value => RowText.Localize("Default {0}", arguments: [value]).Local).ToSeq(),
         ]);
@@ -92,41 +92,29 @@ public sealed class RowGrid : Drawable {
         toHashSet(keys) switch { var selected => places.Choose(place => place.Cells.Bind(static cells => cells.Plot).Filter(_ => place.Row.Keys.Exists(selected.Contains))).Head };
 
     private static IO<RowPlace> Placed(int at, ControlRow row, RowScope scope, Action<IDisposable> retain) =>
-        row.Switch<(RowScope Scope, Action<IDisposable> Retain), Option<IO<RowCells>>>(
-                (scope, retain),
-                field: static (held, field) => Some(field.Realize(held.Scope, held.Retain)),
-                readout: static (held, readout) => Some(readout.Realize(held.Scope, held.Retain)),
-                group: static (_, _) => None)
-            .Traverse(static cells => cells).As()
-            .Bind(cells => Lined(at, row, cells, scope, retain));
-
-    private static IO<RowPlace> Lined(int at, ControlRow row, Option<RowCells> cells, RowScope scope, Action<IDisposable> retain) =>
-        cells.Match(
-            Some: held =>
-                from help in IO.pure(Helped(row, held, scope.Sink))
+        row.Cells.Match(
+            Some: cells =>
+                from held in cells.Realize(scope, retain)
+                let help = row.Help.Map(text => held.Help.Text(text, scope.Sink))
                 from tipped in held.Value is ComponentControl plot ? plot.Describe(help) : IO.lift(() => { held.Value.ToolTip = help.ValueUnsafe(); })
                 from first in (from keys in row.Keys.AsIterableNE() from source in row.Bound from edit in held.Edit select Trailed(source, keys, edit, scope, retain)).Traverse(static trailed => trailed).As()
-                let caption = row.Layout.Filter(shape => shape.Labeled && (!shape.Spans || held.Heads.IsEmpty)).Map(_ => row.Wording.Shown(row.Caption, scope.Sink))
-                let heads = held.Heads.Map((line, index) => Headed(line, row.Wording, scope.Sink, first.Filter(_ => index is 0)))
-                let lines = row.Layout.Match(
-                    Some: shape => shape.Spans
-                        ? caption.Map(text => new LineSpec(Some(new LineCaption(text, CaptionCell.Span, Own: true)), Columned: false, held.Gate, None, held.Pick, first, Trailing: true, Fills: false)).ToSeq()
-                          + heads
-                          + Seq(new LineSpec(None, Columned: false, None, Some(held.Value), None, None, Trailing: false, shape.Fills))
-                          + held.Lines.Map(line => Headed(line, row.Wording, scope.Sink, None))
-                        : Seq(new LineSpec(caption.Map(static text => new LineCaption(text, CaptionCell.Column, Own: true)), Columned: true, held.Gate, Some(held.Value), held.Pick, first, Trailing: true, Fills: false)),
-                    None: () => Seq(new LineSpec(None, Columned: false, None, Some(held.Value), None, None, Trailing: false, Fills: false)))
+                let caption = Some(RowText.Localize(row.Caption, scope.Sink).Local).Filter(_ => cells.Shape.Labeled && (!cells.Shape.Spans || held.Heads.IsEmpty))
+                let heads = held.Heads.Map((line, index) => Headed(line, scope.Sink, first.Filter(_ => index is 0)))
+                let lines = cells.Shape.Spans
+                    ? caption.Map(text => new LineSpec(Some(new LineCaption(text, CaptionCell.Span, Own: true)), Columned: false, held.Gate, None, held.Pick, first, Trailing: true, Fills: false)).ToSeq()
+                      + heads
+                      + Seq(new LineSpec(None, Columned: false, None, Some(held.Value), None, None, Trailing: false, cells.Shape.Fills))
+                      + held.Lines.Map(line => Headed(line, scope.Sink, None))
+                    : Seq(new LineSpec(caption.Map(static text => new LineCaption(text, CaptionCell.Column, Own: true)), Columned: true, held.Gate, Some(held.Value), held.Pick, first, Trailing: true, Fills: false))
                 from hosted in lines.TraverseM(spec => Hosted(spec, help, retain)).As()
-                select new RowPlace(at, row, cells, caption, hosted, first),
+                select new RowPlace(at, row, Some(held), caption, hosted, first),
             None: () =>
-                from hosted in Hosted(new LineSpec(Some(new LineCaption(row.Wording.Shown(row.Caption, scope.Sink), CaptionCell.Rule, Own: true)), Columned: false, None, None, None, None, Trailing: false, Fills: false),
-                    row.Help.Map(text => row.Wording.Shown(text, scope.Sink)), retain)
+                from hosted in Hosted(new LineSpec(Some(new LineCaption(RowText.Localize(row.Caption, scope.Sink).Local, CaptionCell.Rule, Own: true)), Columned: false, None, None, None, None, Trailing: false, Fills: false),
+                    row.Help.Map(text => RowText.Localize(text, scope.Sink).Local), retain)
                 select new RowPlace(at, row, None, None, Seq(hosted), None));
 
-    private static Option<string> Helped(ControlRow row, RowCells cells, IPlugInSink sink) => row.Help.Map(text => cells.Help.Text(text, row.Wording, sink));
-
-    private static LineSpec Headed(RowLine line, Wording wording, IPlugInSink sink, Option<RowTrail> trail) =>
-        new(line.Caption.Map(caption => new LineCaption(wording.Shown(caption, sink), CaptionCell.Column, Own: false)), line.Caption.IsSome, None, Some(line.Value), line.Pick, trail, Trailing: true, Fills: false);
+    private static LineSpec Headed(RowLine line, IPlugInSink sink, Option<RowTrail> trail) =>
+        new(line.Caption.Map(caption => new LineCaption(RowText.Localize(caption, sink).Local, CaptionCell.Column, Own: false)), line.Caption.IsSome, None, Some(line.Value), line.Pick, trail, Trailing: true, Fills: false);
 
     private static IO<GridLine> Hosted(LineSpec spec, Option<string> help, Action<IDisposable> retain) =>
         from host in Containers.Frame(() => new Panel { ToolTip = help.ValueUnsafe() }, retain)
@@ -168,8 +156,8 @@ public sealed class RowGrid : Drawable {
         from regular in IO.lift(static () => SystemFonts.Label())
         from emphasis in IO.lift(() => SystemFonts.Bold(regular.Size))
         let labels = column
-            .Filter(static row => row.Layout.Exists(static shape => shape.Labeled && !shape.Spans))
-            .Map(row => emphasis.MeasureString(row.Wording.Shown(row.Caption, sink)).Width)
+            .Filter(static row => row.Cells.Exists(static cells => cells.Shape.Labeled && !cells.Shape.Spans))
+            .Map(row => emphasis.MeasureString(RowText.Localize(row.Caption, sink).Local).Width)
             .Fold(0f, MathF.Max)
         let fields = places.Bind(static place => place.Cells.ToSeq()).Bind(static cells => cells.Field.ToSeq() + (cells.Heads + cells.Lines).Choose(static line => line.Field))
         let field = fields.Fold(0f, static (widest, fit) => MathF.Max(widest, fit.Width))
@@ -261,8 +249,8 @@ public sealed class RowGrid : Drawable {
         select unit;
 
     private IO<(bool Shown, RowPaint Paint)> Restated(RowPlace place) =>
-        from enabled in place.Row.Rules.Enables(scope)
-        from shown in place.Row.Rules.Shows(scope)
+        from enabled in RowRules.Holds(place.Row.Rules.Enabled, scope)
+        from shown in RowRules.Holds(place.Row.Rules.Visible, scope)
         from modified in place.Cells.Bind(static cells => cells.Edit).Match(Some: static edit => edit.Modified, None: static () => IO.pure(value: false))
         from locked in place.Trail.Match(Some: trail => scope.Locked.Map(held => trail.Keys.ForAll(held.Contains)), None: static () => IO.pure(value: false))
         from painted in Activated(place, enabled, modified, locked)

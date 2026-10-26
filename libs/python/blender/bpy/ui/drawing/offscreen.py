@@ -1,18 +1,17 @@
 """Scoped offscreen drawing and framebuffer pixel reads."""
 
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from collections.abc import Callable
 from typing import Literal
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result
+from expression import Error, Nothing, Ok
 import gpu
 from mathutils import Matrix
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.ui.drawing.canvas import Canvas, Rect
 from blender.bpy.ui.resources.theme import Metrics, Theme
 from blender.bpy.ui.screens.areas import Located
@@ -29,91 +28,78 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
     height: int
     format: Literal["RGBA8", "RGBA16", "RGBA16F", "RGBA32F"] = "RGBA8"
 
-    @contextmanager
-    def allocated(self) -> Generator[BlenderResult[gpu.types.GPUOffScreen]]:
-        """Initializes GPU and owns buffer, refusing sizes past texture limit."""
-        held: gpu.types.GPUOffScreen | ValueError | RuntimeError | SystemError
+    def read(self, draw: Callable[[gpu.types.GPUOffScreen], BlenderResult[None]]) -> BlenderResult[npt.NDArray[np.float32]]:
+        """Draws into a buffer it owns for the call, returning top-first RGBA, refusing sizes past the texture limit."""
         try:
             gpu.init()
             limit = gpu.capabilities.max_texture_size_get()
-            held = (
-                gpu.types.GPUOffScreen(self.width, self.height, format=self.format)
-                if max(self.width, self.height) <= limit
-                else ValueError(f"{self.width}x{self.height} exceeds {limit}px texture limit")
-            )
         except (RuntimeError, SystemError) as error:
-            held = error
-        match held:
-            case gpu.types.GPUOffScreen() as buffer:
-                try:
-                    yield Result[gpu.types.GPUOffScreen, BlenderFaults].Ok(buffer)
-                finally:
-                    buffer.free()
-            case refused:
-                yield Result[gpu.types.GPUOffScreen, BlenderFaults].Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=refused),))
+            return Error((BlenderEditFault(request="gpu.init", error=error),))
+        if max(self.width, self.height) > limit:
+            return Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=ValueError(f"{self.width}x{self.height} exceeds {limit}px texture limit")),))
+        try:
+            buffer = gpu.types.GPUOffScreen(self.width, self.height, format=self.format)
+        except (RuntimeError, SystemError) as error:
+            return Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=error),))
+        try:
+            return draw(buffer).map(lambda _: unpacked(buffer.texture_color.read()))
+        finally:
+            buffer.free()
 
     def drawn(self, theme: Theme, metrics: Metrics, draw: Callable[[Canvas], None]) -> BlenderResult[npt.NDArray[np.float32]]:
         """Draws on pixel canvas, returning top-first RGBA."""
 
-        def rendered(buffer: gpu.types.GPUOffScreen) -> npt.NDArray[np.float32]:
-            """Draws callback under pixel projection."""
-            width, height = buffer.width, buffer.height
-            canvas = Canvas(theme=theme, metrics=metrics, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)))
+        def painted(buffer: gpu.types.GPUOffScreen) -> BlenderResult[None]:
+            """Draws callback under pixel projection with depth test off."""
+            canvas = Canvas(theme=theme, metrics=metrics, extent=Rect(x=0.0, y=0.0, width=float(self.width), height=float(self.height)))
             depth = gpu.state.depth_test_get()
             try:
                 with buffer.bind(), canvas.drawn():  # type: ignore[attr-defined]  # ty: ignore[invalid-context-manager]
                     gpu.state.depth_test_set("NONE")
                     gpu.state.active_framebuffer_get().clear(color=(0.0, 0.0, 0.0, 0.0))
-                    gpu.state.scissor_set(0, 0, width, height)
+                    gpu.state.scissor_set(0, 0, self.width, self.height)
                     gpu.state.scissor_test_set(True)
                     gpu.matrix.load_projection_matrix(Matrix.Identity(4))
-                    gpu.matrix.load_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / width, 2.0 / height, 1.0, 1.0)))
+                    gpu.matrix.load_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / self.width, 2.0 / self.height, 1.0, 1.0)))
                     draw(canvas)
-                return unpacked(buffer.texture_color.read())
+                return Ok(None)
             finally:
                 gpu.state.depth_test_set(depth)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
-        with self.allocated() as allocation:
-            return allocation.map(rendered)
+        return self.read(painted)
 
     def viewed(
         self, located: Located, camera: bpy.types.Object, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, *, do_color_management: bool = True, draw_background: bool = True
     ) -> BlenderResult[npt.NDArray[np.float32]]:
-        """Draws camera view with overlays and gizmos off."""
+        """Draws camera view with overlays and gizmos off, restoring the editor values after."""
         space = located.area.spaces.active
         if not isinstance(space, bpy.types.SpaceView3D):
             return Error((BlenderAbsentFault(owner=repr(located.area), key=bpy.types.SpaceView3D.__name__),))
 
-        def restored(region: bpy.types.Region, prior: Option[EditorState]) -> BlenderResult[npt.NDArray[np.float32]]:
-            """Reads view pixels, restoring editor values."""
-
-            def rendered(buffer: gpu.types.GPUOffScreen) -> BlenderResult[npt.NDArray[np.float32]]:
-                """Draws camera view into buffer."""
-                try:
-                    buffer.draw_view3d(
-                        scene,
-                        view_layer,
-                        space,
-                        region,
-                        camera.matrix_world.normalized().inverted(),
-                        camera.calc_matrix_camera(view_layer.depsgraph, x=buffer.width, y=buffer.height),
-                        do_color_management=do_color_management,
-                        draw_background=draw_background,
-                    )
-                except (RuntimeError, ValueError) as error:
-                    return Error((BlenderEditFault(request="gpu.types.GPUOffScreen.draw_view3d", error=error),))
-                return Ok(unpacked(buffer.texture_color.read()))
-
+        def painted(region: bpy.types.Region, buffer: gpu.types.GPUOffScreen) -> BlenderResult[None]:
+            """Draws camera view into buffer."""
             try:
-                with self.allocated() as allocation:
-                    plane = allocation.bind(rendered)
-            finally:
-                restoration = prior.map(lambda state: state.applied(located.area)).default_value(Ok(Nothing))
-            return paired(plane, restoration).map(lambda pair: pair[0])
+                buffer.draw_view3d(
+                    scene,
+                    view_layer,
+                    space,
+                    region,
+                    camera.matrix_world.normalized().inverted(),
+                    camera.calc_matrix_camera(view_layer.depsgraph, x=buffer.width, y=buffer.height),
+                    do_color_management=do_color_management,
+                    draw_background=draw_background,
+                )
+            except (RuntimeError, ValueError) as error:
+                return Error((BlenderEditFault(request="gpu.types.GPUOffScreen.draw_view3d", error=error),))
+            return Ok(None)
 
-        return paired(located.region(), EditorState.of(bpy.types.SpaceView3D, {"overlay.show_overlays": False, "show_gizmo": False})).bind(
-            lambda pair: pair[1].applied(located.area).bind(lambda prior: restored(pair[0], prior))
-        )
+        def restored(region: bpy.types.Region, state: EditorState) -> BlenderResult[npt.NDArray[np.float32]]:
+            """Reads view pixels between the editor write and its restore."""
+            return state.applied(located.area).bind(
+                lambda prior: paired(self.read(lambda buffer: painted(region, buffer)), prior.map(lambda held: held.applied(located.area)).default_value(Ok(Nothing))).map(lambda pair: pair[0])
+            )
+
+        return paired(located.region(), EditorState.of(bpy.types.SpaceView3D, {"overlay.show_overlays": False, "show_gizmo": False})).bind(lambda pair: restored(*pair))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

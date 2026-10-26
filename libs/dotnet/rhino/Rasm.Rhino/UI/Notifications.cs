@@ -47,7 +47,7 @@ public static class Notifications {
     public static IO<Unit> Tray(TrayRow row, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(acquired =>
             from tray in DisposalOps.Acquire(IO.lift(static () => new TrayIndicator()), acquired)
-            from themed in Icons.Themed(sink, row.Glyph, IconSlot.MenuItem, HostTheme.Changed, icon => tray.Image = icon, acquired)
+            from themed in Icons.Themed(sink, row.Glyph, IconSlot.Small, HostTheme.Changed, icon => tray.Image = icon, acquired)
             from menu in ChoiceRows.Menu(row.Menu, Seq<IO<Unit>>(), None, sink, acquired)
             from assigned in IO.lift(() => tray.Menu = menu)
             from shown in IO.lift(tray.Show)

@@ -3,7 +3,7 @@
 from collections.abc import Callable
 import functools
 from itertools import starmap
-from typing import ClassVar, Self
+from typing import ClassVar, Final, Self
 
 import bpy
 from expression import Nothing, Option, Some
@@ -16,37 +16,47 @@ from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.coordinates import gridded, PixelGrid
-from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, Loaded, masked, math, menu, mixed, nested, node, NodeGroup, Operand, switched, vector
+from blender.bpy.nodes.graphs import Component, End, Expr, group_input, Loaded, math, menu, mixed, NodeGroup, Scalar, switched, vector, where, xyz
 from blender.bpy.nodes.interface import Interface, item_key, MenuItems, Socket
 from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT
-from blender.bpy.render.effects.compositing.masks import luminance
-from blender.bpy.render.effects.stack import CompositorEffect, KeyPath, Shell
-from blender.bpy.render.effects.viewers import inspection
+from blender.bpy.render.effects.compositing.masks import LUMINANCE, luminance
+from blender.bpy.render.effects.coordinates import gridded
+from blender.bpy.render.effects.records import KeyPath
+from blender.bpy.render.effects.rows import CompositorEffect, Inspected, Shell
 from blender.bpy.render.outputs.formats import Kind
 from blender.bpy.render.view_layers.passes import Family, Filing, PassRequest, Source
 from blender.imaging.compositing.recombination import Terms
 from blender.imaging.effects.detail.denoise import Filter, Frame, Groups, Guides, Passes, SpatialDenoise, TemporalDenoise
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import paired
 from blender.imaging.parameters import Gated
 from blender.rendering.outputs.naming import Output
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FRAME_BASE = End(node="frame_base", socket="Output")
+ENGINE: Final = Descriptor.declared(bpy.types.Scene, "render.engine", bpy.types.EnumProperty)
+VECTOR_PASS: Final = Descriptor.declared(bpy.types.ViewLayer, "use_pass_vector", bpy.types.BoolProperty)
+MOTION_BLUR: Final = Descriptor.declared(bpy.types.Scene, "render.use_motion_blur", bpy.types.BoolProperty)
+SETTINGS: Final = tuple(
+    Descriptor.declared(bpy.types.Scene, f"render.{member}", bpy.types.EnumProperty)
+    for member in ("compositor_denoise_device", "compositor_denoise_preview_quality", "compositor_denoise_final_quality")
+)
+_FRAME_BASE: Final = End(node="frame_base", socket="Output")
+_NOISY: Final = Socket(key="noisy", name="Filter Input", kind=bpy.types.NodeSocketColor)
+_ALBEDO: Final = Socket(key="albedo", name="Albedo", kind=bpy.types.NodeSocketColor)
+_NORMAL: Final = Socket(key="normal", name="Normal", kind=bpy.types.NodeSocketVector)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Pair(msgspec.Struct, frozen=True, kw_only=True):
-    """Albedo and normal guide ends of one denoised image."""
+    """Albedo and normal guides of one denoised image."""
 
-    albedo: End
-    normal: End
+    albedo: Scalar
+    normal: Scalar
 
     @classmethod
-    def of(cls, layer: Callable[[str], End], family: Option[Family]) -> Self:
+    def of(cls, layer: Callable[[str], Scalar], family: Option[Family]) -> Self:
         """Returns Cycles denoising guides, family color pass as albedo when present."""
         albedo = family.filter(lambda held: bool(held.color)).map(lambda held: held.socket("color"))
         return cls(albedo=layer(albedo.default_value("Denoising Albedo")), normal=layer("Denoising Normal"))
@@ -55,8 +65,8 @@ class Pair(msgspec.Struct, frozen=True, kw_only=True):
 class Gate(msgspec.Struct, frozen=True, kw_only=True):
     """Enable and amount of denoised term."""
 
-    enabled: Operand
-    amount: Operand
+    enabled: Scalar
+    amount: Scalar
 
 
 class Filters(msgspec.Struct, frozen=True, kw_only=True):
@@ -112,6 +122,9 @@ class Rendered(msgspec.Struct, frozen=True, kw_only=True):
     def group(self, record: TemporalDenoise) -> BlenderResult[NodeGroup]:
         """Builds temporal reconstruction from current, previous, and next sequence frames.
 
+        Each neighbor warps along its motion pass, keeps the share its reverse motion and HSV distance from the current frame allow, and
+        mixes in by that share inside the rendered range.
+
         Args:
             record: Color thresholds, reverse-motion tolerance, and neighbor weight bound.
 
@@ -119,126 +132,78 @@ class Rendered(msgspec.Struct, frozen=True, kw_only=True):
             Compositor-only sequence group, or accumulated graph faults.
         """
 
-        def loaded(key: Key, plane: Plane, offset: int) -> BlenderResult[tuple[Fragment, End]]:
+        def loaded(plane: Plane, offset: int) -> Expr:
             frames = ImageFrames(frame_start=self.first, frame_duration=self.last - self.first + 1, frame_offset=self.first - 1 + offset)
-            return node(key, bpy.types.CompositorNodeImage, {}, {}, Some(Loaded(path=plane.path, tag=Tag(sequence=True), frames=Some(frames)))).map(ended(key, plane.name))
+            return Expr(kind=bpy.types.CompositorNodeImage, content=Some(Loaded(path=plane.path, tag=Tag(sequence=True), frames=Some(frames))), socket=plane.name, shape="RGBA")
 
-        color = End(node="current_color", socket=self.color.name)
-        current_hue = End(node="current_hsv", socket="Red")
-        current_value = End(node="current_hsv", socket="Blue")
+        def hsv(image: Expr, channel: str) -> Expr:
+            return Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", image),), members=(("mode", "HSV"),), socket=channel)
 
-        def side(grid: PixelGrid, key: Key, offset: int, channels: tuple[str, str], reverse: tuple[str, str], scale: Operand, comparison: str, bound: int) -> BlenderResult[Fragment]:
-            uv = End(node=f"{key}_uv", socket="Vector")
-            warped = End(node=f"{key}_warped", socket="Image")
-            hue, saturation, value = (End(node=f"{key}_hsv", socket=channel) for channel in ("Red", "Green", "Blue"))
-            hue_spread = End(node=f"{key}_hue_spread")
-            current_motion = {channel: End(node="motion", socket=channel) for channel in channels}
-            within = End(node=f"{key}_inside")
-            extensions = {"Extension X": "Clip", "Extension Y": "Clip"}
-            return Fragment.joined(
-                loaded(f"{key}_color", self.color, offset),
-                loaded(f"{key}_motion", self.motion, offset),
-                node(f"{key}_offset", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y"), current_motion.values())), {}),
-                grid.at(f"{key}_uv", End(node=f"{key}_offset", socket="Vector"), scale),
-                node(f"{key}_warped", bpy.types.CompositorNodeMapUV, {"Image": End(node=f"{key}_color", socket=self.color.name), "UV": uv, "Interpolation": "Bilinear", **extensions}, {}),
-                node(f"{key}_moved", bpy.types.CompositorNodeMapUV, {"Image": End(node=f"{key}_motion", socket=self.motion.name), "UV": uv, "Interpolation": "Nearest", **extensions}, {}),
-                node(f"{key}_hsv", bpy.types.CompositorNodeSeparateColor, {"Image": warped}, {"mode": "HSV"}),
-                node(f"{key}_vector", bpy.types.CompositorNodeSeparateColor, {"Image": End(node=f"{key}_moved", socket="Image")}, {"mode": "RGB"}),
-                *(
-                    Fragment.joined(
-                        math(f"{key}_drift_{axis}", "SUBTRACT", End(node=f"{key}_vector", socket=back), toward),
-                        math(f"{key}_spread_{axis}", "ABSOLUTE", End(node=f"{key}_drift_{axis}")),
-                        compared(f"{key}_agree_{axis}", "LESS_EQUAL", End(node=f"{key}_spread_{axis}"), record.tolerance),
-                    )
-                    for axis, back, toward in zip(("x", "y"), reverse, current_motion.values())
-                ),
-                math(f"{key}_agree", "MULTIPLY", End(node=f"{key}_agree_x", socket="Result"), End(node=f"{key}_agree_y", socket="Result")),
-                math(f"{key}_hue_gap", "SUBTRACT", current_hue, hue),
-                math(f"{key}_hue_spread", "ABSOLUTE", End(node=f"{key}_hue_gap")),
-                math(f"{key}_hue_wrap", "SUBTRACT", 1.0, hue_spread),
-                math(f"{key}_hue", "MINIMUM", hue_spread, End(node=f"{key}_hue_wrap")),
-                math(f"{key}_chroma", "MULTIPLY", saturation, value),
-                math(f"{key}_saturation_gap", "SUBTRACT", End(node="current_chroma"), End(node=f"{key}_chroma")),
-                math(f"{key}_saturation", "ABSOLUTE", End(node=f"{key}_saturation_gap")),
-                math(f"{key}_value_gap", "SUBTRACT", current_value, value),
-                math(f"{key}_value", "ABSOLUTE", End(node=f"{key}_value_gap")),
-                *(
-                    Fragment.joined(
-                        math(f"{key}_{channel}_room", "SUBTRACT", threshold, End(node=f"{key}_{channel}")),
-                        math(f"{key}_{channel}_weight", "DIVIDE", End(node=f"{key}_{channel}_room"), threshold, clamp=True),
-                    )
-                    for channel, threshold in (("hue", record.hue), ("saturation", record.saturation), ("value", record.value))
-                ),
-                math(f"{key}_like", "MULTIPLY", End(node=f"{key}_hue_weight"), End(node=f"{key}_saturation_weight")),
-                math(f"{key}_alike", "MULTIPLY", End(node=f"{key}_like"), End(node=f"{key}_value_weight")),
-                masked(f"{key}_kept", "FLOAT", End(node=f"{key}_agree"), 0.0, End(node=f"{key}_alike")),
-                math(f"{key}_maximum", "MULTIPLY", End(node=f"{key}_kept"), record.max_weight),
-                math(f"{key}_inside", comparison, End(node="time", socket="Frame"), float(bound)),
-                switched(f"{key}_weight", "FLOAT", within, 0.0, End(node=f"{key}_maximum")),
-                switched(f"{key}_image", "RGBA", within, color, warped),
+        def mapped(image: Expr, uv: Expr, interpolation: str) -> Expr:
+            return Expr(
+                kind=bpy.types.CompositorNodeMapUV,
+                inputs=(("Image", image), ("UV", uv), ("Interpolation", interpolation), ("Extension X", "Clip"), ("Extension Y", "Clip")),
+                socket="Image",
+                shape="RGBA",
             )
 
-        def built(grid: PixelGrid) -> BlenderResult[NodeGroup]:
-            next_weight, total = End(node="next_weight", socket="Output"), End(node="total")
-            return Fragment.joined(
-                loaded("current_color", self.color, 0),
-                loaded("current_motion", self.motion, 0),
-                node("motion", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="current_motion", socket=self.motion.name)}, {"mode": "RGB"}),
-                node("current_hsv", bpy.types.CompositorNodeSeparateColor, {"Image": color}, {"mode": "HSV"}),
-                math("current_chroma", "MULTIPLY", End(node="current_hsv", socket="Green"), current_value),
-                vector("backward", "MULTIPLY", grid.inverse, (-1.0, -1.0, -1.0)),
-                node("time", bpy.types.CompositorNodeSceneTime, {}, {}),
-                side(grid, "previous", -1, ("Red", "Green"), ("Blue", "Alpha"), grid.inverse, "GREATER_THAN", self.first),
-                side(grid, "next", 1, ("Blue", "Alpha"), ("Red", "Green"), End(node="backward", socket="Vector"), "LESS_THAN", self.last),
-                math("total", "ADD", End(node="previous_weight", socket="Output"), next_weight),
-                math("share", "DIVIDE", next_weight, total),
-                mixed("neighbours", "RGBA", End(node="share"), End(node="previous_image", socket="Output"), End(node="next_image", socket="Output")),
-                mixed("blend", "RGBA", total, color, End(node="neighbours", socket="Result_Color")),
-                node("restored", bpy.types.CompositorNodeSetAlpha, {"Image": End(node="blend", socket="Result_Color"), "Alpha": End(node="current_hsv", socket="Alpha"), "Type": "Replace Alpha"}, {}),
-            ).bind(
-                lambda body: NodeGroup.built(
-                    key=self.ownership.key, name=TemporalDenoise.title, interface=Interface(outputs=(COLOR_RESULT,)), outputs={COLOR_RESULT.key: (body, End(node="restored", socket="Image"))}
-                )
-            )
+        color, motion = loaded(self.color, 0), loaded(self.motion, 0)
+        grid = gridded(color)
+        time = Expr(kind=bpy.types.CompositorNodeSceneTime, socket="Frame")
+        current_value = hsv(color, "Blue")
+        current_chroma = hsv(color, "Green") * current_value
 
-        return gridded("grid", color).bind(built)
+        def side(offset: int, toward: tuple[Component, Component], back: tuple[Component, Component], scale: Scalar, inside: Expr) -> tuple[Expr, Expr]:
+            uv = grid.at(xyz(*(motion[channel] for channel in toward)), scale)
+            warped, moved = mapped(loaded(self.color, offset), uv, "Bilinear"), mapped(loaded(self.motion, offset), uv, "Nearest")
+            agree = functools.reduce(lambda held, axis: held * axis, (1.0 - (abs(moved[reverse] - motion[forward]) > record.tolerance) for reverse, forward in zip(back, toward)))
+            spread = abs(hsv(color, "Red") - hsv(warped, "Red"))
+            distances = (
+                (math("MINIMUM", spread, 1.0 - spread), record.hue),
+                (abs(current_chroma - hsv(warped, "Green") * hsv(warped, "Blue")), record.saturation),
+                (abs(current_value - hsv(warped, "Blue")), record.value),
+            )
+            alike = functools.reduce(lambda held, weight: held * weight, (math("DIVIDE", threshold - distance, threshold, clamp=True) for distance, threshold in distances))
+            return switched(inside, 0.0, where(agree, alike, 0.0) * record.max_weight), switched(inside, color, warped)
+
+        previous_weight, previous = side(-1, ("Red", "Green"), ("Blue", "Alpha"), grid.inverse, time > float(self.first))
+        next_weight, following = side(1, ("Blue", "Alpha"), ("Red", "Green"), vector("MULTIPLY", grid.inverse, (-1.0, -1.0, -1.0)), time < float(self.last))
+        total = previous_weight + next_weight
+        blend = mixed(total, color, mixed(next_weight / total, previous, following))
+        restored = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", blend), ("Alpha", hsv(color, "Alpha")), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
+        return NodeGroup.built(key=self.ownership.key, name=TemporalDenoise.title, interface=Interface(outputs=(COLOR_RESULT,)), outputs={COLOR_RESULT.key: restored})
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [REQUESTS]
+
 
 def guided(layer: str) -> BlenderResult[PassRequest]:
-    """Requests Cycles denoising guide passes."""
-
-    def requested(flag: Descriptor[bpy.types.BoolProperty], engine: Descriptor[bpy.types.EnumProperty]) -> PassRequest:
-        return PassRequest(layer=layer, flags=frozenset({flag}), condition=Some(Setting(descriptor=engine, accepted=("CYCLES",))))
-
-    return paired(Descriptor.resolve(bpy.types.ViewLayer, "cycles.denoising_store_passes", bpy.types.BoolProperty), Descriptor.resolve(bpy.types.Scene, "render.engine", bpy.types.EnumProperty)).map(
-        lambda descriptors: requested(*descriptors)
+    """Requests Cycles denoising guide passes under the Cycles engine."""
+    return Descriptor.resolve(bpy.types.ViewLayer, "cycles.denoising_store_passes", bpy.types.BoolProperty).map(
+        lambda flag: PassRequest(layer=layer, flags=frozenset({flag}), condition=Some(Setting(descriptor=ENGINE, accepted=("CYCLES",))))
     )
 
 
-def motioned(layer: str) -> BlenderResult[tuple[PassRequest, Setting]]:
+def motioned(layer: str) -> tuple[PassRequest, Setting]:
     """Requests vector pass with motion blur off for sequence render."""
-
-    def requested(flag: Descriptor[bpy.types.BoolProperty], blur: Descriptor[bpy.types.BoolProperty]) -> tuple[PassRequest, Setting]:
-        return PassRequest(layer=layer, flags=frozenset({flag})), Setting(descriptor=blur, accepted=(False,))
-
-    return paired(Descriptor.resolve(bpy.types.ViewLayer, "use_pass_vector", bpy.types.BoolProperty), Descriptor.resolve(bpy.types.Scene, "render.use_motion_blur", bpy.types.BoolProperty)).map(
-        lambda descriptors: requested(*descriptors)
-    )
+    return PassRequest(layer=layer, flags=frozenset({VECTOR_PASS})), Setting(descriptor=MOTION_BLUR, accepted=(False,))
 
 
-def settings() -> BlenderResult[tuple[Descriptor, ...]]:
-    """Resolves compositor denoise device and quality settings."""
-    return accumulated(
-        Descriptor.resolve(bpy.types.Scene, f"render.{member}", bpy.types.EnumProperty)
-        for member in ("compositor_denoise_device", "compositor_denoise_preview_quality", "compositor_denoise_final_quality")
-    )
+def filing(terms: tuple[tuple[str, Expr], ...]) -> Filing:
+    """Routes denoised terms to beauty layers."""
+    return Filing(output=Output.BEAUTY, kind=Kind.LAYERED, sources=tuple(Source(name=f"{label} Denoised", term=term, kind="RGBA", dimensions=Nothing, output=Output.BEAUTY) for label, term in terms))
+
+
+# --- [GRAPHS]
 
 
 def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
     """Builds shared firefly and HDR denoise group.
+
+    Fireflies scale toward the fourth brightest valid luminance on the 5x5 ring, ranked by a Batcher merge network that orders invalid
+    taps first.
 
     Args:
         working: Working-space luminance group with image input and luminance output.
@@ -246,222 +211,102 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
     Returns:
         Group with filtered and noisy outputs, or accumulated graph faults.
     """
-    image = End(node=INPUTS, socket=COLOR_INPUT.key)
     fireflies, _ = SpatialDenoise.__struct_fields__
+    _, value = Gated.__struct_fields__
+    guides, prefilter, quality = structs.fields(Filter)
     joint = Guides.ALBEDO_NORMAL.label
+    image = group_input(COLOR_INPUT.key, "RGBA")
+    level = working.placed({COLOR_INPUT.key: image}, LUMINANCE.key)
+    grid = gridded(image)
     ring = tuple((float(dx), float(dy), 0.0) for dy in range(-2, 3) for dx in range(-2, 3) if max(abs(dx), abs(dy)) == 2)
-    rank = 4
+    count, rank, lit = len(ring), 4, 0.0001
+    pairs = tuple(
+        (i + j, i + j + k)
+        for p in (1 << exponent for exponent in range(count.bit_length() - 1))
+        for k in (p >> shift for shift in range(p.bit_length()))
+        for j in range(k % p, count - k, 2 * k)
+        for i in range(min(k, count - j - k))
+        if (i + j) // (2 * p) == (i + j + k) // (2 * p)
+    )
 
-    def ranked(values: tuple[tuple[Fragment, End, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
-        key = "rank"
-        count = len(values)
-        selected = count - rank
-        pairs = tuple(
-            (i + j, i + j + k)
-            for p in (1 << exponent for exponent in range(count.bit_length() - 1))
-            for k in (p >> shift for shift in range(p.bit_length()))
-            for j in range(k % p, count - k, 2 * k)
-            for i in range(min(k, count - j - k))
-            if (i + j) // (2 * p) == (i + j + k) // (2 * p)
-        )
+    def tap(offset: tuple[float, float, float]) -> tuple[Expr, Expr]:
+        uv = grid.at(offset, grid.inverse)
+        sampled = Expr(kind=bpy.types.CompositorNodeMapUV, inputs=(("Image", level), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", "Clip"), ("Extension Y", "Clip")), socket="Image")
+        return sampled, (uv["X"] > 0.0) * (uv["X"] < 1.0) * ((uv["Y"] > 0.0) * (uv["Y"] < 1.0))
 
-        def marked(state: tuple[frozenset[int], frozenset[int]], indexed: tuple[int, tuple[int, int]]) -> tuple[frozenset[int], frozenset[int]]:
-            (read, kept), (index, wires) = state, indexed
-            return (read | frozenset(wires), kept | {index}) if read.intersection(wires) else state
+    def exchanged(wires: tuple[tuple[Expr, Expr], ...], pair: tuple[int, int]) -> tuple[tuple[Expr, Expr], ...]:
+        low, high = pair
+        (left, left_valid), (right, right_valid) = wires[low], wires[high]
+        choose = (left_valid > right_valid) + math("COMPARE", left_valid, right_valid, 0.0) * (left > right)
+        moved = {low: (where(choose, right, left), math("MINIMUM", left_valid, right_valid)), high: (where(choose, left, right), math("MAXIMUM", left_valid, right_valid))}
+        return tuple(starmap(moved.get, enumerate(wires)))
 
-        def connected(
-            state: tuple[tuple[tuple[End, End], ...], tuple[tuple[int, tuple[End, End], tuple[End, End]], ...]], indexed: tuple[int, tuple[int, int]]
-        ) -> tuple[tuple[tuple[End, End], ...], tuple[tuple[int, tuple[End, End], tuple[End, End]], ...]]:
-            (wires, made), (index, (low, high)) = state, indexed
-            moved = {wire: (End(node=f"{key}_{name}_{index}"), End(node=f"{key}_{name}_valid_{index}")) for wire, name in ((low, "minimum"), (high, "maximum"))}
-            return tuple(starmap(moved.get, enumerate(wires))), (*made, (index, wires[low], wires[high]))
+    taps = tuple(map(tap, ring))
+    fourth, _ = functools.reduce(exchanged, pairs, taps)[count - rank]
+    valid = sum((held for _, held in taps[1:]), taps[0][1])
+    marked = (level > fourth * group_input(item_key(fireflies, value))) * (1.0 - (level < lit)) * (valid > float(rank))
+    cleaned = switched(group_input(fireflies), image, mixed(1.0, image, where(marked, fourth / level, 1.0), blend="MULTIPLY"))
+    albedo = menu(group_input(guides.name), MenuItems.of(Guides), {Guides.ALBEDO.label: group_input(_ALBEDO.key, "RGBA"), joint: group_input(_ALBEDO.key, "RGBA")}, kind="RGBA")
+    normal = switched(structs.replace(albedo, socket=joint, shape="FLOAT"), (0.0, 0.0, 0.0), group_input(_NORMAL.key, "VECTOR"))
+    filtered = Expr(
+        kind=bpy.types.CompositorNodeDenoise,
+        inputs=(("Image", cleaned), ("Albedo", albedo), ("Normal", normal), ("HDR", True), ("Prefilter", group_input(prefilter.name)), ("Quality", group_input(quality.name))),
+        socket="Image",
+        shape="RGBA",
+    )
 
-        def comparator(index: int, left: tuple[End, End], right: tuple[End, End]) -> BlenderResult[Fragment]:
-            left_value, left_valid = left
-            right_value, right_valid = right
-            return (
-                paired(
-                    math(f"{key}_valid_greater_{index}", "GREATER_THAN", left_valid, right_valid),
-                    paired(
-                        compared(f"{key}_valid_equal_{index}", "EQUAL", left_valid, right_valid, epsilon=Some(0.0)), math(f"{key}_value_greater_{index}", "GREATER_THAN", left_value, right_value)
-                    ).bind(lambda parts: math(f"{key}_equal_greater_{index}", "MULTIPLY", *parts)),
-                )
-                .bind(lambda parts: math(f"{key}_choose_{index}", "ADD", *parts))
-                .bind(
-                    lambda choose: Fragment.joined(
-                        masked(f"{key}_minimum_{index}", "FLOAT", choose, left_value, right_value),
-                        masked(f"{key}_maximum_{index}", "FLOAT", choose, right_value, left_value),
-                        math(f"{key}_minimum_valid_{index}", "MINIMUM", left_valid, right_valid),
-                        math(f"{key}_maximum_valid_{index}", "MAXIMUM", left_valid, right_valid),
-                    )
-                )
-            )
+    def assembled(filters: Interface, entry: Interface) -> BlenderResult[NodeGroup]:
+        face = Interface(outputs=(COLOR_RESULT, _NOISY), inputs=(COLOR_INPUT, _ALBEDO, _NORMAL, *filters.inputs), panels=tuple(panel for panel in entry.panels if panel.key == fireflies))
+        return NodeGroup.built(key="denoiser", name="Denoiser", interface=face, outputs={COLOR_RESULT.key: filtered, _NOISY.key: cleaned})
 
-        initial: tuple[frozenset[int], frozenset[int]] = frozenset({selected}), frozenset()
-        _, needed = functools.reduce(marked, reversed(tuple(enumerate(pairs))), initial)
-        ends = tuple((value, valid) for _, value, valid in values)
-        made: tuple[tuple[int, tuple[End, End], tuple[End, End]], ...] = ()
-        wires, made = functools.reduce(connected, enumerate(pairs), (ends, made))
-        value, _ = wires[selected]
-        return (
-            accumulated(comparator(index, low, high) for index, low, high in made if index in needed)
-            .bind(lambda parts: Fragment.merged((*(body for body, _, _ in values), *parts)))
-            .map(lambda joined: (joined, value))
-        )
-
-    def sample(grid: PixelGrid, luminance: Operand, index: int, offset: tuple[float, float, float]) -> BlenderResult[tuple[Fragment, End, End]]:
-        key = f"ring_{index}"
-        uv = End(node=f"{key}_uv", socket="Vector")
-        axes = {axis: End(node=f"{key}_axes", socket=axis) for axis in ("X", "Y")}
-        return Fragment.joined(
-            grid.at(f"{key}_uv", offset, grid.inverse),
-            node(key, bpy.types.CompositorNodeMapUV, {"Image": luminance, "UV": uv, "Interpolation": "Nearest", "Extension X": "Clip", "Extension Y": "Clip"}, {}),
-            node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": uv}, {}),
-            *(
-                Fragment.joined(
-                    math(f"{key}_{axis.lower()}_lower", "GREATER_THAN", end, 0.0),
-                    math(f"{key}_{axis.lower()}_upper", "LESS_THAN", end, 1.0),
-                    math(f"{key}_{axis.lower()}_inside", "MULTIPLY", End(node=f"{key}_{axis.lower()}_lower"), End(node=f"{key}_{axis.lower()}_upper")),
-                )
-                for axis, end in axes.items()
-            ),
-            math(f"{key}_valid", "MULTIPLY", *(End(node=f"{key}_{axis.lower()}_inside") for axis in axes)),
-        ).map(lambda body: (body, End(node=key, socket="Image"), End(node=f"{key}_valid")))
-
-    def limited(luminance: Operand, fourth: Operand, enough: Operand) -> BlenderResult[tuple[Fragment, End]]:
-        _, value = Gated.__struct_fields__
-        return Fragment.joined(
-            math("ratio", "DIVIDE", fourth, luminance),
-            paired(
-                math("limit", "MULTIPLY", fourth, End(node=INPUTS, socket=item_key(fireflies, value))).bind(lambda limit: math("spike", "GREATER_THAN", luminance, limit)),
-                compared("lit", "GREATER_EQUAL", luminance, 0.0001),
-            )
-            .bind(lambda flags: math("positive_spike", "MULTIPLY", *flags))
-            .bind(lambda spike: math("marked", "MULTIPLY", spike, enough)),
-            masked("scale", "FLOAT", End(node="marked"), 1.0, End(node="ratio")),
-        ).map(ended("scale", "Value"))
-
-    def gathered(grid: PixelGrid, luminance: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-        def scaled(samples: tuple[tuple[Fragment, End, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
-            count = Fragment.joined(*(math(f"count_{index}", "ADD", End(node=f"count_{index - 1}") if index else 0.0, valid) for index, (_, _, valid) in enumerate(samples))).map(
-                ended(f"count_{len(samples) - 1}", "Value")
-            )
-            return paired(ranked(samples), count.bind(lambda total: math("enough", "GREATER_THAN", total, float(rank)))).bind(lambda found: limited(luminance, *found))
-
-        return accumulated(sample(grid, luminance, index, offset) for index, offset in enumerate(ring)).bind(scaled)
-
-    def cleaned(scale: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-        guides, prefilter, quality = structs.fields(Filter)
-        routes = {
-            "Image": mixed("despeckled", "RGBA", 1.0, image, scale, "MULTIPLY").bind(lambda despeckled: switched("fireflies", "RGBA", End(node=INPUTS, socket=fireflies), image, despeckled)),
-            "Albedo": menu(
-                "albedo", "RGBA", End(node=INPUTS, socket=guides.name), MenuItems.of(Guides), {Guides.ALBEDO.label: End(node=INPUTS, socket="albedo"), joint: End(node=INPUTS, socket="albedo")}
-            ),
-            "Normal": switched("normal", "VECTOR", End(node="albedo", socket=joint), (0.0, 0.0, 0.0), End(node=INPUTS, socket="normal")),
-        }
-        return (
-            accumulated(routes.values())
-            .bind(
-                lambda ends: node(
-                    "denoise",
-                    bpy.types.CompositorNodeDenoise,
-                    dict(zip(routes, ends)) | {"HDR": True, "Prefilter": End(node=INPUTS, socket=prefilter.name), "Quality": End(node=INPUTS, socket=quality.name)},
-                    {},
-                )
-            )
-            .map(ended("denoise", "Image"))
-        )
-
-    def assembled(parts: tuple[tuple[Interface, Interface], tuple[Fragment, End]]) -> BlenderResult[NodeGroup]:
-        (filters, entry), result = parts
-        body, _ = result
-        return NodeGroup.built(
-            key="denoiser",
-            name="Denoiser",
-            interface=Interface(
-                outputs=(COLOR_RESULT, Socket(key="noisy", name="Filter Input", kind=bpy.types.NodeSocketColor)),
-                inputs=(COLOR_INPUT, Socket(key="albedo", name="Albedo", kind=bpy.types.NodeSocketColor), Socket(key="normal", name="Normal", kind=bpy.types.NodeSocketVector), *filters.inputs),
-                panels=tuple(panel for panel in entry.panels if panel.key == fireflies),
-            ),
-            outputs={COLOR_RESULT.key: result, "noisy": (body, End(node="fireflies", socket="Output"))},
-        )
-
-    return paired(
-        paired(Interface.of(Filter), Interface.of(SpatialDenoise)),
-        paired(gridded("grid", image), nested("luminance", working, {COLOR_INPUT.key: image}, "luminance")).bind(lambda found: gathered(*found)).bind(cleaned),
-    ).bind(assembled)
+    return paired(Interface.of(Filter), Interface.of(SpatialDenoise)).bind(lambda faces: assembled(*faces))
 
 
-def unit(key: Key, group: NodeGroup, path: KeyPath, socket: Callable[[Key], End], source: Operand, pair: Pair) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds denoise unit with filter path, guides, and firefly controls."""
+def unit(group: NodeGroup, path: KeyPath, socket: Callable[[Key], Scalar], source: Scalar, pair: Pair) -> Expr:
+    """Places the denoiser group over a source with the filter controls at a record path, its guides, and the firefly controls."""
     fireflies, _ = SpatialDenoise.__struct_fields__
     _, value = Gated.__struct_fields__
     controls = {field.name: socket(item_key(*path, field.name)) for field in structs.fields(Filter)} | {held: socket(held) for held in (fireflies, item_key(fireflies, value))}
-    return nested(key, group, {COLOR_INPUT.key: source, "albedo": pair.albedo, "normal": pair.normal} | controls, COLOR_RESULT.key)
+    return group.placed({COLOR_INPUT.key: source, _ALBEDO.key: pair.albedo, _NORMAL.key: pair.normal} | controls, COLOR_RESULT.key)
 
 
-def gated(key: Key, source: Operand, filtered: tuple[Fragment, End], gate: Gate) -> BlenderResult[tuple[Fragment, End]]:
-    """Mixes denoised result over firefly-cleaned input, source passing through when disabled."""
-    body, result = filtered
-    return mixed(f"{key}_amount", "RGBA", gate.amount, (body, structs.replace(result, socket="noisy")), filtered).bind(lambda blended: switched(key, "RGBA", gate.enabled, source, blended))
+def gated(source: Scalar, filtered: Expr, gate: Gate) -> Expr:
+    """Mixes a denoised unit over its firefly-cleaned input by amount, the source passing through when disabled."""
+    return switched(gate.enabled, source, mixed(gate.amount, structs.replace(filtered, socket=_NOISY.key), filtered))
 
 
-def filing(terms: tuple[tuple[str, End], ...]) -> Filing:
-    """Routes denoised terms to beauty layers."""
-    return Filing(output=Output.BEAUTY, kind=Kind.LAYERED, sources=tuple(Source(name=f"{label} Denoised", end=end, kind="RGBA", dimensions=Nothing, output=Output.BEAUTY) for label, end in terms))
-
-
-def denoised(shell: Shell[SpatialDenoise]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds filter units and selected target.
+def denoised(shell: Shell[SpatialDenoise]) -> BlenderResult[Expr]:
+    """Builds every filter unit and selects the target, the frame unit's cleaned input as the mix baseline.
 
     Args:
         shell: Entry inputs, target menus, working config, and render-layer endpoints.
 
     Returns:
-        Target image with cleaned frame baseline, or accumulated graph faults.
+        Target image keeping the cleaned frame baseline and the other filter units, or accumulated graph faults.
     """
     paths, pair = Filters.of(), Pair.of(shell.layer, Nothing)
 
-    def joined(parts: tuple[tuple[Fragment, End], Fragment]) -> BlenderResult[tuple[Fragment, End]]:
-        (body, end), others = parts
-        return Fragment.merged((body, others)).map(lambda held: (held, end))
+    def built(group: NodeGroup) -> Expr:
+        frame, *rest = (unit(group, path, group_input, shell.color, pair).named(item_key(*path)) for path in paths.filters)
+        target = shell.menu(*paths.target, cases={Frame.title: frame, Passes.title: shell.color, Groups.title: shell.color}, kind="RGBA").named(item_key(*paths.target))
+        baseline = switched(structs.replace(target, socket=Frame.title, shape="FLOAT"), shell.color, structs.replace(frame, socket=_NOISY.key)).named(_FRAME_BASE.node)
+        return target.keeping(baseline, *rest)
 
-    def targeted(frame: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-        body, result = frame
-        target = item_key(*paths.target)
-        return menu(target, "RGBA", shell.socket(*paths.target), shell.items[paths.target], {Frame.title: frame, Passes.title: shell.source, Groups.title: shell.source}).bind(
-            lambda selected: Fragment.joined(switched(_FRAME_BASE.node, "RGBA", End(node=target, socket=Frame.title), shell.source, (body, structs.replace(result, socket="noisy")))).bind(
-                lambda baseline: joined((selected, baseline))
-            )
-        )
-
-    def built(group: NodeGroup) -> BlenderResult[tuple[Fragment, End]]:
-        frame, *rest = (unit(item_key(*path), group, path, shell.socket, shell.source, pair) for path in paths.filters)
-        return paired(frame.bind(targeted), Fragment.joined(*rest)).bind(joined)
-
-    return luminance(shell.config).bind(denoiser).bind(built)
+    return luminance(shell.config).bind(denoiser).map(built)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-spatial_denoise: CompositorEffect[SpatialDenoise] = CompositorEffect(
+spatial_denoise = CompositorEffect(
     record=SpatialDenoise,
     graph=denoised,
     mix_base=Some(_FRAME_BASE),
     requested=Some(lambda _record, layer: guided(layer)),
     holds={"cycles.use_denoising": False},
-    registrables=(
-        inspection(
-            row=lambda: spatial_denoise,
-            key=item_key(SpatialDenoise, "frame"),
-            title="View Denoised Frame",
-            description="Frame filter output before target selection",
-            target=lambda: End(node=item_key(*Filters.of().frame), socket=COLOR_RESULT.key),
-        ),
-    ),
+    inspected=(Inspected(key=item_key(SpatialDenoise, "frame"), end=End(node=item_key(*Filters.of().frame), socket=COLOR_RESULT.key), description="Frame filter output before target selection"),),
 )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Filters", "Gate", "Pair", "Plane", "Rendered", "denoised", "denoiser", "filing", "gated", "guided", "motioned", "settings", "spatial_denoise", "unit"]
+__all__ = ["ENGINE", "MOTION_BLUR", "SETTINGS", "VECTOR_PASS", "Filters", "Gate", "Pair", "Plane", "Rendered", "denoised", "denoiser", "filing", "gated", "guided", "motioned", "unit"]

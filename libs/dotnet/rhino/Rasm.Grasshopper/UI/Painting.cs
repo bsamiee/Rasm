@@ -60,17 +60,6 @@ public sealed partial class RouteSegment {
     }
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class WireGeometry {
-    public static readonly WireGeometry Linear = new("linear", typeof(LinearWire));
-    public static readonly WireGeometry BiArc = new("bi-arc", typeof(BiArcWire));
-    public static readonly WireGeometry Orthogonal = new("orthogonal", typeof(OrthogonalWire));
-
-    public Type Shape { get; }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class RoutedWire(PointF source, PointF target, IterableNE<RouteSegment> segments) : WireShape(source, target) {
     // --- [GEOMETRY]
@@ -201,15 +190,16 @@ public static class CanvasPainting {
             .Bind(sparkle => Spark(control, sparkle));
 
     // --- [WIRES]
-    public static IO<Unit> Route(Type shape, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(keep =>
+    private static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));
+
+    public static IO<Unit> Route<TShape>(Action<IDisposable> retain) where TShape : WireShape =>
         from free in IO.lift(static Fin<Unit> () => WireShape.ShapeType is { } held ? Error.New($"{nameof(WireShape.ShapeType)} already holds {held}") : unit)
-        from lease in DisposalOps.Acquire(IO.lift(() => new Disposal<Type>(shape, static held => {
-            if (WireShape.ShapeType == held) WireShape.ShapeType = null;
-            _ = Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw());
-        })), held => { WireShape.ShapeType = shape; keep(held); })
-        from redrawn in IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()))
-        select unit, retain);
+        from routed in DisposalOps.Acquire(IO.lift(static () => WireShape.ShapeType = typeof(TShape)),
+            static held => IO.lift(() => {
+                if (WireShape.ShapeType == held) WireShape.ShapeType = null;
+            }).Bind(static _ => Redrawn), retain)
+        from redrawn in Redrawn
+        select unit;
 
     public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires, MarkColor color, IPlugInSink sink, Action<IDisposable> retain) =>
         Overlay(GrasshopperEvents.BeforePaintWires(canvas), (plot, args) =>

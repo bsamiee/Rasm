@@ -83,11 +83,7 @@ public static class Copies {
         Owned(create, product => IO.lift(() => accept(product)), release, retain);
 
     public static IO<TKept> Owned<TMade, TKept>(Func<TMade> create, Func<TMade, IO<TKept>> body, Func<TMade, IO<Unit>> release, Action<IDisposable> retain) =>
-        IO.lift(create).Bind(product => DisposalOps.OnFailure(
-            from kept in IO.pure(product).Bind(body)
-            from retained in IO.lift(() => retain(new Disposal<TMade>(product, held => release(held).Run())))
-            select kept,
-            IO.pure(product).Bind(release))).Uninterruptible();
+        DisposalOps.Acquire(owned => DisposalOps.Acquire(IO.lift(create), release, owned).Bind(body), retain);
 
     public static IO<TKept> Owned<TMade, TKept>(Func<TMade> create, Func<TMade, Fin<TKept>> accept, Action<IDisposable> retain) where TMade : IDisposable =>
         Owned(create, accept, static product => IO.lift(product.Dispose), retain);

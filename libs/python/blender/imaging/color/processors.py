@@ -127,7 +127,7 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
         """Returns associated display colors under view exposure and gamma."""
         exponent = 1.0 / max(gamma, float(np.spacing(np.float32(1))))
         return self.transform(config).bind(
-            lambda op: processor(
+            lambda op: converted(
                 config,
                 PyOpenColorIO.GroupTransform([
                     PyOpenColorIO.ColorSpaceTransform(src=source, dst=PyOpenColorIO.ROLE_SCENE_LINEAR),
@@ -135,7 +135,8 @@ class DisplayView(Effect, frozen=True, kw_only=True, tag=0):
                     *op.to_list(),
                     *([PyOpenColorIO.ExponentTransform([exponent] * 3 + [1.0])] if exponent != 1.0 else []),
                 ]),
-            ).map(lambda built: applied(built.getDefaultCPUProcessor(), values))
+                values,
+            )
         )
 
 
@@ -198,9 +199,9 @@ def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) 
     return colored(transform, lambda: config.getProcessor(transform))
 
 
-def joined(source: PyOpenColorIO.Config, source_space: str, config: PyOpenColorIO.Config, space: str) -> ImagingResult[PyOpenColorIO.Processor]:
-    """Returns processor between configs through interchange roles, or color fault."""
-    return colored(PyOpenColorIO.ColorSpaceTransform(src=source_space, dst=space), lambda: PyOpenColorIO.Config.GetProcessorFromConfigs(source, source_space, config, space))
+def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, values: npt.NDArray[np.float32]) -> ImagingResult[npt.NDArray[np.float32]]:
+    """Applies `transform` to associated colors through its CPU processor, or color fault."""
+    return processor(config, transform).map(lambda built: applied(built.getDefaultCPUProcessor(), values))
 
 
 # --- [APPLICATION]
@@ -273,14 +274,14 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
     return basis(config, space).bind(solved)
 
 
-def luma(config: PyOpenColorIO.Config) -> ImagingResult[npt.NDArray[np.float32]]:
-    """Returns scene-linear luminance coefficients, or color fault."""
-    return processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)).map(lambda built: applied(built.getDefaultCPUProcessor(), np.eye(3, dtype=np.float32))[:, 1])
+def luma(config: PyOpenColorIO.Config) -> ImagingResult[npt.NDArray[np.float64]]:
+    """Returns scene-linear luminance coefficients, the Y row of its RGB-to-XYZ matrix, or base fault."""
+    return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).map(lambda matrix: matrix[1])
 
 
 def chromaticities(config: PyOpenColorIO.Config, space: str) -> ImagingResult[npt.NDArray[np.float64]]:
-    """Returns float64 xy rows of red, green, blue, and white, or color fault."""
-    return processor(config, xyz(config, space)).map(lambda built: coordinates(applied(built.getDefaultCPUProcessor(), np.vstack((np.eye(3, dtype=np.float32), np.ones((1, 3), dtype=np.float32))))))
+    """Returns float64 xy rows of red, green, blue, and white from unit codes every display encoding fixes, or color fault."""
+    return converted(config, xyz(config, space), np.vstack((np.eye(3, dtype=np.float32), np.ones((1, 3), dtype=np.float32)))).map(coordinates)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -294,7 +295,7 @@ __all__ = [
     "basis",
     "bracketed",
     "chromaticities",
-    "joined",
+    "converted",
     "lin_to_log",
     "luma",
     "matching",

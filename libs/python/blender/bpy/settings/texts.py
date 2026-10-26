@@ -8,13 +8,13 @@ import msgspec
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import rooted
-from blender.bpy.extension.events.handlers import PathHandler
+from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_PRE
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderEditFault, BlenderReadFault, BlenderResult
+from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.imaging.faults import paired
+from blender.imaging.faults import Access, ImagingFileFault, paired
 from blender.imaging.parameters import heading
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -43,7 +43,9 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         attached, manager = session
 
         def decoded(text: bpy.types.Text) -> BlenderResult[T]:
-            return catch(lambda: msgspec.json.decode(text.as_string(), type=self.form), exception=msgspec.DecodeError)().map_error(lambda error: (BlenderReadFault(request=repr(text), error=error),))
+            return catch(lambda: msgspec.json.decode(text.as_string(), type=self.form), exception=msgspec.DecodeError)().map_error(
+                lambda error: (ImagingFileFault(access=Access.READ, request=repr(text), error=error),)
+            )
 
         return self.ownership.found(identity).map(decoded).default_with(lambda: Ok(self.form())).bind(lambda value: attached.write(manager, value))
 
@@ -67,7 +69,7 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             attached, manager = pair
 
             def stored(record: T) -> BlenderResult[None]:
-                return ownership.made(identity, lambda: Ok(bpy.data.texts.new(vacant(title, bpy.data.texts.keys())))).bind(
+                return ownership.made(identity, lambda: BlenderEditFault.attempted(title, lambda: bpy.data.texts.new(vacant(title, bpy.data.texts.keys())))).bind(
                     lambda text: BlenderEditFault.attempted(repr(text), lambda: text.from_string(msgspec.json.encode(record, order="deterministic").decode()))
                 )
 
@@ -76,8 +78,8 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return Ok((
             attachment,
             ownership,
-            PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: session().bind(lambda pair: self.loaded(identity, pair))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            PathHandler(handlers=bpy.app.handlers.save_pre, body=lambda _: session().bind(saved)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            PathHandler(handlers=LOAD_POST, body=lambda _: session().bind(lambda pair: self.loaded(identity, pair))),
+            PathHandler(handlers=SAVE_PRE, body=lambda _: session().bind(saved)),
             Timer(body=loaded),
         ))
 

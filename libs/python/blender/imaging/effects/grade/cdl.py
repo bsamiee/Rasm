@@ -7,7 +7,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.faults import accumulated, colored, ImagingReadFault, ImagingResult
+from blender.imaging.faults import Access, accumulated, colored, ImagingFileFault, ImagingResult
 from blender.imaging.parameters import Finite, NonNegative, Positive
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ def read(path: str) -> ImagingResult[tuple[tuple[Option[str], Cdl], ...]]:
         path: CC, CCC, or CDL file.
 
     Returns:
-        `Ok` of correction IDs (`Nothing` when unnamed) and grades. `Error` of `ImagingColorFault` on OCIO refusal, or one `ImagingReadFault` per out-of-bounds correction.
+        `Ok` of correction IDs (`Nothing` when unnamed) and grades. `Error` of `ImagingColorFault` on OCIO refusal, or one `ImagingFileFault` per out-of-bounds correction.
     """
 
     def entry(correction: PyOpenColorIO.CDLTransform) -> ImagingResult[tuple[Option[str], Cdl]]:
@@ -57,7 +57,7 @@ def read(path: str) -> ImagingResult[tuple[tuple[Option[str], Cdl], ...]]:
         try:
             grade = msgspec.convert({"red": red, "green": green, "blue": blue, "saturation": correction.getSat()}, type=Cdl)
         except msgspec.ValidationError as error:
-            return Error((ImagingReadFault(request=path, error=error),))
+            return Error((ImagingFileFault(access=Access.READ, request=path, error=error),))
         return Ok((Some(correction.getFormatMetadata().getID()).filter(bool), grade))
 
     return colored(path, lambda: PyOpenColorIO.CDLTransform.CreateGroupFromFile(path)).bind(lambda group: accumulated(map(entry, group)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

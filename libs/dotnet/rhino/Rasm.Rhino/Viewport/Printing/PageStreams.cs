@@ -62,20 +62,15 @@ public static class PageStreams {
     private static IO<(PageSource Source, Seq<ViewportRef> Rows)> Held(RhinoDoc doc, PageSource source, Action<IDisposable> retain) =>
         source.Switch(
             (Document: doc, Retain: retain),
-            viewSet: static (state, views) => Viewports.ResolveViewports(state.Document, views.Set, state.Retain),
-            pageDetails: static (state, details) => DisposalOps.Within((Action<IDisposable> owned) =>
-                Viewports.ResolveViewports(state.Document, details.Pages, owned).Bind(pages => Copies.Owned(() =>
-                    (from page in pages.Filter(static row => row.Detail.IsNone).Choose(static row => Optional(row.View as RhinoPageView))
-                     from detail in toSeq(page.GetDetailViews())
-                     select new ViewportRef(page, Some(detail))).Strict(),
-                    static rows => Conversions.NonEmpty(rows, nameof(RhinoPageView.GetDetailViews)),
-                    DisposalOps.Release, state.Retain)), DisposalOps.Release),
-            named: static (state, named) => Viewports.ResolveViewport(state.Document, named.Viewport, state.Retain).Map(static row => Seq(row)))
+            viewSet: static (state, views) => Viewports.Resolve(state.Document, views.Set, state.Retain),
+            pageDetails: static (state, details) => Viewports.Resolve(state.Document, details.Pages, state.Retain)
+                .Map(static rows => rows.Filter(static row => row.Viewport.ViewportType is ViewportType.DetailViewport)),
+            named: static (state, named) => Viewports.Resolve(state.Document, named.Viewport, state.Retain).Map(static row => Seq(row)))
         .Map(rows => (source, rows));
 
     private static IO<Option<RhinoObject>> Parented(RhinoDoc doc, ViewportRef row) =>
         row switch {
-            { Detail.IsSome: true } => IO.pure(row.Detail.Map<RhinoObject>(static detail => detail)),
+            { Viewport.ViewportType: ViewportType.DetailViewport } => new ObjectTarget.Ids(Seq(row.Viewport.Id)).Objects(doc).Map(static found => found.Head),
             { View: RhinoPageView page } => new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { SpaceFilter = ActiveSpace.PageSpace, ViewportFilter = page.MainViewport })).Objects(doc).Map(static found => found.Head),
             _ => IO.pure(Option<RhinoObject>.None),
         };
@@ -90,7 +85,7 @@ public static class PageStreams {
                 from restored in IO.lift(() => {
                     viewport.Size = frame.Media;
                     viewport.DisplayMode = mode;
-                    return Cameras.Restore(viewport, camera, camera.TargetPoint);
+                    return Cameras.Applied(viewport, camera);
                 })
                 from valid in IO.lift(() => {
                     settings.Document = doc;

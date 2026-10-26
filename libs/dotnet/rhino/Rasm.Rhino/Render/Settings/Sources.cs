@@ -87,10 +87,6 @@ public static class RenderSettingsSources {
         from assigned in IO.lift(() => { doc.RenderSettings = restored; })
         select assigned;
 
-    // --- [SUB_OWNERS]
-    public static IO<T> SubOwner<THost, T>(RenderSettingsScope scope, Func<RenderSettings, THost> select, Func<THost, IO<T>> body) where THost : IDisposable =>
-        DisposalOps.Within(() => select(scope.Settings), body);
-
     // --- [STORES]
     public static ValueStore<TRecord> Store<TRecord>(RenderSettingsSource source) where TRecord : IRenderSettingsRecord<TRecord> =>
         Read(source, static scope => TRecord.Read(scope)).Map(Held) switch {

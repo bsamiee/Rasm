@@ -1,0 +1,4 @@
+#0 `DisplayModeDescription.GetDisplayMode(id)` returns a new `DisplayModeDescription` the caller owns, and no release reaches it. Acquire it through `DisposalOps.Found`
+#1 `viewport.DisplayMode` returns a new `DisplayModeDescription` the caller owns, and no release reaches it. Acquire it through `DisposalOps.Found`
+#3 `DisplayModeDescription.GetDisplayMode(id)` returns a new `DisplayModeDescription` the caller owns, and no release reaches it. Acquire it through `DisposalOps.Found`
+#2 `DisplayModeDescription.FindByName(name)` returns a new `DisplayModeDescription` the caller owns, and no release reaches it. Acquire it through `DisposalOps.Found`

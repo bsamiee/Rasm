@@ -1,8 +1,7 @@
 """Scene-linear beauty from light passes and light groups."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import Enum
-from itertools import starmap
 from typing import Annotated, ClassVar, Self
 
 import bpy
@@ -10,13 +9,14 @@ from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 from msgspec import structs
 
-from blender.bpy.data.rna.descriptors import Descriptor, IdName
+from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
-from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, math, mixed, node, NodeGroup, Operand, summed, vector
+from blender.bpy.nodes.graphs import End, Expr, group_input, math, mixed, NodeGroup, switched
 from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.effects.detail.denoise import filing, Filters, Gate, gated, Pair, unit
-from blender.bpy.render.view_layers.passes import Family, Filing, PassFlags, PassRequest, term
+from blender.bpy.render.effects.records import KeyPath
+from blender.bpy.render.view_layers.passes import Family, Filing, lobed, PassFlags, PassRequest
 from blender.bpy.scene.lights.groups import LightGroupEdits
 from blender.bpy.settings.properties import Choices
 from blender.imaging.compositing.recombination import GroupGain, LightGroups, Lobes, Recombination, Terms
@@ -59,6 +59,14 @@ class Denoising(msgspec.Struct, frozen=True, kw_only=True):
     switch: Key
 
 
+class Beauty(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Recombined beauty, the beauty of denoised terms with the target item choosing it, and the denoised terms' filing."""
+
+    plain: Expr
+    denoised: Option[tuple[Expr, End]] = Nothing
+    filing: Option[Expr] = Nothing
+
+
 class RecombinationFlags(msgspec.Struct, frozen=True, kw_only=True):
     """Family and single pass flag descriptors."""
 
@@ -87,8 +95,7 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
         """Requests lobe and single passes, or Cycles for light groups."""
         match self.recombination:
             case Lobes():
-                families = frozenset(flag for family in flags.families.families.values() for flag in family.direct | family.indirect | family.color)
-                return PassRequest(layer=self.layer, flags=families | frozenset(flags.singles.values()))
+                return PassRequest(layer=self.layer, flags=flags.families.lobes | frozenset(flags.singles.values()))
             case LightGroups():
                 return PassRequest(layer=self.layer, condition=LightGroupEdits.cycles)
 
@@ -104,111 +111,110 @@ class Recombined(Case, frozen=True, kw_only=True, tag=4):
     def recombined(
         self,
         key: Key,
-        outer: Callable[[Key], End],
+        outer: Callable[[Key], Expr],
+        render: Expr,
         scene: bpy.types.Scene,
-        offered: dict[str, str],
+        offered: Mapping[str, str],
         lobe: NodeGroup,
         denoising: Option[Denoising],
-        filed: Callable[[Filing, Key], BlenderResult[Fragment]],
-    ) -> BlenderResult[tuple[Fragment, End]]:
-        """Builds beauty sum, guided term filters, coverage, and filing."""
-        render = f"{key}_render"
+        filed: Callable[[Filing, Key], BlenderResult[Expr]],
+    ) -> BlenderResult[Beauty]:
+        """Builds beauty from the layer's Render Layers node, each term gained, and with denoising the beauty of filtered terms.
+
+        The denoised beauty never feeds the denoise effect, whose target menu chooses it, so the menu reading the plain beauty closes no cycle.
+
+        Args:
+            key: Layer key naming the filing.
+            outer: Group input of a recombination field key.
+            render: Render Layers node of the source view layer.
+            scene: Scene whose transparent film drops the environment term.
+            offered: Socket identifier per enabled Render Layers output name.
+            lobe: Shared lobe total group.
+            denoising: Spatial filter controls when the layer denoises its terms.
+            filed: File Output node of a filing under a key.
+
+        Returns:
+            `Ok` of beauties with render alpha and the filing of terms the target denoises. `Error` of every absent pass and `absent` naming the terms a sum
+            requested of none offered.
+        """
         filters = Filters.of()
         _, recombination = Recombined.__struct_fields__
         _, value = Gated.__struct_fields__
+        target = Passes if isinstance(self.recombination, Lobes) else Groups
 
-        def socket(name: str) -> BlenderResult[End]:
-            return Option.of_optional(offered.get(name)).map(lambda identifier: End(node=render, socket=identifier)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(offered), key=name),))
-
-        def gained(at: Key, source: Operand, path: tuple[Key | int | type[Case], ...]) -> BlenderResult[tuple[Fragment, End]]:
+        def socket(name: str) -> BlenderResult[Expr]:
             return (
-                math(f"{at}_power", "POWER", 2.0, outer(item_key(recombination, *path, value)))
-                .bind(lambda power: math(f"{at}_gain", "MULTIPLY", power, outer(item_key(recombination, *path))))
-                .bind(lambda gain: vector(at, "SCALE", source, gain))
+                Option
+                .of_optional(offered.get(name))
+                .map(lambda identifier: structs.replace(render, socket=identifier, shape="RGBA"))
+                .to_result_with(lambda: (BlenderAbsentFault(owner=repr(offered), key=name),))
             )
 
-        def filtered(
-            at: Key, source: tuple[Fragment, End], family: Option[Family], path: tuple[Key | int | type[Case], ...], target: type[Passes] | type[Groups]
-        ) -> BlenderResult[tuple[Fragment, End]]:
-            def built(held: Denoising) -> BlenderResult[tuple[Fragment, End]]:
-                def control(inner: Key) -> End:
-                    return End(node=INPUTS, socket=item_key(held.entry, inner))
+        def gained(source: Expr, path: KeyPath) -> Expr:
+            return source * (math("POWER", 2.0, outer(item_key(recombination, *path, value))) * outer(item_key(recombination, *path)))
 
-                toggled = math(f"{at}_target", "MINIMUM", End(node=INPUTS, socket=held.entry), End(node=held.switch, socket=target.title))
-                enabled = toggled.bind(lambda selected: math(f"{at}_enabled", "MINIMUM", selected, control(item_key(*path[:-1])))) if target is Passes else toggled
-                return paired(unit(f"{at}_denoise", held.group, path, control, source, Pair.of(lambda name: End(node=render, socket=name), family)), enabled).bind(
-                    lambda pair: gated(f"{at}_gate", source, pair[0], Gate(enabled=pair[1], amount=control(item_key("blend", "opacity"))))
-                )
+        def total(terms: tuple[Expr, ...], requested: str) -> BlenderResult[Expr]:
+            return Ok(sum(terms[1:], terms[0])) if terms else Error((BlenderAbsentFault(owner=repr(offered), key=requested),))
 
-            return denoising.map(built).default_value(Ok(source))
+        def filtered(held: Denoising, source: Expr, family: Option[Family], path: KeyPath) -> Expr:
+            def control(inner: Key) -> Expr:
+                return group_input(item_key(held.entry, inner))
 
-        def total(at: Key, values: tuple[Operand, ...]) -> BlenderResult[Operand]:
-            return summed(at, values) if values else Error((BlenderAbsentFault(owner=repr(offered), key=Family.DIFFUSE.socket("direct")),))
+            enabled = control(item_key(*path[:-1])) if target is Passes else 1.0
+            pair = Pair.of(lambda name: structs.replace(render, socket=name), family)
+            return gated(source, unit(held.group, path, control, source, pair), Gate(enabled=enabled, amount=control(item_key("blend", "opacity"))))
 
-        def finished(parts: tuple[tuple[str, tuple[Fragment, End]], ...], beauty: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            output = socket("Alpha").bind(
-                lambda alpha: node(f"{key}_alpha", bpy.types.CompositorNodeSetAlpha, {"Image": beauty, "Alpha": alpha, "Type": "Replace Alpha"}, {}).map(ended(f"{key}_alpha", "Image"))
-            )
-            filing_result = denoising.map(lambda _: filed(filing(tuple((label, source[1]) for label, source in parts)), f"{key}_denoised")).default_value(Ok(Fragment()))
-            return paired(output, filing_result).bind(
-                lambda pair: (
-                    node(render, bpy.types.CompositorNodeRLayers, {}, {"scene": IdName.of(scene), "layer": self.layer})
-                    .bind(lambda source: Fragment.merged((source, *(body for _, (body, _) in parts), pair[0][0], pair[1])))
-                    .map(lambda joined: (joined, pair[0][1]))
-                )
+        def finished(terms: tuple[tuple[str, Expr, KeyPath, Option[Family]], ...], combined: Callable[[Mapping[str, Expr]], BlenderResult[Expr]]) -> BlenderResult[Beauty]:
+            def alpha(beauty: Expr, mask: Expr) -> Expr:
+                return Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", beauty), ("Alpha", mask), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
+
+            def denoised(held: Denoising) -> BlenderResult[tuple[Expr, End, Expr]]:
+                chosen = End(node=held.switch, socket=target.title)
+                cleaned = {label: filtered(held, source, family, path) for label, source, path, family in terms}
+                selected = math("MINIMUM", group_input(held.entry), chosen)
+                kept = tuple((label, switched(selected, source, cleaned[label])) for label, source, _, _ in terms)
+                return paired(combined(cleaned), filed(filing(kept), f"{key}_denoised")).map(lambda parts: (parts[0], chosen, parts[1]))
+
+            return paired(socket("Alpha"), combined({label: source for label, source, _, _ in terms}), denoising.map(lambda held: denoised(held).map(Some)).default_value(Ok(Nothing))).map(
+                lambda parts: Beauty(plain=alpha(parts[1], parts[0]), denoised=parts[2].map(lambda held: (alpha(held[0], parts[0]), held[1])), filing=parts[2].map(lambda held: held[2]))
             )
 
         match self.recombination:
             case Lobes():
+                families = tuple((name, source) for name in Terms.__struct_fields__ for source in (getattr(self.sources, name),) if isinstance(source, Family))
 
-                def built_term(field: msgspec.structs.FieldInfo) -> Option[BlenderResult[tuple[str, tuple[Fragment, End]]]]:
-                    source: Family | Single = getattr(self.sources, field.name)
-                    at = f"{key}_{field.name}"
-                    return (
-                        term(at, source, ("direct", "indirect", "color"), render, offered, lobe).map(
-                            lambda answer: answer.bind(lambda body: filtered(at, body, Some(source), getattr(filters.terms, field.name), Passes))
-                        )
-                        if isinstance(source, Family)
-                        else Some(socket(source.socket).bind(lambda body: filtered(at, (Fragment(), body), Nothing, getattr(filters.terms, field.name), Passes)))
-                    ).map(lambda answer: answer.map(lambda body: (field.name, body)))
+                def offering(name: str, source: Family | Single) -> Option[BlenderResult[tuple[str, Expr, KeyPath, Option[Family]]]]:
+                    path = getattr(filters.terms, name)
+                    match source:
+                        case Family():
+                            offers = {label: structs.replace(render, socket=identifier, shape="RGBA") for label, identifier in offered.items()}
+                            return lobed(source, ("direct", "indirect", "color"), offers, lobe).map(lambda placed: Ok((name, placed, path, Some(source))))
+                        case Single():
+                            return Some(socket(source.socket).map(lambda placed: (name, placed, path, Nothing)))
 
-                def summed_lobes(parts: tuple[tuple[str, tuple[Fragment, End]], ...]) -> BlenderResult[tuple[Fragment, End]]:
-                    by_name = dict(parts)
-                    light = accumulated(gained(f"{key}_{name}_scaled", source, (Lobes, "terms", name)) for name, source in parts if isinstance(getattr(self.sources, name), Family)).bind(
-                        lambda values: total(f"{key}_lobes", values)
-                    )
-                    occlusion = socket(Single.OCCLUSION.socket).bind(lambda source: filtered(f"{key}_occlusion", (Fragment(), source), Nothing, filters.occlusion, Passes))
-                    strength = math(f"{key}_occlusion_strength", "MULTIPLY", outer(item_key(recombination, Lobes, "occlusion")), outer(item_key(recombination, Lobes, "occlusion", value)))
-                    extras = accumulated(
-                        gained(f"{key}_{name}_scaled", by_name[name], (Lobes, "terms", name)) for name in ("emission", "environment") if name != "environment" or not scene.render.film_transparent
-                    )
-                    return paired(paired(light, extras), paired(occlusion, strength)).bind(
-                        lambda built: (
-                            mixed(f"{key}_occluded", "RGBA", built[1][1], built[0][0], built[1][0], "MULTIPLY")
-                            .bind(lambda darkened: total(f"{key}_beauty", (darkened, *built[0][1])))
-                            .bind(lambda beauty: finished((*parts, ("Ambient Occlusion", built[1][0])), beauty))
-                        )
-                    )
+                def lobes(terms: Mapping[str, Expr]) -> BlenderResult[Expr]:
+                    strength = math("MULTIPLY", outer(item_key(recombination, Lobes, "occlusion")), outer(item_key(recombination, Lobes, "occlusion", value)))
+                    extras = tuple(gained(terms[name], (Lobes, "terms", name)) for name in ("emission", "environment") if name != "environment" or not scene.render.film_transparent)
+                    light = total(tuple(gained(terms[name], (Lobes, "terms", name)) for name, _ in families if name in terms), ", ".join(source.socket("direct") for _, source in families))
+                    return light.map(lambda lit: sum(extras, mixed(strength, lit, terms[Single.OCCLUSION.socket], blend="MULTIPLY")))
 
-                return accumulated(answer for field in structs.fields(self.sources) for answer in built_term(field).to_list()).bind(summed_lobes)
+                occlusion = socket(Single.OCCLUSION.socket).map(lambda source: (Single.OCCLUSION.socket, source, filters.occlusion, Nothing))
+                listed = accumulated((*(answer for name in Terms.__struct_fields__ for answer in offering(name, getattr(self.sources, name)).to_list()), occlusion))
+                return listed.bind(lambda terms: finished(terms, lobes))
             case LightGroups(groups=groups):
 
-                def built_group(index: int, group: GroupGain) -> BlenderResult[tuple[str, tuple[Fragment, End]]]:
-                    at = f"{key}_group_{index}"
-                    return (
-                        socket(f"Combined_{group.name}")
-                        .bind(lambda source: filtered(at, (Fragment(), source), Nothing, filters.groups, Groups))
-                        .bind(lambda source: mixed(f"{at}_tinted", "RGBA", 1.0, source, outer(item_key(recombination, LightGroups, "groups", index, "tint")), "MULTIPLY"))
-                        .bind(lambda source: gained(at, source, (LightGroups, "groups", index, "gain")))
-                        .map(lambda source: (group.name, source))
+                def grouped(terms: Mapping[str, Expr]) -> BlenderResult[Expr]:
+                    tinted = tuple(
+                        gained(mixed(1.0, terms[group.name], outer(item_key(recombination, LightGroups, "groups", index, "tint")), blend="MULTIPLY"), (LightGroups, "groups", index, "gain"))
+                        for index, group in enumerate(groups, 1)
                     )
+                    return total(tinted, item_key(recombination, LightGroups, "groups"))
 
-                return accumulated(starmap(built_group, enumerate(groups, 1))).bind(
-                    lambda parts: total(f"{key}_beauty", tuple(source for _, source in parts)).bind(lambda beauty: finished(parts, beauty))
-                )
+                sockets = accumulated(socket(f"Combined_{group.name}") for group in groups)
+                return sockets.bind(lambda sources: finished(tuple((group.name, source, filters.groups, Nothing) for group, source in zip(groups, sources)), grouped))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["Denoising", "RecombinationFlags", "Recombined", "Single", "views"]
+__all__ = ["Beauty", "Denoising", "RecombinationFlags", "Recombined", "Single", "views"]

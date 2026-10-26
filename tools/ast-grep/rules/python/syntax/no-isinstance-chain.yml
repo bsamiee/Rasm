@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-isinstance-chain
+language: python
+severity: error
+utils:
+    isinstance-callee:
+        matches: {python-builtin-name: {name: {regex: '^isinstance$'}}}
+    class-operand:
+        any:
+            - kind: identifier
+            - kind: attribute
+              regex: '^[\p{XID_Start}_][\p{XID_Continue}.]*$'
+            - kind: tuple
+              has: {matches: class-operand}
+              not: {has: {pattern: $_, not: {any: [{matches: class-operand}, {kind: comment}]}}}
+            - kind: binary_operator
+              all:
+                - has: {field: operator, regex: '^\|$'}
+                - has: {field: left, matches: class-operand}
+                - has: {field: right, matches: class-operand}
+    class-test:
+        kind: call
+        all:
+            - has: {field: function, matches: isinstance-callee}
+            - has:
+                field: arguments
+                all:
+                    - has: {nthChild: 1, pattern: $X}
+                    - has: {nthChild: 2, matches: class-operand}
+                    - not: {has: {nthChild: 3}}
+                    - not: {has: {kind: 'keyword_argument, list_splat, dictionary_splat'}}
+    terminal:
+        has:
+            nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+            kind: return_statement, raise_statement
+    tested-exit:
+        kind: if_statement
+        all:
+            - has: {field: condition, matches: class-test}
+            - has: {field: consequence, matches: terminal}
+            - not: {has: {field: alternative, pattern: $_}}
+    pass-block:
+        kind: block
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+        has: {any: [{kind: pass_statement}, {kind: expression_statement, regex: '^\.\.\.$'}]}
+    two-arm-pass:
+        kind: if_statement
+        all:
+            - not: {has: {kind: else_clause}}
+            - not: {has: {kind: elif_clause, nthChild: {position: 2, ofRule: {kind: elif_clause}}}}
+            - any:
+                - has: {field: consequence, matches: pass-block}
+                - has: {kind: elif_clause, has: {field: consequence, matches: pass-block}}
+rule:
+    kind: if_statement
+    pattern: $CHAIN
+    any:
+        - all:
+            - has: {field: condition, matches: class-test}
+            - has: {field: alternative, kind: elif_clause, has: {field: condition, matches: class-test}}
+            - not: {matches: two-arm-pass}
+        - all:
+            - matches: tested-exit
+            - precedes: {matches: tested-exit}
+            - not: {follows: {matches: tested-exit}}
+message: '`if` chain dispatches `$X` on `isinstance` tests'
+note: 'Write `match <subject>:` with `case <class>():` per test, `case <a>() | <b>():` for a class tuple or union, and `case _:` for remaining code other than a `TypeError` raise, `pass` when none remains and the arms leave the subject unexhausted'

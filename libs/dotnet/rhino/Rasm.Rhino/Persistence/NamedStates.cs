@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
@@ -179,8 +180,7 @@ public static class NamedStates {
         IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)).ToFin(new Refused(nameof(NamedLayerStateTable.FindName), Refused.Absent)));
 
     private static IO<Option<Guid>> Scope(RhinoDoc doc, Option<ViewportTarget> viewport) =>
-        viewport.Traverse(target => DisposalOps.Within<IDisposable, Guid>(retain =>
-            Viewports.ResolveViewport(doc, target, retain).Map(static row => row.Viewport.Id), DisposalOps.Release)).As();
+        viewport.Traverse(target => Viewports.With(doc, target, static row => IO.pure(row.Viewport.Id))).As();
 
     private static IO<Unit> Saved(RhinoDoc doc, string name, Option<Guid> scope) =>
         IO.lift(() => Conversions.Required(doc.NamedLayerStates.Save(name, Conversions.Unset(scope)), nameof(NamedLayerStateTable.Save)).Map(static _ => unit));
@@ -192,7 +192,7 @@ public static class NamedStates {
     public static IO<Seq<bool>> RestoreConstructionPlane(RhinoDoc doc, string name, ViewportSet viewports, RedrawPolicy redraw) =>
         from plane in IO.lift(() => Conversions.Present(doc.NamedConstructionPlanes.Find(name))
             .Map(index => doc.NamedConstructionPlanes[index]).ToFin(new Refused(nameof(NamedConstructionPlaneTable.Find), Refused.Absent)))
-        from restored in Navigation.ApplyToViewports(doc, viewports, port => IO.lift(() => port.PushConstructionPlane(plane)), redraw)
+        from restored in Viewports.Edit(doc, viewports, port => IO.lift(() => port.PushConstructionPlane(plane)), redraw)
         select restored;
 
     // --- [POSITIONS]
@@ -203,29 +203,15 @@ public static class NamedStates {
                 return Refused.Unless(doc.NamedPositions.ObjectXform(id, found, ref xform), (ObjectId: found.Id, Xform: xform), nameof(NamedPositionTable.ObjectXform), index);
             }).Map(objects => new NamedPosition(id, doc.NamedPositions.Name(id), objects))));
 
-    public static IO<Unit> RestorePosition(RhinoDoc doc, string name) =>
-        Positioned(doc, name, static (table, id) => table.Restore(id), nameof(NamedPositionTable.Restore));
-
-    public static IO<Unit> UpdatePosition(RhinoDoc doc, string name) =>
-        Positioned(doc, name, static (table, id) => table.Update(id), nameof(NamedPositionTable.Update));
-
-    public static IO<Unit> RenamePosition(RhinoDoc doc, string name, StateName newName) =>
-        Positioned(doc, name, (table, id) => table.Rename(id, newName), nameof(NamedPositionTable.Rename));
-
-    public static IO<Unit> AppendPosition(RhinoDoc doc, string name, ObjectTarget objects) =>
-        from found in objects.Objects(doc)
-        from appended in Positioned(doc, name, (table, id) => table.Append(id, found), nameof(NamedPositionTable.Append))
-        select appended;
+    public static IO<Unit> Position(RhinoDoc doc, string name, Func<Guid, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
+        from id in IO.lift(() => Conversions.Present(doc.NamedPositions.Id(name)).ToFin(new Refused(nameof(NamedPositionTable.Id), Refused.Absent)))
+        from changed in IO.lift(() => Refused.Unless(call(id), member))
+        select changed;
 
     private static IO<Unit> SavePosition(RhinoDoc doc, NamedState.Position position) =>
         from objects in position.Objects.Objects(doc)
         from saved in IO.lift(() => Conversions.Required(doc.NamedPositions.Save(position.Name, objects), nameof(NamedPositionTable.Save)))
         select unit;
-
-    private static IO<Unit> Positioned(RhinoDoc doc, string name, Func<NamedPositionTable, Guid, bool> call, string member) =>
-        from id in IO.lift(() => Conversions.Present(doc.NamedPositions.Id(name)).ToFin(new Refused(nameof(NamedPositionTable.Id), Refused.Absent)))
-        from changed in IO.lift(() => Refused.Unless(call(doc.NamedPositions, id), member))
-        select changed;
 
     // --- [PROGRAM]
     public static IO<Seq<(NamedTable Table, string Key)>> Entries(RhinoDoc doc) =>
@@ -263,15 +249,8 @@ public static class NamedStates {
             snapshot: static (document, snapshot) => NamedSnapshots.Save(document, snapshot.Name));
 
     private static IO<Unit> SaveView(RhinoDoc doc, NamedState.View view) =>
-        DisposalOps.Within<IDisposable, Unit>(retain =>
-         from row in Viewports.ResolveViewport(doc, view.Source, retain)
-         let added = NamedViews.Add(doc, row.Viewport, Some((string)view.Name))
-         from index in view.Pose.Match(
-             Some: pose => DisposalOps.Within(static () => unit,
-                 _ => Cameras.WithPose(row.Viewport, pose, IO.lift(row.CommitViewportChanges).Bind(_ => added)),
-                 _ => IO.lift(row.CommitViewportChanges)),
-             None: () => added)
-         select unit, DisposalOps.Release);
+        Viewports.With(doc, view.Source, row => NamedViews.Save(doc, row.Viewport, Some((string)view.Name),
+            copy => view.Pose.Traverse(pose => IO.lift(() => Cameras.Write(copy, pose))).As().Map(static _ => unit))).Map(static _ => unit);
 
     // --- [RESTORE_MASK]
     private static readonly IO<(KeyName Section, SettingsNode Node)> MaskOwner =

@@ -95,7 +95,7 @@ public sealed class MotionHandle {
         pacing.Course.ValueIO.Bind(held => held.Phase.Switch(
             pacing,
             running: static (_, _) => IO.pure(unit),
-            paused: static (state, paused) => DisposalOps.Replace(owned =>
+            paused: static (state, paused) => DisposalOps.Acquire(owned =>
                 from attached in state.Frames(state.Ticks.Sink, owned)
                 from elapsed in state.Elapsed
                 select elapsed,
@@ -195,7 +195,7 @@ public static class Motions {
 
     private static IO<Reduced<Unit>> Show(Pacing pacing, Leg leg, Reduced<double> sample) =>
         from pose in IO.lift(Interpolated(leg.From, leg.To, sample.Value))
-        from written in Navigation.ApplyToViewports(pacing.Document, pacing.Move.Viewports, port => IO.lift(() => Cameras.WritePose(port, pose)), pacing.Move.Redraw)
+        from written in Viewports.Edit(pacing.Document, pacing.Move.Viewports, port => IO.lift(() => Cameras.Write(port, pose)), pacing.Move.Redraw)
         from shown in pacing.Course.SwapIO(course => course with { Shown = pose })
         select sample.Map(static _ => unit);
 }

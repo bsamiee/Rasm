@@ -6,12 +6,15 @@ Covers annotation forms under Blender's eager evaluation and stub declarations B
 
 ## [01]-[ANNOTATIONS]
 
-Blender's Python 3.13 evaluates annotations at definition time, and an annotation naming an unbound name raises `NameError` at import:
+Blender's Python 3.13 evaluates module, class, and signature annotations when their statement runs, an unbound name raising `NameError`:
 - Repository code holds no `from __future__ import annotations`
 - Methods naming their own class annotate with `typing.Self`
 - Declarations follow dependency order, every annotation naming an earlier declaration
+- `type` alias values and type parameter bounds and defaults evaluate on first read, naming later declarations unquoted
 - Quotes hold names eager evaluation cannot resolve: later declarations, a `bpy.types` subscript (`"bpy.types.bpy_struct[object]"`), and `TYPE_CHECKING` names
-- Ruff under the 3.13 declaration flags every quote eager evaluation does not need (UP037)
+- `register_class` evaluates every annotation on an ID-property class and each base, quoted `bpy.types` subscripts and `TYPE_CHECKING` names raising
+- `msgspec.structs.fields`, `msgspec.inspect`, `convert`, and decoders evaluate quoted record annotations, a `TYPE_CHECKING` name raising `NameError`
+- Ruff under the 3.13 declaration flags quotes on local variable annotations (UP037) and `type` alias values (TC008)
 - `bpy.types` classes raise `TypeError` on a runtime subscript, while stubs declare them generic
 
 ## [02]-[STUB_DEFECTS]

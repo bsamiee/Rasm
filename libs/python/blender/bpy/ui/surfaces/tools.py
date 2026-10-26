@@ -11,12 +11,12 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
-from blender.bpy.commands.calls import Operation
+from blender.bpy.commands.calls import Operation, Placed, Writer
 from blender.bpy.commands.keymaps import Chord
-from blender.bpy.commands.operators import Command, Operator, Pick, Placed, Writer
+from blender.bpy.commands.operators import Command, Operator, Pick
 from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.extension.registration import Acquisition, Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFaults, BlenderResult
 from blender.bpy.ui.drawing.handlers import Drawing, Drew
 from blender.bpy.ui.layout.rows import acquired, placed, RowContent, RowDraw
@@ -97,7 +97,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     gizmo: Option[Linked] = Nothing
     pointer: Option[Drawing[S]] = Nothing
     options: frozenset[Literal["KEYMAP_FALLBACK", "USE_BRUSHES"]] = frozenset()
-    widget_properties: list[tuple[str, object]] = msgspec.field(default_factory=list)
+    widget_properties: tuple[tuple[str, object], ...] = ()
     data_block: Option[str] = Nothing
     settings: tuple[RowContent, ...] = ()
 
@@ -114,11 +114,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
         pointed = self.pointer.map(lambda drawing: drawing.acquired(identity).map(Some)).default_value(Ok(Nothing))
         bound = accumulated(placed.invocation(identity).map(lambda invocation: (chord, invocation)) for chord, placed in self.bindings.items())
 
-        def built(
-            parts: tuple[
-                tuple[tuple[str, str], tuple[RowDraw, ...]], tuple[tuple[Option[str], Option[tuple[tuple[tuple[Band, Acquisition], ...], Drew]]], tuple[tuple[Chord, tuple[str, Writer]], ...]]
-            ],
-        ) -> Draft:
+        def built(parts: tuple[tuple[tuple[str, str], tuple[RowDraw, ...]], tuple[tuple[Option[str], Option[tuple[Acquisitions, Drew]]], tuple[tuple[Chord, tuple[str, Writer]], ...]]]) -> Draft:
             """Returns tool draft."""
             ((name, operator), settings), ((gizmo, pointer), items) = parts
 
@@ -146,7 +142,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
                         "bl_cursor": self.cursor.or_else(pending).to_optional(),
                         "bl_widget": gizmo.to_optional(),
                         "bl_options": set(self.options),
-                        "bl_widget_properties": self.widget_properties,
+                        "bl_widget_properties": list(self.widget_properties),
                         "bl_data_block": self.data_block.to_optional(),
                         "bl_keymap": () if items else None,
                         "bl_operator": operator,

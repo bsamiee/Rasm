@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-lease-by-hand
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    acquire:
+        kind: invocation_expression
+        has: {field: function, matches: {csharp-owner-member: {type: {regex: '^DisposalOps$'}, member: {regex: '^Acquire$'}}}}
+    lease:
+        kind: object_creation_expression
+        all:
+            - has: {field: type, pattern: $LEASE, matches: {csharp-type-name: {name: {regex: '^Disposal$'}}}}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+    returned-lease:
+        any:
+            - matches: lease
+            - kind: block
+              has: {kind: return_statement, has: {matches: lease}}
+            - kind: block
+              all:
+                - has: {kind: return_statement, has: {kind: identifier, pattern: $LOCAL}}
+                - has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $LOCAL}}, {has: {matches: lease}}]}}}
+    lifted-lease:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+                - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, all: [{has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}}, {has: {field: body, matches: returned-lease}}]}}}
+            - all:
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}
+                - has: {field: arguments, has: {kind: argument, has: {matches: lease}}}
+    unary-lambda:
+        kind: lambda_expression
+        has: {field: parameters, any: [{kind: implicit_parameter, pattern: $PARAMETER}, {kind: parameter_list, all: [{has: {kind: parameter, has: {field: name, pattern: $PARAMETER}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
+    lease-retain:
+        kind: argument
+        any:
+            - has: {stopBy: end, kind: member_access_expression, has: {field: name, regex: '^(Held|Relinquish)$'}}
+            - has: {kind: identifier, matches: {csharp-declared-type: {type: {has: {stopBy: end, kind: identifier, regex: '^Disposal$'}}}}}
+    ignoring:
+        kind: argument
+        any:
+            - has: {kind: identifier, regex: '^unit$'}
+            - has: {field: name, regex: '^value$'}
+            - has: {kind: lambda_expression, all: [{matches: unary-lambda}, {not: {has: {field: body, any: [{pattern: $PARAMETER}, {has: {stopBy: end, kind: identifier, pattern: $PARAMETER}}]}}}]}
+    discarded:
+        any:
+            - inside:
+                kind: from_clause
+                all:
+                    - has: {field: name, pattern: $NAME}
+                    - not: {precedes: {stopBy: {kind: identifier}, has: {stopBy: end, kind: identifier, pattern: $NAME, not: {inside: {kind: from_clause, field: name}}}}}
+            - inside:
+                kind: member_access_expression
+                field: expression
+                all:
+                    - has: {field: name, regex: '^(Map|Bind)$'}
+                    - inside: {kind: invocation_expression, field: function, has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, matches: ignoring}}, {not: {has: {kind: argument, nthChild: 2}}}]}}
+            - inside: {kind: binary_expression, field: left, has: {field: operator, regex: '^>>$'}}
+            - inside: {kind: expression_statement}
+            - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^_$'}}
+rule:
+    matches: acquire
+    any:
+        - all:
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, has: {matches: lifted-lease}}
+                    - has: {kind: argument, nthChild: 2, not: {matches: lease-retain}}
+                    - not: {has: {kind: argument, nthChild: 3}}
+            - matches: discarded
+        - has:
+            field: arguments
+            all:
+                - has: {kind: argument, nthChild: 3, has: {stopBy: end, matches: lease}}
+                - not: {has: {kind: argument, nthChild: 4}}
+        - all:
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 2, has: {matches: unary-lambda, has: {field: body, matches: lease, has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $PARAMETER}}}}}}
+                    - has: {kind: argument, nthChild: 3, not: {matches: lease-retain}}
+                    - not: {has: {kind: argument, nthChild: 4}}
+            - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^Acquire$'}}}}
+message: '`$LEASE` restates the lease `DisposalOps.Acquire` builds from a release'
+note: 'Call `DisposalOps.Acquire(<acquire>, <held> => <release>, <retain>)` with `IO.pure(<held>)` for a held value, a `Disposal<T>` stays where code reads `Held` or `Relinquish`'

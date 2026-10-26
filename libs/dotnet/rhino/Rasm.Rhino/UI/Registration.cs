@@ -78,8 +78,7 @@ public static class ViewRegistration {
     // --- [RENDER_WINDOW]
     public static IO<Unit> RegisterRenderTabs<TPlugIn>(TPlugIn plugIn, RenderTabs tabs) where TPlugIn : PlugIn, IPlugInViews =>
         Each<View.Tab>(plugIn, row =>
-            from size in IconSlot.RenderTab.Size()
-            from pixels in HostTheme.Device(new(size, size))
+            from pixels in IconSlot.RenderTab.Pixels
             from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, pixels)).As()
             from registered in Hosted(row.Identity, () => tabs.RegisterTab(
                 plugIn, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local, icon.ValueUnsafe()))
@@ -111,8 +110,7 @@ public static class ViewRegistration {
     // --- [CONTENT_MENUS]
     public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> AddMenuItem(Seq<ContentMenuRow> rows) =>
         (plugIn, _) => Callbacks.Each(rows.Map((row, order) =>
-                from size in IconSlot.ContentMenu.Size()
-                from pixels in HostTheme.Device(new(size, size))
+                from pixels in IconSlot.Small.Pixels
                 from icon in Icons.DrawingIcon(row.Icon, pixels)
                 let site = new CallbackSite(plugIn, typeof(RenderContentMenu), row.Caption)
                 from added in IO.lift(() => RenderContentMenu.AddMenuItem(

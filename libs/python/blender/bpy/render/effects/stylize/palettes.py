@@ -1,107 +1,84 @@
 """Display quantization with ordered Bayer thresholds and HSY hue retention."""
 
+from typing import Final
+
 import bpy
 from expression import Some
+import msgspec
 import PyOpenColorIO
 
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, gridded, PixelGrid, pixels
-from blender.bpy.nodes.graphs import End, ended, Fragment, math, menu, mixed, nested, node, NodeGroup, switched, vector
+from blender.bpy.nodes.graphs import Expr, mixed, NodeGroup, rgba, switched, vector
 from blender.bpy.nodes.interface import item_key
 from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, hsy
-from blender.bpy.render.effects.stack import CompositorEffect, Shell
+from blender.bpy.render.effects.coordinates import gridded, pixels
+from blender.bpy.render.effects.rows import Alpha, CompositorEffect, Shell
 from blender.imaging.effects.stylize.palettes import Channels, Palette, Posterize
 from blender.imaging.faults import paired
 from blender.imaging.parameters import Gated
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_SPANS: Final = (1.0, 2.0, 4.0)
+_RANKS: Final = 4 ** len(_SPANS)
+_WEIGHTS: Final = tuple(4.0 ** (len(_SPANS) - 1 - bit) / (span * _RANKS) for bit, span in enumerate(_SPANS))
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def paletted(shell: Shell[Palette]) -> BlenderResult[tuple[Fragment, End]]:
+def paletted(shell: Shell[Palette]) -> BlenderResult[Expr]:
     """Quantizes straight display color and maps luminance through color ramp.
 
     Args:
         shell: Entry inputs and retained gradient.
 
     Returns:
-        Straight color for stack alpha scope, or accumulated builder faults.
+        Straight color for stack alpha scope, or HSY group faults.
     """
-    source = shell.source
-    posterize, gradient_field = Palette.__struct_fields__
-    levels, channels_field, retain_hue, dither_field, dither_cell = Posterize.__struct_fields__
+    posterize, gradient = Palette.__struct_fields__
+    levels, channels, retain_hue, dither, dither_cell = Posterize.__struct_fields__
     _, value = Gated.__struct_fields__
-    prefix = (posterize, value)
-    channels, dither, cell = ((*prefix, field) for field in (channels_field, dither_field, dither_cell))
-    gradient = item_key(gradient_field, value)
-    bits = range(3)
-    spans = tuple(2.0**bit for bit in bits)
-    periods = tuple(2.0 * span for span in spans)
-    count = 4 ** len(bits)
+    held = (posterize, value)
+    source = shell.color
 
-    def retained(converters: tuple[NodeGroup, NodeGroup], frame: FrameSpace, grid: PixelGrid) -> BlenderResult[tuple[Fragment, End]]:
-        forward, inverse = converters
-        return Fragment.joined(
-            pixels("cell_width", frame, shell.socket(*cell, value), "VECTOR"),
-            vector("cell_minimum", "MAXIMUM", (1.0, 1.0, 0.0), End(node="cell_width", socket="Vector")),
-            switched("cell", "VECTOR", shell.socket(*cell), (1.0, 1.0, 0.0), End(node="cell_minimum", socket="Vector")),
-            math("amplitude", "MULTIPLY", shell.socket(*dither), shell.socket(*dither, value)),
-            vector("cells", "DIVIDE", grid.point, End(node="cell", socket="Output")),
-            vector("indices", "FLOOR", End(node="cells", socket="Vector")),
-            node("coordinates", bpy.types.ShaderNodeSeparateXYZ, {"Vector": End(node="indices", socket="Vector")}, {}),
-            vector("x_bits", "SNAP", End(node="coordinates", socket="X"), spans),
-            vector("y_bits", "SNAP", End(node="coordinates", socket="Y"), spans),
-            vector("sum", "ADD", End(node="x_bits", socket="Vector"), End(node="y_bits", socket="Vector")),
-            vector("parity", "MODULO", End(node="sum", socket="Vector"), periods),
-            vector("y_parity", "MODULO", End(node="y_bits", socket="Vector"), periods),
-            vector("rank", "MULTIPLY_ADD", End(node="parity", socket="Vector"), (2.0,) * 3, End(node="y_parity", socket="Vector")),
-            vector("threshold", "DOT_PRODUCT", End(node="rank", socket="Vector"), tuple(4.0 ** (len(bits) - 1 - bit) / (span * count) for bit, span in zip(bits, spans))),
-            math("centered", "ADD", End(node="threshold"), 0.5 / count - 0.5),
-            math("offset", "MULTIPLY", End(node="centered"), End(node="amplitude")),
-            math("steps", "SUBTRACT", shell.socket(*prefix, levels), 1.0),
-            node("grey", bpy.types.CompositorNodeRGBToBW, {"Image": source}, {}),
-            menu("channels", "VECTOR", shell.socket(*channels), shell.items[channels], {Channels.RGB.label: source, Channels.LUMINANCE.label: End(node="grey", socket="Val")}),
-            vector("scaled", "MULTIPLY_ADD", End(node="channels", socket="Output"), End(node="steps"), End(node="offset")),
-            vector("half", "ADD", End(node="scaled", socket="Vector"), (0.5,) * 3),
-            vector("rounded", "FLOOR", End(node="half", socket="Vector")),
-            node(
-                "quantized",
-                bpy.types.ShaderNodeMapRange,
-                {
-                    "Vector": End(node="rounded", socket="Vector"),
-                    "From_Min_FLOAT3": (0.0, 0.0, 0.0),
-                    "From_Max_FLOAT3": End(node="steps"),
-                    "To_Min_FLOAT3": (0.0, 0.0, 0.0),
-                    "To_Max_FLOAT3": (1.0, 1.0, 1.0),
-                },
-                {"data_type": "FLOAT_VECTOR", "clamp": True},
-            ),
-            nested("input_hsy", forward, {COLOR_INPUT.key: source}, COLOR_RESULT.key),
-            nested("quantized_hsy", forward, {COLOR_INPUT.key: End(node="quantized", socket="Vector")}, COLOR_RESULT.key),
-            node("input_components", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="input_hsy", socket=COLOR_RESULT.key)}, {"mode": "RGB"}),
-            node("quantized_components", bpy.types.CompositorNodeSeparateColor, {"Image": End(node="quantized_hsy", socket=COLOR_RESULT.key)}, {"mode": "RGB"}),
-            node(
-                "kept_hsy",
-                bpy.types.CompositorNodeCombineColor,
-                {"Red": End(node="input_components", socket="Red"), "Green": End(node="quantized_components", socket="Green"), "Blue": End(node="quantized_components", socket="Blue")},
-                {"mode": "RGB"},
-            ),
-            nested("kept_rgb", inverse, {COLOR_INPUT.key: End(node="kept_hsy", socket="Image")}, COLOR_RESULT.key),
-            math("retention", "MULTIPLY", shell.socket(*prefix, retain_hue), End(node="channels", socket=Channels.RGB.label)),
-            mixed("hue_retained", "RGBA", End(node="retention"), End(node="quantized", socket="Vector"), End(node="kept_rgb", socket=COLOR_RESULT.key)),
-            switched("posterized", "RGBA", shell.socket(posterize), source, End(node="hue_retained", socket="Result_Color")),
-            node("tone", bpy.types.CompositorNodeRGBToBW, {"Image": End(node="posterized", socket="Output")}, {}),
-            node(gradient, bpy.types.ShaderNodeValToRGB, {"Fac": End(node="tone", socket="Val")}, {}, Some(shell.record.gradient.value)),
-            switched("mapped", "RGBA", shell.socket(gradient_field), End(node="posterized", socket="Output"), End(node=gradient, socket="Color")),
-        ).map(ended("mapped", "Output"))
+    def built(forward: NodeGroup, inverse: NodeGroup) -> Expr:
+        def toned(image: Expr) -> Expr:
+            return Expr(kind=bpy.types.CompositorNodeRGBToBW, inputs=(("Image", image),), socket="Val")
 
-    return paired(paired(hsy(PyOpenColorIO.TRANSFORM_DIR_FORWARD), hsy(PyOpenColorIO.TRANSFORM_DIR_INVERSE)), paired(framed("frame", source, shell.aspect, shell.scale), gridded("grid", source))).bind(
-        lambda parts: retained(parts[0], *parts[1])
-    )
+        cell = switched(shell.gate(*held, dither_cell), (1.0, 1.0, 0.0), vector("MAXIMUM", (1.0, 1.0, 0.0), pixels(shell.space, shell.input(*held, dither_cell), "VECTOR")))
+        indices = vector("FLOOR", vector("DIVIDE", gridded(source).point, cell))
+        x_bits, y_bits = (vector("SNAP", indices[axis], _SPANS) for axis in ("X", "Y"))
+        periods = tuple(2.0 * span for span in _SPANS)
+        rank = vector("MULTIPLY_ADD", vector("MODULO", x_bits + y_bits, periods), (2.0,) * 3, vector("MODULO", y_bits, periods))
+        offset = (vector("DOT_PRODUCT", rank, _WEIGHTS) + (0.5 / _RANKS - 0.5)) * (shell.gate(*held, dither) * shell.input(*held, dither))
+        steps = shell.input(*held, levels) - 1.0
+        chosen = shell.menu(*held, channels, cases={Channels.RGB.label: source, Channels.LUMINANCE.label: toned(source)}, kind="VECTOR")
+        quantized = Expr(
+            kind=bpy.types.ShaderNodeMapRange,
+            inputs=(
+                ("Vector", vector("FLOOR", vector("MULTIPLY_ADD", chosen, steps, offset) + (0.5,) * 3)),
+                ("From_Min_FLOAT3", (0.0, 0.0, 0.0)),
+                ("From_Max_FLOAT3", steps),
+                ("To_Min_FLOAT3", (0.0, 0.0, 0.0)),
+                ("To_Max_FLOAT3", (1.0, 1.0, 1.0)),
+            ),
+            members=(("data_type", "FLOAT_VECTOR"), ("clamp", True)),
+            socket="Vector",
+            shape="VECTOR",
+        )
+        entered, rounded = (forward.placed({COLOR_INPUT.key: image}, COLOR_RESULT.key) for image in (source, quantized))
+        kept = inverse.placed({COLOR_INPUT.key: rgba(entered["Red"], rounded["Green"], rounded["Blue"])}, COLOR_RESULT.key)
+        retention = shell.input(*held, retain_hue) * msgspec.structs.replace(chosen, socket=Channels.RGB.label, shape="FLOAT")
+        posterized = switched(shell.gate(posterize), source, mixed(retention, quantized, kept))
+        ramp = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", toned(posterized)),), content=Some(shell.record.gradient.value), socket="Color", shape="RGBA").named(item_key(gradient, value))
+        return switched(shell.gate(gradient), posterized, ramp)
+
+    return paired(hsy(PyOpenColorIO.TRANSFORM_DIR_FORWARD), hsy(PyOpenColorIO.TRANSFORM_DIR_INVERSE)).map(lambda groups: built(*groups))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-palette = CompositorEffect(record=Palette, graph=paletted, straight=True)
+palette = CompositorEffect(record=Palette, graph=paletted, alpha=Alpha.STRAIGHT)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -26,7 +26,7 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
 
     private IO<Unit> Opening =>
         IO.lift(() => opened.Held.Exists(static held => held.IsEmpty)).Bind(absent => when(absent,
-            DisposalOps.Replace(TResource.Open, (resource, lease) => opened.Admit(new Disposal<TResource>(resource, _ => lease.Dispose()))).Map(unit)).As());
+            DisposalOps.Acquire(TResource.Open, (resource, lease) => opened.Admit(new Disposal<TResource>(resource, _ => lease.Dispose()))).Map(unit)).As());
 
     public sealed override void Dispose(bool bDisposing) {
         if (bDisposing) opened.Dispose();

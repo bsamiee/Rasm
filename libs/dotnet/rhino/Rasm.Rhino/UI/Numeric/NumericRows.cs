@@ -30,7 +30,7 @@ internal sealed record NumericCell<TValue, TKey>(Control Value, FieldFit Fit, Op
         (
             Track.Map(part => Subscriptions.Attach(
                 handler => part.Cell.Control.MouseDoubleClick += handler, handler => part.Cell.Control.MouseDoubleClick -= handler,
-                Callbacks.Handler<MouseEventArgs>(e => when(e.Buttons is MouseButtons.Primary, IO.lift(() => { e.Handled = true; }).Bind(_ => reset)).As(),
+                Callbacks.Synchronous<MouseEventArgs>(e => when(e.Buttons is MouseButtons.Primary, IO.lift(() => { e.Handled = true; }).Bind(_ => reset)).As(),
                     site with { Member = nameof(Control.MouseDoubleClick) }), retain)).ToSeq()
             + Track.Filter(static part => part.Square).Map(part => Subscriptions.Attach(
                 handler => Field.Cell.Control.SizeChanged += handler, handler => Field.Cell.Control.SizeChanged -= handler,
@@ -57,7 +57,7 @@ public static class NumericRows {
         where TValue : notnull
         where TKey : struct, INumber<TKey> =>
         ControlRow.Of(source, field, RowShape.Inline, (scope, retain) =>
-            from cell in Cell(domain, field.Wording.Shown(field.Caption, scope.Sink), scope.Sink, retain)
+            from cell in Cell(domain, RowText.Localize(field.Caption, scope.Sink).Local, scope.Sink, retain)
             let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(Numeric))
             from cells in Bound(source, field, lens, cell, (edit, _) => cell.Attached(edit.Reset, site, retain), scope, site, retain)
             select cells, rules);
@@ -81,7 +81,7 @@ public static class NumericRows {
         where TRecord : notnull
         where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey> =>
-        from cell in Cell(NumericDomain.Bounded<TValue, TKey>(presentation), Wording.English.Shown(caption, sink), sink, retain)
+        from cell in Cell(NumericDomain.Bounded<TValue, TKey>(presentation), RowText.Localize(caption, sink).Local, sink, retain)
         let site = new CallbackSite(sink, typeof(NumericRows), nameof(Line))
         from edits in cell.Edits(Handled(lens, site)(edit), retain)
         from attached in cell.Attached(edit.Take(new Edit<TValue>.Commit(lens.Get(source.Default)), Into(lens)).Map(unit), site, retain)
@@ -145,7 +145,7 @@ public static class NumericRows {
         where TRecord : notnull
         where TValue : notnull
         where TKey : struct, INumber<TKey> =>
-        from cell in Cell(domain, field.Wording.Shown(field.Caption, scope.Sink), scope.Sink, retain)
+        from cell in Cell(domain, RowText.Localize(field.Caption, scope.Sink).Local, scope.Sink, retain)
         from gate in DisposalOps.Acquire(IO.lift(static () => new CheckBox()), retain)
         let site = new CallbackSite(scope.Sink, typeof(NumericRows), nameof(OptionalNumeric))
         let enabled = Prelude.lens(lens, Gated<TValue>.EnabledEntry.Lens)

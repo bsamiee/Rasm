@@ -40,7 +40,7 @@ public sealed record SafeFrameState(
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SafeFrameChanged;
 
     public static IO<SafeFrameState> Read(RenderSettingsScope scope) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.SafeFrame, static frame => IO.lift(() =>
+        DisposalOps.Within(() => scope.Settings.SafeFrame, static frame => IO.lift(() =>
             (FrameFraction.Validated(frame.ActionFrameXScale),
              FrameFraction.Validated(frame.ActionFrameYScale),
              FrameFraction.Validated(frame.TitleFrameXScale),
@@ -52,7 +52,7 @@ public sealed record SafeFrameState(
                 .As()));
 
     public static IO<SafeFrameState> Write(RenderSettingsScope scope, SafeFrameState state) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
+        DisposalOps.Within(() => scope.Settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
 
     public static RowRules Rules(RowSource<SafeFrameState> source, SafeFrameParameter parameter) =>
         RowRule.When(source, static state => state.Enabled, SafeFrameParameter.Enabled) switch {

@@ -1,24 +1,24 @@
 """Preview jobs, failed requests, and ranked renders under one timer budget."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager, nullcontext
 from enum import auto, Enum, IntEnum
 from functools import partial
-from pathlib import Path
 import time
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Final, Self
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 import msgspec
 
-from blender.bpy.data.ids.images import built
-from blender.bpy.extension.events.handlers import PathHandler, SceneHandler
+from blender.bpy.extension.events.handlers import SceneHandler
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderResult
+from blender.bpy.render.outputs.results import built
 from blender.imaging.faults import accumulated
 from blender.imaging.parameters import Presentation, Quantity
 
@@ -74,10 +74,8 @@ class Request(msgspec.Struct, kw_only=True, eq=False):
 
     def executed(self) -> BlenderResult[None]:
         """Marks request running, runs its job, and stores result."""
-        job = self.job
         self.state = Phase.RUNNING
-        result = job.run()
-        self.state = result
+        self.state = result = self.job.run()
         return result
 
 
@@ -98,13 +96,40 @@ class Backlog(msgspec.Struct, kw_only=True):
         """Failed request keys by feed and place."""
         return {place: request.job.key for place, request in self.requests.items() if isinstance(request.state, Result) and request.state.is_error()}
 
+    def pending(self, *, playing: bool) -> Option[Request]:
+        """Earliest pending request of the lowest rank, playback requests alone while playing."""
+        return (
+            Block.of_seq(request for request in self.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing)).sort_with(lambda queued: queued.job.rank).try_head()
+        )
+
+    def merged(self, reads: tuple[tuple[Feed, tuple[Job, ...]], ...]) -> None:
+        """Replaces each read feed's requests by its jobs, keeping a pending or equally failed request's place and failure."""
+        arrivals = {(Some(feed), job.place): job for feed, jobs in reads for job in jobs}
+        replaced = frozenset(Some(feed) for feed, _jobs in reads)
+        self.requests = {place: request for place, request in self.requests.items() if place[0] not in replaced or place in arrivals}
+        for place, job in arrivals.items():
+            match self.requests.get(place):
+                case Request(state=Phase.PENDING) as request:
+                    request.job = job
+                case Request(job=Job(key=key), state=Result(tag="error")) as request if key == job.key:
+                    request.job = job
+                case _:
+                    self.requests.pop(place, None)
+                    self.requests[place] = Request(job=job)
+
+    def reset(self) -> Self:
+        """Backlog of the same feeds after a file load, the previous file's requests and render slot dropped."""
+        return type(self)(feeds=self.feeds)
+
+
+BACKLOG: Final = Scoped[Backlog](made=lambda _identity: nullcontext(Backlog()), renewed=Some(Backlog.reset))
+
 
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     """Registration row owning preview runs and timer steps."""
 
     budget: Callable[[Identity], BlenderResult[Budget]] = lambda _identity: Ok(Budget())
     interval: ClassVar[float] = 0.15
-    held: ClassVar[dict[str, Backlog]] = {}
 
     # --- [EXECUTION]
 
@@ -120,11 +145,10 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Render result, `Ok(None)` for a failed key.
         """
-        backlog, place = PreviewQueue.held[identity.package], (feed, job.place)
+        backlog, place = BACKLOG.of(identity), (feed, job.place)
         if (place, job.key) in backlog.failed.items():
             return Ok(None)
-        request = Request(job=job)
-        backlog.requests[place] = request
+        backlog.requests[place] = request = Request(job=job)
         return request.executed()
 
     @staticmethod
@@ -135,38 +159,24 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             identity: Extension whose failures drop.
             places: Places a producer refresh names.
         """
-        backlog, dropped = PreviewQueue.held[identity.package], frozenset(places)
+        backlog, dropped = BACKLOG.of(identity), frozenset(places)
         backlog.requests = {place: request for place, request in backlog.requests.items() if place[1] not in dropped or request.state is Phase.PENDING}
 
     def ticked(self, identity: Identity) -> BlenderResult[Option[float]]:
-        """Merges feed requests and runs pending ones within budget.
+        """Merges feed requests and runs pending ones within budget, holding faults in reports.
 
         Args:
             identity: Extension whose reports hold feed and render faults.
 
         Returns:
-            `Ok` of next interval on every tick, faults held in reports.
+            `Ok` of next interval on every tick.
         """
-        context, again = bpy.context, Some(PreviewQueue.interval)
-        backlog = PreviewQueue.held[identity.package]
+        context, backlog = bpy.context, BACKLOG.of(identity)
 
         def stepped(manager: bpy.types.WindowManager) -> BlenderResult[None]:
-            """Merges successful feed reads into pending requests and runs them."""
             budget = self.budget(identity)
-            reads = Block.of_seq((feed, feed(identity, context)) for feed in tuple(backlog.feeds))
-            wanted = reads.choose(lambda read: read[1].map(lambda jobs: (read[0], jobs)).to_option()).filter(lambda read: read[0] in backlog.feeds)
-            arrivals = {(Some(feed), job.place): job for feed, jobs in wanted for job in jobs}
-            replaced = frozenset(Some(feed) for feed, _jobs in wanted)
-            backlog.requests = {place: request for place, request in backlog.requests.items() if place[0] not in replaced or place in arrivals}
-            for place, job in arrivals.items():
-                match backlog.requests.get(place):
-                    case Request(state=Phase.PENDING) as request:
-                        request.job = job
-                    case Request(job=Job(key=key), state=Result(tag="error")) as request if key == job.key:
-                        request.job = job
-                    case _:
-                        backlog.requests.pop(place, None)
-                        backlog.requests[place] = Request(job=job)
+            reads = tuple((feed, feed(identity, context)) for feed in tuple(backlog.feeds))
+            backlog.merged(tuple((feed, jobs) for feed, read in reads if feed in backlog.feeds for jobs in read.to_option().to_list()))
             playing = any(window.screen.is_animation_playing for window in manager.windows)
             start = time.perf_counter()
             return accumulated((
@@ -177,22 +187,16 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
                     for limits in budget.to_option().to_list()
                     for index in range(limits.count)
                     if index == 0 or time.perf_counter() - start < limits.time
-                    for request in (
-                        Block
-                        .of_seq(request for request in backlog.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing))
-                        .sort_with(lambda queued: queued.job.rank)
-                        .try_head()
-                        .to_list()
-                    )
+                    for request in backlog.pending(playing=playing).to_list()
                 ),
             )).map(lambda _: None)
 
         match context.window_manager:
             case bpy.types.WindowManager(is_interface_locked=False) as manager:
                 shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(False))
-                return Ok(shifted.bind(lambda held: Ok(None) if held else stepped(manager)).map(lambda _: again).map_error(identity.reports.hold).default_value(again))
+                return Ok(shifted.bind(lambda held: Ok(None) if held else stepped(manager)).map_error(identity.reports.hold).map(lambda _: Some(self.interval)).default_value(Some(self.interval)))
             case _:
-                return Ok(again)
+                return Ok(Some(self.interval))
 
     # --- [FEEDS]
 
@@ -208,11 +212,11 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Yields:
             None while queue reads feed.
         """
-        PreviewQueue.held[identity.package].feeds.append(feed)
+        BACKLOG.of(identity).feeds.append(feed)
         try:
             yield
         finally:
-            backlog = PreviewQueue.held[identity.package]
+            backlog = BACKLOG.of(identity)
             backlog.feeds.remove(feed)
             backlog.requests = {place: request for place, request in backlog.requests.items() if place[0] != Some(feed)}
 
@@ -220,52 +224,23 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Builds state, timer, render-complete, and file-load acquisitions.
+        """Builds the backlog cell, timer, and the deferred record of each finished user render's shown slot.
 
         Args:
             identity: Extension whose reports run deferred main-thread writes.
 
         Yields:
-            `Ok` of state scope and event rows.
+            `Ok` of state cell and event rows.
         """
-        with ExitStack() as scopes:
 
-            def remembered(image: bpy.types.Image) -> Option[str]:
-                """Records finished user render's shown slot on main thread."""
-                PreviewQueue.held[identity.package].slot = Some(image.render_slots.active_index)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
-                return Nothing
+        def remembered(image: bpy.types.Image) -> Option[str]:
+            BACKLOG.of(identity).slot = Option.of_optional(image.render_slots.active_index)
+            return Nothing
 
-            remember = scopes.enter_context(identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)))
-
-            @contextmanager
-            def held() -> Generator[None]:
-                """Holds package state, closing deferred write before release."""
-                PreviewQueue.held[identity.package] = Backlog()
-                try:
-                    yield
-                finally:
-                    scopes.close()
-                    backlog = PreviewQueue.held.pop(identity.package)
-                    backlog.feeds.clear()
-                    backlog.requests.clear()
-
-            def cleared(_: Option[Path]) -> BlenderResult[None]:
-                """Drops requests naming previous file's data-blocks."""
-                identity.reports.cancelled(remember)
-                backlog = PreviewQueue.held[identity.package]
-                PreviewQueue.held[identity.package] = Backlog(feeds=backlog.feeds.copy())
-                backlog.feeds.clear()
-                backlog.requests.clear()
-                return Ok(None)
-
-            yield Ok((
-                (Band.RESOURCES, held()),
-                Timer(body=partial(self.ticked, identity)),
-                SceneHandler(handlers=bpy.app.handlers.render_complete, body=lambda _: Ok(remember())),
-                PathHandler(handlers=bpy.app.handlers.load_post, body=cleared),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            ))
+        with identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)) as remember:
+            yield Ok((BACKLOG, Timer(body=partial(self.ticked, identity)), SceneHandler(handlers=bpy.app.handlers.render_complete, body=lambda _: Ok(remember()))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Backlog", "Budget", "Feed", "Job", "Phase", "PreviewQueue", "Rank", "Request"]
+__all__ = ["BACKLOG", "Backlog", "Budget", "Feed", "Job", "Phase", "PreviewQueue", "Rank", "Request"]

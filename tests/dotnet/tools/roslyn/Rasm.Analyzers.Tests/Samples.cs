@@ -31,7 +31,7 @@ internal sealed record LiftPosition(bool FixesTarget, Func<string, string, strin
 internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, EmptyCodeFixProvider, DefaultVerifier> {
     internal static readonly ImmutableArray<DiagnosticAnalyzer> Analyzers = Exported<DiagnosticAnalyzer, DiagnosticAnalyzerAttribute>(typeof(RasmAnalyzer).Assembly);
 
-    private static readonly ImmutableArray<CodeFixProvider> Fixes = Exported<CodeFixProvider, ExportCodeFixProviderAttribute>(typeof(LanguageExtCodeFix).Assembly);
+    private static readonly ImmutableArray<CodeFixProvider> Fixes = Exported<CodeFixProvider, ExportCodeFixProviderAttribute>(typeof(RasmCodeFix).Assembly);
 
     private static readonly string EditorConfig = File.ReadAllText(Path.Combine(AttributeReader.GetSolutionDirectory(typeof(Analysis).Assembly), ".editorconfig"));
 
@@ -40,8 +40,9 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
         ReferenceAssemblies = ReferenceAssemblies.Net.Net100;
         TestState.AdditionalReferences.Add(typeof(Fin<>).Assembly);
         TestState.AdditionalReferences.Add(typeof(UnionAttribute).Assembly);
-        TestState.AdditionalReferences.Add(typeof(Rhino.RhinoDoc).Assembly);
-        TestState.AdditionalReferences.Add(typeof(Eto.Forms.Application).Assembly);
+        TestState.AdditionalReferences.Add(typeof(global::Rhino.RhinoDoc).Assembly);
+        TestState.AdditionalReferences.Add(typeof(System.Drawing.Bitmap).Assembly);
+        TestState.AdditionalReferences.Add(typeof(global::Eto.Forms.Application).Assembly);
         TestState.AdditionalReferences.Add(typeof(ILogger).Assembly);
         TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         ExpectedDiagnostics.AddRange(expected);
@@ -63,13 +64,14 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 public sealed class Samples {
     private static readonly string Root = Path.Combine(AttributeReader.GetProjectDirectory(typeof(Samples).Assembly), nameof(Samples));
 
-    public static TheoryData<string> Rules => [.. Directory.EnumerateFiles(Root).Select(static path => Path.GetFileNameWithoutExtension(path)).Order(StringComparer.Ordinal)];
+    public static TheoryData<string> Rules => [.. Directory.EnumerateFiles(Root, "*.txt", SearchOption.AllDirectories).Select(static path => Path.ChangeExtension(Path.GetRelativePath(Root, path), extension: null)).Order(StringComparer.Ordinal)];
 
     [Theory]
     [MemberData(nameof(Rules))]
-    public async Task Verified(string rule) {
+    public async Task Verified(string sample) {
         CancellationToken token = TestContext.Current.CancellationToken;
-        TestFileMarkupParser.GetSpans(await File.ReadAllTextAsync(Path.Combine(Root, $"{rule}.txt"), token), out string source, out ImmutableDictionary<string, ImmutableArray<TextSpan>> markers);
+        string rule = Path.GetFileName(sample);
+        TestFileMarkupParser.GetSpans(await File.ReadAllTextAsync(Path.Combine(Root, $"{sample}.txt"), token), out string source, out ImmutableDictionary<string, ImmutableArray<TextSpan>> markers);
         TextLineCollection lines = SourceText.From(source).Lines;
         DiagnosticDescriptor descriptor = Analysis.Analyzers.SelectMany(static analyzer => analyzer.SupportedDiagnostics).Single(held => string.Equals(held.Id, rule, StringComparison.Ordinal));
         DiagnosticResult[] expected = [
@@ -89,7 +91,7 @@ public sealed class Samples {
                 diagnostic.Location.SourceSpan.Start,
                 $"{marked[diagnostic.Location.SourceSpan]} {diagnostic.GetMessage(CultureInfo.InvariantCulture)}\n")),
         }.RunAsync(token);
-        _ = await Verify(string.Concat(reported.Value.Values), repaired.Map(static text => new Target("txt", text, "fixed")).ToSeq()).UseDirectory("Snapshots").UseFileName(rule);
+        _ = await Verify(string.Concat(reported.Value.Values), repaired.Map(static text => new Target("txt", text, "fixed")).ToSeq()).UseDirectory(Path.Combine("Snapshots", Path.GetDirectoryName(sample)!)).UseFileName(rule);
     }
 
     [Fact]

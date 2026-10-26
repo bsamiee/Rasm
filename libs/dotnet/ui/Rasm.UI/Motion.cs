@@ -94,7 +94,7 @@ public abstract partial record TimingCurve {
 
     public abstract double Velocity(Duration elapsed);
 
-    public abstract TimingCurve From(double velocity);
+    public virtual TimingCurve From(double velocity) => this;
 
     private static Reduced<(double Progress, double Rate)> Oscillated(double damping, double phase, double start, VisibleChange rest) =>
         Modes(damping, phase) switch {
@@ -168,8 +168,6 @@ public abstract partial record TimingCurve {
         public override Reduced<double> Sample(Duration elapsed) => End;
 
         public override double Velocity(Duration elapsed) => 0d;
-
-        public override TimingCurve From(double velocity) => this;
     }
 
     public sealed record Eased(MotionSpan Length, Easing Easing) : TimingCurve {
@@ -181,8 +179,6 @@ public abstract partial record TimingCurve {
         public override Reduced<double> Sample(Duration elapsed) => elapsed >= Length ? End : Reduced.Continue(Easing.Progress(elapsed / Length));
 
         public override double Velocity(Duration elapsed) => elapsed >= Length ? 0d : Easing.Slope(elapsed / Length) / ((Duration)Length).TotalSeconds;
-
-        public override TimingCurve From(double velocity) => this;
     }
 
     public sealed record Spring(MotionSpan Response, DampingRatio Damping, VisibleChange Rest) : TimingCurve {

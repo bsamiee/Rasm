@@ -17,21 +17,36 @@ from blender.bpy.extension.registration import Acquisitions, Band, Gathering, Re
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, preferred
 from blender.bpy.settings.properties import Choices, RecordGroup
-from blender.bpy.ui.layout.rows import OperatorButton, placed, Property, RowDraw
-from blender.bpy.ui.layout.sections import fields, Nest, Section, Single, Verb
-from blender.bpy.ui.screens.areas import Located, NewWindow, windowed
-from blender.bpy.ui.surfaces.panels import notified, Panel, PopoverPanel, reached
+from blender.bpy.ui.drawing.handlers import Signal
+from blender.bpy.ui.layout.rows import Member, OperatorButton, placed, Property, RowDraw
+from blender.bpy.ui.layout.sections import fields, Nest, Section, Single
+from blender.bpy.ui.layout.values import Verb
+from blender.bpy.ui.screens.areas import Located
+from blender.bpy.ui.surfaces.panels import Panel, PopoverPanel, reached
 from blender.imaging.faults import accumulated, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
-    """Preference record with sections, gathering confirmations, shortcuts, and stores every other row declares."""
+class PreferencesPage[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
+    """Preference record with sections, gathering confirmations, shortcuts, and stores every other row declares, firing `changed` on each edit."""
 
-    record: type[msgspec.Struct]
+    record: type[T]
     sections: tuple[Section, ...] = ()
     bindings: Option[Mapping[MemberDescriptorType, Choices]] = Nothing
+    changed: Signal = msgspec.field(default_factory=Signal)
+
+    # --- [ACCESS]
+
+    def value[F](self, member: Callable[[T], F]) -> Callable[[Identity], BlenderResult[F]]:
+        """Returns reader of one record field per identity."""
+        return lambda identity: read(identity, self.record).map(member)
+
+    def stored[F](self, replace: Callable[[T, F], T]) -> Callable[[Identity, F], BlenderResult[None]]:
+        """Returns writer replacing one record field per identity."""
+        return lambda identity, field: read(identity, self.record).bind(lambda held: write(identity, replace(held, field)))
+
+    # --- [GATHERING]
 
     def gathered(self, identity: Identity, declared: tuple[Registrable | Gathering, ...], /) -> BlenderResult[Acquisitions]:
         """Declares page class, commands, and value popovers, building draw after operators register."""
@@ -68,19 +83,31 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 )
             ),
         )
-        extra = (
-            *(
-                (Single(key="preferences_shortcuts", title="Shortcuts", rows=tuple(partial(lambda row, layout, _holder, context: row.drawn(layout, context), row) for row in bindings)),)
-                if bindings
-                else ()
-            ),
-            *((Single(key="preferences_asks", title="Confirmations", rows=(*(Property(target=row) for row in msgspec.structs.fields(asked)), OperatorButton(target=reset))),) if asks else ()),
-            *((Single(key="preferences_stored", title="Stored Settings", rows=(OperatorButton(target=purge),)),) if stores else ()),
-        )
+
+        def extra(kind: type[bpy.types.AddonPreferences]) -> tuple[Single, ...]:
+            return (
+                *(
+                    (Single(key="preferences_shortcuts", title="Shortcuts", rows=tuple(partial(lambda row, layout, _holder, context: row.drawn(layout, context), row) for row in bindings)),)
+                    if bindings
+                    else ()
+                ),
+                *(
+                    (
+                        Single(
+                            key="preferences_asks",
+                            title="Confirmations",
+                            rows=(*(Property(target=Member(root=kind, path=row.name)) for row in msgspec.structs.fields(asked)), OperatorButton(target=reset)),
+                        ),
+                    )
+                    if asks
+                    else ()
+                ),
+                *((Single(key="preferences_stored", title="Stored Settings", rows=(OperatorButton(target=purge),)),) if stores else ()),
+            )
+
         commands = (show, *((reset,) if asks else ()), *((purge,) if stores else ()))
 
-        def built(group: RecordGroup[msgspec.Struct], flags: RecordGroup[msgspec.Struct], prefix: str) -> Acquisitions:
-            sections = (*self.sections, *extra)
+        def built(group: RecordGroup[T], flags: RecordGroup[msgspec.Struct], prefix: str) -> Acquisitions:
             paint: RowDraw
 
             def draw(holder: bpy.types.AddonPreferences, context: bpy.types.Context) -> None:
@@ -89,6 +116,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 paint(layout, holder, context)
 
             kind = type(identity.package, (bpy.types.AddonPreferences,), {"bl_idname": identity.package, **RecordGroup.body(group.struct, flags.struct), "draw": draw})
+            sections = (*self.sections, *extra(kind))
 
             def arranged(parts: tuple[tuple[RowDraw, ...], Nest, tuple[RowDraw, ...]]) -> None:
                 nonlocal paint
@@ -124,7 +152,10 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return paired(
-            paired(RecordGroup.bound(identity, "preferences", self.record, Some(notified(identity)), bindings=self.bindings), RecordGroup.bound(identity, "preferences_asks", asked)),
+            paired(
+                RecordGroup.bound(identity, "preferences", self.record, Some(lambda *_: identity.reports.reported(self.changed.fired)().to_optional()), bindings=self.bindings),
+                RecordGroup.bound(identity, "preferences_asks", asked),
+            ),
             identity.name(Name.ATTACHMENT, "preferences"),
         ).map(lambda parts: built(*parts[0], parts[1]))
 
@@ -148,22 +179,12 @@ def write(identity: Identity, settings: msgspec.Struct) -> BlenderResult[None]:
     return preferred(identity, bpy.context.preferences, lambda holder: RecordGroup(record=type(settings), struct=type(holder)).write(holder, settings))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
-def value[T: msgspec.Struct, F](record: type[T], member: Callable[[T], F]) -> Callable[[Identity], BlenderResult[F]]:
-    """Returns reader of one record field per identity."""
-    return lambda identity: read(identity, record).map(member)
-
-
-def stored[T: msgspec.Struct, F](record: type[T], replace: Callable[[T, F], T]) -> Callable[[Identity, F], BlenderResult[None]]:
-    """Returns writer replacing one record field per identity."""
-    return lambda identity, field: read(identity, record).bind(lambda held: write(identity, replace(held, field)))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def opened(call: operators.Call[operators.Empty]) -> BlenderResult[operators.Done]:
     """Opens extension preferences from context window and area."""
-    return Located.current(call.context).bind(lambda located: windowed(NewWindow.PREFERENCES, located, call.identity)).map(lambda _: operators.Done())
+    return Located.current(call.context).bind(lambda located: located.run(bpy.ops.preferences.addon_show, {"module": call.identity.package})).map(lambda _: operators.Done())
 
 
 show = operators.Operator[operators.Empty](
@@ -173,4 +194,4 @@ show = operators.Operator[operators.Empty](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PreferencesPage", "read", "show", "stored", "value", "write"]
+__all__ = ["PreferencesPage", "read", "show", "write"]

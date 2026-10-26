@@ -1,7 +1,8 @@
 """Output format value sets and written file storage."""
 
+from collections.abc import Callable
 from enum import Enum
-from typing import Self
+from typing import Final, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -9,34 +10,22 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import answered
-from blender.bpy.data.rna.descriptors import rooted
+from blender.bpy.data.rna.descriptors import Descriptor, rooted
+from blender.bpy.data.rna.edits import transfer
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderResult
 from blender.bpy.nodes.graphs import DataType
+from blender.bpy.nodes.trees import nested
 from blender.bpy.settings.presets import Preset
 from blender.bpy.settings.properties import Choices
-from blender.bpy.ui.layout.sections import Listing
+from blender.bpy.ui.layout.values import Listing
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.faults import paired
 from blender.imaging.files.images import Codec, Compressions, Depth, Format, Plain
 from blender.imaging.parameters import Choice
-from blender.rendering.edits import transfer
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Holder(Enum):
-    """Native format owner and its format-pointer identifier."""
-
-    SCENE = bpy.types.RenderSettings, "image_settings"
-    BAKE = bpy.types.BakeSettings, "image_settings"
-    NODE = bpy.types.CompositorNodeOutputFile, "format"
-    ITEM = bpy.types.NodeCompositorFileOutputItem, "format"
-
-    def __init__(self, struct: "type[bpy.types.bpy_struct[object]]", pointer: str) -> None:
-        """Stores owner and pointer."""
-        self.struct, self.pointer = struct, pointer
 
 
 class Kind(Choice):
@@ -55,6 +44,10 @@ class Verdict(Enum):
     UNSUPPORTED = "Unsupported"
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+COLOR_DEPTH: Final = Descriptor.declared(bpy.types.ImageFormatSettings, "color_depth", bpy.types.EnumProperty)
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -70,11 +63,16 @@ class Readout(msgspec.Struct, frozen=True, kw_only=True):
         """Choice and outcome shown beside output controls."""
         return f"{self.caption} · {self.value} · {self.verdict.value}"
 
+    @classmethod
+    def rows(cls, values: tuple[str, str, str], verdicts: tuple[Verdict, Verdict, Verdict]) -> tuple[Self, Self, Self]:
+        """Returns format, depth, and display readouts."""
+        (format_name, depth_name, display), (shown, stored, encoded) = values, verdicts
+        return cls(caption="Format", value=format_name, verdict=shown), cls(caption="Depth", value=depth_name, verdict=stored), cls(caption="Display", value=display, verdict=encoded)
+
 
 class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
     """Owner settings and its image format applied in native dependency order."""
 
-    holder: Holder
     own: Snapshot
     format: Snapshot
 
@@ -95,14 +93,14 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
                 stored = Ok({"color_depth": "32", "exr_codec": "ZIP"})
             case Output.PREVIEW:
                 stored = Error((BlenderChoiceFault(path="File Output class", identifier=output.name, accepted=tuple(member.name for member in Output if member is not Output.PREVIEW)),))
-        return paired(container, stored).map(lambda pair: cls(holder=Holder.NODE, own=Snapshot.of(Holder.NODE.struct, {}), format=Snapshot.of(bpy.types.ImageFormatSettings, pair[0] | pair[1])))
+        return paired(container, stored).map(lambda pair: cls(own=Snapshot.of(bpy.types.CompositorNodeOutputFile, {}), format=Snapshot.of(bpy.types.ImageFormatSettings, pair[0] | pair[1])))
 
     @classmethod
     def typed(cls, kind: DataType) -> BlenderResult[Option[Self]]:
         """Returns full-float item override for data sockets, Nothing for color."""
         return (
             cls.of(Output.DATA, Kind.EXR).map(
-                lambda settings: Some(msgspec.structs.replace(settings, holder=Holder.ITEM, own=Snapshot.of(Holder.ITEM.struct, {"override_node_format": True, "save_as_render": False})))
+                lambda settings: Some(msgspec.structs.replace(settings, own=Snapshot.of(bpy.types.NodeCompositorFileOutputItem, {"override_node_format": True, "save_as_render": False})))
             )
             if kind in {"FLOAT", "VECTOR"}
             else Ok(Nothing)
@@ -113,13 +111,19 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
         own = self.own.apply(target)
 
         def formatted() -> BlenderResult[Applied]:
-            written = self.format.apply(getattr(target, self.holder.pointer))
+            written = self.format.apply(getattr(target, pointer(type(target))))
             return written.outcome.map(lambda _: Applied.join((own, written)))
 
         return own.outcome.bind(lambda _: formatted())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def pointer(struct: "type[bpy.types.bpy_struct[object]]") -> str:
+    """Returns the member holding the struct's image format."""
+    (identifier,) = (prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.ImageFormatSettings))
+    return identifier
 
 
 def writer(name: str) -> Option[Format]:
@@ -135,7 +139,7 @@ def sample(selected: Format, depth: Depth) -> BlenderResult[Depth]:
 
 def display_space(config: PyOpenColorIO.Config, display: str) -> BlenderResult[str]:
     """Resolves a certified display baseline encoding in native view order."""
-    found: BlenderResult[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, display).map_error(BlenderImagingFault.lifted)
+    found: BlenderResult[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, display)
     return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], BlenderFaults].bind(
         found,
         lambda choice: (
@@ -149,20 +153,20 @@ def display_space(config: PyOpenColorIO.Config, display: str) -> BlenderResult[s
 
 def readouts(selected: Format, depth: Depth, display: str, config: PyOpenColorIO.Config) -> tuple[Readout, Readout, Readout]:
     """Describes writer depth compatibility and certified display encoding."""
-    return (
-        Readout(caption="Format", value=selected.name, verdict=Verdict.HONORED),
-        Readout(caption="Depth", value=depth.label, verdict=sample(selected, depth).map(lambda _: Verdict.HONORED).default_value(Verdict.UNSUPPORTED)),
-        Readout(caption="Display", value=display, verdict=display_space(config, display).map(lambda _: Verdict.HONORED).default_value(Verdict.UNSUPPORTED)),
+    return Readout.rows(
+        (selected.name, depth.label, display),
+        (
+            Verdict.HONORED,
+            sample(selected, depth).map(lambda _: Verdict.HONORED).default_value(Verdict.UNSUPPORTED),
+            display_space(config, display).map(lambda _: Verdict.HONORED).default_value(Verdict.UNSUPPORTED),
+        ),
     )
 
 
-def native_readouts(settings: bpy.types.ImageFormatSettings, display: str, *, save_as_render: bool) -> tuple[Readout, Readout, Readout]:
+def native_readouts(settings: bpy.types.ImageFormatSettings, display: str) -> tuple[Readout, Readout, Readout]:
     """Describes native settings and whether writes apply display transform."""
-    return (
-        Readout(caption="Format", value=settings.file_format, verdict=Verdict.HONORED),
-        Readout(caption="Depth", value=depth(settings).map(lambda value: value.label).default_value(f"{settings.color_depth}-bit"), verdict=Verdict.HONORED),
-        Readout(caption="Display", value=display, verdict=Verdict.HONORED if save_as_render and not settings.has_linear_colorspace else Verdict.COLORSPACE),
-    )
+    stored = depth(settings).map(lambda value: value.label).default_with(lambda: COLOR_DEPTH.prop.enum_items[settings.color_depth].description)
+    return Readout.rows((settings.file_format, stored, display), (Verdict.HONORED, Verdict.HONORED, Verdict.COLORSPACE if settings.has_linear_colorspace else Verdict.HONORED))
 
 
 def output_rows(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -170,7 +174,7 @@ def output_rows(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[objec
     for scene in Option.of_optional(context.scene).to_list():
         settings = scene.render.image_settings
         display = (settings.display_settings if settings.color_management == "OVERRIDE" else scene.display_settings).display_device  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        for row in native_readouts(settings, display, save_as_render=True):
+        for row in native_readouts(settings, display):
             layout.label(text=row.text)
 
 
@@ -221,19 +225,30 @@ def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
 
 def owners(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
     """Returns scene, nested File Output, and overriding item formats once per tree."""
-
-    def reached(trees: tuple[bpy.types.NodeTree, ...], seen: frozenset[bpy.types.NodeTree]) -> tuple[bpy.types.NodeTree, ...]:
-        fresh = tuple(dict.fromkeys(tree for tree in trees if tree not in seen))
-        nested = tuple(node.node_tree for tree in fresh for node in tree.nodes if isinstance(node, bpy.types.CompositorNodeGroup) and node.node_tree is not None)
-        return (*fresh, *reached(nested, seen | frozenset(fresh))) if fresh else ()
-
-    trees = reached(tuple(effect.node_group for effect in scene.compositor_effects if effect.node_group is not None), frozenset())
-    nodes = tuple(node for tree in trees for node in tree.nodes if isinstance(node, bpy.types.CompositorNodeOutputFile))
-    items = tuple(item for node in nodes for item in node.file_output_items if item.override_node_format)
+    nodes = tuple(
+        node
+        for tree in nested(effect.node_group for effect in scene.compositor_effects if isinstance(effect.node_group, bpy.types.CompositorNodeTree))
+        for node in tree.nodes
+        if isinstance(node, bpy.types.CompositorNodeOutputFile)
+    )
     return (
         scene.render.image_settings,
         *(held for node in nodes for held in Option.of_optional(node.format).to_list()),
-        *(held for item in items for held in Option.of_optional(item.format).to_list()),
+        *(held for node in nodes for item in node.file_output_items if item.override_node_format for held in Option.of_optional(item.format).to_list()),
+    )
+
+
+def struct_listing(preset: Preset[Snapshot], struct: Callable[[bpy.types.Scene], "bpy.types.bpy_struct[object]"], unchanged: str) -> Listing[Snapshot]:
+    """Returns preset actions over one struct of the context scene."""
+
+    def captured(context: bpy.types.Context) -> BlenderResult[Snapshot]:
+        return rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(struct(scene)))
+
+    return Listing(
+        preset=preset,
+        current=captured,
+        matches=lambda context, values: captured(context).map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values)),
+        applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(struct(scene)), unchanged)),
     )
 
 
@@ -241,21 +256,14 @@ def owners(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
 
 
 writers = Choices(lambda _identity, _owner, _context: ((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in Format.writable()))
-displays = Choices(lambda _identity, _owner, _context: ((name, name, "Still display encoding") for name in PyOpenColorIO.GetCurrentConfig().getDisplays()))
+displays = Choices.named(lambda _identity, _owner, _context: PyOpenColorIO.GetCurrentConfig().getDisplays())
 presets = Preset(key="image_formats", form=Snapshot)
-format_listing = Listing(
-    preset=presets,
-    current=lambda context: rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(scene.render.image_settings)),
-    matches=lambda context, values: (
-        rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(scene.render.image_settings)).map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values))
-    ),
-    applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.render.image_settings), "Output format already holds preset")),
-)
+format_listing = struct_listing(presets, lambda scene: scene.render.image_settings, "Output format already holds preset")
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "Holder",
+    "COLOR_DEPTH",
     "Kind",
     "OutputFormat",
     "Readout",
@@ -270,9 +278,11 @@ __all__ = [
     "native_readouts",
     "output_rows",
     "owners",
+    "pointer",
     "presets",
     "readouts",
     "sample",
+    "struct_listing",
     "writer",
     "writers",
 ]

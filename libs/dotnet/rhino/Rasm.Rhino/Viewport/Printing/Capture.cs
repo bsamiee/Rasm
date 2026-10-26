@@ -86,7 +86,7 @@ public static class ViewCaptures {
     private static IO<Unit> Configured(ViewportRef row, ViewCaptureSettings settings, CaptureRequest request) =>
         from framed in IO.lift(() => {
             settings.Document = row.View.Document;
-            _ = row.Detail.Iter(_ => settings.SetViewport(row.Viewport));
+            settings.SetViewport(row.Viewport);
             request.Area.Switch(
                 settings,
                 fullView: static (target, _) => target.ViewArea = ViewCaptureSettings.ViewAreaMapping.View,
@@ -120,10 +120,4 @@ public static class ViewCaptures {
                 static bitmap => Refused.UnlessFound(bitmap, nameof(ViewCapture.CaptureToBitmap)),
                 static bitmap => DisposalOps.Release(bitmap), retain)
         select bitmap;
-
-    public static IO<Bitmap> CaptureToBitmap(RhinoView view, Guid modeId, Option<Size> pixels, Func<DisplayPipelineAttributes, Fin<Unit>> edit, Action<IDisposable> retain) =>
-        Viewports.WithMode(modeId, mode => IO.lift(() => edit(mode.DisplayAttributes)).Bind(_ =>
-            Copies.Owned(() => pixels.Match(Some: size => view.CaptureToBitmap(size, mode), None: () => view.CaptureToBitmap(mode)),
-                static bitmap => Refused.UnlessFound(bitmap, nameof(RhinoView.CaptureToBitmap)),
-                static bitmap => DisposalOps.Release(bitmap), retain)));
 }

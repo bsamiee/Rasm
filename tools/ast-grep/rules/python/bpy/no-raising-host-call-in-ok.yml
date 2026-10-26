@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-raising-host-call-in-ok
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+utils:
+    refusing:
+        kind: call
+        pattern: $CALL
+        has:
+            field: function
+            any:
+                - kind: attribute
+                  all:
+                    - has: {field: attribute, regex: '^(new|new_from_object|load|remove|create_gpencil_data|remove_gpencil_data)$'}
+                    - has: {field: object, kind: attribute, has: {field: object, matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^data$'}}}}}
+                - matches: {python-member-use: {module: {regex: '^gpu\.types$'}, name: {regex: '^(Buffer|GPUBatch|GPUFrameBuffer|GPUIndexBuf|GPUOffScreen|GPUStorageBuf|GPUTexture|GPUUniformBuf|GPUVertBuf|GPUVertFormat)$'}}}
+rule:
+    kind: call
+    all:
+        - has: {field: function, kind: identifier, regex: '^Ok$', matches: {python-imported-name: {module: {regex: '^expression$'}, name: {regex: '^Ok$'}}}}
+        - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: refusing}}
+message: '`Ok($CALL)` raises on a host refusal in place of answering `Error`'
+note: 'Call `BlenderEditFault.attempted(<request>, lambda: <call>)`, passing the callee itself for a call with no arguments'

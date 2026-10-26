@@ -1,23 +1,26 @@
 """Projected source light, shafts, and procedural lens-flare sections."""
 
 from enum import IntEnum
+from functools import partial
 from math import tau
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
+import msgspec
 
 from blender.bpy.data.rna.conditions import check, Present
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, sampled
-from blender.bpy.nodes.graphs import Clock, End, ended, Fragment, math, menu, mixed, node, Operand, origin, summed, switched, vector
+from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, switched, vector, xyz
 from blender.bpy.nodes.interface import item_key, Socket
+from blender.bpy.render.effects.coordinates import clocked, lensed, origin, sampled
 from blender.bpy.render.effects.generators import noise
 from blender.bpy.render.effects.generators.shapes import coverage
 from blender.bpy.render.effects.optics.defocus import outlined
-from blender.bpy.render.effects.optics.glare import keyed
-from blender.bpy.render.effects.stack import CompositorEffect, Context, entry_input, Shell
+from blender.bpy.render.effects.optics.glare import keyed, WHOLE
+from blender.bpy.render.effects.records import entry_input
+from blender.bpy.render.effects.rows import CompositorEffect, Context, Shell
 from blender.bpy.render.view_layers.passes import PassRequest
 from blender.bpy.scene.cameras import camera_type
 from blender.imaging.effects.generators.flares import Anamorphic, BoundObject, FramePosition, Ghosts, Grading, Halo, Hotspot, LensFlare, LightRays, Reading, Starburst
@@ -39,7 +42,7 @@ class _Noise(IntEnum):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def located[R: SourceEffect](shell: Shell[R]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End], Option[tuple[Fragment, End]]]]:
+def located[R: SourceEffect](shell: Shell[R]) -> tuple[Expr, Expr, Option[Expr]]:
     """Projects selected source with front and occlusion fields.
 
     Args:
@@ -48,64 +51,34 @@ def located[R: SourceEffect](shell: Shell[R]) -> BlenderResult[tuple[tuple[Fragm
     Returns:
         Frame-relative position, front gate, and depth-pass occlusion, `Nothing` for a non-occluding source.
     """
-    match shell.record:
-        case LightRays():
-            source, _, _, _, _ = LightRays.__struct_fields__
-        case LensFlare():
-            source, _, _, _, _, _, _, _ = LensFlare.__struct_fields__
+    source, *_ = type(shell.record).__struct_fields__
     reading, _ = BoundObject.__struct_fields__
-    direction = menu(
-        "source_direction", "BOOLEAN", shell.socket(source, BoundObject, reading), shell.items[source, BoundObject, reading], {Reading.POSITION.label: False, Reading.DIRECTION.label: True}
+    (position,) = FramePosition.__struct_fields__
+    direction = shell.menu(source, BoundObject, reading, cases={Reading.POSITION.label: False, Reading.DIRECTION.label: True}, kind="BOOLEAN")
+    bound = shell.menu(source, cases={FramePosition.title: False, BoundObject.title: True}, kind="BOOLEAN")
+    camera = Expr(
+        kind=bpy.types.GeometryNodeObjectInfo, inputs=(("Object", Expr(kind=bpy.types.GeometryNodeInputActiveCamera, socket="Active Camera").named("camera")),), socket="Location", shape="VECTOR"
     )
-    bound = menu("source_bound", "BOOLEAN", shell.socket(source), shell.items[source,], {FramePosition.title: False, BoundObject.title: True})
-    camera = node("source_camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).bind(
-        lambda camera: paired(
-            node("source_lens", bpy.types.GeometryNodeCameraInfo, {"Camera": ended("source_camera", "Active Camera")(camera)}, {}),
-            node("source_camera_transform", bpy.types.GeometryNodeObjectInfo, {"Object": ended("source_camera", "Active Camera")(camera)}, {}),
-        )
+    target = Expr(kind=bpy.types.GeometryNodeObjectInfo, inputs=(("Object", shell.input(BoundObject)),), socket="Location", shape="VECTOR")
+    axis = Expr(kind=bpy.types.FunctionNodeRotateVector, inputs=(("Vector", (0.0, 0.0, 1.0)), ("Rotation", msgspec.structs.replace(target, socket="Rotation"))), socket="Vector", shape="VECTOR")
+    inverse = Expr(kind=bpy.types.FunctionNodeInvertRotation, inputs=(("Rotation", msgspec.structs.replace(camera, socket="Rotation")),), socket="Rotation")
+    local = Expr(kind=bpy.types.FunctionNodeRotateVector, inputs=(("Vector", switched(direction, target - camera, axis)), ("Rotation", inverse)), socket="Vector", shape="VECTOR")
+    device = Expr(kind=bpy.types.FunctionNodeProjectPoint, inputs=(("Vector", local), ("Transform", lensed("Projection Matrix"))), socket="Vector", shape="VECTOR")
+    reach = switched(direction, -local["Z"], lensed("Clip End"))
+    return (
+        switched(bound, shell.input(source, FramePosition, position), vector("MULTIPLY_ADD", device, (0.5, 0.5, 0.0), (0.5, 0.5, 0.0))),
+        switched(bound, 1.0, local["Z"] < 0.0),
+        Some(shell.layer("Depth") < reach) if _occluding(shell.record) else Nothing,
     )
-    object_info = node("source_object", bpy.types.GeometryNodeObjectInfo, {"Object": shell.socket(BoundObject)}, {})
-
-    def projected(
-        lens: Fragment, camera_transform: Fragment, object_transform: Fragment, direction: Operand, bound: Operand
-    ) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End], Option[tuple[Fragment, End]]]]:
-        location = vector("source_translation", "SUBTRACT", ended("source_object", "Location")(object_transform), ended("source_camera_transform", "Location")(camera_transform))
-        axis = node("source_axis", bpy.types.FunctionNodeRotateVector, {"Vector": (0.0, 0.0, 1.0), "Rotation": ended("source_object", "Rotation")(object_transform)}, {}).map(
-            ended("source_axis", "Vector")
-        )
-        inverse = node("source_inverse", bpy.types.FunctionNodeInvertRotation, {"Rotation": ended("source_camera_transform", "Rotation")(camera_transform)}, {}).map(
-            ended("source_inverse", "Rotation")
-        )
-        world = paired(location, axis).bind(lambda points: switched("source_world", "VECTOR", direction, *points))
-        local = paired(world, inverse).bind(lambda parts: node("source_local", bpy.types.FunctionNodeRotateVector, {"Vector": parts[0], "Rotation": parts[1]}, {})).map(ended("source_local", "Vector"))
-
-        def selected(local: Operand) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End], Option[tuple[Fragment, End]]]]:
-            (position_field,) = FramePosition.__struct_fields__
-            position = (
-                node("source_projected", bpy.types.FunctionNodeProjectPoint, {"Vector": local, "Transform": ended("source_lens", "Projection Matrix")(lens)}, {})
-                .map(ended("source_projected", "Vector"))
-                .bind(lambda device: vector("source_position", "MULTIPLY_ADD", device, (0.5, 0.5, 0.0), (0.5, 0.5, 0.0)))
-                .bind(lambda position: switched("source_selected_position", "VECTOR", bound, shell.socket(source, FramePosition, position_field), position))
-            )
-            depth = node("source_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": local}, {}).map(ended("source_axes", "Z"))
-            front = depth.bind(lambda depth: math("source_front", "LESS_THAN", depth, 0.0)).bind(lambda front: switched("source_selected_front", "FLOAT", bound, 1.0, front))
-            occlusion: BlenderResult[Option[tuple[Fragment, End]]] = (
-                depth
-                .bind(lambda depth: math("source_distance", "MULTIPLY", depth, -1.0))
-                .bind(lambda distance: switched("source_reach", "FLOAT", direction, distance, ended("source_lens", "Clip End")(lens)))
-                .bind(lambda reach: math("source_occluded", "LESS_THAN", shell.layer("Depth"), reach))
-                .map(Some)
-                if _occluding(shell.record)
-                else Ok(Nothing)
-            )
-            return paired(position, paired(front, occlusion)).map(lambda fields: (fields[0], *fields[1]))
-
-        return local.bind(selected)
-
-    return paired(paired(camera, object_info), paired(direction, bound)).bind(lambda parts: projected(*parts[0][0], parts[0][1], *parts[1]))
 
 
-def beamed(shell: Shell[LightRays]) -> BlenderResult[tuple[Fragment, End]]:
+def ramped(distance: Expr, length: Scalar) -> tuple[Expr, Expr]:
+    """Returns tone `min(distance / length, 1)` and squared remaining share `(max(length - distance, 0) / length)²` of a section reaching `length`."""
+    remaining = math("MAXIMUM", math("SUBTRACT", length, distance), 0.0) / length
+    return math("MINIMUM", distance / length, 1.0), remaining * remaining
+
+
+def beamed(shell: Shell[LightRays]) -> BlenderResult[Expr]:
     """Adds highlight shafts through source depth gaps.
 
     Args:
@@ -114,295 +87,114 @@ def beamed(shell: Shell[LightRays]) -> BlenderResult[tuple[Fragment, End]]:
     Returns:
         Associated light with shafts.
     """
-    _, highlights_field, length, jitter, color = LightRays.__struct_fields__
+    _, highlights, length, jitter, color = LightRays.__struct_fields__
     threshold, smoothness = Highlights.__struct_fields__
-    highlights = keyed("ray_key", shell.source, shell.socket(highlights_field, threshold), shell.socket(highlights_field, smoothness))
-
-    def built(source: tuple[tuple[Fragment, End], tuple[Fragment, End], Option[tuple[Fragment, End]]]) -> BlenderResult[tuple[Fragment, End]]:
-        position, front, occlusion = source
-
-        def unoccluded(occluded: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-            return paired(highlights, math("ray_unoccluded", "SUBTRACT", 1.0, occluded)).bind(lambda parts: vector("ray_visible_key", "SCALE", *parts))
-
-        coordinates = framed("ray_frame", shell.source, shell.aspect, shell.scale).bind(
-            lambda frame: paired(
-                sampled("ray_position", frame, position),
-                paired(
-                    node("ray_dimensions", bpy.types.CompositorNodeImageInfo, {"Image": shell.source}, {}).bind(
-                        lambda dimensions: vector("ray_diagonal", "LENGTH", ended("ray_dimensions", "Dimensions")(dimensions))
-                    ),
-                    math("ray_camera_length", "MULTIPLY", shell.socket(length), frame.greater),
-                ).bind(lambda measures: math("ray_size", "DIVIDE", measures[1], measures[0])),
-            )
-        )
-        return (
-            paired(occlusion.map(unoccluded).default_value(highlights), coordinates)
-            .bind(
-                lambda parts: node(
-                    "rays",
-                    bpy.types.CompositorNodeGlare,
-                    {
-                        "Image": parts[0],
-                        "Type": "Sun Beams",
-                        "Quality": "High",
-                        "Highlights Threshold": 0.0,
-                        "Highlights Smoothness": 0.0,
-                        "Clamp Highlights": False,
-                        "Sun Position": parts[1][0],
-                        "Size": parts[1][1],
-                        "Jitter": shell.socket(jitter),
-                    },
-                    {},
-                )
-            )
-            .map(ended("rays", "Glare"))
-            .bind(lambda rays: vector("ray_tint", "MULTIPLY", rays, shell.socket(color)))
-            .bind(lambda tint: vector("ray_front", "SCALE", tint, front))
-            .bind(lambda light: mixed("result", "RGBA", 1.0, shell.source, light, "ADD"))
-        )
-
-    return located(shell).bind(built)
+    position, front, occlusion = located(shell)
+    key = keyed(shell.color, shell.input(highlights, threshold), shell.input(highlights, smoothness))
+    diagonal = vector("LENGTH", Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", shell.color),), socket="Dimensions", shape="VECTOR"))
+    rays = Expr(
+        kind=bpy.types.CompositorNodeGlare,
+        inputs=(
+            ("Image", occlusion.map(lambda occluded: vector("SCALE", key, 1.0 - occluded)).default_value(key)),
+            ("Type", "Sun Beams"),
+            *WHOLE,
+            ("Sun Position", sampled(shell.space, position)),
+            ("Size", shell.input(length) * shell.space.greater / diagonal),
+            ("Jitter", shell.input(jitter)),
+        ),
+        socket="Glare",
+        shape="RGBA",
+    )
+    return Ok(mixed(1.0, shell.color, vector("SCALE", vector("MULTIPLY", rays, shell.input(color)), front), blend="ADD"))
 
 
-def flared(shell: Shell[LensFlare]) -> BlenderResult[tuple[Fragment, End]]:
+def flared(shell: Shell[LensFlare]) -> BlenderResult[Expr]:
     """Adds source-centered flare sections under finite-disc visibility.
 
     Args:
         shell: Entering light, frame, projected source, and section controls.
 
     Returns:
-        Entering light with visible section sum.
+        Entering light with visible section sum, or the working luminance fault.
     """
-    inlet = shell.socket
-    _, radius_field, hotspot_field, starburst, anamorphic, halo_field, ghosts_field, seed = LensFlare.__struct_fields__
+    inlet, frame = shell.input, shell.space
+    _, radius_field, hotspot, starburst, anamorphic, halo, ghosts, seed = LensFlare.__struct_fields__
     _, value = Gated.__struct_fields__
-    hotspot = hotspot_field, value
-    star = starburst, value
-    bar = anamorphic, value
-    halo = halo_field, value
-    ghosts = ghosts_field, value
+    hotspot_emission, hotspot_softness = Hotspot.__struct_fields__
+    star_emission, basis, star_length, density, sharpness, motion = Starburst.__struct_fields__
+    bar_emission, bar_length, thickness, angle = Anamorphic.__struct_fields__
+    halo_emission, magnification_field, halo_radius, width, halo_softness = Halo.__struct_fields__
+    ghost_emission, iris, _, squeeze, fringe_field, _, first, last, ghost_radius, variation, ghost_softness = Ghosts.__struct_fields__
+    blades, rotation, roundness, obstruction = Aperture.__struct_fields__
+    speed, hold = Motion.__struct_fields__
+    spot, star, bar, ring, ghost = ((path, value) for path in (hotspot, starburst, anamorphic, halo, ghosts))
+    count, grading = shell.record.ghosts.value.count, shell.record.ghosts.value.grading
+    position, front, occlusion = located(shell)
+    source = position * frame.extent
+    center = frame.extent * 0.5
+    axis, offset = source - center, frame.point - source
+    rho, pixel, radius = vector("LENGTH", offset), 1.0 / frame.greater, inlet(radius_field)
+    edge, diameter = rho - radius, Some(radius * 2.0)
+    disc = coverage(edge, diameter, 0.0, pixel)
 
-    def built(frame: FrameSpace, source: tuple[tuple[Fragment, End], tuple[Fragment, End], Option[tuple[Fragment, End]]]) -> BlenderResult[tuple[Fragment, End]]:
-        emission_hotspot, softness_hotspot = Hotspot.__struct_fields__
-        emission_starburst, basis, length_starburst, density, sharpness, motion = Starburst.__struct_fields__
-        emission_anamorphic, length_anamorphic, thickness, angle_anamorphic = Anamorphic.__struct_fields__
-        emission_halo, magnification_halo, radius_halo, width, softness_halo = Halo.__struct_fields__
-        emission_ghosts, iris, _, squeeze, fringe_ghosts, _, first, last, radius_ghosts, variation, softness_ghosts = Ghosts.__struct_fields__
-        speed, hold = Motion.__struct_fields__
-        position, front, occlusion = source
-        source_point = vector("flare_source", "MULTIPLY", position, frame.extent)
-        center = vector("flare_center", "SCALE", frame.extent, 0.5)
-        axis = paired(source_point, center).bind(lambda parts: vector("flare_axis", "SUBTRACT", *parts))
-        offset = source_point.bind(lambda source: vector("flare_offset", "SUBTRACT", frame.point, source))
-        rho = offset.bind(lambda offset: vector("flare_rho", "LENGTH", offset))
-        pixel = math("flare_pixel", "DIVIDE", 1.0, frame.greater)
-        radius = inlet(radius_field)
-        diameter = math("source_diameter", "MULTIPLY", radius, 2.0)
-        disc_edge = rho.bind(lambda rho: math("source_edge", "SUBTRACT", rho, radius))
+    def visible(occluded: Expr) -> Expr:
+        hidden, shown = (Expr(kind=bpy.types.CompositorNodeLevels, inputs=(("Image", image), ("Channel", "Red")), socket="Mean") for image in (disc * occluded, disc))
+        return front * (1.0 - hidden / shown)
 
-        def visible(occluded: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-            disc = paired(paired(disc_edge, diameter), pixel).bind(lambda parts: coverage("source_disc", parts[0][0], Some(parts[0][1]), 0.0, parts[1]))
-            obscured = disc.bind(lambda disc: math("source_obscured", "MULTIPLY", disc, occluded))
-            return (
-                paired(
-                    obscured.bind(lambda obscured: node("occlusion_mean", bpy.types.CompositorNodeLevels, {"Image": obscured, "Channel": "Red"}, {})).map(ended("occlusion_mean", "Mean")),
-                    disc.bind(lambda disc: node("disc_mean", bpy.types.CompositorNodeLevels, {"Image": disc, "Channel": "Red"}, {})).map(ended("disc_mean", "Mean")),
-                )
-                .bind(lambda means: math("occluded_share", "DIVIDE", *means))
-                .bind(lambda share: math("visibility", "SUBTRACT", 1.0, share))
-                .bind(lambda visibility: math("flare_visible", "MULTIPLY", front, visibility))
-            )
+    direction = xyz(*(math(operation, math("ARCTAN2", offset["Y"], offset["X"])) for operation in ("COSINE", "SINE")))
+    clock = clocked(inlet(*star, motion, speed), inlet(*star, motion, hold))
+    ((streak, _),) = noise.sampled(shell, (*star, basis), vector("SCALE", direction, inlet(*star, density) / tau), clock, inlet(seed), streams=(_Noise.STAR,))
+    star_tone, star_falloff = ramped(rho, inlet(*star, star_length))
+    rotated = Expr(
+        kind=bpy.types.ShaderNodeVectorRotate, inputs=(("Vector", offset), ("Angle", inlet(*bar, angle))), members=(("rotation_type", "Z_AXIS"), ("invert", True)), socket="Vector", shape="VECTOR"
+    )
+    bar_tone, bar_falloff = ramped(abs(rotated["X"]), inlet(*bar, bar_length))
+    delta = vector("LENGTH", frame.point - vector("MULTIPLY_ADD", axis, inlet(*ring, magnification_field), center)) - inlet(*ring, halo_radius)
+    sections = (
+        (spot, hotspot_emission, coverage(edge, diameter, inlet(*spot, hotspot_softness), pixel), ramped(rho, radius)[0]),
+        (star, star_emission, math("MAXIMUM", math("MULTIPLY_ADD", streak, 2.0, -1.0), 0.0) ** inlet(*star, sharpness) * star_falloff, star_tone),
+        (bar, bar_emission, coverage(math("MULTIPLY_ADD", inlet(*bar, thickness), -0.5, abs(rotated["Y"])), Some(inlet(*bar, thickness)), 0.0, pixel) * bar_falloff, bar_tone),
+        (
+            ring,
+            halo_emission,
+            coverage(math("MULTIPLY_ADD", inlet(*ring, width), -0.5, abs(delta)), Some(inlet(*ring, width)), inlet(*ring, halo_softness), pixel),
+            math("ADD", delta / inlet(*ring, width), 0.5, clamp=True),
+        ),
+    )
 
-        hotspot_weight = paired(paired(disc_edge, diameter), pixel).bind(lambda parts: coverage("hotspot_coverage", parts[0][0], Some(parts[0][1]), inlet(*hotspot, softness_hotspot), parts[1]))
-        hotspot_tone = rho.bind(lambda rho: math("hotspot_ratio", "DIVIDE", rho, radius)).bind(lambda tone: math("hotspot_tone", "MINIMUM", tone, 1.0))
-        circle = (
-            offset
-            .bind(lambda offset: node("star_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": offset}, {}))
-            .bind(lambda axes: math("star_angle", "ARCTAN2", ended("star_axes", "Y")(axes), ended("star_axes", "X")(axes)))
-            .bind(lambda angle: paired(math("star_cosine", "COSINE", angle), math("star_sine", "SINE", angle)))
-            .bind(lambda axes: node("star_direction", bpy.types.ShaderNodeCombineXYZ, {"X": axes[0], "Y": axes[1], "Z": 0.0}, {}))
-            .map(ended("star_direction", "Vector"))
-        )
-        circle = paired(circle, math("star_circle_radius", "DIVIDE", inlet(*star, density), tau)).bind(lambda parts: vector("star_circle", "SCALE", *parts))
-        clock = Clock(key="star_clock", speed=inlet(*star, motion, speed), hold=inlet(*star, motion, hold)).value
-        streaks = (
-            paired(circle, clock)
-            .bind(lambda parts: noise.sampled(shell, (*star, basis), *parts, inlet(seed), streams=(_Noise.STAR,)))
-            .bind(lambda fields: math("star_signed", "MULTIPLY_ADD", fields[0][0], 2.0, -1.0))
-            .bind(lambda signed: math("star_positive", "MAXIMUM", signed, 0.0))
-            .bind(lambda positive: math("star_sharp", "POWER", positive, inlet(*star, sharpness)))
-        )
-        star_tone = rho.bind(lambda rho: math("star_ratio", "DIVIDE", rho, inlet(*star, length_starburst))).bind(lambda tone: math("star_tone", "MINIMUM", tone, 1.0))
-        star_falloff = (
-            rho
-            .bind(lambda rho: math("star_remaining", "SUBTRACT", inlet(*star, length_starburst), rho))
-            .bind(lambda remaining: math("star_reach", "MAXIMUM", remaining, 0.0))
-            .bind(lambda reach: math("star_fraction", "DIVIDE", reach, inlet(*star, length_starburst)))
-            .bind(lambda fraction: math("star_falloff", "MULTIPLY", fraction, fraction))
-        )
-        star_weight = paired(streaks, star_falloff).bind(lambda parts: math("star_weight", "MULTIPLY", *parts))
-        bar_axes = offset.bind(
-            lambda offset: node("bar_rotation", bpy.types.ShaderNodeVectorRotate, {"Vector": offset, "Angle": inlet(*bar, angle_anamorphic)}, {"rotation_type": "Z_AXIS", "invert": True})
-        ).bind(lambda rotated: node("bar_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("bar_rotation", "Vector")(rotated)}, {}))
-        bar_along = bar_axes.bind(lambda axes: math("bar_along", "ABSOLUTE", ended("bar_axes", "X")(axes)))
-        bar_across = bar_axes.bind(lambda axes: math("bar_across", "ABSOLUTE", ended("bar_axes", "Y")(axes)))
-        bar_tone = bar_along.bind(lambda along: math("bar_ratio", "DIVIDE", along, inlet(*bar, length_anamorphic))).bind(lambda tone: math("bar_tone", "MINIMUM", tone, 1.0))
-        bar_falloff = (
-            bar_along
-            .bind(lambda along: math("bar_remaining", "SUBTRACT", inlet(*bar, length_anamorphic), along))
-            .bind(lambda remaining: math("bar_reach", "MAXIMUM", remaining, 0.0))
-            .bind(lambda reach: math("bar_fraction", "DIVIDE", reach, inlet(*bar, length_anamorphic)))
-            .bind(lambda fraction: math("bar_falloff", "MULTIPLY", fraction, fraction))
-        )
-        bar_edge = bar_across.bind(lambda across: math("bar_edge", "MULTIPLY_ADD", inlet(*bar, thickness), -0.5, across))
-        bar_weight = paired(paired(bar_edge, pixel).bind(lambda parts: coverage("bar_coverage", parts[0], Some(inlet(*bar, thickness)), 0.0, parts[1])), bar_falloff).bind(
-            lambda parts: math("bar_weight", "MULTIPLY", *parts)
-        )
-        halo_delta = (
-            paired(axis, center)
-            .bind(lambda parts: vector("halo_center", "MULTIPLY_ADD", parts[0], inlet(*halo, magnification_halo), parts[1]))
-            .bind(lambda center: vector("halo_offset", "SUBTRACT", frame.point, center))
-            .bind(lambda offset: vector("halo_rho", "LENGTH", offset))
-            .bind(lambda rho: math("halo_delta", "SUBTRACT", rho, inlet(*halo, radius_halo)))
-        )
-        halo_tone = halo_delta.bind(lambda delta: math("halo_ratio", "DIVIDE", delta, inlet(*halo, width))).bind(lambda ratio: math("halo_tone", "ADD", ratio, 0.5, clamp=True))
-        halo_edge = halo_delta.bind(lambda delta: math("halo_absolute", "ABSOLUTE", delta)).bind(lambda delta: math("halo_edge", "MULTIPLY_ADD", inlet(*halo, width), -0.5, delta))
-        halo_weight = paired(halo_edge, pixel).bind(lambda parts: coverage("halo_coverage", parts[0], Some(inlet(*halo, width)), inlet(*halo, softness_halo), parts[1]))
-        profiles = (
-            (hotspot, emission_hotspot, hotspot_weight, hotspot_tone),
-            (star, emission_starburst, star_weight, star_tone),
-            (bar, emission_anamorphic, bar_weight, bar_tone),
-            (halo, emission_halo, halo_weight, halo_tone),
-        )
-        sections = accumulated(
-            paired(weight, tone.bind(lambda tone: noise.emitted(shell, (*path, emission), (tone,))))
-            .bind(lambda parts: vector(f"{path[0]}_light", "SCALE", parts[1][0], parts[0]))
-            .bind(lambda light: switched(f"{path[0]}_enabled", "VECTOR", inlet(path[0]), (0.0, 0.0, 0.0), light))
-            for path, emission, weight, tone in profiles
-        )
+    def imaged(index: int) -> tuple[Expr, Expr]:
+        drawn = vector("SCALE", origin(inlet(seed), _Noise.GHOST, instance=index), 1.0 / 256.0)
+        shrink = 1.0 - inlet(*ghost, variation) * drawn["X"]
+        slot = math("MULTIPLY_ADD", drawn["Y"] - 0.5, inlet(*ghost, variation), index + 0.5) / count
+        magnification = mixed(slot, inlet(*ghost, first), inlet(*ghost, last))
+        flipped = vector("SCALE", frame.point - vector("MULTIPLY_ADD", axis, magnification, center), math("MULTIPLY_ADD", magnification < 0.0, -2.0, 1.0))
+        point = xyz(flipped["X"] * inlet(*ghost, squeeze), flipped["Y"] * -1.0)
+        size = inlet(*ghost, ghost_radius) * shrink
+        ramp = inlet(*ghost, ghost_softness) * size + pixel
+        fringe, hole = inlet(*ghost, fringe_field), inlet(*ghost, iris, obstruction)
 
-        def ghost(index: int) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-            blades, rotation, roundness, obstruction = Aperture.__struct_fields__
-            key = f"ghost_{index}"
-            random = (
-                origin(f"{key}_origin", inlet(seed), _Noise.GHOST, instance=index)
-                .bind(lambda origin: vector(f"{key}_uniform", "SCALE", origin, 1.0 / 256.0))
-                .bind(lambda uniform: node(f"{key}_attributes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": uniform}, {}))
-            )
-            shrink = random.bind(lambda values: math(f"{key}_variation", "MULTIPLY", inlet(*ghosts, variation), ended(f"{key}_attributes", "X")(values))).bind(
-                lambda reduction: math(f"{key}_shrink", "SUBTRACT", 1.0, reduction)
-            )
-            slot = (
-                random
-                .bind(lambda values: math(f"{key}_jitter", "SUBTRACT", ended(f"{key}_attributes", "Y")(values), 0.5))
-                .bind(lambda jitter: math(f"{key}_slot_offset", "MULTIPLY_ADD", jitter, inlet(*ghosts, variation), index + 0.5))
-                .bind(lambda slot: math(f"{key}_slot", "DIVIDE", slot, shell.record.ghosts.value.count))
-            )
-            magnification = slot.bind(lambda slot: mixed(f"{key}_magnification", "FLOAT", slot, inlet(*ghosts, first), inlet(*ghosts, last)))
-            location = paired(paired(axis, center), magnification).bind(lambda parts: vector(f"{key}_center", "MULTIPLY_ADD", parts[0][0], parts[1], parts[0][1]))
-            flip = magnification.bind(lambda magnification: math(f"{key}_negative", "LESS_THAN", magnification, 0.0)).bind(lambda negative: math(f"{key}_flip", "MULTIPLY_ADD", negative, -2.0, 1.0))
-            offset = location.bind(lambda location: vector(f"{key}_offset", "SUBTRACT", frame.point, location))
-            mask_point = (
-                paired(offset, flip)
-                .bind(lambda parts: vector(f"{key}_flipped", "SCALE", *parts))
-                .bind(lambda flipped: node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": flipped}, {}))
-                .bind(
-                    lambda axes: paired(
-                        math(f"{key}_squeezed", "MULTIPLY", ended(f"{key}_axes", "X")(axes), inlet(*ghosts, squeeze)), math(f"{key}_reflected", "MULTIPLY", ended(f"{key}_axes", "Y")(axes), -1.0)
-                    )
-                )
-                .bind(lambda axes: node(f"{key}_point", bpy.types.ShaderNodeCombineXYZ, {"X": axes[0], "Y": axes[1], "Z": 0.0}, {}))
-                .map(ended(f"{key}_point", "Vector"))
-            )
-            radius = shrink.bind(lambda shrink: math(f"{key}_radius", "MULTIPLY", inlet(*ghosts, radius_ghosts), shrink))
-            ramp = paired(radius.bind(lambda radius: math(f"{key}_softness", "MULTIPLY", inlet(*ghosts, softness_ghosts), radius)), pixel).bind(lambda parts: math(f"{key}_ramp", "ADD", *parts))
-            fringe = inlet(*ghosts, fringe_ghosts)
-            factors = (
-                math(f"{key}_red_shift", "MAXIMUM", fringe, 0.0).bind(lambda shift: math(f"{key}_red_scale", "SUBTRACT", 1.0, shift)),
-                math(f"{key}_green_shift", "ABSOLUTE", fringe).bind(lambda shift: math(f"{key}_green_scale", "MULTIPLY_ADD", shift, -0.5, 1.0)),
-                math(f"{key}_blue_shift", "MINIMUM", fringe, 0.0).bind(lambda shift: math(f"{key}_blue_scale", "ADD", 1.0, shift)),
-            )
-            aperture = *ghosts, iris
-            channels = (
-                accumulated(
-                    paired(
-                        paired(mask_point, paired(radius, factor)).bind(
-                            lambda parts: math(f"{key}_{channel}_radius", "MULTIPLY", *parts[1]).bind(
-                                lambda radius: paired(
-                                    outlined(
-                                        f"{key}_{channel}_iris", parts[0], radius, inlet(*aperture, blades), inlet(*aperture, rotation), inlet(*aperture, roundness), inlet(*aperture, obstruction)
-                                    ),
-                                    math(f"{key}_{channel}_positive_radius", "GREATER_THAN", radius, 0.0),
-                                )
-                            )
-                        ),
-                        ramp,
-                    ).bind(
-                        lambda parts: (
-                            paired(
-                                math(f"{key}_{channel}_outer_ratio", "DIVIDE", parts[0][0][0], parts[1]).bind(lambda ratio: math(f"{key}_{channel}_outer", "SUBTRACT", 0.5, ratio, clamp=True)),
-                                math(f"{key}_{channel}_inner_ratio", "DIVIDE", parts[0][0][1], parts[1])
-                                .bind(lambda ratio: math(f"{key}_{channel}_inner", "ADD", 1.0, ratio, clamp=True))
-                                .bind(
-                                    lambda inner: math(f"{key}_{channel}_obstructed", "GREATER_THAN", inlet(*aperture, obstruction), 0.0).bind(
-                                        lambda obstructed: switched(f"{key}_{channel}_hole", "FLOAT", obstructed, 1.0, inner)
-                                    )
-                                ),
-                            )
-                            .bind(lambda ramps: math(f"{key}_{channel}_coverage", "MINIMUM", *ramps))
-                            .bind(lambda mask: switched(f"{key}_{channel}_nonempty", "FLOAT", parts[0][1], 0.0, mask))
-                        )
-                    )
-                    for channel, factor in zip(("red", "green", "blue"), factors)
-                )
-                .bind(lambda channels: node(f"{key}_channels", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y", "Z"), channels)), {}))
-                .map(ended(f"{key}_channels", "Vector"))
-            )
-            gain = shrink.bind(lambda shrink: math(f"{key}_area", "MULTIPLY", shrink, shrink)).bind(lambda area: math(f"{key}_gain", "DIVIDE", 1.0, area))
-            masks = paired(math(f"{key}_open_iris", "LESS_THAN", inlet(*aperture, obstruction), 1.0), paired(channels, gain).bind(lambda parts: vector(f"{key}_mask", "SCALE", *parts))).bind(
-                lambda parts: switched(f"{key}_nonempty", "VECTOR", parts[0], (0.0, 0.0, 0.0), parts[1])
-            )
-            return paired(masks, slot)
+        def channel(factor: Expr) -> Expr:
+            extent = size * factor
+            outer, inner = outlined(point, extent, *(inlet(*ghost, iris, field) for field in (blades, rotation, roundness, obstruction)))
+            covered = math("MINIMUM", math("SUBTRACT", 0.5, outer / ramp, clamp=True), switched(hole > 0.0, 1.0, math("ADD", 1.0, inner / ramp, clamp=True)))
+            return switched(extent > 0.0, 0.0, covered)
 
-        ghost_fields = paired(ghost(0), accumulated(ghost(index) for index in range(1, shell.record.ghosts.value.count))).map(lambda parts: (parts[0], *parts[1]))
-        axis_tone = (
-            paired(axis, center)
-            .bind(
-                lambda parts: vector("ghost_axis_offset", "SUBTRACT", frame.point, parts[1]).bind(
-                    lambda offset: paired(vector("ghost_axis_dot", "DOT_PRODUCT", offset, parts[0]), vector("ghost_axis_squared", "DOT_PRODUCT", parts[0], parts[0]))
-                )
-            )
-            .bind(lambda parts: math("ghost_axis_magnification", "DIVIDE", *parts))
-            .bind(lambda magnification: math("ghost_axis_start", "SUBTRACT", magnification, inlet(*ghosts, first)))
-        )
-        axis_tone = paired(axis_tone, math("ghost_axis_span", "SUBTRACT", inlet(*ghosts, last), inlet(*ghosts, first))).bind(lambda parts: math("ghost_axis_tone", "DIVIDE", *parts, clamp=True))
+        channels = xyz(*map(channel, (1.0 - math("MAXIMUM", fringe, 0.0), math("MULTIPLY_ADD", abs(fringe), -0.5, 1.0), 1.0 + math("MINIMUM", fringe, 0.0))))
+        return switched(hole < 1.0, (0.0, 0.0, 0.0), vector("SCALE", channels, 1.0 / (shrink * shrink))), slot
 
-        def illuminated(parts: tuple[tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], ...], tuple[Fragment, End]]) -> BlenderResult[tuple[tuple[Fragment, End], ...]]:
-            fields, axis_tone = parts
-            (_, first_tone), *following = fields
-            return noise.emitted(
-                shell,
-                (*ghosts, emission_ghosts),
-                (
-                    first_tone if shell.record.ghosts.value.grading is Grading.INSTANCE else axis_tone,
-                    *(tone if shell.record.ghosts.value.grading is Grading.INSTANCE else axis_tone for _, tone in following),
-                ),
-            ).bind(lambda lights: accumulated(vector(f"ghost_{index}_light", "MULTIPLY", mask, light) for index, ((mask, _), light) in enumerate(zip(fields, lights))))
+    images = tuple(map(imaged, range(count)))
+    along = vector("DOT_PRODUCT", frame.point - center, axis) / vector("DOT_PRODUCT", axis, axis)
+    graded = math("DIVIDE", along - inlet(*ghost, first), inlet(*ghost, last) - inlet(*ghost, first), clamp=True)
+    head, *tail = (slot if grading is Grading.INSTANCE else graded for _, slot in images)
 
-        ghost_light = (
-            paired(ghost_fields, axis_tone)
-            .bind(illuminated)
-            .bind(lambda lights: summed("ghosts", lights, kind="VECTOR"))
-            .bind(lambda light: switched("ghosts_enabled", "VECTOR", inlet(ghosts_field), (0.0, 0.0, 0.0), light))
-        )
-        light = paired(sections, ghost_light).bind(lambda parts: summed("flare_sections", (*parts[0], parts[1]), kind="VECTOR"))
-        return (
-            paired(light, occlusion.map(visible).default_value(Ok(front)))
-            .bind(lambda parts: vector("flare_light", "SCALE", *parts))
-            .bind(lambda light: mixed("result", "RGBA", 1.0, shell.source, light, "ADD"))
-        )
+    def lit(lights: tuple[tuple[tuple[Expr, ...], ...], tuple[Expr, ...]]) -> Expr:
+        section_lights, ghost_lights = lights
+        first_light, *lighted = (switched(shell.gate(gate), (0.0, 0.0, 0.0), vector("SCALE", light, weight)) for ((gate, _), _, weight, _), (light, *_) in zip(sections, section_lights))
+        glow = tuple(vector("MULTIPLY", mask, light) for (mask, _), light in zip(images, ghost_lights))
+        total = sum((*lighted, switched(shell.gate(ghosts), (0.0, 0.0, 0.0), sum(glow[1:], glow[0]))), first_light)
+        return mixed(1.0, shell.color, vector("SCALE", total, occlusion.map(visible).default_value(front)), blend="ADD")
 
-    return paired(framed("flare_frame", shell.source, shell.aspect, shell.scale), located(shell)).bind(lambda parts: built(*parts))
+    return paired(accumulated(noise.emitted(shell, (*path, emission), (tone,)) for path, emission, _, tone in sections), noise.emitted(shell, (*ghost, ghost_emission), (head, *tail))).map(lit)
 
 
 def _source_validated[R: SourceEffect](identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect], record: R, _context: Context) -> BlenderResult[None]:
@@ -411,7 +203,7 @@ def _source_validated[R: SourceEffect](identity: Identity, scene: bpy.types.Scen
             return Ok(None)
         case BoundObject(reading=reading):
             present = entry.map(
-                lambda entry: entry_input(identity, entry, item_key(BoundObject)).bind(
+                lambda held: entry_input(identity, held, item_key(BoundObject)).bind(
                     lambda value: Descriptor.resolve(value, "value", bpy.types.PointerProperty).bind(lambda descriptor: check(Present(descriptor=descriptor), bpy.context, Some(value)))
                 )
             ).default_value(Error((BlenderAbsentFault(owner=repr(scene), key=item_key(BoundObject)),)))
@@ -430,14 +222,10 @@ def _requested[R: SourceEffect](record: R, layer: str, *, precise: bool) -> Blen
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _source_inputs = (Socket(key=item_key(BoundObject), name="Object", kind=bpy.types.NodeSocketObject),)
-light_rays = CompositorEffect(
-    record=LightRays, graph=beamed, inputs=_source_inputs, requested=Some(lambda record, layer: _requested(record, layer, precise=False)), native_validated=Some(_source_validated)
-)
-lens_flare = CompositorEffect(
-    record=LensFlare, graph=flared, inputs=_source_inputs, requested=Some(lambda record, layer: _requested(record, layer, precise=True)), native_validated=Some(_source_validated)
-)
+light_rays = CompositorEffect(record=LightRays, graph=beamed, inputs=_source_inputs, requested=Some(partial(_requested, precise=False)), native_validated=Some(_source_validated))
+lens_flare = CompositorEffect(record=LensFlare, graph=flared, inputs=_source_inputs, requested=Some(partial(_requested, precise=True)), native_validated=Some(_source_validated))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["beamed", "flared", "lens_flare", "light_rays", "located"]
+__all__ = ["beamed", "flared", "lens_flare", "light_rays", "located", "ramped"]

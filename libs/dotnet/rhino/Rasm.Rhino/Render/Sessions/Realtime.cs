@@ -174,7 +174,7 @@ public abstract class DefinedRealtimeEngine<TEngine> : RealtimeDisplayMode
 
     private IO<Unit> Started(int width, int height, RhinoDoc doc, ViewInfo view, ViewportInfo viewport, bool forCapture, RenderWindow window) =>
         DisposalOps.OnFailure(
-            from opened in DisposalOps.Replace(owned =>
+            from opened in DisposalOps.Acquire(owned =>
                 from framing in DisposalOps.Acquire(IO.pure(viewport), owned)
                 from extent in IO.lift(PixelExtent.Validated(width, height))
                 let target = new RealtimeTarget(extent, forCapture, window)

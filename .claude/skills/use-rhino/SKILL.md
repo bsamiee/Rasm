@@ -59,6 +59,8 @@ Sessions open on:
 
 - Rhino after a plug-in install launches without `--hides`, its first-use window loads plug-ins only once shown
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it
+- Probes catch every error at a native callback (animation group, completion handler, observer, display link, Eto handler), an escape ends Rhino
+- Concurrent sessions share that application, `watch-apps launch` for Rhino takes no `--new`, a second application rewrites the same settings and RUI files on quit
 - Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`
 - `run_csharp` runs C# 10, one call per application at a time on its main-thread queue, with `#r "<assembly>"` below line 1

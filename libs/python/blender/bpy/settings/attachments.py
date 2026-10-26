@@ -1,9 +1,10 @@
-"""Record attachments with value locks, startup seeds, and storage removal."""
+"""Record attachments with value locks, startup seeds, before and after recovery, and storage removal."""
 
 from collections import deque
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import StrEnum
+from itertools import islice
 from types import MemberDescriptorType
 from typing import ClassVar
 
@@ -13,14 +14,15 @@ from idprop.types import IDPropertyGroup
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, holder
-from blender.bpy.data.rna.snapshots import Endpoints
-from blender.bpy.extension.events.handlers import PathHandler
-from blender.bpy.extension.events.timers import Timer
+from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at
+from blender.bpy.data.rna.edits import merge, transfer, Tree
+from blender.bpy.data.rna.snapshots import Applied, Endpoints, native, NativeValue, Snapshot
+from blender.bpy.extension.events.timers import Startup
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.settings.properties import Changed, Choices, RecordGroup
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -32,8 +34,6 @@ class Slot(StrEnum):
 
     HISTORY = ".history"
     LOCKS = ".locks"
-    SYNCED = ".synced"
-    HELD = ".held"
     DATA = ".data"
     REFERENCES = ".references"
 
@@ -69,26 +69,18 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
                 raise TypeError(kind)
             return self.decoder.dec_hook(kind, value)
 
+        def extended(code: int, data: memoryview) -> object:
+            """Resolves ID references and passes other codes to caller codec."""
+            match code:
+                case self.reference_code:
+                    return held[Slot.REFERENCES][bytes(data).decode()]
+                case _:
+                    return Option.of_optional(self.decoder.ext_hook).map(lambda hook: hook(code, data)).default_with(lambda: msgspec.msgpack.Ext(code, data))
+
         try:
-            return Ok(
-                Some(
-                    msgspec.msgpack.decode(
-                        held[Slot.DATA],
-                        type=self.decoder.type,
-                        strict=self.decoder.strict,
-                        dec_hook=decoded,
-                        ext_hook=lambda code, data: (
-                            held[Slot.REFERENCES][bytes(data).decode()]
-                            if code == self.reference_code
-                            else self.decoder.ext_hook(code, data)
-                            if self.decoder.ext_hook is not None
-                            else msgspec.msgpack.Ext(code, data)
-                        ),
-                    )
-                )
-            )
+            return Ok(Some(msgspec.msgpack.decode(held[Slot.DATA], type=self.decoder.type, strict=self.decoder.strict, dec_hook=decoded, ext_hook=extended)))
         except (msgspec.DecodeError, TypeError, KeyError, UnicodeError, NotImplementedError) as error:
-            return Error((BlenderReadFault(request=f"{host!r}[{self.name!r}]", error=error),))
+            return Error((ImagingFileFault(access=Access.READ, request=f"{host!r}[{self.name!r}]", error=error),))
         except ReferenceError as error:
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
 
@@ -125,6 +117,85 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
         except (AttributeError, TypeError, ReferenceError) as error:
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
         return Ok(True)
+
+
+class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
+    """Stored values the members an operation writes held before and after it, restored where live values still match after."""
+
+    stored: Stored[T]
+    ends: Callable[[T], Endpoints]
+
+    @staticmethod
+    def endpoints(name: str) -> "Recovery[Endpoints]":
+        """Returns recovery holding bare endpoints under one key."""
+        return Recovery(stored=Stored(name=name, decoder=msgspec.msgpack.Decoder(Endpoints)), ends=lambda ends: ends)
+
+    def prior(self, holder: Host) -> BlenderResult[Option[tuple[Tree[NativeValue], Tree[NativeValue]]]]:
+        """Returns decoded before and after trees of held record, absent fault for one never completed."""
+        return self.stored.read(holder).bind(lambda found: found.map(lambda kept: self.ends(kept).decoded(holder, self.stored.name).map(Some)).default_value(Ok(Nothing)))
+
+    def recorded(self, holder: Host, writes: tuple[tuple[Native, Snapshot], ...], held: Callable[[Endpoints], T]) -> BlenderResult[tuple[Applied, ...]]:
+        """Stores the written members' live values, applies each snapshot, then stores both ends.
+
+        A held record keeps its earliest before values and its after values of members these writes leave unchanged.
+
+        Args:
+            holder: Struct holding the record.
+            writes: Owners and the snapshots applied to them, in write order.
+            held: Record of the endpoints.
+
+        Returns:
+            Outcome per write, faults of every refused write and of the after store accumulated.
+        """
+        selections = {owner: tuple(descriptor for target, snapshot in writes if target == owner for descriptor in snapshot.selection(owner)) for owner, _ in writes}
+
+        def captured() -> BlenderResult[Tree[NativeValue]]:
+            return accumulated(native(owner, Some(selection)) for owner, selection in selections.items()).map(Tree.joined)
+
+        def written(current: Tree[NativeValue], prior: Option[tuple[Tree[NativeValue], Tree[NativeValue]]]) -> BlenderResult[tuple[Applied, ...]]:
+            before = prior.map(lambda ends: current.merged(ends[0])).default_value(current)
+
+            def finished(after: Tree[NativeValue]) -> BlenderResult[None]:
+                latest = prior.map(lambda ends: ends[1].merged(merge(merge(current, transfer(current, ends[1])), transfer(current, after)))).default_value(after)
+                return paired(Snapshot.persisted(before), Snapshot.persisted(latest)).bind(lambda pair: self.stored.write(holder, held(Endpoints(before=pair[0], after=pair[1]))))
+
+            def changed(_: None) -> BlenderResult[tuple[Applied, ...]]:
+                applied = tuple(snapshot.apply(owner) for owner, snapshot in writes)
+                return paired(accumulated(outcome.outcome for outcome in applied), captured().bind(finished)).map(lambda _: applied)
+
+            return Snapshot.persisted(before).bind(lambda kept: self.stored.write(holder, held(Endpoints(before=kept)))).bind(changed)
+
+        return paired(captured(), self.prior(holder)).bind(lambda pair: written(*pair))
+
+    def reverted(self, holder: Host) -> BlenderResult[bool]:
+        """Restores members still at their after values, every before value of a record never completed, then removes the record.
+
+        Args:
+            holder: Struct holding the record.
+
+        Returns:
+            Whether holder held a record, the record kept when a restore write fails.
+        """
+
+        def live(before: Tree[NativeValue]) -> BlenderResult[Tree[NativeValue]]:
+            """Captures current values of every member the before tree holds."""
+            return accumulated(
+                native(struct, Some(tuple(descriptor for name in kept.values for descriptor in Descriptor.resolve(struct, name, bpy.types.Property).to_option().to_list())))
+                for kept in before.owners.values()
+                for target, _ in islice(kept.values.values(), 1)
+                for struct in (struct_at(*target) if isinstance(target, tuple) else Some(target)).to_list()
+            ).map(Tree.joined)
+
+        def restored(kept: T) -> BlenderResult[bool]:
+            ends = self.ends(kept)
+            return (
+                Snapshot
+                .decoded(ends.before)
+                .bind(lambda before: Option.of_optional(ends.after).map(Snapshot.decoded).default_with(lambda: live(before)).bind(lambda after: Snapshot.restore(before, after).outcome))
+                .bind(lambda _: self.stored.removed(holder))
+            )
+
+        return self.stored.read(holder).bind(lambda found: found.map(restored).default_value(Ok(False)))
 
 
 class Attached[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
@@ -238,6 +309,14 @@ class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             )
         )
 
+    def read(self, identity: Identity, host: Host) -> BlenderResult[T]:
+        """Reads host record through the registered binding."""
+        return self.bound(identity).bind(lambda attached: attached.read(host))
+
+    def revised(self, identity: Identity, host: Host, change: Callable[[T], BlenderResult[T]]) -> BlenderResult[T]:
+        """Writes change of host record, answering the written record."""
+        return self.bound(identity).bind(lambda attached: attached.read(host).bind(change).bind(lambda record: attached.write(host, record).map(lambda _: record)))
+
     # --- [REGISTRATION]
 
     @contextmanager
@@ -252,12 +331,7 @@ class Attachment[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                     lambda attached: (
                         *((Band.GROUPS, group) for group in (attached.group.struct, *attached.group.nested)),
                         (Band.ATTACHMENTS, pointed(self.owner, attached.name, attached.group.pointer)),
-                        *self.seed.map(
-                            lambda seed: (
-                                PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: seed(identity).bind(attached.seeded)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                                Timer(body=lambda: seed(identity).bind(attached.seeded).map(lambda _: Nothing)),
-                            )
-                        ).default_value(()),
+                        *self.seed.map(lambda seed: Startup(body=lambda: seed(identity).bind(attached.seeded))).to_list(),
                     )
                 )
             )
@@ -326,11 +400,6 @@ def preferred[T](identity: Identity, preferences: bpy.types.Preferences, write: 
     )
 
 
-def endpoints(name: str) -> Stored[Endpoints]:
-    """Returns store of operation before and after trees under one key."""
-    return Stored(name=name, decoder=msgspec.msgpack.Decoder(Endpoints))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Attached", "Attachment", "Host", "Slot", "Stored", "endpoints", "pointed", "preferred", "reconciling"]
+__all__ = ["Attached", "Attachment", "Host", "Recovery", "Slot", "Stored", "pointed", "preferred", "reconciling"]

@@ -13,9 +13,10 @@ File loads drop callbacks:
 - Every `driver_namespace` entry
 
 `register()` never runs again for the new file, and per-file state rebuilds from a `load_post` `PathHandler` body:
+- Startup runs `load_post` once after extensions register, every callback `register()` acquired live
 - `load_post` runs after versioning and before drivers and the depsgraph evaluate, evaluated reads waiting for a later step
 - Heavy `load_post` work queues one item per `Timer` tick
-- `Subscription` rows renew their subscription from `load_post` themselves
+- `Subscription` rows hold keys on extension `BUS`, and one `load_post` renewal clears `BUS` and subscribes every key again
 - `Attachment.seed` writes its record onto hosts the loaded file left unstored
 - `load_post_fail` and `save_post_fail` close the state `load_pre` and `save_pre` opened
 - `save_pre` writes reach the save that fired it

@@ -3,15 +3,18 @@
 import datetime
 from fractions import Fraction
 from pathlib import Path
+import threading
 from typing import Annotated, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
+from blender.imaging.faults import Access, ImagingFileFault
+from blender.imaging.files.records import Record
 from blender.imaging.hashing import ContentHash
-from blender.imaging.parameters import Choice, NonNegative, Positive, Presentation, Quantity
-from blender.rendering.batch.queue import load, RenderQueue
-from blender.rendering.faults import RenderingReadFault, RenderingResult
+from blender.imaging.parameters import Choice, NonNegative, Presentation, Quantity
+from blender.rendering.batch.queue import RenderQueue
+from blender.rendering.faults import RenderingResult
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,7 +42,9 @@ class Ending(Choice):
 class Heartbeat(msgspec.Struct, frozen=True, kw_only=True):
     """Record touch interval and stop threshold."""
 
-    interval: Annotated[Positive, msgspec.Meta(title="Heartbeat", description="Seconds between progress record touches"), Presentation(quantity=Some(Quantity.DURATION))] = 3.0
+    interval: Annotated[
+        float, msgspec.Meta(gt=0.0, le=threading.TIMEOUT_MAX, title="Heartbeat", description="Seconds between progress record touches"), Presentation(quantity=Some(Quantity.DURATION))
+    ] = 3.0
     misses: Annotated[int, msgspec.Meta(ge=2, title="Missed Beats", description="Missed heartbeats before run reads as stopped")] = 10
 
 
@@ -62,12 +67,13 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
     pending: tuple[tuple[int, int], ...] = ()
 
     @classmethod
-    def begun(cls, found: Option[Self], queue: RenderQueue, process: int) -> Self:
-        """Starts run, resuming same queue's record that did not succeed."""
+    def resumed(cls, found: Option[tuple[Self, datetime.datetime]], queue: RenderQueue, process: int) -> Self:
+        """Starts run, resuming the observed record of the same queue that did not succeed."""
         key = queue.key
         return (
             found
-            .filter(lambda held: held.queue == key and Option.of_optional(held.ending) != Some(Ending.SUCCEEDED))
+            .map(lambda observed: observed[0])
+            .filter(lambda held: held.queue == key and held.ending is not Ending.SUCCEEDED)
             .map(lambda held: msgspec.structs.replace(held, process=process, ending=None))
             .default_with(lambda: cls(queue=key, process=process))
         )
@@ -85,15 +91,7 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
     def phase(self, beat: datetime.datetime, now: datetime.datetime, heartbeat: Heartbeat) -> Phase:
         """Returns ending when set, else liveness from heartbeat age."""
         ending: Option[Phase] = Option.of_optional(self.ending)
-        origin = datetime.datetime.min.replace(tzinfo=datetime.UTC)
-        elapsed = (now - origin) - (beat - origin)
-        return ending.default_with(
-            lambda: (
-                Liveness.ACTIVE
-                if Fraction(elapsed // datetime.timedelta.resolution, datetime.timedelta(seconds=1) // datetime.timedelta.resolution) < Fraction(heartbeat.interval) * heartbeat.misses
-                else Liveness.STOPPED
-            )
-        )
+        return ending.default_with(lambda: Liveness.ACTIVE if (now - beat).total_seconds() < heartbeat.interval * heartbeat.misses else Liveness.STOPPED)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -106,8 +104,8 @@ def observed(path: Path) -> RenderingResult[Option[tuple[Progress, datetime.date
     except FileNotFoundError:
         return Ok(Nothing)
     except OSError as error:
-        return Error((RenderingReadFault(request=path, error=error),))
-    return load(path, Progress).map(lambda progress: Some((progress, beat)))
+        return Error((ImagingFileFault(access=Access.READ, request=path, error=error),))
+    return Record(path=path, form=Progress).read().map(lambda progress: Some((progress, beat)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

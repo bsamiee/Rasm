@@ -57,11 +57,9 @@ public abstract partial record ScriptStep {
     public sealed record Pause : ScriptStep;
 }
 
-public sealed record CommandScript(string Command, Seq<ScriptStep> Steps) {
-    public string Text => string.Join(' ', Seq("!", $"_{Command}") + Steps.Map(static step => step.Text));
+public sealed record Macro(CommandFace Face, Seq<ScriptStep> Steps) {
+    public string Text => string.Join(' ', Seq("!", $"_{Face.Name}") + Steps.Map(static step => step.Text));
 }
-
-public sealed record Macro(CommandScript Script, CommandFace Face);
 
 public sealed record Flyout(ToolbarRow Target, FlyoutStyle Style);
 
@@ -80,17 +78,16 @@ public sealed record ToolbarRow(string Caption, IGlyph Icon, Seq<ToolbarItemRow>
     public ButtonFace Face { get; init; } = ButtonFace.Icon;
 }
 
-[Union]
+[Union(SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record MenuItemRow {
     public Option<RuiPlatform> Platform { get; init; }
 
     public Option<Macro> Macro =>
-        Switch(
+        SwitchPartially(
+            @default: static _ => Option<Macro>.None,
             run: static held => Some(held.Command),
             check: static held => Some(held.Command),
-            radio: static held => Some(held.Command),
-            separator: static _ => Option<Macro>.None,
-            submenu: static _ => Option<Macro>.None);
+            radio: static held => Some(held.Command));
 
     public sealed record Run(Macro Command) : MenuItemRow;
 
@@ -155,7 +152,7 @@ public static class Toolbars {
                         button: static button => button.Left.Cons(button.Right.ToSeq()),
                         separator: static _ => Seq<Macro>()))
                     + declared.Rui.Menus.Bind(static menu => Flattened(menu.Entries)).Choose(static entry => entry.Macro))
-                .DistinctBy(macro => MacroId(file, macro.Script)))
+                .DistinctBy(macro => MacroId(file, macro)))
             from icons in toSeq((toolbars.Map(static toolbar => toolbar.Icon) + macros.Choose(static macro => macro.Face.Glyph)).DistinctBy(static glyph => glyph.Key, StringComparer.Ordinal))
                 .Traverse(glyph => Icon(file, glyph)).As()
             select new XDocument(new XElement("RhinoUI",
@@ -181,7 +178,7 @@ public static class Toolbars {
     // --- [IDENTIFIERS]
     private static Guid BarId(Guid file, ToolbarRow toolbar) => Uuid.NewNameBased(file, $"tool_bar/{toolbar.Caption}");
 
-    private static Guid MacroId(Guid file, CommandScript script) => Uuid.NewNameBased(file, $"macro_item/{script.Text}");
+    private static Guid MacroId(Guid file, Macro macro) => Uuid.NewNameBased(file, $"macro_item/{macro.Text}");
 
     private static Guid IconId(Guid file, IGlyph glyph) => Uuid.NewNameBased(file, $"icon/{glyph.Key}");
 
@@ -207,19 +204,19 @@ public static class Toolbars {
                     button.Left.Face.Glyph.Map(glyph => new XAttribute("bitmap_id", IconId(at.File, glyph))).ToSeq(),
                     Platforms(button.Platform),
                     Text("text", button.Left.Face.Caption),
-                    new XElement("left_macro_id", MacroId(at.File, button.Left.Script)),
-                    button.Right.Map(right => new XElement("right_macro_id", MacroId(at.File, right.Script))).ToSeq(),
+                    new XElement("left_macro_id", MacroId(at.File, button.Left)),
+                    button.Right.Map(right => new XElement("right_macro_id", MacroId(at.File, right))).ToSeq(),
                     button.Flyout.Map(flyout => new XElement("link", new XAttribute("style", flyout.Style.Key), BarId(at.File, flyout.Target))).ToSeq()),
                 separator: static (at, _) => new XElement("tool_bar_item", new XAttribute("guid", at.Item), new XAttribute("button_style", "spacer")))));
 
     private static XElement MacroItem(Guid file, Macro macro) =>
         new("macro_item",
-            new XAttribute("guid", MacroId(file, macro.Script)),
+            new XAttribute("guid", MacroId(file, macro)),
             macro.Face.Glyph.Map(glyph => new XAttribute("bitmap_id", IconId(file, glyph))).ToSeq(),
             Text("text", macro.Face.Caption),
             Text("tooltip", macro.Face.Help),
             Text("menu_text", macro.Face.Caption),
-            new XElement("script", macro.Script.Text));
+            new XElement("script", macro.Text));
 
     private static Fin<XElement> Icon(Guid file, IGlyph glyph) =>
         Svg(glyph.Assets.Assembly, glyph.Key).ToFin(new NotFound("embedded SVG", glyph.Key)).Map(light => new XElement("icon",
@@ -251,11 +248,9 @@ public static class Toolbars {
 
     private static XElement Entry(Guid file, Guid id, MenuItemRow entry, Option<string> extends) =>
         (Platforms(entry.Platform) + extends.Map(static path => new XAttribute("ExtendRhinoMenu", path)).ToSeq()) switch {
-            var placed => entry.Switch(
+            var placed => entry.SwitchPartially(
                 (File: file, Id: id, Placed: placed, entry.Macro),
-                run: static (held, _) => Item(held.File, held.Id, held.Placed, held.Macro),
-                check: static (held, _) => Item(held.File, held.Id, held.Placed, held.Macro),
-                radio: static (held, _) => Item(held.File, held.Id, held.Placed, held.Macro),
+                @default: static (held, _) => Item(held.File, held.Id, held.Placed, held.Macro),
                 separator: static (held, _) => new XElement("menu_item", new XAttribute("guid", held.Id), held.Placed, new XAttribute("item_type", "separator")),
                 submenu: static (held, submenu) => new XElement("menu",
                     new XAttribute("guid", held.Id), held.Placed, Text("text", submenu.Caption),
@@ -266,20 +261,15 @@ public static class Toolbars {
         new("menu_item",
             new XAttribute("guid", id), placed,
             macro.Map(static held => Text("text", held.Face.Caption)).ToSeq(),
-            macro.Map(held => new XElement("macro_id", MacroId(file, held.Script))).ToSeq());
-
-    private static Seq<(Guid Menu, Guid Item, RuiUpdateUi.UpdateMenuItemEventHandler Handler)> Stateful(
-        Guid file, Seq<MenuExtension> menus, IPlugInSink sink, CancellationToken live) =>
-        menus.Bind(menu => Stateful(MenuId(file), string.Join("::", menu.Path), menu.Entries, sink, live));
+            macro.Map(held => new XElement("macro_id", MacroId(file, held))).ToSeq());
 
     private static Seq<(Guid Menu, Guid Item, RuiUpdateUi.UpdateMenuItemEventHandler Handler)> Stateful(
         Guid parent, string scope, Seq<MenuItemRow> entries, IPlugInSink sink, CancellationToken live) =>
-        Placed(parent, scope, entries).Bind(held => held.Entry.Switch(
+        Placed(parent, scope, entries).Bind(held => held.Entry.SwitchPartially(
             (Menu: parent, Item: held.Id, Sink: sink, Live: live),
-            run: static (_, _) => Seq<(Guid Menu, Guid Item, RuiUpdateUi.UpdateMenuItemEventHandler Handler)>(),
+            @default: static (_, _) => Seq<(Guid Menu, Guid Item, RuiUpdateUi.UpdateMenuItemEventHandler Handler)>(),
             check: static (at, check) => Seq((at.Menu, at.Item, Handler(check.Command.Face, check.Enabled, check.Read, static (ui, on) => ui.Checked = on, at.Sink, at.Live))),
             radio: static (at, radio) => Seq((at.Menu, at.Item, Handler(radio.Command.Face, radio.Enabled, radio.Read, static (ui, on) => ui.RadioChecked = on, at.Sink, at.Live))),
-            separator: static (_, _) => Seq<(Guid Menu, Guid Item, RuiUpdateUi.UpdateMenuItemEventHandler Handler)>(),
             submenu: static (at, submenu) => Stateful(at.Item, "menu_item", submenu.Entries, at.Sink, at.Live)));
 
     // --- [RUNTIME]
@@ -287,17 +277,14 @@ public static class Toolbars {
         static (plugIn, retain) => Optional(plugIn.GetType().Assembly.GetCustomAttribute<RuiFileAttribute>()).Match(
             Some: declared => DisposalOps.Acquire(acquired =>
                 from file in IO.lift(() => Identity(plugIn.GetType().Assembly))
-                from live in DisposalOps.Acquire(IO.lift(static () => new CancellationTokenSource()), Ended,
-                    held => acquired(new Disposal<CancellationTokenSource>(held, static source => Ended(source).Run())))
+                from live in DisposalOps.Acquire(IO.lift(static () => new CancellationTokenSource()),
+                    static source => Callbacks.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit), acquired)
                 from registered in IO.lift(() => Callbacks.Each(
-                    Stateful(file, declared.Rui.Menus, plugIn, live.Token),
+                    declared.Rui.Menus.Bind(menu => Stateful(MenuId(file), string.Join("::", menu.Path), menu.Entries, plugIn, live.Token)),
                     item => RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Item, item.Handler),
                     nameof(RuiUpdateUi.RegisterMenuItem)))
                 select unit, retain),
             None: static () => IO.pure(unit));
-
-    private static IO<Unit> Ended(CancellationTokenSource live) =>
-        Callbacks.Each(Seq(IO.lift(live.Cancel), IO.lift(live.Dispose))).Map(unit);
 
     private static RuiUpdateUi.UpdateMenuItemEventHandler Handler(
         CommandFace face, Option<RowRule> enabled, Func<RowScope, IO<bool>> read, Action<RuiUpdateUi, bool> mark, IPlugInSink sink, CancellationToken live) =>
@@ -308,7 +295,7 @@ public static class Toolbars {
                 from holds in RowRules.Holds(enabled, scope)
                 from checks in read(scope)
                 from written in IO.lift(() => {
-                    (ui.Enabled, ui.Text) = (holds, face.Wording.Shown(face.Caption, sink));
+                    (ui.Enabled, ui.Text) = (holds, RowText.Localize(face.Caption, sink).Local);
                     mark(ui, checks);
                 })
                 select unit).As(),

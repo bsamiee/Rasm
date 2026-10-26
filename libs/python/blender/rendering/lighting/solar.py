@@ -44,6 +44,18 @@ class Site(msgspec.Struct, frozen=True, kw_only=True):
     north: Annotated[Turn, msgspec.Meta(description="True north counterclockwise from +Y")] = 0.0
     zone: Annotated[str, msgspec.Meta(title="Time Zone", description="IANA time zone of site clock")] = "UTC"
 
+    def __post_init__(self) -> None:
+        """Validates zone as a key the time zone database holds."""
+        try:
+            zoneinfo.ZoneInfo(self.zone)
+        except zoneinfo.ZoneInfoNotFoundError as error:
+            raise ValueError(*error.args) from error
+
+    @property
+    def clock(self) -> zoneinfo.ZoneInfo:
+        """Time zone of site clock."""
+        return zoneinfo.ZoneInfo(self.zone)
+
 
 class LocalTime(msgspec.Struct, frozen=True, kw_only=True):
     """Calendar date and time on site clock."""
@@ -81,8 +93,13 @@ class SunPosition(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     @property
     def vectors(self) -> npt.NDArray[np.float64]:
         """Unit vectors toward sun in scene axes, shaped (..., 3), +Z up."""
-        rotation, horizontal = self.rotation, np.cos(self.elevation)
-        return np.stack((np.sin(rotation) * horizontal, np.cos(rotation) * horizontal, np.sin(self.elevation)), axis=-1)
+        return SunPosition.toward(self.rotation, self.elevation)
+
+    @staticmethod
+    def toward(rotation: npt.NDArray[np.float64], elevation: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Returns unit vectors at clockwise rotation from scene +Y and elevation, shaped (..., 3), +Z up."""
+        horizontal = np.cos(elevation)
+        return np.stack((np.sin(rotation) * horizontal, np.cos(rotation) * horizontal, np.sin(elevation)), axis=-1)
 
     @staticmethod
     def equatorial(longitude: float, seconds: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:

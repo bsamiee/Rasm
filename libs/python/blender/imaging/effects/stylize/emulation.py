@@ -10,7 +10,7 @@ import numpy.typing as npt
 import OpenImageIO
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.faults import ImagingBufferFault, ImagingJpegFault, ImagingResult
+from blender.imaging.faults import ImagingBufferFault, ImagingNumericFault, ImagingResult
 from blender.imaging.parameters import Choice, Finite, FrameExtent, FrameLength, Gated, Motion, NonNegative, Positive, Presentation, Quantity, Seed, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -77,7 +77,7 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
                 )
             return Ok(rgb)
         except imagecodecs.Jpeg8Error as error:
-            return Error((ImagingJpegFault(request=self, error=error),))
+            return Error((ImagingNumericFault(request=self, error=error),))
 
     def applied(self, source: OpenImageIO.ImageBuf, coded: Option[OpenImageIO.ImageSpec]) -> ImagingResult[OpenImageIO.ImageBuf]:
         """Codes native RGB with optional box reduction and triangle reconstruction.
@@ -117,41 +117,41 @@ class Corruption(msgspec.Struct, frozen=True, kw_only=True):
     coverage: Annotated[Unit, msgspec.Meta(description="Share of corrupted cells per pattern")] = 0.2
     cell_width: Annotated[FrameExtent, msgspec.Meta(description="Corrupted cell width"), Presentation(soft=Some((0.005, 1.0)))] = 0.03
     cell_height: Annotated[FrameExtent, msgspec.Meta(description="Corrupted cell height"), Presentation(soft=Some((0.005, 1.0)))] = 0.03
-    displacement: Annotated[NonNegative, msgspec.Meta(description="Greatest horizontal cell shift"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.004
-    split: Annotated[NonNegative, msgspec.Meta(description="Opposing red and blue offsets across frame"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
+    displacement: Annotated[NonNegative, msgspec.Meta(description="Greatest horizontal cell shift"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME))] = 0.004
+    split: Annotated[NonNegative, msgspec.Meta(description="Opposing red and blue offsets across frame"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME))] = 0.0
     chroma: Annotated[Unit, msgspec.Meta(description="Sign-preserving chroma power in struck cells")] = 0.6
 
 
 class Tape(msgspec.Struct, frozen=True, kw_only=True):
     """Time-base error, head switching, tracking disturbance, and dropouts."""
 
-    jitter: Annotated[NonNegative, msgspec.Meta(description="Standard deviation of horizontal line displacement"), Presentation(soft=Some((0.0, 0.01)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.002
-    jitter_period: Annotated[NonNegative, msgspec.Meta(description="Vertical jitter smoothing period"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0 / 65.0
-    bounce: Annotated[NonNegative, msgspec.Meta(description="Greatest vertical frame shift"), Presentation(soft=Some((0.0, 0.02)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
-    head_switching: Annotated[NonNegative, msgspec.Meta(description="Skewed bottom band height"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0176
-    skew: Annotated[Finite, msgspec.Meta(description="Peak horizontal head-switching shift at nine tenths of band"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.05
-    tracking_shift: Annotated[Finite, msgspec.Meta(description="Shift at tracking band center"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
-    tracking_height: Annotated[Positive, msgspec.Meta(description="Tracking band height"), Presentation(soft=Some((0.0, 0.25)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.15
+    jitter: Annotated[NonNegative, msgspec.Meta(description="Standard deviation of horizontal line displacement"), Presentation(soft=Some((0.0, 0.01)), quantity=Some(Quantity.FRAME))] = 0.002
+    jitter_period: Annotated[NonNegative, msgspec.Meta(description="Vertical jitter smoothing period"), Presentation(quantity=Some(Quantity.FRAME))] = 1.0 / 65.0
+    bounce: Annotated[NonNegative, msgspec.Meta(description="Greatest vertical frame shift"), Presentation(soft=Some((0.0, 0.02)), quantity=Some(Quantity.FRAME))] = 0.0
+    head_switching: Annotated[NonNegative, msgspec.Meta(description="Skewed bottom band height"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME))] = 0.0176
+    skew: Annotated[Finite, msgspec.Meta(description="Peak horizontal head-switching shift at nine tenths of band"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME))] = 0.05
+    tracking_shift: Annotated[Finite, msgspec.Meta(description="Shift at tracking band center"), Presentation(soft=Some((-0.1, 0.1)), quantity=Some(Quantity.FRAME))] = 0.0
+    tracking_height: Annotated[Positive, msgspec.Meta(description="Tracking band height"), Presentation(soft=Some((0.0, 0.25)), quantity=Some(Quantity.FRAME))] = 0.15
     tracking_rate: Annotated[NonNegative, msgspec.Meta(description="Frame heights traveled upward per clock frame")] = 0.0
     mistracking: Annotated[Unit, msgspec.Meta(description="Luma noise in tracking band")] = 0.0
     dropouts: Annotated[Unit, msgspec.Meta(description="Share of dropout-length cells struck per raster line"), Presentation(soft=Some((0.0, 0.2)))] = 0.02
-    dropout_length: Annotated[Positive, msgspec.Meta(description="Fading dropout cell length"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.04
+    dropout_length: Annotated[Positive, msgspec.Meta(description="Fading dropout cell length"), Presentation(soft=Some((0.0, 0.2)), quantity=Some(Quantity.FRAME))] = 0.04
 
 
 class Ghost(msgspec.Struct, frozen=True, kw_only=True):
     """Delayed signal echo from a second transmission path."""
 
     amplitude: Annotated[Unit, msgspec.Meta(description="Delayed echo strength")] = 0.1
-    delay: Annotated[Finite, msgspec.Meta(description="Horizontal echo offset, right above zero"), Presentation(soft=Some((-0.2, 0.2)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.05
+    delay: Annotated[Finite, msgspec.Meta(description="Horizontal echo offset, right above zero"), Presentation(soft=Some((-0.2, 0.2)), quantity=Some(Quantity.FRAME))] = 0.05
 
 
 class Signal(msgspec.Struct, frozen=True, kw_only=True):
     """Analog video bandwidth, Gaussian noise, and carrier disturbances."""
 
-    luma_blur: Annotated[NonNegative, msgspec.Meta(description="Horizontal luma bandwidth blur"), Presentation(soft=Some((0.0, 0.01)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0023
-    chroma_blur: Annotated[NonNegative, msgspec.Meta(description="Horizontal color-difference bandwidth blur"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0073
-    chroma_vertical: Annotated[NonNegative, msgspec.Meta(description="Vertical color-difference blur"), Presentation(soft=Some((0.0, 0.02)), quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
-    chroma_delay: Annotated[Finite, msgspec.Meta(description="Color-difference offset from luma, right above zero"), Presentation(soft=Some((-0.02, 0.02)), quantity=Some(Quantity.FRAME_WIDTH))] = 0.0
+    luma_blur: Annotated[NonNegative, msgspec.Meta(description="Horizontal luma bandwidth blur"), Presentation(soft=Some((0.0, 0.01)), quantity=Some(Quantity.FRAME))] = 0.0023
+    chroma_blur: Annotated[NonNegative, msgspec.Meta(description="Horizontal color-difference bandwidth blur"), Presentation(soft=Some((0.0, 0.05)), quantity=Some(Quantity.FRAME))] = 0.0073
+    chroma_vertical: Annotated[NonNegative, msgspec.Meta(description="Vertical color-difference blur"), Presentation(soft=Some((0.0, 0.02)), quantity=Some(Quantity.FRAME))] = 0.0
+    chroma_delay: Annotated[Finite, msgspec.Meta(description="Color-difference offset from luma, right above zero"), Presentation(soft=Some((-0.02, 0.02)), quantity=Some(Quantity.FRAME))] = 0.0
     saturation: Annotated[NonNegative, msgspec.Meta(description="Color-difference gain"), Presentation(soft=Some((0.0, 2.0)))] = 1.0
     ringing: Annotated[Unit, msgspec.Meta(description="Second-difference overshoot at luma edges")] = 0.1
     cross_color: Annotated[Unit, msgspec.Meta(description="Fine luma detail decoded as NTSC subcarrier color")] = 0.0

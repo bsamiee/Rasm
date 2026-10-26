@@ -1,0 +1,37 @@
+using System;
+using System.Drawing;
+using LanguageExt;
+using LanguageExt.Common;
+using Rasm.Rhino;
+using Rhino.Display;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino {
+    internal static class Refused {
+        internal static Fin<T> UnlessFound<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
+    }
+
+    internal static class DisposalOps {
+        internal static IO<TResult> Found<T, TResult>(Func<T?> acquire, string member, Func<T, IO<TResult>> body) where T : class =>
+            IO.lift(() => Refused.UnlessFound(acquire(), member)).Bind(body);
+    }
+}
+
+internal static class TrustedGrayscale {
+    internal static IO<Size> Sized(ZBufferCapture capture) => IO.lift(() => {|#0:capture.GrayscaleDib()|}.Size);
+
+    internal static IO<Bitmap> Kept(ZBufferCapture capture) => IO.lift(() => {|#1:capture.GrayscaleDib()|});
+
+    internal static Bitmap Held(ZBufferCapture capture) {
+        Bitmap gray = {|#2:capture.GrayscaleDib()|};
+        return gray;
+    }
+}
+
+internal static class CheckedGrayscale {
+    internal static IO<Bitmap> Refusing(ZBufferCapture capture) => IO.lift(() => Refused.UnlessFound(capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib)));
+
+    internal static Option<Bitmap> Optional(ZBufferCapture capture) => Prelude.Optional(capture.GrayscaleDib());
+
+    internal static IO<Size> Found(ZBufferCapture capture) => DisposalOps.Found(() => capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib), static gray => IO.pure(gray.Size));
+}

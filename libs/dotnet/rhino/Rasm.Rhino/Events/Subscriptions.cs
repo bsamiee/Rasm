@@ -20,11 +20,29 @@ public record HostEvent<TArgs>(Type Owner, string Member, Func<Func<TArgs, IO<Un
     public HostEvent<TValue> Choose<TValue>(Func<TArgs, Option<TValue>> choose) =>
         new(Owner, Member, (deliver, site, retain) => Attach(args => IO.lift(() => choose(args)).Bind(chosen => chosen.Match(deliver, static () => IO.pure(unit))), site, retain));
 
+    public HostEvent<TArgs> DistinctUntilChanged<TKey, TMark>(Func<TArgs, (TKey Key, TMark Mark)> mark) where TKey : notnull =>
+        new(Owner, Member, (deliver, site, retain) =>
+            from marks in IO.lift(static () => Ref(HashMap<TKey, TMark>()))
+            from attached in Attach(
+                args =>
+                    from raised in IO.lift(() => mark(args))
+                    from repeat in atomicIO(() => {
+                        HashMap<TKey, TMark> seen = marks.Value;
+                        marks.Value = seen.AddOrUpdate(raised.Key, raised.Mark);
+                        return seen.Find(raised.Key) == Some(raised.Mark);
+                    })
+                    from delivered in unless(repeat, deliver(args)).As()
+                    select unit,
+                site, retain)
+            select attached);
+
     private CallbackSite Site(IPlugInSink sink) => new(sink, Owner, Member);
 }
 
 public sealed record DocumentEvent<TArgs>(Type Owner, string Member, Func<Func<TArgs, IO<Unit>>, CallbackSite, Action<IDisposable>, IO<Unit>> Attach, Func<TArgs, Option<uint>> DocumentSerial)
     : HostEvent<TArgs>(Owner, Member, Attach) {
+    public DocumentEvent(HostEvent<TArgs> row, Func<TArgs, Option<uint>> documentSerial) : this(row.Owner, row.Member, row.Attach, documentSerial) { }
+
     public HostEvent<TArgs> In(uint serial) => Choose(args => Callbacks.Found(DocumentSerial(args) == Some(serial), args));
 }
 
@@ -69,7 +87,7 @@ public sealed class EventJournal<TKey, TValue> : IDisposable {
              .Finally(IO.lift(() => channel.Writer.TryComplete()).Map(unit))
              .As()
              .Fork()
-             from created in DisposalOps.Acquire(IO.lift(() => new EventJournal<TKey, TValue>(state, channel, worker)), static open => open.Close().Map(unit), retain)
+             from created in DisposalOps.Acquire(IO.lift(() => new EventJournal<TKey, TValue>(state, channel, worker)), retain)
              select created,
              IO.lift(() => channel.Writer.TryComplete()).Map(unit))
          select journal).Uninterruptible();
@@ -90,11 +108,7 @@ public sealed class EventJournal<TKey, TValue> : IDisposable {
 public static class Subscriptions {
     // --- [ATTACH]
     public static IO<Unit> Attach<THandler>(Action<THandler> add, Action<THandler> remove, THandler handler, Action<IDisposable> retain) where THandler : Delegate =>
-        DisposalOps.Acquire(owned =>
-            DisposalOps.Acquire(IO.lift(() => new Disposal<THandler>(handler, remove)), lease => {
-                add(handler);
-                owned(lease);
-            }).Map(unit), retain);
+        DisposalOps.Acquire(IO.lift(() => add(handler)), _ => IO.lift(() => remove(handler)), retain);
 
     public static IO<TResult> Detached<THandler, TResult>(Action<THandler> add, Action<THandler> remove, THandler handler, IO<TResult> effect) where THandler : Delegate =>
         DisposalOps.Within(fun(() => remove(handler)), _ => effect, _ => IO.lift(() => add(handler)));
@@ -108,12 +122,22 @@ public static class Subscriptions {
         Host<EventHandler<TArgs>, TArgs>(owner, add, remove, static handler => handler, member);
 
     public static DocumentEvent<TArgs> Host<TArgs>(Type owner, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
-        new(owner, member, Host(owner, add, remove, member).Attach, documentSerial);
+        new(Host(owner, add, remove, member), documentSerial);
 
     public static HostEvent<TArgs> Host<TArgs>(Type owner, Func<Seq<HostEvent<TArgs>>> sources, [CallerMemberName] string member = "") =>
         new(owner, member, (deliver, site, retain) =>
             DisposalOps.Acquire(owned => IO.lift(sources)
                 .Bind(rows => rows.TraverseM(row => row.Inline(deliver, site.Sink, owned)).As()).Map(unit), retain));
+
+    public static HostEvent<TArgs> During<THandler, TArgs>(Type owner, Action<THandler> add, Action<THandler> remove, Func<EventHandler<TArgs>, THandler> adapt, [CallerMemberName] string member = "")
+        where THandler : Delegate =>
+        new(owner, member, (deliver, site, retain) => Attach(add, remove, adapt(Callbacks.Synchronous(deliver, site)), retain));
+
+    public static HostEvent<TArgs> During<TArgs>(Type owner, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, [CallerMemberName] string member = "") =>
+        During<EventHandler<TArgs>, TArgs>(owner, add, remove, static handler => handler, member);
+
+    public static DocumentEvent<TArgs> During<TArgs>(Type owner, Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
+        new(During(owner, add, remove, member), documentSerial);
 
     public static HostEvent<TValue> Changed<TValue>(Atom<TValue> atom, [CallerMemberName] string member = "") =>
         Host<AtomChangedEvent<TValue>, TValue>(typeof(Atom<TValue>), handler => atom.Change += handler, handler => atom.Change -= handler, static handler => value => handler(sender: null, value), member);
@@ -124,10 +148,9 @@ public static class Subscriptions {
     public static DocumentEvent<TArgs> Watched<TArgs>(Action<EventWatcher, EventHandler<TArgs>> add, Func<TArgs, Option<uint>> documentSerial, [CallerMemberName] string member = "") =>
         new(typeof(EventWatcher), member, (deliver, site, retain) =>
             DisposalOps.Acquire(owned =>
-                DisposalOps.Acquire(IO.lift(static () => new EventWatcher(includeHeadlessDocuments: true)), watcher => {
-                    add(watcher, Callbacks.Handler(deliver, site));
-                    owned(watcher);
-                }).Map(unit), retain), documentSerial);
+                from watcher in DisposalOps.Acquire(IO.lift(static () => new EventWatcher(includeHeadlessDocuments: true)), owned)
+                from added in IO.lift(() => add(watcher, Callbacks.Handler(deliver, site)))
+                select unit, retain), documentSerial);
 
     // --- [MAILBOXES]
     public static Func<CallbackSite, Action<IDisposable>, IO<Func<(TKey Key, TValue Value), IO<Unit>>>> Idle<TKey, TValue>(Func<HashMap<TKey, TValue>, IO<Unit>> drain) =>
@@ -143,7 +166,7 @@ public static class Subscriptions {
 
     public static IO<Func<TItem, IO<Unit>>> Queued<TItem>(Buffer<TItem> buffer, Func<TItem, IO<Unit>> consume, Func<Error, IO<Unit>> failed, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from conduit in DisposalOps.Acquire(IO.lift(() => Conduit.make(buffer)), static open => open.Complete(), open => owned(new Disposal<Conduit<TItem, TItem>>(open, static held => held.Complete().Run())))
+            from conduit in DisposalOps.Acquire(IO.lift(() => Conduit.make(buffer)), static open => open.Complete(), owned)
             from forked in conduit.Reduce(unit, (_, item) => IO.pure(item).Bind(consume).Catch(failed).As().Map(Reduced.Continue))
                 .Finally(conduit.Complete()).Fork()
             select fun((TItem item) => conduit.Post(item) | @catch(Errors.SinkFull, IO.pure(unit))),

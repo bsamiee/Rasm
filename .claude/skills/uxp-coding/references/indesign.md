@@ -116,16 +116,22 @@ Throws inside a step roll back every change in every document and record no undo
 ```ts
 const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
     const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Model;
-    const [opened, done, sync] = [app.documents.everyItem().id, yield* Deferred.make<A, E | Cause.UnknownError>(), Effect.runSyncWith(yield* Effect.context<R>())];
+    const [opened, done, sync] = [
+        app.documents.everyItem().id,
+        yield* Deferred.make<A, E | HostError>(),
+        Effect.runSyncWith(yield* Effect.context<R>()),
+    ];
     const closed = (id: number) => Effect.sync(() => app.documents.itemByID(id).close(SaveOptions.NO));
-    yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: (cause) => new Cause.UnknownError(cause, label) }).pipe(
-        Effect.catch((error) => Deferred.fail(done, error)),
-    );
+    const running = () => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done)));
+    yield* Effect.try({
+        try: (): unknown => app.doScript(running, ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label),
+        catch: (cause) => new HostError({ step: label, cause }),
+    }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
     return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
 });
 ```
 
-`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. Host refusals fail `Cause.UnknownError` with `label` as message, `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Plugins repeat ExtendScript `$.sleep(5)` to hold the same step until a call InDesign completes enters it, and a peer call runs the step inside the sleep.
+`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. Host refusals fail the package's `HostError` with `label` as step, `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Plugins repeat ExtendScript `$.sleep(5)` to hold the same step until a call InDesign completes enters it, and a peer call runs the step inside the sleep.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
@@ -139,7 +145,7 @@ ExtendScript writes and rolled-back reads send source text with arguments as dat
 ```ts
 import type { InDesignDOMObject } from 'adobe:indesign';
 
-const based = (target: InDesignDOMObject<unknown>, field: string): Effect.Effect<unknown, Cause.UnknownError, Model> => {
+const based = (target: InDesignDOMObject<unknown>, field: string): Effect.Effect<unknown, HostError, Model> => {
     const source = `var target = resolve(arguments[0]), field = arguments[1], value = null, done = false;
 try {
     app.doScript(function () { target.clearOverrides(); value = target[field]; done = true; throw 0; }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT);
@@ -148,7 +154,7 @@ value`;
     return Effect.flatMap(Model, ({ app, ScriptLanguage }) =>
         Effect.try({
             try: (): unknown => app.doScript(source, ScriptLanguage.JAVASCRIPT, [target.toSpecifier(), field]),
-            catch: (cause) => new Cause.UnknownError(cause, `${target.toSpecifier()} ${field}`),
+            catch: (cause) => new HostError({ step: `${target.toSpecifier()} ${field}`, cause }),
         }),
     );
 };
@@ -204,7 +210,7 @@ class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Ex
                 );
                 return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
             },
-            catch: (cause) => new Cause.UnknownError(cause, `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
+            catch: (cause) => new HostError({ step: `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`, cause }),
         });
     });
 }
@@ -232,7 +238,7 @@ import { temporary } from '#/dom/files';
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
     const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }] = yield* Effect.all([Model, Uxp]);
     const { top, left, bottom, right } = yield* Extent.of(page);
-    const refused = (cause: unknown) => new Cause.UnknownError(cause, `export of ${page.toSpecifier()}`);
+    const refused = (cause: unknown) => new HostError({ step: `export of ${page.toSpecifier()}`, cause });
     const pointsPerInch = 72;
     const path = yield* temporary('render.png');
     yield* preserve(app.pngExportPreferences, {
@@ -246,7 +252,7 @@ const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
     return yield* Effect.filterOrFail(
         Effect.try({ try: () => new Uint8Array(fs.readFileSync(`file:${path}`)), catch: refused }),
         (image) => image.length > 0,
-        () => new Cause.UnknownError(undefined, `export of ${page.toSpecifier()} wrote no image`),
+        refused,
     );
 }, Effect.scoped);
 ```

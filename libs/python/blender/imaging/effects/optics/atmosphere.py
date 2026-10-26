@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+import colour
 from expression import Some
 import msgspec
 
@@ -19,7 +20,7 @@ type Inscattering = Ambient | Diffused
 class Ambient(Case, frozen=True, kw_only=True, tag=1):
     """Uniformly lit medium scattering one color toward camera."""
 
-    color: Annotated[Rgb, msgspec.Meta(description="Scene-linear scattered light")] = Rgb(**dict.fromkeys(Rgb.__struct_fields__, (217 / 255) ** 2.2))
+    color: Annotated[Rgb, msgspec.Meta(description="Scene-linear scattered light")] = Rgb(**dict.fromkeys(Rgb.__struct_fields__, float(colour.cctf_decoding(217 / 255, function="sRGB"))))
 
 
 class Diffused(Case, frozen=True, kw_only=True, tag=2):

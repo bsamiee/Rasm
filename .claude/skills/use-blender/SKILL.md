@@ -79,7 +79,7 @@ result = {"closed": closed}
 Script-driven task GUIs run a runner script:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- --no-window-focus --python <runner.py>` runs one and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
-- Runners calling `window.event_simulate` run with `--enable-event-simulate`, the call otherwise raising `RuntimeError`
+- `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
 - Runners end with the quit call
 
 Configured startup files open with:
@@ -87,6 +87,7 @@ Configured startup files open with:
 - Unselectable `Ground` plane
 - Working directory `<repo>/.artifacts/blender/`
 - AgX exposure of -5.3, under which `render.opengl` and Workbench render near black and Cycles and EEVEE render daylight
+- Load UI off, under which `wm.read_homefile()` keeps session workspaces and screens and `wm.open_mainfile()` repeats the previous load's `load_ui`
 
 ## [03]-[CALLS]
 
@@ -103,7 +104,7 @@ Configured startup files open with:
 - File paths are absolute, relative paths resolving under the working directory
 - Operators run in default exec form
 - Operators returning `RUNNING_MODAL` (invoked tools, timer-driven jobs) run on after the call, and later calls read progress from their data
-- Extension operators answer FINISHED whatever their body did, and keep data made before a raise
+- Python operators with a raising `execute` finish as `FINISHED` to window manager, the call raising `RuntimeError`
 
 ## [04]-[MODAL_STATE]
 
@@ -134,7 +135,8 @@ Background runs follow host rules:
 - Modal operators return `RUNNING_MODAL` without stepping, and invoke-only operators return `PASS_THROUGH`
 - Handlers (render and frame handlers included) and update callbacks run on the main thread and accept data writes
 - `load_post` reaches an extension at startup when preferences enable it, or when a `.blend` argument follows `--addons`
-- Brush strokes and `render.opengl` need a GUI session, and sculpt operators crash a background run in their undo push
+- Sculpt mode entry and sculpt edits (brush strokes, masks, face sets, filters) crash until `bpy.ops.ed.undo_push()` creates an undo stack
+- `render.opengl` raises `RuntimeError`
 - `wm.read_homefile(use_empty=True)` empties the scene and keeps loaded extensions
 
 Background renders use named files saved in place, untitled and scratch scenes render in GUI without saving:
@@ -191,3 +193,5 @@ Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BL
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
 - Crash reports sit in the tree's `tmp`, output in its `blender.log`
+- Crash reproductions run in plain CPython with the extension's wheel versions, one Blender run confirms the fix
+- Crashes on a `Stack Guard` region reproduce in Blender's bundled `python3.13`, where C recursion past Blender's 1 MB stack raises `RecursionError`

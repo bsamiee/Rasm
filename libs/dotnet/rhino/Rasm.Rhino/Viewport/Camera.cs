@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using Rasm.Imaging.Pixels;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -34,12 +32,10 @@ public abstract partial record CameraLens {
 
 public sealed record CameraPose(Plane Frame, Point3d Target, CameraLens Lens);
 
-public readonly record struct CameraSnapshot(ViewportInfo Camera, uint ChangeCounter);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Cameras {
     // --- [POSE]
-    public static IO<CameraPose> ReadPose(RhinoViewport viewport) =>
+    public static IO<CameraPose> Read(RhinoViewport viewport) =>
         IO.lift(() => (
                 Refused.Unless(viewport.GetCameraFrame(out Plane read), read, nameof(RhinoViewport.GetCameraFrame)),
                 viewport.IsParallelProjection
@@ -49,89 +45,41 @@ public static class Cameras {
                         .Map<CameraLens>(angle => viewport.IsTwoPointPerspectiveProjection ? new CameraLens.TwoPoint(angle, viewport.CameraUp) : angle))
             .Apply((frame, lens) => new CameraPose(frame, viewport.CameraTarget, lens)).As());
 
-    public static Fin<Unit> WritePose(RhinoViewport viewport, CameraPose pose) {
+    public static Fin<Unit> Write(RhinoViewport viewport, CameraPose pose) {
         using ViewportInfo copy = new(viewport);
-        return Posed(copy, pose).Bind(posed => Restore(viewport, posed, pose.Target));
+        return Pose(copy, pose).Bind(posed => Applied(viewport, posed));
     }
 
-    public static IO<TValue> WithPose<TValue>(RhinoViewport viewport, CameraPose pose, IO<TValue> body) =>
-        DisposalOps.Within<IDisposable, TValue>(retain => Snapshot(viewport, retain).Bind(snapshot => DisposalOps.Within(
-            () => snapshot,
-            _ => IO.lift(() => WritePose(viewport, pose)).Bind(_ => body),
-            held => IO.lift(() => Restore(viewport, held.Camera, held.Camera.TargetPoint)))), DisposalOps.Release);
+    public static Fin<ViewportInfo> Pose(ViewportInfo camera, CameraPose pose) {
+        camera.UnlockCamera();
+        return from directed in Refused.Unless(camera.SetCameraDirection(-pose.Frame.ZAxis), nameof(ViewportInfo.SetCameraDirection))
+               from aimed in Refused.Unless(camera.SetCameraUp(pose.Frame.YAxis), nameof(ViewportInfo.SetCameraUp))
+               from projected in pose.Lens.Switch(
+                   (Camera: camera, Distance: pose.Frame.Origin.DistanceTo(pose.Target)),
+                   parallel: static (state, parallel) =>
+                       from changed in Refused.Unless(state.Camera.ChangeToParallelProjection(symmetricFrustum: true), nameof(ViewportInfo.ChangeToParallelProjection))
+                       let width = (double)parallel.Extent * Math.Max(1d, state.Camera.FrustumAspect)
+                       let height = (double)parallel.Extent * Math.Max(1d, 1d / state.Camera.FrustumAspect)
+                       from framed in Refused.Unless(state.Camera.SetFrustum(-width, width, -height, height, state.Camera.FrustumNear, state.Camera.FrustumFar), nameof(ViewportInfo.SetFrustum))
+                       select framed,
+                   perspective: static (state, perspective) =>
+                       Refused.Unless(state.Camera.ChangeToPerspectiveProjection(state.Distance, symmetricFrustum: true, state.Camera.Camera35mmLensLength), nameof(ViewportInfo.ChangeToPerspectiveProjection))
+                           .Map(fun((Unit _) => { state.Camera.CameraAngle = (double)perspective.Angle; })),
+                   twoPoint: static (state, twoPoint) =>
+                       Refused.Unless(state.Camera.ChangeToTwoPointPerspectiveProjection(state.Distance, twoPoint.Up, state.Camera.Camera35mmLensLength), nameof(ViewportInfo.ChangeToTwoPointPerspectiveProjection))
+                           .Map(fun((Unit _) => { state.Camera.CameraAngle = (double)twoPoint.Angle; })))
+               from located in Refused.Unless(camera.SetCameraLocation(pose.Frame.Origin), nameof(ViewportInfo.SetCameraLocation))
+                   .Map(fun((Unit _) => { camera.TargetPoint = pose.Target; }))
+               select camera;
+    }
 
-    public static IO<ViewportInfo> ToViewportInfo(CameraPose pose, BoundingBox bounds, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(static () => new ViewportInfo()), retain)
-            .Bind(camera => IO.lift(() => Posed(camera, pose).Bind(posed => Refused.Unless(posed.SetFrustumNearFar(bounds), posed, nameof(ViewportInfo.SetFrustumNearFar)))));
+    // --- [HOLD]
+    public static IO<T> Within<T>(RhinoViewport viewport, Func<ViewportInfo, IO<Unit>> edit, IO<T> body) =>
+        DisposalOps.Within(() => new ViewportInfo(viewport), held =>
+            DisposalOps.Within(() => new ViewportInfo(viewport), camera => edit(camera).Bind(_ => IO.lift(() => Applied(viewport, camera))))
+                .Bind(_ => DisposalOps.Within(IO.pure(held), _ => body, _ => IO.lift(() => Applied(viewport, held)))));
 
-    private static Fin<ViewportInfo> Posed(ViewportInfo camera, CameraPose pose) =>
-        from parallel in Refused.Unless(camera.ChangeToParallelProjection(symmetricFrustum: true), nameof(ViewportInfo.ChangeToParallelProjection))
-        from directed in Refused.Unless(camera.SetCameraDirection(-pose.Frame.ZAxis), nameof(ViewportInfo.SetCameraDirection))
-        from aimed in Refused.Unless(camera.SetCameraUp(pose.Frame.YAxis), nameof(ViewportInfo.SetCameraUp))
-        from half in pose.Lens.Switch(
-            (Camera: camera, Distance: pose.Frame.Origin.DistanceTo(pose.Target), Length: camera.Camera35mmLensLength),
-            parallel: static (_, parallel) => (double)parallel.Extent,
-            perspective: static (state, perspective) => Refused.Unless(state.Camera.ChangeToPerspectiveProjection(state.Distance, symmetricFrustum: true, state.Length), state.Camera.FrustumNear * Math.Tan(perspective.Angle), nameof(ViewportInfo.ChangeToPerspectiveProjection)),
-            twoPoint: static (state, twoPoint) => Refused.Unless(state.Camera.ChangeToTwoPointPerspectiveProjection(state.Distance, twoPoint.Up, state.Length), state.Camera.FrustumNear * Math.Tan(twoPoint.Angle), nameof(ViewportInfo.ChangeToTwoPointPerspectiveProjection)))
-        from located in Refused.Unless(camera.SetCameraLocation(pose.Frame.Origin), nameof(ViewportInfo.SetCameraLocation))
-        let width = half * Math.Max(1d, camera.FrustumAspect)
-        let height = half * Math.Max(1d, 1d / camera.FrustumAspect)
-        from framed in Refused.Unless(camera.SetFrustum(-width, width, -height, height, camera.FrustumNear, camera.FrustumFar), camera, nameof(ViewportInfo.SetFrustum))
-        select framed;
-
-    // --- [SNAPSHOTS]
-    public static IO<CameraSnapshot> Snapshot(RhinoViewport viewport, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => new ViewportInfo(viewport)), retain)
-            .Bind(camera => IO.lift(() => (
-                Refused.UnlessValid(camera.IsValidCamera, camera, nameof(camera)),
-                Refused.UnlessValid(camera.IsValidFrustum, camera, nameof(camera)))
-                .Apply((held, _) => new CameraSnapshot(held, viewport.ChangeCounter)).As()));
-
-    public static Fin<Unit> Restore(RhinoViewport viewport, ViewportInfo camera, Point3d target) =>
-        guard(!viewport.LockedProjection, Error.New("viewport camera is locked")).ToFin()
-            .Bind(_ => Refused.Unless(viewport.SetViewProjection(camera, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection)))
-            .Map(fun((Unit _) => viewport.SetCameraTarget(target, updateCameraLocation: false)));
-
-    // --- [FRAME]
-    public static Fin<System.Numerics.Matrix4x4> ToMatrix(Transform xform) =>
-        xform.ToFloatArray(rowDominant: false) is var entries && entries.All(float.IsFinite)
-            ? MemoryMarshal.Cast<float, System.Numerics.Matrix4x4>(entries.AsSpan())[0]
-            : Error.New(ErrorCodes.ValidationFailed, "transform holds entry outside single precision");
-
-    public static Fin<System.Numerics.Vector3> Numeric(Vector3d vector) =>
-        Seq(vector.X, vector.Y, vector.Z).ForAll(static value => value is >= float.MinValue and <= float.MaxValue)
-            ? new System.Numerics.Vector3((float)vector.X, (float)vector.Y, (float)vector.Z)
-            : Error.New(ErrorCodes.ValidationFailed, "vector holds component outside single precision");
-
-    public static Fin<Option<LensFocus>> Focus(ViewInfo view, LengthUnit spaceUnit, Option<LensDistance> focal, Option<PositiveMagnitude> aperture) =>
-        aperture.IsSome
-            ? focal.Traverse(length => LensDistance.Validated((float)(view.FocalBlurDistance * LengthUnit.Scale(spaceUnit, LengthUnit.Meters)))
-                .Bind(focus => ValidationResults.ToFin(LensFocus.Validate(length, focus, out LensFocus held), held))).As()
-            : Option<LensFocus>.None;
-
-    public static Fin<Camera> ToCamera(ViewInfo view, LengthUnit spaceUnit, PixelExtent extent, Option<LensFocus> lens) =>
-        (LengthUnit.Scale(spaceUnit, LengthUnit.Meters), view.Viewport.IsParallelProjection, view.Viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World)) switch {
-            var (meters, parallel, xform) => (
-                    Refused.Unless(xform.IsValid, xform, nameof(ViewportInfo.GetXform))
-                        .Bind(frame => ToMatrix(frame with { M03 = frame.M03 * meters, M13 = frame.M13 * meters, M23 = frame.M23 * meters })),
-                    Refused.Unless(view.Viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _),
-                            (Left: parallel ? left * meters : left / near, Right: parallel ? right * meters : right / near,
-                                Bottom: parallel ? bottom * meters : bottom / near, Top: parallel ? top * meters : top / near), nameof(ViewportInfo.GetFrustum))
-                        .Bind(static window => ValidationResults.ToFin(ViewWindow.Validate((window.Left / 2d) + (window.Right / 2d), (window.Bottom / 2d) + (window.Top / 2d), window.Right - window.Left, window.Top - window.Bottom, out ViewWindow held), held)))
-                .Apply((pose, window) => new Camera(pose, parallel ? new Frustum.Parallel(window) : new Frustum.Perspective(window), extent, lens))
-                .As(),
-        };
-
-    public static IO<SceneLights> ToLights(RhinoDoc doc) =>
-        IO.lift(Fin<SceneLights> () => (LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters),
-                Conversions.Rows(doc.Lights).Filter(static light => !light.IsDeleted && light.LightGeometry.IsEnabled).Partition(static light => light.LightGeometry.IsDirectionalLight)) switch {
-                    var (meters, (directional, placed)) => (
-                        (doc.Lights.Sun is { Enabled: true } sun ? Some(-sun.Vector) : None).Traverse(Numeric).As(),
-                        (placed.Map(static light => (light.Id, light.LightGeometry.Location))
-                                + Conversions.Rows(doc.Objects.GetObjectsByType<PointObject>()).Map(static point => (point.Id, point.PointGeometry.Location))
-                                + Conversions.Rows(doc.Objects.GetObjectsByType<InstanceObject>()).Map(static block => (block.Id, Location: block.InsertionPoint)))
-                            .Traverse(row => Numeric((Vector3d)(row.Location * meters)).Map(position => (row.Id, position))).As(),
-                        directional.Traverse(static light => Numeric(-light.LightGeometry.Direction).Map(direction => (light.Id, direction))).As())
-                        .Apply(static (sun, points, directions) => new SceneLights(sun, toHashMap(points), toHashMap(directions))).As(),
-                });
+    internal static Fin<Unit> Applied(RhinoViewport viewport, ViewportInfo camera) =>
+        Refused.Unless(viewport.SetViewProjection(camera, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection))
+            .Map(fun((Unit _) => viewport.SetCameraTarget(camera.TargetPoint, updateCameraLocation: false)));
 }

@@ -12,12 +12,13 @@ from expression import Error, Nothing, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
+from blender.bpy.data.rna.descriptors import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult, BlenderWriteFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.files.blends import folder_made
 from blender.bpy.files.libraries import blocks_loaded, library_written, LibraryLink, Linked, listed, LocalCopy
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -51,32 +52,35 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
             uid: Catalog UUID publication read or created.
 
         Returns:
-            Marked block, absent fault for unmarkable block.
+            Marked block, edit fault for unmarkable block, faults per refused member write.
         """
 
-        def applied(data: bpy.types.AssetMetaData) -> T:
-            data.description = self.description
-            data.author = self.author
-            data.copyright = self.copyright
-            data.license = self.license
-            data.catalog_id = str(uid)
-            data.use_preferred_import_method = self.method.is_some()
-            for method in self.method.to_list():
-                data.preferred_import_method = method
-            names = frozenset(tag.name for tag in data.tags)
+        def applied(data: bpy.types.AssetMetaData) -> BlenderResult[T]:
             for tag in tuple(data.tags):
                 if tag.name not in self.tags:
                     data.tags.remove(tag)
-            for name in sorted(self.tags - names):
+            for name in sorted(self.tags - frozenset(tag.name for tag in data.tags)):
                 data.tags.new(name)
             data[identity.manifest.id] = self.key
-            return block
+            return assigned(
+                data,
+                {
+                    "description": self.description,
+                    "author": self.author,
+                    "copyright": self.copyright,
+                    "license": self.license,
+                    "catalog_id": str(uid),
+                    "use_preferred_import_method": self.method.is_some(),
+                    **self.method.map(lambda method: {"preferred_import_method": method}).default_value({}),
+                },
+            ).map(lambda _: block)
 
-        try:
-            block.asset_mark()
-            return Option.of_optional(block.asset_data).map(applied).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="asset_data"),))
-        except AttributeError as error:
-            return Error((BlenderEditFault(request=repr(block), error=error),))
+        return (
+            BlenderEditFault
+            .attempted(repr(block), block.asset_mark)
+            .bind(lambda _: Option.of_optional(block.asset_data).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="asset_data"),)))
+            .bind(applied)
+        )
 
 
 class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
@@ -107,19 +111,22 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as lifetime:
 
             def held(folder: Path, rows: bpy.types.AssetLibraryCollection) -> BlenderResult[bpy.types.UserAssetLibrary]:
-                made: BlenderResult[bpy.types.UserAssetLibrary] = Option.of_optional(
-                    next((row for row in rows if isinstance(row, bpy.types.PreferencesAssetLibrary) and Path(row.path) == folder), None) or rows.new(name=self.title, directory=str(folder))
-                ).to_result_with(lambda: (BlenderAbsentFault(owner=repr(rows), key=self.title),))
+                made = (
+                    Option
+                    .of_optional(next((row for row in rows if isinstance(row, bpy.types.PreferencesAssetLibrary) and Path(row.path) == folder), None))
+                    .map(Ok)
+                    .default_with(lambda: BlenderEditFault.attempted(repr(rows), lambda: rows.new(name=self.title, directory=str(folder))))
+                    .bind(lambda row: Option.of_optional(row).to_result_with(lambda: (BlenderAbsentFault(owner=repr(rows), key=self.title),)))
+                )
                 for row in made.to_option().to_list():
                     lifetime.callback(rows.remove, row)
                 return made
 
-            def configured(row: bpy.types.UserAssetLibrary) -> None:
-                row.name = self.title
-                for method in self.method.to_list():
-                    row.import_method = method
-
-            yield folder_made(self.located(identity)).bind(lambda folder: held(folder, bpy.context.preferences.filepaths.asset_libraries)).map(configured)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            yield (
+                folder_made(self.located(identity))
+                .bind(lambda folder: held(folder, bpy.context.preferences.filepaths.asset_libraries))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                .bind(lambda row: assigned(row, {"name": self.title, **self.method.map(lambda method: {"import_method": method}).default_value({})}))
+            )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -144,7 +151,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
     fresh = () if kept else tuple(block for block, _ in entries if block.asset_data is None)
 
     def unread(error: msgspec.ValidationError | ValueError) -> BlenderFaults:
-        return (BlenderReadFault(request=target, error=error),)
+        return (ImagingFileFault(access=Access.READ, request=target, error=error),)
 
     def ensured(_: Path) -> BlenderResult[dict[str, UUID]]:
         try:
@@ -156,7 +163,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
                 for catalog in parse_catalogs(folder)  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[not-iterable]
             ).map(dict)
         except (OSError, UnicodeError) as error:
-            return Error((BlenderReadFault(request=target, error=error),))
+            return Error((ImagingFileFault(access=Access.READ, request=target, error=error),))
 
     def appended(held: dict[str, UUID]) -> BlenderResult[dict[str, UUID]]:
         added = {path: uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}") for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
@@ -166,7 +173,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
                 file.write(("VERSION 1\n\n" if file.tell() == 0 else "\n") + "".join(f"{uid}:{path}:{path.replace('/', '-')}\n" for path, uid in added.items()))
             return held | added
 
-        return catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=target, error=error),)) if added else Ok(held)
+        return catch(written, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=target, error=error),)) if added else Ok(held)
 
     def marked(catalogs: dict[str, UUID]) -> BlenderResult[Path]:
         try:
@@ -237,7 +244,7 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
     try:
         paths = tuple(sorted(root.rglob("*.blend")))
     except OSError as error:
-        return Error((BlenderReadFault(request=root, error=error),))
+        return Error((ImagingFileFault(access=Access.READ, request=root, error=error),))
     return (
         accumulated(listed(path, kind, assets_only=True) for path in paths)
         .bind(lambda listings: Option.of_optional(next((path for path, names in zip(paths, listings) if name in names), None)).to_result_with(lambda: (BlenderAbsentFault(owner=str(root), key=name),)))

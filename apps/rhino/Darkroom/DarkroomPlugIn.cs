@@ -17,109 +17,35 @@ namespace Darkroom;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
     LoadTime = PlugInLoadTime.AtStartup,
-    Settings = QueueSettingRows.Default.Rows + HistorySettingRows.Default.Rows + ComparisonSettingRows.Default.Rows + TileLimitRows.Default.Rows,
-    History = HistorySettingRows.Default.Limits,
+    History = HistorySection.Settings.Limits,
     Clock = TimeProvider.System,
     Logging = [Queues.Logging],
     Commands = [
         static sink => new PanelCommand(sink, new Guid(0xd19b5cfb, 0x5262, 0x4f60, 0x86, 0xeb, 0xdd, 0x8e, 0x34, 0x98, 0x8d, 0xed), DarkroomPanel.Row),
         static sink => new QueueJobCommand(sink, new Guid(0x4a60fdca, 0x6daf, 0x4fef, 0x8d, 0x5e, 0xfd, 0xc7, 0x71, 0x63, 0x9f, 0xee), "DarkroomRenderQueue"),
         static sink => new QueueFarmJobCommand(sink, new Guid(0x3857668a, 0x1b07, 0x4ae9, 0x97, 0x13, 0x63, 0x33, 0xb3, 0xca, 0x46, 0xee), "DarkroomRenderFarm"),
-        static sink => new FrameExportCommand(sink, new Guid(0x66a517fb, 0x68c5, 0x42c9, 0x86, 0xe4, 0x30, 0x01, 0x03, 0x63, 0xa4, 0x57), ExportStMap,
+        static sink => new FrameExportCommand(sink, new Guid(0x66a517fb, 0x68c5, 0x42c9, 0x86, 0xe4, 0x30, 0x01, 0x03, 0x63, 0xa4, 0x57), ExportStMap.Name,
             static (settings, extent) => EffectRegistry.State<RadialDistortion, LensDistortion>(settings)
                 .Map(state => state.Placed.Bake(extent))),
-        static sink => new LutExportCommand(sink, new Guid(0x09625191, 0xac85, 0x44eb, 0xa7, 0x67, 0x23, 0x07, 0x6c, 0x4c, 0x64, 0xcf), ExportLut),
+        static sink => new LutExportCommand(sink, new Guid(0x09625191, 0xac85, 0x44eb, 0xa7, 0x67, 0x23, 0x07, 0x6c, 0x4c, 0x64, 0xcf), ExportLut.Name),
     ],
     Views = [DarkroomPanel.Row, DarkroomPage.Row, OutputPage.Row],
     Acquisitions = [
-        EffectRegistry.Register(Seq<EffectKind>()
-            .Add<GuidedDenoise>(BuiltinEffect.Denoise)
-            .Add<NightSky>()
-            .Add<Atmosphere>()
-            .Add<NoiseLayer>()
-            .Add<Flames>()
-            .Add<Particles>()
-            .Add<LightningBolt>()
-            .Add<SunBeams>()
-            .Add<SourceFlare>()
-            .Add<SceneExposure>()
-            .Add<WhiteBalanceCorrection>()
-            .Add<LensBlur>()
-            .Add<RadialDistortion>()
-            .Add<AxialFringing>()
-            .Add<LensBloom>()
-            .Add<VeilingFlare>()
-            .Add<ApertureDiffraction>()
-            .Add<LensReflections>()
-            .Add<NaturalVignetting>()
-            .Add<FilmHalation>()
-            .Add<ViewReprojection>()
-            .Add<Swirl>()
-            .Add<Spherize>()
-            .Add<WaveWarp>()
-            .Add<TurbulentDisplace>()
-            .Add<Displace>()
-            .Add<Glass>()
-            .Add<Kaleida>()
-            .Add<PolarWarp>()
-            .Add<ImageTransform>()
-            .Add<CornerPin2D>()
-            .Add<CameraShake>()
-            .Add<ChannelMixer>()
-            .Add<ColorWheels>()
-            .Add<ColorDecisionList>()
-            .Add<ContrastSaturation>()
-            .Add<SceneLevels>()
-            .Add<RgbCurves>()
-            .Add<HueCorrection>()
-            .Add<ColorQualifier>()
-            .Add<ColorIsolation>()
-            .Add<GradientMapping>()
-            .Add<ReferenceGamutCompression>()
-            .Add<SceneLook>()
-            .Add<AdaptiveSharpening>()
-            .Add<EmulsionGrain>()
-            .Add<ImageNoise>()
-            .Add<LocalExposure>()
-            .Add<ProjectorFlicker>()
-            .Add<ImageFormation>()
-            .Add<DisplayLook>()
-            .Add<Pixelation>()
-            .Add<Posterization>()
-            .Add<AdaptivePalette>()
-            .Add<CustomPalette>()
-            .Add<HalftoneScreen>()
-            .Add<GlyphGrid>()
-            .Add<PixelSorting>()
-            .Add<PaintFilter>()
-            .Add<EdgeFilter>()
-            .Add<SceneOutline>()
-            .Add<FilmWear>()
-            .Add<JpegArtifacts>()
-            .Add<DigitalGlitch>()
-            .Add<VideoSignal>()
-            .Add<TubeDisplay>()
-            .Add<GradientLayer>()
-            .Add<FourCornerGradient>()
-            .Add<Bands>()
-            .Add<GridLines>()
-            .Add<ShapeLayer>()
-            .Add<AspectBars>()
-            .Add<OutputDither>(BuiltinEffect.Dithering)),
+        EffectRegistry.Register,
         CompareSection.Picker.Published,
         Framing.Extent.Attach,
         TargetRows.Shown.Attach,
         RenderHistory.Register(HistorySection.Row, static history => [RenderingComparison.Register(history), .. RenderSnapshots.Clients(history)]),
-        PreviewTiles.Register(Some(TileLimitRows.Default), static _ => []),
-        Queues.Register(QueueSettingRows.Default, DarkroomPanel.Row),
+        PreviewTiles.Register(Some(LooksSection.Settings), static _ => []),
+        Queues.Register(RenderQueueSection.Settings, DarkroomPanel.Row),
     ],
 }), IRuiSource {
-    private const string ExportLut = "DarkroomExportLut";
-    private const string ExportStMap = "DarkroomExportStMap";
+    private static readonly CommandFace ExportLut = new("DarkroomExportLut", "Export LUT...", "Bake the formation and grade chain into a 3D LUT file", None, None);
+    private static readonly CommandFace ExportStMap = new("DarkroomExportStMap", "Export ST Map...", "Write the lens distortion of the active view as an ST map", None, None);
 
     public static RuiFile Rui { get; } = new([], [new MenuExtension(["Render", "Render Properties..."], [
         new MenuItemRow.Separator(),
-        new MenuItemRow.Run(new Macro(new CommandScript(ExportLut, []), new CommandFace(ExportLut, "Export LUT...", "Bake the formation and grade chain into a 3D LUT file", None, None))),
-        new MenuItemRow.Run(new Macro(new CommandScript(ExportStMap, []), new CommandFace(ExportStMap, "Export ST Map...", "Write the lens distortion of the active view as an ST map", None, None))),
+        new MenuItemRow.Run(new Macro(ExportLut, [])),
+        new MenuItemRow.Run(new Macro(ExportStMap, [])),
     ])]);
 }

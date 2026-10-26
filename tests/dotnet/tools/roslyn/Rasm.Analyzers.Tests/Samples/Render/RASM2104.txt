@@ -1,0 +1,21 @@
+using Rhino.Display;
+
+namespace Rasm.Rhino.Display {
+    internal static class Conduits {
+        internal static void Enable(DisplayConduit conduit) => conduit.Enabled = true;
+
+        internal static void Disable(DisplayConduit conduit) => conduit.Enabled = false;
+    }
+}
+
+internal static class ToggledConduit {
+    internal static void Enable(DisplayConduit conduit) => {|#0:conduit.Enabled = true|};
+
+    internal static void Disable(DisplayConduit conduit) {
+        {|#1:conduit.Enabled = false|};
+    }
+}
+
+internal static class ReadConduit {
+    internal static bool Enabled(DisplayConduit conduit) => conduit.Enabled;
+}

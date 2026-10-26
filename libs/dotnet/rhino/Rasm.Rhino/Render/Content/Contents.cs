@@ -39,36 +39,11 @@ public abstract partial record ContentSource {
 
 [Union]
 public abstract partial record ContentEdit {
-    public sealed record SetName(string Name, bool RenameEvents, bool EnsureNameUnique) : ContentEdit;
-
-    public sealed record Set(Action<RenderContent> Write) : ContentEdit;
+    public sealed record Set(Action<RenderContent, RenderContent.ChangeContexts> Write) : ContentEdit;
 
     public sealed record SetChild(ContentSource Source, string ChildSlotName) : ContentEdit;
 
     public sealed record DeleteChild(string ChildSlotName) : ContentEdit;
-
-    public sealed record DeleteAllChildren() : ContentEdit;
-
-    public sealed record SetChildSlotOn(string ChildSlotName, bool On) : ContentEdit;
-
-    public sealed record SetChildSlotAmount(string ChildSlotName, double Amount) : ContentEdit;
-
-    public sealed record Ungroup() : ContentEdit;
-
-    public sealed record UngroupRecursive() : ContentEdit;
-
-    public sealed record SmartUngroupRecursive() : ContentEdit;
-}
-
-[Union]
-public abstract partial record ContentChoice {
-    public sealed record Created(Seq<Guid> TypeIds) : ContentChoice;
-
-    public sealed record Copy(Seq<Guid> Instances) : ContentChoice;
-
-    public sealed record Instance(Seq<Guid> Instances) : ContentChoice;
-
-    public sealed record Reference(Seq<Guid> Instances) : ContentChoice;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -126,7 +101,7 @@ public static class Contents {
 
         static IO<(RenderContent Content, Disposal<RenderContent> Ownership)> Created(Func<Fin<RenderContent>> acquire, Action<IDisposable> retain) =>
             DisposalOps.Acquire(IO.lift(() => acquire().Map(static content => (Content: content, Ownership: new Disposal<RenderContent>(content, static held => held.Dispose())))),
-                static held => IO.lift(held.Ownership.Dispose), held => retain(held.Ownership));
+                static held => held.Ownership, retain);
     }
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_AutoDelete")]
@@ -145,7 +120,7 @@ public static class Contents {
             .Map(_ => { content.Ownership.Relinquish(); return unit; })).Uninterruptible();
 
     public static IO<RenderContent> Detach(RhinoDoc doc, RenderContent content, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove))), held => retain(new Disposal<RenderContent>(held, static detached => detached.Dispose())));
+        DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove))), retain);
 
     public static IO<Unit> Replace(RenderContent target, RenderContent replacement) =>
         IO.lift(() => (target.DocumentOwner is not null ? Fin.Succ(unit) : Error.New($"render content {target.Id} belongs to no document"))
@@ -169,21 +144,14 @@ public static class Contents {
     private static IO<Unit> Edited(RhinoDoc doc, RenderContent target, RenderContent.ChangeContexts cc, ContentEdit edit) =>
         edit.Switch(
             (Doc: doc, Target: target, Context: cc),
-            setName: static (state, name) => IO.lift(() => state.Target.SetName(name.Name, name.RenameEvents, name.EnsureNameUnique)),
-            set: static (state, set) => IO.lift(() => set.Write(state.Target)),
+            set: static (state, set) => IO.lift(() => set.Write(state.Target, state.Context)),
             setChild: static (state, set) =>
                 DisposalOps.Within<IDisposable, Unit>(retain =>
                     FreeFloating(state.Doc, set.Source, retain).Bind(child =>
                         IO.lift(() => Refused.Unless(state.Target.SetChild(child.Content, set.ChildSlotName), nameof(RenderContent.SetChild))
                             .Map(_ => { child.Ownership.Relinquish(); return unit; })).Uninterruptible()), DisposalOps.Release),
             deleteChild: static (state, delete) =>
-                IO.lift(() => Refused.Unless(state.Target.DeleteChild(delete.ChildSlotName, state.Context), nameof(RenderContent.DeleteChild))),
-            deleteAllChildren: static (state, _) => IO.lift(() => state.Target.DeleteAllChildren(state.Context)),
-            setChildSlotOn: static (state, on) => IO.lift(() => state.Target.SetChildSlotOn(on.ChildSlotName, on.On, state.Context)),
-            setChildSlotAmount: static (state, amount) => IO.lift(() => state.Target.SetChildSlotAmount(amount.ChildSlotName, amount.Amount, state.Context)),
-            ungroup: static (state, _) => IO.lift(() => ignore(state.Target.Ungroup())),
-            ungroupRecursive: static (state, _) => IO.lift(() => ignore(state.Target.UngroupRecursive())),
-            smartUngroupRecursive: static (state, _) => IO.lift(() => ignore(state.Target.SmartUngroupRecursive())));
+                IO.lift(() => Refused.Unless(state.Target.DeleteChild(delete.ChildSlotName, state.Context), nameof(RenderContent.DeleteChild))));
 
     // --- [CHOOSERS]
     public static IO<Guid> ShowContentInstanceBrowser(RhinoDoc doc, Option<Guid> selected, RenderContentKind kinds, RenderContent.ContentInstanceBrowserButtons buttons) =>
@@ -192,17 +160,12 @@ public static class Contents {
             return RenderContent.ShowContentInstanceBrowser(doc, ref chosen, kinds, buttons) ? Fin.Succ(chosen) : Errors.Cancelled;
         });
 
-    public static IO<ContentChoice> ShowContentNewExistingBrowser(
+    public static IO<(Utilities.ContentNewExistingResults Choice, Seq<Guid> Contents)> ShowContentNewExistingBrowser(
         RhinoDoc doc, Option<Guid> defaultType, Option<Guid> defaultInstance, RenderContentKind kinds, Utilities.ContentNewExistingFlags flags,
         Option<string> presetCategory, Seq<string> categories, Seq<Guid> types) =>
         IO.lift(() => Utilities.ShowContentNewExistingBrowser(
-                doc, Conversions.Unset(defaultType), Conversions.Unset(defaultInstance), kinds, flags, Conversions.Unset(presetCategory), categories, types, out Guid[] contents) switch {
-                    Utilities.ContentNewExistingResults.None => Fin.Fail<ContentChoice>(Errors.Cancelled),
-                    Utilities.ContentNewExistingResults.New => new ContentChoice.Created(toSeq(contents)),
-                    Utilities.ContentNewExistingResults.Copy => new ContentChoice.Copy(toSeq(contents)),
-                    Utilities.ContentNewExistingResults.Instance => new ContentChoice.Instance(toSeq(contents)),
-                    Utilities.ContentNewExistingResults.Reference => new ContentChoice.Reference(toSeq(contents)),
-                });
+                doc, Conversions.Unset(defaultType), Conversions.Unset(defaultInstance), kinds, flags, Conversions.Unset(presetCategory), categories, types, out Guid[] contents)
+            is not Utilities.ContentNewExistingResults.None and var choice ? Fin.Succ((choice, toSeq(contents))) : Errors.Cancelled);
 
     // --- [READS]
     public static IO<uint> Hash(RenderContent content, CrcRenderHashFlags flags, Seq<string> excluded, Option<LinearWorkflow> workflow) =>

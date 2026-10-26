@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using PeterO.Numbers;
-using Rasm.Imaging.Color;
 using TinyEXR;
 
 namespace Rasm.Imaging.Pixels;
@@ -67,13 +66,13 @@ public sealed class PixelFrame {
                 ImageProcessing.Resize(Block, Size.Width, Size.Height, block, fitted.Width, fitted.Height, 4, ResizeFilter.Triangle, alphaChannel: 3)),
         };
 
-    public static IO<(PixelFrame Frame, Option<Gamut> Gamut)> Read(FileInfo file, string layer) =>
+    public static IO<(PixelFrame Frame, Option<Chromaticities> Primaries)> Read(FileInfo file, string layer) =>
         from result in IO.liftVAsync(env => ExrFile.LoadFromFileAsync(file.FullName, cancellationToken: env.Token))
         from image in IO.lift(Optional(result.Value).ToFin(new Expected($"EXR codec refused reading {file.FullName} with {result.Status}", 0, Optional(result.Error).Map(Error.New))))
         from read in IO.lift(() => Layer(toSeq(image.Parts), layer))
         select read;
 
-    private static Fin<(PixelFrame Frame, Option<Gamut> Gamut)> Layer(Seq<Part> parts, string layer) =>
+    private static Fin<(PixelFrame Frame, Option<Chromaticities> Primaries)> Layer(Seq<Part> parts, string layer) =>
         from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length is 0))
             .ToFin(Error.New($"EXR file holds no part for layer '{layer}'"))
         from header in (
@@ -82,11 +81,9 @@ public sealed class PixelFrame {
                      : layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part)
                 from layout in Components(samples.ChannelNames, layer)
                 select (Samples: samples, Layout: layout),
-                Optional(part.Header.Chromaticities).Traverse(static stated => Gamut.Of(stated).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture,
-                    $"EXR primaries R({stated.RedX}, {stated.RedY}) G({stated.GreenX}, {stated.GreenY}) B({stated.BlueX}, {stated.BlueY}) W({stated.WhiteX}, {stated.WhiteY}) match no gamut")))).As(),
                 PixelExtent.Validated(int.CreateSaturating(part.Width), int.CreateSaturating(part.Height)),
                 PixelExtent.Validated(int.CreateSaturating(part.Header.DisplayWindow.Width), int.CreateSaturating(part.Header.DisplayWindow.Height)))
-            .Apply(static (decoded, gamut, size, extent) => (decoded.Samples, decoded.Layout, Gamut: gamut, Size: size, Extent: extent))
+            .Apply(static (decoded, size, extent) => (decoded.Samples, decoded.Layout, Size: size, Extent: extent))
             .As()
         select (new PixelFrame(
             new Point(part.Header.DataWindow.MinX - part.Header.DisplayWindow.MinX, part.Header.DataWindow.MinY - part.Header.DisplayWindow.MinY),
@@ -106,7 +103,7 @@ public sealed class PixelFrame {
                         (true, false) => new(Vector3.Zero, pixel.W),
                     };
                 }
-            }), header.Gamut);
+            }), Optional(part.Header.Chromaticities));
 
     private static Fin<((int Component, int Channel)[] Rows, bool Associated)> Components(IReadOnlyList<string> names, string layer) =>
         toSeq(

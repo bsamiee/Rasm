@@ -1,14 +1,58 @@
-"""Process runs and detached launches."""
+"""Process runs, detached launches, and the host commands of queue runs."""
 
-from collections.abc import Callable
+import base64
+from collections.abc import Callable, Mapping
+from enum import auto, StrEnum
 from pathlib import Path
 import subprocess
 import sys
 
-from expression import Error, Ok
+from expression import Error, Nothing, Ok, Option
 from expression.extra.result import catch
+import msgspec
 
+from blender.rendering.batch.queue import RenderQueue
 from blender.rendering.faults import RenderingFaults, RenderingResult, RenderingRunFault
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class RunCommand(StrEnum):
+    """Extension command a queue run starts, valued by its command key."""
+
+    PREPARE = auto()
+    SUPERVISE = auto()
+    RENDER = auto()
+
+
+class RunFile(StrEnum):
+    """Run file suffix after queue key."""
+
+    QUEUE = ".json"
+    PROGRESS = ".progress.json"
+    LOG = ".log"
+    RENDERON = ".renderon.json"
+    RENDERON_LOG = ".renderon.log"
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Host(msgspec.Struct, frozen=True, kw_only=True):
+    """Running host binary, run folder, and registered name of each run command."""
+
+    binary: str
+    folder: str
+    commands: Mapping[RunCommand, str]
+
+    def argv(self, command: RunCommand, argument: msgspec.Struct, file: Option[str] = Nothing) -> tuple[str, ...]:
+        """Returns background command line opening `file` and passing `argument` as base64 JSON."""
+        return (self.binary, "--background", *file.to_list(), "--command", self.commands[command], base64.b64encode(msgspec.json.encode(argument)).decode("ascii"))
+
+    def path(self, queue: RenderQueue, file: RunFile) -> Path:
+        """Returns path of queue run file."""
+        return Path(self.folder, f"{queue.stem}{file}")
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -45,4 +89,4 @@ def detached(argv: tuple[str, ...], log: Path) -> RenderingResult[Path]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["detached", "ran", "refused", "spawned"]
+__all__ = ["Host", "RunCommand", "RunFile", "detached", "ran", "refused", "spawned"]

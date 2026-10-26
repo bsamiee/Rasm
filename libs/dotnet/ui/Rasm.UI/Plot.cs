@@ -187,7 +187,7 @@ public abstract partial record PlotPlane {
 
     public virtual SKMatrix Frame(SKRect content) => SKMatrix.CreateScaleTranslation(content.Width, -content.Height, content.Left, content.Bottom);
 
-    public virtual Option<Aspect> Aspect => None;
+    public virtual Option<Factor> Aspect => None;
 
     public PlotFrame In(SKRect content) => new(this, Frame(content));
 
@@ -203,12 +203,7 @@ public abstract partial record PlotPlane {
 
     public Option<PlotPlane> Scaled(Vector2 about, float factor) => Mapped((along, axis) => axis.Range.Scaled(along.Of(about), factor).Map(range => axis with { Range = range }));
 
-    public Option<Vector2> Turned(Vector2 value, float radians) =>
-        Switch(
-            (Value: value, Radians: radians),
-            cartesian: static (_, _) => Option<Vector2>.None,
-            track: static (_, _) => Option<Vector2>.None,
-            polar: static (held, polar) => Some(held.Value with { X = polar.Angle.Held(held.Value.X + (held.Radians / MathF.Tau * polar.Angle.Range.Span)) }));
+    public virtual Option<Vector2> Turned(Vector2 value, float radians) => None;
 
     internal virtual SKPoint Placed(Vector2 fractions) => fractions;
 
@@ -263,9 +258,11 @@ public abstract partial record PlotPlane {
     public sealed record Polar(Axis Angle, Option<Axis> Radius) : PlotPlane {
         public override SKMatrix Frame(SKRect content) => base.Frame(content.AspectFit(new SKSize(1f, 1f)));
 
-        public override Option<Aspect> Aspect => Some(UI.Aspect.Create(1f));
+        public override Option<Factor> Aspect => Some(Factor.Create(1f));
 
         public override Option<Axis> Dimension(Orientation along) => along.Map(horizontal: Some(Angle), vertical: Radius);
+
+        public override Option<Vector2> Turned(Vector2 value, float radians) => Some(value with { X = Angle.Held(value.X + (radians / MathF.Tau * Angle.Range.Span)) });
 
         internal override SKPoint Placed(Vector2 fractions) =>
             MathF.SinCos(MathF.Tau * fractions.X) switch {

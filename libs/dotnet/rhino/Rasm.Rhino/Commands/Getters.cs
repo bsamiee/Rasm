@@ -71,10 +71,10 @@ public abstract partial record PointHandler {
 
     internal IO<Unit> Attach(GetPoint getter, CallbackSite site, Action<IDisposable> retain) =>
         Switch((Getter: getter, Site: site, Retain: retain),
-            mouseMove: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseMove += h, h => at.Getter.MouseMove -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain),
-            mouseDown: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseDown += h, h => at.Getter.MouseDown -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain),
-            dynamicDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.DynamicDraw += h, h => at.Getter.DynamicDraw -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain),
-            postDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.PostDrawObjects += h, h => at.Getter.PostDrawObjects -= h, Callbacks.Handler(Posting(row.Handle), at.Site), at.Retain));
+            mouseMove: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseMove += h, h => at.Getter.MouseMove -= h, Callbacks.Synchronous(Posting(row.Handle), at.Site), at.Retain),
+            mouseDown: static (at, row) => Subscriptions.Attach(h => at.Getter.MouseDown += h, h => at.Getter.MouseDown -= h, Callbacks.Synchronous(Posting(row.Handle), at.Site), at.Retain),
+            dynamicDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.DynamicDraw += h, h => at.Getter.DynamicDraw -= h, Callbacks.Synchronous(Posting(row.Handle), at.Site), at.Retain),
+            postDraw: static (at, row) => Subscriptions.Attach(h => at.Getter.PostDrawObjects += h, h => at.Getter.PostDrawObjects -= h, Callbacks.Synchronous(Posting(row.Handle), at.Site), at.Retain));
 
     private static Func<TArgs, IO<Unit>> Posting<TArgs>(Func<TArgs, IO<Unit>> handle) =>
         args => IO.pure(args).Bind(handle).IfFail(static error => IO.lift(() => GetBaseClass.PostCustomMessage(error)));
@@ -138,7 +138,7 @@ public abstract partial record StageStep<TStage, TValue> {
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class CallbackGetTransform(RhinoDoc document, Func<RhinoViewport, PointPick, Transform> calculate) : GetTransform {
     public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) =>
-        calculate(viewport, new PointPick(point, Getters.Space(Optional(View()), document), Some(Getters.Located(viewport))));
+        calculate(viewport, new PointPick(point, Viewports.Units(document, Some(viewport)), Some(Getters.Located(viewport))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -207,7 +207,7 @@ public static class Getters {
         number.Switch(
             (Getter: getter, Doc: doc),
             plain: static (at, plain) => IO.lift(at.Getter.Number).Bind(plain.Then),
-            distance: static (at, distance) => IO.lift(() => Quantities.From(at.Getter.Number(), Space(Optional(at.Getter.View()), at.Doc))).Bind(distance.Then));
+            distance: static (at, distance) => IO.lift(() => Quantities.From(at.Getter.Number(), Viewports.Units(at.Doc, Optional(at.Getter.View()).Map(static view => view.ActiveViewport)))).Bind(distance.Then));
 
     private static IO<T> Posted<T>(GetBaseClass getter, Option<Func<object, IO<T>>> message) =>
         from value in IO.lift(() => Refused.UnlessFound(getter.CustomMessage(), nameof(GetBaseClass.CustomMessage)))
@@ -241,9 +241,6 @@ public static class Getters {
             },
             getter => (GetResult.Point, World(getter, doc, pick => picked(new TransformPick(pick, Callbacks.Found(getter.HaveTransform, getter.Transform))))));
 
-    public static LengthUnit Space(Option<RhinoView> view, RhinoDoc doc) =>
-        view.Exists(static found => found is RhinoPageView { ActiveDetail: null }) ? doc.PageUnits : doc.ModelUnits;
-
     private static IO<T> Pointed<TGetter, T>(
         Func<TGetter> create, RhinoDoc doc, PointRequest<T> request, Func<TGetter, GetResult> get, Func<TGetter, (GetResult Result, IO<T> Then)> answered)
         where TGetter : GetPoint =>
@@ -272,7 +269,7 @@ public static class Getters {
             static reference => DisposalOps.Release(reference.ToSeq()));
 
     private static IO<PointPick> Pick(GetBaseClass getter, RhinoDoc doc) =>
-        IO.lift(() => Optional(getter.View())).Map(view => new PointPick(getter.Point(), Space(view, doc), view.Map(static found => Located(found.ActiveViewport))));
+        IO.lift(() => Optional(getter.View()).Map(static view => view.ActiveViewport)).Map(viewport => new PointPick(getter.Point(), Viewports.Units(doc, viewport), viewport.Map(Located)));
 
     internal static (ViewportTarget Viewport, Plane ConstructionPlane) Located(RhinoViewport viewport) =>
         (new ViewportTarget.Id(viewport.Id), viewport.ConstructionPlane());
@@ -298,18 +295,7 @@ public static class Getters {
     public static IO<T> Number<TValue, TRaw, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
         where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw> =>
-        Run(
-            static () => new GetNumber(),
-            request,
-            doc,
-            getter => IO.lift(() => {
-                getter.SetLowerLimit(double.CreateChecked(TValue.MinValue.ToValue()), strictlyGreaterThan: false);
-                getter.SetUpperLimit(double.CreateChecked(TValue.MaxValue.ToValue()), strictlyLessThan: false);
-                _ = request.Default.Iter(value => getter.SetDefaultNumber(double.CreateChecked(value.ToValue())));
-                return getter.Get();
-            }),
-            getter => Seq((GetResult.Number,
-                IO.lift(() => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
+        Bounded(doc, request, static value => double.CreateChecked(value.ToValue()), static number => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(number)), entered);
 
     public static IO<T> Integer<TValue, TRaw, T>(RhinoDoc doc, EntryRequest<GetInteger, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
@@ -329,20 +315,8 @@ public static class Getters {
 
     public static IO<T> Distance<TValue, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
         where TValue : IObjectFactory<TValue, Length, ValidationError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue> =>
-        from space in IO.lift(() => Space(Optional(doc.Views.ActiveView), doc))
-        from answer in Run(
-            static () => new GetNumber(),
-            request,
-            doc,
-            getter => IO.lift(() => {
-                getter.SetLowerLimit(Quantities.As(TValue.MinValue.ToValue(), space), strictlyGreaterThan: false);
-                getter.SetUpperLimit(Quantities.As(TValue.MaxValue.ToValue(), space), strictlyLessThan: false);
-                _ = request.Default.Iter(value => getter.SetDefaultNumber(Quantities.As(value.ToValue(), space)));
-                return getter.Get();
-            }),
-            getter => Seq((GetResult.Number,
-                IO.lift(() => ValidationResults.Validated<TValue, Length>(Quantities.From(getter.Number(), space)).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
-        select answer;
+        IO.lift(() => Viewports.Units(doc, Optional(doc.Views.ActiveView).Map(static view => view.ActiveViewport))).Bind(space =>
+            Bounded(doc, request, value => Quantities.As(value.ToValue(), space), number => ValidationResults.Validated<TValue, Length>(Quantities.From(number, space)), entered));
 
     public static IO<T> Text<T>(RhinoDoc doc, EntryRequest<GetString, string, T> request, bool literal, Func<Entered<string>, IO<T>> entered) =>
         Run(
@@ -357,6 +331,21 @@ public static class Getters {
 
     public static IO<T> Choice<T>(RhinoDoc doc, GetterRequest<GetOption, T> request) =>
         Run(static () => new GetOption(), request, doc, static getter => IO.lift(getter.Get), static _ => Seq<(GetResult Result, IO<T> Then)>());
+
+    private static IO<T> Bounded<TValue, T>(
+        RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<TValue, double> shown, Func<double, Fin<TValue>> read, Func<Entered<TValue>, IO<T>> entered)
+        where TValue : System.Numerics.IMinMaxValue<TValue> =>
+        Run(
+            static () => new GetNumber(),
+            request,
+            doc,
+            getter => IO.lift(() => {
+                getter.SetLowerLimit(shown(TValue.MinValue), strictlyGreaterThan: false);
+                getter.SetUpperLimit(shown(TValue.MaxValue), strictlyLessThan: false);
+                _ = request.Default.Iter(value => getter.SetDefaultNumber(shown(value)));
+                return getter.Get();
+            }),
+            getter => Seq((GetResult.Number, IO.lift(() => read(getter.Number()).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
 
     // --- [DRAG]
     public static IO<T> DragList<T>(Seq<ObjRef> references, bool feedback, Func<TransformObjectList, IO<T>> body) =>

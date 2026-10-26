@@ -25,17 +25,6 @@ public abstract partial record HolderRow {
     public sealed record Filled(Seq<View.Section> Above, View.Section Fill, Seq<View.Section> Below) : HolderRow;
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-internal sealed partial class SectionAction {
-    public static readonly SectionAction Presets = new("Presets", GlyphRole.Presets);
-    public static readonly SectionAction Values = new("Values", GlyphRole.Options);
-    public static readonly SectionAction Reset = new("Reset", GlyphRole.Reset);
-
-    public GlyphRole Glyph { get; }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ViewBody : IDisposable {
     // --- [STATE]
@@ -101,8 +90,8 @@ public sealed class ViewBody : IDisposable {
 
     // --- [RULES]
     private IO<Unit> Evaluated =>
-        from shows in Rules.Shows(Scope)
-        from enables in Rules.Enables(Scope)
+        from shows in RowRules.Holds(row.Visible, Scope)
+        from enables in RowRules.Holds(row.Enabled, Scope)
         from visible in enclosing.Visibility
         from swapped in hidden.SwapIO(_ => !shows)
         from fitted in SectionHolder.Fitted(Content)
@@ -130,16 +119,16 @@ public sealed class ViewBody : IDisposable {
     public static Option<IHeaderButtonHandler> Header(View.Section row, IO<Option<ViewBody>> current, IPlugInSink sink) =>
         Actions(row) switch {
             { IsEmpty: true } => None,
-            var actions => Some<IHeaderButtonHandler>(new HeaderButtons(actions.Map(static entry => entry.Action), index =>
+            var actions => Some<IHeaderButtonHandler>(new HeaderButtons(actions.Map(static entry => (entry.Caption, entry.Glyph)), index =>
                 current.Bind(held => IO.lift(held.Bind(body => body.clicks.At(index)).ToFin(new Refused(nameof(clicks), Refused.Absent)))).Bind(static click => click), sink, row.Identity)),
         };
 
-    private static Seq<(SectionAction Action, Func<IPlugInViews, HistoryBinding, RowScope, Action<IDisposable>, IO<IO<Unit>>> Realize)> Actions(View.Section row) =>
+    private static Seq<(string Caption, GlyphRole Glyph, Func<IPlugInViews, HistoryBinding, RowScope, Action<IDisposable>, IO<IO<Unit>>> Realize)> Actions(View.Section row) =>
         row.Store.IsSome
             ? [
-                .. row.Presets.Map(static listing => (SectionAction.Presets, fun((IPlugInViews owner, HistoryBinding _, RowScope scope, Action<IDisposable> retain) => Popped(listing(scope), owner, retain)))).ToSeq(),
-                (SectionAction.Values, (owner, history, scope, retain) => Popped(Listing(owner, row.Children.Bind(static child => child.Controls), history, scope), owner, retain)),
-                (SectionAction.Reset, static (_, history, scope, _) => IO.pure(scope.Commit(history.Group, history.Group.Defaults).Map(unit))),
+                .. row.Presets.Map(static listing => ("Presets", GlyphRole.Presets, fun((IPlugInViews owner, HistoryBinding _, RowScope scope, Action<IDisposable> retain) => Popped(listing(scope), owner, retain)))).ToSeq(),
+                ("Values", GlyphRole.Options, (owner, history, scope, retain) => Popped(Listing(owner, row.Children.Bind(static child => child.Controls), history, scope), owner, retain)),
+                ("Reset", GlyphRole.Reset, static (_, history, scope, _) => IO.pure(scope.Commit(history.Group, history.Group.Defaults).Map(unit))),
             ]
             : [];
 
@@ -153,8 +142,8 @@ public sealed class ViewBody : IDisposable {
         from zone in IO.lift(() => owner.Clock.ToZonedClock().Zone)
         let stamp = LocalDateTimePattern.Create("g", RowText.Culture)
         select Seq(
-                held.Done.Head.Map<MenuPick>(entry => Pick(RowText.Localize("Undo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Step(StepDirection.Undo), scope))),
-                held.Undone.Head.Map<MenuPick>(entry => Pick(RowText.Localize("Redo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Step(StepDirection.Redo), scope))),
+                held.Done.Head.Map<MenuPick>(entry => Pick(RowText.Localize("Undo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Undo, scope))),
+                held.Undone.Head.Map<MenuPick>(entry => Pick(RowText.Localize("Redo {0}", arguments: [Described(entry, controls, owner)]).Local, Heard(history.Redo, scope))),
                 Some<MenuPick>(Pick(RowText.Localize("Copy values").Local, Transfer.Copy(history.Group, None, scope))),
                 Some<MenuPick>(Pick(RowText.Localize("Paste values").Local, Transfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
                 Some<MenuPick>(Pick(RowText.Localize("Clear history").Local, history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty)),
@@ -172,17 +161,17 @@ public sealed class ViewBody : IDisposable {
 
     private static string Described(HistoryEntry entry, Seq<ControlRow> controls, IPlugInSink sink) =>
         controls.Filter(control => control.Keys.Exists(entry.Diff.Changes.ContainsKey)) switch {
-            [var only] => only.Wording.Shown(only.Caption, sink),
+            [var only] => RowText.Localize(only.Caption, sink).Local,
             _ => RowText.Localize("{0} values", arguments: [entry.Diff.Changes.Count]).Local,
         };
 }
 
-internal sealed class HeaderButtons(Seq<SectionAction> actions, Func<int, IO<Unit>> click, IPlugInSink sink, Type owner) : IHeaderButtonHandler {
+internal sealed class HeaderButtons(Seq<(string Caption, GlyphRole Glyph)> actions, Func<int, IO<Unit>> click, IPlugInSink sink, Type owner) : IHeaderButtonHandler {
     public bool ButtonDetails(int index, ref Bitmap iconOut, ref string sToolTipOut) {
         (bool Shown, Bitmap Icon, string ToolTip) held = (false, iconOut, sToolTipOut);
         (bool shown, iconOut, sToolTipOut) = Callbacks.Answer(
             actions.At(index)
-                .Traverse(static action => Icons.Raster(action.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(action.Key).Local)))
+                .Traverse(action => Icons.Raster(action.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(action.Caption, sink).Local)))
                 .As()
                 .Map(found => found.IfNone(held)),
             () => held,

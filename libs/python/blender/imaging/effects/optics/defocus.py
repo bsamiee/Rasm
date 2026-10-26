@@ -13,6 +13,7 @@ from scipy.integrate import quad_vec
 
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.parameters import Case, FrameExtent, FrameLength, Position, Positive, Presentation, Quantity, Unit
+from blender.imaging.sampling import smoothstep
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -44,7 +45,7 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
             return np.asarray((gap > 0.0) & ((gap < thickness) | (self.obstruction == 0.0)), dtype=np.float64)
         outside = np.clip(gap / softness, 0.0, 1.0)
         inside = np.clip((thickness - gap) / softness, 0.0, 1.0) if self.obstruction > 0.0 else np.ones_like(radius)
-        return outside * outside * (3.0 - 2.0 * outside) * inside * inside * (3.0 - 2.0 * inside)
+        return smoothstep(outside) * smoothstep(inside)
 
     def band(self, angles: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Returns outer radius and annular thickness without subtracting close roots."""
@@ -75,7 +76,7 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
                 radius = outer - gap
                 outside = gap / softness if thickness * (first + last) / 2.0 < softness else Polynomial((1.0,))
                 inside = (thickness - gap) / softness if self.obstruction > 0.0 and thickness * (1.0 - (first + last) / 2.0) < softness else Polynomial((1.0,))
-                integrand = radius * outside**2 * (3.0 - 2.0 * outside) * inside**2 * (3.0 - 2.0 * inside)
+                integrand = radius * smoothstep(outside) * smoothstep(inside)
                 primitive = integrand.integ()
                 area += thickness * span * float(primitive(1.0) - primitive(0.0))
             return np.array((area,))
@@ -149,7 +150,7 @@ class DepthOfField(Case, frozen=True, kw_only=True, tag=1):
     """Thin-lens circle of confusion from camera and depth pass."""
 
     title = "Depth of Field"
-    f_stop: Annotated[Positive, msgspec.Meta(title="F-Stop", description="Focal length over aperture diameter"), Presentation(soft=Some((0.1, 128.0)), decimals=Some(1))] = 2.8
+    f_stop: Annotated[Positive, msgspec.Meta(title="F-Stop", description="Focal length over aperture diameter"), Presentation(soft=Some((0.1, 128.0)), precision=Some(1))] = 2.8
 
 
 class FieldCurvature(Case, frozen=True, kw_only=True, tag=2):
@@ -158,7 +159,7 @@ class FieldCurvature(Case, frozen=True, kw_only=True, tag=2):
     title = "Radial"
     center: Annotated[Position, msgspec.Meta(description="Sharp ellipse center")] = (0.5, 0.5)
     angle: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Ellipse turn from horizontal"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    size: Annotated[tuple[Positive, Positive], msgspec.Meta(description="Ellipse half extents along rotated axes"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = (0.4, 0.4)
+    size: Annotated[tuple[Positive, Positive], msgspec.Meta(description="Ellipse half extents along rotated axes"), Presentation(quantity=Some(Quantity.FRAME))] = (0.4, 0.4)
     feather: Annotated[FrameExtent, msgspec.Meta(description="Outward distance to full defocus")] = 0.2
 
 

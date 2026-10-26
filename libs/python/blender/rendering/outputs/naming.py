@@ -1,16 +1,20 @@
 """Output name grammars, root containment, and versioned paths."""
 
 from collections.abc import Callable
+from enum import auto, StrEnum
+from itertools import chain, starmap
 from pathlib import Path
 import re
+import string
 from typing import Annotated, Self
 
 from expression import Error, Nothing, Ok, Option
+from expression.extra.result import catch
 import msgspec
 
-from blender.imaging.faults import accumulated
-from blender.imaging.parameters import Case, Choice, markers
-from blender.rendering.faults import RenderingNameFault, RenderingResult, RenderingRootFault
+from blender.imaging.faults import accumulated, paired
+from blender.imaging.parameters import Case
+from blender.rendering.faults import RenderingFaults, RenderingNameFault, RenderingResult, RenderingRootFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -19,46 +23,42 @@ type Parts = Text | Field
 type Width = Annotated[int, msgspec.Meta(ge=1, le=9)]
 
 
-class Word(Choice):
-    """Text field of output name."""
+class Word(StrEnum):
+    """Text field of output name, valued by its template token."""
 
-    PROJECT = 1
-    SHOT = 2
-    SCENE = 3
-    LAYER = 4, "View Layer"
-    CAMERA = 5
-    PASS = 6
-    OUTPUT = 7
-    FILE = 8
-    DATE = 9
-
-
-class Count(Choice):
-    """Number field of output name."""
-
-    VERSION = 1
-    FRAME = 2
-    ORDER = 3
+    PROJECT = auto()
+    SHOT = auto()
+    SCENE = auto()
+    LAYER = auto()
+    CAMERA = auto()
+    PASS = auto()
+    OUTPUT = auto()
+    FILE = auto()
+    DATE = auto()
 
 
-class Output(Choice):
-    """Output class with own file format."""
+class Count(StrEnum):
+    """Number field of output name, valued by its template token."""
 
-    BEAUTY = 1
-    DATA = 2
-    MATTE = 3
-    PREVIEW = 4
+    VERSION = auto()
+    FRAME = auto()
+    ORDER = auto()
 
-    @property
-    def token(self) -> str:
-        """Output field text."""
-        return self.name.lower()
+
+class Output(StrEnum):
+    """Output class with own file format, valued by its output field text."""
+
+    BEAUTY = auto()
+    DATA = auto()
+    MATTE = auto()
+    PREVIEW = auto()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _RESERVED = r'\x00-\x1f"*:<>?|'
-
+_UNLITERAL = re.compile(r"[{}\x00]")
+_SEPARATOR = re.compile(r"[\W_]")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -98,18 +98,41 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, template: str) -> RenderingResult[Self]:
-        """Parses template, refusing unknown fields, bad widths, and unseparated fields."""
-        bounds = markers(Width, msgspec.Meta)[0]
-        digits = f"[{bounds.ge}-{bounds.le}]"
-        words, counts = (tuple(member.name.lower() for member in choice) for choice in (Word, Count))
-        parts = tuple(
-            Text(text=found["text"]) if found["text"] else Slot(key=Word[found["word"].upper()]) if found["word"] else Number(key=Count[found["count"].upper()], width=int(found["width"]))
-            for found in re.finditer(rf"\{{(?:(?P<word>{'|'.join(words)})|(?P<count>{'|'.join(counts)}):(?P<width>{digits}))\}}|(?P<text>[^{{}}]+)", template)
-        )
-        pinned = {part.key: part.width for part in reversed(parts) if isinstance(part, Number)}
-        field = rf"\{{(?:{'|'.join((*words, *(f'{key.name.lower()}:{width}' for key, width in pinned.items())))})\}}"
-        grammar = re.compile(rf"(?![\s\S]*\x00)[^{{}}]*(?:{field}(?:[^{{}}]*(?:[^\w{{}}]|_)[^{{}}]*{field})*[^{{}}]*)?")
-        return Ok(cls(parts=parts)) if grammar.fullmatch(template) else Error((RenderingNameFault(request=template, error=grammar),))
+        """Parses `{word}` and `{count:width}` fields, refusing braces in text, unknown fields, unseparated fields, and one count at two widths."""
+
+        def refused(reason: str) -> RenderingFaults:
+            return (RenderingNameFault(request=template, error=ValueError(reason)),)
+
+        def width(spec: str) -> Option[int]:
+            return catch(lambda: msgspec.json.decode(spec, type=Width), exception=msgspec.DecodeError)().to_option() if spec.isdigit() else Nothing
+
+        def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> RenderingResult[tuple[Parts, ...]]:
+            literal: tuple[Parts, ...] = (Text(text=text),) if text else ()
+            match name, spec, conversion:
+                case _ if _UNLITERAL.search(text):
+                    return Error(refused(f"Literal {text!r} holds a brace or NUL"))
+                case None, _, _:
+                    return Ok(literal)
+                case str(), "", None if name in Word:
+                    return Ok((*literal, Slot(key=Word(name))))
+                case str(), str(), None if name in Count:
+                    return width(spec).map(lambda held: (*literal, Number(key=Count(name), width=held))).to_result_with(lambda: refused(f"Field {name!r} takes a width digit, got {spec!r}"))
+                case _:
+                    return Error(refused(f"Field {name!r} with conversion {conversion!r} and width {spec!r} names no output field"))
+
+        def checked(reason: str, *, holds: bool) -> RenderingResult[None]:
+            return Ok(None) if holds else Error(refused(reason))
+
+        try:
+            pieces = tuple(string.Formatter().parse(template))
+        except ValueError as error:
+            return Error((RenderingNameFault(request=template, error=error),))
+        counts = {(name, spec) for _, name, spec, _ in pieces if name is not None and name in Count}
+        return paired(
+            accumulated(starmap(parted, pieces)),
+            checked("Adjacent fields need a non-word or underscore separator", holds=all(_SEPARATOR.search(text) for text, name, _, _ in pieces[1:] if name is not None)),
+            checked("A count field repeats at another width", holds=len(counts) == len({name for name, _ in counts})),
+        ).map(lambda found: cls(parts=tuple(chain.from_iterable(found[0]))))
 
     @property
     def slots(self) -> frozenset[Field]:
@@ -123,7 +146,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         def pattern(part: Field) -> re.Pattern[str]:
             match part:
                 case Slot(key=Word.OUTPUT):
-                    return re.compile("|".join(member.token for member in Output))
+                    return re.compile("|".join(Output))
                 case Slot(key=Word.DATE):
                     return re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
                 case Slot():

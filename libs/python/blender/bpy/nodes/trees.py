@@ -1,8 +1,11 @@
-"""Tree and node classes, holders, sockets, node and link creation, link order, and content fingerprints."""
+"""Tree and node classes, holders, sockets, node and link creation, link order, tree walks, and content fingerprints."""
 
+from collections import deque
+from collections.abc import Iterable, Mapping
 import functools
 import itertools
-from typing import overload
+from types import MappingProxyType
+from typing import Final, overload
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -10,8 +13,8 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids import images
-from blender.bpy.data.ids.store import embedded
-from blender.bpy.data.rna.descriptors import Descriptor, IdName, member_path, written
+from blender.bpy.data.ids.store import embedded, IdName
+from blender.bpy.data.rna.descriptors import Descriptor, member_path, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.imaging.faults import accumulated, paired
@@ -24,17 +27,17 @@ GroupNode = bpy.types.CompositorNodeGroup | bpy.types.ShaderNodeGroup | bpy.type
 OutputNode = bpy.types.ShaderNodeOutputMaterial | bpy.types.ShaderNodeOutputWorld | bpy.types.ShaderNodeOutputLight | bpy.types.NodeGroupOutput
 type Holder = bpy.types.NodeTree | bpy.types.Material | bpy.types.World | bpy.types.Light
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+GROUP_NODES: Final[Mapping[type[GraphTree], type[GroupNode]]] = MappingProxyType({
+    bpy.types.CompositorNodeTree: bpy.types.CompositorNodeGroup,
+    bpy.types.ShaderNodeTree: bpy.types.ShaderNodeGroup,
+    bpy.types.GeometryNodeTree: bpy.types.GeometryNodeGroup,
+})
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-
-def group_node(kind: type[GraphTree]) -> type[GroupNode]:
-    """Returns group node class of a tree class."""
-    groups: dict[type[GraphTree], type[GroupNode]] = {
-        bpy.types.CompositorNodeTree: bpy.types.CompositorNodeGroup,
-        bpy.types.ShaderNodeTree: bpy.types.ShaderNodeGroup,
-        bpy.types.GeometryNodeTree: bpy.types.GeometryNodeGroup,
-    }
-    return groups[kind]
+# --- [EDITS]
 
 
 @overload
@@ -142,6 +145,9 @@ def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...
         held.swap_multi_input_sort_id(wanted)
 
 
+# --- [WALKS]
+
+
 def active_output(tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.NodeGroupOutput]:
     """Returns active Group Output node."""
     return Option.of_optional(next((node for node in tree.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
@@ -149,25 +155,45 @@ def active_output(tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.NodeGroup
     )
 
 
+def nested[T: bpy.types.NodeTree](roots: Iterable[T], *, muted: bool = True) -> tuple[T, ...]:
+    """Returns roots and every group tree their group nodes reach, each once in first-reached breadth-first order.
+
+    Args:
+        roots: Trees to walk from.
+        muted: Whether muted group nodes lead into their groups.
+    """
+    pending = deque(roots)
+    reached: dict[T, None] = {}
+    while pending:
+        if (tree := pending.popleft()) not in reached:
+            reached[tree] = None
+            pending.extend(child for node in tree.nodes if isinstance(node, GroupNode) and (muted or not node.mute) for child in (node.node_tree,) if isinstance(child, type(tree)))
+    return tuple(reached)
+
+
+def upstream(node: bpy.types.Node) -> tuple[bpy.types.Node, ...]:
+    """Returns node and every node its input links reach, sorted by name."""
+    pending, seen = [node], set[bpy.types.Node]()
+    while pending:
+        if (current := pending.pop()) not in seen:
+            seen.add(current)
+            pending.extend(link.from_node for socket in current.inputs for link in socket.links)  # type: ignore[misc,union-attr]  # ty: ignore[invalid-argument-type,not-iterable]
+    return tuple(sorted(seen, key=lambda item: item.name))
+
+
 def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[Option[ContentHash]]:
     """Hashes observable content of tree or node upstream graph.
 
     Args:
-        owner: Whole tree, or node with incoming links selecting upstream closure.
+        owner: Whole tree, or node whose `upstream` closure answers.
 
     Returns:
         `Ok` of digest over persistent settings, socket defaults, ordered links, nested groups, and image content.
         `Ok` of `Nothing` for unobservable image dependency. `Error` of capture faults.
     """
     tree: bpy.types.NodeTree = owner if isinstance(owner, bpy.types.NodeTree) else owner.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    pending = list(owner.nodes) if isinstance(owner, bpy.types.NodeTree) else [owner]
-    seen: set[bpy.types.Node] = set()
-    while pending:
-        if (current := (pending.pop())) not in seen:
-            seen.add(current)
-            pending.extend(link.from_node for socket in current.inputs for link in socket.links)  # type: ignore[misc,union-attr]  # ty: ignore[invalid-argument-type,not-iterable]
-    nodes = tuple(sorted(seen, key=lambda item: item.name))
-    settings = tuple(Descriptor(root=type(tree), owner="", prop=prop) for prop in Snapshot.members(tree.bl_rna) if not isinstance(prop, bpy.types.CollectionProperty))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    nodes = tuple(sorted(owner.nodes, key=lambda item: item.name)) if isinstance(owner, bpy.types.NodeTree) else upstream(owner)
+    settings = Descriptor.saved(tree, lambda prop: not isinstance(prop, bpy.types.CollectionProperty))
 
     def captured(struct: "bpy.types.bpy_struct[object]", selection: Option[tuple[Descriptor, ...]] = Nothing) -> BlenderResult[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
         def referenced(snapshot: Snapshot) -> BlenderResult[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
@@ -185,8 +211,7 @@ def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[O
 
     def linked(link: bpy.types.NodeLink) -> BlenderResult[ContentHash]:
         endpoints = msgspec.msgpack.encode((link.from_node.name, link.from_socket.identifier, link.to_node.name, link.to_socket.identifier))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        members = tuple(Descriptor(root=type(link), owner="", prop=prop) for prop in link.bl_rna.properties if not prop.is_readonly)
-        return Snapshot.capture(link, Some(members)).map(lambda snapshot: content_hash(bpy.types.NodeLink, endpoints, snapshot))
+        return Snapshot.capture(link, Some(Descriptor.saved(link, lambda prop: not prop.is_readonly))).map(lambda snapshot: content_hash(bpy.types.NodeLink, endpoints, snapshot))
 
     return paired(
         accumulated(itertools.starmap(captured, ((tree, Some(settings)), *((item, Nothing) for item in nodes)))),
@@ -202,4 +227,21 @@ def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[O
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["GraphTree", "GroupNode", "Holder", "OutputNode", "active_output", "created", "emptied", "fingerprinted", "group_node", "grouped", "joined", "ordered", "socket_at", "tree_of"]
+__all__ = [
+    "GROUP_NODES",
+    "GraphTree",
+    "GroupNode",
+    "Holder",
+    "OutputNode",
+    "active_output",
+    "created",
+    "emptied",
+    "fingerprinted",
+    "grouped",
+    "joined",
+    "nested",
+    "ordered",
+    "socket_at",
+    "tree_of",
+    "upstream",
+]

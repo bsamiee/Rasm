@@ -1,8 +1,8 @@
 using System.Drawing;
 using LanguageExt.ClassInstances;
+using Rasm.Rhino.Display;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.FileIO;
@@ -40,7 +40,7 @@ public readonly partial struct WireDensity : System.Numerics.IMinMaxValue<WireDe
 public sealed record DecalState(
     int Crc, bool IsVisible, Guid TextureInstanceId, DecalMapping Mapping, DecalProjection Projection, bool MapToInside, double Transparency,
     Point3d Origin, Vector3d VectorUp, Vector3d VectorAcross, double Height, double Radius,
-    (double Start, double End) HorzSweep, (double Start, double End) VertSweep, (double MinU, double MinV, double MaxU, double MaxV) UvBounds);
+    Interval HorzSweep, Interval VertSweep, (Interval U, Interval V) UvBounds);
 
 public sealed record MaterialRefState(
     Guid PlugInId, ObjectMaterialSource MaterialSource,
@@ -154,21 +154,21 @@ internal static partial class AttributeMapper {
 
     // --- [DECALS]
     [UserMapping(Default = false)]
-    private static (double Start, double End) HorzSweep(Decal decal) {
+    private static Interval HorzSweep(Decal decal) {
         decal.HorzSweep(out double start, out double end);
-        return (start, end);
+        return new(start, end);
     }
 
     [UserMapping(Default = false)]
-    private static (double Start, double End) VertSweep(Decal decal) {
+    private static Interval VertSweep(Decal decal) {
         decal.VertSweep(out double start, out double end);
-        return (start, end);
+        return new(start, end);
     }
 
     [UserMapping(Default = false)]
-    private static (double MinU, double MinV, double MaxU, double MaxV) UvBounds(Decal decal) {
+    private static (Interval U, Interval V) UvBounds(Decal decal) {
         decal.GetUVBounds(out double minU, out double minV, out double maxU, out double maxV);
-        return (minU, minV, maxU, maxV);
+        return (new(minU, maxU), new(minV, maxV));
     }
 }
 
@@ -250,7 +250,7 @@ public static partial class AttributeEdits {
     // --- [OVERRIDES]
     public static IO<Unit> DisplayModeOverride(ObjectAttributes staged, Guid viewport, Option<Guid> mode) =>
         mode.Match(
-            Some: id => Viewports.WithMode(id, description => IO.lift(() => { _ = staged.SetDisplayModeOverride(description, viewport); })),
+            Some: id => DisplayModes.With(id, description => IO.lift(() => { _ = staged.SetDisplayModeOverride(description, viewport); })),
             None: () => IO.lift(() => staged.RemoveDisplayModeOverride(viewport)));
 
     public static IO<Unit> ActiveInViewport(ObjectAttributes staged, RowsEdit<Guid, Guid> edit, bool active) =>

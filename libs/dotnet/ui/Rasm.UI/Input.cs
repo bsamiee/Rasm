@@ -28,7 +28,6 @@ public sealed partial class Modifier {
 [SmartEnum]
 public sealed partial class Grain {
     public static readonly Grain Unit = new();
-    public static readonly Grain Word = new();
     public static readonly Grain Page = new();
     public static readonly Grain Edge = new();
 }
@@ -37,8 +36,8 @@ public sealed partial class Grain {
 public sealed partial class Navigation {
     public static readonly Navigation CharacterLeft = new(NavigationKind.CharacterLeft, Orientation.Horizontal, -1, Grain.Unit);
     public static readonly Navigation CharacterRight = new(NavigationKind.CharacterRight, Orientation.Horizontal, 1, Grain.Unit);
-    public static readonly Navigation WordLeft = new(NavigationKind.WordLeft, Orientation.Horizontal, -1, Grain.Word);
-    public static readonly Navigation WordRight = new(NavigationKind.WordRight, Orientation.Horizontal, 1, Grain.Word);
+    public static readonly Navigation WordLeft = new(NavigationKind.WordLeft, Orientation.Horizontal, -1, Grain.Unit);
+    public static readonly Navigation WordRight = new(NavigationKind.WordRight, Orientation.Horizontal, 1, Grain.Unit);
     public static readonly Navigation LineHome = new(NavigationKind.LineHome, Orientation.Horizontal, -1, Grain.Edge);
     public static readonly Navigation LineEnd = new(NavigationKind.LineEnd, Orientation.Horizontal, 1, Grain.Edge);
     public static readonly Navigation LineUp = new(NavigationKind.LineUp, Orientation.Vertical, -1, Grain.Unit);

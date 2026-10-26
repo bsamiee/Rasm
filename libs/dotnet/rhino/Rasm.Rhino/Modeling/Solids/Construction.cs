@@ -3,15 +3,6 @@ using Rasm.Rhino.Modeling.Curves;
 
 namespace Rasm.Rhino.Modeling.Solids;
 
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record BoxCorners(Point3d V0, Point3d V1, Point3d V2, Point3d V3, Point3d V4, Point3d V5, Point3d V6, Point3d V7) {
-    public Seq<Point3d> Points => [V0, V1, V2, V3, V4, V5, V6, V7];
-}
-
-public sealed record SurfaceEdges(Curve First, Curve Second, Option<(Curve Third, Option<Curve> Fourth)> Rest) {
-    public Seq<Curve> Curves => [First, Second, .. Rest.ToSeq().Bind(static rest => rest.Third.Cons(rest.Fourth.ToSeq()))];
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolidConstruction {
     // --- [BREPS]

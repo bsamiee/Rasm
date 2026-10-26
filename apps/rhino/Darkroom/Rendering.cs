@@ -5,19 +5,37 @@ using Rasm.Imaging.Filters.Stylize;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
+using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Presets;
-using Rasm.Rhino.Render.Queue;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
+using Rasm.Rhino.UI.Rows;
 using Rhino.UI.Controls;
+using UnitsNet;
+using UnitsNet.Units;
 
 namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [Guid("1EA59DFD-DF4C-4D26-8A78-8E17DEC6826E")]
 internal static class LooksSection {
+    // --- [SETTINGS]
+    public static readonly TileLimitRows Settings = new(
+        Batch: new(ValueKey.Numeric("PreviewBatch", "Tiles per tick", "Preview tiles formed in one scheduling tick", TileLimits.Default.Batch,
+            new NumericDomain<int, int>(Fin.Succ, identity, (1, 8), new() { Form = NumberForm.Field })), SettingType.Integer),
+        Budget: new(ValueKey.Numeric("PreviewBudget", "Time budget", "Time limit for preview tiles per scheduling tick", (int)TileLimits.Default.Budget.TotalMilliseconds,
+            new NumericDomain<int, int>(Fin.Succ, identity, (20, 2000), new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Millisecond) })), SettingType.Integer),
+        Capacity: new(ValueKey.Numeric("PreviewCapacity", "Cached tiles", "Preview tiles kept while offscreen", TileLimits.Default.Capacity,
+            new NumericDomain<int, int>(Fin.Succ, identity, (16, 4096), new() { Form = NumberForm.Field })), SettingType.Integer));
+
+    public static Seq<Child> Page => [
+        new ControlRow.Group("Preview tiles", RowRules.Always),
+        .. Seq(Settings.Batch, Settings.Budget, Settings.Capacity).Bind(static row => SectionRows.Setting(row, RowRules.Always)),
+    ];
+
+    // --- [PANEL]
     public static readonly Func<EtoPostEffectCollapsibleSection, IO<Option<ScopeFrames>>, View.Section> Row = static (section, _) => new() {
         Identity = typeof(LooksSection),
         Caption = "Looks",
@@ -49,7 +67,7 @@ internal static class LooksSection {
             AnalogVideoParameter.LumaBandwidth, AnalogVideoParameter.ChromaBandwidth, AnalogVideoParameter.Ringing,
             AnalogVideoParameter.RingingDelay, AnalogVideoParameter.LumaNoise, AnalogVideoParameter.ChromaNoise,
         ];
-        ValueSet tube = ValueSet.Fields(displayOwner, CrtDisplay.Scanlines with { Curvature = Distortion.Create(0.03f) },
+        ValueSet tube = ValueSet.Fields(displayOwner, TubeDisplay.Scanlines with { Curvature = Distortion.Create(0.03f) },
             [CrtDisplayParameter.MaskStrength, CrtDisplayParameter.ScanlineDepth, CrtDisplayParameter.Curvature]);
         return [
             .. from preset in Seq<(string Name, Exposure Exposure, Contrast Contrast)>(
@@ -79,7 +97,7 @@ internal static class LooksSection {
                     AnalogVideoParameter.ChromaDelay, AnalogVideoParameter.Jitter, AnalogVideoParameter.HeadSwitch,
                     AnalogVideoParameter.Snow, AnalogVideoParameter.SnowDensity, AnalogVideoParameter.NoiseLength, AnalogVideoParameter.SnowLength,
                 ]),
-                ValueSet.Fields(displayOwner, CrtDisplay.Scanlines with { ScanlineDepth = AxisFraction.Create(0.2f) }, [CrtDisplayParameter.MaskStrength, CrtDisplayParameter.ScanlineDepth]),
+                ValueSet.Fields(displayOwner, TubeDisplay.Scanlines with { ScanlineDepth = AxisFraction.Create(0.2f) }, [CrtDisplayParameter.MaskStrength, CrtDisplayParameter.ScanlineDepth]),
             ]),
             Preset.Of(PresetName.Create("Comic"), [
                 ValueSet.Fields(posterOwner, Posterize.Default with { Levels = LevelCount.Create(3) }, [PosterizeParameter.Levels]),
@@ -98,13 +116,4 @@ internal static class LooksSection {
             ]),
         ];
     }
-}
-
-[Guid("5241D43D-4825-41EC-B908-468DFF1FF424")]
-public sealed class RenderQueueSection() : DefinedSection(Row) {
-    public static readonly View.Section Row = new() {
-        Identity = typeof(RenderQueueSection),
-        Caption = "Render Queue",
-        Children = Queues.Rows(QueueSettingRows.Default),
-    };
 }

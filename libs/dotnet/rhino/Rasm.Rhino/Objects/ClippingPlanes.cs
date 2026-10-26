@@ -99,15 +99,11 @@ public static class ClippingPlanes {
         select state;
 
     public static IO<Seq<ClippingPlaneObject>> Clipping(RhinoDoc doc, ViewportTarget target) =>
-        DisposalOps.Within(
-            (Action<IDisposable> held) => from row in Viewports.ResolveViewport(doc, target, held)
-                                          from planes in IO.lift(() => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true)))
-                                          select planes,
-            DisposalOps.Release);
+        Viewports.With(doc, target, row => IO.lift(() => toSeq(doc.Objects.FindClippingPlanesForViewport(row.Viewport, includeHidden: true))));
 
     private static IO<T> Acquired<T>(RhinoDoc doc, Seq<ViewportSet> sets, Func<Seq<ViewportRef>, IO<T>> body) =>
         DisposalOps.Within(
-            (Action<IDisposable> held) => sets.TraverseM(set => Viewports.ResolveViewports(doc, set, held)).As()
+            (Action<IDisposable> held) => sets.TraverseM(set => Viewports.Resolve(doc, set, held)).As()
                 .Map(static rows => rows.Flatten()).Bind(body),
             DisposalOps.Release);
 

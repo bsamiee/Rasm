@@ -83,7 +83,7 @@ class SpatialDenoise(Effect, frozen=True, kw_only=True, tag=19):
     title = "Denoise"
     pointwise = False
     fireflies: Annotated[
-        Gated[Annotated[float, msgspec.Meta(ge=1.0, le=10.0)]], msgspec.Meta(title="Firefly Threshold", description="Luminance over fourth brightest ring neighbor"), Presentation(decimals=Some(2))
+        Gated[Annotated[float, msgspec.Meta(ge=1.0, le=10.0)]], msgspec.Meta(title="Firefly Threshold", description="Luminance over fourth brightest ring neighbor"), Presentation(precision=Some(2))
     ] = Gated(enabled=True, value=2.0)
     target: Annotated[Frame | Passes | Groups, msgspec.Meta(description="Frame or light terms to denoise")] = Frame()
 

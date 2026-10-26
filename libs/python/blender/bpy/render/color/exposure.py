@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Annotated, ClassVar, Protocol
+from typing import Annotated, ClassVar, Final, TYPE_CHECKING
 
 import bpy
 from bpy_extras.view3d_utils import location_3d_to_region_2d
@@ -19,8 +19,9 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
-from blender.bpy.render.color.luts import Enabled, Forming
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.render.effects.rows import CompositorEffect, Enabled, revised, stops
+from blender.bpy.render.effects.stack import EffectStack
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.drawing.canvas import Canvas, Rect
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Signal, Updated
@@ -28,49 +29,18 @@ from blender.bpy.ui.drawing.offscreen import captured
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.imaging.analysis.metering import Meter
-from blender.imaging.chain import Effect
 from blender.imaging.color.processors import applied, processor
+from blender.imaging.effects.tone.exposure import Exposure
 from blender.imaging.faults import ImagingResult, paired
 from blender.imaging.files.images import ImageFile
 from blender.imaging.parameters import Gated, Presentation
 
-# --- [TYPES] ----------------------------------------------------------------------------
+if TYPE_CHECKING:
+    from blender.bpy.render.effects.viewers import ViewerRead
 
-type Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile[np.float32]], BlenderResult[Option[str]]]
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-
-class Gain(Protocol):
-    """Owned exposure effect stops with native write."""
-
-    @property
-    def record(self) -> type[Effect]:
-        """Exposure entry record."""
-        ...
-
-    def stops(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[float]:
-        """Returns earliest owned entry's absolute stops."""
-        ...
-
-    def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[bool]:
-        """Writes earliest owned entry's absolute stops, true on change."""
-        ...
-
-
-class Read(Registrable, Protocol):
-    """Scoped viewer read armed on one effect's entering plane."""
-
-    def entering(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[None]:
-        """Arms entry input under a viewer removed after consumption."""
-        ...
-
-
-class Reading(Protocol):
-    """Viewer read factory over a deferred plane consumer."""
-
-    def __call__(self, *, consume: Consume) -> Read:
-        """Returns original viewer declaration to register."""
-        ...
-
+SHADING: Final = Descriptor.declared(bpy.types.SpaceView3D, "shading.type", bpy.types.EnumProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -79,8 +49,8 @@ class Follow(msgspec.Struct, frozen=True, kw_only=True):
     """Viewport response speed, dead band, and agreement between readings."""
 
     speed: Annotated[float, msgspec.Meta(ge=0.02, le=1.0, description="Share of remaining step per update")] = 0.5
-    band: Annotated[float, msgspec.Meta(ge=0.0, le=2.0, title="Dead Band"), Presentation(soft=Some((0.0, 1.0)), step=Some(0.01), decimals=Some(2))] = 0.1
-    tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=2.0, description="Stops between agreeing readings"), Presentation(soft=Some((0.0, 1.0)), step=Some(0.01), decimals=Some(2))] = 0.1
+    band: Annotated[float, msgspec.Meta(ge=0.0, le=2.0, title="Dead Band"), Presentation(soft=Some((0.0, 1.0)), step=Some(0.01), precision=Some(2))] = 0.1
+    tolerance: Annotated[float, msgspec.Meta(ge=0.0, le=2.0, description="Stops between agreeing readings"), Presentation(soft=Some((0.0, 1.0)), step=Some(0.01), precision=Some(2))] = 0.1
 
 
 class Metering(msgspec.Struct, frozen=True, kw_only=True):
@@ -107,27 +77,33 @@ class Exposing(msgspec.Struct, frozen=True, kw_only=True):
 
     identity: Identity
     attached: Attached[Metering]
-    stack: Forming
-    gain: Gain
+    stack: EffectStack
+    gain: CompositorEffect[Exposure]
     title: ClassVar[str] = "Meter Exposure"
+
+    def entry(self, scene: bpy.types.Scene) -> BlenderResult[bpy.types.SceneCompositorEffect]:
+        """Returns the earliest gain entry, absent fault without one."""
+        return Option.of_optional(next(iter(self.gain.entries(self.identity, scene)), None)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=self.gain.kind),))
+
+    def written(self, scene: bpy.types.Scene, value: float) -> BlenderResult[bool]:
+        """Writes the earliest gain entry's absolute stops, answering whether any input changed."""
+        return self.entry(scene).bind(lambda held: revised(self.gain, self.identity, scene, held, lambda _: Ok(Exposure(stops=value))))
 
     def consumed(self, scene: bpy.types.Scene, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
         """Writes metered absolute stops and names undo step on change."""
         return paired(self.stack.config(), self.attached.read(scene)).bind(
             lambda pair: Result[Option[float], BlenderFaults].bind(
-                pair[1].meter.stops(pair[0], file.pixels).map_error(BlenderImagingFault.lifted),
-                lambda measured: measured.map(lambda value: self.gain.written(self.identity, scene, value + pair[1].bias).map(lambda changed: Some(self.title) if changed else Nothing)).default_value(
-                    Ok(Nothing)
-                ),
+                pair[1].meter.stops(pair[0], file.pixels),
+                lambda measured: measured.map(lambda value: self.written(scene, value + pair[1].bias).map(lambda changed: Some(self.title) if changed else Nothing)).default_value(Ok(Nothing)),
             )
         )
 
     def stepped(self, handle: Handle[bpy.types.Scene], target: float) -> BlenderResult[Option[str]]:
         """Moves enabled following toward a target beyond its dead band without undo."""
         return handle.resolve().bind(
-            lambda scene: paired(self.attached.read(scene), self.gain.stops(self.identity, scene)).bind(
+            lambda scene: paired(self.attached.read(scene), stops(self.identity, scene, self.gain)).bind(
                 lambda pair: (
-                    self.gain.written(self.identity, scene, pair[1] + pair[0].follow.value.speed * (target - pair[1])).map(lambda _: Nothing)
+                    self.written(scene, pair[1] + pair[0].follow.value.speed * (target - pair[1])).map(lambda _: Nothing)
                     if pair[0].follow.enabled and abs(target - pair[1]) > pair[0].follow.value.band
                     else Ok(Nothing)
                 )
@@ -157,9 +133,7 @@ class Follower(msgspec.Struct, kw_only=True):
                     ).default_value(Ok(Nothing))
                 case Result(error=faults):
                     return Error(faults)
-            return inverse.map_error(BlenderImagingFault.lifted).map(
-                lambda inverse: Following(scene=Handle.of(scene), meter=metering.meter, bias=metering.bias, tolerance=metering.follow.value.tolerance, config=config, inverse=inverse)
-            )
+            return inverse.map(lambda inverse: Following(scene=Handle.of(scene), meter=metering.meter, bias=metering.bias, tolerance=metering.follow.value.tolerance, config=config, inverse=inverse))
 
         return paired(self.exposing.stack.config(), self.exposing.attached.read(scene)).bind(lambda pair: followed(*pair).map(Some) if pair[1].follow.enabled else Ok(Nothing))
 
@@ -187,12 +161,7 @@ class Follower(msgspec.Struct, kw_only=True):
                         rect = Some(canvas.extent)
 
                 def metered(plane: npt.NDArray[np.float32]) -> Option[float]:
-                    return (
-                        self.exposing.identity.reports
-                        .reported(lambda: state.meter.stops(state.config, plane).map_error(BlenderImagingFault.lifted))()
-                        .bind(lambda value: value)
-                        .map(lambda value: value + state.bias)
-                    )
+                    return self.exposing.identity.reports.reported(lambda: state.meter.stops(state.config, plane))().bind(lambda value: value).map(lambda value: value + state.bias)
 
                 reading = (
                     Some(scene)
@@ -211,33 +180,32 @@ class Follower(msgspec.Struct, kw_only=True):
 class AutoExposure:
     """Rendered-frame meter and viewport following."""
 
-    stack: Forming
-    gain: Gain
-    read: Read
+    stack: EffectStack
+    gain: CompositorEffect[Exposure]
+    reading: "ViewerRead"
     metering: Operator[Empty]
     key: ClassVar[Key] = "auto_exposure"
     attachment: ClassVar[Attachment[Metering]] = Attachment(key=key, form=Metering, owner=bpy.types.Scene)
     prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
 
-    def __init__(self, *, stack: Forming, gain: Gain, reading: Reading) -> None:
-        """Declares viewer read and meter command, each binding metering storage on call."""
-        self.stack, self.gain = stack, gain
-        self.read = reading(consume=lambda identity, scene, _entry, file: self.bound(identity).bind(lambda exposing: exposing.consumed(scene, file)))
+    def __init__(self, *, stack: EffectStack, gain: CompositorEffect[Exposure], reading: "ViewerRead") -> None:
+        """Declares meter command arming the viewer read with the metering consumer."""
+        self.stack, self.gain, self.reading = stack, gain, reading
         self.metering = Operator(
             key=self.key, title=Exposing.title, description="Meter exposure entry input and write absolute stops", form=Empty, run=self.metered, condition=Some(Job(kind="RENDER")), undo=False
         )
 
     def metered(self, call: Call[Empty]) -> BlenderResult[Done]:
         """Arms viewer read on earliest owned exposure entry input."""
-        if (scene := call.context.scene) is None:
-            return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
-        entry: BlenderResult[bpy.types.SceneCompositorEffect] = Option.of_optional(next(iter(self.stack.entries(call.identity, scene, self.gain.record)), None)).to_result_with(
-            lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=self.gain.record.__name__),)
-        )
+        return call.root(bpy.types.Scene).bind(lambda scene: self.armed(call.identity, scene)).map(lambda _: Done(notes=(("INFO", "Metering exposure entry input"),)))
+
+    def armed(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[None]:
+        """Arms the viewer read on the earliest gain entry with the metering consumer."""
         return (
-            Result[bpy.types.SceneCompositorEffect, BlenderFaults]
-            .bind(entry, lambda item: self.read.entering(call.identity, item))
-            .map(lambda _: Done(notes=(("INFO", "Metering exposure entry input"),)))
+            self
+            .bound(identity)
+            .bind(lambda exposing: exposing.entry(scene))
+            .bind(lambda held: self.reading.entering(identity, scene, held, lambda bound, read, _entry, file: self.bound(bound).bind(lambda exposing: exposing.consumed(read, file))))
         )
 
     def bound(self, identity: Identity) -> BlenderResult[Exposing]:
@@ -247,26 +215,23 @@ class AutoExposure:
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
         """Binds registered storage and scopes deferred work through native teardown."""
-        resolved = paired(self.bound(identity), Descriptor.resolve(bpy.types.SpaceView3D, "shading.type", bpy.types.EnumProperty))
-        match resolved:
-            case Result(tag="ok", ok=(exposing, shading)):
+        match self.bound(identity):
+            case Result(tag="ok", ok=exposing):
                 refresh, interval = Signal(), 0.12
 
                 with identity.reports.deferred(exposing.stepped) as step:
                     yield Ok((
                         self.metering,
-                        self.read,
+                        self.reading,
                         Timer(body=lambda: refresh.fired().map(lambda _: Some(interval))),
                         Overlay[Following](
                             drawing=Drawing(
-                                area=AreaQuery(space="VIEW_3D", shows=Some(Setting(descriptor=shading, accepted=("MATERIAL", "RENDERED")))),
+                                area=AreaQuery(space="VIEW_3D", shows=Some(Setting(descriptor=SHADING, accepted=("MATERIAL", "RENDERED")))),
                                 part=Follower(exposing=exposing, step=step),
                                 refreshes=(refresh, Updated(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,))),
                             ),
                             space=bpy.types.SpaceView3D,
-                            region="WINDOW",
                             draw_type="PRE_VIEW",
-                            scissor_enabled=False,
                             respect_overlays=False,
                         ),
                     ))
@@ -277,4 +242,4 @@ class AutoExposure:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["AutoExposure", "Consume", "Follow", "Gain", "Metering", "Read", "Reading"]
+__all__ = ["AutoExposure", "Follow", "Metering"]

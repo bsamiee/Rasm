@@ -17,7 +17,7 @@ from blender.imaging.parameters import Case, ColorSpace, Finite, Gated, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type DisplayWhite = Annotated[float, msgspec.Meta(ge=0.2, le=16.0), Presentation(soft=Some((0.5, 1.0)), decimals=Some(3))]
+type DisplayWhite = Annotated[float, msgspec.Meta(ge=0.2, le=16.0), Presentation(soft=Some((0.5, 1.0)), precision=Some(3))]
 type Curve = Sigmoid | PiecewisePower | Logarithmic | ReinhardExtended
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -26,29 +26,29 @@ type Curve = Sigmoid | PiecewisePower | Logarithmic | ReinhardExtended
 class Sigmoid(Case, frozen=True, kw_only=True, tag=1):
     """Log-logistic response pinning scene zero to black and middle gray to itself."""
 
-    contrast: Annotated[float, msgspec.Meta(ge=0.1, le=10.0, description="Slope at middle gray, setting compressed scene range"), Presentation(soft=Some((0.7, 3.0)), decimals=Some(3))] = 1.5
-    skew: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Contrast moved into shadows below 0 and highlights above 0"), Presentation(decimals=Some(3))] = 0.0
+    contrast: Annotated[float, msgspec.Meta(ge=0.1, le=10.0, description="Slope at middle gray, setting compressed scene range"), Presentation(soft=Some((0.7, 3.0)), precision=Some(3))] = 1.5
+    skew: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Contrast moved into shadows below 0 and highlights above 0"), Presentation(precision=Some(3))] = 0.0
     display_white: Annotated[DisplayWhite, msgspec.Meta(description="Display value approached at infinity, 1 at reference white")] = 1.0
-    display_black: Annotated[float, msgspec.Meta(ge=0.0, le=0.15, description="Display value at scene zero"), Presentation(soft=Some((0.0, 0.01)), decimals=Some(6))] = 0.000152
+    display_black: Annotated[float, msgspec.Meta(ge=0.0, le=0.15, description="Display value at scene zero"), Presentation(soft=Some((0.0, 0.01)), precision=Some(6))] = 0.000152
 
 
 class PiecewisePower(Case, frozen=True, kw_only=True, tag=2):
     """Hable's toe, linear, and shoulder segments normalized at their white point."""
 
-    toe_strength: Annotated[Unit, msgspec.Meta(description="Toe depth below linear segment"), Presentation(decimals=Some(3))] = 0.5
-    toe_length: Annotated[Unit, msgspec.Meta(description="Lower range the toe spans, applied as its 2.2 power"), Presentation(decimals=Some(3))] = 0.5
+    toe_strength: Annotated[Unit, msgspec.Meta(description="Toe depth below linear segment"), Presentation(precision=Some(3))] = 0.5
+    toe_length: Annotated[Unit, msgspec.Meta(description="Lower range the toe spans, applied as its 2.2 power"), Presentation(precision=Some(3))] = 0.5
     shoulder_strength: Annotated[
-        float, msgspec.Meta(ge=0.0, le=16.0, description="Stops of highlight range the shoulder holds above white"), Presentation(soft=Some((0.0, 10.0)), step=Some(0.01), decimals=Some(3))
+        float, msgspec.Meta(ge=0.0, le=16.0, description="Stops of highlight range the shoulder holds above white"), Presentation(soft=Some((0.0, 10.0)), step=Some(0.01), precision=Some(3))
     ] = 2.0
-    shoulder_length: Annotated[float, msgspec.Meta(ge=1e-5, le=1.0, description="Upper range the shoulder spans"), Presentation(decimals=Some(3))] = 0.5
-    shoulder_angle: Annotated[Unit, msgspec.Meta(description="Shoulder overshoot past white"), Presentation(decimals=Some(3))] = 1.0
-    gamma: Annotated[float, msgspec.Meta(ge=0.1, le=10.0, description="Linear segment power"), Presentation(soft=Some((0.5, 2.0)), decimals=Some(3))] = 1.0
+    shoulder_length: Annotated[float, msgspec.Meta(ge=1e-5, le=1.0, description="Upper range the shoulder spans"), Presentation(precision=Some(3))] = 0.5
+    shoulder_angle: Annotated[Unit, msgspec.Meta(description="Shoulder overshoot past white"), Presentation(precision=Some(3))] = 1.0
+    gamma: Annotated[float, msgspec.Meta(ge=0.1, le=10.0, description="Linear segment power"), Presentation(soft=Some((0.5, 2.0)), precision=Some(3))] = 1.0
 
 
 class Logarithmic(Case, frozen=True, kw_only=True, tag=3):
     """Drago's adaptive logarithm mapping scene white to display white."""
 
-    bias: Annotated[float, msgspec.Meta(ge=0.5, le=1.0, description="Logarithm base shape between 2 at black and 10 at scene white"), Presentation(soft=Some((0.7, 0.9)), decimals=Some(2))] = 0.85
+    bias: Annotated[float, msgspec.Meta(ge=0.5, le=1.0, description="Logarithm base shape between 2 at black and 10 at scene white"), Presentation(soft=Some((0.7, 0.9)), precision=Some(2))] = 0.85
     scene_white: Annotated[Gated[Stops], msgspec.Meta(description="Manual white in stops from 1.0, read from frame when off")] = Gated(enabled=False, value=math.log2(100.0))
     display_white: Annotated[DisplayWhite, msgspec.Meta(description="Display value at scene white, 1 at reference white")] = 1.0
 
@@ -62,8 +62,8 @@ class ReinhardExtended(Case, frozen=True, kw_only=True, tag=4):
 class RenderingPrimary(msgspec.Struct, frozen=True, kw_only=True):
     """Primary inset and rotated within base gamut's angular limit."""
 
-    inset: Annotated[float, msgspec.Meta(ge=0.0, le=0.99, description="Share of distance from base gamut edge toward white"), Presentation(soft=Some((0.0, 0.5)), decimals=Some(3))] = 0.0
-    rotation: Annotated[float, msgspec.Meta(gt=-1.0, lt=1.0, description="Share of base gamut rotation limit about white"), Presentation(decimals=Some(3))] = 0.0
+    inset: Annotated[float, msgspec.Meta(ge=0.0, le=0.99, description="Share of distance from base gamut edge toward white"), Presentation(soft=Some((0.0, 0.5)), precision=Some(3))] = 0.0
+    rotation: Annotated[float, msgspec.Meta(gt=-1.0, lt=1.0, description="Share of base gamut rotation limit about white"), Presentation(precision=Some(3))] = 0.0
 
 
 class Application(msgspec.Struct, frozen=True, kw_only=True):
@@ -129,8 +129,8 @@ class Photoreceptor(Effect, frozen=True, kw_only=True, tag=6):
 
     stage = Stage.TONE
     pointwise = False
-    intensity: Annotated[Finite, msgspec.Meta(description="Brightness, scaling adaptation by e to the negative intensity"), Presentation(soft=Some((-8.0, 8.0)), decimals=Some(3))] = 0.0
-    contrast: Annotated[Gated[Positive], msgspec.Meta(description="Response exponent, read from frame luminance range when off"), Presentation(soft=Some((0.3, 1.0)), decimals=Some(3))] = Gated(
+    intensity: Annotated[Finite, msgspec.Meta(description="Brightness, scaling adaptation by e to the negative intensity"), Presentation(soft=Some((-8.0, 8.0)), precision=Some(3))] = 0.0
+    contrast: Annotated[Gated[Positive], msgspec.Meta(description="Response exponent, read from frame luminance range when off"), Presentation(soft=Some((0.3, 1.0)), precision=Some(3))] = Gated(
         enabled=False, value=1.0
     )
     light_adaptation: Annotated[Unit, msgspec.Meta(description="Blend from frame adaptation at 0 to pixel adaptation at 1")] = 0.0
@@ -141,12 +141,12 @@ class Hable(Effect, frozen=True, kw_only=True, tag=48):
     """White-normalized Uncharted 2 response with independent authored coefficients."""
 
     stage = Stage.TONE
-    a: Annotated[float, msgspec.Meta(ge=0.001, le=0.5, description="Shoulder strength"), Presentation(step=Some(0.01), decimals=Some(3))] = 0.15
-    b: Annotated[float, msgspec.Meta(ge=0.0, le=0.6, description="Linear strength"), Presentation(step=Some(0.01), decimals=Some(3))] = 0.5
-    c: Annotated[float, msgspec.Meta(ge=0.0, le=0.3, description="Linear angle"), Presentation(step=Some(0.01), decimals=Some(3))] = 0.1
-    d: Annotated[float, msgspec.Meta(gt=0.0, le=0.9, description="Toe strength"), Presentation(step=Some(0.01), decimals=Some(3))] = 0.2
-    e: Annotated[float, msgspec.Meta(ge=0.0001, le=0.05, description="Toe numerator"), Presentation(step=Some(0.001), decimals=Some(4))] = 0.02
-    f: Annotated[float, msgspec.Meta(ge=0.2, le=0.6, description="Toe denominator"), Presentation(step=Some(0.01), decimals=Some(3))] = 0.3
+    a: Annotated[float, msgspec.Meta(ge=0.001, le=0.5, description="Shoulder strength"), Presentation(step=Some(0.01), precision=Some(3))] = 0.15
+    b: Annotated[float, msgspec.Meta(ge=0.0, le=0.6, description="Linear strength"), Presentation(step=Some(0.01), precision=Some(3))] = 0.5
+    c: Annotated[float, msgspec.Meta(ge=0.0, le=0.3, description="Linear angle"), Presentation(step=Some(0.01), precision=Some(3))] = 0.1
+    d: Annotated[float, msgspec.Meta(gt=0.0, le=0.9, description="Toe strength"), Presentation(step=Some(0.01), precision=Some(3))] = 0.2
+    e: Annotated[float, msgspec.Meta(ge=0.0001, le=0.05, description="Toe numerator"), Presentation(step=Some(0.001), precision=Some(4))] = 0.02
+    f: Annotated[float, msgspec.Meta(ge=0.2, le=0.6, description="Toe denominator"), Presentation(step=Some(0.01), precision=Some(3))] = 0.3
     scene_white: Annotated[Gated[Stops], msgspec.Meta(description="Manual white in stops from 1.0, read from frame when off")] = Gated(enabled=True, value=math.log2(11.2))
 
     @property

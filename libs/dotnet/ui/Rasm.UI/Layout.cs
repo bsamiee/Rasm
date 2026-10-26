@@ -38,14 +38,6 @@ public readonly partial struct Factor : IMinMaxValue<Factor> {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
-[ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct Aspect : IMinMaxValue<Aspect> {
-    public static Aspect MinValue { get; } = new(float.BitIncrement(0f));
-    public static Aspect MaxValue { get; } = new(float.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [ComplexValueObject(AllowDefaultStructs = true, DefaultInstancePropertyName = "Start")]
 public readonly partial struct UnitPoint {
     public static readonly UnitPoint Center = new(0.5f, 0.5f);
@@ -74,17 +66,16 @@ public sealed partial class Limits {
             : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"limits ({min}, {max}) are not a non-negative ordered span"));
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Sizing {
     public Limits Limits { get; init; } = Limits.Open;
 
-    internal float Growth => Switch(@fixed: static _ => 0f, fit: static _ => 0f, grow: static grow => (float)grow.Weight, percent: static _ => 0f);
+    internal float Growth => SwitchPartially(@default: static _ => 0f, grow: static grow => (float)grow.Weight);
     internal Option<int> Yields => Map(@fixed: Option<int>.None, fit: Some(1), grow: Some(0), percent: Some(1));
-    internal bool Stretches => Map(@fixed: false, fit: false, grow: true, percent: false);
-    internal Option<float> Definite => Switch(@fixed: static held => Some(held.Limits.Clamped(held.Extent)), fit: static _ => Option<float>.None, grow: static _ => Option<float>.None, percent: static _ => Option<float>.None);
+    internal bool Stretches => Growth > 0f;
+    internal Option<float> Definite => SwitchPartially(@default: static _ => Option<float>.None, @fixed: static held => Some(held.Limits.Clamped(held.Extent)));
 
-    internal float Floor(float content) =>
-        Switch(content, @fixed: static (_, held) => held.Limits.Min, fit: static (least, held) => float.Max(held.Limits.Min, least), grow: static (_, held) => held.Limits.Min, percent: static (_, held) => held.Limits.Min);
+    internal float Floor(float content) => SwitchPartially(content, @default: static (_, held) => held.Limits.Min, fit: static (least, held) => float.Max(held.Limits.Min, least));
 
     public sealed record Fixed(float Extent) : Sizing;
 
@@ -172,45 +163,13 @@ internal static class Layouts {
 
     private static int Lines(Node.Lazy lazy, int lanes) => (lazy.Items.Count + lanes - 1) / lanes;
 
-    private static Option<Node> Inner(Node node) =>
-        node.Switch(
-            box: static _ => Option<Node>.None,
-            flex: static _ => Option<Node>.None,
-            grid: static _ => Option<Node>.None,
-            lazy: static _ => Option<Node>.None,
-            overlay: static overlay => Some(overlay.Base),
-            choice: static _ => Option<Node>.None,
-            scroll: static _ => Option<Node>.None,
-            split: static _ => Option<Node>.None,
-            plot: static _ => Option<Node>.None,
-            pin: static pin => Some(pin.Content),
-            mark: static _ => Option<Node>.None,
-            text: static _ => Option<Node>.None,
-            glyph: static _ => Option<Node>.None,
-            image: static _ => Option<Node>.None,
-            slot: static _ => Option<Node>.None,
-            styled: static styled => Some(styled.Content));
+    private static Sizing Sized(Node node, Orientation along) => (along.Map(horizontal: node.Width, vertical: node.Height) | node.Inner.Map(inner => Sized(inner, along))).IfNone(Sizing.Fit.Content);
 
-    private static Sizing Sized(Node node, Orientation along) => (along.Map(horizontal: node.Width, vertical: node.Height) | Inner(node).Map(inner => Sized(inner, along))).IfNone(Sizing.Fit.Content);
-
-    private static Option<Aspect> Aspect(Node node) =>
-        node.Aspect | node.Switch(
-            box: static _ => Option<Aspect>.None,
-            flex: static _ => Option<Aspect>.None,
-            grid: static _ => Option<Aspect>.None,
-            lazy: static _ => Option<Aspect>.None,
-            overlay: static _ => Option<Aspect>.None,
-            choice: static _ => Option<Aspect>.None,
-            scroll: static _ => Option<Aspect>.None,
-            split: static _ => Option<Aspect>.None,
+    private static Option<Factor> Aspect(Node node) =>
+        node.Aspect | node.SwitchPartially(
+            @default: static _ => Option<Factor>.None,
             plot: static plot => plot.Plane.Aspect,
-            pin: static _ => Option<Aspect>.None,
-            mark: static _ => Option<Aspect>.None,
-            text: static _ => Option<Aspect>.None,
-            glyph: static _ => Option<Aspect>.None,
-            image: static image => UI.Aspect.Validated(image.Source.Width / (float)image.Source.Height).ToOption(),
-            slot: static _ => Option<Aspect>.None,
-            styled: static _ => Option<Aspect>.None);
+            image: static image => Factor.Validated(image.Source.Width / (float)image.Source.Height).ToOption());
 
     private static Seq<Laid> Panes(Laid owner) => owner.Children.Filter(static child => !IsHandle(child));
 
@@ -221,7 +180,7 @@ internal static class Layouts {
             var least => (least, float.Max(least, float.Max(0f, node.Axis.Of(split.ContentBox.Size) - Rule(split, node.Axis)) - Sized(node.Second, node.Axis).Limits.Min)),
         };
 
-    private static float MinContent(Laid laid) => laid.Switch(box: static _ => 0f, text: static text => text.MinContent);
+    private static float MinContent(Laid laid) => laid.Texted.Map(static text => text.MinContent).IfNone(0f);
 
     // --- [BUILD]
     private static Laid Built(Cascade cascade, Seq<Key> path, Node node, Option<Laid> held, HashMap<Seq<Key>, Laid> prior) =>
@@ -235,19 +194,13 @@ internal static class Layouts {
         Seq<Laid> members = Members(node).Map(member => path.Add(member.Segment) switch {
             var at => Built(inner, at, member.Node, Held(index, prior, at), index),
         });
-        Laid built = node.Switch(
-            (Path: path, Node: node, Cascade: cascade, Style: style, Inner: inner, Members: members),
-            box: Boxing, flex: Boxing, grid: Boxing, lazy: Boxing, overlay: Boxing, choice: Choosing, scroll: Boxing, split: Boxing, plot: Boxing, pin: Boxing, mark: Boxing,
-            text: Setting, glyph: Boxing, image: Boxing, slot: Boxing, styled: Boxing);
+        Laid built = node.SwitchPartially((Path: path, Node: node, Cascade: cascade, Style: style, Inner: inner, Members: members), @default: Boxing, choice: static (held, choice) => Boxing(held, choice) with { Children = held.Members.Take(1) }, text: Setting);
         float width = Wide(built);
         return built with { Intrinsic = new SKSize(width, Tall(built, width)) };
     }
 
     private static Laid Boxing((Seq<Key> Path, Node Node, Cascade Cascade, Style Style, Cascade Inner, Seq<Laid> Members) held, Node _) =>
         new Laid.Box { Path = held.Path, Node = held.Node, Cascade = held.Cascade, Style = held.Style, Members = held.Members, Children = held.Members };
-
-    private static Laid Choosing((Seq<Key> Path, Node Node, Cascade Cascade, Style Style, Cascade Inner, Seq<Laid> Members) held, Node.Choice _) =>
-        new Laid.Box { Path = held.Path, Node = held.Node, Cascade = held.Cascade, Style = held.Style, Members = held.Members, Children = held.Members.Take(1) };
 
     private static Laid Setting((Seq<Key> Path, Node Node, Cascade Cascade, Style Style, Cascade Inner, Seq<Laid> Members) held, Node.Text text) =>
         Typesetting.Resolve(held.Cascade.Theme, held.Style) switch {
@@ -257,8 +210,8 @@ internal static class Layouts {
         };
 
     private static Seq<(Key Segment, Node Node)> Members(Node node) =>
-        node.Switch(
-            box: static _ => Seq<(Key, Node)>(),
+        node.SwitchPartially(
+            @default: static held => Segments(held.Inner.ToSeq()),
             flex: static flex => Segments(flex.Children),
             grid: static grid => Segments(grid.Rows.Flatten()),
             lazy: static lazy => lazy.Items.Choose(key => lazy.Realized.Find(key).Map(realized => (key, realized))),
@@ -269,14 +222,7 @@ internal static class Layouts {
                 (split.First.Key.IfNone(static () => new Key.Ordinal(0)), split.First),
                 Handle(Role.Divider),
                 (split.Second.Key.IfNone(static () => new Key.Ordinal(1)), split.Second)),
-            plot: static plot => Segments(plot.Children + plot.Labels.Map(static label => (Node)label)),
-            pin: static pin => Segments(Seq(pin.Content)),
-            mark: static _ => Seq<(Key, Node)>(),
-            text: static _ => Seq<(Key, Node)>(),
-            glyph: static _ => Seq<(Key, Node)>(),
-            image: static _ => Seq<(Key, Node)>(),
-            slot: static _ => Seq<(Key, Node)>(),
-            styled: static styled => Segments(Seq(styled.Content)));
+            plot: static plot => Segments(plot.Children + plot.Labels.Map(static label => (Node)label)));
 
     private static (Key Segment, Node Node) Handle(Role role) => (new Key.Handle(), new Node.Box { Key = new Key.Handle(), Role = role });
 
@@ -299,24 +245,19 @@ internal static class Layouts {
         laid.Switch(along, box: static (held, box) => Contained(box, held), text: static (held, text) => MathF.Ceiling(held.Of(text.Typeset.Size)));
 
     private static float Contained(Laid.Box laid, Orientation along) =>
-        laid.Node.Switch(
+        laid.Node.SwitchPartially(
             (Laid: laid, Along: along),
-            box: static (_, _) => 0f,
-            flex: static (held, flex) => Summed(held.Laid.Children, held.Along, flex.Axis == held.Along, Gap(held.Laid)),
+            @default: static (held, _) => Widest(held.Laid.Children, held.Along),
+            flex: static (held, flex) => Summed(held.Laid.Children, flex.Axis, held.Along, Gap(held.Laid)),
             grid: static (held, grid) => Spanned(held.Laid, grid, held.Along),
             lazy: static (held, lazy) => Spread(held.Laid, lazy, held.Along),
             overlay: static (held, _) => Widest(held.Laid.Children.Head.ToSeq(), held.Along),
             choice: static (held, choice) => Widest((held.Along == choice.Axis ? held.Laid.Members : held.Along.Map(horizontal: held.Laid.Members, vertical: held.Laid.Children)).Take(1), held.Along),
             scroll: static (held, _) => Widest(Panes(held.Laid), held.Along),
-            split: static (held, split) => Summed(held.Laid.Children, held.Along, split.Axis == held.Along, 0f),
+            split: static (held, split) => Summed(held.Laid.Children, split.Axis, held.Along, 0f),
             plot: static (held, _) => Widest(held.Laid.Children.Filter(static child => child.Node.Pinned.IsNone), held.Along),
-            pin: static (held, _) => Widest(held.Laid.Children, held.Along),
-            mark: static (_, _) => 0f,
-            text: static (_, _) => 0f,
             glyph: static (held, _) => held.Laid.Style.Metrics[Metric.Icon],
-            image: static (held, image) => held.Along.Of(new SKSize(image.Source.Width / image.Density, image.Source.Height / image.Density)),
-            slot: static (_, _) => 0f,
-            styled: static (held, _) => Widest(held.Laid.Children, held.Along));
+            image: static (held, image) => held.Along.Of(new SKSize(image.Source.Width / image.Density, image.Source.Height / image.Density)));
 
     private static float Spanned(Laid laid, Node.Grid grid, Orientation along) {
         float gap = Gap(laid);
@@ -339,8 +280,8 @@ internal static class Layouts {
             : Summed(Columned(Celled(laid, lazy, lanes), Tracked(lazy.Across, lanes), along, float.PositiveInfinity), gap);
     }
 
-    private static float Summed(Seq<Laid> children, Orientation along, bool sum, float gap) =>
-        sum ? Summed(children.Map(child => Basis(child, along, float.PositiveInfinity)), gap) : Widest(children, along);
+    private static float Summed(Seq<Laid> children, Orientation axis, Orientation along, float gap) =>
+        axis == along ? Summed(children.Map(child => Basis(child, along, float.PositiveInfinity)), gap) : Widest(children, along);
 
     private static float Summed(Seq<float> extents, float gap) => Enumerable.Sum(extents) + (gap * float.Max(0, extents.Count - 1));
 
@@ -392,7 +333,7 @@ internal static class Layouts {
             box: static (_, box) => (Laid)box,
             text: static (room, wrapped) => wrapped with {
                 Typeset = room.Pass.Prior.Find(wrapped.Path)
-                    .Bind(static held => held.Switch(box: static _ => Option<Laid.Text>.None, text: static text => Some(text)))
+                    .Bind(static held => held.Texted)
                     .Filter(held => held.Source.Equals(wrapped.Source) && held.Style.Equals(wrapped.Style) && held.Frame.Width.CompareTo(wrapped.Frame.Width) is 0)
                     .Map(static held => held.Typeset)
                     .IfNone(() => Typesetting.Set(wrapped.Source, Styles.Enter(wrapped.Cascade, wrapped.Source).Inner, wrapped.TextStyle, room.Space)),
@@ -427,9 +368,9 @@ internal static class Layouts {
         };
 
     private static Laid Arranged(Room room) =>
-        room.Laid.Node.Switch(
+        room.Laid.Node.SwitchPartially(
             room,
-            box: static (held, _) => held.Laid,
+            @default: static (held, _) => Shown(held.Laid, held.Laid.Members.Map(member => Filled(held, member))),
             flex: static (held, flex) => Shown(held.Laid, flex.Axis == held.Along ? Along(held) : held.Laid.Members.Map(member => Layered(held, member)) switch {
                 var layered => flex.Baseline && held.Along == Orientation.Vertical ? Baselined(held, layered) : layered,
             }),
@@ -439,14 +380,7 @@ internal static class Layouts {
             choice: static (held, choice) => Chosen(held, choice),
             scroll: static (held, scroll) => Scrolled(held, scroll),
             split: static (held, split) => Shown(held.Laid, split.Axis == held.Along ? Divided(held, split) : held.Laid.Members.Map(member => Filled(held, member))),
-            plot: static (held, plot) => Charted(held, plot),
-            pin: static (held, _) => Shown(held.Laid, held.Laid.Members.Map(member => Filled(held, member))),
-            mark: static (held, _) => held.Laid,
-            text: static (held, _) => held.Laid,
-            glyph: static (held, _) => held.Laid,
-            image: static (held, _) => held.Laid,
-            slot: static (held, _) => held.Laid,
-            styled: static (held, _) => Shown(held.Laid, held.Laid.Members.Map(member => Filled(held, member))));
+            plot: static (held, plot) => Charted(held, plot));
 
     private static Seq<Laid> Along(Room room) {
         Seq<Laid> children = room.Laid.Members;

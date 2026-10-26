@@ -88,7 +88,7 @@ public static class HostTheme {
         new(typeof(Control), nameof(Control.LoadComplete), (deliver, site, retain) =>
             DisposalOps.Acquire(owned =>
                 from mounted in DisposalOps.Acquire(IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release)), owned)
-                let mount = DisposalOps.Replace(windowOwned =>
+                let mount = DisposalOps.Acquire(windowOwned =>
                     IO.lift(() => Optional(control.ParentWindow)).Bind(window => window.Traverse(parent =>
                         Subscriptions.Host<EventArgs>(typeof(Window),
                             handler => parent.LogicalPixelSizeChanged += handler,

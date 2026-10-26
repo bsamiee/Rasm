@@ -69,10 +69,6 @@ public static class ArchivableDictionaries {
     public static Fin<Option<T>> Find<T>(ArchivableDictionary source, string key) where T : notnull =>
         source.TryGetValue(key, out object held) ? Conversions.Typed<T>(held, key).Map(Some) : Option<T>.None;
 
-    public static Fin<Option<T>> FindEnum<T>(ArchivableDictionary source, string key) where T : struct, Enum =>
-        Find<string>(source, key).Bind(static text => text.Traverse(static held =>
-            Enum.TryParse(held, ignoreCase: true, out T value) ? Fin.Succ(value) : Errors.ParseError($"{held} is no {typeof(T).Name}")).As());
-
     public static Fin<T> Required<T>(ArchivableDictionary source, string key) where T : notnull =>
         from found in Find<T>(source, key)
         from value in found.ToFin(new Refused(key, Refused.Absent))
@@ -85,9 +81,6 @@ public static class ArchivableDictionaries {
         Setter<T>.Set.Match(
             Some: set => Refused.Unless(set(target, key, value), nameof(ArchivableDictionary.Set)),
             None: () => Error.New($"{nameof(ArchivableDictionary.Set)} takes no {typeof(T).Name} for key {key}"));
-
-    public static Fin<Unit> SetEnum<T>(ArchivableDictionary target, string key, T value) where T : struct, Enum =>
-        Refused.Unless(target.SetEnumValue(key, value), nameof(ArchivableDictionary.SetEnumValue));
 
     public static Fin<ArchivableDictionary> Nested(Seq<(string Key, Fin<ArchivableDictionary> Value)> rows) =>
         from target in Fin.Succ(new ArchivableDictionary())

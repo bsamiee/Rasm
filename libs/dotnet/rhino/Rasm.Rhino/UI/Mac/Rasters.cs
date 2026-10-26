@@ -64,10 +64,8 @@ internal static class DrawnRasters {
                 from drawing in DisposalOps.Acquire(IO.lift(() => {
                     NSImage native = new(image, new CGSize(frame.Size.Width, frame.Size.Height));
                     return (Image: native, Ownership: new Disposal<NSImage>(native, static held => held.Dispose()));
-                }), static held => IO.lift(held.Ownership.Dispose), held => temporary(held.Ownership))
-                from bitmap in DisposalOps.Acquire(IO.lift(() => new Bitmap(new BitmapHandler(drawing.Image))), held => {
-                    drawing.Ownership.Relinquish();
-                    owned(held);
-                })
+                }), static held => held.Ownership, temporary)
+                from bitmap in DisposalOps.Acquire(IO.lift(() => new Bitmap(new BitmapHandler(drawing.Image))), owned)
+                from adopted in IO.lift(drawing.Ownership.Relinquish)
                 select bitmap, DisposalOps.Release), (bitmap, _) => retain(bitmap));
 }

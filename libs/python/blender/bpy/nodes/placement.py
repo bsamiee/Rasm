@@ -1,28 +1,32 @@
 """Node-space measurement, graph arrangement, and deferred placement of owned nodes."""
 
 from collections.abc import Callable, Generator, Hashable, Mapping
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager
 from functools import reduce
 from graphlib import TopologicalSorter
 from itertools import accumulate
 from operator import sub
-from typing import Annotated, Self
+from typing import Annotated, Final, Self
 
 import bpy
-from expression import Nothing, Option
-from expression.extra.result import catch
+from expression import Nothing, Ok, Option
 import msgspec
 
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.ids.store import Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisition, Band
-from blender.bpy.faults import BlenderRegisterFault, BlenderResult
+from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes.trees import tree_of
+from blender.bpy.ui.drawing.handlers import hooked
 from blender.bpy.ui.screens.areas import Located
 from blender.bpy.ui.screens.regions import RegionView
 from blender.imaging.faults import accumulated
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+LOCATION: Final = Descriptor.declared(bpy.types.Node, "location_absolute", bpy.types.FloatProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -74,7 +78,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [MEASUREMENT]
 
-    def owned(self, tree: bpy.types.NodeTree, identity: Identity, view: RegionView, location: Descriptor[bpy.types.FloatProperty]) -> tuple[tuple[str, tuple[float, float]], ...]:
+    def owned(self, tree: bpy.types.NodeTree, identity: Identity, view: RegionView) -> tuple[tuple[str, tuple[float, float]], ...]:
         """Returns changed owned node positions once every owned node draws."""
         marked = {node.name: node for node in tree.nodes if not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()}
         sizes = {name: NodeSize.of(node, view) for name, node in marked.items()}
@@ -92,35 +96,32 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
             return position.x, position.y
 
         placed = self.spacing.arranged(sizes, links, bands, origin) if all(size.width > 0.0 and size.height > 0.0 for size in sizes.values()) else {}
-        return tuple((name, at) for name, at in placed.items() if not location.equal(location.read(marked[name]), at))
+        return tuple((name, at) for name, at in placed.items() if not LOCATION.equal(LOCATION.read(marked[name]), at))
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Registers scoped draw handler over node location member."""
+    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+        """Registers the node editor draw hook queueing owned node positions."""
+
+        def moved(held: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> BlenderResult[Option[str]]:
+            """Writes owned node positions still in tree, with no undo step."""
+            desired = dict(places)
+            return (
+                held
+                .resolve()
+                .bind(tree_of)
+                .bind(
+                    lambda tree: accumulated(
+                        LOCATION.write(node, desired[node.name]) for node in tree.nodes if node.name in desired and not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()
+                    )
+                )
+                .map(lambda _: Nothing)
+            )
 
         @contextmanager
-        def drawn(location: Descriptor[bpy.types.FloatProperty]) -> Generator[BlenderResult[None]]:
-            """Retires pending writes before removing draw handler."""
-
-            def moved(held: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> BlenderResult[Option[str]]:
-                """Writes owned node positions still in tree, with no undo step."""
-                desired = dict(places)
-                return (
-                    held
-                    .resolve()
-                    .bind(tree_of)
-                    .bind(
-                        lambda tree: accumulated(
-                            location.write(node, desired[node.name])
-                            for node in tree.nodes
-                            if node.name in desired and not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()
-                        )
-                    )
-                    .map(lambda _: Nothing)
-                )
-
-            with ExitStack() as resources, identity.reports.deferred(moved) as later:
+        def drawn() -> Generator[BlenderResult[None]]:
+            """Retires pending writes after removing the draw hook."""
+            with identity.reports.deferred(moved) as later:
 
                 def drew() -> None:
                     """Queues changed owned node positions of active editable tree."""
@@ -129,19 +130,14 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                         case bpy.types.SpaceNodeEditor(
                             edit_tree=bpy.types.NodeTree(is_editable=True) as tree
                         ), bpy.types.Window() as window, bpy.types.Area() as area, bpy.types.Region() as region if not window.modal_operators:
-                            if places := self.owned(tree, identity, RegionView(located=Located(window=window, area=area), region=region), location):
+                            if places := self.owned(tree, identity, RegionView(located=Located(window=window, area=area), region=region)):
                                 for found in holder(tree).to_list():
                                     later(Handle.of(found), places)
 
-                region, phase = "WINDOW", "POST_VIEW"
-                added = catch(lambda: bpy.types.SpaceNodeEditor.draw_handler_add(drew, (), region, phase), exception=TypeError)().map_error(
-                    lambda error: (BlenderRegisterFault(request=(bpy.types.SpaceNodeEditor.__name__, region, phase), error=error),)
-                )
-                for handle in added.to_option().to_list():
-                    resources.callback(bpy.types.SpaceNodeEditor.draw_handler_remove, handle, region)
-                yield added.map(lambda _: None)
+                with hooked(bpy.types.SpaceNodeEditor, drew, "WINDOW", "POST_VIEW") as added:
+                    yield added
 
-        return Descriptor.resolve(bpy.types.Node, "location_absolute", bpy.types.FloatProperty).map(lambda location: ((Band.DRAW_HANDLERS, drawn(location)),))
+        return Ok(((Band.DRAW_HANDLERS, drawn()),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

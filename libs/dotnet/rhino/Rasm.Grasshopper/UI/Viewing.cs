@@ -8,13 +8,9 @@ namespace Rasm.Grasshopper.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Viewing {
-    // --- [DURATIONS]
-    public static IO<Grasshopper2.UI.Animation.Duration> Length(Grasshopper2.UI.Animation.Duration duration) =>
-        IO.lift(() => HostTheme.Accessibility.ReduceMotion ? Grasshopper2.UI.Animation.Duration.Abrupt : duration);
-
     // --- [NAVIGATION]
     public static IO<Unit> Navigate(Canvas canvas, NamedView view, (float min, float max) limits, Grasshopper2.UI.Animation.Duration duration) =>
-        (from length in Length(duration)
+        (from length in IO.lift(() => HostTheme.Accessibility.ReduceMotion ? Grasshopper2.UI.Animation.Duration.Abrupt : duration)
          from frame in IO.lift(() => view.ResolveRectangle(canvas.Document, out RectangleF found) ? Fin.Succ(found) : new Refused(nameof(NamedView.ResolveRectangle), Refused.Absent))
          from _ in IO.lift(() => canvas.Navigate(frame, limits, length))
          select unit)

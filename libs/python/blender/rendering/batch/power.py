@@ -17,7 +17,7 @@ from blender.imaging.faults import paired, scoped
 from blender.rendering.batch.processes import ran, refused, spawned
 from blender.rendering.batch.progress import Progress
 from blender.rendering.batch.supervision import stop
-from blender.rendering.faults import Call, RenderingResult, RenderingSystemFault
+from blender.rendering.faults import RenderingResult, RenderingSystemFault
 
 if sys.platform == "win32":
     from ctypes import get_last_error, WinDLL, WinError, wintypes  # ty: ignore[possibly-missing-import]
@@ -45,14 +45,14 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
 
                 def changed(flags: int) -> RenderingResult[int]:
                     previous: int = state(flags)
-                    return Ok(previous) if previous else Error((RenderingSystemFault(request=(Call.EXECUTION_STATE, flags), error=WinError(get_last_error())),))
+                    return Ok(previous) if previous else Error((RenderingSystemFault(request=(state.__name__, flags), error=WinError(get_last_error())),))
 
                 return scoped(changed(continuous | system), lambda _: operation(), changed)
 
             try:
                 library = WinDLL("kernel32", use_last_error=True)
             except OSError as error:
-                return Error((RenderingSystemFault(request=(Call.EXECUTION_STATE, continuous | system), error=error),))
+                return Error((RenderingSystemFault(request=(WinDLL.__name__, continuous | system), error=error),))
             return inhibited(library)
 
         pid = str(os.getpid())

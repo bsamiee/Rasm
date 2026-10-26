@@ -1,0 +1,49 @@
+using System;
+using LanguageExt;
+using LanguageExt.Common;
+using Rasm.Rhino;
+using Rhino.Display;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino {
+    internal static class Refused {
+        internal static Fin<T> UnlessFound<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
+    }
+
+    internal static class Missing {
+        internal static Fin<T> Unless<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
+    }
+
+    internal static class DisposalOps {
+        internal static IO<TResult> Found<T, TResult>(Func<T?> acquire, string member, Func<T, IO<TResult>> body) where T : class, IDisposable =>
+            IO.lift(() => Refused.UnlessFound(acquire(), member)).Bind(body);
+    }
+}
+
+internal static class LeakedMode {
+    internal static IO<Unit> Viewed(RhinoViewport viewport, Guid id) =>
+        IO.lift(() => { viewport.DisplayMode = {|#0:DisplayModeDescription.GetDisplayMode(id)|}; });
+
+    internal static Guid Current(RhinoViewport viewport) => {|#1:viewport.DisplayMode|}.Id;
+
+    internal static IO<DisplayModeDescription> Displayed(Guid id) =>
+        from display in IO.lift(() => Missing.Unless({|#3:DisplayModeDescription.GetDisplayMode(id)|}, nameof(DisplayModeDescription.GetDisplayMode)))
+        select display;
+
+    internal static Fin<Guid> Named(string name) => Refused.UnlessFound({|#2:DisplayModeDescription.FindByName(name)|}, nameof(DisplayModeDescription.FindByName)).Map(static mode => mode.Id);
+}
+
+internal static class ReleasedMode {
+    internal static IO<Guid> Current(RhinoViewport viewport) =>
+        DisposalOps.Found(() => viewport.DisplayMode, nameof(RhinoViewport.DisplayMode), static mode => IO.pure(mode.Id));
+
+    internal static IO<TValue> With<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
+        DisposalOps.Found(() => DisplayModeDescription.GetDisplayMode(id), nameof(DisplayModeDescription.GetDisplayMode), body);
+
+    internal static Guid Used(string name) {
+        using DisplayModeDescription mode = DisplayModeDescription.FindByName(name);
+        return mode.Id;
+    }
+
+    internal static void Assigned(RhinoViewport viewport, DisplayModeDescription mode) => viewport.DisplayMode = mode;
+}

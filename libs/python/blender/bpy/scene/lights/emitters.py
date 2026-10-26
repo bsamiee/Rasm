@@ -2,7 +2,7 @@
 
 from collections import deque
 from collections.abc import Callable
-from typing import Annotated, ClassVar
+from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_view3d import VIEW3D_MT_light_add
 import bpy
@@ -12,23 +12,32 @@ import numpy as np
 
 from blender.bpy.commands.operators import Done, Operator
 from blender.bpy.data.ids.ownership import kept, Ownership, Saved
-from blender.bpy.data.ids.store import Handle, vacant
-from blender.bpy.data.rna.descriptors import Descriptor, IdName, typed, written
+from blender.bpy.data.ids.store import Handle, IdName, vacant
+from blender.bpy.data.rna.descriptors import Descriptor, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.bpy.nodes import changes
-from blender.bpy.nodes.graphs import End, Graph, Link, Node
+from blender.bpy.nodes.graphs import Expr, Graph, mixed
 from blender.bpy.nodes.trees import emptied, socket_at, tree_of
-from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned
+from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, VERTEX
 from blender.bpy.settings.attachments import Attachment, reconciling
+from blender.bpy.settings.history import Retention
 from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
-from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
+from blender.bpy.ui.layout.sections import Section, Single
+from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.surfaces.appends import Append
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Finite, Gated, NonNegative, Presentation, Quantity, Rgb
-from blender.rendering.history import Retention
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Kelvin = Annotated[Gated[Annotated[float, TEMPERATURE.meta]], TEMPERATURE.presentation]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+TEMPERATURE: Final = Descriptor.declared(bpy.types.Light, "temperature", bpy.types.FloatProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -37,13 +46,9 @@ class MeshLight(msgspec.Struct, frozen=True, kw_only=True):
     """Emissive square a person edits as one light."""
 
     size: Annotated[NonNegative, msgspec.Meta(description="Square edge length"), Presentation(soft=Some((0.0254, 3.048)), quantity=Some(Quantity.LENGTH))] = 0.9144
-    strength: Annotated[NonNegative, msgspec.Meta(description="Emission strength"), Presentation(soft=Some((0.0, 100.0)), decimals=Some(2))] = 1.0
+    strength: Annotated[NonNegative, msgspec.Meta(description="Emission strength"), Presentation(soft=Some((0.0, 100.0)), precision=Some(2))] = 1.0
     color: Annotated[Rgb[Finite], msgspec.Meta(description="Emission filter")] = Rgb(red=1.0, green=1.0, blue=1.0)
-    temperature: Annotated[
-        Gated[Annotated[float, msgspec.Meta(ge=800.0, le=20000.0)]],
-        msgspec.Meta(description="Blackbody color the color filters"),
-        Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE)),
-    ] = Gated(enabled=True, value=5500.0)
+    temperature: Annotated[Kelvin, msgspec.Meta(description="Blackbody color the color filters")] = Gated(enabled=True, value=5500.0)
     single_sided: Annotated[bool, msgspec.Meta(description="Front face alone emits")] = True
     constant: Annotated[bool, msgspec.Meta(title="Constant Falloff", description="Strength equal at every distance")] = False
     camera: Annotated[bool, msgspec.Meta(description="Visible to camera")] = False
@@ -65,7 +70,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Nothing` naming no undo step, or `absent`, `register`, `read`, and `lit` faults.
         """
-        return paired(light.resolve(), MeshLights.attachment.bound(identity)).bind(lambda pair: pair[1].read(pair[0]).bind(lambda record: lit(record, pair[0], identity))).map(lambda _: Nothing)
+        return light.resolve().bind(lambda item: MeshLights.attachment.read(identity, item).bind(lambda record: lit(record, item, identity))).map(lambda _: Nothing)
 
     attachment: ClassVar[Attachment[MeshLight]] = Attachment(key="mesh_light", form=MeshLight, owner=bpy.types.Object, changed=Some(reconciling(bpy.types.Object, reshaped)))
     light: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="mesh_light", saved=Saved.USED, single=False)
@@ -90,7 +95,9 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
     def section(self) -> Section:
         """Returns mesh light section of active object."""
         return Single(
-            key="mesh_light", title="Mesh Light", store=Some(Hosted(host=Member(root=bpy.types.LayerObjects, path="active"), store=Store(attachment=MeshLights.attachment, retention=self.retention)))
+            key="mesh_light",
+            title="Mesh Light",
+            store=Some(Hosted(host=Some(Member(root=bpy.types.LayerObjects, path="active")), store=Store(attachment=MeshLights.attachment, retention=self.retention))),
         )
 
 
@@ -151,70 +158,28 @@ def emitters(owner: bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object) ->
     return tuple(item for item in (owner.objects if isinstance(owner, bpy.types.Scene | bpy.types.ViewLayer) else (owner,)) if emitting(item))
 
 
-def focused(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Object]:
-    """Returns active object of view layer, `absent` when none is active."""
-    objects = view_layer.objects
-    return Option.of_optional(objects.active).to_result_with(lambda: (BlenderAbsentFault(owner=repr(objects), key="active"),))
-
-
 def picked(chosen: frozenset[bpy.types.Object], view_layer: bpy.types.ViewLayer) -> BlenderResult[None]:
     """Selects chosen objects of view layer alone."""
     return accumulated(reconciled(ObjectState(selected=Some(item in chosen)), item, (view_layer,)) for item in view_layer.objects).map(lambda _: None)
 
 
 def emission_graph(record: MeshLight) -> BlenderResult[Graph]:
-    """Returns shader graph of mesh light record.
-
-    Args:
-        record: Mesh light values.
-
-    Returns:
-        Graph, or `absent` and `choice` faults for missing node members.
-    """
-    rgba, tinted, constant, sided = (*msgspec.structs.astuple(record.color), 1.0), record.temperature.enabled, record.constant, record.single_sided
-    surface = (
-        (
-            Link(source=End(node="facing", socket="Backfacing"), target=End(node="sides", socket="Fac")),
-            Link(source=End(node="emission", socket="Emission"), target=End(node="sides", socket="Shader")),
-            Link(source=End(node="back", socket="BSDF"), target=End(node="sides", socket="Shader_001")),
-            Link(source=End(node="sides", socket="Shader"), target=End(node="output", socket="Surface")),
-        )
-        if sided
-        else (Link(source=End(node="emission", socket="Emission"), target=End(node="output", socket="Surface")),)
+    """Returns shader graph of mesh light record, `absent` and `choice` faults for missing node members."""
+    filtered = (*msgspec.structs.astuple(record.color), 1.0)
+    blackbody = Expr(kind=bpy.types.ShaderNodeBlackbody, inputs=(("Temperature", record.temperature.value),), socket="Color", shape="RGBA")
+    falloff = Expr(kind=bpy.types.ShaderNodeLightFalloff, inputs=(("Strength", record.strength),), socket="Constant")
+    emission = Expr(
+        kind=bpy.types.ShaderNodeEmission,
+        inputs=(("Color", mixed(1.0, blackbody, filtered, blend="MULTIPLY") if record.temperature.enabled else filtered), ("Strength", falloff if record.constant else record.strength)),
+        socket="Emission",
     )
-    return paired(
-        paired(Descriptor.resolve(bpy.types.ShaderNodeOutputMaterial, "is_active_output", bpy.types.BoolProperty), Descriptor.resolve(bpy.types.ShaderNodeMix, "data_type", bpy.types.EnumProperty)),
-        Descriptor.resolve(bpy.types.ShaderNodeMix, "blend_type", bpy.types.EnumProperty),
-    ).map(
-        lambda found: Graph(
-            kind=bpy.types.ShaderNodeTree,
-            nodes={
-                "output": Node(kind=bpy.types.ShaderNodeOutputMaterial, members={found[0][0]: True}),
-                "emission": Node(kind=bpy.types.ShaderNodeEmission, inputs={**({} if tinted else {"Color": rgba}), **({} if constant else {"Strength": record.strength})}),
-                **(
-                    {
-                        "blackbody": Node(kind=bpy.types.ShaderNodeBlackbody, inputs={"Temperature": record.temperature.value}),
-                        "tint": Node(kind=bpy.types.ShaderNodeMix, members={found[0][1]: "RGBA", found[1]: "MULTIPLY"}, inputs={"Factor_Float": 1.0, "B_Color": rgba}),
-                    }
-                    if tinted
-                    else {}
-                ),
-                **({"falloff": Node(kind=bpy.types.ShaderNodeLightFalloff, inputs={"Strength": record.strength})} if constant else {}),
-                **({"facing": Node(kind=bpy.types.ShaderNodeNewGeometry), "back": Node(kind=bpy.types.ShaderNodeBsdfTransparent), "sides": Node(kind=bpy.types.ShaderNodeMixShader)} if sided else {}),
-            },
-            links=(
-                *(
-                    (
-                        Link(source=End(node="blackbody", socket="Color"), target=End(node="tint", socket="A_Color")),
-                        Link(source=End(node="tint", socket="Result_Color"), target=End(node="emission", socket="Color")),
-                    )
-                    if tinted
-                    else ()
-                ),
-                *((Link(source=End(node="falloff", socket="Constant"), target=End(node="emission", socket="Strength")),) if constant else ()),
-                *surface,
-            ),
-        )
+    sides = Expr(
+        kind=bpy.types.ShaderNodeMixShader,
+        inputs=(("Fac", Expr(kind=bpy.types.ShaderNodeNewGeometry, socket="Backfacing")), ("Shader", emission), ("Shader_001", Expr(kind=bpy.types.ShaderNodeBsdfTransparent, socket="BSDF"))),
+        socket="Shader",
+    )
+    return Graph.lowered(
+        bpy.types.ShaderNodeTree, Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", sides if record.single_sided else emission),), members=(("is_active_output", True),))
     )
 
 
@@ -231,9 +196,7 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
     """
     half = record.size / 2.0
     visibility = Snapshot.of(bpy.types.Object, {"visible_camera": record.camera, "visible_shadow": False, "show_wire": True, "show_all_edges": True})
-    vertices = Descriptor.resolve(bpy.types.MeshVertex, "co", bpy.types.FloatProperty).bind(
-        lambda co: Descriptor.quantized(co.prop, np.array(((-half, -half, 0.0), (-half, half, 0.0), (half, half, 0.0), (half, -half, 0.0)), dtype=np.float64))
-    )
+    vertices = Descriptor.quantized(VERTEX.prop, np.array(((-half, -half, 0.0), (-half, half, 0.0), (half, half, 0.0), (half, -half, 0.0)), dtype=np.float64))
 
     def built() -> BlenderResult[bpy.types.Material]:
         return kept(BlenderEditFault.attempted(f"{item.name} material", lambda: bpy.data.materials.new(vacant(item.name, bpy.data.materials.keys()))), emptied)
@@ -288,4 +251,4 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "focused", "lit", "made", "picked", "strengths"]
+__all__ = ["TEMPERATURE", "Kelvin", "MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "lit", "made", "picked", "strengths"]

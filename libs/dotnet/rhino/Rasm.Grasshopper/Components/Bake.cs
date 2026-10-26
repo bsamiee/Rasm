@@ -35,11 +35,7 @@ public static class BakeOps {
                 ObjectAttributes attributes = row.Attributes;
                 ArchivableDictionary dictionary = attributes.UserDictionary;
                 attributes.ObjectId = id;
-                _ = dictionary.Set(BakeKey.BakeProcessName, row.Key.ProcessName);
-                _ = dictionary.Set(BakeKey.BakeProcessGuid, row.Key.ProcessGuid);
-                _ = dictionary.Set(BakeKey.BakeTwigIndex, row.Key.TwigIndex);
-                _ = dictionary.Set(BakeKey.BakeItemIndex, row.Key.ItemIndex);
-                _ = dictionary.Set(BakeKey.BakePartIndex, row.Key.PartIndex);
+                row.Key.AssignToDictionary(dictionary);
                 _ = dictionary.Set(BakeKey.BakeObjectGuid, id);
                 _ = dictionary.Remove(BakeKey.BakeObjectHash);
                 return (Previous: previous, row.Geometry, Attributes: attributes);

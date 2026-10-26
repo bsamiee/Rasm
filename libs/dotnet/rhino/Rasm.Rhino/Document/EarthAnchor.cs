@@ -52,8 +52,8 @@ public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordi
                 Conversions.Present(point.Name),
                 Conversions.Present(point.Description)));
 
-    public static IO<EarthAnchor> Read(RhinoDoc document) =>
-        DisposalOps.Within(() => document.EarthAnchorPoint, static point => IO.lift(() => Of(point)));
+    public static IO<EarthAnchor> Read(Func<EarthAnchorPoint> point) =>
+        DisposalOps.Within(point, static held => IO.lift(() => Of(held)));
 
     public IO<Unit> Apply(EarthAnchorPoint point) =>
         IO.lift(() => {
@@ -66,11 +66,8 @@ public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordi
             point.Description = Conversions.Unset(Description);
         });
 
-    public IO<Unit> Write(RhinoDoc document) =>
-        DisposalOps.Within(() => document.EarthAnchorPoint, point =>
-            from applied in Apply(point)
-            from written in IO.lift(() => { document.EarthAnchorPoint = point; })
-            select written);
+    public IO<Unit> Write(Func<EarthAnchorPoint> point, Action<EarthAnchorPoint> commit) =>
+        DisposalOps.Within(point, held => Apply(held).Bind(_ => IO.lift(() => commit(held))));
 }
 
 public sealed record Georeference {
@@ -80,7 +77,7 @@ public sealed record Georeference {
 
     public Transform EarthToModel { get; }
 
-    public static IO<Georeference> Read(RhinoDoc document) => EarthAnchor.Read(document).Bind(anchor => Of(anchor, document.ModelUnits));
+    public static IO<Georeference> Read(RhinoDoc document) => EarthAnchor.Read(() => document.EarthAnchorPoint).Bind(anchor => Of(anchor, document.ModelUnits));
 
     public static IO<Georeference> Of(EarthAnchor anchor, LengthUnit modelUnits) =>
         from located in IO.lift(anchor.Located)

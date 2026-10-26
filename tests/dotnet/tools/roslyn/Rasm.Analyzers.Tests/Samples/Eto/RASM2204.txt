@@ -1,0 +1,128 @@
+using System;
+using System.Runtime.InteropServices;
+using AppKit;
+using Eto.Forms;
+using Foundation;
+using LanguageExt;
+using Rasm.Rhino;
+using static LanguageExt.Prelude;
+
+namespace Foundation {
+    [AttributeUsage(AttributeTargets.Class)]
+    public sealed class RegisterAttribute(string name, bool isWrapper) : Attribute {
+        public string Name { get; } = name;
+        public bool IsWrapper { get; } = isWrapper;
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class ExportAttribute(string selector) : Attribute {
+        public string Selector { get; } = selector;
+    }
+
+    [Register("NSObject", true)]
+    public class NSObject {
+        public virtual void AwakeFromNib() { }
+    }
+
+    [Register("NSNotification", true)]
+    public class NSNotification : NSObject {
+        public NSObject? Object => null;
+    }
+
+    [Register("NSNotificationCenter", true)]
+    public class NSNotificationCenter : NSObject {
+        public NSObject AddObserver(string name, Action<NSNotification> notify) => this;
+    }
+}
+
+namespace AppKit {
+    [Register("NSAnimationContext", true)]
+    public class NSAnimationContext : NSObject {
+        public double Duration { get; set; }
+
+        public static void RunAnimation(Action<NSAnimationContext> changes, Action completion) { }
+    }
+}
+
+namespace Eto.Mac {
+    public static class ObjCExtensions {
+        public static bool AddMethod(nint type, nint selector, Delegate implementation, string signature) => true;
+    }
+}
+
+namespace Rasm.Rhino {
+    public sealed class CallbackSite(string member) {
+        public string Member { get; } = member;
+    }
+
+    public static class Callbacks {
+        public static void Run<T>(IO<T> effect, CallbackSite site) => _ = effect.RunSafe();
+        public static T Answer<T>(IO<T> effect, Func<T> failed, CallbackSite site) => effect.RunSafe().IfFail(_ => failed());
+        public static EventHandler<TArgs> Handler<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) => (_, args) => Run(deliver(args), site);
+    }
+}
+
+internal sealed class NotificationArgs(NSNotification notification) : EventArgs {
+    public NSNotification Notification { get; } = notification;
+}
+
+internal sealed class DirectCallbacks {
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void Frame(nint view, nint selector, nint link);
+
+    private static readonly Frame Deliver = static (_, _, link) => {|#0:Ticked(link).Iter(static held => Callbacks.Run(IO.pure(held), new CallbackSite("Deliver")))|};
+
+    internal static void Animated(NSAnimationContext context, Func<double> duration) =>
+        NSAnimationContext.RunAnimation(changes => { {|#1:changes.Duration = duration()|}; }, () => Callbacks.Run(IO.pure(unit), new CallbackSite("RunAnimation")));
+
+    internal static NSObject Observed(NSNotificationCenter center, Action<NSObject?> changed) =>
+        center.AddObserver("changed", notification => {|#2:changed(notification.Object)|});
+
+    internal static bool Added(nint type, nint selector) => Eto.Mac.ObjCExtensions.AddMethod(type, selector, Deliver, "v@:@");
+
+    private static Option<int> Ticked(nint link) => link == 0 ? None : Some(1);
+
+    [Export("frame:")]
+    private static void Exported(nint link) => {|#3:Ticked(link)|};
+
+    [UnmanagedCallersOnly]
+    private static nint Monitored(nint block) => {|#4:Ticked(block).IfNone(0)|};
+}
+
+internal sealed class EagerControl : Drawable {
+    private CallbackSite Site() => new(nameof(EagerControl));
+
+    private static IO<Unit> Move(Eto.Drawing.SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
+
+    protected override void OnMouseMove(MouseEventArgs e) {
+        {|#5:Callbacks.Run(Move(Size, ParentWindow.LogicalPixelSize, e), Site())|};
+        base.OnMouseMove(e);
+    }
+}
+
+internal sealed class RoutedCallbacks {
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate nint HitTest(nint view, nint selector, nint point);
+
+    private static readonly HitTest PassThrough = static (_, _, _) => 0;
+
+    internal static NSObject Observed(NSNotificationCenter center, Func<NotificationArgs, IO<Unit>> deliver) =>
+        (from callback in IO.pure(Callbacks.Handler(deliver, new CallbackSite("Observed")))
+         select center.AddObserver("changed", notification => callback(notification.Object, new NotificationArgs(notification)))).Run();
+
+    internal static void Animated(Func<IO<Unit>> changes) =>
+        NSAnimationContext.RunAnimation(context => Callbacks.Run(changes(), new CallbackSite("RunAnimation")), () => Callbacks.Run(IO.pure(unit), new CallbackSite("RunAnimation")));
+}
+
+internal sealed class RoutedControl : Drawable {
+    private CallbackSite Site() => new(nameof(RoutedControl));
+
+    private static IO<Unit> Move(Eto.Drawing.SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
+
+    protected override void OnMouseMove(MouseEventArgs e) {
+        Callbacks.Run(IO.lift(() => Move(Size, ParentWindow.LogicalPixelSize, e)).Bind(static moved => moved), Site());
+        base.OnMouseMove(e);
+    }
+
+    protected override void OnLostFocus(EventArgs e) => Callbacks.Run(IO.lift(Invalidate), new CallbackSite(GetType().Name));
+}

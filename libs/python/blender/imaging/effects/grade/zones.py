@@ -15,8 +15,8 @@ from blender.imaging.parameters import markers, Presentation, Rgb, Stops
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Adjustment = Annotated[float, msgspec.Meta(ge=0.1, le=1.9), Presentation(step=Some(0.01), decimals=Some(3))]
-type PivotAdjustment = Annotated[float, msgspec.Meta(ge=0.2, le=1.8), Presentation(step=Some(0.01), decimals=Some(3))]
+type Adjustment = Annotated[float, msgspec.Meta(ge=0.1, le=1.9), Presentation(step=Some(0.01), precision=Some(3))]
+type PivotAdjustment = Annotated[float, msgspec.Meta(ge=0.2, le=1.8), Presentation(step=Some(0.01), precision=Some(3))]
 type Tint = Annotated[float, msgspec.Meta(ge=0.0, le=2.0)]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -31,7 +31,7 @@ class Zone[A: float](Wheel, frozen=True, kw_only=True):
     width: Annotated[
         float,
         msgspec.Meta(ge=0.01, le=sys.float_info.max, description="Extent in stops, start to pivot for shadows and highlights"),
-        Presentation(soft=Some((0.01, 16.0)), step=Some(0.1), decimals=Some(2)),
+        Presentation(soft=Some((0.01, 16.0)), step=Some(0.1), precision=Some(2)),
     ]
 
     @staticmethod
@@ -63,7 +63,7 @@ class Zones(Effect, frozen=True, kw_only=True, tag=11):
     highlights: Zone[PivotAdjustment] = zoned(neutral.highlights, neutral.highlights.width - neutral.highlights.start)
     whites: Zone[Adjustment] = zoned(neutral.whites, neutral.whites.width)
     s_contrast: Annotated[
-        float, msgspec.Meta(ge=0.01, le=1.99, title="S-Contrast", description="S-curve about middle gray with rolled-off ends, neutral at 1"), Presentation(step=Some(0.01), decimals=Some(3))
+        float, msgspec.Meta(ge=0.01, le=1.99, title="S-Contrast", description="S-curve about middle gray with rolled-off ends, neutral at 1"), Presentation(step=Some(0.01), precision=Some(3))
     ] = neutral.scontrast
 
     @classmethod

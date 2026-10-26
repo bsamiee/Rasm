@@ -76,9 +76,9 @@ public sealed partial class Shipped {
 }
 
 public sealed record Style {
-    private static readonly Seq<Material> NativeFills = [new Material.Solid(new Ink.Host(None, Channel.Fill, Opacity.MaxValue))];
-    private static readonly Seq<Stroke> NativeStrokes = [new Stroke(new Ink.Host(None, Channel.Edge, Opacity.MaxValue))];
-    private static readonly Ink NativeText = new Ink.Host(None, Channel.Text, Opacity.MaxValue);
+    private static readonly Seq<Material> NativeFills = [new Material.Solid(new Ink.Host(None, Channel.Fill, Fraction.MaxValue))];
+    private static readonly Seq<Stroke> NativeStrokes = [new Stroke(new Ink.Host(None, Channel.Edge, Fraction.MaxValue))];
+    private static readonly Ink NativeText = new Ink.Host(None, Channel.Text, Fraction.MaxValue);
     private static readonly SKRect Probe = SKRect.Create(1f, 1f);
 
     public Style(Role role, LanguageExt.HashSet<Condition> conditions, Look look, HashMap<Metric, float> metrics, bool veiled) {
@@ -107,8 +107,7 @@ public sealed record Style {
     public Seq<HarfBuzzSharp.Feature> Features => Look.Features.IfNone([]);
     public SKBlendMode Blend => Look.Blend.IfNone(SKBlendMode.SrcOver);
     public TimingCurve Motion => Look.Motion.IfNone(static () => new TimingCurve.Instant());
-    public Option<Ink> Solid =>
-        Fills.Choose(static fill => fill.Switch(solid: static solid => Some(solid.Ink), gradient: static _ => None, drawn: static _ => None, backdrop: static _ => None, blurred: static _ => None)).Head;
+    public Option<Ink> Solid => Fills.Choose(static fill => fill.SwitchPartially(@default: static _ => Option<Ink>.None, solid: static solid => Some(solid.Ink))).Head;
 
     internal float HalfStroke => Strokes.IsEmpty ? 0f : Metrics[Metric.Stroke] / 2f;
 
@@ -184,10 +183,8 @@ public static class Styles {
     }
 
     private static Material Opaque(Material fill) =>
-        fill.Switch<Material>(
-            solid: static solid => solid,
-            gradient: static gradient => gradient,
-            drawn: static drawn => drawn,
+        fill.SwitchPartially(
+            @default: static held => held,
             backdrop: static backdrop => new Material.Solid(backdrop.Fallback),
             blurred: static blurred => new Material.Solid(blurred.Tint));
 }

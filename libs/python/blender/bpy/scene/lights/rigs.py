@@ -18,35 +18,35 @@ from blender.bpy.commands.operators import Call, Done, Empty, InvokePopup, Opera
 from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.images import generated, read, Tag
 from blender.bpy.data.ids.ownership import committed, Mark, Ownership, released, Saved
-from blender.bpy.data.ids.store import Handle, vacant
-from blender.bpy.data.rna.descriptors import IdName, root_in, rooted, typed, Value, written
+from blender.bpy.data.ids.store import Handle, IdName, vacant
+from blender.bpy.data.rna.descriptors import root_in, rooted, typed, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderRenderingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.nodes.graphs import Graph
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.scene.collections import founded
-from blender.bpy.scene.lights.emitters import focused
-from blender.bpy.scene.lights.linking import LightLinks, link_state, linked
-from blender.bpy.scene.objects import descendants, extent, ObjectState, reconciled, spawned, StackEntry, WorldBounds
+from blender.bpy.scene.lights.linking import LINK_STATE, linked, RECEIVERS
+from blender.bpy.scene.objects import descendants, extent, focused, ObjectState, reconciled, spawned, StackEntry, WorldBounds
 from blender.bpy.scene.worlds import Backdrop, Environment, FlatColor, reverted, swapped, world_graph
 from blender.bpy.settings.attachments import Attached, Attachment, reconciling
+from blender.bpy.settings.history import Retention
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import DataBlocks, Member, OperatorButton, PreviewGrid, RowDraw, Selector
-from blender.bpy.ui.layout.sections import Hosted, Section, Single, Store
-from blender.bpy.ui.resources.previews import Previews
+from blender.bpy.ui.layout.sections import Section, Single
+from blender.bpy.ui.layout.values import Hosted, Store
+from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.screens.areas import AreaQuery, Located
 from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
 from blender.imaging.hashing import content_hash
-from blender.imaging.parameters import Case, Gated, Positive, Seed
-from blender.rendering.history import Retention
+from blender.imaging.parameters import Case, Gated, Positive, Seed, Side
 from blender.rendering.lighting.references import DistantLight, gray_ball, ReferenceDistribution, ReferenceImage, Roll, sphere
 from blender.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Rig, rig_catalog, Spot, Sun
-from blender.rendering.outputs.framing import Side
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -59,9 +59,9 @@ type RigAxes = CameraAxes | ViewAxes | TargetAxes | WorldAxes
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
-rigs = Choices(lambda _identity, _owner, _context: ((name, name, "") for name in rig_catalog()))
+rigs = Choices.named(lambda _identity, _owner, _context: rig_catalog())
 references = Choices(lambda _identity, _owner, _context: ((name, name, family.label) for family, recipes in ReferenceImage.catalog().items() for name in recipes))
-gels = Choices(lambda _identity, _owner, _context: ((name, name, "") for name in ReferenceImage.gels()))
+gels = Choices.named(lambda _identity, _owner, _context: ReferenceImage.gels())
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -202,27 +202,25 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def referenced[T: msgspec.Struct](call: Call[T], recipe: Callable[[RigSetup], ReferenceImage]) -> BlenderResult[Done]:
         """Renders recipe into owned scene-linear setup image, removing unused reference images."""
-        config = PyOpenColorIO.GetCurrentConfig()
 
-        def stored(pair: tuple[bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[None]:
-            holder, attached = pair
+        def stored(found: tuple[bpy.types.Object, PyOpenColorIO.Config]) -> BlenderResult[int]:
+            holder, config = found
 
-            def imaged(setup: RigSetup) -> BlenderResult[None]:
+            def imaged(setup: RigSetup) -> BlenderResult[RigSetup]:
                 chosen = recipe(setup)
-                published = generated(
+                return generated(
                     LightRig.reference,
                     call.identity,
                     f"{holder.name} Reference",
                     content_hash(LightRig, chosen, arrays=(np.asarray(setup.size, dtype=np.int64),), config=Some(config)),
-                    lambda: chosen.plane(setup.size).map_error(BlenderRenderingFault.lifted).map(Some),
+                    lambda: chosen.plane(setup.size).map(Some),
                     Tag(space=Some(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()), view_as_render=Some(True)),
                     of=Some(holder),
-                ).bind(lambda image: attached.write(holder, msgspec.structs.replace(setup, recipe=chosen, reference=image.to_optional())))
-                return paired(published, LightRig.reference.removed(call.identity)).map(lambda _: None)
+                ).map(lambda image: msgspec.structs.replace(setup, recipe=chosen, reference=image.to_optional()))
 
-            return attached.read(holder).bind(imaged)
+            return LightRig.attachment.revised(call.identity, holder, imaged).bind(lambda _: LightRig.reference.removed(call.identity))
 
-        return paired(call.root(bpy.types.ViewLayer).bind(focused), LightRig.attachment.bound(call.identity)).bind(stored).map(lambda _: Done())
+        return paired(call.root(bpy.types.ViewLayer).bind(focused), config_of()).bind(stored).map(lambda _: Done())
 
     @staticmethod
     def served(identity: Identity, item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
@@ -246,132 +244,25 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             .map(lambda lights: Done(notes=(("INFO", f"Placed {len(lights)} lights"),)))
         )
 
-    rig_pick: ClassVar[Operator[RigPick]] = Operator(
-        key="rig_catalog",
-        title="Choose Rig",
-        description="Set active rig from catalog",
-        form=RigPick,
-        invoke=Some(InvokePopup.SEARCH),
-        run=lambda call: (
-            call
-            .root(bpy.types.ViewLayer)
-            .bind(focused)
-            .bind(
-                lambda rig: LightRig.attachment.bound(call.identity).bind(
-                    lambda attached: attached.read(rig).bind(lambda setup: attached.write(rig, msgspec.structs.replace(setup, rig=rig_catalog()[call.record.name])))
-                )
-            )
-            .map(lambda _: Done())
-        ),
-    )
-    reference_pick: ClassVar[Operator[ReferencePick]] = Operator(
-        key="rig_reference_catalog",
-        title="Choose Reference",
-        description="Render catalog reference as matched rig image",
-        form=ReferencePick,
-        invoke=Some(InvokePopup.SEARCH),
-        run=lambda call: LightRig.referenced(call, lambda _: next(recipes[call.record.name] for recipes in ReferenceImage.catalog().values() if call.record.name in recipes)),
-    )
-    gel_pick: ClassVar[Operator[GelPick]] = Operator(
-        key="rig_reference_gel",
-        title="Choose Gel",
-        description="Apply catalog gel to reference tint",
-        form=GelPick,
-        invoke=Some(InvokePopup.SEARCH),
-        run=lambda call: LightRig.referenced(call, lambda setup: msgspec.structs.replace(setup.recipe, tint=ReferenceImage.gels()[call.record.name])),
-    )
-    commands: ClassVar[
-        tuple[Operator[Empty], Operator[RigPick], Operator[Empty], Operator[Empty], Operator[ReferencePick], Operator[ReferenceDraw], Operator[Roll], Operator[GelPick], Operator[Empty]]
-    ] = (
-        Operator(key="rig_place", title="Place Rig", description="Place rig about active object", form=Empty, run=placed),
-        rig_pick,
-        Operator(
-            key="rig_arrange",
-            title="Arrange Rig",
-            description="Convert active rig matched lights to arranged lights",
-            form=Empty,
-            run=lambda call: (
-                call
-                .root(bpy.types.ViewLayer)
-                .bind(lambda layer: _rig(layer, call.identity))
-                .bind(
-                    lambda rig: LightRig.attachment.bound(call.identity).bind(
-                        lambda attached: attached.read(rig).bind(
-                            lambda setup: (
-                                _reading(setup, PyOpenColorIO.GetCurrentConfig())
-                                .bind(lambda reading: setup.rig.arranged(reading).map_error(BlenderRenderingFault.lifted))
-                                .bind(lambda arranged: arranged.to_result_with(lambda: (BlenderAbsentFault(owner=repr(rig), key="reference"),)))
-                                .bind(lambda arranged: attached.write(rig, msgspec.structs.replace(setup, rig=msgspec.structs.replace(setup.rig, layout=arranged))))
-                            )
-                        )
-                    )
-                )
-                .map(lambda _: Done())
-            ),
-        ),
-        Operator(
-            key="rig_remove",
-            title="Remove Rig",
-            description="Remove active rig lights, empty, and collection",
-            form=Empty,
-            run=lambda call: (
-                paired(call.root(bpy.types.ViewLayer).bind(lambda layer: _rig(layer, call.identity)), call.root(bpy.types.Scene))
-                .bind(lambda pair: rig_removed(pair[0], call.identity, pair[1]))
-                .map(lambda count: Done(notes=(("INFO", f"Removed {count} rig data-blocks"),)))
-            ),
-        ),
-        reference_pick,
-        Operator(
-            key="rig_reference_draw",
-            title="Draw Reference",
-            description="Draw seeded reference",
-            form=ReferenceDraw,
-            invoke=Some(InvokePopup.REDO),
-            run=lambda call: LightRig.referenced(call, lambda _: ReferenceImage.drawn(call.record.distribution, call.record.seed)),
-        ),
-        Operator(
-            key="rig_reference_roll",
-            title="Randomize Reference",
-            description="Randomize reference fields",
-            form=Roll,
-            invoke=Some(InvokePopup.REDO),
-            run=lambda call: LightRig.referenced(call, lambda setup: setup.recipe.rolled(call.record)),
-        ),
-        gel_pick,
-        Operator(
-            key="rig_reference_apply",
-            title="Render Reference",
-            description="Render edited reference as matched rig image",
-            form=Empty,
-            run=lambda call: LightRig.referenced(call, lambda setup: setup.recipe),
-        ),
-    )
-
     def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
         """Returns preview jobs for catalog images and gray balls in scene display."""
 
-        def requested(carried: tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[tuple[Job, ...]]:
-            scene, layer, holder, attached = carried
+        def requested(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, holder: bpy.types.Object, attached: Attached[RigSetup], config: PyOpenColorIO.Config) -> BlenderResult[tuple[Job, ...]]:
             view, shown = scene.view_settings, scene.display_settings
-            config, previews = PyOpenColorIO.GetCurrentConfig(), Previews(identity=identity)
+            previews = PREVIEWS.of(identity)
             display = DisplayView(display=shown.display_device, view=view.view_transform, look=Gated(enabled=Option.of_optional(config.getLook(view.look)).is_some(), value=view.look))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             exposure, gamma = view.exposure, view.gamma  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             display_key = (display, exposure, gamma, config.getCacheID())
 
             def rendered(source: ReferenceImage | tuple[DistantLight, ...], side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
                 result = source.plane(side) if isinstance(source, ReferenceImage) else sphere(source, side)
-                return result.map_error(BlenderRenderingFault.lifted).map(Some)
+                return result.map(Some)
 
             def job(slot: str, key: Hashable, rendered: Callable[[int], BlenderResult[Option[npt.NDArray[np.float32]]]], rank: Rank = Rank.REST) -> tuple[Job, ...]:
                 def formed(side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
                     return rendered(side).bind(
                         lambda plane: plane.map(
-                            lambda values: (
-                                display
-                                .form(config, np.pad(values, ((0, 0), (0, 0), (0, 4 - values.shape[2])), constant_values=1.0), exposure=exposure, gamma=gamma)
-                                .map_error(BlenderImagingFault.lifted)
-                                .map(Some)
-                            )
+                            lambda values: display.form(config, np.pad(values, ((0, 0), (0, 0), (0, 4 - values.shape[2])), constant_values=1.0), exposure=exposure, gamma=gamma).map(Some)
                         ).default_value(Ok(Nothing))
                     )
 
@@ -387,8 +278,8 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 inputs = (setup.focus, setup.axes, Handle.of(holder), Option.of_optional(setup.reference).map(Handle.of), measured.to_option())
 
                 def ball(rig: Rig, side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
-                    return measured.bind(lambda pair: rig.placements(config, pair[0].radius, pair[1]).map_error(BlenderRenderingFault.lifted)).bind(
-                        lambda placements: placements.map(lambda placement: gray_ball(placement, config, side).map_error(BlenderRenderingFault.lifted).map(Some)).default_value(Ok(Nothing))
+                    return measured.bind(lambda pair: rig.placements(config, pair[0].radius, pair[1])).bind(
+                        lambda placements: placements.map(lambda placement: gray_ball(placement, config, side).map(Some)).default_value(Ok(Nothing))
                     )
 
                 return (
@@ -408,20 +299,20 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         return (
             root_in(bpy.types.Scene, context)
             .bind(lambda scene: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active).map(lambda holder: (scene, layer, holder))))
-            .map(lambda held: LightRig.attachment.bound(identity).bind(lambda attached: requested((*held, attached))))
+            .map(lambda held: paired(LightRig.attachment.bound(identity), config_of()).bind(lambda found: requested(*held, *found)))
             .default_value(Ok(()))
         )
 
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
         """Returns reference and rig previews with catalog button panels."""
-        previews = Previews(identity=identity)
+        previews = PREVIEWS.of(identity)
         catalogs = (
             *(
-                (family.label, tuple((f"reference:{name}", OperatorButton(target=Own(command=self.reference_pick, values=ReferencePick(name=name)), text=Some(name))) for name in recipes))
+                (family.label, tuple((f"reference:{name}", OperatorButton(target=Own(command=rig_reference_pick, values=ReferencePick(name=name)), text=name)) for name in recipes))
                 for family, recipes in ReferenceImage.catalog().items()
             ),
-            ("Rigs", tuple((f"rig:{name}", OperatorButton(target=Own(command=self.rig_pick, values=RigPick(name=name)), text=Some(name))) for name in rig_catalog())),
-            ("Gels", tuple((f"gel:{name}", OperatorButton(target=Own(command=self.gel_pick, values=GelPick(name=name)), text=Some(name))) for name in ReferenceImage.gels())),
+            ("Rigs", tuple((f"rig:{name}", OperatorButton(target=Own(command=rig_pick, values=RigPick(name=name)), text=name)) for name in rig_catalog())),
+            ("Gels", tuple((f"gel:{name}", OperatorButton(target=Own(command=rig_reference_gel, values=GelPick(name=name)), text=name)) for name in ReferenceImage.gels())),
         )
 
         def drawn(groups: tuple[tuple[str, tuple[tuple[str, RowDraw], ...]], ...]) -> RowDraw:
@@ -475,7 +366,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 LightRig.collection,
                 LightRig.world,
                 LightRig.reference,
-                (Band.RESOURCES, Previews(identity=identity)),
+                PREVIEWS,
                 (Band.RESOURCES, PreviewQueue.fed(identity, self.jobs)),
                 UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Image,), body=referenced),
                 self.section(),
@@ -488,20 +379,17 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             key="light_rig",
             title="Light Rig",
             rows=(self,),
-            header=tuple(OperatorButton(target=command) for command in self.commands),
+            header=tuple(
+                OperatorButton(target=command)
+                for command in (rig_place, rig_pick, rig_arrange, rig_remove, rig_reference_pick, rig_reference_draw, rig_reference_roll, rig_reference_gel, rig_reference_apply)
+            ),
             store=Some(
                 Hosted(
-                    host=Member(root=bpy.types.LayerObjects, path="active"),
+                    host=Some(Member(root=bpy.types.LayerObjects, path="active")),
                     store=Store(
                         attachment=LightRig.attachment,
                         retention=self.retention,
-                        fields={
-                            reference: Selector(
-                                target=next(field for field in msgspec.structs.fields(RigSetup) if field.name == reference.__name__),
-                                browse=DataBlocks(open=Some(bpy.ops.image.open)),
-                                preview=Some(PreviewGrid()),
-                            )
-                        },
+                        fields={reference: lambda member: Selector(target=member, browse=DataBlocks(open=Some(bpy.ops.image.open)), preview=Some(PreviewGrid()))},
                     ),
                 )
             ),
@@ -562,7 +450,7 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
         try:
             radius = msgspec.convert(max((Vector(corner) - center).length for corner in itertools.product(*zip(bounds.low, bounds.high))), type=Positive)  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
         except msgspec.ValidationError as error:
-            return Error((BlenderReadFault(request=f"{holder!r}.bound_box", error=error),))
+            return Error((ImagingFileFault(access=Access.READ, request=f"{holder!r}.bound_box", error=error),))
         return Ok(RigFrame(matrix=Matrix.LocRotScale(center, frame, None).freeze(), radius=radius))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     return (
@@ -602,21 +490,17 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
     Returns:
         Lights in placement order, or `absent`, setup read, `target`, reference, placement, and write faults.
     """
-    config = PyOpenColorIO.GetCurrentConfig()
 
-    def placing(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rollback: ExitStack) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+    def placing(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, config: PyOpenColorIO.Config, rollback: ExitStack) -> BlenderResult[tuple[bpy.types.Object, ...]]:
         def measured(setup: RigSetup) -> BlenderResult[Placing]:
             def prepared(found: tuple[RigFrame, Option[LightingReading]]) -> BlenderResult[Placing]:
                 frame, reading = found
                 return (
                     Result[Option[Placements], BlenderFaults]
-                    .bind(
-                        setup.rig.placements(config, frame.radius, reading).map_error(BlenderRenderingFault.lifted),
-                        lambda placements: placements.to_result_with(lambda: (BlenderAbsentFault(owner=repr(setup), key="reference"),)),
-                    )
+                    .bind(setup.rig.placements(config, frame.radius, reading), lambda placements: placements.to_result_with(lambda: (BlenderAbsentFault(owner=repr(setup), key="reference"),)))
                     .bind(
                         lambda placements: paired(
-                            accumulated(placement.power for placement in placements.lights).map_error(BlenderRenderingFault.lifted),
+                            accumulated(placement.power for placement in placements.lights),
                             placements.background
                             .map(lambda background: Environment(lighting=Backdrop(mode=FlatColor(color=background.color), strength=background.strength)))
                             .map(lambda environment: world_graph(environment).map(lambda graph: Some((environment, graph))))
@@ -628,7 +512,6 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
             return paired(target(holder, setup, context, scene, layer), _reading(setup, config)).bind(prepared)
 
         def lights(rig: bpy.types.Object, home: bpy.types.Collection, placing: Placing, *, alone: bool) -> BlenderResult[tuple[bpy.types.Object, ...]]:
-            receivers = next(link for link in LightLinks.sets if link.prop.identifier == "receiver_collection")
             aim = Snapshot.of(bpy.types.TrackToConstraint, {"target": IdName.of(rig), "track_axis": "TRACK_NEGATIVE_Z", "up_axis": "UP_Y"})
             rows = tuple(Ownership(kind=bpy.types.Object, key=f"light_{index}", saved=Saved.USED) for index in range(len(placing.lights)))
             keys = frozenset(row.key for row in rows)
@@ -682,9 +565,9 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
             def joined_to(prepared: tuple[tuple[bpy.types.Object, ...], None]) -> BlenderResult[tuple[bpy.types.Object, ...]]:
                 lights, _ = prepared
                 return (
-                    accumulated(linked(item, receivers, (holder, *descendants(holder, layer)), link_state.default, holder, identity) for item in lights).map(lambda _: None)
+                    accumulated(linked(item, RECEIVERS, (holder, *descendants(holder, layer)), LINK_STATE.prop.default, holder, identity) for item in lights).map(lambda _: None)
                     if alone
-                    else accumulated(receivers.write(item.light_linking, None) for item in lights).map(lambda _: None)
+                    else accumulated(RECEIVERS.write(item.light_linking, None) for item in lights).map(lambda _: None)
                 ).map(lambda _: lights)
 
             backed = placing.background.map(lambda prepared: swapped(LightRig.world, prepared, scene, identity, Some(rollback)).map(lambda _: None)).default_with(
@@ -709,11 +592,11 @@ def rigged(holder: bpy.types.Object, existing: Option[bpy.types.Object], context
             )
 
         return LightRig.attachment.bound(identity).bind(
-            lambda attached: attached.read(existing.default_value(holder)).bind(lambda setup: measured(setup).bind(lambda placing: placed(attached, setup, placing)))
+            lambda attached: attached.read(existing.default_value(holder)).bind(lambda setup: measured(setup).bind(lambda planned: placed(attached, setup, planned)))
         )
 
     with ExitStack() as rollback:
-        return committed(paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(lambda roots: placing(*roots, rollback)), rollback)
+        return committed(paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context), config_of()).bind(lambda found: placing(*found, rollback)), rollback)
 
 
 def rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[int]:
@@ -751,13 +634,94 @@ def _serving(rig: bpy.types.Object, identity: Identity) -> tuple[tuple[bpy.types
 
 def _reading(setup: RigSetup, config: PyOpenColorIO.Config) -> BlenderResult[Option[LightingReading]]:
     """Returns reference lighting reading, `Nothing` without reference or measurable reading."""
-    return (
-        Option
-        .of_optional(setup.reference)
-        .map(lambda image: read(image, config).bind(lambda file: LightingReading.of(config, file.pixels).map_error(BlenderImagingFault.lifted)))
-        .default_value(Ok(Nothing))
-    )
+    return Option.of_optional(setup.reference).map(lambda image: read(image, config).bind(lambda file: LightingReading.of(config, file.pixels))).default_value(Ok(Nothing))
 
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+rig_place: Operator[Empty] = Operator(key="rig_place", title="Place Rig", description="Place rig about active object", form=Empty, run=LightRig.placed)
+rig_pick: Operator[RigPick] = Operator(
+    key="rig_catalog",
+    title="Choose Rig",
+    description="Set active rig from catalog",
+    form=RigPick,
+    invoke=Some(InvokePopup.SEARCH),
+    run=lambda call: (
+        call
+        .root(bpy.types.ViewLayer)
+        .bind(focused)
+        .bind(lambda rig: LightRig.attachment.revised(call.identity, rig, lambda setup: Ok(msgspec.structs.replace(setup, rig=rig_catalog()[call.record.name]))))
+        .map(lambda _: Done())
+    ),
+)
+rig_arrange: Operator[Empty] = Operator(
+    key="rig_arrange",
+    title="Arrange Rig",
+    description="Convert active rig matched lights to arranged lights",
+    form=Empty,
+    run=lambda call: (
+        paired(call.root(bpy.types.ViewLayer).bind(lambda layer: _rig(layer, call.identity)), config_of())
+        .bind(
+            lambda found: LightRig.attachment.revised(
+                call.identity,
+                found[0],
+                lambda setup: (
+                    _reading(setup, found[1])
+                    .bind(setup.rig.arranged)
+                    .bind(lambda arranged: arranged.to_result_with(lambda: (BlenderAbsentFault(owner=repr(found[0]), key="reference"),)))
+                    .map(lambda arranged: msgspec.structs.replace(setup, rig=msgspec.structs.replace(setup.rig, layout=arranged)))
+                ),
+            )
+        )
+        .map(lambda _: Done())
+    ),
+)
+rig_remove: Operator[Empty] = Operator(
+    key="rig_remove",
+    title="Remove Rig",
+    description="Remove active rig lights, empty, and collection",
+    form=Empty,
+    run=lambda call: (
+        paired(call.root(bpy.types.ViewLayer).bind(lambda layer: _rig(layer, call.identity)), call.root(bpy.types.Scene))
+        .bind(lambda pair: rig_removed(pair[0], call.identity, pair[1]))
+        .map(lambda count: Done(notes=(("INFO", f"Removed {count} rig data-blocks"),)))
+    ),
+)
+rig_reference_pick: Operator[ReferencePick] = Operator(
+    key="rig_reference_catalog",
+    title="Choose Reference",
+    description="Render catalog reference as matched rig image",
+    form=ReferencePick,
+    invoke=Some(InvokePopup.SEARCH),
+    run=lambda call: LightRig.referenced(call, lambda _: next(recipes[call.record.name] for recipes in ReferenceImage.catalog().values() if call.record.name in recipes)),
+)
+rig_reference_draw: Operator[ReferenceDraw] = Operator(
+    key="rig_reference_draw",
+    title="Draw Reference",
+    description="Draw seeded reference",
+    form=ReferenceDraw,
+    invoke=Some(InvokePopup.REDO),
+    run=lambda call: LightRig.referenced(call, lambda _: ReferenceImage.drawn(call.record.distribution, call.record.seed)),
+)
+rig_reference_roll: Operator[Roll] = Operator(
+    key="rig_reference_roll",
+    title="Randomize Reference",
+    description="Randomize reference fields",
+    form=Roll,
+    invoke=Some(InvokePopup.REDO),
+    run=lambda call: LightRig.referenced(call, lambda setup: setup.recipe.rolled(call.record)),
+)
+rig_reference_gel: Operator[GelPick] = Operator(
+    key="rig_reference_gel",
+    title="Choose Gel",
+    description="Apply catalog gel to reference tint",
+    form=GelPick,
+    invoke=Some(InvokePopup.SEARCH),
+    run=lambda call: LightRig.referenced(call, lambda setup: msgspec.structs.replace(setup.recipe, tint=ReferenceImage.gels()[call.record.name])),
+)
+rig_reference_apply: Operator[Empty] = Operator(
+    key="rig_reference_apply", title="Render Reference", description="Render edited reference as matched rig image", form=Empty, run=lambda call: LightRig.referenced(call, lambda setup: setup.recipe)
+)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -782,6 +746,15 @@ __all__ = [
     "fitted",
     "gels",
     "references",
+    "rig_arrange",
+    "rig_pick",
+    "rig_place",
+    "rig_reference_apply",
+    "rig_reference_draw",
+    "rig_reference_gel",
+    "rig_reference_pick",
+    "rig_reference_roll",
+    "rig_remove",
     "rig_removed",
     "rigged",
     "rigs",

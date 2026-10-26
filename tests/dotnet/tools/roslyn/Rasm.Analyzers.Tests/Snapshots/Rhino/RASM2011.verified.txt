@@ -1,0 +1,2 @@
+#0 `view.Floating = false` destroys a floating view on macOS in place of docking it. Delete the assignment
+#1 `view.Floating = false` destroys a floating view on macOS in place of docking it. Delete the assignment

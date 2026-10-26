@@ -1,7 +1,6 @@
 """Chart references, perspective sampling, and least-squares color calibration."""
 
 from collections.abc import Callable
-from fractions import Fraction
 import functools
 import math
 from typing import Annotated, Self
@@ -14,7 +13,7 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.imaging.color.processors import applied, matrix, processor, xyz
+from blender.imaging.color.processors import basis, converted, matrix, xyz
 from blender.imaging.color.white import adaptation
 from blender.imaging.faults import ImagingCalibrationFault, ImagingNumericFault, ImagingResult, paired
 from blender.imaging.geometry.homography import Homography, Quad
@@ -102,14 +101,19 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         illuminant = np.asarray(self.checker.illuminant, dtype=np.float64)
         white = np.append(illuminant, 1.0 - illuminant.sum()) / illuminant[1]
         patches = np.stack((coordinates[:, 0], coordinates[:, 1], 1.0 - coordinates[:, 0] - coordinates[:, 1]), axis=-1) * (coordinates[:, 2:] / coordinates[:, 1:2])
-        return processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)).bind(
-            lambda working: processor(
-                config,
-                PyOpenColorIO.GroupTransform([
-                    matrix(adaptation(white, applied(working.getDefaultCPUProcessor(), np.ones(3, dtype=np.float32)).astype(np.float64))),
-                    PyOpenColorIO.GroupTransform([xyz(config, colorspace)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE),
-                ]),
-            ).map(lambda built: msgspec.convert(applied(built.getDefaultCPUProcessor(), patches.astype(np.float32)).tolist(), tuple[Rgb, ...]))
+        return (
+            basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)
+            .bind(
+                lambda working: converted(
+                    config,
+                    PyOpenColorIO.GroupTransform([
+                        matrix(adaptation(white, working.sum(axis=1))),
+                        PyOpenColorIO.GroupTransform([xyz(config, colorspace)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE),
+                    ]),
+                    patches.astype(np.float32),
+                )
+            )
+            .map(lambda rgb: msgspec.convert(rgb.tolist(), tuple[Rgb, ...]))
         )
 
 
@@ -119,7 +123,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class Mirrored(msgspec.Struct, frozen=True, kw_only=True):
     """Corner order reversing printed grid."""
 
-    area: Fraction
+    area: float
 
 
 class Skewed(msgspec.Struct, frozen=True, kw_only=True):
@@ -189,20 +193,13 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
         view = self.panorama.value.view
         clip = np.array([axis is Extension.CLIP for axis in self.extension])
 
-        def angle(before: tuple[Fraction, Fraction], after: tuple[Fraction, Fraction]) -> float:
-            cross = abs(before[0] * after[1] - before[1] * after[0])
-            dot = before[0] * after[0] + before[1] * after[1]
-            magnitude = max(cross, abs(dot))
-            return math.atan2(float(cross / magnitude), float(dot / magnitude))
-
         def listed(homography: Homography) -> tuple[Finding, ...]:
-            scale = Fraction(view.aspect if self.panorama.enabled else aspect)
-            corners = tuple((Fraction(x) * scale, Fraction(y)) for x, y in msgspec.structs.astuple(homography.quad))
-            before = tuple((previous[0] - corner[0], previous[1] - corner[1]) for previous, corner in zip(corners[-1:] + corners[:-1], corners))
-            after = tuple((following[0] - corner[0], following[1] - corner[1]) for corner, following in zip(corners, corners[1:] + corners[:1]))
-            angles = tuple(map(angle, before, after))
-            narrowest, widest = min(angles), max(angles)
-            area = sum((corner[0] * following[1] - corner[1] * following[0] for corner, following in zip(corners, corners[1:] + corners[:1])), start=Fraction()) / 2
+            corners = homography.quad.samples[:, :2] * (view.aspect if self.panorama.enabled else aspect, 1.0)
+            following = np.roll(corners, -1, axis=0)
+            before, after = np.roll(corners, 1, axis=0) - corners, following - corners
+            angles = np.arctan2(np.abs(before[:, 0] * after[:, 1] - before[:, 1] * after[:, 0]), np.vecdot(before, after))
+            narrowest, widest = float(angles.min()), float(angles.max())
+            area = float((corners[:, 0] * following[:, 1] - corners[:, 1] * following[:, 0]).sum() / 2.0)
             positions = self.mapping(homography)(self.footprints)
             clipped = tuple(np.flatnonzero(np.any((((positions[..., :2] < 0.0) | (positions[..., :2] > 1.0)) & clip), axis=(1, 2)) | np.any(positions[..., 2] <= 0.0, axis=1)).tolist())
             return (
@@ -302,11 +299,11 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     ) -> ImagingResult[Option[Self]]:
         """Returns calibration with neutral luminance ratio as exposure, or absence for nonpositive luminance."""
 
-        def factored(built: tuple[PyOpenColorIO.Processor, PyOpenColorIO.Processor]) -> Option[Self]:
-            source_luma, target_luma = (float(applied(op.getDefaultCPUProcessor(), np.array(sample, dtype=np.float32))[1]) for op, sample in zip(built, (source, target)))
+        def factored(matrices: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]) -> Option[Self]:
+            source_luma, target_luma = (float(held[1] @ np.asarray(sample)) for held, sample in zip(matrices, (source, target)))
             return Some(msgspec.structs.replace(self, exposure=math.log2(target_luma) - math.log2(source_luma))) if source_luma > 0.0 and target_luma > 0.0 else Nothing
 
-        return paired(processor(config, xyz(config, source_space)), processor(config, xyz(config, target_space))).map(factored)
+        return paired(basis(config, source_space), basis(config, target_space)).map(factored)
 
     @property
     def matrix(self) -> tuple[Rgb[float], Rgb[float], Rgb[float]]:

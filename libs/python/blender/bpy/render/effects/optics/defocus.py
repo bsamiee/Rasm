@@ -3,33 +3,30 @@
 from math import pi, tau
 
 import bpy
-from expression import Nothing, Option, Some
+from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.operators import Call, Done, Operator, Outcome, Unchanged
 from blender.bpy.extension.identity import Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderReadFault, BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, lensed, pixels
-from blender.bpy.nodes.graphs import End, ended, Fragment, math, menu, node, Operand, switched, vector
-from blender.bpy.render.effects.stack import CompositorEffect, Coverage, Named, Shell
-from blender.bpy.render.effects.viewers import inspection
-from blender.bpy.render.view_layers.passes import PassRequest
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.nodes.graphs import End, Expr, math, Scalar, switched, vector, xyz
+from blender.bpy.render.effects.coordinates import lensed, pixels
+from blender.bpy.render.effects.rows import Alpha, CameraFrame, CompositorEffect, depth_precise, Inspected, Named, revised, Shell
 from blender.imaging.chain import Effect
-from blender.imaging.compositing.blending import Entry
 from blender.imaging.effects.optics.defocus import Aperture, Defocus, DepthOfField, FieldCurvature, TiltShift
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import Access, ImagingFileFault, paired
+from blender.imaging.parameters import Case
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [IRIS]
 
-def outlined(
-    key: Key, point: Operand, radius: Operand, blades: Operand, rotation: Operand, roundness: Operand, obstruction: Operand
-) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-    """Returns outer and obstructed inner iris boundary fields.
+
+def outlined(point: Scalar, radius: Scalar, blades: Scalar, rotation: Scalar, roundness: Scalar, obstruction: Scalar) -> tuple[Expr, Expr]:
+    """Returns outer and obstructed inner iris boundary fields, positive outside each boundary.
 
     Args:
-        key: Node key prefix.
         point: Iris-centered XY position after squeeze and reflection.
         radius: Circumradius in position units.
         blades: Polygon side count.
@@ -38,203 +35,92 @@ def outlined(
         obstruction: Central mirror as a share of outer outline.
 
     Returns:
-        Signed outer and inner offsets, positive outside each boundary, with shared graph, or accumulated graph faults.
+        Signed outer and inner offsets over one shared boundary.
     """
-    polar = node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": point}, {}).bind(
-        lambda axes: math(f"{key}_angle", "ARCTAN2", ended(f"{key}_axes", "Y")(axes), End(node=f"{key}_axes", socket="X"))
-    )
-    sector = math(f"{key}_sector", "DIVIDE", tau, blades)
-    rho = vector(f"{key}_radius", "LENGTH", point)
-
-    def bounded(angle: Operand, sector: Operand, rho: Operand) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-        half = math(f"{key}_half_sector", "MULTIPLY", sector, 0.5)
-        phase = (
-            math(f"{key}_turned", "ADD", angle, rotation)
-            .bind(lambda turned: math(f"{key}_phase", "SUBTRACT", turned, pi / 2.0))
-            .bind(lambda phase: math(f"{key}_wrapped", "FLOORED_MODULO", phase, sector))
-        )
-        return (
-            paired(half, phase)
-            .bind(
-                lambda parts: paired(
-                    math(f"{key}_apothem_cosine", "COSINE", parts[0]).bind(lambda cosine: math(f"{key}_apothem", "MULTIPLY", radius, cosine)),
-                    math(f"{key}_local", "SUBTRACT", parts[1], parts[0]).bind(lambda local: math(f"{key}_sine", "SINE", local)).bind(lambda sine: math(f"{key}_across", "MULTIPLY", rho, sine)),
-                )
-            )
-            .bind(lambda parts: node(f"{key}_triangle", bpy.types.ShaderNodeCombineXYZ, {"X": parts[0], "Y": parts[1], "Z": 0.0}, {}))
-            .bind(lambda triangle: vector(f"{key}_edge", "LENGTH", ended(f"{key}_triangle", "Vector")(triangle)))
-            .bind(
-                lambda edge: paired(
-                    math(f"{key}_polygon", "SUBTRACT", 1.0, roundness).bind(lambda polygon: math(f"{key}_straight", "MULTIPLY", polygon, edge)), math(f"{key}_round", "MULTIPLY", radius, roundness)
-                )
-            )
-            .bind(lambda parts: math(f"{key}_bound", "ADD", *parts))
-            .bind(
-                lambda bound: paired(
-                    math(f"{key}_outer", "SUBTRACT", rho, bound), math(f"{key}_obstructed", "MULTIPLY", obstruction, bound).bind(lambda inner: math(f"{key}_inner", "SUBTRACT", rho, inner))
-                )
-            )
-        )
-
-    return paired(paired(polar, sector), rho).bind(lambda parts: bounded(*parts[0], parts[1]))
+    axes = Expr(kind=bpy.types.ShaderNodeSeparateXYZ, inputs=(("Vector", point),))
+    sector = math("DIVIDE", tau, blades)
+    half, rho = sector * 0.5, vector("LENGTH", point)
+    phase = math("FLOORED_MODULO", math("ADD", math("ARCTAN2", msgspec.structs.replace(axes, socket="Y"), msgspec.structs.replace(axes, socket="X")), rotation) - pi / 2.0, sector)
+    edge = vector("LENGTH", xyz(math("MULTIPLY", radius, math("COSINE", half)), rho * math("SINE", phase - half)))
+    bound = math("SUBTRACT", 1.0, roundness) * edge + math("MULTIPLY", radius, roundness)
+    return rho - bound, rho - math("MULTIPLY", obstruction, bound)
 
 
-def iris[R: Effect](key: Key, shell: Shell[R], *path: Key, shift: Operand = 0.0) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds Bokeh Image node from aperture panel.
-
-    Args:
-        key: Bokeh Image node key.
-        shell: Group source and field endpoints.
-        *path: Aperture panel path from record root.
-        shift: Bokeh color shift.
-
-    Returns:
-        Bokeh image and graph, or graph faults.
-    """
+def iris[R: Effect](shell: Shell[R], *path: Key, shift: Scalar = 0.0) -> Expr:
+    """Builds Bokeh Image node from the aperture panel at `path`, with a bokeh color shift."""
     blades, rotation, roundness, obstruction = Aperture.__struct_fields__
-    return node(
-        key,
-        bpy.types.CompositorNodeBokehImage,
-        {
-            "Flaps": shell.socket(*path, blades),
-            "Angle": shell.socket(*path, rotation),
-            "Roundness": shell.socket(*path, roundness),
-            "Catadioptric Size": shell.socket(*path, obstruction),
-            "Color Shift": shift,
-        },
-        {},
-    ).map(ended(key, "Image"))
+    sockets = (("Flaps", blades), ("Angle", rotation), ("Roundness", roundness), ("Catadioptric Size", obstruction))
+    return Expr(kind=bpy.types.CompositorNodeBokehImage, inputs=(*((socket, shell.input(*path, field)) for socket, field in sockets), ("Color Shift", shift)), socket="Image", shape="RGBA")
 
 
-def focused(shell: Shell[Defocus]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds depth, elliptical, and tilted radius fields into one bokeh gather.
+# --- [FIELDS]
 
-    Args:
-        shell: Source image, physical frame measures, focus cases, and field sockets.
 
-    Returns:
-        Gathered image and graph, or accumulated graph faults.
-    """
-    inlet = shell.socket
+def focused(shell: Shell[Defocus]) -> BlenderResult[Expr]:
+    """Builds depth, elliptical, and tilted radius fields into one bokeh gather of the stage input."""
+    inlet, at = shell.input, shell.space
     focus, aperture, radius_field, fringe = Defocus.__struct_fields__
+    (f_stop,) = DepthOfField.__struct_fields__
+    center, angle, size_field, feather = FieldCurvature.__struct_fields__
+    band_center, band_angle, width, band_feather = TiltShift.__struct_fields__
+    _, _, meters = CameraFrame.__struct_fields__
     cap = inlet(radius_field)
+    focal_length, sensor, distance = (lensed(socket) for socket in ("Focal Length", "Sensor", "Focus Distance"))
+    focal = focal_length * (0.001 / inlet(Shell.frame, meters))
+    gap = abs(distance - focal)
+    singular = Expr(kind=bpy.types.FunctionNodeCompare, inputs=(("A", gap), ("B", 0.0), ("Epsilon", 0.0)), members=(("data_type", "FLOAT"), ("operation", "EQUAL")), socket="Result")
+    confusion = focal_length / math("MAXIMUM", sensor["X"], sensor["Y"]) * (focal * 0.5 / (inlet(focus, DepthOfField, f_stop) * gap)) * abs(math("DIVIDE", distance, shell.layer("Depth")) - 1.0)
+    projected = switched(lensed("Is Orthographic"), switched(singular, math("MINIMUM", confusion, cap), cap), 0.0)
+    spread = Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", projected), ("Size", pixels(at, cap))), socket="Image")
+    size = inlet(focus, FieldCurvature, size_field)
+    rotated = Expr(
+        kind=bpy.types.ShaderNodeVectorRotate,
+        inputs=(("Vector", at.point - inlet(focus, FieldCurvature, center) * at.extent), ("Angle", inlet(focus, FieldCurvature, angle))),
+        members=(("rotation_type", "Z_AXIS"), ("invert", True)),
+        socket="Vector",
+        shape="VECTOR",
+    )
+    curvature = math("DIVIDE", size["Y"] * math("MAXIMUM", vector("LENGTH", rotated / size) - 1.0, 0.0), inlet(focus, FieldCurvature, feather), clamp=True)
+    normal = vector("COSINE", vector("MULTIPLY_ADD", inlet(focus, TiltShift, band_angle), (1.0, 1.0, 0.0), (pi / 2.0, 0.0, 0.0)))
+    across = abs(vector("DOT_PRODUCT", at.point - inlet(focus, TiltShift, band_center) * at.extent, normal))
+    tilt = math("DIVIDE", math("MULTIPLY_ADD", inlet(focus, TiltShift, width), -0.5, across), inlet(focus, TiltShift, band_feather), clamp=True)
+    fields: dict[type[Case], Expr] = {DepthOfField: math("MINIMUM", spread, projected), FieldCurvature: curvature * curvature * cap, TiltShift: tilt * cap}
+    radius = shell.menu(focus, cases={case.title: fields[type(case)] for case in shell.cases[focus,]}, kind="FLOAT").named("select")
+    return Ok(
+        Expr(kind=bpy.types.CompositorNodeBokehBlur, inputs=(("Image", shell.color), ("Bokeh", iris(shell, aperture, shift=inlet(fringe))), ("Size", pixels(at, radius))), socket="Image", shape="RGBA")
+    )
 
-    def depth(at: FrameSpace, lens: Fragment) -> BlenderResult[tuple[Fragment, End]]:
-        (f_stop,) = DepthOfField.__struct_fields__
-        focal_length, sensor, distance = ((lens, End(node="lens", socket=socket)) for socket in ("Focal Length", "Sensor", "Focus Distance"))
-        ratio = (
-            node("sensor", bpy.types.ShaderNodeSeparateXYZ, {"Vector": sensor}, {})
-            .bind(lambda sides: math("sensor_span", "MAXIMUM", ended("sensor", "X")(sides), End(node="sensor", socket="Y")))
-            .bind(lambda span: math("lens_ratio", "DIVIDE", focal_length, span))
-        )
-        factor = (
-            math("focus_ratio", "DIVIDE", distance, shell.layer("Depth"))
-            .bind(lambda quotient: math("focus_offset", "SUBTRACT", quotient, 1.0))
-            .bind(lambda offset: math("defocus", "ABSOLUTE", offset))
-        )
 
-        focal = math("millimeter", "DIVIDE", 0.001, shell.meters).bind(lambda millimeter: math("focal", "MULTIPLY", focal_length, millimeter))
-        gap = focal.bind(lambda focal: math("focus_gap", "SUBTRACT", distance, focal)).bind(lambda gap: math("focus_reach", "ABSOLUTE", gap))
-        coefficient = paired(focal.bind(lambda focal: math("half_focal", "MULTIPLY", focal, 0.5)), gap.bind(lambda gap: math("opening", "MULTIPLY", inlet(focus, DepthOfField, f_stop), gap))).bind(
-            lambda parts: math("coefficient", "DIVIDE", *parts)
-        )
-        singular = gap.bind(lambda gap: node("singular", bpy.types.FunctionNodeCompare, {"A": gap, "B": 0.0, "Epsilon": 0.0}, {"data_type": "FLOAT", "operation": "EQUAL"})).map(
-            ended("singular", "Result")
-        )
-        infinity = paired(ratio, coefficient).bind(lambda parts: math("infinity", "MULTIPLY", *parts))
-        radius = paired(infinity, factor).bind(lambda parts: math("confusion", "MULTIPLY", *parts)).bind(lambda confusion: math("capped", "MINIMUM", confusion, cap))
-        projected = (
-            paired(radius, singular)
-            .bind(lambda parts: switched("finite", "FLOAT", parts[1], parts[0], cap))
-            .bind(lambda finite: switched("projected", "FLOAT", (lens, End(node="lens", socket="Is Orthographic")), finite, 0.0))
-        )
-        spread = paired(projected, pixels("window", at, cap)).bind(lambda parts: node("spread", bpy.types.CompositorNodeBlur, {"Image": parts[0], "Size": parts[1]}, {})).map(ended("spread", "Image"))
-        return paired(spread, projected).bind(lambda parts: math("eroded", "MINIMUM", *parts))
-
-    def built(at: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
-        center, angle, size_field, feather = FieldCurvature.__struct_fields__
-        center_band, angle_band, width, feather_band = TiltShift.__struct_fields__
-        size = inlet(focus, FieldCurvature, size_field)
-        curved = (
-            paired(
-                node("ellipse_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": size}, {}).map(ended("ellipse_axes", "Y")),
-                vector("ellipse_anchor", "MULTIPLY", inlet(focus, FieldCurvature, center), at.extent)
-                .bind(lambda anchor: vector("ellipse_offset", "SUBTRACT", at.point, anchor))
-                .bind(
-                    lambda offset: node(
-                        "ellipse_rotation", bpy.types.ShaderNodeVectorRotate, {"Vector": offset, "Angle": inlet(focus, FieldCurvature, angle)}, {"rotation_type": "Z_AXIS", "invert": True}
-                    )
-                )
-                .bind(lambda rotation: vector("ellipse_normalized", "DIVIDE", ended("ellipse_rotation", "Vector")(rotation), size))
-                .bind(lambda normalized: vector("ellipse_radius", "LENGTH", normalized))
-                .bind(lambda radius: math("ellipse_edge", "SUBTRACT", radius, 1.0))
-                .bind(lambda edge: math("ellipse_outside", "MAXIMUM", edge, 0.0)),
-            )
-            .bind(lambda parts: math("ellipse_excess", "MULTIPLY", *parts))
-            .bind(lambda excess: math("ellipse_ramp", "DIVIDE", excess, inlet(focus, FieldCurvature, feather), clamp=True))
-            .bind(lambda ramp: math("curvature", "MULTIPLY", ramp, ramp))
-            .bind(lambda curvature: math("curved", "MULTIPLY", curvature, cap))
-        )
-        tilted = (
-            paired(
-                vector("band_anchor", "MULTIPLY", inlet(focus, TiltShift, center_band), at.extent).bind(lambda anchor: vector("band_offset", "SUBTRACT", at.point, anchor)),
-                vector("band_phase", "MULTIPLY_ADD", inlet(focus, TiltShift, angle_band), (1.0, 1.0, 0.0), (pi / 2.0, 0.0, 0.0)).bind(lambda phase: vector("band_normal", "COSINE", phase)),
-            )
-            .bind(lambda parts: vector("band_across", "DOT_PRODUCT", *parts))
-            .bind(lambda across: math("band_distance", "ABSOLUTE", across))
-            .bind(lambda distance: math("band_edge", "MULTIPLY_ADD", inlet(focus, TiltShift, width), -0.5, distance))
-            .bind(lambda edge: math("band_ramp", "DIVIDE", edge, inlet(focus, TiltShift, feather_band), clamp=True))
-            .bind(lambda ramp: math("tilted", "MULTIPLY", ramp, cap))
-        )
-        optical = lensed().bind(lambda lens: depth(at, lens))
-        radius = (
-            accumulated((optical if isinstance(case, DepthOfField) else curved if isinstance(case, FieldCurvature) else tilted).map(lambda field: (case.title, field)) for case in shell.cases[focus,])
-            .bind(lambda fields: menu("select", "FLOAT", inlet(focus), shell.items[focus,], dict(fields)))
-            .bind(lambda select: pixels("size", at, select))
-        )
-        return (
-            paired(radius, iris("iris", shell, aperture, shift=inlet(fringe)))
-            .bind(lambda parts: node("gather", bpy.types.CompositorNodeBokehBlur, {"Image": shell.source, "Bokeh": parts[1], "Size": parts[0]}, {}))
-            .map(ended("gather", "Image"))
-        )
-
-    return framed("frame", shell.source, shell.aspect, shell.scale).bind(built)
+# --- [COMMANDS]
 
 
 def matched(call: Call[Named]) -> BlenderResult[Outcome]:
     """Copies scene camera f-stop and iris into named entry."""
 
-    def converted(camera: bpy.types.Camera, held: Entry[Defocus]) -> BlenderResult[Entry[Defocus]]:
-        (f_stop_field,) = msgspec.structs.fields(DepthOfField)
+    def converted(camera: bpy.types.Camera, effect: Defocus) -> BlenderResult[Defocus]:
+        (f_stop,) = msgspec.structs.fields(DepthOfField)
         dof: bpy.types.CameraDOFSettings = camera.dof  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        aperture = held.effect.aperture
         opening = (
-            msgspec.structs.replace(aperture, rotation=dof.aperture_rotation, roundness=1.0)
+            msgspec.structs.replace(effect.aperture, rotation=dof.aperture_rotation, roundness=1.0)
             if dof.aperture_blades == 0
-            else msgspec.structs.replace(aperture, rotation=dof.aperture_rotation, blades=dof.aperture_blades, roundness=0.0)
+            else msgspec.structs.replace(effect.aperture, rotation=dof.aperture_rotation, blades=dof.aperture_blades, roundness=0.0)
         )
         return (
-            catch(lambda: msgspec.convert(dof.aperture_fstop, f_stop_field.type), exception=msgspec.ValidationError)()
-            .map_error(lambda error: (BlenderReadFault(request=repr(dof), error=error),))
-            .map(lambda f_stop: msgspec.structs.replace(held, effect=msgspec.structs.replace(held.effect, focus=DepthOfField(f_stop=f_stop), aperture=opening)))
+            catch(lambda: msgspec.convert(dof.aperture_fstop, f_stop.type), exception=msgspec.ValidationError)()
+            .map_error(lambda error: (ImagingFileFault(access=Access.READ, request=repr(dof), error=error),))
+            .map(lambda value: msgspec.structs.replace(effect, focus=DepthOfField(f_stop=value), aperture=opening))
         )
 
     def written(scene: bpy.types.Scene) -> BlenderResult[Outcome]:
         camera = (
             Option
             .of_optional(scene.camera)
-            .bind(lambda camera: Some(camera.data) if isinstance(camera.data, bpy.types.Camera) else Nothing)
+            .bind(lambda held: Some(held.data) if isinstance(held.data, bpy.types.Camera) else Nothing)
             .to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="camera"),))
         )
         return paired(camera, defocus.named(call.identity, scene, call.record.name)).bind(
-            lambda found: (
-                defocus
-                .read(call.identity, found[1])
-                .bind(lambda held: converted(found[0], held))
-                .bind(lambda record: defocus.write(call.identity, scene, found[1], record))
-                .map(
-                    lambda changed: Done(notes=(("INFO", f"Copied f-stop and iris from {found[0].name}"),)) if changed else Unchanged(reason=f"{found[1].name} matches {found[0].name} f-stop and iris")
-                )
+            lambda found: revised(defocus, call.identity, scene, found[1], lambda effect: converted(found[0], effect)).map(
+                lambda changed: Done(notes=(("INFO", f"Copied f-stop and iris from {found[0].name}"),)) if changed else Unchanged(reason=f"{found[1].name} matches {found[0].name} f-stop and iris")
             )
         )
 
@@ -243,16 +129,14 @@ def matched(call: Call[Named]) -> BlenderResult[Outcome]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-defocus: CompositorEffect[Defocus] = CompositorEffect(
+defocus = CompositorEffect(
     record=Defocus,
     graph=focused,
-    coverage=Coverage.RESULT,
-    requested=Some(lambda _record, layer: PassRequest.depth(layer, precise=True)),
+    alpha=Alpha.RESULT,
+    requested=Some(depth_precise),
     cameras={"dof.use_dof": False},
-    registrables=(
-        Operator(key="match_camera_iris", title="Match Camera", description="Set f-stop and iris from scene camera", icon=Some("CAMERA_DATA"), form=Named, run=matched),
-        inspection(lambda: defocus, "defocus_radius", "View Defocus Radius", "Gather radius per pixel", lambda: End(node="select", socket="Output")),
-    ),
+    inspected=(Inspected(key="defocus_radius", end=End(node="select", socket="Output"), description="Gather radius per pixel"),),
+    registrables=(Operator(key="match_camera_iris", title="Match Camera", description="Set f-stop and iris from scene camera", icon=Some("CAMERA_DATA"), form=Named, run=matched),),
 )
 
 

@@ -3,10 +3,12 @@ using Rhino.Commands;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Rhino.FileIO;
 using Rhino.PlugIns;
 using Rhino.Render;
 using Rhino.Runtime;
 using Rhino.UI;
+using ImageFile = Rhino.Render.ImageFile;
 
 namespace Rasm.Rhino.Events;
 
@@ -202,40 +204,27 @@ public static class EventKind {
     public static readonly DocumentEvent<ViewEventArgs> RhinoViewModified = Subscriptions.Host<ViewEventArgs>(typeof(RhinoView), static h => RhinoView.Modified += h, static h => RhinoView.Modified -= h, static args => Conversions.Serial(args.View.Document), nameof(RhinoView.Modified));
     public static readonly DocumentEvent<ViewEnableDrawingEventArgs> EnableDrawingChanged =
         Subscriptions.Host<ViewEnableDrawingEventArgs>(typeof(RhinoView), static h => RhinoView.EnableDrawingChanged += h, static h => RhinoView.EnableDrawingChanged -= h, static args => Conversions.Present(args.DocumentSerialNumber));
+    public static readonly DocumentEvent<PageViewSpaceChangeEventArgs> PageViewSpaceChange =
+        Subscriptions.Host<PageViewSpaceChangeEventArgs>(typeof(RhinoPageView), static h => RhinoPageView.PageViewSpaceChange += h, static h => RhinoPageView.PageViewSpaceChange -= h, static args => Conversions.Serial(args.PageView?.Document));
+    public static readonly DocumentEvent<PageViewPropertiesChangeEventArgs> PageViewPropertiesChange =
+        Subscriptions.Host<PageViewPropertiesChangeEventArgs>(typeof(RhinoPageView), static h => RhinoPageView.PageViewPropertiesChange += h, static h => RhinoPageView.PageViewPropertiesChange -= h, static args => Conversions.Present(args.DocumentSerialNumber));
     public static readonly DocumentEvent<DisplayModeChangedEventArgs> DisplayModeChanged =
-        Subscriptions.Host<DisplayModeChangedEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.DisplayModeChanged += h, static h => DisplayPipeline.DisplayModeChanged -= h, static args => Conversions.Serial(args.RhinoDoc));
-    private static readonly HostEvent<DrawEventArgs> ProjectionRaised = Subscriptions.Host<DrawEventArgs>(
-        typeof(DisplayPipeline), static h => DisplayPipeline.ViewportProjectionChanged += h, static h => DisplayPipeline.ViewportProjectionChanged -= h, nameof(DisplayPipeline.ViewportProjectionChanged));
+        Subscriptions.During<DisplayModeChangedEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.DisplayModeChanged += h, static h => DisplayPipeline.DisplayModeChanged -= h, static args => Conversions.Serial(args.RhinoDoc));
     public static readonly DocumentEvent<DrawEventArgs> ViewportProjectionChanged = new(
-        typeof(DisplayPipeline),
-        nameof(DisplayPipeline.ViewportProjectionChanged),
-        static (deliver, site, retain) =>
-            from counters in IO.lift(static () => Ref(HashMap<Guid, uint>()))
-            from attached in ProjectionRaised.Inline(
-                args =>
-                    from raised in IO.lift(() => (Viewport: args.Viewport.Id, Counter: args.Viewport.ChangeCounter))
-                    from repeat in atomicIO(() => {
-                        HashMap<Guid, uint> seen = counters.Value;
-                        counters.Value = seen.AddOrUpdate(raised.Viewport, raised.Counter);
-                        return seen.Find(raised.Viewport) == Some(raised.Counter);
-                    })
-                    from delivered in unless(repeat, IO.pure(args).Bind(deliver)).As()
-                    select unit,
-                site.Sink, retain)
-            select attached,
+        Subscriptions.During<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.ViewportProjectionChanged += h, static h => DisplayPipeline.ViewportProjectionChanged -= h, nameof(DisplayPipeline.ViewportProjectionChanged))
+            .DistinctUntilChanged(static args => ((Document: Conversions.Serial(args.RhinoDoc), Viewport: args.Viewport.Id), args.Viewport.ChangeCounter)),
         static args => Conversions.Serial(args.RhinoDoc));
 
     // --- [DRAW]
-    public static readonly DocumentEvent<DrawEventArgs> DrawForeground = Subscriptions.Host<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.DrawForeground += h, static h => DisplayPipeline.DrawForeground -= h, static args => Conversions.Serial(args.RhinoDoc));
-    public static readonly DocumentEvent<DrawEventArgs> DrawOverlay = Subscriptions.Host<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.DrawOverlay += h, static h => DisplayPipeline.DrawOverlay -= h, static args => Conversions.Serial(args.RhinoDoc));
-    public static readonly DocumentEvent<CullObjectEventArgs> ObjectCulling = Subscriptions.Host<CullObjectEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.ObjectCulling += h, static h => DisplayPipeline.ObjectCulling -= h, static args => Conversions.Serial(args.RhinoDoc));
-    public static readonly HostEvent<InitFrameBufferEventArgs> InitFrameBuffer = Subscriptions.Host<InitFrameBufferEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.InitFrameBuffer += h, static h => DisplayPipeline.InitFrameBuffer -= h);
-    public static readonly DocumentEvent<DrawEventArgs> PreDrawObjects = Subscriptions.Host<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PreDrawObjects += h, static h => DisplayPipeline.PreDrawObjects -= h, static args => Conversions.Serial(args.RhinoDoc));
+    public static readonly DocumentEvent<DrawForegroundEventArgs> DrawForeground = new(
+        Subscriptions.During<EventHandler<DrawEventArgs>, DrawForegroundEventArgs>(
+            typeof(DisplayPipeline), static h => DisplayPipeline.DrawForeground += h, static h => DisplayPipeline.DrawForeground -= h, static handler => (sender, args) => handler(sender, (DrawForegroundEventArgs)args), nameof(DisplayPipeline.DrawForeground)),
+        static args => Conversions.Serial(args.RhinoDoc));
+    public static readonly HostEvent<InitFrameBufferEventArgs> InitFrameBuffer = Subscriptions.During<InitFrameBufferEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.InitFrameBuffer += h, static h => DisplayPipeline.InitFrameBuffer -= h);
     public static readonly DocumentEvent<DrawEventArgs> PreDrawTransparentObjects =
-        Subscriptions.Host<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PreDrawTransparentObjects += h, static h => DisplayPipeline.PreDrawTransparentObjects -= h, static args => Conversions.Serial(args.RhinoDoc));
-    public static readonly DocumentEvent<DrawObjectEventArgs> PreDrawObject = Subscriptions.Host<DrawObjectEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PreDrawObject += h, static h => DisplayPipeline.PreDrawObject -= h, static args => Conversions.Serial(args.RhinoDoc));
-    public static readonly DocumentEvent<DrawObjectEventArgs> PostDrawObject = Subscriptions.Host<DrawObjectEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PostDrawObject += h, static h => DisplayPipeline.PostDrawObject -= h, static args => Conversions.Serial(args.RhinoDoc));
-    public static readonly DocumentEvent<DrawEventArgs> PostDrawObjects = Subscriptions.Host<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PostDrawObjects += h, static h => DisplayPipeline.PostDrawObjects -= h, static args => Conversions.Serial(args.RhinoDoc));
+        Subscriptions.During<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PreDrawTransparentObjects += h, static h => DisplayPipeline.PreDrawTransparentObjects -= h, static args => Conversions.Serial(args.RhinoDoc));
+    public static readonly DocumentEvent<DrawObjectEventArgs> PostDrawObject = Subscriptions.During<DrawObjectEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PostDrawObject += h, static h => DisplayPipeline.PostDrawObject -= h, static args => Conversions.Serial(args.RhinoDoc));
+    public static readonly DocumentEvent<DrawEventArgs> PostDrawObjects = Subscriptions.During<DrawEventArgs>(typeof(DisplayPipeline), static h => DisplayPipeline.PostDrawObjects += h, static h => DisplayPipeline.PostDrawObjects -= h, static args => Conversions.Serial(args.RhinoDoc));
 
     // --- [SHELL]
     public static readonly DocumentEvent<ShowPanelEventArgs> PanelsShow = Subscriptions.Host<ShowPanelEventArgs>(typeof(Panels), static h => Panels.Show += h, static h => Panels.Show -= h, static args => Conversions.Present(args.DocumentSerialNumber), nameof(Panels.Show));
@@ -252,8 +241,7 @@ public static class EventKind {
     public static readonly HostEvent<LicenseStateChangedEventArgs> LicenseStateChanged =
         Subscriptions.Host<LicenseStateChangedEventArgs>(typeof(RhinoApp), static h => RhinoApp.LicenseStateChanged += h, static h => RhinoApp.LicenseStateChanged -= h);
     public static readonly HostEvent<EventArgs> RhinoAppInitialized = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.Initialized += h, static h => RhinoApp.Initialized -= h, static handler => handler.Invoke, nameof(RhinoApp.Initialized));
-    public static readonly HostEvent<EventArgs> RhinoAppClosing = new(typeof(RhinoApp), nameof(RhinoApp.Closing), static (deliver, site, retain) =>
-        Subscriptions.Attach<EventHandler>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, (_, args) => Callbacks.Run(IO.pure(args).Bind(deliver), site), retain));
+    public static readonly HostEvent<EventArgs> RhinoAppClosing = Subscriptions.During<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke, nameof(RhinoApp.Closing));
     public static readonly HostEvent<EventArgs> AppSettingsChanged = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.AppSettingsChanged += h, static h => RhinoApp.AppSettingsChanged -= h, static handler => handler.Invoke);
     public static readonly HostEvent<EventArgs> RendererChanged = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.RendererChanged += h, static h => RhinoApp.RendererChanged -= h, static handler => handler.Invoke);
     public static readonly HostEvent<EventArgs> RdkNewDocument = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.RdkNewDocument += h, static h => RhinoApp.RdkNewDocument -= h, static handler => handler.Invoke);
@@ -273,12 +261,14 @@ public static class EventKind {
         Subscriptions.Host<PersistentSettingsSavedEventArgs>(typeof(PlugIn), h => plugIn.SettingsSaved += h, h => plugIn.SettingsSaved -= h);
 
     // --- [FILES]
+    public static readonly HostEvent<FilePdfEventArgs> FilePdfPreWrite =
+        Subscriptions.During<FilePdfEventArgs>(typeof(FilePdf), static h => FilePdf.PreWrite += h, static h => FilePdf.PreWrite -= h, nameof(FilePdf.PreWrite));
     public static HostEvent<Seq<Either<ErrorEventArgs, FileSystemEventArgs>>> FileChanges(DirectoryInfo directory, Seq<string> filters, bool subdirectories, Duration quiet, TimeProvider clock) =>
         new(
             typeof(FileSystemWatcher),
             nameof(FileChanges),
             (deliver, site, retain) => DisposalOps.Acquire(own =>
-                from debouncer in DisposalOps.Acquire(IO.lift(() => new Debouncer<Either<ErrorEventArgs, FileSystemEventArgs>>(clock, quiet, deliver, site)), static held => IO.lift(held.Timer.Dispose), held => own(held.Timer))
+                from debouncer in DisposalOps.Acquire(IO.lift(() => new Debouncer<Either<ErrorEventArgs, FileSystemEventArgs>>(clock, quiet, deliver, site)), static held => IO.lift(held.Timer.Dispose), own)
                 from watcher in DisposalOps.Acquire(IO.lift(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories }), own)
                     .Catch(static error => error.HasException<ArgumentException>() || error.HasException<FileNotFoundException>(), error => IO.fail<FileSystemWatcher>(new FileRefused(directory.FullName, "names no folder", error)))
                 let changed = Callbacks.Handler<FileSystemEventArgs>(args => debouncer.Post(Right(args)), site)

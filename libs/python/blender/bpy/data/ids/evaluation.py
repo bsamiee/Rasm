@@ -13,12 +13,6 @@ from blender.bpy.data.ids.store import Handle
 from blender.bpy.extension.events.handlers import Change, changed
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-type Query = Ray | Near
-
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -78,21 +72,6 @@ class Instance(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Ray(msgspec.Struct, frozen=True, kw_only=True):
-    """Object-space ray cast query."""
-
-    origin: Vector
-    direction: Vector
-    distance: float
-
-
-class Near(msgspec.Struct, frozen=True, kw_only=True):
-    """Object-space nearest-surface query."""
-
-    origin: Vector
-    distance: float
-
-
 class Hit(msgspec.Struct, frozen=True, kw_only=True):
     """Object-space surface hit."""
 
@@ -123,17 +102,24 @@ def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve
         )
 
 
-def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, query: Query) -> BlenderResult[Option[Hit]]:
-    """Returns surface hit, Nothing on miss."""
+def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector, distance: float, direction: Option[Vector] = Nothing) -> BlenderResult[Option[Hit]]:
+    """Returns object-space surface hit, Nothing on miss.
+
+    Args:
+        source: Object whose evaluated surface answers.
+        depsgraph: Evaluation the surface reads.
+        origin: Object-space query point.
+        distance: Farthest answered distance.
+        direction: Ray direction casting from origin, Nothing for the nearest surface point.
+
+    Returns:
+        Optional hit, edit fault for a refused query.
+    """
 
     def answered() -> Option[Hit]:
-        """Lifts native found flag into optional hit."""
-        match query:
-            case Ray(origin=origin, direction=direction, distance=distance):
-                answer = source.ray_cast(origin, direction, distance=distance, depsgraph=depsgraph)
-            case Near(origin=origin, distance=distance):
-                answer = source.closest_point_on_mesh(origin, distance=distance, depsgraph=depsgraph)
-        found, location, normal, face = answer
+        found, location, normal, face = direction.map(lambda toward: source.ray_cast(origin, toward, distance=distance, depsgraph=depsgraph)).default_with(
+            lambda: source.closest_point_on_mesh(origin, distance=distance, depsgraph=depsgraph)
+        )
         return Some(Hit(location=location, normal=normal, face=face)) if found else Nothing  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     return BlenderEditFault.attempted(repr(source), answered)
@@ -141,4 +127,4 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, query: Query) 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Hit", "Instance", "Instancing", "Near", "Query", "Ray", "Update", "evaluated", "hit", "meshed"]
+__all__ = ["Hit", "Instance", "Instancing", "Update", "evaluated", "hit", "meshed"]

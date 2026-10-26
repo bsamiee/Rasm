@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns.Licenses;
@@ -40,7 +42,7 @@ internal interface IDefinedPlugIn : IPlugInViews, IPlugInLifetime {
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PlugInSession(Seq<Action<ILoggingBuilder>> logging) {
     // --- [STATE]
-    private static readonly Action<ILoggingBuilder> Host = static builder => builder.AddCommandWindow();
+    private static readonly Action<ILoggingBuilder> Host = static builder => builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, CommandWindowLoggerProvider>());
     private static readonly ILoggerFactory Window = LoggerFactory.Create(Host);
 
     private readonly ILoggerFactory loggers = LoggerFactory.Create(builder => (Host + logging).Iter(row => row(builder)));
@@ -94,8 +96,7 @@ public sealed class PlugInSlot<T> where T : notnull {
     public IO<Option<T>> Find(IPlugInSink owner) =>
         IO.lift(() => PlugInSession.Of(owner).Map(session => session.Find(this).Map(static value => (T)value)));
 
-    public IO<T> Of(IPlugInSink owner) =>
-        IO.lift(() => PlugInSession.Of(owner).Bind(session => session.Find(this).Map(static value => (T)value).ToFin(Error.New($"plug-in session holds no {typeof(T).Name}"))));
+    public IO<T> Of(IPlugInSink owner) => Find(owner).Bind(static found => IO.lift(found.ToFin(Error.New($"plug-in session holds no {typeof(T).Name}"))));
 }
 
 internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kindViews) {
@@ -139,7 +140,9 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
         let collection = new ViewCatalog(definition.Views.Concat(kindViews))
         from published in views.SwapIO(_ => collection)
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
-        from registered in PlugInSettings.RegisterAll(((IPlugInViews)plugIn).Settings, [.. definition.Settings, .. HostDialogs.Suppressions(collection)])
+        from registered in PlugInSettings.RegisterAll(((IPlugInViews)plugIn).Settings, [
+            .. collection.Rows.Bind(ViewCatalog.Tree).Bind(ViewOps.Sources).Choose(static source => source.Setting).Distinct(),
+            .. HostDialogs.Suppressions(collection)])
         from opened in Session.Open(plugIn, [
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,

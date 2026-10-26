@@ -29,12 +29,10 @@ public static class TextFieldOps {
     public static Option<FieldRun> Title(TitleField field, Option<Sheet> sheet) =>
         field.Source.Switch(
             (field.Key, Sheet: sheet),
-            projectText: static (state, _) => Some(Field(() => TextFields.DocumentText(state.Key))),
-            sheetText: static (state, _) => Some(Field(() => TextFields.LayoutUserText(state.Key))),
-            identifier: static (_, _) => Some(Field(static () => TextFields.PageName())),
-            ordinal: static (state, _) => Some(Field(() => TextFields.LayoutUserText(state.Key))),
-            count: static (state, _) => Some(Field(() => TextFields.LayoutUserText(state.Key))),
-            designation: static (state, _) => state.Sheet.Map<FieldRun>(static held => held.Size.Key));
+            projectText: static state => Some(Field(() => TextFields.DocumentText(state.Key))),
+            sheetText: static state => Some(Field(() => TextFields.LayoutUserText(state.Key))),
+            identifier: static _ => Some(Field(static () => TextFields.PageName())),
+            designation: static state => state.Sheet.Map<FieldRun>(static held => held.Size.Name));
 
     // --- [RENDERING]
     public static string Text(Seq<FieldRun> runs) =>

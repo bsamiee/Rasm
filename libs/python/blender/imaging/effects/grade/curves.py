@@ -24,6 +24,11 @@ type Gain = Annotated[float, msgspec.Meta(ge=0.0, le=2.0)]
 type ChannelCurve = Annotated[tuple[Knot[Axis, Axis], ...], msgspec.Meta(min_length=2, max_length=15)]
 type HueCurve[X: float, Y: float] = Annotated[tuple[Knot[X, Y], ...], msgspec.Meta(min_length=2, max_length=8)]
 
+
+def _knots(curve: PyOpenColorIO.GradingBSplineCurve) -> tuple[Knot[float, float], ...]:
+    return tuple(Knot(x=point.x, y=point.y) for point in curve.getControlPoints())
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -33,10 +38,10 @@ class Curves(Effect, frozen=True, kw_only=True, tag=16):
     stage = Stage.CURVES
     pointwise = True
     neutral: ClassVar[PyOpenColorIO.GradingRGBCurve] = PyOpenColorIO.GradingRGBCurve(PyOpenColorIO.GRADING_LIN)
-    red: Annotated[ChannelCurve, msgspec.Meta(description="Red output against red input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.red.getControlPoints())
-    green: Annotated[ChannelCurve, msgspec.Meta(description="Green output against green input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.green.getControlPoints())
-    blue: Annotated[ChannelCurve, msgspec.Meta(description="Blue output against blue input")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.blue.getControlPoints())
-    master: Annotated[ChannelCurve, msgspec.Meta(description="All channels after channel curves")] = tuple(Knot(x=point.x, y=point.y) for point in neutral.master.getControlPoints())
+    red: Annotated[ChannelCurve, msgspec.Meta(description="Red output against red input")] = _knots(neutral.red)
+    green: Annotated[ChannelCurve, msgspec.Meta(description="Green output against green input")] = _knots(neutral.green)
+    blue: Annotated[ChannelCurve, msgspec.Meta(description="Blue output against blue input")] = _knots(neutral.blue)
+    master: Annotated[ChannelCurve, msgspec.Meta(description="All channels after channel curves")] = _knots(neutral.master)
 
     def curves(self) -> tuple[PyOpenColorIO.GradingBSplineCurve, ...]:
         """Builds native channel splines in declaration order."""
@@ -57,27 +62,13 @@ class HueCurves(Effect, frozen=True, kw_only=True, tag=17):
     stage = Stage.HUE_CURVES
     pointwise = True
     neutral: ClassVar[PyOpenColorIO.GradingHueCurve] = PyOpenColorIO.GradingHueCurve(PyOpenColorIO.GRADING_LIN)  # type: ignore[name-defined, attr-defined]  # ty: ignore[unresolved-attribute]
-    hue_hue: Annotated[HueCurve[Hue, MappedHue], msgspec.Meta(title="Hue vs Hue", description="Output hue against input hue")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.hue_hue.getControlPoints()
-    )
-    hue_sat: Annotated[HueCurve[Hue, Gain], msgspec.Meta(title="Hue vs Saturation", description="Saturation gain against input hue")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.hue_sat.getControlPoints()
-    )
-    hue_lum: Annotated[HueCurve[Hue, Gain], msgspec.Meta(title="Hue vs Luma", description="Luma gain against input hue")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.hue_lum.getControlPoints()
-    )
-    lum_sat: Annotated[HueCurve[Axis, Gain], msgspec.Meta(title="Luma vs Saturation", description="Saturation gain against input luma")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.lum_sat.getControlPoints()
-    )
-    sat_sat: Annotated[HueCurve[HsySaturation, HsySaturation], msgspec.Meta(title="Saturation vs Saturation", description="Output saturation against input saturation")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.sat_sat.getControlPoints()
-    )
-    lum_lum: Annotated[HueCurve[Axis, Axis], msgspec.Meta(title="Luma vs Luma", description="Output luma against input luma")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.lum_lum.getControlPoints()
-    )
-    sat_lum: Annotated[HueCurve[HsySaturation, Gain], msgspec.Meta(title="Saturation vs Luma", description="Luma gain against output saturation")] = tuple(
-        Knot(x=point.x, y=point.y) for point in neutral.sat_lum.getControlPoints()
-    )
+    hue_hue: Annotated[HueCurve[Hue, MappedHue], msgspec.Meta(title="Hue vs Hue", description="Output hue against input hue")] = _knots(neutral.hue_hue)
+    hue_sat: Annotated[HueCurve[Hue, Gain], msgspec.Meta(title="Hue vs Saturation", description="Saturation gain against input hue")] = _knots(neutral.hue_sat)
+    hue_lum: Annotated[HueCurve[Hue, Gain], msgspec.Meta(title="Hue vs Luma", description="Luma gain against input hue")] = _knots(neutral.hue_lum)
+    lum_sat: Annotated[HueCurve[Axis, Gain], msgspec.Meta(title="Luma vs Saturation", description="Saturation gain against input luma")] = _knots(neutral.lum_sat)
+    sat_sat: Annotated[HueCurve[HsySaturation, HsySaturation], msgspec.Meta(title="Saturation vs Saturation", description="Output saturation against input saturation")] = _knots(neutral.sat_sat)
+    lum_lum: Annotated[HueCurve[Axis, Axis], msgspec.Meta(title="Luma vs Luma", description="Output luma against input luma")] = _knots(neutral.lum_lum)
+    sat_lum: Annotated[HueCurve[HsySaturation, Gain], msgspec.Meta(title="Saturation vs Luma", description="Luma gain against output saturation")] = _knots(neutral.sat_lum)
 
     def curves(self) -> tuple[PyOpenColorIO.GradingBSplineCurve, ...]:
         """Builds each curve with its native hue kind."""

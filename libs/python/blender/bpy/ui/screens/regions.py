@@ -1,6 +1,6 @@
 """Region visibility, alignment, and editor coordinates."""
 
-from typing import Self, TYPE_CHECKING
+from typing import Final, Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -10,10 +10,14 @@ from blender.bpy.commands.calls import called
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderResult
 from blender.bpy.ui.resources.theme import Metrics
-from blender.bpy.ui.screens.areas import Located, ScreenSide
+from blender.bpy.ui.screens.areas import Edge, Located
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+AXES: Final[tuple[tuple[Edge, Edge], ...]] = (("LEFT", "RIGHT"), ("TOP", "BOTTOM"))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -83,16 +87,16 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
 
         return Option.of_optional(self.located.area.spaces.active).map(applied).default_with(lambda: Error((BlenderAbsentFault(owner=repr(self.located.area), key="spaces.active"),)))
 
-    def flipped(self, side: ScreenSide) -> BlenderResult[None]:
-        """Moves region to `side` on its axis."""
+    def flipped(self, side: Edge) -> BlenderResult[None]:
+        """Moves region to `side` across its axis."""
         aligned = self.region.alignment
-        return (
-            Ok(None)
-            if aligned == side.name
-            else called(bpy.ops.screen.region_flip, {}, override=Some(self.override)).map(lambda _: None)
-            if aligned == side.opposite.name
-            else Error((BlenderChoiceFault(path=repr(self.located.area), identifier=side.name, accepted=tuple(each.name for each in ScreenSide if aligned in {each.name, each.opposite.name})),))
-        )
+        match next((axis for axis in AXES if aligned in axis), ()):
+            case _ if aligned == side:
+                return Ok(None)
+            case axis if side in axis:
+                return called(bpy.ops.screen.region_flip, {}, override=Some(self.override)).map(lambda _: None)
+            case axis:
+                return Error((BlenderChoiceFault(path=repr(self.located.area), identifier=side, accepted=axis),))
 
     def quadded(self, *, shown: bool) -> BlenderResult[None]:
         """Toggles quad view when state differs."""
@@ -107,13 +111,13 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
         return view_x / scale, view_y / scale
 
     def to_region(self, x: float, y: float) -> Option[tuple[int, int]]:
-        """Returns region pixels of editor point, Nothing outside view."""
-        v2d_is_clipped = 12000
+        """Returns region pixels of editor point, Nothing outside the region."""
         scale = self.scale
-        point: tuple[int, int] = self.region.view2d.view_to_region(x * scale, y * scale, clip=True)  # type: ignore[assignment]
-        return Nothing if v2d_is_clipped in point else Some(point)
+        point: tuple[int, int] = self.region.view2d.view_to_region(x * scale, y * scale, clip=False)  # type: ignore[assignment]
+        column, row = point
+        return Some(point) if 0 <= column < self.region.width and 0 <= row < self.region.height else Nothing
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["RegionView", "Visibility"]
+__all__ = ["AXES", "RegionView", "Visibility"]

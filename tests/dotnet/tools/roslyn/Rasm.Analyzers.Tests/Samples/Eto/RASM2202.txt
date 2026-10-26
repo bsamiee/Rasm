@@ -1,0 +1,111 @@
+using System;
+using Eto.Forms;
+using LanguageExt;
+using Rasm.Rhino;
+using Rasm.Rhino.UI;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino {
+    public sealed class Disposal<T>(T held, Action<T> release) : IDisposable {
+        public void Dispose() => release(held);
+    }
+
+    public sealed class Retained<T> where T : IDisposable {
+        public void Retain(T value) => value.Dispose();
+    }
+
+    public static class DisposalOps {
+        public static IO<T> Acquire<T>(IO<T> acquire, Func<T, IO<Unit>> release, Action<IDisposable> retain) =>
+            acquire.Map(held => { retain(new Disposal<T>(held, value => release(value).Run())); return held; });
+        public static IO<T> Acquire<T>(IO<T> acquire, Action<T> retain) where T : IDisposable => acquire.Map(held => { retain(held); return held; });
+        public static IO<TResult> Acquire<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Action<IDisposable> retain) => body(retain);
+        public static IO<TResult> Within<T, TResult>(Func<T> acquire, Func<T, IO<TResult>> body) where T : IDisposable => IO.lift(acquire).Bind(body);
+        public static IO<TResult> Within<T, TResult>(Func<T> acquire, Func<T, IO<TResult>> body, Func<T, IO<Unit>> release) => IO.lift(acquire).Bind(body);
+    }
+}
+
+namespace Rasm.Rhino.UI {
+    public static class Containers {
+        public static IO<T> Frame<T>(Func<T> create, Action<IDisposable> retain) where T : Container =>
+            DisposalOps.Acquire(IO.lift(create), static frame => IO.lift(() => { frame.RemoveAll(); frame.Dispose(); }), retain);
+    }
+}
+
+internal static class PlainContainer {
+    internal static IO<Control> Stacked(Seq<(Control Body, bool Fill)> parts, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(owned =>
+            from stack in {|#0:DisposalOps.Acquire(IO.lift(static () => new StackLayout()), owned)|}
+            from configured in IO.lift(() => {
+                stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
+            })
+            select (Control)stack, retain);
+
+    internal static IO<Control> Split(Control first, Control second, Action<IDisposable> retain) =>
+        from splitter in {|#1:DisposalOps.Acquire(IO.lift(static () => new Splitter()), retain)|}
+        from configured in IO.lift(() => { (splitter.Panel1, splitter.Panel2, splitter.RelativePosition) = (first, second, 0.5); })
+        select (Control)splitter;
+
+    internal static IO<Control> Tabs(Seq<Control> bodies, Action<IDisposable> retain) =>
+        from control in DisposalOps.Acquire(IO.lift(static () => new TabControl()), retain)
+        from pages in bodies.TraverseM(body =>
+            from tab in {|#2:DisposalOps.Acquire(IO.lift(static () => new TabPage()), retain)|}
+            from seated in IO.lift(() => { tab.Content = body; control.Pages.Add(tab); })
+            select unit).As()
+        select (Control)control;
+
+    internal static IO<int> Scoped(Control body) => {|#3:DisposalOps.Within(static () => new Panel(), panel => IO.lift(() => { panel.Content = body; return panel.Width; }))|};
+
+    internal static Control Scrolled(Retained<IDisposable> owned, Control body) {
+        Scrollable scroll = new() { Content = body };
+        {|#4:owned.Retain(scroll)|};
+        return scroll;
+    }
+
+    internal static IDisposable Held(Control body) {
+        Panel panel = new() { Content = body };
+        return {|#5:new Disposal<Panel>(panel, static held => held.Dispose())|};
+    }
+
+    internal static IO<Control> Bound(Control body, Action<IDisposable> retain) =>
+        {|#6:DisposalOps.Acquire(IO.lift(static () => new Scrollable()), retain)|}.Bind(scroll => IO.lift(() => { scroll.Content = body; return (Control)scroll; }));
+}
+
+internal static class OrderedContainer {
+    internal static IO<Control> Split(Func<IO<Control>> realize, Action<IDisposable> retain) =>
+        from splitter in DisposalOps.Acquire(IO.lift(static () => new Splitter()), retain)
+        from first in realize()
+        from second in realize()
+        from configured in IO.lift(() => { (splitter.Panel1, splitter.Panel2, splitter.RelativePosition) = (first, second, 0.5); })
+        select (Control)splitter;
+
+    internal static IO<Control> Tabs(Seq<string> captions, Func<IO<Control>> realize, Action<IDisposable> retain) =>
+        from control in DisposalOps.Acquire(IO.lift(static () => new TabControl()), retain)
+        from pages in captions.TraverseM(caption =>
+            from tab in DisposalOps.Acquire(IO.lift(static () => new TabPage()), retain)
+            from body in realize()
+            from seated in IO.lift(() => { tab.Text = caption; tab.Content = body; control.Pages.Add(tab); })
+            select unit).As()
+        select (Control)control;
+}
+
+internal static class FramedContainer {
+    internal static IO<Control> Split(Control first, Control second, Action<IDisposable> retain) =>
+        from splitter in Containers.Frame(static () => new Splitter(), retain)
+        from configured in IO.lift(() => { (splitter.Panel1, splitter.Panel2) = (first, second); })
+        select (Control)splitter;
+
+    internal static IO<Drawable> Drawn(Action<IDisposable> retain) =>
+        from drawn in DisposalOps.Acquire(IO.lift(static () => new Drawable()), retain)
+        from sized in IO.lift(() => { drawn.Width = 10; })
+        select drawn;
+
+    internal static IO<Button> Leaf(Action<IDisposable> retain) => DisposalOps.Acquire(IO.lift(static () => new Button()), retain);
+
+    internal static IO<int> Emptied(Control body) =>
+        DisposalOps.Within(static () => new Panel(), panel => IO.lift(() => { panel.Content = body; return panel.Width; }), static panel => IO.lift(() => { panel.Content = null; panel.Dispose(); }));
+
+    internal static IDisposable Cleared(Panel panel) => new Disposal<Panel>(panel, static held => { held.Content = null; held.Dispose(); });
+
+    internal static void Childless(Action<IDisposable> retain) => retain(new Panel { Width = 10 });
+}

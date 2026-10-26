@@ -442,7 +442,6 @@ public sealed class RenderHistory {
                     Command("history-clear-comparison", "Clear Comparison", "Remove compared rendering from frame view",
                         static scope => RenderingComparison.Current.Of(scope.Sink).Bind(static comparison => comparison.Clear)),
                 ],
-                Wording = Wording.Library,
             },
             new RowRules(None, None));
 
@@ -474,7 +473,7 @@ public sealed class RenderHistory {
                     part.Map(settings: "history-restore-settings", grading: "history-restore-grading"),
                     RowText.Localize("Restore {0}", arguments: [caption]).Local,
                     RowText.Localize("Write selected rendering's {0} into document as one commit", arguments: [caption]).Local,
-                    None, None) { Wording = Wording.Localized },
+                    None, None),
                 None,
                 Headed(selection, (scope, rendering) =>
                     from doc in scope.DocumentIO
@@ -484,5 +483,5 @@ public sealed class RenderHistory {
         };
 
     private static CommandRow.Run Command(string name, string caption, string help, Func<RowScope, IO<Unit>> execute) =>
-        new(new CommandFace(name, caption, help, None, None) { Wording = Wording.Library }, None, execute);
+        new(new CommandFace(name, caption, help, None, None), None, execute);
 }

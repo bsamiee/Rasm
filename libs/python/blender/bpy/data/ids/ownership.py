@@ -1,10 +1,10 @@
 """Ownership marks, data-block lifetimes, reuse, replacement, and import merging."""
 
-from collections.abc import Callable, Iterable
-from contextlib import ExitStack
+from collections.abc import Callable, Generator, Iterable, Mapping
+from contextlib import contextmanager, ExitStack
 from enum import auto, Enum
-from types import MappingProxyType
-from typing import Literal, overload, Self
+import functools
+from typing import Final, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -13,9 +13,10 @@ import idprop
 import msgspec
 
 from blender.bpy.data.ids.store import blocks, named
-from blender.bpy.extension.events.handlers import ImportHandler
+from blender.bpy.extension.events.handlers import appended, ImportHandler
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisition, Band
+from blender.bpy.extension.registration import Acquisitions, Band
+from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.imaging.hashing import ContentHash
 
@@ -77,7 +78,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def held(self, identity: Identity) -> tuple[tuple[T, Mark], ...]:
         """Returns local holders and marks in collection order, linked library blocks staying their library's."""
-        return tuple((block, mark) for block in blocks(bpy.data, self.kind) if block.library is None for mark in self.marked(identity, block).to_list())
+        return _held(identity, self.kind, frozenset((self.key,)))
 
     def marked(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Mark]:
         """Returns holder's mark, Nothing for another purpose."""
@@ -104,14 +105,12 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         """Marks and fills new block under `kept` rollback."""
 
         def configured() -> T:
-            """Flags block from saved lifetime."""
             block.is_runtime_data = self.saved is Saved.NEVER
             block.use_fake_user = self.saved is Saved.ALWAYS
             return block
 
         return kept(Ok(block), lambda block: Mark(key=self.key, of=of, content=content).write(identity, block).bind(lambda _: BlenderEditFault.attempted(repr(block), configured)).bind(filled), scope)
 
-    @overload
     def made(
         self,
         identity: Identity,
@@ -119,59 +118,20 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         *,
         of: Option[bpy.types.ID] = Nothing,
         content: Option[ContentHash] = Nothing,
-        optional: Literal[False] = False,
         filled: Callable[[T], BlenderResult[T]] = Ok,
         scope: Option[ExitStack] = Nothing,
-    ) -> BlenderResult[T]: ...
-
-    @overload
-    def made(
-        self,
-        identity: Identity,
-        build: Callable[[], BlenderResult[Option[T]]],
-        *,
-        of: Option[bpy.types.ID] = Nothing,
-        content: Option[ContentHash] = Nothing,
-        optional: Literal[True],
-        filled: Callable[[T], BlenderResult[T]] = Ok,
-        scope: Option[ExitStack] = Nothing,
-    ) -> BlenderResult[Option[T]]: ...
-
-    def made(
-        self,
-        identity: Identity,
-        build: Callable[[], BlenderResult[T | Option[T]]],
-        *,
-        of: Option[bpy.types.ID] = Nothing,
-        content: Option[ContentHash] = Nothing,
-        optional: bool = False,
-        filled: Callable[[T], BlenderResult[T]] = Ok,
-        scope: Option[ExitStack] = Nothing,
-    ) -> BlenderResult[T | Option[T]]:
+    ) -> BlenderResult[T]:
         """Reuses equal-mark holder of single row or owns built block, then fills it."""
-
-        def shaped(block: T) -> T | Option[T]:
-            return Some(block) if optional else block
-
         return (
             (self.found(identity, of=of, content=content) if self.single else Nothing)
-            .map(lambda block: filled(block).map(shaped))
-            .default_with(
-                lambda: build().bind(
-                    lambda block: (
-                        (block if isinstance(block, Option) else Some(block))
-                        .map(lambda block: self.owned(identity, block, of=of, content=content, filled=filled, scope=scope).map(shaped))
-                        .default_value(Ok(Nothing))
-                    )
-                )
-            )
+            .map(filled)
+            .default_with(lambda: build().bind(lambda block: self.owned(identity, block, of=of, content=content, filled=filled, scope=scope)))
         )
 
     def rebuilt(self, identity: Identity, held: T, build: Callable[[], BlenderResult[T]]) -> BlenderResult[T]:
         """Replaces marked block with built one under its name."""
 
         def swapped(block: T) -> BlenderResult[T]:
-            """Replaces held block, moving its users and name."""
             name = held.name
             held.user_remap(block)
             return released((held,)).bind(lambda _: named(block, name))
@@ -188,28 +148,58 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Returns import merge handler of saved single row."""
+    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+        """Returns the saved single row's place on its extension's import merge."""
+        return Ok((MERGES, (Band.APP_HANDLERS, Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ())
 
-        def merged(context: bpy.types.BlendImportContext) -> BlenderResult[None]:
-            """Remaps imported duplicates to earliest local holder."""
-            imported = frozenset(item.id for item in context.import_items if isinstance(item.id, self.kind) and item.id.library is None)
-            local = self.held(identity)
-            keepers = _earliest(local)
-            duplicates = tuple((block, keeper) for block, mark in local if block in imported and block != (keeper := keepers[mark]))
-            for block, keeper in duplicates:
-                block.user_remap(keeper)
-            return released(tuple(block for block, _ in duplicates)).map(lambda _: None)
 
-        return (
-            ImportHandler(
-                handlers=bpy.app.handlers.blend_import_post,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                body=merged,
-            ).acquisitions(identity)
-            if self.single and self.saved is not Saved.NEVER
-            else Ok(())
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class Merges(msgspec.Struct, frozen=True, eq=False):
+    """Saved single rows of one extension, imported duplicates of each remapped to its earliest local holder by one import handler."""
+
+    rows: list[tuple[type[bpy.types.ID], Key]] = msgspec.field(default_factory=list)
+
+    @classmethod
+    @contextmanager
+    def opened(cls, identity: Identity) -> Generator[Self]:
+        """Holds a new merge with its import handler until scope exit."""
+        merges = cls()
+        handler = ImportHandler(handlers=bpy.app.handlers.blend_import_post, body=functools.partial(merges.merged, identity))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        with appended(identity, handler.handlers, handler.entry(identity)):
+            yield merges
+
+    @staticmethod
+    @contextmanager
+    def holding(identity: Identity, row: tuple[type[bpy.types.ID], Key]) -> Generator[None]:
+        """Holds row on the extension's merge until scope exit."""
+        merges = MERGES.of(identity)
+        merges.rows.append(row)
+        try:
+            yield
+        finally:
+            merges.rows.remove(row)
+
+    def merged(self, identity: Identity, context: bpy.types.BlendImportContext) -> BlenderResult[None]:
+        """Scans each held kind once, remapping imported duplicates and removing them in one batch."""
+        imported = frozenset(item.id for item in context.import_items if item.id is not None and item.id.library is None)
+        kinds = {kind: frozenset(key for held, key in self.rows if held is kind) for kind, _ in self.rows}
+        duplicates = tuple(
+            (block, keeper)
+            for kind, keys in kinds.items()
+            if any(isinstance(block, kind) for block in imported)
+            for local in (_held(identity, kind, keys),)
+            for keepers in (_earliest(local),)
+            for block, mark in local
+            if block in imported and block != (keeper := keepers[mark])
         )
+        for block, keeper in duplicates:
+            block.user_remap(keeper)
+        return released(tuple(block for block, _ in duplicates)).map(lambda _: None)
 
+
+MERGES: Final = Scoped[Merges](made=Merges.opened)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -239,14 +229,16 @@ def released(blocks: tuple[bpy.types.ID, ...]) -> BlenderResult[int]:
     return BlenderEditFault.attempted(repr(blocks), lambda: bpy.data.batch_remove(ids=blocks) if blocks else None).map(lambda _: len(blocks))
 
 
-def _earliest[T: bpy.types.ID](pairs: Iterable[tuple[T, Mark]]) -> MappingProxyType[Mark, T]:
+def _held[T: bpy.types.ID](identity: Identity, kind: type[T], keys: frozenset[Key]) -> tuple[tuple[T, Mark], ...]:
+    """Returns local blocks of kind with their marks under keys, in collection order."""
+    return tuple((block, mark) for block in blocks(bpy.data, kind) if block.library is None for mark in Mark.read(identity, block).filter(lambda mark: mark.key in keys).to_list())
+
+
+def _earliest[T: bpy.types.ID](pairs: Iterable[tuple[T, Mark]]) -> Mapping[Mark, T]:
     """Returns holder with least session UID per mark."""
-    held: dict[Mark, T] = {}
-    for block, mark in pairs:
-        held[mark] = min(held.get(mark, block), block, key=lambda value: value.session_uid)
-    return MappingProxyType(held)
+    return {mark: block for block, mark in sorted(pairs, key=lambda pair: pair[0].session_uid, reverse=True)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Mark", "Ownership", "Saved", "committed", "kept", "released"]
+__all__ = ["MERGES", "Mark", "Merges", "Ownership", "Saved", "committed", "kept", "released"]

@@ -26,16 +26,14 @@ public static class Editors {
     private static IO<Unit> Pending(IPlugInSink sink, Func<Editor, Action<IDisposable>, IO<Unit>> attach, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
         from state in IO.lift(static () => Ref<Attachment>(new Attachment.Waiting()))
-        from cell in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Attachment>>(
-                    state,
-                    static cell => {
-                        if (atomic(() => {
-                            Attachment held = cell.Value;
-                            cell.Value = new Attachment.Closed();
-                            return held;
-                        }) is Attachment.Attached attached)
-                            attached.Held.Dispose();
-                    })), keep)
+        from cell in DisposalOps.Acquire(IO.pure(state), static cell => IO.lift(() => {
+            if (atomic(() => {
+                Attachment held = cell.Value;
+                cell.Value = new Attachment.Closed();
+                return held;
+            }) is Attachment.Attached attached)
+                attached.Held.Dispose();
+        }), keep)
         from waiting in EventKind.EndCommand.Inline(_ => Built(state, attach), sink, keep)
         select unit, retain);
 
@@ -48,7 +46,7 @@ public static class Editors {
                 return claimed;
             })
             select editor,
-            editor => editor.TraverseM(found => DisposalOps.Replace(keep => attach(found, keep), (_, release) =>
+            editor => editor.TraverseM(found => DisposalOps.Acquire(keep => attach(found, keep), (_, release) =>
                 atomicIO(Fin<Unit> () => {
                     if (state.Value is not Attachment.Attaching) return Errors.Cancelled;
                     state.Value = new Attachment.Attached(release);
@@ -63,7 +61,7 @@ public static class Editors {
             None: () => Launched(document)));
 
     private static IO<Editor> Launched(RhinoDoc document) =>
-        Macros.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Refused.UnlessFound(Editor.Instance, nameof(Editor.Instance))));
+        CommandOps.ExecuteCommand(document, "_GH2").Bind(static _ => IO.lift(static () => Refused.UnlessFound(Editor.Instance, nameof(Editor.Instance))));
 
     // --- [GETTERS]
     public static IO<T> RhinoGetter<T>(RhinoDoc document, IO<T> get) =>

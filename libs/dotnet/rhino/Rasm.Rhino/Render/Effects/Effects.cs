@@ -23,16 +23,9 @@ public interface IEffectDefinition<TState, TParameter> : IEffectDefinition
     public static virtual EffectRow<TState, TParameter> Row => new();
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-public static class EffectStyles {
-    public const PostEffectStyles Listed =
-        PostEffectStyles.ExecuteForProductionRendering | PostEffectStyles.ExecuteForRealtimeRendering | PostEffectStyles.DefaultShown | PostEffectStyles.DefaultOn;
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record EffectKind(Guid Id, PostEffectType Stage, Type State, Option<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>> Pass, Func<EffectSource, Seq<ValueBinding>> Binding) {
-    public Option<BuiltinEffect> Replaces { get; init; }
-}
+public sealed record EffectKind(
+    Guid Id, PostEffectType Stage, Type State, Option<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>> Pass, Func<EffectSource, Seq<ValueBinding>> Binding, Option<BuiltinEffect> Replaces);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedEffect<TEffect, TState, TParameter> : PostEffect
@@ -42,7 +35,7 @@ public abstract class DefinedEffect<TEffect, TState, TParameter> : PostEffect
     // --- [DEFINITION]
     private protected static EffectKind Defined(Option<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>> pass) =>
         new(typeof(TEffect).GUID, typeof(TEffect).GetCustomAttribute<CustomPostEffectAttribute>()?.PostEffectType ?? throw new UnreachableException(), typeof(TState), pass,
-            static source => EffectStates.Binding<TEffect, TState, TParameter>(source, TEffect.Row));
+            static source => EffectStates.Binding<TEffect, TState, TParameter>(source, TEffect.Row), TEffect.Row.Replaces);
 
     // --- [STATE]
     private protected DefinedEffect() =>

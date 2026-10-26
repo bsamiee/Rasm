@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Helpers;
 using PeterO.Numbers;
@@ -15,7 +16,8 @@ namespace Rasm.Imaging.Pixels;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface ICaptioned {
-    public string Caption { get; }
+    public string Key { get; }
+    public string Caption => string.Concat(Key[..1].ToUpperInvariant(), Key[1..].Replace('-', ' '));
 }
 
 public interface IStateParameterVisitor<TRecord, out TResult> {
@@ -442,6 +444,19 @@ public sealed record Gated<TValue>(bool Enabled, TValue Value) where TValue : no
         ("value", Lens<Gated<TValue>, TValue>.New(static gate => gate.Value, static value => gate => gate with { Value = value }));
 
     public Option<TValue> Active => Enabled ? Some(Value) : None;
+}
+
+public readonly record struct Channels<T>(T Red, T Green, T Blue) where T : notnull {
+    public Channels(T all) : this(all, all, all) { }
+
+    public static Lens<Channels<T>, T> RedOf { get; } = Lens<Channels<T>, T>.New(static channels => channels.Red, static red => channels => channels with { Red = red });
+    public static Lens<Channels<T>, T> GreenOf { get; } = Lens<Channels<T>, T>.New(static channels => channels.Green, static green => channels => channels with { Green = green });
+    public static Lens<Channels<T>, T> BlueOf { get; } = Lens<Channels<T>, T>.New(static channels => channels.Blue, static blue => channels => channels with { Blue = blue });
+
+    public Vector256<double> Lanes(Func<T, double> lane) => Vector256.Create(lane(Red), lane(Green), lane(Blue), 0d);
+
+    public static Fin<Channels<T>> Validated(Vector3 stated, Func<float, Fin<T>> validated) =>
+        (validated(stated.X), validated(stated.Y), validated(stated.Z)).Apply(static (red, green, blue) => new Channels<T>(red, green, blue)).As();
 }
 
 public abstract class StateParameter<TRecord> {

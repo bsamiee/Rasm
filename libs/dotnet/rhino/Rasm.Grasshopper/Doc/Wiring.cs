@@ -13,9 +13,6 @@ public static class Wiring {
     private static bool Connected(IParameter source, IParameter target) =>
         target.Inputs.Forwards.Contains(source.InstanceId) && source.Outputs.Forwards.Contains(target.InstanceId);
 
-    private static Fin<Unit> Existing(IParameter source, IParameter target) =>
-        Connected(source, target) ? unit : Error.New($"no wire from {source.InstanceId} to {target.InstanceId}");
-
     private static Fin<Unit> Valid(IParameter source, IParameter target) =>
         source != target
         && source is { Kind: not Kind.Input, Document: { } document, Attributes: not IParameterAttributes { HasOutlet: false } }
@@ -36,28 +33,25 @@ public static class Wiring {
                 None: () => Connections.Connect(source, target, undo)))));
 
     public static IO<Unit> ReplaceSource(IParameter oldSource, IParameter newSource, IParameter target, ActionList undo) =>
-        Rewired(() => Seq(Existing(oldSource, target), Created(newSource, target)), () => Connections.ReplaceSource(oldSource, newSource, target, undo));
+        Rewired(Seq((newSource, target)), () => Connections.ReplaceSource(oldSource, newSource, target, undo), nameof(Connections.ReplaceSource));
 
     public static IO<Unit> ReplaceTarget(IParameter source, IParameter oldTarget, IParameter newTarget, ActionList undo) =>
-        Rewired(() => Seq(Existing(source, oldTarget), Created(source, newTarget)), () => Connections.ReplaceTarget(source, oldTarget, newTarget, undo));
+        Rewired(Seq((source, newTarget)), () => Connections.ReplaceTarget(source, oldTarget, newTarget, undo), nameof(Connections.ReplaceTarget));
 
     public static IO<Unit> SwapSources(IParameter sourceA, IParameter sourceB, IParameter targetA, IParameter targetB, ActionList undo) =>
-        Rewired(() => Seq(Existing(sourceA, targetA), Existing(sourceB, targetB), Created(sourceA, targetB), Created(sourceB, targetA)),
-            () => Connections.SwapSources(sourceA, sourceB, targetA, targetB, undo));
+        Rewired(Seq((sourceA, targetB), (sourceB, targetA)), () => Connections.SwapSources(sourceA, sourceB, targetA, targetB, undo), nameof(Connections.SwapSources));
 
     public static IO<Unit> CutOutMiddleMan(IParameter left, IParameter middle, IParameter right, ActionList undo) =>
-        Rewired(() => Seq(Existing(left, middle), Existing(middle, right), Created(left, right)), () => Connections.CutOutMiddleMan(left, middle, right, undo));
+        Rewired(Seq((left, right)), () => Connections.CutOutMiddleMan(left, middle, right, undo), nameof(Connections.CutOutMiddleMan));
 
-    private static IO<Unit> Rewired(Func<Seq<Fin<Unit>>> checks, Func<bool> rewire) =>
-        IO.lift(() => checks().Traverse(static check => check).As().Map(_ => ignore(rewire())));
+    private static IO<Unit> Rewired(Seq<(IParameter Source, IParameter Target)> created, Func<bool> rewire, string member) =>
+        IO.lift(() => created.Traverse(static wire => Created(wire.Source, wire.Target)).As().Bind(_ => Refused.Unless(rewire(), member)));
 
     // --- [OBJECTS]
     public static IO<(Shout Shout, Listen Listen)> SplitWire(IParameter source, IParameter target, Option<string> name, PointF location, ActionList actions) =>
-        from checkedWire in IO.lift(() => Existing(source, target))
-        from split in IO.lift(() => {
-            _ = source.Document.Methods.SplitWire(source, target, Conversions.Unset(name), location, out Shout shout, out Listen listen, actions);
-            return (Shout: shout, Listen: listen);
-        })
+        from checkedWire in IO.lift(Fin<Unit> () => Connected(source, target) ? unit : Error.New($"no wire from {source.InstanceId} to {target.InstanceId}"))
+        from split in IO.lift(() => Refused.Unless(
+            source.Document.Methods.SplitWire(source, target, Conversions.Unset(name), location, out Shout shout, out Listen listen, actions), (Shout: shout, Listen: listen), nameof(DocumentMethods.SplitWire)))
         select split;
 
     public static IO<HashMap<Guid, Guid>> Absorb(ObjectList objects, ObjectList other, bool reinstateInputs, bool reinstateOutputs, ActionList actions) =>

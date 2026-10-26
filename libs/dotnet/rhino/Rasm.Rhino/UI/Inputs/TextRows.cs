@@ -147,10 +147,10 @@ public static class TextRows {
             select unit)
         let answers = HashMap((entry.Commit, IO.lift(entry.Read).Bind(committed)), (Eto.Forms.Keys.Escape, bound.Cancel))
         from keys in Subscriptions.Attach(h => entry.Field.KeyDown += h, h => entry.Field.KeyDown -= h,
-            Callbacks.Handler<Eto.Forms.KeyEventArgs>(args => Pressed(args, answers), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.KeyDown))), owned)
+            Callbacks.Synchronous<Eto.Forms.KeyEventArgs>(args => Pressed(args, answers), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.KeyDown))), owned)
         from lost in Subscriptions.Attach(h => entry.Field.LostFocus += h, h => entry.Field.LostFocus -= h,
             Callbacks.Handler<EventArgs>(_ => IO.lift(entry.Read).Bind(committed), new CallbackSite(scope.Sink, entry.Field.GetType(), nameof(Eto.Forms.Control.LostFocus))), owned)
-        from picked in browse.Traverse(asked => Browsed(new LocalizeStringPair(field.Caption, field.Wording.Shown(field.Caption, scope.Sink)), asked, entry.Field, committed, scope, owned)).As()
+        from picked in browse.Traverse(asked => Browsed(new LocalizeStringPair(field.Caption, RowText.Localize(field.Caption, scope.Sink).Local), asked, entry.Field, committed, scope, owned)).As()
         select new RowCells(
             entry.Shown, None, picked.Map(static held => (Eto.Forms.Control)held), None, [], [], new RowHelp(None, Conversions.Present(text(source.Default))),
             bound.Shown, Some<RowEdit>(bound), Some(ChoiceRows.Context(entry.Shown, [], [], scope.Sink))), retain);
@@ -215,7 +215,7 @@ public static class TextRows {
         DisposalOps.Acquire(owned =>
         from command in IO.lift(static () => new Eto.Forms.Command())
         from faced in IO.lift(() => command.ToolTip = RowText.Localize("Browse").Local)
-        from picked in ButtonRows.Pick(command, GlyphRole.Load, scope.Sink, owned)
+        from picked in ButtonRows.Push(command, Some<IGlyph>(GlyphRole.Load), scope.Sink, owned)
         from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,
             Callbacks.Handler<EventArgs>(_ =>
                 from current in IO.lift(() => box.Text)

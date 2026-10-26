@@ -7,6 +7,7 @@ using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino;
+using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
@@ -72,6 +73,18 @@ public sealed partial class EngineScope {
 public sealed record NavigationText(bool Bold, Option<System.Drawing.Color> Color);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PageSubject {
+    public sealed record Objects : PageSubject {
+        public Option<ObjectType> SupportedTypes { get; init; }
+        public Option<bool> AllObjectsMustBeSupported { get; init; }
+        public Option<bool> SupportsSubObjects { get; init; }
+        public Option<PropertyPageType> PageType { get; init; }
+    }
+
+    public sealed record Viewport(LanguageExt.HashSet<ViewportType> ViewportTypes) : PageSubject;
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record View {
     public required Type Identity { get; init; }
     public required string Caption { get; init; }
@@ -82,73 +95,50 @@ public abstract partial record View {
     public Option<ViewStore> Store { get; init; }
     public Seq<Child> Children { get; init; }
 
-    public abstract RhinoLayout.SpacingType Spacing { get; }
-
     public sealed record Window : View {
         public required WindowKind Kind { get; init; }
         public Option<Eto.Drawing.Size> Size { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Dialog;
     }
 
     public sealed record Dialog : View {
         public required bool Cancelable { get; init; }
         public Option<DialogDisplayMode> DisplayMode { get; init; }
         public Option<PlugInSetting<bool, bool>> Suppression { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Dialog;
     }
 
     public sealed record Panel : View {
         public Option<PanelType> Kind { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Panel;
     }
 
     public sealed record Section : View {
         public Option<Func<RowScope, IO<Seq<MenuPick>>>> Presets { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Panel;
     }
 
     public sealed record OptionsPage : View {
         public required CommitMode Commit { get; init; }
         public Option<NavigationText> Navigation { get; init; }
         public Seq<OptionsPage> SubPages { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Dialog;
     }
 
     public sealed record DocumentPage : View {
         public required CommitMode Commit { get; init; }
         public Option<NavigationText> Navigation { get; init; }
         public Seq<DocumentPage> SubPages { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Dialog;
     }
 
     public sealed record PropertiesPage : View {
-        public Option<PropertyPageType> PageType { get; init; }
-        public Option<ObjectType> SupportedTypes { get; init; }
-        public Option<bool> AllObjectsMustBeSupported { get; init; }
-        public Option<bool> SupportsSubObjects { get; init; }
+        public required PageSubject Subject { get; init; }
         public Option<int> Index { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.PropertiesPage;
     }
 
     public sealed record Tab : View {
         public required EngineScope Scope { get; init; }
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Panel;
     }
 
     public sealed record Pane : View {
         public required EngineScope Scope { get; init; }
         public required bool InitialShow { get; init; }
         public RenderPanels.ExtraSidePanePosition Position { get; init; } = RenderPanels.ExtraSidePanePosition.Left;
-
-        public override RhinoLayout.SpacingType Spacing => RhinoLayout.SpacingType.Panel;
     }
 }
 
@@ -241,7 +231,7 @@ public static class ViewOps {
                     .ToFin(new UnheldView(state.View.Identity)))
             .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, owner.Limits, owner.Clock));
 
-    private static Seq<RowSource> Sources(View view) =>
+    internal static Seq<RowSource> Sources(View view) =>
         view.Children.Bind(static child => child.Controls).Choose(static row => row.Bound).Distinct();
 
     // --- [REALIZATION]

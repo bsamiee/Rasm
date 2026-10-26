@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from enum import Enum
 import functools
-from typing import ClassVar, Final, Literal, Self
+from typing import Final, Literal, Self
 
 import blf
 import bpy
@@ -13,7 +13,8 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 import msgspec
 
-from blender.bpy.ui.resources.theme import Color, Metrics, Theme
+from blender.bpy.extension.scoped import Scoped
+from blender.bpy.ui.resources.theme import Color, Look, Metrics, rgba, Theme
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -64,6 +65,11 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
         gray = style.shadow_value
         return cls(level=style.shadow, color=(gray, gray, gray, style.shadow_alpha), offset=(style.shadow_offset_x, style.shadow_offset_y))
 
+    @classmethod
+    def cast(cls, look: Look, metrics: Metrics) -> Option[Self]:
+        """Reads a look's hard shadow at interface scale, y flipped from Skia's downward axis."""
+        return look.shadow.map(lambda shade: cls(color=rgba(shade.ink), offset=(float(metrics.scaled(shade.x)), -float(metrics.scaled(shade.y)))))
+
 
 class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     """Draw state of one region."""
@@ -79,19 +85,25 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def of(cls, area: bpy.types.Area, region: bpy.types.Region, pointer: Option[tuple[int, int]] = Nothing) -> Self:
-        """Reads region extent less overlapping siblings."""
+        """Reads region extent less overlapping siblings, each inset from the bounds the earlier siblings left."""
         metrics = Metrics.read()
-        left, bottom = region.x, region.y
-        right, top = left + region.width - 1, bottom + region.height - 1
-        for sibling in (other for other in area.regions if other != region and Theme(space=area.type, region=other.type, preferences=metrics.preferences).overlaps):
+
+        def inset(bounds: tuple[int, int, int, int], sibling: bpy.types.Region) -> tuple[int, int, int, int]:
+            left, bottom, right, top = bounds
             x, y = sibling.x, sibling.y
             xmax, ymax = x + sibling.width - 1, y + sibling.height - 1
-            if not (left <= xmax and right >= x and bottom <= ymax and top >= y):
-                continue
-            if sibling.alignment in {"LEFT", "RIGHT"}:
-                left, right = (xmax if abs(left - x) < 2 else left), (x if abs(right - xmax) < 2 else right)
-            elif sibling.alignment in {"TOP", "BOTTOM"}:
-                bottom, top = (ymax if abs(bottom - y) < 2 else bottom), (y if abs(top - ymax) < 2 else top)
+            match sibling.alignment:
+                case _ if not (left <= xmax and right >= x and bottom <= ymax and top >= y):
+                    return bounds
+                case "LEFT" | "RIGHT":
+                    return (xmax if abs(left - x) < 2 else left), bottom, (x if abs(right - xmax) < 2 else right), top
+                case "TOP" | "BOTTOM":
+                    return left, (ymax if abs(bottom - y) < 2 else bottom), right, (y if abs(top - ymax) < 2 else top)
+                case _:
+                    return bounds
+
+        overlapping = (other for other in area.regions if other != region and Theme(space=area.type, region=other.type, preferences=metrics.preferences).overlaps)
+        left, bottom, right, top = functools.reduce(inset, overlapping, (region.x, region.y, region.x + region.width - 1, region.y + region.height - 1))
         origin_x, origin_y = pointer.map(lambda _: (0, 0)).default_value((region.x, region.y))
         return cls(
             theme=Theme(space=area.type, region=region.type, preferences=metrics.preferences),
@@ -208,34 +220,10 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             quad.draw(shader)
 
 
-# --- [SERVICES] -------------------------------------------------------------------------
-
-
-class Programs(msgspec.Struct, frozen=True):
-    """GPU programs compiled at first draw, released at unregister."""
-
-    releases: ClassVar[list[Callable[[], None]]] = []
-
-    def __enter__(self) -> None:
-        """Leaves each program to its first draw."""
-
-    def __exit__(self, *_: object) -> None:
-        """Releases compiled programs inside GPU context."""
-        for release in Programs.releases:
-            release()
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def compiled[T](build: Callable[[], T]) -> Callable[[], T]:
-    """Caches a GPU program builder until `Programs` releases it."""
-    cached = functools.cache(build)
-    Programs.releases.append(cached.cache_clear)
-    return cached
-
-
-@compiled
+@functools.cache
 def rounded() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
     """Builds rounded-frame shader and unit quad."""
     vertex = "void main() { local = pos * box.rect.zw; gl_Position = ModelViewProjectionMatrix * vec4(box.rect.xy + local, 0.0, 1.0); }"
@@ -270,13 +258,34 @@ void main() {
     return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})
 
 
-@compiled
+@functools.cache
 def textured() -> gpu.types.GPUBatch:
     """Returns UV quad for image shaders."""
     return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})
 
 
+@contextmanager
+def released(*clears: Callable[[], None]) -> Generator[None]:
+    """Holds cached GPU programs until scope exit, then drops them inside the GPU context unregistration runs in.
+
+    Args:
+        clears: `cache_clear` of each cached program builder.
+
+    Yields:
+        None while the programs stay cached.
+    """
+    try:
+        yield
+    finally:
+        for clear in clears:
+            clear()
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+PROGRAMS: Final = Scoped[None](made=lambda _identity: released(rounded.cache_clear, textured.cache_clear))
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["DECODED", "QUAD", "Align", "Blend", "Canvas", "Programs", "Rect", "Shadow", "compiled", "rounded", "textured"]
+__all__ = ["DECODED", "PROGRAMS", "QUAD", "Align", "Blend", "Canvas", "Rect", "Shadow", "released", "rounded", "textured"]

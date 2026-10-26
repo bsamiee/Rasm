@@ -3,7 +3,6 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Viewport;
 
@@ -19,25 +18,18 @@ public abstract partial record RestorePacing {
     public sealed record ConstantTime(FrameCount Frames, Duration Delay) : RestorePacing;
 }
 
-public sealed record FocalBlur(ViewInfoFocalBlurModes FocalBlurMode, double FocalBlurDistance, double FocalBlurAperture, double FocalBlurJitter, uint FocalBlurSampleCount) {
-    public static IO<FocalBlur> Read(ViewInfo view) => IO.lift(() => NamedViewMapper.ToFocalBlur(view));
-
-    public IO<Unit> Write(ViewInfo view) => IO.lift(() => NamedViewMapper.Update(this, view));
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-internal static partial class NamedViewMapper {
-    internal static partial FocalBlur ToFocalBlur(ViewInfo view);
-
-    [MapperRequiredMapping(RequiredMappingStrategy.Source)]
-    internal static partial void Update(FocalBlur blur, ViewInfo view);
-}
-
 public static class NamedViews {
     // --- [TABLE]
     public static IO<int> Add(RhinoDoc doc, RhinoViewport viewport, Option<string> name) =>
         IO.lift(() => Conversions.Required(doc.NamedViews.Add(Conversions.Unset(name), viewport.Id), nameof(NamedViewTable.Add)));
+
+    public static IO<int> Save(RhinoDoc doc, RhinoViewport source, Option<string> name, Func<RhinoViewport, IO<Unit>> stage) =>
+        DisposalOps.Within(() => new RhinoViewport(source), copy =>
+            from staged in stage(copy)
+            from saved in DisposalOps.Within(() => new ViewInfo(copy) { Name = Conversions.Unset(name) },
+                view => IO.lift(() => Conversions.Required(doc.NamedViews.Add(view), nameof(NamedViewTable.Add))))
+            select saved);
 
     public static IO<Unit> Rename(RhinoDoc doc, string name, string newName) =>
         Find(doc, name).Bind(index => IO.lift(() => Refused.Unless(doc.NamedViews.Rename(index, newName), nameof(NamedViewTable.Rename))));
@@ -51,7 +43,7 @@ public static class NamedViews {
     // --- [RESTORE]
     public static IO<Seq<bool>> Restore(RhinoDoc doc, ViewportSet viewports, string name, RestorePacing pacing, RedrawPolicy redraw) =>
         from index in Find(doc, name)
-        from restored in Navigation.ApplyToViewports(
+        from restored in Viewports.Edit(
             doc,
             viewports,
             viewport => DisposalOps.Within(() => viewport.Name,
@@ -77,7 +69,4 @@ public static class NamedViews {
     // --- [STORED]
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>
         Find(doc, name).Bind(index => DisposalOps.Found(() => doc.NamedViews[index], nameof(NamedViewTable), read));
-
-    public static IO<int> Update(RhinoDoc doc, string name, Func<ViewInfo, IO<Unit>> edit) =>
-        Read(doc, name, view => edit(view).Bind(_ => IO.lift(() => Conversions.Required(doc.NamedViews.Add(view), nameof(NamedViewTable.Add)))));
 }

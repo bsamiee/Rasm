@@ -5,41 +5,6 @@ namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct PlaneFaceCount : System.Numerics.IMinMaxValue<PlaneFaceCount> {
-    public static PlaneFaceCount MinValue { get; } = new(1);
-    public static PlaneFaceCount MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct SphereFaceCount : System.Numerics.IMinMaxValue<SphereFaceCount> {
-    public static SphereFaceCount MinValue { get; } = new(2);
-    public static SphereFaceCount MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
-}
-
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct MeshRadius : System.Numerics.IMinMaxValue<MeshRadius> {
-    public static MeshRadius MinValue { get; } = new(double.BitIncrement(0d));
-    public static MeshRadius MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct IsosurfaceResolution : System.Numerics.IMinMaxValue<IsosurfaceResolution> {
-    public static IsosurfaceResolution MinValue { get; } = new(1);
-    public static IsosurfaceResolution MaxValue { get; } = new(int.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
-}
-
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 public readonly partial struct RefinementLevel : System.Numerics.IMinMaxValue<RefinementLevel> {
     public static RefinementLevel MinValue { get; } = new(0);
     public static RefinementLevel MaxValue { get; } = new(int.MaxValue);

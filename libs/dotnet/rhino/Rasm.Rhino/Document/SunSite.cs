@@ -450,14 +450,6 @@ public static partial class SunMapper {
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
     public static partial SunAngles ToAngles(Sun sun);
 
-    [MapProperty(nameof(@SunSite.Place.Latitude), nameof(AnimationProperties.Latitude))]
-    [MapProperty(nameof(@SunSite.Place.Longitude), nameof(AnimationProperties.Longitude))]
-    [MapProperty(nameof(SunSite.North), nameof(AnimationProperties.NorthAngle))]
-    [MapperIgnoreSource(nameof(SunSite.Standard), Justification = "AnimationProperties stores no offset")]
-    [MapperIgnoreSource(nameof(SunSite.Saving), Justification = "AnimationProperties stores no offset")]
-    [MapperIgnoreSource(nameof(SunSite.Wall), Justification = "AnimationProperties stores no offset")]
-    internal static partial void Update(SunSite site, AnimationProperties properties);
-
     [MapperIgnoreSource(nameof(SunLight.Azimuth), Justification = "Written by Place while ManualControlOn is on")]
     [MapperIgnoreSource(nameof(SunLight.Altitude), Justification = "Written by Place while ManualControlOn is on")]
     [MapperIgnoreSource(nameof(SunLight.Site), Justification = "Written by Update(SunSite, Sun)")]

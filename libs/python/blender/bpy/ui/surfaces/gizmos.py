@@ -10,21 +10,21 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import mathutils
 import msgspec
+from msgspec import UNSET, UnsetType
 
+from blender.bpy.commands.calls import Placed, Writer
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Band, entered
 from blender.bpy.faults import BlenderEditFault, BlenderResult
-from blender.bpy.ui.layout.rows import located, Member, ResolvedMember
+from blender.bpy.ui.layout.rows import Member, ResolvedMember
 from blender.bpy.ui.resources.icons import Glyph, Icons
 from blender.bpy.ui.resources.theme import color
 from blender.imaging.faults import accumulated, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
-
-    from blender.bpy.commands.operators import Placed, Writer
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -46,32 +46,32 @@ class Handler[V](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class GizmoShape(msgspec.Struct, frozen=True, kw_only=True):
-    """Placement and gizmo properties every part shares."""
+    """Placement and gizmo properties every part shares, an `UNSET` property keeping the host default."""
 
     place: Place
-    scale_basis: Option[float] = Nothing
-    matrix_space: Option[mathutils.Matrix] = Nothing
-    matrix_offset: Option[mathutils.Matrix] = Nothing
-    line_width: Option[float] = Nothing
-    select_bias: Option[float] = Nothing
-    hide_select: Option[bool] = Nothing
-    hide_keymap: Option[bool] = Nothing
-    use_grab_cursor: Option[bool] = Nothing
-    use_draw_hover: Option[bool] = Nothing
-    use_draw_modal: Option[bool] = Nothing
-    use_draw_value: Option[bool] = Nothing
-    use_draw_offset_scale: Option[bool] = Nothing
-    use_draw_scale: Option[bool] = Nothing
-    use_select_background: Option[bool] = Nothing
-    use_operator_tool_properties: Option[bool] = Nothing
-    use_event_handle_all: Option[bool] = Nothing
-    use_tooltip: Option[bool] = Nothing
-    use_undo: Option[bool] = Nothing
-    select: Option[bool] = Nothing
-    color: Option[tuple[float, float, float]] = Nothing
-    alpha: Option[float] = Nothing
-    color_highlight: Option[tuple[float, float, float]] = Nothing
-    alpha_highlight: Option[float] = Nothing
+    scale_basis: float | UnsetType = UNSET
+    matrix_space: mathutils.Matrix | UnsetType = UNSET
+    matrix_offset: mathutils.Matrix | UnsetType = UNSET
+    line_width: float | UnsetType = UNSET
+    select_bias: float | UnsetType = UNSET
+    hide_select: bool | UnsetType = UNSET
+    hide_keymap: bool | UnsetType = UNSET
+    use_grab_cursor: bool | UnsetType = UNSET
+    use_draw_hover: bool | UnsetType = UNSET
+    use_draw_modal: bool | UnsetType = UNSET
+    use_draw_value: bool | UnsetType = UNSET
+    use_draw_offset_scale: bool | UnsetType = UNSET
+    use_draw_scale: bool | UnsetType = UNSET
+    use_select_background: bool | UnsetType = UNSET
+    use_operator_tool_properties: bool | UnsetType = UNSET
+    use_event_handle_all: bool | UnsetType = UNSET
+    use_tooltip: bool | UnsetType = UNSET
+    use_undo: bool | UnsetType = UNSET
+    select: bool | UnsetType = UNSET
+    color: tuple[float, float, float] | UnsetType = UNSET
+    alpha: float | UnsetType = UNSET
+    color_highlight: tuple[float, float, float] | UnsetType = UNSET
+    alpha_highlight: float | UnsetType = UNSET
 
 
 class Handle(GizmoShape, frozen=True, kw_only=True):
@@ -84,21 +84,21 @@ class Button(GizmoShape, frozen=True, kw_only=True):
     """Screen button showing a glyph and invoking an operator."""
 
     kind: ClassVar[str] = "GIZMO_GT_button_2d"
-    glyph: "Glyph"
-    press: "Placed"
-    draw_options: Option[frozenset[Literal["OUTLINE", "BACKDROP", "HELPLINE"]]] = Nothing
-    show_drag: Option[bool] = Nothing
-    backdrop_fill_alpha: Option[float] = Nothing
+    glyph: Glyph
+    press: Placed
+    draw_options: frozenset[Literal["OUTLINE", "BACKDROP", "HELPLINE"]] | UnsetType = UNSET
+    show_drag: bool | UnsetType = UNSET
+    backdrop_fill_alpha: float | UnsetType = UNSET
 
 
 class Primitive(Handle, frozen=True, kw_only=True):
     """Selectable plane, circle, or annulus invoking an operator."""
 
     kind: ClassVar[str] = "GIZMO_GT_primitive_3d"
-    press: "Placed"
-    draw_style: Option[Literal["PLANE", "CIRCLE", "ANNULUS"]] = Nothing
-    arc_inner_factor: Option[float] = Nothing
-    draw_inner: Option[bool] = Nothing
+    press: Placed
+    draw_style: Literal["PLANE", "CIRCLE", "ANNULUS"] | UnsetType = UNSET
+    arc_inner_factor: float | UnsetType = UNSET
+    draw_inner: bool | UnsetType = UNSET
 
 
 class Cage(Handle, frozen=True, kw_only=True):
@@ -107,11 +107,11 @@ class Cage(Handle, frozen=True, kw_only=True):
     kind: ClassVar[str] = "GIZMO_GT_cage_2d"
     target: ClassVar[str] = "matrix"
     bind: Handler[MatrixValues]
-    dimensions: Option[tuple[float, float]] = Nothing
-    pivot: Option[tuple[float, float]] = Nothing
-    transform: Option[frozenset[Literal["TRANSLATE", "ROTATE", "SCALE", "SCALE_UNIFORM"]]] = Nothing
-    draw_style: Option[Literal["BOX", "BOX_TRANSFORM", "CIRCLE"]] = Nothing
-    draw_options: Option[frozenset[Literal["XFORM_CENTER_HANDLE", "CORNER_HANDLES"]]] = Nothing
+    dimensions: tuple[float, float] | UnsetType = UNSET
+    pivot: tuple[float, float] | UnsetType = UNSET
+    transform: frozenset[Literal["TRANSLATE", "ROTATE", "SCALE", "SCALE_UNIFORM"]] | UnsetType = UNSET
+    draw_style: Literal["BOX", "BOX_TRANSFORM", "CIRCLE"] | UnsetType = UNSET
+    draw_options: frozenset[Literal["XFORM_CENTER_HANDLE", "CORNER_HANDLES"]] | UnsetType = UNSET
 
 
 class Arrow(Handle, frozen=True, kw_only=True):
@@ -119,13 +119,13 @@ class Arrow(Handle, frozen=True, kw_only=True):
 
     kind: ClassVar[str] = "GIZMO_GT_arrow_3d"
     target: ClassVar[str] = "offset"
-    bind: "Member | Handler[float]"
-    draw_style: Option[Literal["NORMAL", "CROSS", "BOX", "CONE", "PLANE"]] = Nothing
-    draw_options: Option[frozenset[Literal["STEM", "ORIGIN"]]] = Nothing
-    transform: Option[frozenset[Literal["INVERT", "CONSTRAIN"]]] = Nothing
-    length: Option[float] = Nothing
-    aspect: Option[tuple[float, float]] = Nothing
-    incremental_snap_step: Option[float] = Nothing
+    bind: Member | Handler[float]
+    draw_style: Literal["NORMAL", "CROSS", "BOX", "CONE", "PLANE"] | UnsetType = UNSET
+    draw_options: frozenset[Literal["STEM", "ORIGIN"]] | UnsetType = UNSET
+    transform: frozenset[Literal["INVERT", "CONSTRAIN"]] | UnsetType = UNSET
+    length: float | UnsetType = UNSET
+    aspect: tuple[float, float] | UnsetType = UNSET
+    incremental_snap_step: float | UnsetType = UNSET
 
 
 class Dial(Handle, frozen=True, kw_only=True):
@@ -133,13 +133,13 @@ class Dial(Handle, frozen=True, kw_only=True):
 
     kind: ClassVar[str] = "GIZMO_GT_dial_3d"
     target: ClassVar[str] = "offset"
-    bind: "Member | Handler[float]"
-    draw_options: Option[frozenset[Literal["CLIP", "FILL", "FILL_SELECT", "ANGLE_MIRROR", "ANGLE_START_Y", "ANGLE_VALUE"]]] = Nothing
-    wrap_angle: Option[bool] = Nothing
-    arc_inner_factor: Option[float] = Nothing
-    arc_partial_angle: Option[float] = Nothing
-    incremental_angle: Option[float] = Nothing
-    click_value: Option[float] = Nothing
+    bind: Member | Handler[float]
+    draw_options: frozenset[Literal["CLIP", "FILL", "FILL_SELECT", "ANGLE_MIRROR", "ANGLE_START_Y", "ANGLE_VALUE"]] | UnsetType = UNSET
+    wrap_angle: bool | UnsetType = UNSET
+    arc_inner_factor: float | UnsetType = UNSET
+    arc_partial_angle: float | UnsetType = UNSET
+    incremental_angle: float | UnsetType = UNSET
+    click_value: float | UnsetType = UNSET
 
 
 class Move(Handle, frozen=True, kw_only=True):
@@ -147,10 +147,10 @@ class Move(Handle, frozen=True, kw_only=True):
 
     kind: ClassVar[str] = "GIZMO_GT_move_3d"
     target: ClassVar[str] = "offset"
-    bind: "Handler[tuple[float, float, float]] | Placed"
-    draw_style: Option[Literal["RING_2D", "CROSS_2D"]] = Nothing
-    draw_options: Option[frozenset[Literal["FILL", "FILL_SELECT", "ALIGN_VIEW"]]] = Nothing
-    use_snap: Option[bool] = Nothing
+    bind: Handler[tuple[float, float, float]] | Placed
+    draw_style: Literal["RING_2D", "CROSS_2D"] | UnsetType = UNSET
+    draw_options: frozenset[Literal["FILL", "FILL_SELECT", "ALIGN_VIEW"]] | UnsetType = UNSET
+    use_snap: bool | UnsetType = UNSET
 
 
 class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
@@ -196,7 +196,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
         def acquired(part: GizmoPart) -> BlenderResult[tuple[GizmoPart, Binding]]:
             """Resolves operator, property, or handler target."""
 
-            def operator(invocation: tuple[str, "Writer"]) -> tuple[GizmoPart, Binding]:
+            def operator(invocation: tuple[str, Writer]) -> tuple[GizmoPart, Binding]:
                 """Pairs part with operator target."""
                 name, writer = invocation
                 return part, lambda gizmo, _context: writer(gizmo.target_set_operator(name, index=0))
@@ -237,7 +237,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                     case Result(ok=found):
                         for held in found.to_list():
                             try:
-                                for owner, identifier in located(held, context, context).to_list():
+                                for owner, identifier in held.at(context, context).to_list():
                                     gizmo.target_set_prop(key, owner, identifier, index=held.descriptor.index.default_value(-1))
                             except RuntimeError as error:
                                 return Error((BlenderEditFault(request=held.descriptor.path, error=error),))
@@ -248,7 +248,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 if not all(holds(required, context) for required in self.condition.to_list()):
                     return False
                 resolved = accumulated(reached(binding[1], context) for _, binding in parts if isinstance(binding, tuple)).map_error(identity.reports.hold).to_option()
-                return resolved.is_some() and all(member.bind(partial(located, holder=context, context=context)).is_some() for members in resolved.to_list() for member in members)
+                return resolved.is_some() and all(member.bind(lambda held: held.at(context, context)).is_some() for members in resolved.to_list() for member in members)
 
             def setup(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
                 """Creates gizmos with theme colors, then binds targets."""
@@ -262,7 +262,8 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                     gizmo.color_highlight, gizmo.alpha_highlight = highlighted[:3], highlighted[3]
                     gizmo.use_draw_modal = gizmo.use_draw_value = True
                     gizmo.use_undo = not (isinstance(part, (Button, Primitive)) or (isinstance(part, Move) and not isinstance(part.bind, Handler)))
-                    for member, supplied in ((member, supplied) for member, value in msgspec.structs.asdict(part).items() if isinstance(value, Option) for supplied in value.to_list()):
+                    values = msgspec.structs.asdict(part)
+                    for member, supplied in ((field.name, values[field.name]) for field in msgspec.structs.fields(part) if field.default is UNSET and not isinstance(values[field.name], UnsetType)):
                         setattr(gizmo, member, set(supplied) if isinstance(supplied, frozenset) else supplied)
                 return accumulated(attach(group.gizmos[index], binding, context) for index, (_, binding) in enumerate(parts)).map(lambda _: None).default_with(identity.reports.hold)
 

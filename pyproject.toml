@@ -561,14 +561,14 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], allow-dunder-method-names = ["__array__"], max-args = 8 }
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**"                                      = ["assert"]
-"{libs/python/blender,apps/blender}/**"         = [
-    "boolean-positional-value-in-call",                                                     # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
-    "import-private-name",                                                                  # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
-    "no-self-use",                                                                          # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
+"tests/**"                                    = ["assert"]
+"{libs/python/blender,apps/blender}/**"       = [
+    "boolean-positional-value-in-call",                                                   # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
+    "import-private-name",                                                                # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
+    "no-self-use",                                                                        # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
 ]
-"apps/blender/**"                               = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-"libs/python/blender/bpy/ui/layout/sections.py" = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
+"apps/blender/**"                             = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+"libs/python/blender/bpy/ui/layout/values.py" = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [

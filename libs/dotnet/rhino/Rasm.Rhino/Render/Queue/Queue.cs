@@ -16,12 +16,9 @@ using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Inputs;
-using Rasm.Rhino.UI.Rows;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
-using Rhino.Display;
-using Rhino.DocObjects;
-using Rhino.DocObjects.Tables;
 using Rhino.Render;
 using UnitsNet;
 using UnitsNet.Units;
@@ -152,48 +149,9 @@ public sealed record QueueSettingRows(
     PlugInSetting<bool, bool> ShutDownAfterSuccess,
     PlugInSetting<Duration, double> HeartbeatInterval,
     PlugInSetting<int, int> HeartbeatMisses,
-    PlugInSetting<NoticeServer, string> Server,
+    PlugInSetting<HttpServer, string> Server,
     PlugInSetting<Option<NoticeTopic>, string> Topic,
     FlamencoSettingRows Flamenco) {
-    public static QueueSettingRows Default { get; } = new(
-        Retries: new(ValueKey.Numeric("QueueRetries", "Retries", "Rhino restarts to resume crashed queue", QueueSettings.Default.Retries,
-            NumericDomain.Bounded<RetryCount, int>(new() { Form = NumberForm.Field })), SettingType.Integer),
-        Delay: new(ValueKey.Numeric("QueueRetryDelay", "Retry delay", "Wait before each restart", QueueSettings.Default.Delay,
-            NumericDomain.Bounded<RetryDelay, int>(RetryDelay.Presentation)), SettingType.Integer),
-        SampleEstimate: new(ValueKey.Raw("QueueSampleEstimate", "Estimate from first frames",
-            "Renders 2 frames per entry first to post estimated finish", QueueSettings.Default.SampleEstimate), SettingType.Bool),
-        KeepAwake: new(ValueKey.Raw("KeepAwake", "Keep computer awake", "Prevents system sleep while queue renders", QueueSettings.Default.KeepAwake), SettingType.Bool),
-        ShutDownAfterSuccess: new(ValueKey.Raw("ShutDownAfterSuccess", "Shut down when done", "Shuts computer down 60 seconds after queue succeeds",
-            QueueSettings.Default.ShutDownAfterSuccess), SettingType.Bool),
-        HeartbeatInterval: new(ValueKey.Numeric("QueueHeartbeatInterval", "Heartbeat interval", "Time between heartbeat writes to queue record", QueueHeartbeat.Default.Interval,
-            new NumericDomain<Duration, double>(static seconds => Duration.FromSeconds(seconds), static value => value.TotalSeconds,
-                (QueueHeartbeat.Intervals.Low.TotalSeconds, QueueHeartbeat.Intervals.High.TotalSeconds), new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Second) })),
-            SettingType.Double),
-        HeartbeatMisses: new(ValueKey.Numeric("QueueHeartbeatMisses", "Missed heartbeats", "Missed intervals before queue counts as crashed", QueueHeartbeat.Default.Misses,
-            new NumericDomain<int, int>(Fin.Succ, identity, QueueHeartbeat.MissedIntervals, new() { Form = NumberForm.Field })), SettingType.Integer),
-        Server: new(ValueKey.Of<NoticeServer, string>("NtfyServer", "Server", "ntfy server for queue notices", NoticeSettings.Default.Server), SettingType.String),
-        Topic: new(ValueKey.Optional<NoticeTopic>("NtfyTopic", "Topic", "ntfy topic for queue notices, empty sends none"), SettingType.String),
-        Flamenco: FlamencoSettingRows.Default);
-
-    public Seq<PlugInSetting> Rows => [Retries, Delay, SampleEstimate, KeepAwake, ShutDownAfterSuccess, HeartbeatInterval, HeartbeatMisses, Server, Topic, .. Flamenco.Rows];
-
-    public Seq<Child> Children => [
-        new ControlRow.Group("Retries and power", RowRules.Always) { Wording = Wording.Library },
-        .. SectionRows.Setting(Retries, RowRules.Always),
-        .. SectionRows.Setting(Delay, RowRules.Always),
-        .. SectionRows.Setting(SampleEstimate, RowRules.Always),
-        .. SectionRows.Setting(KeepAwake, RowRules.Always),
-        .. SectionRows.Setting(ShutDownAfterSuccess, RowRules.Always),
-        new ControlRow.Group("Heartbeat", RowRules.Always) { Wording = Wording.Library },
-        .. SectionRows.Setting(HeartbeatInterval, RowRules.Always),
-        .. SectionRows.Setting(HeartbeatMisses, RowRules.Always),
-        new ControlRow.Group("Notices", RowRules.Always) { Wording = Wording.Library },
-        .. SectionRows.Setting(Server, RowRules.Always),
-        .. SectionRows.Setting(Topic, RowRules.Always),
-        new ControlRow.Group("Flamenco", RowRules.Always) { Wording = Wording.Library },
-        .. Flamenco.Children,
-    ];
-
     public IO<QueueSettings> Settings(ISettingReader reader) =>
         IO.lift(() => (reader.Current(Retries), reader.Current(Delay), reader.Current(SampleEstimate),
                 reader.Current(KeepAwake), reader.Current(ShutDownAfterSuccess), reader.Current(HeartbeatInterval), reader.Current(HeartbeatMisses))
@@ -442,19 +400,7 @@ public static class Queues {
     private static IO<Unit> Widened(RunScope scope, QueueRun run, OverscanFrame rendered) =>
         run.Entry.Overscan == Overscan.Off
             ? Lit(scope, run, rendered)
-            : from viewport in IO.lift(() => Refused.UnlessFound(scope.Doc.Views.ActiveView, nameof(ViewTable.ActiveView)).Map(static view => view.ActiveViewport))
-              from ran in DisposalOps.Within(() => new ViewportInfo(viewport),
-                  _ => Projected(viewport, rendered).Bind(_ => Lit(scope, run, rendered)),
-                  held => Callbacks.Each(Seq(
-                      IO.lift(() => Refused.Unless(viewport.SetViewProjection(held, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection))),
-                      IO.lift(held.Dispose))).Map(unit))
-              select ran;
-
-    private static IO<Unit> Projected(RhinoViewport viewport, OverscanFrame frame) =>
-        DisposalOps.Within(() => new ViewportInfo(viewport), copy =>
-            from widened in frame.Widen(copy)
-            from applied in IO.lift(() => Refused.Unless(viewport.SetViewProjection(copy, updateTargetLocation: false), nameof(RhinoViewport.SetViewProjection)))
-            select applied);
+            : Viewports.With(scope.Doc, new ViewportTarget.Active(), row => Cameras.Within(row.Viewport, rendered.Widen, Lit(scope, run, rendered)));
 
     private static IO<Unit> Lit(RunScope scope, QueueRun run, OverscanFrame rendered) =>
         run.Entry.Sun.Match(
@@ -573,224 +519,4 @@ public static class Queues {
 
     private static Fin<string> Named<TCommand>(Seq<Command> commands) where TCommand : Command =>
         commands.Find(static command => command is TCommand).Map(static command => command.EnglishName).ToFin(Error.New($"Plug-in registers no {typeof(TCommand).Name}"));
-
-    // --- [ROWS]
-    private const string Owner = "render-queue";
-
-    private static readonly Func<Destination, IO<QueueTarget>> Local = static _ => IO.pure<QueueTarget>(new QueueTarget.Local());
-
-    private static readonly Func<QueueContext, IO<Option<QueueProgress>>> Fresh = static _ => IO.pure(Option<QueueProgress>.None);
-
-    private static readonly (RowSource<Seq<(QueuedEntry Entry, int Index)>> Source, RowField<Seq<(QueuedEntry Entry, int Index)>> Field) Listed =
-        RowSource.Opaque(Owner, "entries", Seq<(QueuedEntry Entry, int Index)>(), static scope => ValueStore.Of(
-            scope.DocumentIO.Bind(Book).Map(static book => Some(book.Entries.Map(static (entry, index) => (Entry: entry, Index: index)))),
-            rows =>
-                from doc in scope.DocumentIO
-                from changed in Change(doc, RowText.Localize("Edit Entries"), _ => new QueueBook(rows.IfNone([]).Map(static row => row.Entry)))
-                select unit,
-            Applied.Live,
-            RenderSettingsSources.DictionaryChanged(scope)));
-
-    private static readonly (RowSource<LanguageExt.HashSet<int>> Source, RowField<LanguageExt.HashSet<int>> Field) Picked =
-        RowSource.Opaque(Owner, "picked", LanguageExt.HashSet<int>.Empty);
-
-    private static readonly (RowSource<bool> Source, RowField<bool> Field) Clayed = RowSource.Opaque(Owner, "clay", @default: false);
-
-    private static readonly (RowSource<Option<Preflight>> Source, RowField<Option<Preflight>> Field) Report = RowSource.Opaque(Owner, "check", Option<Preflight>.None);
-
-    private static readonly HostEvent<Unit> Estimated = new(typeof(QueueContext), nameof(QueueContext.Estimate), static (deliver, site, retain) =>
-        QueueContext.Current.Of(site.Sink).Bind(context => Subscriptions.Changed(context.Estimate).Attach(_ => deliver(unit), site, retain)));
-
-    private static readonly (RowSource<RunState> Source, RowField<RunState> Field) Observed =
-        RowSource.Opaque(Owner, "run", new RunState.Absent(), static scope => ValueStore.Readout(
-            QueueContext.Current.Of(scope.Sink).Bind(QueueProgress.Observed).Map(static observed => observed.State), Some(Estimated)));
-
-    private static readonly ReadoutSource<(QueueEstimate Estimate, TimeProvider Clock, DateTimeZone Zone)> Zoned =
-        new ReadoutSource<(QueueEstimate Estimate, TimeProvider Clock, DateTimeZone Zone)>.Scoped(static scope =>
-            from context in QueueContext.Current.Of(scope.Sink)
-            from estimate in context.Estimate.ValueIO
-            from zone in IO.lift(() => context.Sink.Clock.ToZonedClock().Zone)
-            select (estimate, context.Sink.Clock, zone));
-
-    public static Seq<Child> Rows(QueueSettingRows settings) {
-        ReadoutSource<Option<Preflight>> check = new ReadoutSource<Option<Preflight>>.Scoped(static scope => scope.Read(Report.Source));
-        Func<RowScope, IO<RunState>> state = static scope => scope.Read(Observed.Source);
-        RowRules ran = new(None, Some(RowRule.When(Observed.Source, static current => current is not RunState.Absent)));
-        RowRules reported = new(None, Some(RowRule.When(Report.Source, static report => report.IsSome)));
-        RowRule ready = new([], [], scope => state(scope).Map(static current => current.Map(absent: true, active: false, ended: true, crashed: true)));
-        RowRule resumable = new([], [], scope => state(scope).Map(static current => current.Switch(
-            absent: static _ => false, active: static _ => false, ended: static ended => ended.End != RunEnd.Succeeded, crashed: static _ => true)));
-        ReadoutSource<(RunState State, DateTimeZone Zone)> stated = new ReadoutSource<(RunState State, DateTimeZone Zone)>.Scoped(scope =>
-            from current in state(scope)
-            from zone in IO.lift(() => ((IPlugInViews)scope.Sink).Clock.ToZonedClock().Zone)
-            select (current, zone));
-        const string entryCaption = "Entry";
-        const string count = "{0:N0}";
-        const string bytes = "{0:N0} bytes";
-        Seq<(string Caption, string Format, Func<Preflight, Option<object>> Value)> measures = [
-            ("Objects", count, static report => Some<object>(report.Statistics.ObjectCount)),
-            ("Layer levels", count, static report => Some<object>(report.Statistics.LayerLevelCount)),
-            ("Block placements", count, static report => Some<object>(report.Statistics.PlacementCount)),
-            ("Geometry memory", bytes, static report => Some<object>(report.Statistics.MemoryEstimate)),
-            ("File size", bytes, static report => report.Statistics.FileLength.Map(static length => (object)length)),
-        ];
-        return [
-            ListRows.List("Entries", "Queued renders of document, in add order", new ListRow<(QueuedEntry Entry, int Index), int>(
-                    IterableNE.create<ListColumn<(QueuedEntry Entry, int Index)>>(
-                        new ListColumn<(QueuedEntry Entry, int Index)>.Check(Some("Render"), Lens<(QueuedEntry Entry, int Index), bool>.New(
-                            static row => row.Entry.Renders, static renders => row => row with { Entry = row.Entry with { Renders = renders } })),
-                        new ListColumn<(QueuedEntry Entry, int Index)>.Label(Some(entryCaption), static row => row.Entry.Name.IfNone(static () => RowText.Localize("Active viewport")), None, None),
-                        new ListColumn<(QueuedEntry Entry, int Index)>.Label(Some("Frames"), static row => row.Entry.Frames.Count > 1
-                            ? RowText.Localize("{0} to {1}", arguments: [(int)row.Entry.Frames.First, (int)row.Entry.Frames.Last])
-                            : ((int)row.Entry.Frames.First).ToString(RowText.Culture), None, None),
-                        new ListColumn<(QueuedEntry Entry, int Index)>.Label(Some("Size"), static row => RowText.Localize("{0} × {1}", arguments: [row.Entry.Extent.Width, row.Entry.Extent.Height]), None, None)),
-                    static row => row.Index,
-                    Listed,
-                    Picked) {
-                AllowMultipleSelection = true,
-                Wording = Wording.Library,
-                Empty = Some("No renders queued"),
-                Pair = Some((
-                        new CommandRow.Run(Face("render-queue-add-view", "Add Active Viewport", "Queue active viewport at document render size"), None,
-                            static scope => Added(scope, static _ => IO.pure(Seq(Placement.Active)))),
-                        new CommandRow.Run(Face("render-queue-remove", "Remove Entries", "Remove selected entries"), None, static scope =>
-                            from doc in scope.DocumentIO
-                            from picked in scope.Read(Picked.Source)
-                            from removed in Change(doc, RowText.Localize("Remove Entries"), was => was.Removed(picked))
-                            from cleared in scope.Store(Picked.Source).Put(Some(LanguageExt.HashSet<int>.Empty))
-                            select unit))),
-                Commands = _ => [
-                    new CommandRow.Run(Face("render-queue-add-named-views", "Add Named Views", "Queue every named view"), None, static scope => Added(scope, NamedViewEntries)),
-                    new CommandRow.Run(Face("render-queue-add-snapshots", "Add Snapshots", "Queue every snapshot"), None, static scope => Added(scope, SnapshotEntries)),
-                    new CommandRow.Run(Face("render-queue-add-study", "Add Sun Study", "Queue sun study, one frame per moment"), None, static scope => Added(scope, StudyEntries)),
-                    new CommandRow.Check(Face("render-queue-clay", "Clay", "Render entries added next with every object in clay"), None,
-                        static scope => scope.Read(Clayed.Source), static (scope, on) => scope.Store(Clayed.Source).Put(Some(on)).Map(unit)),
-                    new CommandRow.Run(Face("render-queue-check", "Check", "Check queue for refusals and cautions"), None, static scope => Checked(scope, Local)),
-                    new CommandRow.Run(Face("render-queue-render", "Render", "Render queue in running Rhino"), Some(ready), static scope => Sent(scope, Local, Fresh)),
-                    new CommandRow.Run(Face("render-queue-handoff", "Render in New Rhino", "Save, quit, then render queue in new Rhino behind frontmost window"), Some(ready),
-                        static scope => Sent(scope, Packaged(static package => IO.pure<QueueTarget>(new QueueTarget.Handoff(package))), Fresh)),
-                    new CommandRow.Run(Face("render-queue-job", "Write Job", "Write document copy, job, and job schema to output jobs folder"), Some(ready),
-                        static scope => Sent(scope, Packaged(static package => IO.pure<QueueTarget>(new QueueTarget.JobFile(package))), Fresh)),
-                    new CommandRow.Run(Face("render-queue-flamenco", "Submit to Flamenco", "Package queue and submit to Flamenco Manager"), Some(ready),
-                        scope => Sent(scope, Packaged(package => settings.Flamenco.Target(((IPlugInViews)scope.Sink).Settings, package)), Fresh)),
-                    new CommandRow.Run(Face("render-queue-resume", "Resume", "Render stopped, failed, or crashed queue from last finished frame"), Some(resumable),
-                        static scope => Sent(scope, Local, static context => QueueProgress.Read(context.Record).Map(static prior => prior.Filter(static record => !record.Succeeded)))),
-                    new CommandRow.Run(Face("render-queue-test-notice", "Send Test Notice", "Post test notice to Rhino, system, and ntfy topic"), None, static scope =>
-                        QueueContext.Current.Of(scope.Sink)
-                            .Bind(static context => DisposalOps.Fork(context.Notify(new QueueEvent.Test()), context.Retain))
-                            .Map(unit)),
-                ],
-            },
-                RowRules.Always),
-            new ControlRow.Group("Run", ran) { Wording = Wording.Library },
-            TextRows.Progress("Progress", "Frames rendered of queue total", new ReadoutSource<WorkState>.Scoped(static scope =>
-                QueueContext.Current.Of(scope.Sink).Bind(static context => context.Estimate.ValueIO).Map(static estimate => estimate.Work)), ran) with { Wording = Wording.Library, },
-            TextRows.Readout("State", "Queue record state", stated, static shown => Stated(shown.State, shown.Zone), ran) with { Wording = Wording.Library },
-            TextRows.Readout("Remaining", "Time left and finish time, from rendered frames", Zoned, static shown => shown.Estimate.Description(shown.Zone), ran) with { Wording = Wording.Library },
-            .. toSeq(FrameStage.Items).Map(stage => TextRows.Readout(stage.Caption,
-                "Time last finished frame spent in stage", Zoned,
-                shown => shown.Estimate.Last.Map<string>(mark => RowText.Localize("{0:N3} s", arguments: [stage.Of(mark, shown.Clock).TotalSeconds])).IfNone(""),
-                ran) with { Wording = Wording.Library, }),
-            TextRows.Readout("Peak memory", "Peak process memory at last finished frame", Zoned,
-                static shown => shown.Estimate.Last.Map<string>(static mark => RowText.Localize(bytes, arguments: [mark.PeakWorkingSet])).IfNone(""), ran) with { Wording = Wording.Library, },
-            new ControlRow.Group("Check", reported) { Wording = Wording.Library },
-            .. measures.Map(measure => TextRows.Readout(measure.Caption, "From last queue check", check,
-                report => report.Bind(measure.Value).Map<string>(value => RowText.Localize(measure.Format, arguments: [value])).IfNone(""), reported) with { Wording = Wording.Library, }),
-            ListRows.List("Estimated memory", "Scene and render channel memory per entry, from last check", new ListRow<(int Entry, ulong Memory), int>(
-                    IterableNE.create<ListColumn<(int Entry, ulong Memory)>>(
-                        new ListColumn<(int Entry, ulong Memory)>.Label(Some(entryCaption), static entry => (entry.Entry + 1).ToString(RowText.Culture), None, None),
-                        new ListColumn<(int Entry, ulong Memory)>.Label(Some("Memory"), static entry => RowText.Localize(bytes, arguments: [entry.Memory]), None, None)),
-                    static entry => entry.Entry,
-                    RowSource.Opaque(Owner, "memory", Seq<(int Entry, ulong Memory)>(), static scope => ValueStore.Readout(
-                        scope.Read(Report.Source).Map(static report => report.Map(static held => toSeq(held.Memory.AsIterable()).Map(static entry => (Entry: entry.Key, Memory: entry.Value))).IfNone(Seq<(int Entry, ulong Memory)>())),
-                        None)),
-                    RowSource.Opaque(Owner, "memory-picked", LanguageExt.HashSet<int>.Empty)) { Wording = Wording.Library }, reported),
-            ListRows.List("Findings", "Refusals and cautions from last check", new ListRow<PreflightFinding, PreflightFinding>(
-                    IterableNE.create<ListColumn<PreflightFinding>>(new ListColumn<PreflightFinding>.Label(None, static finding => ErrorOps.Localize(finding.Error), None, None)),
-                    static finding => finding,
-                    RowSource.Opaque(Owner, "findings", Seq<PreflightFinding>(), static scope => ValueStore.Readout(
-                        scope.Read(Report.Source).Map(static check => check.Map(static held => held.Refusals + held.Cautions).IfNone(Seq<PreflightFinding>())),
-                        None)),
-                    RowSource.Opaque(Owner, "finding", LanguageExt.HashSet<PreflightFinding>.Empty)) { Wording = Wording.Library },
-                reported),
-        ];
-    }
-
-    private sealed record Placement(RenderSourceState Source, Option<SunWindow> Sun) {
-        public static Placement Active { get; } = new(new RenderSourceState(RenderSettings.RenderingSources.ActiveViewport, None, None, None), None);
-
-        public static Placement Named(ViewInfo view) => Active with { Source = new RenderSourceState(RenderSettings.RenderingSources.NamedView, None, Some(view.Name), None) };
-
-        public static Placement Snapshot(string name) => Active with { Source = new RenderSourceState(RenderSettings.RenderingSources.SnapShot, None, None, Some(name)) };
-
-        public static Placement Studied(SunWindow window) => Active with { Sun = Some(window) };
-
-        public Fin<QueuedEntry> Queued(Option<Albedo> clay, PixelExtent extent) =>
-            FrameSpan.Of(0, Sun.Map(static window => window.Frames.Count - 1).IfNone(0))
-                .Map(frames => new QueuedEntry(Renders: true, clay, Source, frames, extent, Overscan.Off, None, Sun));
-    }
-
-    private static CommandFace Face(string name, string caption, string help) =>
-        new(name, caption, help, None, None) { Wording = Wording.Library };
-
-    private static IO<Unit> Added(RowScope scope, Func<RhinoDoc, IO<Seq<Placement>>> read) =>
-        from doc in scope.DocumentIO
-        from clay in scope.Read(Clayed.Source)
-        from view in IO.lift(() => Refused.UnlessFound(doc.Views.ActiveView, nameof(ViewTable.ActiveView)))
-        from output in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), ImageOutputState.Read)
-        from extent in IO.lift(Framing.Final(output, view.ActiveViewport.Size))
-        from placed in read(doc)
-        from entries in IO.lift(Callbacks.Each(placed, (row, _) => row.Queued(Callbacks.Found(clay, Albedo.Clay), extent)))
-        from added in Change(doc, RowText.Localize("Add Entries"), was => was.Added(entries))
-        select unit;
-
-    private static IO<Seq<Placement>> NamedViewEntries(RhinoDoc doc) =>
-        IO.lift(() => doc.NamedViews).Bind(static table =>
-            toSeq(Enumerable.Range(0, table.Count)).TraverseM(index => DisposalOps.Found(() => table[index], nameof(NamedViewTable),
-                static view => IO.pure(Placement.Named(view)))).As());
-
-    private static IO<Seq<Placement>> SnapshotEntries(RhinoDoc doc) =>
-        NamedSnapshots.Names(doc).Map(static names => names.Map(Placement.Snapshot));
-
-    private static IO<Seq<Placement>> StudyEntries(RhinoDoc doc) =>
-        DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() => SunWindow.Read(copy)))
-            .Bind(static study => IO.lift(study.ToFin(new Refused(nameof(RhinoDoc.AnimationProperties), Refused.Absent))))
-            .Map(static window => Seq(Placement.Studied(window)));
-
-    private static IO<Unit> Checked(RowScope scope, Func<Destination, IO<QueueTarget>> target) =>
-        from doc in scope.DocumentIO
-        from context in QueueContext.Current.Of(scope.Sink)
-        from plan in Plan(context, doc)
-        from chosen in target(plan.Destination)
-        from report in Preflight.Check(context, doc, plan, chosen)
-        from shown in Shown(scope)(report)
-        select shown;
-
-    private static IO<Unit> Sent(RowScope scope, Func<Destination, IO<QueueTarget>> target, Func<QueueContext, IO<Option<QueueProgress>>> resumed) =>
-        from doc in scope.DocumentIO
-        from context in QueueContext.Current.Of(scope.Sink)
-        from plan in Plan(context, doc)
-        from chosen in target(plan.Destination)
-        from record in resumed(context)
-        from stamp in IO.lift(() => context.Sink.Clock.ToZonedClock().GetCurrentLocalDateTime())
-        from sent in Dispatch.Send(context, new DocumentSource.Live(doc), plan, chosen, stamp, record, Some(Shown(scope)))
-        select sent;
-
-    private static Func<Preflight, IO<Unit>> Shown(RowScope scope) => report => scope.Store(Report.Source).Put(Some(Some(report))).Map(unit);
-
-    private static Func<Destination, IO<QueueTarget>> Packaged(Func<Destination, IO<QueueTarget>> target) =>
-        destination => IO.lift(NamePart.Validated("jobs")).Bind(jobs => target(destination with {
-            Folder = destination.Folder.Switch<NamePart, OutputFolder>(
-                jobs,
-                absolute: static (part, absolute) => new OutputFolder.Absolute(Path.Combine(absolute.Folder, part)),
-                besideDocument: static (part, beside) => new OutputFolder.BesideDocument(beside.Segments.Add(part))),
-        }));
-
-    private static string Stated(RunState state, DateTimeZone zone) =>
-        state.Switch(
-            zone,
-            absent: static (_, _) => "",
-            active: static (at, active) => RowText.Localize("Rendering, last heard {0:g}", arguments: [active.Heard.InZone(at).LocalDateTime]),
-            ended: static (_, ended) => RowText.Localize(ended.End.Map(succeeded: "Succeeded", stopped: "Stopped", failed: "Failed")),
-            crashed: static (at, crashed) => RowText.Localize("Crashed, last heard {0:g}", arguments: [crashed.Heard.InZone(at).LocalDateTime]));
 }

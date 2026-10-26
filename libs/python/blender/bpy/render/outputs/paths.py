@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
 import datetime
-from functools import reduce
+from functools import partial, reduce
 from itertools import chain, count
 from pathlib import Path
 import posixpath
@@ -20,17 +20,16 @@ from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome,
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, existing, Not, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.extension.events.handlers import PathHandler
+from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_POST, SAVE_PRE
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.extension.reports import rendered
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderRenderingFault, BlenderResult, BlenderUnmetFault, BlenderWriteFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult, BlenderUnmetFault
 from blender.bpy.files.blends import BlendFile
 from blender.bpy.render.outputs.formats import Kind
 from blender.bpy.settings.attachments import Attached, Attachment, Stored
 from blender.bpy.settings.properties import Changed
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
 from blender.imaging.parameters import Gated
 from blender.rendering.outputs.naming import Count, Field, Fields, Number, Output, OutputName, Slot, stepped, stored_name, Word
 
@@ -68,6 +67,17 @@ class Undated(msgspec.Struct, frozen=True, kw_only=True):
     def message(self) -> str:
         """Unsupported render-time field requirement."""
         return "Requires template without {date}, Blender cannot expand it"
+
+
+class Unrooted(msgspec.Struct, frozen=True, kw_only=True):
+    """Output folder resolving against the process working directory."""
+
+    folder: str
+
+    @property
+    def message(self) -> str:
+        """Relative output folder requirement."""
+        return f"Requires saved file or absolute output folder, {self.folder} resolves against working directory"
 
 
 class Malformed(msgspec.Struct, frozen=True, kw_only=True):
@@ -143,11 +153,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         def built(name: OutputName, stem: OutputName) -> BlenderResult[Self]:
             words = frozenset(part.key for part in name.slots if isinstance(part, Slot)) & frozenset(part.key for part in stem.slots if isinstance(part, Slot))
             counted = all(any(isinstance(part, Number) and part.key is Count.VERSION for part in grammar.slots) for grammar in (name, stem))
-            parsed = (
-                Result[Path, BlenderFaults].bind(blend.to_result_with(lambda: (BlenderUnmetFault(requirement=unsaved),)), lambda path: stem.parse(path.stem).map_error(BlenderRenderingFault.lifted))
-                if words or counted
-                else Ok(Fields())
-            )
+            parsed = Result[Path, BlenderFaults].bind(blend.to_result_with(lambda: (BlenderUnmetFault(requirement=unsaved),)), lambda path: stem.parse(path.stem)) if words or counted else Ok(Fields())
             host = (
                 {Word.SCENE: scene.name, Word.DATE: day.isoformat()}
                 | dict(Option.of_optional(scene.camera).map(lambda camera: (Word.CAMERA, camera.name)).to_list())
@@ -164,14 +170,11 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return Result[tuple[OutputName, OutputName], BlenderFaults].bind(
-            paired(OutputName.of(outputs.template).map_error(BlenderRenderingFault.lifted), OutputName.of(outputs.stem).map_error(BlenderRenderingFault.lifted)), lambda pair: built(*pair)
-        )
+        return Result[tuple[OutputName, OutputName], BlenderFaults].bind(paired(OutputName.of(outputs.template), OutputName.of(outputs.stem)), lambda pair: built(*pair))
 
     def _filled(self, layer: str, output: Output, item: Option[str], frame: Option[int] = Nothing) -> Fields:
-        named = output.token
         return Fields(
-            words=self.fields.words | {Word.LAYER: layer, Word.OUTPUT: named, Word.PASS: item.default_value(named)},
+            words=self.fields.words | {Word.LAYER: layer, Word.OUTPUT: output, Word.PASS: item.default_value(output)},
             counts=self.fields.counts
             | dict(Option.of_optional(self.orders.get(layer)).map(lambda order: (Count.ORDER, order)).to_list())
             | dict(frame.map(lambda held: (Count.FRAME, held)).to_list()),
@@ -182,7 +185,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Error((BlenderUnmetFault(requirement=Undated()),))
             if spelled and Slot(key=Word.DATE) in self.name.slots
-            else self.name.compose(self._filled(layer, output, item), self.spelling if spelled else lambda _: Nothing).map_error(BlenderRenderingFault.lifted)
+            else self.name.compose(self._filled(layer, output, item), self.spelling if spelled else lambda _: Nothing)
         )
 
     def scene_output(self, scene: bpy.types.Scene) -> BlenderResult[str]:
@@ -191,7 +194,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
     def written(self, layer: str, output: Output, item: Option[str], frame: int, suffix: str) -> BlenderResult[Path]:
         """Composes literal written-file path."""
-        return self.name.path(self.base, self._filled(layer, output, item, Some(frame))).map(lambda path: path.with_name(f"{path.name}{suffix}")).map_error(BlenderRenderingFault.lifted)
+        return self.name.path(self.base, self._filled(layer, output, item, Some(frame))).map(lambda path: path.with_name(f"{path.name}{suffix}"))
 
     def next_version(self) -> int:
         """Returns next take after matching files, ignoring date."""
@@ -207,7 +210,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
                     lambda error: (BlenderEditFault(request=repr(scene.render), error=error),)
                 ),
                 lambda file: (
-                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=file, error=error),))
+                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=file, error=error),))
                     if bpy.path.is_subdir(str(file), str(self.base))
                     else Ok(None)
                 ),
@@ -219,15 +222,20 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 class Pathed(msgspec.Struct, frozen=True, kw_only=True):
     """Bound scene output settings and shared native descriptors."""
 
-    filepath: ClassVar[Descriptor] = Descriptor(root=bpy.types.RenderSettings, owner="", prop=bpy.types.RenderSettings.bl_rna.properties["filepath"])
-    directory: ClassVar[Descriptor] = Descriptor(root=bpy.types.CompositorNodeOutputFile, owner="", prop=bpy.types.CompositorNodeOutputFile.bl_rna.properties["directory"])
-    file_name: ClassVar[Descriptor] = Descriptor(root=bpy.types.CompositorNodeOutputFile, owner="", prop=bpy.types.CompositorNodeOutputFile.bl_rna.properties["file_name"])
-    unsaved: ClassVar[Not] = Not(condition=Setting(descriptor=Descriptor(root=bpy.types.Context, owner="blend_data", prop=bpy.types.BlendData.bl_rna.properties["filepath"]), accepted=("",)))
+    filepath: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.RenderSettings, "filepath", bpy.types.StringProperty)
+    directory: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, "directory", bpy.types.StringProperty)
+    file_name: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, "file_name", bpy.types.StringProperty)
+    unsaved: ClassVar[Not] = Not(condition=Setting(descriptor=Descriptor.declared(bpy.types.Context, "blend_data.filepath", bpy.types.StringProperty), accepted=("",)))
     attached: Attached[Outputs]
     scope: Stored[OutputPath]
 
-    def path(self, scene: bpy.types.Scene, day: datetime.date) -> BlenderResult[OutputPath]:
-        """Returns stored render path, else composes scene settings at day."""
+    def path(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = Nothing) -> BlenderResult[OutputPath]:
+        """Returns stored render path, else composes scene settings at day for the file being saved or the session file."""
+        blend = saving.or_else_with(lambda: BlendFile.read().path)
+
+        def resolved(native: str, folder: str) -> BlenderResult[tuple[str, Path]]:
+            base = Path(bpy.path.abspath(folder, start=blend.map(lambda file: str(file.parent)).to_optional()))
+            return Ok((native, base)) if base.is_absolute() else Error((BlenderUnmetFault(requirement=Unrooted(folder=folder)),))
 
         def rooted(outputs: Outputs) -> BlenderResult[tuple[str, Path]]:
             folder = bpy.context.preferences.filepaths.render_output_directory  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -235,15 +243,15 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
                 Option
                 .of_optional(bpy.data.project)
                 .bind(lambda project: Option.of_optional(project.variables.get(outputs.variable.value)))
-                .map(lambda variable: (f"{{{variable.name}}}", Path(bpy.path.abspath(variable.value))))
-                .to_result_with(lambda: (BlenderAbsentFault(owner="bpy.data.project.variables", key=outputs.variable.value),))
+                .map(lambda variable: resolved(f"{{{variable.name}}}", variable.value))
+                .default_with(lambda: Error((BlenderAbsentFault(owner="bpy.data.project.variables", key=outputs.variable.value),)))
                 if outputs.variable.enabled
-                else Ok((folder, Path(bpy.path.abspath(folder))))
+                else resolved(folder, folder)
             )
 
         return self.scope.read(scene).bind(
             lambda held: held.map(Ok).default_with(
-                lambda: self.attached.read(scene).bind(lambda outputs: rooted(outputs).bind(lambda root: OutputPath.of(outputs, scene, root, BlendFile.read().path, day, self.unsaved)))
+                lambda: self.attached.read(scene).bind(lambda outputs: rooted(outputs).bind(lambda root: OutputPath.of(outputs, scene, root, blend, day, self.unsaved)))
             )
         )
 
@@ -261,20 +269,20 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
                     lambda texts: NodePaths(members={self.directory: path.root, self.file_name: ""}, items=predicted(texts))
                 )
 
-    def recomposed(self, scene: bpy.types.Scene) -> BlenderResult[None]:
+    def recomposed(self, scene: bpy.types.Scene, saving: Option[Path] = Nothing) -> BlenderResult[None]:
         """Writes scene output when native value differs."""
         return (
             self
-            .path(scene, datetime.datetime.now(datetime.UTC).astimezone().date())
+            .path(scene, datetime.datetime.now(datetime.UTC).astimezone().date(), saving)
             .bind(lambda path: path.scene_output(scene))
             .bind(lambda text: self.filepath.write(scene.render, text))
             .map(lambda _: None)
         )
 
-    def refreshed(self, identity: Identity) -> BlenderResult[None]:
+    def refreshed(self, identity: Identity, saving: Option[Path] = Nothing) -> BlenderResult[None]:
         """Recomposes stored scenes except owned runtime scenes."""
         return accumulated(
-            self.recomposed(scene)
+            self.recomposed(scene, saving)
             for scene in bpy.data.scenes
             if self.attached.stored(scene) and not (scene.is_runtime_data and identity.manifest.id in scene)  # type: ignore[operator]
         ).map(lambda _: None)
@@ -311,28 +319,40 @@ def predicted(requested: Iterable[str], held: tuple[str, ...] = ()) -> tuple[str
     return reduce(stored, asked, ())
 
 
+def edits(node: bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame, transform: Callable[[str], BlenderResult[Option[str]]]) -> BlenderResult[tuple[Rename, ...]]:
+    """Plans node strings and File Output item names a transform changes, item names predicted as the host stores them."""
+    texts = tuple(prop for prop in node.bl_rna.properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
+    items = tuple(
+        (item, prop)
+        for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ())
+        for prop in Option.of_optional(item.bl_rna.name_property).to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    )
+    before, held = tuple(getattr(node, prop.identifier) for prop in texts), tuple(getattr(item, prop.identifier) for item, prop in items)
+
+    def named(asked: tuple[Option[str], ...]) -> tuple[Rename, ...]:
+        requests = tuple(request.default_value(name) for request, name in zip(asked, held))
+        return tuple(
+            Rename(node=node, owner=item, prop=prop, before=text, requested=request, stored=stored)
+            for (item, prop), text, request, stored in zip(items, held, requests, predicted(requests, held))
+            if request != text
+        )
+
+    return paired(
+        accumulated(map(transform, before)).map(lambda asked: tuple(Rename.field(node, prop, text, request) for prop, text, changed in zip(texts, before, asked) for request in changed.to_list())),
+        accumulated(map(transform, held)).map(named),
+    ).map(lambda pair: (*pair[0], *pair[1]))
+
+
 def planned(nodes: Iterable[bpy.types.Node], record: Replace) -> BlenderResult[tuple[Rename, ...]]:
     """Plans every string edit before writes."""
 
-    def substituted(pattern: re.Pattern[str], text: str) -> BlenderResult[str]:
+    def substituted(pattern: re.Pattern[str], text: str) -> BlenderResult[Option[str]]:
         insert: Callable[[re.Match[str]], str] = (lambda found: found.expand(record.replace)) if record.regex else (lambda _: record.replace)
-        return catch(lambda: pattern.sub(insert, text), exception=re.PatternError)().map_error(lambda error: (BlenderUnmetFault(requirement=Malformed(text=record.replace, error=error)),))
-
-    def renames(pattern: re.Pattern[str], node: bpy.types.Node) -> BlenderResult[tuple[Rename, ...]]:
-        texts = tuple(prop for prop in node.bl_rna.properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
-        items = tuple(
-            (item, prop)
-            for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ())
-            for prop in Option.of_optional(item.bl_rna.name_property).to_list()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return (
+            catch(lambda: pattern.sub(insert, text), exception=re.PatternError)()
+            .map_error(lambda error: (BlenderUnmetFault(requirement=Malformed(text=record.replace, error=error)),))
+            .map(lambda changed: Some(changed) if changed != text else Nothing)
         )
-        before, held = tuple(getattr(node, prop.identifier) for prop in texts), tuple(getattr(item, prop.identifier) for item, prop in items)
-        fields = accumulated(substituted(pattern, text) for text in before).map(lambda asked: tuple(Rename.field(node, prop, text, request) for prop, text, request in zip(texts, before, asked)))
-        named = accumulated(substituted(pattern, name) for name in held).map(
-            lambda asked: tuple(
-                Rename(node=node, owner=item, prop=prop, before=text, requested=request, stored=stored) for (item, prop), text, request, stored in zip(items, held, asked, predicted(asked, held))
-            )
-        )
-        return paired(fields, named).map(lambda pair: tuple(rename for group in pair for rename in group if rename.requested != rename.before))
 
     return (
         Result[re.Pattern[str], BlenderFaults]
@@ -340,7 +360,7 @@ def planned(nodes: Iterable[bpy.types.Node], record: Replace) -> BlenderResult[t
             catch(lambda: re.compile(record.find if record.regex else re.escape(record.find), 0 if record.case else re.IGNORECASE), exception=re.PatternError)().map_error(
                 lambda error: (BlenderUnmetFault(requirement=Malformed(text=record.find, error=error)),)
             ),
-            lambda pattern: accumulated(renames(pattern, node) for node in nodes if isinstance(node, bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame)),
+            lambda pattern: accumulated(edits(node, partial(substituted, pattern)) for node in nodes if isinstance(node, bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame)),
         )
         .map(lambda groups: tuple(chain.from_iterable(groups)))
     )
@@ -351,56 +371,43 @@ def previewed(context: bpy.types.Context, record: Replace) -> str:
     return (
         planned(context.selected_nodes, record)
         .map(lambda renames: "\n".join(f"{rename.node.name} · {rename.before} → {rename.stored}" for rename in renames))
-        .default_with(lambda faults: "\n".join(text for _, text in rendered(faults)))
+        .default_with(lambda faults: "\n".join(fault.message for fault in faults))
     )
 
 
 def applied(renames: tuple[Rename, ...], unmatched: str) -> BlenderResult[Outcome]:
-    """Writes changed stored spellings after freeing renamed items for swaps, Unchanged when none differs."""
-    if not (edits := tuple(rename for rename in renames if rename.stored != rename.before)):
+    """Writes each request after freeing renamed items for swaps, reporting what the host stored, Unchanged when no stored spelling differs."""
+    if not (changed := tuple(rename for rename in renames if rename.stored != rename.before)):
         return Ok(Unchanged(reason=unmatched))
     taken = {
-        *(rename.before for rename in edits),
-        *(rename.requested for rename in edits),
-        *(rename.stored for rename in edits),
-        *(item.name for rename in edits if isinstance(rename.node, bpy.types.CompositorNodeOutputFile) for item in rename.node.file_output_items),
+        *(rename.before for rename in changed),
+        *(rename.requested for rename in changed),
+        *(rename.stored for rename in changed),
+        *(item.name for rename in changed if isinstance(rename.node, bpy.types.CompositorNodeOutputFile) for item in rename.node.file_output_items),
     }
-    forced = tuple(rename for rename in edits if rename.stored != rename.requested)
-    return accumulated(
-        written(rename.owner, rename.prop.identifier, next(f"{index}{'_' * number}" for number in count() if f"{index}{'_' * number}" not in taken))
-        for index, rename in enumerate(edits)
-        if rename.owner is not rename.node
-    ).bind(
-        lambda _: tallied(
-            tuple(written(rename.owner, rename.prop.identifier, rename.stored) for rename in edits),
+
+    def reported(writes: tuple[BlenderResult[object], ...]) -> BlenderResult[Outcome]:
+        respelled = tuple((rename.requested, stored) for rename in changed for stored in (getattr(rename.owner, rename.prop.identifier),) if stored != rename.requested)
+        return tallied(
+            writes,
             (
-                ("INFO", f"Replaced {len(edits)} fields across {len({rename.node.name for rename in edits})} nodes"),
-                *((("WARNING", f"Blender stores {forced[0].requested} as {forced[0].stored}, {len(forced)} names respelled"),) if forced else ()),
+                ("INFO", f"Replaced {len(changed)} fields across {len({rename.node.name for rename in changed})} nodes"),
+                *((("WARNING", f"Blender stores {respelled[0][0]} as {respelled[0][1]}, {len(respelled)} names respelled"),) if respelled else ()),
             ),
         )
-    )
+
+    return accumulated(
+        written(rename.owner, rename.prop.identifier, next(f"{index}{'_' * number}" for number in count() if f"{index}{'_' * number}" not in taken))
+        for index, rename in enumerate(changed)
+        if rename.owner is not rename.node
+    ).bind(lambda _: reported(tuple(written(rename.owner, rename.prop.identifier, rename.requested) for rename in changed)))
 
 
 def bumped(call: Call[Bump]) -> BlenderResult[Outcome]:
     """Writes every version edit through swap-safe renames."""
     match call.context.active_node:
         case bpy.types.CompositorNodeOutputFile() as node:
-            fields = tuple(
-                Rename.field(node, prop, before, text)
-                for prop in node.bl_rna.properties
-                if isinstance(prop, bpy.types.StringProperty) and prop.is_path_supports_templates
-                for before in (getattr(node, prop.identifier),)
-                for text in stepped(before, call.record.offset).to_list()
-            )
-            named = tuple((item, prop) for item in node.file_output_items for prop in Option.of_optional(item.bl_rna.name_property).to_list())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            held = tuple(getattr(item, prop.identifier) for item, prop in named)
-            moved = tuple(stepped(name, call.record.offset).default_value(name) for name in held)
-            items = tuple(
-                Rename(node=node, owner=item, prop=prop, before=before, requested=request, stored=stored)
-                for (item, prop), before, request, stored in zip(named, held, moved, predicted(moved, held))
-                if request != before
-            )
-            return applied((*fields, *items), "No version token in node paths")
+            return edits(node, lambda text: Ok(stepped(text, call.record.offset))).bind(lambda renames: applied(renames, "No version token in node paths"))
         case _:
             return Error((BlenderAbsentFault(owner="bpy.context", key="active_node"),))
 
@@ -430,8 +437,8 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 
     version: ClassVar[Key] = "output_version"
     edited: ClassVar[tuple[Setting, Setting]] = (
-        Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="", prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.__name__,)),
-        Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree", prop=bpy.types.NodeTree.bl_rna.properties["is_editable"])),
+        Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "tree_type", bpy.types.EnumProperty), accepted=(bpy.types.CompositorNodeTree.__name__,)),
+        Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "edit_tree.is_editable", bpy.types.BoolProperty)),
     )
 
     @staticmethod
@@ -460,10 +467,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
             AllOf(
                 conditions=(
                     *edited,
-                    Setting(
-                        descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree.nodes", prop=bpy.types.Nodes.bl_rna.properties["active"]),
-                        accepted=(bpy.types.CompositorNodeOutputFile.__name__,),
-                    ),
+                    Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, "edit_tree.nodes.active", bpy.types.PointerProperty), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)),
                 )
             )
         ),
@@ -498,16 +502,17 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns commands and refresh handlers binding attachment on call."""
 
-        def refreshed() -> BlenderResult[None]:
-            return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity))
+        def refreshed(saving: Option[Path] = Nothing) -> BlenderResult[None]:
+            return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity, saving))
 
         return Ok((
             self.replacing,
             self.versioning,
             self.taking,
             self.opening,
-            PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: refreshed()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            PathHandler(handlers=bpy.app.handlers.save_pre, body=lambda _: refreshed()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            PathHandler(handlers=LOAD_POST, body=lambda _: refreshed()),
+            PathHandler(handlers=SAVE_PRE, body=refreshed),
+            PathHandler(handlers=SAVE_POST, body=lambda _: refreshed()),
             *(
                 Subscription(owner=owner, setting=owner.bl_rna.properties[key], body=refreshed)
                 for owner, key in ((bpy.types.ViewLayer, "name"), (bpy.types.Scene, "view_layers"), (bpy.types.PreferencesFilePaths, "render_output_directory"))
@@ -518,4 +523,22 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["Bump", "Malformed", "NodePaths", "OutputPath", "Outputs", "Pathed", "Rename", "Replace", "ScenePaths", "Undated", "applied", "bumped", "opened", "planned", "predicted", "previewed"]
+__all__ = [
+    "Bump",
+    "Malformed",
+    "NodePaths",
+    "OutputPath",
+    "Outputs",
+    "Pathed",
+    "Rename",
+    "Replace",
+    "ScenePaths",
+    "Undated",
+    "Unrooted",
+    "applied",
+    "bumped",
+    "opened",
+    "planned",
+    "predicted",
+    "previewed",
+]

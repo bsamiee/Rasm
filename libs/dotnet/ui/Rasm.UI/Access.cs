@@ -161,24 +161,13 @@ public static class Access {
                select (handle.Path, new Claim(Adjusted(AccessRole.Separator, split), Stepping))).ToSeq();
 
     private static Accessible Implied(Scene scene, Laid laid) =>
-        laid.Node.Switch(
+        laid.Node.SwitchPartially(
             (Scene: scene, Laid: laid),
-            box: static (_, _) => Accessible.Empty,
-            flex: static (_, _) => Accessible.Empty,
-            grid: static (_, _) => Accessible.Empty,
-            lazy: static (_, _) => Accessible.Empty,
-            overlay: static (_, _) => Accessible.Empty,
-            choice: static (_, _) => Accessible.Empty,
+            @default: static (_, _) => Accessible.Empty,
             scroll: static (held, _) => held.Scene.Adjuster(held.Laid.Path).Map(static adjuster => Adjusted(AccessRole.ScrollArea, adjuster)).IfNone(Accessible.Empty),
-            split: static (_, _) => Accessible.Empty,
-            plot: static (_, _) => Accessible.Empty,
-            pin: static (_, _) => Accessible.Empty,
-            mark: static (_, _) => Accessible.Empty,
             text: static (_, text) => new Accessible { Role = AccessRole.Text, Label = text.Content },
             glyph: static (_, glyph) => Pictured(glyph),
-            image: static (_, image) => Pictured(image),
-            slot: static (_, _) => Accessible.Empty,
-            styled: static (_, _) => Accessible.Empty);
+            image: static (_, image) => Pictured(image));
 
     private static Accessible Pictured(Node node) => node.Accessible.Label.Map(static _ => new Accessible { Role = AccessRole.Image }).IfNone(Accessible.Empty);
 
@@ -194,7 +183,7 @@ public static class Access {
 
     private static Option<string> Contents(Laid laid) => Texts(laid) switch { { IsEmpty: true } => None, var texts => Some(string.Join(' ', texts)) };
 
-    private static Seq<string> Texts(Laid laid) => laid.Switch(box: static _ => Seq<string>(), text: static text => Seq(text.Source.Content)) + laid.Children.Bind(Texts);
+    private static Seq<string> Texts(Laid laid) => laid.Texted.Map(static text => text.Source.Content).ToSeq() + laid.Children.Bind(Texts);
 
     private static Accessible Described(Accessible accessible, CultureInfo culture) =>
         accessible with {

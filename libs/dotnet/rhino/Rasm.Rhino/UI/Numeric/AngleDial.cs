@@ -7,10 +7,10 @@ using Rasm.Rhino.UI.Styling;
 namespace Rasm.Rhino.UI.Numeric;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record AngleDialState<TValue>(Option<TValue> Shown, Option<double> Held) where TValue : notnull;
+internal sealed record AngleDialState<TValue>(Option<TValue> Shown, Option<double> Held) where TValue : notnull;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class AngleDial<TValue, TKey>(IPlugInSink sink, ScalarText<TValue, TKey> text, string caption)
+internal sealed class AngleDial<TValue, TKey>(IPlugInSink sink, ScalarText<TValue, TKey> text, string caption)
     : ComponentControl<AngleDialState<TValue>, Unit, TValue>(sink, new AngleDialState<TValue>(None, None), None)
     where TValue : notnull
     where TKey : struct, INumber<TKey> {

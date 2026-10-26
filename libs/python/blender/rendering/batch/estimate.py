@@ -1,27 +1,18 @@
 """Queue time and memory estimates from stage marks."""
 
 from collections import Counter
-from collections.abc import Iterable
 import datetime
 from fractions import Fraction
 from statistics import mean
-from typing import Annotated, Self
+from typing import Self
 
 from expression import Nothing, Option, Some
 import msgspec
 
-from blender.rendering.batch.progress import Progress, StageMark
+from blender.rendering.batch.progress import Progress
 from blender.rendering.batch.queue import RenderQueue
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Work(msgspec.Struct, frozen=True, kw_only=True):
-    """Items left in one queue part."""
-
-    part: Annotated[int, msgspec.Meta(ge=0)]
-    weight: Annotated[int, msgspec.Meta(ge=1)]
-    count: Annotated[int, msgspec.Meta(ge=0)]
 
 
 class Estimate(msgspec.Struct, frozen=True, kw_only=True):
@@ -32,30 +23,24 @@ class Estimate(msgspec.Struct, frozen=True, kw_only=True):
     peak: Option[int]
 
     @classmethod
-    def of(cls, marks: tuple[StageMark, ...], work: Iterable[Work], now: datetime.datetime) -> Option[Self]:
-        """Estimates from measured marks."""
-        works = {row.part: row for row in work}
-        timed = {part: times for part in works if (times := tuple(Fraction(mark.seconds) for mark in marks if mark.part == part))}
-        rates = {part: mean(times[1:] or times) / works[part].weight for part, times in timed.items()}
-        peaks = tuple(peak for mark in marks if mark.part in works for peak in Option.of_optional(mark.peak).to_list())
+    def queued(cls, progress: Progress, queue: RenderQueue, now: datetime.datetime) -> Option[Self]:
+        """Estimates renders progress leaves at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark."""
+        counts = Counter(part for part, _ in progress.remaining(queue))
+        jobs = dict(enumerate(queue.jobs))
+        timed = {part: times for part in jobs if (times := tuple(Fraction(mark.seconds) for mark in progress.marks if mark.part == part))}
+        rates = {part: mean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}
+        peaks = tuple(peak for mark in progress.marks if mark.part in jobs for peak in Option.of_optional(mark.peak).to_list())
         if not rates:
             return Nothing
         average = mean(rates.values())
-        seconds = sum((row.count * row.weight * rates.get(row.part, average) for row in works.values()), Fraction())
-        microseconds_per_second = datetime.timedelta(seconds=1) // datetime.timedelta.resolution
+        seconds = sum((counts[part] * job.weight * rates.get(part, average) for part, job in jobs.items()), Fraction())
         try:
-            finish = Some(now + datetime.timedelta(microseconds=round(seconds * microseconds_per_second)))
+            finish = Some(now + datetime.timedelta(microseconds=round(seconds * (datetime.timedelta(seconds=1) // datetime.timedelta.resolution))))
         except OverflowError:
             finish = Nothing
         return Some(cls(seconds=seconds, finish=finish, peak=Option.of_optional(max(peaks, default=None))))
 
-    @classmethod
-    def queued(cls, progress: Progress, queue: RenderQueue, now: datetime.datetime) -> Option[Self]:
-        """Estimates renders progress leaves."""
-        counts = Counter(part for part, _ in progress.remaining(queue))
-        return cls.of(progress.marks, (Work(part=index, weight=job.weight, count=counts[index]) for index, job in enumerate(queue.jobs)), now)
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Estimate", "Work"]
+__all__ = ["Estimate"]

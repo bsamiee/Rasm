@@ -17,6 +17,8 @@ Value lifetime picks the owner:
 |  [07]   | Named preset files                        | `settings.presets.Preset` under `Identity.folder`                                    |
 |  [08]   | Session cache                             | Scope-owned dict keyed by `Handle`, cleared on `load_post`, `undo_post`, `redo_post` |
 
+`Stored`, `TextRecord`, `imaging.files.records.Record`, and effect slots encode with msgspec `order`, refusing records with non-`str` mapping keys
+
 ## [02]-[CREATED_IDS]
 
 Each created kind takes one `Ownership` row:
@@ -32,14 +34,14 @@ Created and shared data follow host links:
 - `bpy.data.scenes.new()` takes factory settings (metric units, EEVEE, no world, no camera), and `bpy.ops.scene.new(type="EMPTY")` copies the window scene's units and engine
 - Linked libraries repeat local names, and created IDs map from their source key in place of a name lookup
 
-Creation outside `Ownership` takes a rollback that removes the ID on any later refusal:
+Creation outside `Ownership` runs the host call in `BlenderEditFault.attempted`, and `kept` removes the ID on any later refusal:
 
 ```python
 def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bpy.types.Collection]:
-    with ExitStack() as rollback:
-        made: bpy.types.Collection = bpy.data.collections.new(name)
-        rollback.callback(bpy.data.batch_remove, ids=(made,))
-        return committed(named(made, name).bind(lambda block: parent.map(lambda held: joined(held, block)).default_value(Ok(None)).map(lambda _: block)), rollback)
+    return kept(
+        BlenderEditFault.attempted(name, lambda: bpy.data.collections.new(name)),
+        lambda made: named(made, name).bind(lambda block: parent.map(lambda held: joined(held, block)).default_value(Ok(None)).map(lambda _: block)),
+    )
 ```
 
 `joined` stands for the `(Collection, Collection) -> BlenderResult[None]` parent link step.
@@ -62,7 +64,8 @@ def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bp
 
 Path properties hold blend-relative and byte paths:
 - `//` paths resolve through `bpy.path.abspath(path, library=block.library)`, linked data relative to its library
-- `bpy.path.abspath("//tex.png")` in an unsaved file returns `tex.png`, a path file access resolves against the process working directory
+- Unsaved files resolve `//` against the process working directory in `bpy.path.abspath` (`tex.png` for `//tex.png`) and in render writes
+- `bpy.app.tempdir` names a session folder Blender deletes at quit
 - `files.blends.dependencies` reads every external path with its presence
 - `bpy.data.file_path_map()` maps IDs to paths
 - `bpy.data.file_path_foreach(fn)` calls `fn(owner, path, meta)` and rewrites each path to the string it returns

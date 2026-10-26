@@ -44,13 +44,12 @@ public sealed partial class DenoiseGuides : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DenoiseQuality : ICaptioned {
-    public static readonly DenoiseQuality High = new("high", 6, 20000, "High");
-    public static readonly DenoiseQuality Balanced = new("balanced", 5, 20000, "Balanced");
-    public static readonly DenoiseQuality Fast = new("fast", 4, 20300, "Fast");
+    public static readonly DenoiseQuality High = new("high", 6, 20000);
+    public static readonly DenoiseQuality Balanced = new("balanced", 5, 20000);
+    public static readonly DenoiseQuality Fast = new("fast", 4, 20300);
 
     public int Value { get; }
     public int Since { get; }
-    public string Caption { get; }
 }
 
 public sealed record DenoiseState(DenoiseGuides Guides, GuidePrefilter Prefilter, DenoiseQuality Quality, AxisFraction Blend)

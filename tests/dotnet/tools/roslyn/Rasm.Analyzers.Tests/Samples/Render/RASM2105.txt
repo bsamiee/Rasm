@@ -1,0 +1,22 @@
+using LanguageExt;
+using Rhino;
+using Rhino.Render;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino.Render.Settings {
+    internal static class RenderSettingsSources {
+        internal static IO<Unit> Committed(RhinoDoc doc, RenderSettings staged) => IO.lift(() => { doc.RenderSettings = staged; });
+    }
+}
+
+internal static class WrittenSettings {
+    internal static IO<Unit> Committed(RhinoDoc doc, RenderSettings staged) =>
+        from committed in IO.lift(() => { {|#0:doc.RenderSettings = staged|}; })
+        select unit;
+
+    internal static void Assigned(RhinoDoc doc, RenderSettings staged) => {|#1:doc.RenderSettings = staged|};
+}
+
+internal static class ReadSettings {
+    internal static RenderSettings Read(RhinoDoc doc) => doc.RenderSettings;
+}

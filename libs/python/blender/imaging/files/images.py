@@ -6,8 +6,9 @@ import pathlib
 import struct
 import tempfile
 import typing
-from typing import Annotated, BinaryIO, Literal, Self
+from typing import Annotated, IO, Literal, Self
 
+from atomicwrites import atomic_write, replace_atomic
 from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
@@ -17,7 +18,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.imaging.effects.quantization import codes
-from blender.imaging.faults import Faults, ImagingFaults, ImagingReadFault, ImagingResult, ImagingUnresolvedFault, ImagingWriteFault, paired, scoped
+from blender.imaging.faults import Access, Faults, ImagingFaults, ImagingFileFault, ImagingResult, ImagingUnresolvedFault, paired, scoped
 from blender.imaging.parameters import Case, Choice
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -311,7 +312,7 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
             .map(PyOpenColorIO.ColorSpace.getName)
             .to_result_with(lambda: (ImagingUnresolvedFault(request=config, error=(requested,)),))
         )
-        pixels = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
+        pixels = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingFileFault(access=Access.READ, request=path, error=image.geterror()),))
         return paired(resolved, pixels).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
 
     return opened(path, decoded, options=options)
@@ -335,13 +336,13 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T
     """
     image = options.map(lambda spec: OpenImageIO.ImageInput.open(path, spec)).default_with(lambda: OpenImageIO.ImageInput.open(path))
     return scoped(
-        Option.of_optional(image).to_result_with(lambda: (ImagingReadFault(request=path, error=OpenImageIO.geterror()),)),
+        Option.of_optional(image).to_result_with(lambda: (ImagingFileFault(access=Access.READ, request=path, error=OpenImageIO.geterror()),)),
         use,
-        lambda held: Ok(None) if held.close() else Error((ImagingReadFault(request=path, error=held.geterror()),)),
+        lambda held: Ok(None) if held.close() else Error((ImagingFileFault(access=Access.READ, request=path, error=held.geterror()),)),
     )
 
 
-def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) -> Result[str, Faults[F | ImagingWriteFault]]:
+def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) -> Result[str, Faults[F | ImagingFileFault]]:
     """Replaces file with encoded sibling.
 
     Args:
@@ -353,17 +354,20 @@ def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) ->
     """
     target = pathlib.Path(path)
 
-    def committed(sibling: pathlib.Path) -> Result[str, Faults[F | ImagingWriteFault]]:
+    def committed(sibling: pathlib.Path) -> Result[str, Faults[F | ImagingFileFault]]:
         return (
-            Result[T, Faults[F | ImagingWriteFault]]
-            .bind(encode(str(sibling)), lambda _: catch(lambda: sibling.replace(target), exception=OSError)().map_error(lambda error: (ImagingWriteFault(request=path, error=error),)))
+            Result[T, Faults[F | ImagingFileFault]]
+            .bind(
+                encode(str(sibling)),
+                lambda _: catch(lambda: replace_atomic(str(sibling), path), exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),)),
+            )
             .map(lambda _: path)
         )
 
     return staging(target, committed)
 
 
-def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, Faults[F | ImagingWriteFault]]]) -> Result[T, Faults[F | ImagingWriteFault]]:
+def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, Faults[F | ImagingFileFault]]]) -> Result[T, Faults[F | ImagingFileFault]]:
     """Runs `use` on target-named path in temporary sibling folder removed on every path.
 
     Args:
@@ -374,8 +378,8 @@ def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, 
         `use` result, with `write` fault for folder creation or cleanup.
     """
 
-    def refused(error: OSError) -> Faults[F | ImagingWriteFault]:
-        return (ImagingWriteFault(request=target, error=error),)
+    def refused(error: OSError) -> Faults[F | ImagingFileFault]:
+        return (ImagingFileFault(access=Access.WRITE, request=target, error=error),)
 
     return (
         catch(lambda: target.parent.mkdir(parents=True, exist_ok=True), exception=OSError)()
@@ -390,29 +394,23 @@ def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, 
     )
 
 
-def streamed(path: str, stage: str, write: Callable[[BinaryIO], None]) -> ImagingResult[None]:
-    """Streams `write` into `stage`, closing it on every path.
+def written(path: str, write: Callable[[IO[bytes]], None]) -> ImagingResult[str]:
+    """Streams one whole-file encoder into `path` through one atomic commit, creating its folder.
 
     Args:
-        path: File the stage replaces, named in faults.
-        stage: Staged sibling `published` supplies.
+        path: File to replace.
         write: Encoder of whole file.
 
     Returns:
-        None, or `write` fault.
+        Path, or `write` fault for folder creation, encoding, or commit.
     """
-
-    def refused(error: OSError | ValueError | OverflowError | struct.error) -> ImagingFaults:
-        return (ImagingWriteFault(request=path, error=error),)
-
-    def into(output: BinaryIO) -> ImagingResult[None]:
-        try:
+    try:
+        pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with atomic_write(path, mode="wb", overwrite=True) as output:
             write(output)
-        except (OSError, ValueError, OverflowError, struct.error) as error:
-            return Error(refused(error))
-        return Ok(None)
-
-    return scoped(catch(lambda: pathlib.Path(stage).open("wb"), exception=OSError)().map_error(refused), into, lambda output: catch(output.close, exception=OSError)().map_error(refused))
+    except (OSError, ValueError, OverflowError, struct.error) as error:
+        return Error((ImagingFileFault(access=Access.WRITE, request=path, error=error),))
+    return Ok(path)
 
 
 def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> ImagingResult[str]:
@@ -427,7 +425,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
     """
 
     def refused(error: str) -> ImagingFaults:
-        return (ImagingWriteFault(request=path, error=error),)
+        return (ImagingFileFault(access=Access.WRITE, request=path, error=error),)
 
     def encode(stage: str) -> ImagingResult[str]:
         def into(output: OpenImageIO.ImageOutput) -> ImagingResult[str]:
@@ -497,7 +495,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
                 Nothing,
             )
         )
-        .map(lambda location: catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (ImagingReadFault(request=location, error=error),)).map(Some))
+        .map(lambda location: catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.READ, request=location, error=error),)).map(Some))
         .default_value(Ok(Nothing))
     )
 
@@ -524,5 +522,5 @@ __all__ = [
     "published",
     "read_file",
     "staging",
-    "streamed",
+    "written",
 ]

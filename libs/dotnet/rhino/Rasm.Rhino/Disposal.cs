@@ -57,13 +57,17 @@ public static class DisposalOps {
                         select committed).Uninterruptible()
         select result;
 
-    public static IO<T> Acquire<T>(IO<T> acquire, Func<T, IO<Unit>> release, Action<T> retain) =>
+    public static IO<T> Acquire<T, TLease>(IO<T> acquire, Func<T, TLease> lease, Action<TLease> retain) where TLease : IDisposable =>
         (from held in acquire
-         from retained in OnFailure(IO.lift(() => retain(held)), IO.pure(held).Bind(release))
+         let owned = lease(held)
+         from retained in OnFailure(IO.lift(() => retain(owned)), IO.lift(owned.Dispose))
          select held).Uninterruptible();
 
+    public static IO<T> Acquire<T>(IO<T> acquire, Func<T, IO<Unit>> release, Action<IDisposable> retain) =>
+        Acquire(acquire, held => new Disposal<T>(held, value => release(value).Run()), retain);
+
     public static IO<T> Acquire<T>(IO<T> acquire, Action<T> retain) where T : IDisposable =>
-        Acquire(acquire, static held => IO.lift(held.Dispose), retain);
+        Acquire(acquire, static held => held, retain);
 
     public static IO<TResult> Acquire<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Action<IDisposable> retain) =>
         Transacted(
@@ -75,9 +79,9 @@ public static class DisposalOps {
             static (_, value) => IO.pure(value));
 
     public static IO<TResult> Acquire<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Action<TResult, IDisposable> retain) =>
-        Replace(body, (value, lease) => IO.lift(() => retain(value, lease)));
+        Acquire(body, (value, lease) => IO.lift(() => retain(value, lease)));
 
-    public static IO<TResult> Replace<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Func<TResult, IDisposable, IO<Unit>> publish) =>
+    public static IO<TResult> Acquire<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Func<TResult, IDisposable, IO<Unit>> publish) =>
         Transacted(
             IO.lift(static () => new Retained<IDisposable>(Release)),
             held => body(held.Retain),
@@ -102,7 +106,8 @@ public static class DisposalOps {
     public static IO<ForkIO<TResult>> Fork<TResult>(IO<TResult> body, Action<IDisposable> retain) =>
         from environment in envIO
         from result in (from fork in body.Fork()
-                        from retained in OnFailure(Attach(fork, environment, retain), fork.Cancel)
+                        from retained in OnFailure(Acquire(IO.lift(() => environment.Token.Register(() => fork.Cancel.Run())),
+                            registration => Callbacks.Each(Seq(fork.Cancel, IO.lift(registration.Dispose))).Map(unit), retain), fork.Cancel)
                         select fork).Uninterruptible()
         select result;
 
@@ -116,10 +121,7 @@ public static class DisposalOps {
                 .Uninterruptible());
 
     public static IO<Unit> Change<T>(Func<T> read, Action<T> write, T value, Action<IDisposable> retain) =>
-        (from prior in IO.lift(read)
-         from lease in IO.lift(() => new Disposal<T>(prior, write))
-         from changed in OnFailure(IO.lift(() => { write(value); retain(lease); }), IO.lift(lease.Dispose))
-         select changed).Uninterruptible();
+        IO.lift(read).Bind(prior => Acquire(OnFailure(IO.lift(() => write(value)), IO.lift(() => write(prior))), _ => IO.lift(() => write(prior)), retain));
 
     public static IO<Unit> Published<TMember>(Retained<IDisposable> owned, TMember value, IDisposable lease, Func<TMember> read, Action<TMember> write) =>
         from prior in IO.lift(read)
@@ -127,18 +129,9 @@ public static class DisposalOps {
         from replaced in owned.Replace(lease)
         select replaced;
 
-    private static IO<Unit> Attach<TResult>(ForkIO<TResult> fork, EnvIO environment, Action<IDisposable> retain) =>
-        from registration in IO.lift(() => environment.Token.Register(() => fork.Cancel.Run()))
-        from attached in OnFailure(IO.lift(() => retain(Composite(Seq<IDisposable>(registration,
-            new Disposal<ForkIO<TResult>>(fork, static held => held.Cancel.Run()))))), IO.lift(registration.Dispose))
-        select attached;
-
     // --- [RELEASE]
     public static IO<Unit> Release<T>(params Seq<T> held) where T : IDisposable? =>
         Callbacks.Each(held.Rev().Bind(static item => item is { } present ? Seq(IO.lift(present.Dispose)) : [])).Map(unit).Uninterruptible();
-
-    public static IDisposable Composite(Seq<IDisposable> held) =>
-        new Disposal<Seq<IDisposable>>(held, static items => Release(items).Run());
 
     public static bool Present<T>(T? owned) where T : class, IDisposable => Optional(owned).Do(static copy => copy.Dispose()).IsSome;
 }

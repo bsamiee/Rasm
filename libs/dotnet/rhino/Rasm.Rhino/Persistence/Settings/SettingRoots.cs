@@ -21,8 +21,6 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
 
     public static readonly SettingsNode Options = Application.Child("Options");
 
-    public static readonly SettingsNode DisplayModes = Options.Child("DisplayAttributesManager");
-
     public SettingsNode Child(string key) => this with { Path = Path.Add(key) };
 
     public Fin<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
@@ -32,10 +30,6 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
             .Bind(raw => raw.Flatten().Traverse(row.Value.From).As())
             .Map(held => held.IfNone(row.Value.Default));
 }
-
-public sealed record KeyDescription(Option<Type> RuntimeType, bool ReadOnly, bool HiddenFromUserInterface);
-
-public sealed record NodeDescription(bool HiddenFromUserInterface, HashMap<string, KeyDescription> Keys, HashMap<string, NodeDescription> Children);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SettingRoots {
@@ -49,9 +43,6 @@ public static class SettingRoots {
     public static IO<Unit> DeleteChild(SettingsNode parent, string key) =>
         IO.lift(() => Resolved(parent).Iter(held => held.DeleteChild(key)));
 
-    public static IO<Option<NodeDescription>> Describe(SettingsNode node) =>
-        IO.lift(() => Resolved(node).Map(Tree));
-
     private static PersistentSettings Root(SettingsRoot root) =>
         root.Switch(
             applicationNode: static _ => PersistentSettings.RhinoAppSettings,
@@ -60,25 +51,6 @@ public static class SettingRoots {
 
     internal static Option<PersistentSettings> Resolved(SettingsNode node) =>
         node.Path.Fold(Some(Root(node.Root)), static (held, key) => held.Bind(parent => Callbacks.Found(parent.TryGetChild(key, out PersistentSettings child), child)));
-
-    private static NodeDescription Tree(PersistentSettings node) =>
-        new(
-            node.HiddenFromUserInterface,
-            toHashMap(toSeq(node.Keys).Choose(key =>
-                node.TryGetSettingIsReadOnly(key, out bool readOnly) && node.TryGetSettingIsHiddenFromUserInterface(key, out bool hidden) && node.TryGetSettingType(key, out Type? type)
-                    ? Some((key, new KeyDescription(Optional(type), readOnly, hidden)))
-                    : None)),
-            toHashMap(toSeq(node.ChildKeys).Choose(key => Callbacks.Found(node.TryGetChild(key, out PersistentSettings child), child).Map(found => (key, Tree(found))))));
-
-    // --- [CHANGES]
-    public static IO<bool> ContainsChangedValues(SettingsNode node) =>
-        IO.lift(() => Resolved(node).Exists(static held => held.ContainsChangedValues()));
-
-    public static IO<bool> ContainsModifiedValues(SettingsNode node) =>
-        IO.lift(() => Resolved(node).Exists(static held => held.ContainsModifiedValues(allUserSettings: null)));
-
-    public static IO<Unit> ClearChangedFlag(SettingsNode node) =>
-        IO.lift(() => Resolved(node).Iter(static held => held.ClearChangedFlag()));
 
     // --- [EVENTS]
     public static HostEvent<Unit> Saved(SettingsNode node) =>

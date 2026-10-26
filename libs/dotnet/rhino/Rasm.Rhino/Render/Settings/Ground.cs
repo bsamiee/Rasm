@@ -26,7 +26,7 @@ public sealed record GroundPlaneState(
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.GroundPlaneChanged;
 
     public static IO<GroundPlaneState> Read(RenderSettingsScope scope) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.GroundPlane, plane => IO.lift(() => Capture(plane, scope.Units)));
+        DisposalOps.Within(() => scope.Settings.GroundPlane, plane => IO.lift(() => Capture(plane, scope.Units)));
 
     public static IO<GroundPlaneState> Write(RenderSettingsScope scope, GroundPlaneState state) =>
         from values in IO.lift((
@@ -35,7 +35,7 @@ public sealed record GroundPlaneState(
                    Model(state.TextureSizeX, scope.Units, GroundPlaneParameter.Size), Model(state.TextureSizeY, scope.Units, GroundPlaneParameter.Size))
                    .Apply(static (altitude, x, y, width, height) => (Altitude: altitude, Offset: new Vector2d(x, y), Size: new Vector2d(width, height))).As())
         let accepted = state with { MaterialInstanceId = Material(Conversions.Unset(state.MaterialInstanceId)) }
-        from written in RenderSettingsSources.SubOwner(scope, static settings => settings.GroundPlane, plane => IO.lift(() => {
+        from written in DisposalOps.Within(() => scope.Settings.GroundPlane, plane => IO.lift(() => {
             GroundMapper.Update(accepted, plane, values.Offset, values.Size);
             _ = values.Altitude.IfSome(height => plane.Altitude = height);
             return Capture(plane, scope.Units);

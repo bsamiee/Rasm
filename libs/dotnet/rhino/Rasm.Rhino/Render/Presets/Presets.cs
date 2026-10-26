@@ -28,7 +28,7 @@ public sealed partial class PresetName {
 public sealed record Preset(PresetName Name, Fin<ValueSet> Values) {
     public Option<FileInfo> File { get; internal init; }
 
-    public string Caption(IPlugInSink sink) => File.IsSome ? Name : Wording.English.Shown(Name, sink);
+    public string Caption(IPlugInSink sink) => File.IsSome ? Name : RowText.Localize(Name, sink).Local;
 
     public static Preset Of(PresetName name, Seq<ValueSet> parts) =>
         new(name, new ValueSet(toHashMap(parts.Bind(static part => toSeq(part.Entries.AsIterable())))));
@@ -209,13 +209,12 @@ public sealed class PresetBinding {
                     Run("preset-next", "Next Preset", "Apply preset listed after current",
                         scope => bindings(scope).Bind(static binding => binding.Stepped(forward: true)).Map(unit)),
                 ],
-                Wording = Wording.Library,
             },
                 RowRules.Always),
         };
 
     private static CommandRow.Run Run(string name, string caption, string help, Func<RowScope, IO<Unit>> execute) =>
-        new(new CommandFace(name, caption, help, None, None) { Wording = Wording.Library }, None, execute);
+        new(new CommandFace(name, caption, help, None, None), None, execute);
 
     private IO<TileRequest> Requested(EffectSource source, Preset preset) =>
         from history in RenderHistory.Current.Of(scope.Sink)

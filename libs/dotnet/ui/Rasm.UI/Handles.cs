@@ -158,23 +158,20 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     // --- [ANSWER]
     internal override Reply Began(Gesture gesture, Aim aim) =>
         Framed(aim.Laid, aim.Bounds).Match(
-            Some: frame => gesture.Switch(
+            Some: frame => gesture.SwitchPartially(
                 (Handles: this, Aim: aim, Frame: frame),
+                @default: Reply.Passed,
                 press: static (held, press) => held.Handles.Pressed(press, held.Aim, held.Frame),
                 scroll: static (held, scroll) => held.Handles.Wheeled(held.Aim, held.Frame).Match(Some: session => session.Began(scroll), None: static () => new Reply.Pass()),
-                magnify: Reply.Passed,
-                rotate: static (held, rotate) => held.Handles.Turning(held.Aim, held.Frame).Match(Some: session => session.Began(rotate), None: static () => new Reply.Pass()),
-                perform: Reply.Passed),
+                rotate: static (held, rotate) => held.Handles.Turning(held.Aim, held.Frame).Match(Some: session => session.Began(rotate), None: static () => new Reply.Pass())),
             None: static () => new Reply.Pass());
 
     internal override Reply Performed(Gesture gesture, Aim aim) =>
         Framed(aim.Laid, aim.Bounds).Match(
-            Some: frame => gesture.Switch(
+            Some: frame => gesture.SwitchPartially(
                 (Handles: this, Aim: aim, Frame: frame),
-                press: Reply.Passed,
+                @default: Reply.Passed,
                 scroll: static (held, scroll) => held.Handles.Wheeled(held.Aim, held.Frame).Match(Some: session => session.Stepped(scroll), None: static () => new Reply.Pass()),
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
                 perform: static (held, perform) => perform.Act.SwitchPartially(
                     (held.Handles, held.Aim, held.Frame, Perform: perform),
                     @default: static (_, _) => new Reply.Pass(),
@@ -296,13 +293,9 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private static Vector2 Navigated(Aim aim, PlotFrame frame, Navigation toward, Vector2 point, Key key) =>
         toward.Grain.Switch(
             (Frame: frame, Toward: toward, Point: point, Aim: aim, Key: key),
-            unit: Strode,
-            word: Strode,
+            unit: static held => held.Frame.Stepped(held.Point, held.Toward.Along, held.Toward.Valued(held.Frame), Metrics(held.Aim.Laid, Some(held.Key))[Metric.Extent]),
             page: static held => held.Frame.Stepped(held.Point, held.Toward.Along, held.Toward.Valued(held.Frame), Spacing(held.Aim.Laid)),
             edge: static held => held.Frame.Ended(held.Point, held.Toward.Along, held.Toward.Sign));
-
-    private static Vector2 Strode((PlotFrame Frame, Navigation Toward, Vector2 Point, Aim Aim, Key Key) held) =>
-        held.Frame.Stepped(held.Point, held.Toward.Along, held.Toward.Valued(held.Frame), Metrics(held.Aim.Laid, Some(held.Key))[Metric.Extent]);
 
     private static Vector2 Snapped(PlotFrame frame, Vector2 value, LanguageExt.HashSet<Modifier> modifiers, Laid laid) =>
         modifiers.Contains(Modifier.Shift) ? frame.Plane.Dimensions.Fold(value, (held, free) => frame.Stepped(held, free.Along, 0, Spacing(laid))) : value;

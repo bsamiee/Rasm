@@ -66,7 +66,7 @@ public static class MomentRows {
         new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>
             DisposalOps.Acquire(owned =>
             from command in IO.lift(static () => new Command())
-            from live in TextRows.Live(moment, (_, keep) => ButtonRows.Push(command, keep), (held, at) => Shown(held, zone, at), scope, owned)
+            from live in TextRows.Live(moment, (_, keep) => ButtonRows.Push(command, None, scope.Sink, keep), (held, at) => Shown(held, zone, at), scope, owned)
             from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,
                 Callbacks.Handler<EventArgs>(_ => Cycled(zone.Format), new CallbackSite(scope.Sink, typeof(Command), nameof(Command.Executed))), owned)
             select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None), retain),

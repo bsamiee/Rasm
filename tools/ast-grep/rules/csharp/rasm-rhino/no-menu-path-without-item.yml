@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-menu-path-without-item
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    menu-name:
+        any:
+            - kind: string_literal, verbatim_string_literal, raw_string_literal
+            - kind: interpolated_string_expression
+              not: {has: {kind: interpolation}}
+        pattern: $MENU
+        not: {regex: '::'}
+    single-path:
+        any:
+            - kind: collection_expression
+              all:
+                - has: {kind: collection_element, nthChild: 1, has: {kind: expression_element, has: {matches: menu-name}}}
+                - not: {has: {kind: collection_element, nthChild: 2}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((LanguageExt\.)?Prelude\.)?(Seq1?|toSeq)(\s*<.+>)?$|^(LanguageExt\.)?Seq\.(singleton|create|createRange)(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{matches: menu-name}, {matches: single-path}]}}}
+                - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
+            - kind: array_creation_expression, implicit_array_creation_expression
+              has:
+                kind: initializer_expression
+                all:
+                    - has: {nthChild: 1, matches: menu-name}
+                    - not: {has: {nthChild: 2, pattern: $_}}
+    path-arguments:
+        kind: argument_list
+        any:
+            - has: {kind: argument, nthChild: 1, all: [{not: {has: {field: name, pattern: $_}}}, {has: {matches: single-path}}]}
+            - has: {kind: argument, all: [{has: {field: name, regex: '^Path$'}}, {has: {matches: single-path}}]}
+    menu-type:
+        matches: {csharp-type-name: {name: {regex: '^MenuExtension$'}}}
+    menus-type:
+        any:
+            - kind: generic_name
+              has: {kind: type_argument_list, has: {matches: menu-type}}
+            - kind: array_type
+              has: {field: type, matches: menu-type}
+    rui-type:
+        matches: {csharp-type-name: {name: {regex: '^RuiFile$'}}}
+    menu-target:
+        any:
+            - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: menu-type}}}
+            - inside: {kind: property_declaration, field: value, has: {field: type, matches: menu-type}}
+            - inside:
+                kind: arrow_expression_clause
+                inside: {kind: 'property_declaration, method_declaration, local_function_statement', any: [{has: {field: type, matches: menu-type}}, {has: {field: returns, matches: menu-type}}]}
+            - inside:
+                kind: return_statement
+                inside:
+                    stopBy: &body {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                    kind: method_declaration, local_function_statement
+                    any: [{has: {field: type, matches: menu-type}}, {has: {field: returns, matches: menu-type}}]
+    menus-target:
+        any:
+            - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: menus-type}}}
+            - inside: {kind: property_declaration, field: value, has: {field: type, matches: menus-type}}
+            - inside:
+                kind: arrow_expression_clause
+                inside: {kind: 'property_declaration, method_declaration, local_function_statement', any: [{has: {field: type, matches: menus-type}}, {has: {field: returns, matches: menus-type}}]}
+            - inside:
+                kind: return_statement
+                inside:
+                    stopBy: *body
+                    kind: method_declaration, local_function_statement
+                    any: [{has: {field: type, matches: menus-type}}, {has: {field: returns, matches: menus-type}}]
+            - inside:
+                kind: argument
+                any:
+                    - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
+                    - has: {field: name, regex: '^Menus$'}
+                inside: {kind: argument_list, inside: {matches: rui-creation}}
+    rui-creation:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: rui-type}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: rui-type}}}
+                - inside: {kind: property_declaration, field: value, has: {field: type, matches: rui-type}}
+                - inside:
+                    kind: arrow_expression_clause
+                    inside: {kind: 'property_declaration, method_declaration, local_function_statement', any: [{has: {field: type, matches: rui-type}}, {has: {field: returns, matches: rui-type}}]}
+rule:
+    any:
+        - kind: object_creation_expression
+          all:
+            - has: {field: type, matches: menu-type}
+            - has: {field: arguments, matches: path-arguments}
+        - kind: implicit_object_creation_expression
+          all:
+            - has: {kind: argument_list, matches: path-arguments}
+            - any:
+                - matches: menu-target
+                - inside: {kind: expression_element, inside: {kind: collection_element, inside: {kind: collection_expression, matches: menus-target}}}
+        - kind: with_expression
+          all:
+            - has: {kind: with_initializer, all: [{has: {kind: identifier, nthChild: 1, regex: '^Path$'}}, {has: {matches: single-path}}]}
+            - has:
+                nthChild: 1
+                any:
+                    - kind: object_creation_expression
+                      has: {field: type, matches: menu-type}
+                    - matches: {csharp-declared-type: {type: {matches: menu-type}}}
+message: '`MenuExtension` path `$MENU` names a menu alone, the macOS host inserts nothing for it'
+note: 'Write `["<menu>", "<item>"]`, the macOS host inserts entries after `<item>`'

@@ -1,6 +1,6 @@
 """RNA channel keyframes, drivers, modifiers, and sampling."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from typing import Annotated, TYPE_CHECKING
 
 import bpy
@@ -33,6 +33,11 @@ class Keys(Case, frozen=True, kw_only=True, tag=1):
     title = "Keyframes"
     points: tuple[tuple[float, float], ...]
 
+    @staticmethod
+    def curves(data: bpy.types.AnimData) -> Option[bpy.types.ActionChannelbagFCurves]:
+        """Returns F-curves of the slot data animates, Nothing before an action and slot hold one."""
+        return Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).map(lambda bag: bag.fcurves)
+
 
 class Variable(msgspec.Struct, frozen=True, kw_only=True):
     """Driver variable over animated ID property."""
@@ -47,6 +52,11 @@ class Driven(Case, frozen=True, kw_only=True, tag=2):
     title = "Driver"
     expression: str
     variables: tuple[Variable, ...] = ()
+
+    @staticmethod
+    def curves(data: bpy.types.AnimData) -> Option[bpy.types.AnimDataDrivers]:
+        """Returns driver F-curves of data."""
+        return Some(data.drivers)
 
 
 class Modifier(msgspec.Struct, frozen=True, kw_only=True):
@@ -164,14 +174,8 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             return accumulated(map(added, self.modifiers)).map(lambda _: None)
 
         def replaced(data: bpy.types.AnimData, source: NDArray[np.float32] | Driven) -> BlenderResult[bool]:
-            held = (
-                Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).bind(lambda bag: Option.of_optional(bag.fcurves.find(path, index=index)))
-                if isinstance(self.source, Keys)
-                else Option.of_optional(data.drivers.find(path, index=index))
-            )
-
-            def native[T](call: Callable[[], T]) -> BlenderResult[T]:
-                return catch(call, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=f"{owner!r}.{path}", error=error),))
+            held = self.source.curves(data).bind(lambda curves: Option.of_optional(curves.find(path, index=index)))
+            request = f"{owner!r}.{path}"
 
             def stored() -> BlenderResult[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]:
                 return (
@@ -180,14 +184,22 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                     else Option
                     .of_optional(data.action)
                     .map(Ok)
-                    .default_with(lambda: Ok(bpy.data.actions.new(vacant(f"{owner.name}Action", bpy.data.actions.keys()))).bind(lambda action: written(data, "action", action).map(lambda _: action)))
+                    .default_with(
+                        lambda: BlenderEditFault.attempted(request, lambda: bpy.data.actions.new(vacant(f"{owner.name}Action", bpy.data.actions.keys()))).bind(
+                            lambda action: written(data, "action", action).map(lambda _: action)
+                        )
+                    )
                     .bind(
                         lambda action: (
                             Option
                             .of_optional(data.action_slot)
                             .map(Ok)
-                            .default_with(lambda: native(lambda: action.slots.new(id_type=owner.id_type, name=owner.name)).bind(lambda slot: written(data, "action_slot", slot).map(lambda _: slot)))
-                            .bind(lambda slot: native(lambda: anim_utils.action_ensure_channelbag_for_slot(action, slot)))
+                            .default_with(
+                                lambda: BlenderEditFault.attempted(request, lambda: action.slots.new(id_type=owner.id_type, name=owner.name)).bind(
+                                    lambda slot: written(data, "action_slot", slot).map(lambda _: slot)
+                                )
+                            )
+                            .bind(lambda slot: BlenderEditFault.attempted(request, lambda: anim_utils.action_ensure_channelbag_for_slot(action, slot)))
                         )
                     )
                     .map(lambda bag: bag.fcurves)
@@ -236,7 +248,14 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                         Ok(False)
                         if matched
                         else stored()
-                        .bind(lambda curves: held.map(lambda curve: native(lambda: curves.remove(curve))).default_value(Ok(None)).bind(lambda _: native(lambda: curves.new(path, index=index))))
+                        .bind(
+                            lambda curves: (
+                                held
+                                .map(lambda curve: BlenderEditFault.attempted(request, lambda: curves.remove(curve)))
+                                .default_value(Ok(None))
+                                .bind(lambda _: BlenderEditFault.attempted(request, lambda: curves.new(path, index=index)))
+                            )
+                        )
                         .bind(filled)
                     )
                 )
@@ -266,14 +285,8 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         path, index = self.path, Option.of_optional(self.index).default_value(0)
 
         def cleared(_: bpy.types.Property) -> BlenderResult[None]:
-            data = _animation_data(owner)
-            collections: Option[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]
-            match self.source:
-                case Keys():
-                    collections = data.bind(lambda held: Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(held))).map(lambda bag: bag.fcurves)
-                case Driven():
-                    collections = data.map(lambda held: held.drivers)
-            for curves in collections.to_list():
+            held: Option[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers] = _animation_data(owner).bind(self.source.curves)
+            for curves in held.to_list():
                 for curve in Option.of_optional(curves.find(path, index=index)).to_list():
                     curves.remove(curve)
             return Ok(None)
@@ -286,11 +299,10 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
 def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> BlenderResult[tuple[float, ...]]:
     """Samples keyed channel at frames, repeating proposed or stored value when unkeyed."""
+    held, request = tuple(frames), f"{owner!r}.{path}"
 
     def keyed(curve: bpy.types.FCurve) -> BlenderResult[tuple[float, ...]]:
-        def projected(descriptor: Descriptor) -> BlenderResult[tuple[float, ...]]:
-            prop = descriptor.prop
-            values = np.asarray(tuple(curve.evaluate(frame) for frame in frames), dtype=np.float32)
+        def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> BlenderResult[tuple[float, ...]]:
             match prop:
                 case bpy.types.BoolProperty():
                     return Ok(tuple((values > (np.float32(1) - np.spacing(np.float32(1)))).astype(float).tolist()))
@@ -309,28 +321,31 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
                         ),
                     ))
 
-        return Descriptor.resolve(owner, path, bpy.types.Property).bind(projected)
+        return paired(Descriptor.resolve(owner, path, bpy.types.Property), BlenderEditFault.attempted(request, lambda: np.asarray(tuple(map(curve.evaluate, held)), dtype=np.float32))).bind(
+            lambda pair: projected(pair[0].prop, pair[1])
+        )
+
+    def stored() -> BlenderResult[float]:
+        return Descriptor.resolve(owner, path, bpy.types.Property).bind(
+            lambda descriptor: (
+                descriptor
+                .owner_of(owner)
+                .filter(lambda _: isinstance(descriptor.prop, bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty))
+                .map(lambda held: np.asarray(descriptor.read(held), np.float64).ravel())
+                .filter(lambda values: index < values.size)
+                .map(lambda values: float(values[index]))
+                .to_result_with(lambda: (BlenderAbsentFault(owner=repr(owner), key=path),))
+            )
+        )
 
     def unkeyed() -> BlenderResult[tuple[float, ...]]:
-        try:
-            stored = proposed.default_with(lambda: float(np.asarray(owner.path_resolve(path), dtype=np.float64).ravel()[index]))
-            return Ok(tuple(stored for _ in frames))
-        except (ValueError, TypeError, IndexError):
-            return Error((BlenderAbsentFault(owner=repr(owner), key=path),))
+        return proposed.map(Result[float, BlenderFaults].Ok).default_with(stored).map(lambda value: tuple(value for _ in held))
 
-    try:
-        return (
-            _animation_data(owner)
-            .bind(lambda data: Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)))
-            .bind(lambda bag: Option.of_optional(bag.fcurves.find(path, index=index)))
-            .map(keyed)
-            .default_with(unkeyed)
-        )
-    except (ReferenceError, TypeError, ValueError, OverflowError) as error:
-        return Error((BlenderEditFault(request=f"{owner!r}.{path}", error=error),))
+    return _animation_data(owner).bind(Keys.curves).bind(lambda curves: Option.of_optional(curves.find(path, index=index))).map(keyed).default_with(unkeyed)
 
 
 def _animation_data(owner: bpy.types.ID) -> Option[bpy.types.AnimData]:
+    """Returns owner's animation data, Nothing for an ID kind that holds none."""
     return struct_at(owner, "animation_data").bind(lambda data: Some(data) if isinstance(data, bpy.types.AnimData) else Nothing)
 
 

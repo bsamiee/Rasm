@@ -6,6 +6,7 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Numeric;
+using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino.Resources;
 
@@ -14,47 +15,37 @@ namespace Rasm.Rhino.Render.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class RangeHandle {
-    private static readonly MarkStyle TipStyle = new MarkStyle.Fill(PaintSlot.Text, 0.85f);
-    private static readonly MarkStyle EdgeStyle = new MarkStyle.Stroke(PaintSlot.Text, 0.85f, Plots.Inset / 2f);
-
-    public static readonly RangeHandle Band = new(PartRole.Slider, CursorType.Move, "{0} range", 1, None, new MarkStyle.Fill(PaintSlot.Text, 0.22f), 0f,
+    public static readonly RangeHandle Band = new(PartRole.Slider, "{0} range", 1, None, new MarkStyle.Fill(PaintSlot.Text, 0.22f),
         static _ => 0f,
         static band => band.Center,
         static (band, key) => (key, band.Width, band.Softness),
-        static texts => texts.Center,
         static (area, _, _) => area);
-    public static readonly RangeHandle LowerSoftness = new(PartRole.Handle, CursorType.VerticalSplit, "{0} lower softness", -1, None, TipStyle, Plots.Reach,
+    public static readonly RangeHandle LowerSoftness = new(PartRole.Handle, "{0} lower softness", -1, None, MarkStyle.Label,
         static band => -((band.Width / 2f) + band.Softness),
         static band => band.Softness,
         static (band, key) => (band.Center, band.Width, key),
-        static texts => texts.Softness,
         static (_, ramp, x) => Tip(ramp, x));
-    public static readonly RangeHandle UpperSoftness = new(PartRole.Handle, CursorType.VerticalSplit, "{0} upper softness", 1, None, TipStyle, Plots.Reach,
+    public static readonly RangeHandle UpperSoftness = new(PartRole.Handle, "{0} upper softness", 1, None, MarkStyle.Label,
         static band => (band.Width / 2f) + band.Softness,
         static band => band.Softness,
         static (band, key) => (band.Center, band.Width, key),
-        static texts => texts.Softness,
         static (_, ramp, x) => Tip(ramp, x));
-    public static readonly RangeHandle LowerEdge = new(PartRole.Handle, CursorType.VerticalSplit, "{0} lower edge", -1, Some(LowerSoftness), EdgeStyle, Plots.Reach,
+    public static readonly RangeHandle LowerEdge = new(PartRole.Handle, "{0} lower edge", -1, Some(LowerSoftness), MarkStyle.Ring,
         static band => band.Width / -2f,
         static band => band.Width,
         static (band, key) => Edge(band, key, -1f),
-        static texts => texts.Width,
         static (_, ramp, x) => Rule(ramp, x));
-    public static readonly RangeHandle UpperEdge = new(PartRole.Handle, CursorType.VerticalSplit, "{0} upper edge", 1, Some(UpperSoftness), EdgeStyle, Plots.Reach,
+    public static readonly RangeHandle UpperEdge = new(PartRole.Handle, "{0} upper edge", 1, Some(UpperSoftness), MarkStyle.Ring,
         static band => band.Width / 2f,
         static band => band.Width,
         static (band, key) => Edge(band, key, 1f),
-        static texts => texts.Width,
         static (_, ramp, x) => Rule(ramp, x));
 
     public PartRole Role { get; }
-    public CursorType Cursor { get; }
     public string Template { get; }
     public int Sign { get; }
     public Option<RangeHandle> Alternate { get; }
     public MarkStyle Style { get; }
-    public float Reach { get; }
 
     [UseDelegateFromConstructor]
     public partial float Offset(RangeBand band);
@@ -64,9 +55,6 @@ public sealed partial class RangeHandle {
 
     [UseDelegateFromConstructor]
     public partial (float Center, float Width, float Softness) Placed(RangeBand start, float key);
-
-    [UseDelegateFromConstructor]
-    public partial NumberText<float> Text(BandTexts texts);
 
     [UseDelegateFromConstructor]
     public partial MarkShape Shape(MarkShape area, float ramp, float x);
@@ -86,18 +74,17 @@ public sealed partial class RangeHandle {
     private static MarkShape.Rule Rule(float ramp, float x) => new(new PointF(x, 0f), new PointF(x, ramp + (2f * Plots.Inset)));
 }
 
-public sealed record BandTexts(NumberText<float> Center, NumberText<float> Width, NumberText<float> Softness);
-
 public sealed record RangeGrip(RangeHandle Handle, RangeBand Start, float Travel);
 
 public sealed record HueRangeBarState(Option<HueRange> Range, Option<Func<HueRange, Vector4, Vector4>> Grade, Option<RangeGrip> Grip);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption, BandTexts texts)
+public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption)
     : ComponentControl<HueRangeBarState, RangeHandle, HueRange>(sink, new HueRangeBarState(None, None, None), None) {
     // --- [METRICS]
     private readonly float ramp = EtoFonts.SmallFont.LineHeight;
     private readonly Axis along = ImagePlots.Placed(axis.Input.Axis);
+    private readonly NumberText<float> text = NumberText.Scalar(NumericDomain.Bounded<AxisFraction, float>(axis.Presentation), RowEdit.Varies);
 
     // --- [SHOW]
     public IO<Unit> Graded(Option<Func<HueRange, Vector4, Vector4>> grade) => Advance(state => new(state with { Grade = grade }, None));
@@ -111,7 +98,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
          select toSeq(RangeHandle.Items).Map(handle => new PlotMark<RangeHandle>(
              handle.Shape(area, ramp, plane.Point(along.Value(band.Center + handle.Offset(band)), 0f).X),
              handle.Style,
-             Some(new MarkPart<RangeHandle>(handle, handle.Reach)))))
+             Some(new MarkPart<RangeHandle>(handle, handle.Role == PartRole.Slider ? 0f : Plots.Reach)))))
         .ToSeq()
         .Flatten();
 
@@ -161,11 +148,11 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
         let handle = part.IfNone(RangeHandle.Band).Under(e.Modifiers)
         from next in Stepping(state, handle, start => Snaps(e.Modifiers)
             ? Snapped(handle.Key(start), handle.Sign * direction, size)
-            : handle.Text(texts).Moved(handle.Key(start), handle.Sign * direction * Scale(e.Modifiers)))
+            : text.Moved(handle.Key(start), handle.Sign * direction * Scale(e.Modifiers)))
         select next;
 
     protected override Option<Transition<HueRangeBarState, HueRange>> Stepped(HueRangeBarState state, SizeF size, float scale, RangeHandle part, int steps) =>
-        Stepping(state, part, start => part.Text(texts).Moved(part.Key(start), part.Sign * steps));
+        Stepping(state, part, start => text.Moved(part.Key(start), part.Sign * steps));
 
     private float Snapped(float key, int steps, SizeF size) =>
         (along.Snap(along.Value(key), steps, Plots.Reach * along.Range.Span / size.Width) - along.Range.Low) / along.Range.Span;
@@ -187,8 +174,8 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
 
     // --- [ACCESSIBILITY]
     protected override PartFacet Facet(HueRangeBarState state, RangeHandle key) =>
-        new(key.Role, Cursors.Cached(key.Cursor), RowText.Localize(key.Template, arguments: [caption]).Local,
-            key.Text(texts).Shown(state.Range.Map(range => key.Key(axis.Band.Get(range)))), None);
+        new(key.Role, key.Role == PartRole.Slider ? Cursors.Move : Cursors.VerticalSplit, RowText.Localize(key.Template, arguments: [caption]).Local,
+            text.Shown(state.Range.Map(range => key.Key(axis.Band.Get(range)))), None);
 
     // --- [PAINT]
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, HueRangeBarState state, Seq<PlotMark<RangeHandle>> marks, Interaction<RangeHandle> interaction) =>
@@ -208,7 +195,7 @@ public sealed class HueRangeBar(IPlugInSink sink, RangeAxis axis, string caption
                     from part in mark.Part
                     select Restyled(
                         style,
-                        focused && part.Key.Role == PartRole.Slider ? new MarkColor.Themed(PaintSlot.Highlight) : style.Paint,
+                        focused && part.Key.Role == PartRole.Slider ? PaintSlot.Highlight : style.Paint,
                         part.Key.Role == PartRole.Handle && (cues.Hovered == Some(part.Key) || cues.Pressed == Some(part.Key)) ? 1f : style.Alpha),
         };
 

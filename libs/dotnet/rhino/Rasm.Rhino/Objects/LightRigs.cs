@@ -83,15 +83,14 @@ public readonly partial struct ColorSaturation : System.Numerics.IMinMaxValue<Co
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
-[SmartEnum<string>(KeyMemberName = "Name", SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None)]
+[ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LightRole {
-    public static readonly LightRole Key = new("key");
-    public static readonly LightRole Fill = new("fill");
-    public static readonly LightRole Rim = new("rim");
-    public static readonly LightRole Accent = new("accent");
-    public static readonly LightRole Top = new("top");
+    public static readonly LightRole Key = Create("key");
+    public static readonly LightRole Fill = Create("fill");
+    public static readonly LightRole Rim = Create("rim");
+    public static readonly LightRole Accent = Create("accent");
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -227,7 +226,7 @@ public sealed record RigLabel(Guid Rig, int Slot, LightRole Role, Option<string>
         HashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(
             (LightKey.Rig.Key, label.Map(static row => row.Rig.ToString("D"))),
             (LightKey.Slot.Key, label.Map(static row => row.Slot.ToString(CultureInfo.InvariantCulture))),
-            (LightKey.Role.Key, label.Map(static row => row.Role.Name)),
+            (LightKey.Role.Key, label.Map(static row => (string)row.Role)),
             (LightKey.Preset.Key, label.Bind(static row => row.Preset)));
 }
 
@@ -265,9 +264,7 @@ public static class LightRigs {
             (Document: doc, Focus: focus),
             world: static (state, _) => IO.pure(new Plane(state.Focus, Vector3d.XAxis, Vector3d.ZAxis)),
             view: static (state, view) =>
-                DisposalOps.Within(
-                    (Action<IDisposable> held) => Viewports.ResolveViewport(state.Document, view.Target, held).Bind(static row => Cameras.ReadPose(row.Viewport)),
-                    DisposalOps.Release)
+                Viewports.With(state.Document, view.Target, static row => Cameras.Read(row.Viewport))
                     .Map(pose => new Plane(state.Focus, pose.Frame.XAxis, pose.Frame.YAxis)),
             frame: static (state, frame) => IO.lift(() => Refused.UnlessFound(state.Document.Objects.FindId(frame.Object), nameof(ObjectTable.FindId)))
                 .Bind(static found => IO.lift(() => Conversions.Present(found.ObjectFrame()).ToFin(new Refused(nameof(RhinoObject.ObjectFrame), Refused.Invalid))))

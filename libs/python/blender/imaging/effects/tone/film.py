@@ -68,7 +68,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     post_filter: Annotated[Rgb[Unit], msgspec.Meta(description="Channel transmission after development")] = Rgb(red=1.0, green=1.0, blue=1.0)
     saturation: Annotated[NonNegative, msgspec.Meta(description="HSV saturation multiplier in midtones"), Presentation(soft=Some((0.0, 2.0)))] = 1.02
     weights: Annotated[tuple[Positive, Positive, Positive], msgspec.Meta(description="Channel weights of photographic brightness")] = (0.3, 0.5, 0.2)
-    lattice: Lattice = Lattice(size=80, spacing=Logarithmic(low=-10.0, span=20.0))
+    lattice: Lattice = Lattice(size=80, spacing=Logarithmic())
 
     # --- [DEVELOPMENT]
 

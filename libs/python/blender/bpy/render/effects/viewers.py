@@ -1,36 +1,46 @@
-"""Owned Viewer nodes and entering frame delivery to effect reads."""
+"""Owned Viewer nodes, row inspections, and entering-frame reads delivered to row measures."""
 
-from collections.abc import Callable, Generator
-from contextlib import contextmanager
-from pathlib import Path
-from typing import Annotated, ClassVar
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager, nullcontext
+from types import MappingProxyType
+from typing import Annotated, ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
 import msgspec
 import numpy as np
+import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator, Outcome, Unchanged
-from blender.bpy.data.ids.images import built, intermediates, read
-from blender.bpy.data.ids.ownership import Mark
+from blender.bpy.data.ids.images import read
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.extension.events.handlers import PathHandler, SceneHandler
+from blender.bpy.extension.events.handlers import SceneHandler
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
-from blender.bpy.nodes.changes import Added, applied, Connected, owned, Removed
+from blender.bpy.nodes.changes import Added, applied, Connected, Disconnected, Keyed, owned, Removed
 from blender.bpy.nodes.graphs import End, INPUTS, Link, OUTPUTS
-from blender.bpy.nodes.interface import addresses, slot
+from blender.bpy.nodes.interface import slot
 from blender.bpy.nodes.trees import socket_at
-from blender.bpy.render.color.exposure import Consume
 from blender.bpy.render.color.spaces import config_of
-from blender.bpy.render.effects.stack import EffectStack, Named, Placeable, Shell, StackEntry
+from blender.bpy.render.effects.rows import CompositorEffect, EffectName, Inspected, Marks, Measured, Named, revised, Shell
+from blender.bpy.render.effects.stack import EffectStack
+from blender.bpy.render.outputs.results import built, INTERMEDIATES
+from blender.bpy.render.review.frames import Picked, picking
 from blender.bpy.settings.attachments import Stored
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.screens.editors import EditorState
 from blender.imaging.analysis.metering import Region
+from blender.imaging.chain import Effect
+from blender.imaging.faults import accumulated, paired
 from blender.imaging.files.images import ImageFile
+from blender.imaging.parameters import heading
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile[np.float32]], BlenderResult[Option[str]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -48,6 +58,12 @@ class EntryRegion(Named, frozen=True, kw_only=True):
     region: Region = Region()
 
 
+class EntryPick(Picked, frozen=True, kw_only=True):
+    """Pick naming the effect entry it reads."""
+
+    name: EffectName
+
+
 class Unread(msgspec.Struct, frozen=True, kw_only=True):
     """Entry with no readable value in region."""
 
@@ -60,117 +76,95 @@ class Unread(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Arm(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Entry name and optional crop awaiting compositor completion."""
+    """Pending read of one entry: its crop, its consumer, and whether a completed frame was captured for it."""
 
     name: str
     region: Option[Region]
-
-
-class Armed(msgspec.Struct, kw_only=True):
-    """Pending read per scene and captured reads awaiting delivery."""
-
-    entries: dict[Handle[bpy.types.Scene], Arm] = msgspec.field(default_factory=dict)
-    captured: set[Arm] = msgspec.field(default_factory=set)
+    consume: Consume
+    captured: bool = False
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
 class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Entering frame consumer with deferred delivery."""
+    """Entering-frame reads delivered after compositor completion, one pending read per scene, forgotten at file load."""
 
-    consume: Consume
-    armed: Armed = msgspec.field(default_factory=Armed)
+    pending: Scoped[dict[Handle[bpy.types.Scene], Arm]] = msgspec.field(default_factory=lambda: Scoped(made=lambda _identity: nullcontext({}), renewed=Some(lambda _held: {})))
 
-    def entering(self, identity: Identity, entry: bpy.types.SceneCompositorEffect, region: Option[Region] = Nothing) -> BlenderResult[None]:
-        """Views entry input, replacing scene's pending read."""
-        return shown(identity, entry, End(node=INPUTS, socket=Shell.image)).map(lambda _: self.armed.entries.update({Handle.of(entry.id_data): Arm(name=entry.name, region=region)}))  # type: ignore[arg-type, type-var]
+    def entering(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, consume: Consume, region: Option[Region] = Nothing) -> BlenderResult[None]:
+        """Views entry input, replacing the scene's pending read."""
+        return shown(identity, entry, End(node=INPUTS, socket=Shell.image)).map(lambda _: self.pending.of(identity).update({Handle.of(scene): Arm(name=entry.name, region=region, consume=consume)}))
 
     def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
-        """Consumes captured pixels while capture is scene's pending read."""
-        self.armed.captured.discard(arm)
-        if self.armed.entries.get(handle) is not arm:
+        """Consumes captured pixels while the capture is the scene's pending read."""
+        if (held := self.pending.of(identity)).get(handle) is not arm:
             return Ok(Nothing)
-        del self.armed.entries[handle]
+        del held[handle]
         cropped = arm.region.map(lambda region: msgspec.structs.replace(file, pixels=file.pixels[region.window(*file.pixels.shape[:2])])).default_value(file)
         return handle.resolve().bind(
             lambda scene: (
                 Option
                 .of_optional(scene.compositor_effects.get(arm.name))
-                .map(lambda entry: cleared(identity, entry).bind(lambda _: self.consume(identity, scene, entry, cropped)))
+                .map(lambda entry: cleared(identity, entry).bind(lambda _: arm.consume(identity, scene, entry, cropped)))
                 .default_value(Ok(Nothing))
             )
         )
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
-        """Yields handlers capturing compositor result for deferred pending reads."""
-        try:
-            with identity.reports.deferred(lambda handle, arm, file: self.delivered(identity, handle, arm, file)) as deferred:
+        """Yields the pending cell and the completion handler capturing the compositor result for deferred delivery."""
+        with identity.reports.deferred(lambda handle, arm, file: self.delivered(identity, handle, arm, file)) as deferred:
 
-                def queued(handle: Handle[bpy.types.Scene], arm: Arm, file: ImageFile[np.float32]) -> None:
-                    self.armed.captured.add(arm)
-                    deferred(handle, arm, file)
-
-                def completed(scene: bpy.types.Scene) -> BlenderResult[None]:
-                    if scene.session_uid in intermediates:
-                        return Ok(None)
-                    handle = Handle.of(scene)
-                    return (
-                        Option
-                        .of_optional(self.armed.entries.get(handle))
-                        .filter(lambda arm: arm not in self.armed.captured)
-                        .bind(
-                            lambda arm: (
-                                Option
-                                .of_optional(scene.compositor_effects.get(arm.name))
-                                .filter(lambda entry: entry.is_active)
-                                .map(lambda _: config_of().bind(lambda config: built("COMPOSITING").bind(lambda image: read(image, config))).map(lambda file: queued(handle, arm, file)))
-                            )
-                        )
-                        .default_value(Ok(None))
-                    )
-
-                def forgotten(_path: Option[Path]) -> BlenderResult[None]:
-                    identity.reports.cancelled(deferred)
-                    self.armed.entries.clear()
-                    self.armed.captured.clear()
+            def completed(scene: bpy.types.Scene) -> BlenderResult[None]:
+                if scene.session_uid in INTERMEDIATES.of(identity):
                     return Ok(None)
+                handle, held = Handle.of(scene), self.pending.of(identity)
 
-                yield Ok((SceneHandler(handlers=bpy.app.handlers.composite_post, body=completed), PathHandler(handlers=bpy.app.handlers.load_post, body=forgotten)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        finally:
-            self.armed.entries.clear()
-            self.armed.captured.clear()
+                def queued(arm: Arm, file: ImageFile[np.float32]) -> None:
+                    taken = held[handle] = msgspec.structs.replace(arm, captured=True)
+                    deferred(handle, taken, file)
+
+                return (
+                    Option
+                    .of_optional(held.get(handle))
+                    .filter(lambda arm: not arm.captured and Option.of_optional(scene.compositor_effects.get(arm.name)).filter(lambda entry: entry.is_active).is_some())
+                    .map(lambda arm: config_of().bind(lambda config: built("COMPOSITING").bind(lambda image: read(image, config))).map(lambda file: queued(arm, file)))
+                    .default_value(Ok(None))
+                )
+
+            yield Ok((self.pending, INTERMEDIATES, SceneHandler(handlers=bpy.app.handlers.composite_post, body=completed)))
 
 
 class EffectViewer:
-    """View, clear, and read commands for offered and pinned entries."""
+    """View, clear, read, and pick commands for offered and pinned entries, and each row's inspection and measure commands."""
 
     stack: EffectStack
     viewing: Operator[ViewTarget]
     clearing: Operator[Named]
     reading: Operator[EntryRegion]
+    picking: Operator[EntryPick]
+    commands: Mapping[Key, tuple[Operator[Named], ...]]
     key: ClassVar[Key] = Shell.viewer
     entering: ClassVar[End] = End(node=INPUTS, socket=Shell.image)
     leaving: ClassVar[End] = End(node=OUTPUTS, socket=Shell.result)
 
-    def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> BlenderResult[StackEntry]:
-        """Finds named offered or pinned entry, skipping user groups."""
+    def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> BlenderResult[tuple[bpy.types.SceneCompositorEffect, Option[CompositorEffect[Effect]]]]:
+        """Finds named offered or pinned entry with its offered row, skipping user groups."""
         pinned = frozenset(row.ownership.key for row in self.stack.pinned)
         return Option.of_optional(
             next(
                 (
-                    held
-                    for held in self.stack.held(identity, scene)
-                    if held.entry.name == name
-                    and (held.row.is_some() or Option.of_optional(held.entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in pinned).is_some())
+                    (entry, Option.of_optional(self.stack.keyed.get(mark.key)))
+                    for entry, mark in Marks.of(identity, scene).held
+                    if entry.name == name and (mark.key in self.stack.keyed or mark.key in pinned)
                 ),
                 None,
             )
         ).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=name),))
 
     def __init__(self, *, stack: EffectStack) -> None:
-        """Declares view, clear, and read commands."""
+        """Declares view, clear, read, and pick commands, and one command per row inspection and measure."""
         self.stack = stack
 
         def view(call: Call[ViewTarget], inspected: EditorState) -> BlenderResult[Done]:
@@ -181,7 +175,7 @@ class EffectViewer:
                 .bind(lambda scene: self.entry(call.identity, scene, call.record.name))
                 .bind(
                     lambda held: shown(
-                        call.identity, held.entry, End(node=call.record.node, socket=call.record.socket), pending=call.record.node != INPUTS and held.row.filter(lambda row: row.staged).is_some()
+                        call.identity, held[0], End(node=call.record.node, socket=call.record.socket), pending=call.record.node != INPUTS and held[1].filter(lambda row: row.staged).is_some()
                     )
                 )
                 .bind(
@@ -196,26 +190,12 @@ class EffectViewer:
                 )
             )
 
-        def take(call: Call[EntryRegion], row: Placeable, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[Done]:
-            reading: BlenderResult[ViewerRead] = Option.of_optional(next((each for each in row.registrables if isinstance(each, ViewerRead)), None)).to_result_with(
-                lambda: (BlenderAbsentFault(owner=row.kind, key=ViewerRead.__name__),)
-            )
-            return (
-                Result[ViewerRead, BlenderFaults]
-                .bind(reading, lambda reading: reading.entering(call.identity, entry, Some(call.record.region)))
-                .map(lambda _: Done(notes=(("INFO", f"Reading frame entering {entry.name}"),)))
-            )
-
-        def read(call: Call[EntryRegion]) -> BlenderResult[Done]:
+        def taken[T: msgspec.Struct](call: Call[T], name: str, region: Region) -> BlenderResult[Outcome]:
             return (
                 call
                 .root(bpy.types.Scene)
-                .bind(lambda scene: self.stack.found(call.identity, scene, call.record.name))
-                .bind(
-                    lambda held: Result[Placeable, BlenderFaults].bind(
-                        held.row.to_result_with(lambda: (BlenderAbsentFault(owner=repr(held.entry), key=held.entry.name),)), lambda row: take(call, row, held.entry)
-                    )
-                )
+                .bind(lambda scene: self.stack.found(call.identity, scene, name).bind(lambda held: READ.entering(call.identity, scene, held.entry, measured(held.row), Some(region))))
+                .map(lambda _: Done(notes=(("INFO", f"Reading frame entering {name}"),)))
             )
 
         def clear(call: Call[Named]) -> BlenderResult[Outcome]:
@@ -223,7 +203,7 @@ class EffectViewer:
                 call
                 .root(bpy.types.Scene)
                 .bind(lambda scene: self.entry(call.identity, scene, call.record.name))
-                .bind(lambda held: cleared(call.identity, held.entry).map(lambda removed: Done() if removed else Unchanged(reason=f"{held.entry.name} has no Viewer")))
+                .bind(lambda held: cleared(call.identity, held[0]).map(lambda removed: Done() if removed else Unchanged(reason=f"{held[0].name} has no Viewer")))
             )
 
         self.viewing = Operator(
@@ -235,43 +215,79 @@ class EffectViewer:
             internal=True,
         )
         self.clearing = Operator(key="effect_view_clear", title="Clear Viewer", description="Remove effect Viewer to show stack result", form=Named, run=clear, internal=True)
-        self.reading = Operator(key="effect_read", title="Read Frame", description="Read region of entering frame", form=EntryRegion, run=read, internal=True)
+        self.reading = Operator(
+            key="effect_read", title="Read Frame", description="Read region of entering frame", form=EntryRegion, run=lambda call: taken(call, call.record.name, call.record.region), internal=True
+        )
+        self.picking = picking("pick_read", "Pick Read Region", "Hands picked entry input square to entry's read", "EYEDROPPER", EntryPick, lambda call, region: taken(call, call.record.name, region))
+        self.commands = MappingProxyType({
+            row.kind: (*(inspecting(row, held) for held in row.inspected), *(command for measure in row.measured.to_list() for command in measure.command.to_list())) for row in stack.rows
+        })
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns view, clear, and read commands."""
-        return Ok((self.viewing, self.clearing, self.reading))
+        """Returns the entering-frame read, view, clear, read, and pick commands, then each row's inspection and measure commands."""
+        return Ok((READ, self.viewing, self.clearing, self.reading, self.picking, *(command for commands in self.commands.values() for command in commands)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [MEASURES]
 
-def inspection(row: Callable[[], Placeable], key: Key, title: str, description: str, target: Callable[[], End]) -> Operator[Named]:
-    """Declares row inspection command, resolving row at call time."""
 
-    def run(call: Call[Named]) -> BlenderResult[Done]:
-        offered = row()
+def measured[R: Effect](row: CompositorEffect[R]) -> Consume:
+    """Consumer revising an entry's record from its entering frame through the row's measure, its undo step named by the measure command."""
+    title = row.measured.bind(lambda measure: measure.command).map(lambda command: command.title).default_value(f"Measure {row.record.title}")
+
+    def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
+        def changed(measure: Measured[R], config: PyOpenColorIO.Config) -> BlenderResult[bool]:
+            return revised(row, identity, scene, entry, lambda record: measure.revise(config, record, file).map(lambda found: found.default_value(record)))
+
+        return (
+            paired(row.measured.to_result_with(lambda: (BlenderAbsentFault(owner=row.kind, key="measured"),)), config_of())
+            .bind(lambda pair: changed(*pair))
+            .map(lambda wrote: Some(title) if wrote else Nothing)
+        )
+
+    return consumed
+
+
+def measuring[R: Effect](row: CompositorEffect[R], call: Call[Named]) -> BlenderResult[Outcome]:
+    """Arms the stack read on the named entry of the row, delivering its next entering frame to the row's measure."""
+    return (
+        call
+        .root(bpy.types.Scene)
+        .bind(lambda scene: row.named(call.identity, scene, call.record.name).bind(lambda entry: READ.entering(call.identity, scene, entry, measured(row))))
+        .map(lambda _: Done(notes=(("INFO", f"Measuring {row.record.title} from stage input"),)))
+    )
+
+
+# --- [VIEWER]
+
+
+def inspecting(row: CompositorEffect[Effect], held: Inspected) -> Operator[Named]:
+    """Declares the Viewer command of one row inspection, titled by its key."""
+
+    def run(call: Call[Named]) -> BlenderResult[Outcome]:
         return (
             call
             .root(bpy.types.Scene)
-            .bind(lambda scene: offered.named(call.identity, scene, call.record.name))
-            .bind(lambda entry: shown(call.identity, entry, target(), pending=offered.staged))
+            .bind(lambda scene: row.named(call.identity, scene, call.record.name))
+            .bind(lambda entry: shown(call.identity, entry, held.end, pending=row.staged))
             .map(lambda _: Done())
         )
 
-    return Operator(key=key, title=title, description=description, icon=Some("HIDE_OFF"), form=Named, internal=True, run=run)
+    return Operator(key=held.key, title=f"View {heading(held.key)}", description=held.description, icon=Some("HIDE_OFF"), form=Named, internal=True, run=run)
 
 
 def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End, *, pending: bool = False) -> BlenderResult[None]:
     """Connects owned Viewer to target end and activates entry."""
 
     def viewed(tree: bpy.types.NodeTree, name: str) -> BlenderResult[None]:
-        def source(sockets: dict[Key, str]) -> BlenderResult[End]:
-            nodes = owned(tree, identity)
-            keys = {node: key for key, node in nodes.items()}
+        def source(keyed: Keyed) -> BlenderResult[End]:
+            keys = {node: key for key, node in keyed.nodes.items()}
             return (
                 Option
-                .of_optional(nodes.get(OUTPUTS))
-                .bind(lambda output: Option.of_optional(sockets.get(target.socket)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
+                .of_optional(keyed.nodes.get(OUTPUTS))
+                .bind(lambda output: Option.of_optional(keyed.sockets[OUTPUTS].get(target.socket)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
                 .bind(
                     lambda socket: Option.of_optional(
                         next((End(node=keys[link.from_node], socket=link.from_socket.identifier) for link in socket.links if link.from_node in keys), None)  # type: ignore[union-attr]  # ty: ignore[not-iterable, unresolved-attribute]
@@ -281,17 +297,16 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
             )
 
         def connected(end: End) -> BlenderResult[None]:
-            for viewer in marked(identity, tree).to_list():
-                for link in tuple(tree.links):
-                    if link.to_node == viewer:
-                        tree.links.remove(link)
-            return applied(Connected(link=Link(source=end, target=End(node=Shell.viewer, socket="Image"))), tree, identity, name, owned(tree, identity))
+            stale = tuple(link for viewer in marked(identity, tree).to_list() for link in tree.links if link.to_node == viewer)
+            return accumulated(applied(Disconnected(link=link), identity, Keyed.of(tree, identity, name)) for link in stale).bind(
+                lambda _: applied(Connected(link=Link(source=end, target=End(node=Shell.viewer, socket="Image"))), identity, Keyed.of(tree, identity, name))
+            )
 
-        entering = source(addresses(tree, name)) if target.node == OUTPUTS else Ok(target)
+        entering = source(Keyed.of(tree, identity, name)) if target.node == OUTPUTS else Ok(target)
         return (
             entering
             .bind(
-                lambda end: (Ok(None) if marked(identity, tree).is_some() else applied(Added(key=Shell.viewer, kind=bpy.types.CompositorNodeViewer), tree, identity, name, owned(tree, identity))).bind(
+                lambda end: (Ok(None) if marked(identity, tree).is_some() else applied(Added(key=Shell.viewer, kind=bpy.types.CompositorNodeViewer), identity, Keyed.of(tree, identity, name))).bind(
                     lambda _: connected(end)
                 )
             )
@@ -314,7 +329,7 @@ def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Blend
     """Removes owned Viewer and stored target, answering whether either existed."""
 
     def removed(tree: bpy.types.NodeTree, name: str, *, stored: bool) -> BlenderResult[bool]:
-        return marked(identity, tree).map(lambda viewer: applied(Removed(name=viewer.name), tree, identity, name, owned(tree, identity)).map(lambda _: True)).default_value(Ok(stored))
+        return marked(identity, tree).map(lambda viewer: applied(Removed(name=viewer.name), identity, Keyed.of(tree, identity, name)).map(lambda _: True)).default_value(Ok(stored))
 
     return grouped(identity, entry).bind(
         lambda pair: (
@@ -334,6 +349,10 @@ def marked(identity: Identity, tree: bpy.types.NodeTree) -> Option[bpy.types.Nod
     return Option.of_optional(owned(tree, identity).get(Shell.viewer))
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+READ: Final = ViewerRead()
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Arm", "Armed", "EffectViewer", "EntryRegion", "Unread", "ViewTarget", "ViewerRead", "inspection"]
+__all__ = ["READ", "Arm", "Consume", "EffectViewer", "EntryPick", "EntryRegion", "Unread", "ViewTarget", "ViewerRead", "cleared", "inspecting", "measured", "measuring", "shown"]

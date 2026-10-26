@@ -13,12 +13,6 @@ public sealed record HistoryLimits(int Capacity, Duration Window) {
 
 public sealed record HistoryEntry(BigInteger Serial, ValueDiff Diff, Instant At);
 
-[SmartEnum]
-public sealed partial class StepDirection {
-    public static readonly StepDirection Undo = new();
-    public static readonly StepDirection Redo = new();
-}
-
 public sealed record ValueHistory {
     // --- [STATE]
     private ValueHistory(Seq<HistoryEntry> done, Seq<HistoryEntry> undone, BigInteger next) => (Done, Undone, Next) = (done, undone, next);
@@ -43,16 +37,16 @@ public sealed record ValueHistory {
                     }).Take(limits.Capacity), Undone, Next),
                 None: () => new ValueHistory(new HistoryEntry(Next, diff, at).Cons(Done).Take(limits.Capacity), [], Next + BigInteger.One));
 
-    public ValueHistory Step(BigInteger serial, StepDirection direction) =>
-        direction.Map(undo: Done, redo: Undone).Head.Filter(entry => entry.Serial == serial).Match(
-            Some: entry => direction.Switch((History: this, Entry: entry),
-                undo: static state => new ValueHistory(state.History.Done.Tail, state.Entry.Cons(state.History.Undone), state.History.Next),
-                redo: static state => new ValueHistory(state.Entry.Cons(state.History.Done), state.History.Undone.Tail, state.History.Next)),
-            None: () => this);
+    public ValueHistory Undo(BigInteger serial) =>
+        Done.Head.Filter(entry => entry.Serial == serial).Match(Some: entry => new ValueHistory(Done.Tail, entry.Cons(Undone), Next), None: () => this);
+
+    public ValueHistory Redo(BigInteger serial) => Mirrored.Undo(serial).Mirrored;
+
+    internal ValueHistory Mirrored => new(Undone, Done, Next);
 
     public ValueHistory Followed(ValueDiff taken) =>
-        (Undone.Head.Filter(entry => entry.Diff == taken).Map(entry => Step(entry.Serial, StepDirection.Redo))
-            | Done.Head.Filter(entry => entry.Diff == taken.Inverse()).Map(entry => Step(entry.Serial, StepDirection.Undo))).IfNone(this);
+        (Undone.Head.Filter(entry => entry.Diff == taken).Map(entry => Redo(entry.Serial))
+            | Done.Head.Filter(entry => entry.Diff == taken.Inverse()).Map(entry => Undo(entry.Serial))).IfNone(this);
 
     public Option<ValueSet> Toward(BigInteger serial) =>
         Done.Find(entry => entry.Serial == serial)
@@ -156,11 +150,15 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
         select swapped;
 
     // --- [STEPS]
-    public IO<ValueDiff> Step(StepDirection direction) =>
-        (from history in OptionT.lift(History)
-         from entry in direction.Map(undo: history.Done, redo: history.Undone).Head
-         from diff in Written(direction.Switch(entry.Diff, undo: static taken => taken.Inverse(), redo: identity).After(), [])
-         from moved in Swapped(held => held.Step(entry.Serial, direction))
+    public IO<ValueDiff> Undo => Stepped(identity, static diff => diff.Inverse());
+
+    public IO<ValueDiff> Redo => Stepped(static history => history.Mirrored, identity);
+
+    private IO<ValueDiff> Stepped(Func<ValueHistory, ValueHistory> view, Func<ValueDiff, ValueDiff> target) =>
+        (from history in OptionT.lift(History.Map(view))
+         from entry in history.Done.Head
+         from diff in Written(target(entry.Diff).After(), [])
+         from moved in Swapped(held => view(view(held).Undo(entry.Serial)))
          select diff).IfNone(ValueDiff.Empty).As();
 
     public IO<ValueDiff> Restore(BigInteger serial) =>

@@ -89,17 +89,15 @@ public abstract partial record WorldMark {
     public sealed record LineArrow(Line Line, Func<Color> Color, int Thickness, double TipSize) : WorldMark;
     public sealed record ArrowHead(Point3d Tip, Vector3d Direction, Func<Color> Color, ArrowHeadSize Size) : WorldMark;
     public sealed record DirectionArrow(Point3d At, Vector3d Direction, Func<Color> Color) : WorldMark;
-    public sealed record Marker(Point3d Tip, Vector3d Direction, Func<Color> Color, int Thickness = 3, double Size = 16.0, double Rotation = 0.0) : WorldMark;
+    public sealed record Marker(Point3d Tip, Vector3d Direction, Func<Color> Color, Option<(int Thickness, double Size, double Rotation)> Shape) : WorldMark;
     public sealed record InferenceLine(Point3d From, Point3d Through, Func<Color> Color, DisplayPipeline.InferenceLineType Kind) : WorldMark;
     public sealed record InferencePoint(Point3d At, Func<Color> Color) : WorldMark;
     public sealed record ActivePoint(Point3d At) : WorldMark;
     public sealed record PointSet(DisplayPointSet Set, Option<(DisplayPointAttributes Fallback, DisplayPointAttributes Override)> Attributes) : WorldMark;
-    public sealed record PointCloudMark(PointCloud Cloud, float Size) : WorldMark {
-        public Func<Color> Color { get; init; } = static () => System.Drawing.Color.Black;
-    }
+    public sealed record PointCloudMark(PointCloud Cloud, float Size, Option<Func<Color>> Color) : WorldMark;
     public sealed record Wires(PrimitiveSolid Solid, Func<Color> Color, int Thickness = 1) : WorldMark;
     public sealed record BoxCorners(BoundingBox Box, Func<Color> Color, Option<(double Size, int Thickness)> Shape) : WorldMark;
-    public sealed record CurvatureGraph(Curve Curve, Func<Color> Color, int HairScale = 100, int HairDensity = 1, int SampleDensity = 2) : WorldMark;
+    public sealed record CurvatureGraph(Curve Curve, Func<Color> Color, Option<(int HairScale, int HairDensity, int SampleDensity)> Hairs) : WorldMark;
     public sealed record MeshMark(Mesh Mesh, MeshLook Look) : WorldMark;
     public sealed record BrepMark(Brep Brep, BrepLook Look) : WorldMark;
     public sealed record SubDMark(SubD SubD, SubDLook Look) : WorldMark;
@@ -155,7 +153,7 @@ public static class Marks {
     public static IO<Unit> Draw(DisplayPipeline pipeline, Seq<WorldMark> marks) =>
         marks.TraverseM(mark => Draw(pipeline, mark)).As().Map(unit);
 
-    public static IO<Unit> Draw(Func<Action<IDisposable>, IO<DisplayMaterial>> create, Action<DisplayMaterial> draw) =>
+    private static IO<Unit> Draw(Func<Action<IDisposable>, IO<DisplayMaterial>> create, Action<DisplayMaterial> draw) =>
         DisposalOps.Within((Action<IDisposable> retain) =>
             from material in create(retain)
             from drawn in IO.lift(() => draw(material))
@@ -177,14 +175,18 @@ public static class Marks {
                 screen: static (state, pixels) => state.Pipeline.DrawArrowHead(state.Head.Tip, state.Head.Direction, state.Head.Color(), pixels, 0),
                 world: static (state, units) => state.Pipeline.DrawArrowHead(state.Head.Tip, state.Head.Direction, state.Head.Color(), 0, units))),
             directionArrow: static (target, arrow) => IO.lift(() => target.DrawDirectionArrow(arrow.At, arrow.Direction, arrow.Color())),
-            marker: static (target, marker) => IO.lift(() => target.DrawMarker(marker.Tip, marker.Direction, marker.Color(), marker.Thickness, marker.Size, marker.Rotation)),
+            marker: static (target, marker) => IO.lift(() => marker.Shape.Match(
+                Some: shape => target.DrawMarker(marker.Tip, marker.Direction, marker.Color(), shape.Thickness, shape.Size, shape.Rotation),
+                None: () => target.DrawMarker(marker.Tip, marker.Direction, marker.Color()))),
             inferenceLine: static (target, line) => IO.lift(() => target.DrawInferenceLine(line.From, line.Through, line.Color(), line.Kind)),
             inferencePoint: static (target, point) => IO.lift(() => target.DraweInferencePoint(point.At, point.Color())),
             activePoint: static (target, point) => IO.lift(() => target.DrawActivePoint(point.At)),
             pointSet: static (target, points) => IO.lift(() => points.Attributes.Match(
                 Some: attributes => target.DrawPoints(points.Set, attributes.Fallback, attributes.Override),
                 None: () => target.DrawPoints(points.Set))),
-            pointCloudMark: static (target, cloud) => IO.lift(() => target.DrawPointCloud(cloud.Cloud, cloud.Size, cloud.Color())),
+            pointCloudMark: static (target, cloud) => IO.lift(() => cloud.Color.Match(
+                Some: color => target.DrawPointCloud(cloud.Cloud, cloud.Size, color()),
+                None: () => target.DrawPointCloud(cloud.Cloud, cloud.Size))),
             wires: static (target, wires) => IO.lift(() => wires.Solid.Switch(
                 (Pipeline: target, Wires: wires),
                 box: static (state, box) => state.Pipeline.DrawBox(box, state.Wires.Color(), state.Wires.Thickness),
@@ -195,7 +197,9 @@ public static class Marks {
             boxCorners: static (target, corners) => IO.lift(() => corners.Shape.Match(
                 Some: shape => target.DrawBoxCorners(corners.Box, corners.Color(), shape.Size, shape.Thickness),
                 None: () => target.DrawBoxCorners(corners.Box, corners.Color()))),
-            curvatureGraph: static (target, graph) => IO.lift(() => target.DrawCurvatureGraph(graph.Curve, graph.Color(), graph.HairScale, graph.HairDensity, graph.SampleDensity)),
+            curvatureGraph: static (target, graph) => IO.lift(() => graph.Hairs.Match(
+                Some: hairs => target.DrawCurvatureGraph(graph.Curve, graph.Color(), hairs.HairScale, hairs.HairDensity, hairs.SampleDensity),
+                None: () => target.DrawCurvatureGraph(graph.Curve, graph.Color()))),
             meshMark: static (target, mesh) => mesh.Look.Switch(
                 (Pipeline: target, mesh.Mesh),
                 shaded: static (state, shaded) => shaded.Faces.Case is Seq<int> faces

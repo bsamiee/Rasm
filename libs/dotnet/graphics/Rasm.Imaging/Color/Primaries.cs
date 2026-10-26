@@ -16,36 +16,36 @@ namespace Rasm.Imaging.Color;
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Gamut : ICaptioned {
-    public static readonly Gamut StandardRgb = new("standard-rgb", Configuration.Default, Some("lin_rec709_scene"), "Rec.709");
-    public static readonly Gamut DisplayP3 = new("display-p3", new Configuration(rgbConfig: RgbConfiguration.DisplayP3), Some("lin_p3d65_scene"), "Display P3");
-    public static readonly Gamut Rec2020 = new("rec2020", new Configuration(rgbConfig: RgbConfiguration.Rec2020), Some("lin_rec2020_scene"), "Rec.2020");
-    public static readonly Gamut Acescg = new("acescg", new Configuration(rgbConfig: RgbConfiguration.Acescg), Some("lin_ap1_scene"), "ACEScg");
-    public static readonly Gamut Aces20651 = new("aces20651", new Configuration(rgbConfig: RgbConfiguration.Aces20651), Some("lin_ap0_scene"), "ACES2065-1");
-    public static readonly Gamut ProPhoto = new("pro-photo", new Configuration(rgbConfig: RgbConfiguration.ProPhoto), None, "ProPhoto RGB");
-    public static readonly Gamut EGamut = new("e-gamut", Linear(new(0.8, 0.3177), new(0.18, 0.9), new(0.065, -0.0805)), Some("blender:lin_egamut_scene"), "E-Gamut");
-    public static readonly Gamut ArriWideGamut3 = new("arri-wide-gamut-3", Linear(new(0.684, 0.313), new(0.221, 0.848), new(0.0861, -0.102)), None, "ARRI Wide Gamut 3");
-    public static readonly Gamut ArriWideGamut4 = new("arri-wide-gamut-4", Linear(new(0.7347, 0.2653), new(0.1424, 0.8576), new(0.0991, -0.0308)), None, "ARRI Wide Gamut 4");
-    public static readonly Gamut SGamut3 = new("s-gamut3", Linear(new(0.73, 0.28), new(0.14, 0.855), new(0.1, -0.05)), None, "S-Gamut3");
-    public static readonly Gamut SGamut3Cine = new("s-gamut3-cine", Linear(new(0.766, 0.275), new(0.225, 0.8), new(0.089, -0.087)), None, "S-Gamut3.Cine");
+    public static readonly Gamut StandardRgb = new("standard-rgb", Configuration.Default, Some("lin_rec709_scene"));
+    public static readonly Gamut DisplayP3 = new("display-p3", new Configuration(rgbConfig: RgbConfiguration.DisplayP3), Some("lin_p3d65_scene"));
+    public static readonly Gamut Rec2020 = new("rec2020", new Configuration(rgbConfig: RgbConfiguration.Rec2020), Some("lin_rec2020_scene"));
+    public static readonly Gamut Acescg = new("acescg", new Configuration(rgbConfig: RgbConfiguration.Acescg), Some("lin_ap1_scene"));
+    public static readonly Gamut Aces20651 = new("aces20651", new Configuration(rgbConfig: RgbConfiguration.Aces20651), Some("lin_ap0_scene"));
+    public static readonly Gamut ProPhoto = new("pro-photo", new Configuration(rgbConfig: RgbConfiguration.ProPhoto), None);
+    public static readonly Gamut EGamut = new("e-gamut", Linear(new(0.8, 0.3177), new(0.18, 0.9), new(0.065, -0.0805), "E-Gamut"), Some("blender:lin_egamut_scene"));
+    public static readonly Gamut ArriWideGamut3 = new("arri-wide-gamut-3", Linear(new(0.684, 0.313), new(0.221, 0.848), new(0.0861, -0.102), "ARRI Wide Gamut 3"), None);
+    public static readonly Gamut ArriWideGamut4 = new("arri-wide-gamut-4", Linear(new(0.7347, 0.2653), new(0.1424, 0.8576), new(0.0991, -0.0308), "ARRI Wide Gamut 4"), None);
+    public static readonly Gamut SGamut3 = new("s-gamut3", Linear(new(0.73, 0.28), new(0.14, 0.855), new(0.1, -0.05), "S-Gamut3"), None);
+    public static readonly Gamut SGamut3Cine = new("s-gamut3-cine", Linear(new(0.766, 0.275), new(0.225, 0.8), new(0.089, -0.087), "S-Gamut3.Cine"), None);
     public static readonly Gamut VeniceSGamut3 = new(
         "venice-s-gamut3",
-        Linear(new(0.740464264304292, 0.27936437475066), new(0.089241145423286, 0.893809528608105), new(0.110488236673827, -0.052579333080476)),
-        None, "Venice S-Gamut3");
+        Linear(new(0.740464264304292, 0.27936437475066), new(0.089241145423286, 0.893809528608105), new(0.110488236673827, -0.052579333080476), "Venice S-Gamut3"),
+        None);
     public static readonly Gamut VeniceSGamut3Cine = new(
         "venice-s-gamut3-cine",
-        Linear(new(0.775901871567345, 0.274502392854799), new(0.188682902773355, 0.828684937020288), new(0.101337382499301, -0.089187517306263)),
-        None, "Venice S-Gamut3.Cine");
-    public static readonly Gamut CinemaGamut = new("cinema-gamut", Linear(new(0.74, 0.27), new(0.17, 1.14), new(0.08, -0.1)), None, "Cinema Gamut");
-    public static readonly Gamut RedWideGamutRgb = new("red-wide-gamut-rgb", Linear(new(0.780308, 0.304253), new(0.121595, 1.493994), new(0.095612, -0.084589)), None, "REDWideGamutRGB");
-    public static readonly Gamut VGamut = new("v-gamut", Linear(new(0.73, 0.28), new(0.165, 0.84), new(0.1, -0.03)), None, "V-Gamut");
-    public static readonly Gamut DGamut = new("d-gamut", Linear(new(0.71, 0.31), new(0.21, 0.88), new(0.09, -0.08)), None, "D-Gamut");
+        Linear(new(0.775901871567345, 0.274502392854799), new(0.188682902773355, 0.828684937020288), new(0.101337382499301, -0.089187517306263), "Venice S-Gamut3.Cine"),
+        None);
+    public static readonly Gamut CinemaGamut = new("cinema-gamut", Linear(new(0.74, 0.27), new(0.17, 1.14), new(0.08, -0.1), "Cinema Gamut"), None);
+    public static readonly Gamut RedWideGamutRgb = new("red-wide-gamut-rgb", Linear(new(0.780308, 0.304253), new(0.121595, 1.493994), new(0.095612, -0.084589), "REDWideGamutRGB"), None);
+    public static readonly Gamut VGamut = new("v-gamut", Linear(new(0.73, 0.28), new(0.165, 0.84), new(0.1, -0.03), "V-Gamut"), None);
+    public static readonly Gamut DGamut = new("d-gamut", Linear(new(0.71, 0.31), new(0.21, 0.88), new(0.09, -0.08), "D-Gamut"), None);
     public static readonly Gamut ProtuneNative = new(
         "protune-native",
-        Linear(new(0.698480461493841, 0.193026445370121), new(0.329555378387345, 1.024596624134644), new(0.108442631407675, -0.034678569754016)),
-        None, "Protune Native");
-    public static readonly Gamut BlackmagicWideGamut = new("blackmagic-wide-gamut", Linear(new(0.7177215, 0.3171181), new(0.228041, 0.861569), new(0.1005841, -0.0820452)), None, "Blackmagic Wide Gamut");
-    public static readonly Gamut DaVinciWideGamut = new("davinci-wide-gamut", Linear(new(0.8, 0.313), new(0.1682, 0.9877), new(0.079, -0.1155)), None, "DaVinci Wide Gamut");
-    public static readonly Gamut AppleWideGamut = new("apple-wide-gamut", Linear(new(0.725, 0.301), new(0.221, 0.814), new(0.068, -0.076)), None, "Apple Wide Gamut");
+        Linear(new(0.698480461493841, 0.193026445370121), new(0.329555378387345, 1.024596624134644), new(0.108442631407675, -0.034678569754016), "Protune Native"),
+        None);
+    public static readonly Gamut BlackmagicWideGamut = new("blackmagic-wide-gamut", Linear(new(0.7177215, 0.3171181), new(0.228041, 0.861569), new(0.1005841, -0.0820452), "Blackmagic Wide Gamut"), None);
+    public static readonly Gamut DaVinciWideGamut = new("davinci-wide-gamut", Linear(new(0.8, 0.313), new(0.1682, 0.9877), new(0.079, -0.1155), "DaVinci Wide Gamut"), None);
+    public static readonly Gamut AppleWideGamut = new("apple-wide-gamut", Linear(new(0.725, 0.301), new(0.221, 0.814), new(0.068, -0.076), "Apple Wide Gamut"), None);
 
     private static readonly Func<Gamut, (double X, double Y, double Z)> Luminances = memoUnsafe(static (Gamut gamut) => gamut.ToXyz switch {
         var matrix => (matrix[1, 0], matrix[1, 1], matrix[1, 2]),
@@ -53,7 +53,7 @@ public sealed partial class Gamut : ICaptioned {
 
     public Configuration Configuration { get; }
     public Option<string> InteropId { get; }
-    public string Caption { get; }
+    public string Caption => Configuration.Rgb.Name;
 
     public Chromaticities Chromaticities => new(
         (float)Configuration.Rgb.ChromaticityR.X, (float)Configuration.Rgb.ChromaticityR.Y,
@@ -80,11 +80,6 @@ public sealed partial class Gamut : ICaptioned {
                 new Unicolour(from, ColourSpace.Xyz, new Unicolour(Configuration, ColourSpace.RgbLinear, basis).Xyz.Tuple).ConvertToConfiguration(to).Xyz.Tuple).RgbLinear.Tuple),
         };
 
-    public static Option<Gamut> Of(Chromaticities stated) {
-        static Vector256<float> Coordinates(Chromaticities c) => Vector256.Create(c.RedX, c.RedY, c.GreenX, c.GreenY, c.BlueX, c.BlueY, c.WhiteX, c.WhiteY);
-        return toSeq(Items).Find(gamut => Vector256.LessThanOrEqualAll(Vector256.Abs(Coordinates(gamut.Chromaticities) - Coordinates(stated)), Vector256.Create(1e-4f)));
-    }
-
     public static Matrix<double> Between(Configuration from, Configuration to) =>
         Columns(basis => new Unicolour(from, ColourSpace.RgbLinear, basis).ConvertToConfiguration(to).RgbLinear.Tuple);
 
@@ -94,8 +89,8 @@ public sealed partial class Gamut : ICaptioned {
                 Matrix<double>.Build.DenseOfColumnMajor(3, 3, [r1, g1, b1, r2, g2, b2, r3, g3, b3]),
         };
 
-    private static Configuration Linear(Chromaticity red, Chromaticity green, Chromaticity blue) =>
-        new(rgbConfig: new RgbConfiguration(red, green, blue, Illuminant.D65.GetWhitePoint(Observer.Degree2), static linear => linear, static linear => linear));
+    private static Configuration Linear(Chromaticity red, Chromaticity green, Chromaticity blue, string name) =>
+        new(rgbConfig: new RgbConfiguration(red, green, blue, Illuminant.D65.GetWhitePoint(Observer.Degree2), static linear => linear, static linear => linear, name));
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -309,9 +304,6 @@ public sealed record ColorEncoding(Gamut Gamut, Transfer Transfer, Nits White) {
 public readonly partial struct CompressionThreshold : IMinMaxValue<CompressionThreshold> {
     public static CompressionThreshold MinValue { get; } = new(0f);
     public static CompressionThreshold MaxValue { get; } = new(0.9995f);
-    public static CompressionThreshold ReferenceCyan { get; } = new(0.815f);
-    public static CompressionThreshold ReferenceMagenta { get; } = new(0.803f);
-    public static CompressionThreshold ReferenceYellow { get; } = new(0.880f);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -320,9 +312,6 @@ public readonly partial struct CompressionThreshold : IMinMaxValue<CompressionTh
 public readonly partial struct CompressionLimit : IMinMaxValue<CompressionLimit> {
     public static CompressionLimit MinValue { get; } = new(1.001f);
     public static CompressionLimit MaxValue { get; } = new(65504f);
-    public static CompressionLimit ReferenceCyan { get; } = new(1.147f);
-    public static CompressionLimit ReferenceMagenta { get; } = new(1.264f);
-    public static CompressionLimit ReferenceYellow { get; } = new(1.312f);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -336,22 +325,18 @@ public readonly partial struct CompressionPower : IMinMaxValue<CompressionPower>
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
-public sealed record GamutCompression(
-    Option<Gamut> Target,
-    CompressionThreshold CyanThreshold, CompressionThreshold MagentaThreshold, CompressionThreshold YellowThreshold,
-    CompressionLimit CyanLimit, CompressionLimit MagentaLimit, CompressionLimit YellowLimit,
-    CompressionPower Power) : IStateRecord<GamutCompression, GamutCompressionParameter>, IPixelStage<GamutCompression> {
+public sealed record GamutCompression(Option<Gamut> Target, Channels<CompressionThreshold> Threshold, Channels<CompressionLimit> Limit, CompressionPower Power)
+    : IStateRecord<GamutCompression, GamutCompressionParameter>, IPixelStage<GamutCompression> {
     public static GamutCompression Default { get; } = new(
         None,
-        CompressionThreshold.ReferenceCyan, CompressionThreshold.ReferenceMagenta, CompressionThreshold.ReferenceYellow,
-        CompressionLimit.ReferenceCyan, CompressionLimit.ReferenceMagenta, CompressionLimit.ReferenceYellow,
+        new(CompressionThreshold.Create(0.815f), CompressionThreshold.Create(0.803f), CompressionThreshold.Create(0.880f)),
+        new(CompressionLimit.Create(1.147f), CompressionLimit.Create(1.264f), CompressionLimit.Create(1.312f)),
         CompressionPower.Reference);
 
     public static Option<PixelPass> Pass(GamutCompression state, PassContext context) {
-        static double Scale(double threshold, double limit, double power) =>
-            (1d - threshold) switch {
-                var head => head / double.Pow(1d - double.Pow(head / (limit - threshold), power), 1d / power),
-            };
+        double power = state.Power;
+        (double Threshold, double Scale) Curve(double threshold, double limit) =>
+            (threshold, (1d - threshold) / double.Pow(1d - double.Pow((1d - threshold) / (limit - threshold), power), 1d / power));
 
         static double Compress(double component, double ach, (double Threshold, double Scale) curve, double power) =>
             double.Abs(ach) switch {
@@ -367,10 +352,8 @@ public sealed record GamutCompression(
         Gamut target = state.Target.IfNone(context.Working);
         Matrix<double> inward = context.Working.MatrixTo(target);
         Matrix<double> outward = target.MatrixTo(context.Working);
-        double power = state.Power;
-        (double Threshold, double Scale) cyan = (state.CyanThreshold, Scale(state.CyanThreshold, state.CyanLimit, power));
-        (double Threshold, double Scale) magenta = (state.MagentaThreshold, Scale(state.MagentaThreshold, state.MagentaLimit, power));
-        (double Threshold, double Scale) yellow = (state.YellowThreshold, Scale(state.YellowThreshold, state.YellowLimit, power));
+        Channels<(double Threshold, double Scale)> curves = new(
+            Curve(state.Threshold.Red, state.Limit.Red), Curve(state.Threshold.Green, state.Limit.Green), Curve(state.Threshold.Blue, state.Limit.Blue));
         return Some<PixelPass>(new PixelPass.Color(row => {
             DenseVector source = new(3);
             DenseVector rgb = new(3);
@@ -378,7 +361,7 @@ public sealed record GamutCompression(
                 (source[0], source[1], source[2]) = (pixel.X, pixel.Y, pixel.Z);
                 inward.Multiply(source, rgb);
                 double ach = double.Max(rgb[0], double.Max(rgb[1], rgb[2]));
-                (source[0], source[1], source[2]) = (Compress(rgb[0], ach, cyan, power), Compress(rgb[1], ach, magenta, power), Compress(rgb[2], ach, yellow, power));
+                (source[0], source[1], source[2]) = (Compress(rgb[0], ach, curves.Red, power), Compress(rgb[1], ach, curves.Green, power), Compress(rgb[2], ach, curves.Blue, power));
                 outward.Multiply(source, rgb);
                 pixel = new Vector4((float)rgb[0], (float)rgb[1], (float)rgb[2], pixel.W);
             }
@@ -390,34 +373,30 @@ public sealed record GamutCompression(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GamutCompressionParameter : IStateParameter<GamutCompression> {
+    private static readonly Lens<GamutCompression, Channels<CompressionThreshold>> Thresholds =
+        Lens<GamutCompression, Channels<CompressionThreshold>>.New(static state => state.Threshold, static value => state => state with { Threshold = value });
+    private static readonly Lens<GamutCompression, Channels<CompressionLimit>> Limits =
+        Lens<GamutCompression, Channels<CompressionLimit>>.New(static state => state.Limit, static value => state => state with { Limit = value });
     private static readonly Presentation<float> ThresholdTrack = new() { Step = 0.001f, Decimals = 3 };
     private static readonly Presentation<float> LimitTrack = new() { Soft = (CompressionLimit.MinValue, 2f), Step = 0.001f, Decimals = 3 };
 
     public static readonly GamutCompressionParameter Target = new("target", new StateParameter<GamutCompression>.OptionalChoice<Gamut>(Lens<GamutCompression, Option<Gamut>>.New(static state => state.Target, static value => state => state with { Target = value }), "Working"),
         new("Gamut", "Primaries the compression measures distances in"));
-    public static readonly GamutCompressionParameter CyanThreshold = new("cyan-threshold", StateParameter.Bounded(Lens<GamutCompression, CompressionThreshold>.New(static state => state.CyanThreshold, static value => state => state with { CyanThreshold = value }), ThresholdTrack),
+    public static readonly GamutCompressionParameter CyanThreshold = new("cyan-threshold", StateParameter.Bounded(lens(Thresholds, Channels<CompressionThreshold>.RedOf), ThresholdTrack),
         new("Cyan threshold", "Red distance from achromatic axis where compression begins"));
-    public static readonly GamutCompressionParameter MagentaThreshold = new("magenta-threshold", StateParameter.Bounded(Lens<GamutCompression, CompressionThreshold>.New(static state => state.MagentaThreshold, static value => state => state with { MagentaThreshold = value }), ThresholdTrack),
+    public static readonly GamutCompressionParameter MagentaThreshold = new("magenta-threshold", StateParameter.Bounded(lens(Thresholds, Channels<CompressionThreshold>.GreenOf), ThresholdTrack),
         new("Magenta threshold", "Green distance from achromatic axis where compression begins"));
-    public static readonly GamutCompressionParameter YellowThreshold = new("yellow-threshold", StateParameter.Bounded(Lens<GamutCompression, CompressionThreshold>.New(static state => state.YellowThreshold, static value => state => state with { YellowThreshold = value }), ThresholdTrack),
+    public static readonly GamutCompressionParameter YellowThreshold = new("yellow-threshold", StateParameter.Bounded(lens(Thresholds, Channels<CompressionThreshold>.BlueOf), ThresholdTrack),
         new("Yellow threshold", "Blue distance from achromatic axis where compression begins"));
-    public static readonly GamutCompressionParameter CyanLimit = new("cyan-limit", StateParameter.Bounded(Lens<GamutCompression, CompressionLimit>.New(static state => state.CyanLimit, static value => state => state with { CyanLimit = value }), LimitTrack),
+    public static readonly GamutCompressionParameter CyanLimit = new("cyan-limit", StateParameter.Bounded(lens(Limits, Channels<CompressionLimit>.RedOf), LimitTrack),
         new("Cyan limit", "Red distance compressed onto the gamut boundary"));
-    public static readonly GamutCompressionParameter MagentaLimit = new("magenta-limit", StateParameter.Bounded(Lens<GamutCompression, CompressionLimit>.New(static state => state.MagentaLimit, static value => state => state with { MagentaLimit = value }), LimitTrack),
+    public static readonly GamutCompressionParameter MagentaLimit = new("magenta-limit", StateParameter.Bounded(lens(Limits, Channels<CompressionLimit>.GreenOf), LimitTrack),
         new("Magenta limit", "Green distance compressed onto the gamut boundary"));
-    public static readonly GamutCompressionParameter YellowLimit = new("yellow-limit", StateParameter.Bounded(Lens<GamutCompression, CompressionLimit>.New(static state => state.YellowLimit, static value => state => state with { YellowLimit = value }), LimitTrack),
+    public static readonly GamutCompressionParameter YellowLimit = new("yellow-limit", StateParameter.Bounded(lens(Limits, Channels<CompressionLimit>.BlueOf), LimitTrack),
         new("Yellow limit", "Blue distance compressed onto the gamut boundary"));
     public static readonly GamutCompressionParameter Power = new("power", StateParameter.Bounded(Lens<GamutCompression, CompressionPower>.New(static state => state.Power, static value => state => state with { Power = value }), new Presentation<float> { Soft = (CompressionPower.MinValue, 2f) }),
         new("Power", "Compression curve exponent"));
 
     public StateParameter<GamutCompression> Kind { get; }
     public ParameterText Text { get; }
-}
-
-[SmartEnum]
-public sealed partial class GamutCompressionPreset {
-    public static readonly GamutCompressionPreset Working = new(GamutCompression.Default);
-    public static readonly GamutCompressionPreset Aces13 = new(GamutCompression.Default with { Target = Some(Gamut.Acescg) });
-
-    public GamutCompression State { get; }
 }

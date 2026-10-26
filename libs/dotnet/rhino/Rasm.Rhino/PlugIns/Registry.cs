@@ -38,13 +38,13 @@ internal static partial class RegistryMapper {
 
 public static class PlugInRegistry {
     // --- [READS]
-    public static IO<Option<PlugInState>> ReadPlugIn(Guid id) => IO.lift(() => State(id));
+    public static IO<Option<PlugInState>> ReadPlugIn(Guid id) => IO.lift(() => Optional(PlugIn.GetPlugInInfo(id)).Map(RegistryMapper.ToState));
 
     public static IO<(Seq<Error> Fails, Seq<PlugInState> Succs)> InstalledPlugIns =>
         IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys))
-            .Bind(static ids => ids.Map<K<IO, PlugInState>>(static id => IO.lift(() => State(id).ToFin(new NotFound("installed plug-in", $"{id}")))).PartitionFallible().As());
+            .Bind(static ids => ids.Map<K<IO, PlugInState>>(static id => IO.lift(() => Installed(id).Map(RegistryMapper.ToState))).PartitionFallible().As());
 
-    private static Option<PlugInState> State(Guid id) => Optional(PlugIn.GetPlugInInfo(id)).Map(RegistryMapper.ToState);
+    private static Fin<PlugInInfo> Installed(Guid id) => Optional(PlugIn.GetPlugInInfo(id)).ToFin(new NotFound("installed plug-in", $"{id}"));
 
     // --- [LOADS]
     public static IO<Guid> LoadPlugIn(string path) =>
@@ -58,7 +58,7 @@ public static class PlugInRegistry {
         IO.lift(() => Callbacks.Each(ids, static (id, _) => LoadInstalled(id)).Map(static _ => unit));
 
     private static Fin<Unit> LoadInstalled(Guid id) =>
-        from info in Optional(PlugIn.GetPlugInInfo(id)).ToFin(new NotFound("installed plug-in", $"{id}"))
+        from info in Installed(id)
         from _ in guard(Exchange.LoadSilently(info), Error.New($"plug-in {id} is disabled"))
         from __ in guard(info.IsLoaded || PlugIn.LoadPlugIn(id), Error.New($"plug-in {id} failed to load"))
         select unit;
@@ -66,7 +66,7 @@ public static class PlugInRegistry {
     // --- [PROTECTION]
     public static IO<Unit> SetLoadProtection(Guid id, bool loadSilently) =>
         IO.lift(() =>
-                from info in Optional(PlugIn.GetPlugInInfo(id)).ToFin(new NotFound("installed plug-in", $"{id}"))
+                from info in Installed(id)
                 let changed = Exchange.LoadSilently(info) != loadSilently
                 from _ in guard(!changed || !info.IsLoaded, Error.New($"load protection change needs unloaded plug-in {id}"))
                 select changed)

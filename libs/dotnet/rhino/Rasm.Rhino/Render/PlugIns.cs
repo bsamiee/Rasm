@@ -67,20 +67,12 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
     public sealed override bool DisplayHelp(nint windowHandle) => lifetime.DisplayHelp(CallbackSite.Of(this));
 
     // --- [PAGES]
-    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {
-        base.OptionsDialogPages(pages);
-        Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
-    }
+    protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
 
-    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) {
-        base.DocumentPropertiesDialogPages(doc, pages);
+    protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) =>
         Callbacks.Run(ViewRegistration.DocumentPropertiesDialogPages(this, doc, pages), CallbackSite.Of(this));
-    }
 
-    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) {
-        base.ObjectPropertiesPages(collection);
-        Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
-    }
+    protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => Callbacks.Run(ViewRegistration.ObjectPropertiesPages(this, collection), CallbackSite.Of(this));
 
     protected sealed override OptionsDialogPage? RenderOptionsDialogPage(RhinoDoc doc) =>
         Callbacks.Answer(
@@ -155,7 +147,8 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
         [
             .. base.UiContentTypes(),
             .. Callbacks.Answer(
-                ContentRegistry.Types.Map(types => types.Filter(type => type.PlugInId == Id).Map(static type => type.Id)),
+                DisposalOps.Within(static () => toSeq(RenderContentType.GetAllAvailableTypes()),
+                    types => IO.lift(() => types.Filter(type => type.PlugInId == Id).Map(static type => type.Id).Strict()), DisposalOps.Release),
                 static () => Seq<Guid>(),
                 CallbackSite.Of(this)),
         ];

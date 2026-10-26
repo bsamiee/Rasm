@@ -43,7 +43,7 @@ public abstract class RowEdit {
             h => timer.Elapsed += h, h => timer.Elapsed -= h,
             Callbacks.Handler<EventArgs>(_ => edit.Elapsed, site), retain)
         from heard in Callbacks.Each(signals.Map(signal => signal.Choose(static _ => Some((unit, unit))).Through(Subscriptions.Idle<Unit, Unit>(_ => edit.Shown.Bind(_ => edit.Heard)), site.Sink, retain)))
-        from closing in DisposalOps.Acquire(IO.lift(() => new Disposal<RowEdit<TRecord>>(edit, static closed => Callbacks.Settled(closed.Released, CancellationToken.None).ThrowIfFail())), retain)
+        from closing in DisposalOps.Acquire(IO.pure(edit), static closed => closed.Released, retain)
         select edit;
 }
 

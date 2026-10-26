@@ -10,7 +10,7 @@ import PyOpenColorIO
 
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.color.luts import Lattice
-from blender.imaging.color.processors import applied, processor
+from blender.imaging.color.processors import converted, processor
 from blender.imaging.faults import ImagingResult
 from blender.imaging.parameters import ColorSpace, Gated, GraphForm
 
@@ -48,9 +48,7 @@ class Lookup(Effect, frozen=True, kw_only=True, tag=18):
                 case Option(tag="some", some=(split, lattice)):
                     head = PyOpenColorIO.GroupTransform(transforms=operations[:split])
                     suffix = PyOpenColorIO.GroupTransform(transforms=operations[split:])
-                    return processor(PyOpenColorIO.Config(), suffix).bind(
-                        lambda resolved: lattice.samples().map(lambda samples: (head, Some((lattice, applied(resolved.getDefaultCPUProcessor(), samples)))))
-                    )
+                    return lattice.samples().bind(lambda samples: converted(PyOpenColorIO.Config(), suffix, samples)).map(lambda outputs: (head, Some((lattice, outputs))))
                 case Option():
                     return Ok((PyOpenColorIO.GroupTransform(transforms=operations), Nothing))
 

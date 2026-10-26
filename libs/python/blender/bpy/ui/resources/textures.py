@@ -2,49 +2,37 @@
 
 from collections import OrderedDict
 from collections.abc import Hashable
-from typing import ClassVar
+from contextlib import nullcontext
+from typing import Final
 
-from expression import Error, Ok, Option
+from expression import Option
 import gpu
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.imaging.color.processors import unassociated
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class TextureCache(msgspec.Struct, frozen=True, kw_only=True):
-    """Preview textures of one package."""
+class Textures(msgspec.Struct, kw_only=True, eq=False):
+    """Preview textures of one extension, least recently shown first."""
 
-    identity: Identity
-    held: ClassVar[dict[str, OrderedDict[Hashable, gpu.types.GPUTexture]]] = {}
-
-    # --- [LIFECYCLE]
-
-    def __enter__(self) -> None:
-        """Creates package texture cache."""
-        TextureCache.held[self.identity.package] = OrderedDict()
-
-    def __exit__(self, *_: object) -> None:
-        """Drops package texture references."""
-        del TextureCache.held[self.identity.package]
-
-    # --- [CACHING]
+    held: OrderedDict[Hashable, gpu.types.GPUTexture] = msgspec.field(default_factory=OrderedDict)
 
     @property
     def memory(self) -> int:
         """Estimated RGBA16F base-level pixel bytes."""
-        return sum(texture.width * texture.height for texture in TextureCache.held[self.identity.package].values()) * 4 * np.dtype(np.float16).itemsize
+        return sum(texture.width * texture.height for texture in self.held.values()) * 4 * np.dtype(np.float16).itemsize
 
     def shown(self, key: Hashable) -> Option[gpu.types.GPUTexture]:
         """Reads texture by content digest or request key, marking it most recent."""
-        if (texture := (textures := (TextureCache.held[self.identity.package])).get(key)) is not None:
-            textures.move_to_end(key)
-        return Option.of_optional(texture)
+        if key in self.held:
+            self.held.move_to_end(key)
+        return Option.of_optional(self.held.get(key))
 
     def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable]) -> BlenderResult[gpu.types.GPUTexture]:
         """Uploads unassociated display colors, evicting oldest unpinned textures past limit.
@@ -61,11 +49,10 @@ class TextureCache(msgspec.Struct, frozen=True, kw_only=True):
 
         def published(texture: gpu.types.GPUTexture) -> gpu.types.GPUTexture:
             """Caches upload, evicting entries past limit."""
-            textures = TextureCache.held[self.identity.package]
-            textures[key] = texture
-            textures.move_to_end(key)
-            for victim in [held for held in textures if held not in kept][: max(0, len(textures) - limit)]:
-                del textures[victim]
+            self.held[key] = texture
+            self.held.move_to_end(key)
+            for victim in [held for held in self.held if held not in kept][: max(0, len(self.held) - limit)]:
+                del self.held[victim]
             return texture
 
         return uploaded(unassociated(plane)).map(published)
@@ -77,13 +64,18 @@ class TextureCache(msgspec.Struct, frozen=True, kw_only=True):
 def uploaded(plane: npt.NDArray[np.float32]) -> BlenderResult[gpu.types.GPUTexture]:
     """Uploads top-first RGBA into RGBA16F texture with bottom-first rows."""
     pixels = np.ascontiguousarray(plane[::-1])
-    try:
-        gpu.init()
-        return Ok(gpu.types.GPUTexture((pixels.shape[1], pixels.shape[0]), format="RGBA16F", data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-    except (SystemError, RuntimeError) as error:
-        return Error((BlenderEditFault(request="gpu.types.GPUTexture", error=error),))
+    return BlenderEditFault.attempted("gpu.init", gpu.init).bind(
+        lambda _: BlenderEditFault.attempted(
+            "gpu.types.GPUTexture",
+            lambda: gpu.types.GPUTexture((pixels.shape[1], pixels.shape[0]), format="RGBA16F", data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        )
+    )
 
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+TEXTURES: Final = Scoped[Textures](made=lambda _identity: nullcontext(Textures()))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TextureCache", "uploaded"]
+__all__ = ["TEXTURES", "Textures", "uploaded"]

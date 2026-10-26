@@ -37,9 +37,8 @@ public static class Widgets {
         (sink, retain) => IO.lift(() => widget(sink)).Bind(created => Register(created, None, retain));
 
     public static IO<Unit> Register(UserInterfaceObjectBase widget, Option<RhinoDoc> document, Action<IDisposable> retain) =>
-        (from registered in IO.lift(() => document.Match(
+        DisposalOps.Acquire(IO.lift(() => document.Match(
                 Some: target => Refused.Unless(target.ViewUserInterface.Add(widget), widget, nameof(ViewUserInterfaceTable.Add)),
-                None: () => Refused.Unless(widget.RegisterForAllDocuments(), widget, nameof(UserInterfaceObjectBase.RegisterForAllDocuments))))
-         from held in DisposalOps.Acquire(IO.lift(() => new Disposal<UserInterfaceObjectBase>(registered, static target => target.Unregister())), retain)
-         select unit).Uninterruptible();
+                None: () => Refused.Unless(widget.RegisterForAllDocuments(), widget, nameof(UserInterfaceObjectBase.RegisterForAllDocuments)))),
+            static target => IO.lift(target.Unregister).Map(unit), retain).Map(unit);
 }

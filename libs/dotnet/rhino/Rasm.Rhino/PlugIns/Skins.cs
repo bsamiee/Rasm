@@ -84,7 +84,7 @@ public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) 
     protected sealed override void ShowSplash() =>
         Callbacks.Run(
             unless(HasBootSplash,
-                DisposalOps.Replace(
+                DisposalOps.Acquire(
                     owned =>
                         from mark in Mark
                         from status in DisposalOps.Acquire(IO.lift(static () => new Label { Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center }), owned)

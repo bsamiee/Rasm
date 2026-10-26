@@ -8,18 +8,17 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
-from blender.bpy.commands.calls import MenuPopup
-from blender.bpy.commands.operators import answered, Outcome, Stock, Unchanged
+from blender.bpy.commands.calls import MenuPopup, Stock
+from blender.bpy.commands.operators import answered, Outcome, Unchanged
 from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.data.rna.snapshots import Applied, Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
-from blender.bpy.settings import shapes
 from blender.bpy.settings.presets import Preset
-from blender.bpy.ui.layout.rows import acquired, bound, fits, OperatorButton, painted, placed, Property, Pulldown, realized, RowContent, RowDraw, SurfaceDraw
-from blender.bpy.ui.layout.sections import Listing, Store
+from blender.bpy.ui.layout.rows import acquired, OperatorButton, painted, placed, Property, Pulldown, realized, RowContent, RowDraw, SurfaceDraw
+from blender.bpy.ui.layout.values import Listing, Store
 from blender.imaging.faults import accumulated
 from blender.imaging.parameters import heading
 
@@ -80,16 +79,16 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
     # --- [ACQUISITION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns row acquisitions, then menu class."""
+        """Returns submenus, row acquisitions, then menu class."""
         match self.body:
-            case Dropdown(entries=entries, search=search):
-                rows = entries
+            case Dropdown(entries=rows, search=search):
+                submenus: tuple[Menu, ...] = ()
 
                 def drawing() -> BlenderResult[SurfaceDraw]:
                     return placed(rows, identity).map(painted)
 
             case Keyed(entries=entries, keys=keys, search=search):
-                offered = tuple(entries.items())
+                offered, submenus = tuple(entries.items()), ()
                 rows = tuple(row for _, row in offered)
 
                 def keyed(draws: Mapping[K, RowDraw]) -> SurfaceDraw:
@@ -103,7 +102,8 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                     return accumulated(realized(row, identity).map(lambda draw: (key, draw)) for key, row in offered).map(dict).map(keyed)
 
             case Submenus(entries=entries, search=search):
-                groups = tuple(
+                present = frozenset(held for held, _ in entries)
+                submenus = tuple(
                     Menu(
                         key=f"{self.key}_{group.name.lower()}",
                         title=heading(group.name),
@@ -111,22 +111,18 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                         body=Dropdown(entries=tuple(row for held, row in entries if held is group)),
                         condition=self.condition,
                     )
-                    for present in (frozenset(held for held, _ in entries),)
                     for kind in dict.fromkeys(type(held) for held, _ in entries)
                     for group in kind
                     if group in present
                 )
-                rows = tuple(Pulldown(menu=group.key) for group in groups)
+                rows = tuple(Pulldown(menu=group.key) for group in submenus)
 
                 def drawing() -> BlenderResult[SurfaceDraw]:
                     return placed(rows, identity).map(painted)
 
-                return Ok((*groups, (Band.INTERFACE, registered(identity, self.key, self.title, self.description, drawing, search=search, condition=self.condition))))
-
             case Pie():
-                slots = msgspec.structs.astuple(self.body)
+                slots, search, submenus = msgspec.structs.astuple(self.body), False, ()
                 rows = tuple(row for slot in slots for row in slot.to_list())
-                search = False
 
                 def radial(draws: tuple[Option[RowDraw], ...]) -> SurfaceDraw:
                     def shown(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
@@ -141,17 +137,13 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                     return shown
 
                 def slot(row: OperatorButton | Pulldown | Property | RowDraw) -> BlenderResult[RowDraw]:
-                    checked = (
-                        bound(((row.target, lambda held: fits(held, (bpy.types.BoolProperty, bpy.types.EnumProperty), (shapes.Flag, Enum))),), Ok(lambda _: lambda *_: None))
-                        if isinstance(row, Property)
-                        else Ok(None)
-                    )
+                    checked = row.target.resolved().bind(lambda held: held.accepts((bpy.types.BoolProperty, bpy.types.EnumProperty))).map(lambda _: None) if isinstance(row, Property) else Ok(None)
                     return checked.bind(lambda _: realized(row, identity))
 
                 def drawing() -> BlenderResult[SurfaceDraw]:
                     return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in slots).map(radial)
 
-        return Ok((*acquired(rows), (Band.INTERFACE, registered(identity, self.key, self.title, self.description, drawing, search=search, condition=self.condition))))
+        return Ok((*submenus, *acquired(rows), (Band.INTERFACE, registered(identity, self.key, self.title, self.description, drawing, search=search, condition=self.condition))))
 
 
 class Captured(msgspec.Struct, frozen=True, kw_only=True):
@@ -184,7 +176,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
                 preset=self.preset,
                 current=lambda context: captured(context).map(lambda pair: pair[1]),
                 matches=lambda context, stored: captured(context).bind(lambda held: accumulated(value.projected(held[0], held[1]).map(lambda pair: pair[1] == held[1]) for value in stored)),
-                applied=lambda context, stored: stored.apply_all(self.scope, context).bind(finished),
+                applied=lambda context, stored: self.scope.owners(context).map(stored.applied).bind(finished),
             )
 
         return accumulated(Descriptor.resolve(self.scope.owner_type, path, bpy.types.Property) for path in self.selection).map(listed)
@@ -232,23 +224,15 @@ class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_o
 def registered(
     identity: Identity, key: Key, title: str, description: str, drawing: Callable[[], BlenderResult[SurfaceDraw]], *, search: bool, condition: Option[Condition] = Nothing
 ) -> Generator[BlenderResult[None]]:
-    """Registers menu class after nested rows."""
-
-    def searched(draw: SurfaceDraw, heading: RowDraw) -> SurfaceDraw:
-        def shown(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
-            if layout.operator_context == "EXEC_REGION_WIN":
-                heading(layout, context, context)
-                layout.separator()
-            draw(layout, context)
-
-        return shown
+    """Registers menu class after nested rows, a searchable menu opened from code or a key leading with its search entry."""
 
     def built(draw: SurfaceDraw, name: str, heading: Option[RowDraw]) -> type[bpy.types.Menu]:
-        paint = heading.map(lambda held: searched(draw, held)).default_value(draw)
-
         def shown(menu: bpy.types.Menu, context: bpy.types.Context) -> None:
             for layout in Option.of_optional(menu.layout).to_list():
-                paint(layout, context)
+                for entry in heading.to_list() if layout.operator_context == "EXEC_REGION_WIN" else ():
+                    entry(layout, context, context)
+                    layout.separator()
+                draw(layout, context)
 
         return type(
             name,
@@ -262,7 +246,7 @@ def registered(
             .bind(
                 lambda draw: identity.name(Name.MENU, key).bind(
                     lambda name: (
-                        realized(OperatorButton(target=Stock(operator=bpy.ops.wm.search_single_menu, values={"menu_idname": name}), text=Some("Search..."), icon=Some("VIEWZOOM")), identity).map(Some)
+                        realized(OperatorButton(target=Stock(operator=bpy.ops.wm.search_single_menu, values={"menu_idname": name}), text="Search...", icon=Some("VIEWZOOM")), identity).map(Some)
                         if search
                         else Ok(Nothing)
                     ).map(lambda heading: built(draw, name, heading))

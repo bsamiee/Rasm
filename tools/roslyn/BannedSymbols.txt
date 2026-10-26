@@ -52,6 +52,26 @@ M:System.AppDomain.CreateInstanceFrom(System.String,System.String,System.Boolean
 M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
 M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
 M:System.AppDomain.CreateInstanceFromAndUnwrap(System.String,System.String,System.Boolean,System.Reflection.BindingFlags,System.Reflection.Binder,System.Object[],System.Globalization.CultureInfo,System.Object[]);Construct through new, or call Activator.CreateInstance(Type) on a resolved Type
+M:System.Numerics.Vector2.LessThanAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.LessThan(left, right))
+M:System.Numerics.Vector2.LessThanAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.LessThan(left, right))
+M:System.Numerics.Vector2.LessThanOrEqualAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.LessThanOrEqual(left, right))
+M:System.Numerics.Vector2.LessThanOrEqualAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.LessThanOrEqual(left, right))
+M:System.Numerics.Vector2.GreaterThanAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.GreaterThan(left, right))
+M:System.Numerics.Vector2.GreaterThanAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.GreaterThan(left, right))
+M:System.Numerics.Vector2.GreaterThanOrEqualAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AllWhereAllBitsSet(Vector2.GreaterThanOrEqual(left, right))
+M:System.Numerics.Vector2.GreaterThanOrEqualAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.GreaterThanOrEqual(left, right))
+M:System.Numerics.Vector2.EqualsAll(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, test left == right
+M:System.Numerics.Vector2.EqualsAny(System.Numerics.Vector2,System.Numerics.Vector2);Compares undefined lanes past Y, call Vector2.AnyWhereAllBitsSet(Vector2.Equals(left, right))
+M:System.Numerics.Vector3.LessThanAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.LessThan(left, right))
+M:System.Numerics.Vector3.LessThanAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.LessThan(left, right))
+M:System.Numerics.Vector3.LessThanOrEqualAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.LessThanOrEqual(left, right))
+M:System.Numerics.Vector3.LessThanOrEqualAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.LessThanOrEqual(left, right))
+M:System.Numerics.Vector3.GreaterThanAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.GreaterThan(left, right))
+M:System.Numerics.Vector3.GreaterThanAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.GreaterThan(left, right))
+M:System.Numerics.Vector3.GreaterThanOrEqualAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(left, right))
+M:System.Numerics.Vector3.GreaterThanOrEqualAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.GreaterThanOrEqual(left, right))
+M:System.Numerics.Vector3.EqualsAll(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, test left == right
+M:System.Numerics.Vector3.EqualsAny(System.Numerics.Vector3,System.Numerics.Vector3);Compares undefined lanes past Z, call Vector3.AnyWhereAllBitsSet(Vector3.Equals(left, right))
 M:Thinktecture.Empty.Action;Hold absence as Option<Action> the consumer matches
 M:Thinktecture.Empty.Action``1(``0);Hold absence as Option<Action> the consumer matches
 M:Thinktecture.Empty.Action``2(``0,``1);Hold absence as Option<Action> the consumer matches
@@ -124,12 +144,21 @@ M:Rhino.PersistentSettings.GetPoint3d(System.String);Throws on a missing key, re
 M:Rhino.PersistentSettings.GetSize(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
 M:Rhino.PersistentSettings.GetRectangle(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
 M:Rhino.PersistentSettings.GetEnumValue``1(System.String);Throws on a missing key, read through SettingType.<Kind>.Read(settings, key)
+M:Rhino.Display.RhinoViewport.FromId(System.Guid);Returns null for a detail viewport and another document's viewport for a repeated id, match doc.Objects.FindId(id) is DetailViewObject, then doc.Views.Find(id)
+P:Rhino.Display.DisplayPipeline.DpiScale;Reads 1 for a view not on screen, read RhinoEtoApp.MainWindowForDocument(view.Document).LogicalPixelSize
+M:Rhino.Display.DisplayBitmap.Update(System.Drawing.Bitmap);Flips the image vertically while the constructor does not, create new DisplayBitmap(bitmap) per change and dispose the old one
+M:Rhino.Render.PostEffects.PostEffectCollection.PostEffectDataFromId(System.Guid);Answers a missing id with data that throws Exception on first use, find the id among the enumerated PostEffectData rows
+M:Grasshopper2.Framework.PluginServer.FindPluginForObject(Grasshopper2.Doc.IDocumentObject);Returns null for a plug-in's objects until Grasshopper finishes loading it, call GrasshopperPlugins.Owner(obj.GetType())
+M:Grasshopper2.Framework.PluginServer.FindPluginForObject(System.Type);Returns null for a plug-in's objects until Grasshopper finishes loading it, call GrasshopperPlugins.Owner(objectType)
 M:Rhino.RhinoApp.InvokeOnUiThread(System.Delegate,System.Object[]);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
 M:Rhino.RhinoApp.InvokeAndWait(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
 M:Foundation.NSObject.InvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
 M:Foundation.NSObject.InvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
 M:Foundation.NSObject.BeginInvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
 M:Foundation.NSObject.BeginInvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
+M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(System.EventHandler{Foundation.NSNotificationEventArgs});Registers on NSNotificationCenter.DefaultCenter while AppKit posts to the workspace center, call NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)
+M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(Foundation.NSObject,System.EventHandler{Foundation.NSNotificationEventArgs});Registers on NSNotificationCenter.DefaultCenter while AppKit posts to the workspace center, call NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)
+P:AppKit.NSWindow.Animator;Throws RuntimeException on an Eto FloatingForm, write Eto Window.Bounds from an Animated sampled on FrameClocks.Paced ticks
 T:System.Diagnostics.Debug;Log through an ILogger the composition root creates, replace an assertion with a type that excludes the asserted state
 T:System.Diagnostics.Trace;Log through an ILogger the composition root creates
 M:System.Diagnostics.Debugger.Log(System.Int32,System.String,System.String);Log through an ILogger the composition root creates

@@ -2,7 +2,7 @@
 
 import functools
 
-from colour.colorimetry.datasets import cmfs
+import colour
 import numpy as np
 import numpy.typing as npt
 
@@ -12,8 +12,8 @@ import numpy.typing as npt
 @functools.cache
 def table() -> npt.NDArray[np.float64]:
     """Returns read-only float64 rows (λ, x̄, ȳ, z̄) at every nanometer from 360 to 830 nm."""
-    matching = cmfs.DATA_CMFS_STANDARD_OBSERVER["CIE 1931 2 Degree Standard Observer"]
-    rows = np.array([(wavelength, *values) for wavelength, values in matching.items()], dtype=np.float64)
+    matching = colour.MSDS_CMFS["CIE 1931 2 Degree Standard Observer"]
+    rows = np.column_stack((matching.wavelengths, matching.values)).astype(np.float64)
     rows.setflags(write=False)
     return rows
 

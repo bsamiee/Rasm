@@ -173,26 +173,20 @@ internal sealed record Session<TState>(TState Start, Seq<Sink<TState>> Sinks, Cu
 
     private Track Tracked(Run run) =>
         new(gesture => Followed(run, gesture), gesture => Settled(run, Reduced(gesture).IfNone(run.Last)), () => Cancelled(run)) {
-            Cursor = run.Latest.Switch(
+            Cursor = run.Latest.SwitchPartially(
                 this,
-                press: static (session, press) => press.Dragged.IsSome ? session.Dragging.IfNone(session.Cursor) : session.Cursor,
-                scroll: static (session, _) => session.Cursor,
-                magnify: static (session, _) => session.Cursor,
-                rotate: static (session, _) => session.Cursor,
-                perform: static (session, _) => session.Cursor),
+                @default: static (session, _) => session.Cursor,
+                press: static (session, press) => press.Dragged.IsSome ? session.Dragging.IfNone(session.Cursor) : session.Cursor),
             Detent = Detent(run.Last),
             Carried = Carried(run.Last),
         };
 
     private Reply Followed(Run run, Gesture gesture) =>
         Reduced(gesture).Match(Some: state => (State: state, Latest: gesture), None: () => (State: run.Last, run.Latest)) switch {
-            var next => gesture.Switch(
+            var next => gesture.SwitchPartially(
                     (Session: this, next.State),
-                    press: static (held, press) => held.Session.Exit(held.State, press),
-                    scroll: static (_, _) => Option<Seq<IO<Unit>>>.None,
-                    magnify: static (_, _) => Option<Seq<IO<Unit>>>.None,
-                    rotate: static (_, _) => Option<Seq<IO<Unit>>>.None,
-                    perform: static (_, _) => Option<Seq<IO<Unit>>>.None)
+                    @default: static (_, _) => Option<Seq<IO<Unit>>>.None,
+                    press: static (held, press) => held.Session.Exit(held.State, press))
                 .Match(
                     Some: extra => (Reply)new Reply.Take(Settled(run, next.State) + extra, None),
                     None: () => Continued(run, next.State, next.Latest)),
@@ -221,7 +215,7 @@ internal sealed record Sight(Scene Scene, Laid Laid, Seq<Seq<Key>> Hover, Option
     public bool InView(Seq<Key> path) => Scene.Bounds(path).Exists(static bounds => !bounds.IsEmpty);
 }
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Part {
     // --- [ANSWER]
     internal Reply Began(Gesture gesture, Aim aim) =>
@@ -243,60 +237,39 @@ public abstract partial record Part {
             viewport: static (held, viewport) => viewport.Perform(held.Gesture, held.Aim));
 
     internal Option<IO<Unit>> Landed(Seq<Key> carried, Aim aim) =>
-        Switch(
+        SwitchPartially(
             (Carried: carried, Aim: aim),
-            press: static (_, _) => Option<IO<Unit>>.None,
-            pad: static (_, _) => Option<IO<Unit>>.None,
-            choice: static (held, choice) => choice.Dropped.Map(dropped => dropped(held.Carried, choice.Item(held.Aim.Over, held.Aim.Laid))),
-            field: static (_, _) => Option<IO<Unit>>.None,
-            viewport: static (_, _) => Option<IO<Unit>>.None);
+            @default: static (_, _) => Option<IO<Unit>>.None,
+            choice: static (held, choice) => choice.Dropped.Map(dropped => dropped(held.Carried, choice.Item(held.Aim.Over, held.Aim.Laid))));
 
     internal Seq<IO<Unit>> Left(Aim aim) =>
-        Switch(
-            aim,
-            press: static (_, _) => Seq<IO<Unit>>(),
-            pad: static (_, _) => Seq<IO<Unit>>(),
-            choice: static (_, _) => Seq<IO<Unit>>(),
-            field: static (held, field) => held.Editor.Map(editor => field.Committed(editor.Committed())).ToSeq(),
-            viewport: static (_, _) => Seq<IO<Unit>>());
+        SwitchPartially(aim, @default: static (_, _) => Seq<IO<Unit>>(), field: static (held, field) => held.Editor.Map(editor => field.Committed(editor.Committed())).ToSeq());
 
     internal Option<Editor> Opened(Laid laid) =>
-        Switch(
-            laid,
-            press: static (_, _) => Option<Editor>.None,
-            pad: static (_, _) => Option<Editor>.None,
-            choice: static (_, _) => Option<Editor>.None,
-            field: static (held, _) => held.Switch(box: static _ => Option<Editor>.None, text: static text => Some(new Editor(text))),
-            viewport: static (_, _) => Option<Editor>.None);
+        SwitchPartially(laid, @default: static (_, _) => Option<Editor>.None, field: static (held, _) => held.Texted.Map(static text => new Editor(text)));
 
     internal bool Offers(Laid owner, Seq<Key> path) =>
-        Switch(
+        SwitchPartially(
             (Owner: owner, Path: path),
-            press: static (held, _) => held.Path == held.Owner.Path,
+            @default: static (held, _) => held.Path == held.Owner.Path,
             pad: static (held, _) => Handles.Offers(held.Owner, held.Path),
-            choice: static (held, choice) => held.Path == held.Owner.Path || choice.Tiles(held.Owner).Exists(tile => tile.Laid.Path == held.Path),
-            field: static (held, _) => held.Path == held.Owner.Path,
-            viewport: static (held, _) => held.Path == held.Owner.Path);
+            choice: static (held, choice) => held.Path == held.Owner.Path || choice.Tiles(held.Owner).Exists(tile => tile.Laid.Path == held.Path));
 
     // --- [WATCH]
     internal Option<Seq<Key>> Revealed(Laid laid) =>
-        Switch(
+        SwitchPartially(
             laid,
-            press: static (_, _) => Option<Seq<Key>>.None,
+            @default: static (_, _) => Option<Seq<Key>>.None,
             pad: static (held, pad) => pad.Handles.Revealed(held),
             choice: static (held, choice) => choice.Value.Lead.Bind(lead => choice.Tiles(held).Find(tile => tile.Key == lead).Map(static tile => tile.Laid.Path)
-                | held.Node.Windowed.Filter(lazy => lazy.Items.Exists(item => item == lead)).Map(_ => held.Path.Add(lead))),
-            field: static (_, _) => Option<Seq<Key>>.None,
-            viewport: static (_, _) => Option<Seq<Key>>.None);
+                | held.Node.Windowed.Filter(lazy => lazy.Items.Exists(item => item == lead)).Map(_ => held.Path.Add(lead))));
 
     internal Seq<IO<Unit>> Watched(Option<Sight> before, Sight after) =>
-        Switch(
+        SwitchPartially(
             (Before: before, After: after),
-            press: static (_, _) => Seq<IO<Unit>>(),
+            @default: static (_, _) => Seq<IO<Unit>>(),
             pad: static (held, pad) => pad.Handles.Watched(held.Before, held.After),
-            choice: static (held, choice) => choice.Watch(held.Before, held.After),
-            field: static (_, _) => Seq<IO<Unit>>(),
-            viewport: static (_, _) => Seq<IO<Unit>>());
+            choice: static (held, choice) => choice.Watch(held.Before, held.After));
 
     // --- [CASES]
     public sealed record Press(Func<SKRect, IO<Unit>> Run) : Part {
@@ -310,21 +283,12 @@ public abstract partial record Part {
                     .Cons(open ? Seq(body()) : []));
 
         internal Reply Begin(Gesture gesture, Aim aim) =>
-            gesture.Switch(
-                (Press: this, Aim: aim),
-                press: static (held, _) => new Reply.Take([], Some(held.Press.Holding(held.Aim))),
-                scroll: Reply.Passed,
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
-                perform: Reply.Passed);
+            gesture.SwitchPartially((Press: this, Aim: aim), @default: Reply.Passed, press: static (held, _) => new Reply.Take([], Some(held.Press.Holding(held.Aim))));
 
         internal Reply Perform(Gesture gesture, Aim aim) =>
-            gesture.Switch(
+            gesture.SwitchPartially(
                 (Press: this, aim.Bounds),
-                press: Reply.Passed,
-                scroll: Reply.Passed,
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
+                @default: Reply.Passed,
                 perform: static (held, perform) => perform.Act.SwitchPartially(
                     held,
                     @default: static (_, _) => new Reply.Pass(),
@@ -334,13 +298,10 @@ public abstract partial record Part {
 
         private Track Holding(Aim aim) =>
             new(_ => new Reply.Take([], Some(Holding(aim))),
-                gesture => gesture.Switch(
+                gesture => gesture.SwitchPartially(
                     (Press: this, Aim: aim),
-                    press: static (held, press) => held.Aim.Bounds.Contains(press.At) ? Seq(held.Press.Run(held.Aim.Bounds)) : [],
-                    scroll: static (_, _) => Seq<IO<Unit>>(),
-                    magnify: static (_, _) => Seq<IO<Unit>>(),
-                    rotate: static (_, _) => Seq<IO<Unit>>(),
-                    perform: static (_, _) => Seq<IO<Unit>>()),
+                    @default: static (_, _) => Seq<IO<Unit>>(),
+                    press: static (held, press) => held.Aim.Bounds.Contains(press.At) ? Seq(held.Press.Run(held.Aim.Bounds)) : []),
                 static () => []);
     }
 
@@ -390,26 +351,20 @@ public abstract partial record Part {
 
         // --- [ANSWER]
         internal Reply Begin(Gesture gesture, Aim aim) =>
-            gesture.Switch(
+            gesture.SwitchPartially(
                 (Choice: this, Aim: aim),
+                @default: Reply.Passed,
                 press: static (held, press) => held.Choice.Item(held.Aim.Over, held.Aim.Laid).Match(
                     Some: key => held.Choice.Picking(key, held.Aim).Began(press),
                     None: () => held.Choice.Value.Switch(
                         (held.Choice, held.Aim, Press: press),
                         one: Reply.Passed,
-                        many: static (state, _) => state.Choice.Sweeping(state.Aim).Began(state.Press))),
-                scroll: Reply.Passed,
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
-                perform: Reply.Passed);
+                        many: static (state, _) => state.Choice.Sweeping(state.Aim).Began(state.Press))));
 
         internal Reply Perform(Gesture gesture, Aim aim) =>
-            gesture.Switch(
+            gesture.SwitchPartially(
                 (Choice: this, Aim: aim),
-                press: Reply.Passed,
-                scroll: Reply.Passed,
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
+                @default: Reply.Passed,
                 perform: static (held, perform) => perform.Act.SwitchPartially(
                     (held.Choice, held.Aim, Perform: perform),
                     @default: static (_, _) => new Reply.Pass(),
@@ -423,7 +378,6 @@ public abstract partial record Part {
                     navigate: static (state, navigate) => navigate.Toward.Grain.Switch(
                             (state.Choice, state.Aim, navigate.Toward),
                             unit: Adjacent,
-                            word: Adjacent,
                             page: static _ => Option<Key>.None,
                             edge: static held => held.Toward.Sign < 0 ? held.Choice.Items.Head : held.Choice.Items.Last)
                         .Match(
@@ -526,21 +480,12 @@ public abstract partial record Part {
             text with { Part = this, Accessible = text.Accessible.Combine(new Accessible { Role = AccessRole.TextBox, Value = new AccessValue.Text(text.Content) }) };
 
         internal Reply Begin(Gesture gesture, Aim aim) =>
-            gesture.Switch(
-                (Field: this, Aim: aim),
-                press: static (held, press) => new Reply.Take(held.Field.Edits(press, held.Aim), Some(held.Field.Typing(held.Aim))),
-                scroll: Reply.Passed,
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
-                perform: Reply.Passed);
+            gesture.SwitchPartially((Field: this, Aim: aim), @default: Reply.Passed, press: static (held, press) => new Reply.Take(held.Field.Edits(press, held.Aim), Some(held.Field.Typing(held.Aim))));
 
         internal Reply Perform(Gesture gesture, Aim aim) =>
-            gesture.Switch(
+            gesture.SwitchPartially(
                 (Field: this, Aim: aim),
-                press: Reply.Passed,
-                scroll: Reply.Passed,
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
+                @default: Reply.Passed,
                 perform: static (held, perform) => held.Aim.Laid.Switch(
                     (held.Field, held.Aim, Perform: perform),
                     box: Reply.Passed,
@@ -554,7 +499,7 @@ public abstract partial record Part {
 
         private Seq<IO<Unit>> Edits(Gesture gesture, Aim aim) =>
             (from editor in aim.Editor
-             from text in aim.Laid.Switch(box: static _ => Option<Laid.Text>.None, text: static text => Some(text))
+             from text in aim.Laid.Texted
              from next in editor.Next(gesture, text, aim.Bounds)
              select Committed(next)).ToSeq();
     }
@@ -566,8 +511,9 @@ public abstract partial record Part {
 
         internal Reply Begin(Gesture gesture, Aim aim) =>
             Framed(aim).Match(
-                Some: frame => gesture.Switch(
+                Some: frame => gesture.SwitchPartially(
                     (Viewport: this, Frame: frame),
+                    @default: Reply.Passed,
                     press: static (held, press) => (held.Viewport.Tracking(held.Frame) with {
                         Press = press.Clicks >= 2
                             ? (_, _) => Some(held.Viewport.Rest)
@@ -586,25 +532,20 @@ public abstract partial record Part {
                         Magnify = (start, pinched) => from about in held.Frame.At(pinched.About)
                                                       from plane in held.Viewport.Scaled(start, about, 1f / (1f + pinched.Magnification), held.Frame)
                                                       select plane,
-                    }).Began(magnify),
-                    rotate: Reply.Passed,
-                    perform: Reply.Passed),
+                    }).Began(magnify)),
                 None: static () => new Reply.Pass());
 
         internal Reply Perform(Gesture gesture, Aim aim) =>
-            gesture.Switch(
+            gesture.SwitchPartially(
                 (Viewport: this, Aim: aim),
-                press: Reply.Passed,
+                @default: Reply.Passed,
                 scroll: static (held, scroll) => Framed(held.Aim).Match(
                     Some: frame => (held.Viewport.Tracking(frame) with {
                         Scroll = (start, notched) => from about in frame.At(notched.At)
                                                      from plane in held.Viewport.Scaled(start, about, MathF.Pow(Notch, -notched.Travel.Y / Handles.Metrics(held.Aim.Laid, None)[Metric.Extent]), frame)
                                                      select plane,
                     }).Stepped(scroll),
-                    None: static () => new Reply.Pass()),
-                magnify: Reply.Passed,
-                rotate: Reply.Passed,
-                perform: Reply.Passed);
+                    None: static () => new Reply.Pass()));
 
         private Session<PlotPlane> Tracking(PlotFrame frame) =>
             new(frame.Plane, [Sink<PlotPlane>.Of(static plane => plane, Edited)], Cursor.Grab) { Dragging = Cursor.Grabbing };

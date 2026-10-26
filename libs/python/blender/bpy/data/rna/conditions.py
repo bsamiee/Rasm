@@ -183,7 +183,7 @@ def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
             return (
                 path
                 .owner_of(context, item)
-                .map(lambda owner: existing(Path(bpy.path.abspath(os.fsdecode(getattr(owner, path.prop.identifier))))))
+                .map(lambda owner: existing(Path(bpy.path.abspath(str(path.read(owner))))))
                 .filter(lambda folder: os.access(folder, os.W_OK) and shutil.disk_usage(folder).free >= least)
                 .is_some()
             )

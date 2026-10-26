@@ -6,9 +6,7 @@ using Rasm.Rhino.UI.Styling;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record CommandFace(string Name, string Caption, string Help, Option<IGlyph> Glyph, Option<Keys> Shortcut) {
-    public Wording Wording { get; init; } = Wording.English;
-}
+public sealed record CommandFace(string Name, string Caption, string Help, Option<IGlyph> Glyph, Option<Keys> Shortcut);
 
 public sealed record Realized<T>(T Commands, IO<Unit> Refresh);
 
@@ -24,7 +22,7 @@ public abstract partial record CommandRow {
     public static Run Macro(CommandFace face, string script, Option<RowRule> enabled) =>
         new(face, enabled, scope =>
             from document in scope.DocumentIO
-            from ran in Documents.RunScript(document, script, echo: false, display: Some(face.Wording.Shown(face.Caption, scope.Sink)))
+            from ran in Documents.RunScript(document, script, echo: false, display: Some(RowText.Localize(face.Caption, scope.Sink).Local))
             select ran);
 
     public static Radio Choices<TValue>(
@@ -50,27 +48,22 @@ public abstract partial record CommandRow {
 
     private protected IO<Realized<TCommand>> Commanded<TCommand>(RowScope scope, TCommand command, Func<IO<Unit>> deliver, IO<Unit> refresh, Action<IDisposable> retain)
         where TCommand : Command =>
-        from faced in IO.lift(() => Face.Wording.Shown(Face.Caption, scope.Sink) switch {
+        from faced in IO.lift(() => RowText.Localize(Face.Caption, scope.Sink).Local switch {
             var caption => (command.ID, command.MenuText, command.ToolBarText, command.ToolTip, command.Shortcut) =
-                (Face.Name, caption, caption, Face.Wording.Shown(Face.Help, scope.Sink), Face.Shortcut.IfNone(Keys.None)),
+                (Face.Name, caption, caption, RowText.Localize(Face.Help, scope.Sink).Local, Face.Shortcut.IfNone(Keys.None)),
         })
-        from themed in Face.Glyph.Traverse(glyph => Icons.Themed(scope.Sink, glyph, IconSlot.MenuItem, HostTheme.Changed, image => command.Image = image, retain)).As()
+        from themed in Face.Glyph.Traverse(glyph => Icons.Themed(scope.Sink, glyph, IconSlot.Small, HostTheme.Changed, image => command.Image = image, retain)).As()
         from parent in cancelToken
-        from lifetime in DisposalOps.Acquire(IO.lift(() => {
-            CancellationTokenSource source = CancellationTokenSource.CreateLinkedTokenSource(parent);
-            return (source.Token, Release: new Disposal<CancellationTokenSource>(source, static held =>
-                Callbacks.Each(Seq(IO.lift(held.Cancel), IO.lift(held.Dispose))).Run()));
-        }), static held => IO.lift(held.Release.Dispose), held => retain(held.Release))
-        from attached in DisposalOps.Acquire(IO.lift(() => new Disposal<TCommand>(command, static held => held.DelegatedCommand = null)), lease => {
-            command.DelegatedCommand = new AsyncRelayCommand(async () => Callbacks.Run(
+        from lifetime in DisposalOps.Acquire(IO.lift(() => CancellationTokenSource.CreateLinkedTokenSource(parent)),
+            static source => Callbacks.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit), retain)
+        from attached in DisposalOps.Acquire(IO.lift(() => command.DelegatedCommand = new AsyncRelayCommand(async () => Callbacks.Run(
                 await DisposalOps.Within(
                     () => EnvIO.New(token: lifetime.Token),
                     environment => IO.liftVAsync(() => IO.lift(deliver).Bind(static effect => effect).RunAsync(environment)),
                     static environment => Callbacks.Each(Seq(IO.lift(environment.DisposeResources), IO.lift(environment.DisposeNonResources)))
                         .Map(unit)).RunSafeAsync().ConfigureAwait(continueOnCapturedContext: true),
-                new(scope.Sink, typeof(Command), Face.Name)), AsyncRelayCommandOptions.AllowConcurrentExecutions);
-            retain(lease);
-        })
+                new(scope.Sink, typeof(Command), Face.Name)), AsyncRelayCommandOptions.AllowConcurrentExecutions)),
+            _ => IO.lift(() => { command.DelegatedCommand = null; }), retain)
         select new Realized<TCommand>(
             command,
             Callbacks.Each(Seq(RowRules.Holds(Enabled, scope).Bind(enabled => IO.lift(() => { command.Enabled = enabled; })), refresh)).Map(unit));

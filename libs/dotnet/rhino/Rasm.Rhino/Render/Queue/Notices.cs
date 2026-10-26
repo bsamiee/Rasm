@@ -12,9 +12,7 @@ namespace Rasm.Rhino.Render.Queue;
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class NoticeServer {
-    public static NoticeServer Default { get; } = new("https://ntfy.sh");
-
+public sealed partial class HttpServer {
     public Uri Address => new(_value);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
@@ -35,8 +33,8 @@ public sealed partial class NoticeTopic {
             : new ValidationError($"Topic {value} needs 1 to 64 ASCII letters, digits, hyphens, or underscores");
 }
 
-public sealed record NoticeSettings(NoticeServer Server, Option<NoticeTopic> Topic) {
-    public static NoticeSettings Default { get; } = new(NoticeServer.Default, None);
+public sealed record NoticeSettings(HttpServer Server, Option<NoticeTopic> Topic) {
+    public static NoticeSettings Default { get; } = new(HttpServer.Create("https://ntfy.sh"), None);
 }
 
 public sealed record NoticeOptions(IO<NoticeSettings> Settings, Option<IGlyph> Glyph, Option<View.Panel> Reveal);
@@ -135,7 +133,7 @@ public sealed class NoticeSender(NoticeOptions options, TimeProvider clock, IPlu
             Some: topic => Sent(settings.Server, topic, queued, notice),
             None: static () => IO.pure(unit)));
 
-    private IO<Unit> Sent(NoticeServer server, NoticeTopic topic, QueueEvent queued, Notice notice) =>
+    private IO<Unit> Sent(HttpServer server, NoticeTopic topic, QueueEvent queued, Notice notice) =>
         IO.liftAsync(async environment => {
             NtfyMessage message = new(topic, notice.Title, notice.Description, queued.Priority.Key, [.. queued.Tag.ToSeq()]);
             using JsonContent content = JsonContent.Create(message, NtfyContext.Default.NtfyMessage);

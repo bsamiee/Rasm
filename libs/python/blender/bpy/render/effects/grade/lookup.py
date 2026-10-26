@@ -1,8 +1,8 @@
 """Authored-domain LUT sampling and tetrahedral compositor tables."""
 
 from collections.abc import Mapping
-import functools
 from pathlib import Path
+from typing import Annotated
 
 import bpy
 from expression import Ok, Option, Result, Some
@@ -16,168 +16,81 @@ from blender.bpy.commands.operators import Call, Done, Operator, Outcome, Unchan
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult
-from blender.bpy.nodes.graphs import End, ended, Fragment, Generated, INPUTS, math, nested, node, NodeGroup, Operand, vector
-from blender.bpy.nodes.interface import Interface, item_key, Socket
-from blender.bpy.render.color.luts import lut_files
+from blender.bpy.faults import BlenderFaults, BlenderResult
+from blender.bpy.nodes.graphs import Expr, Generated, grouped, math, vector, xyz
+from blender.bpy.render.color.luts import current
 from blender.bpy.render.color.spaces import space_item
-from blender.bpy.render.effects.stack import CameraFrame, CompositorEffect, Named, Opened, Shell
+from blender.bpy.render.effects.rows import Alpha, CameraFrame, CompositorEffect, Named, Opened, revised, Shell
 from blender.imaging.color.luts import Lattice, Logarithmic, LutFormat, Rational, Uniform
-from blender.imaging.color.processors import applied, processor
-from blender.imaging.effects.generators.noise import Estimate, Precision
+from blender.imaging.color.processors import converted
 from blender.imaging.effects.grade.lookup import Lookup
-from blender.imaging.faults import ImagingBufferFault, paired
+from blender.imaging.faults import ImagingBufferFault
 from blender.imaging.hashing import content_hash
+from blender.imaging.sampling import Estimate, Precision
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [GRAPH]
-
-
-@functools.cache
-def tetrahedral() -> BlenderResult[NodeGroup]:
-    """Builds shared tetrahedral interpolation group over table cube size.
-
-    Returns:
-        Group of ordered tetrahedral vertex samples, or node faults.
-    """
-    encoded, tile, size = (End(node=INPUTS, socket=key) for key in ("encoded", "tile", "size"))
-    (
-        limit,
-        order_a,
-        order_b,
-        order_c,
-        not_a,
-        not_b,
-        not_c,
-        largest_x,
-        largest_y,
-        largest_xy,
-        largest_z,
-        smallest_x,
-        smallest_y,
-        smallest_xy,
-        smallest_z,
-        upper,
-        middle,
-        reciprocal,
-        square,
-        centre,
-        descent,
-        top,
-    ) = (
-        End(node=key)
-        for key in (
-            "limit",
-            "order_a",
-            "order_b",
-            "order_c",
-            "not_a",
-            "not_b",
-            "not_c",
-            "largest_x",
-            "largest_y",
-            "largest_xy",
-            "largest_z",
-            "smallest_x",
-            "smallest_y",
-            "smallest_xy",
-            "smallest_z",
-            "upper",
-            "middle",
-            "reciprocal",
-            "square",
-            "centre",
-            "descent",
-            "top",
-        )
-    )
-    limits, scaled, raised, index, base, fraction, largest, smallest, step_one, opposite, step_two = (
-        End(node=key, socket="Vector") for key in ("limits", "scaled", "raised", "index", "base", "fraction", "largest", "smallest", "step_1", "opposite", "step_2")
-    )
-    high, low, total = (End(node=key) for key in ("high", "low", "total"))
-    red, green, blue = (End(node="fractions", socket=axis) for axis in ("X", "Y", "Z"))
-    weights = (*(End(node=f"weight_{vertex}") for vertex in range(3)), low)
-    vertices = (base, *(End(node=f"vertex_{vertex}", socket="Vector") for vertex in range(1, 4)))
-    terms = tuple(End(node=f"term_{vertex}", socket="Vector") for vertex in range(4))
-    address: tuple[tuple[Operand, ...], ...] = ((square, reciprocal, 0.0, centre), (0.0, 0.0, descent, top), (0.0, 0.0, 0.0, 1.0), (0.0, 0.0, 0.0, 1.0))
-    body = Fragment.joined(
-        math(limit.node, "SUBTRACT", size, 1.0),
-        node(limits.node, bpy.types.ShaderNodeCombineXYZ, dict.fromkeys(("X", "Y", "Z"), limit), {}),
-        vector(scaled.node, "MULTIPLY", encoded, limits),
-        vector(raised.node, "MAXIMUM", (0.0, 0.0, 0.0), scaled),
-        vector(index.node, "MINIMUM", raised, limits),
-        vector(base.node, "FLOOR", index),
-        vector(fraction.node, "SUBTRACT", index, base),
-        node("fractions", bpy.types.ShaderNodeSeparateXYZ, {"Vector": fraction}, {}),
-        math(order_a.node, "GREATER_THAN", red, green),
-        math(order_b.node, "GREATER_THAN", green, blue),
-        math(order_c.node, "GREATER_THAN", red, blue),
-        math(not_a.node, "SUBTRACT", 1.0, order_a),
-        math(not_b.node, "SUBTRACT", 1.0, order_b),
-        math(not_c.node, "SUBTRACT", 1.0, order_c),
-        math(largest_x.node, "MULTIPLY", order_a, order_c),
-        math(largest_y.node, "MULTIPLY", not_a, order_b),
-        math(largest_xy.node, "ADD", largest_x, largest_y),
-        math(largest_z.node, "SUBTRACT", 1.0, largest_xy),
-        math(smallest_x.node, "MULTIPLY", not_a, not_c),
-        math(smallest_y.node, "MULTIPLY", order_a, not_b),
-        math(smallest_xy.node, "ADD", smallest_x, smallest_y),
-        math(smallest_z.node, "SUBTRACT", 1.0, smallest_xy),
-        node(largest.node, bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y", "Z"), (largest_x, largest_y, largest_z))), {}),
-        node(smallest.node, bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y", "Z"), (smallest_x, smallest_y, smallest_z))), {}),
-        vector(high.node, "DOT_PRODUCT", fraction, largest),
-        vector(low.node, "DOT_PRODUCT", fraction, smallest),
-        vector(total.node, "DOT_PRODUCT", fraction, (1.0, 1.0, 1.0)),
-        math(upper.node, "SUBTRACT", total, high),
-        math(middle.node, "SUBTRACT", upper, low),
-        math(weights[0].node, "SUBTRACT", 1.0, high),
-        math(weights[1].node, "SUBTRACT", high, middle),
-        math(weights[2].node, "SUBTRACT", middle, low),
-        vector(step_one.node, "ADD", base, largest),
-        vector(opposite.node, "ADD", base, (1.0, 1.0, 1.0)),
-        vector(step_two.node, "SUBTRACT", opposite, smallest),
-        *(vector(vertex.node, "MINIMUM", step, limits) for vertex, step in zip(vertices[1:], (step_one, step_two, opposite))),
-        math(reciprocal.node, "DIVIDE", 1.0, size),
-        math(square.node, "MULTIPLY", reciprocal, reciprocal),
-        math(centre.node, "MULTIPLY", square, 0.5),
-        math(descent.node, "MULTIPLY", reciprocal, -1.0),
-        math(top.node, "MULTIPLY_ADD", reciprocal, -0.5, 1.0),
-        node("addressing", bpy.types.FunctionNodeCombineMatrix, {f"Column {column} Row {row}": cell for row, cells in enumerate(address, 1) for column, cell in enumerate(cells, 1)}, {}),
-        *(node(f"place_{vertex}", bpy.types.FunctionNodeTransformPoint, {"Vector": value, "Transform": End(node="addressing", socket="Matrix")}, {}) for vertex, value in enumerate(vertices)),
-        *(
-            node(
-                f"sample_{vertex}",
-                bpy.types.CompositorNodeMapUV,
-                {"Image": tile, "UV": End(node=f"place_{vertex}", socket="Vector"), "Interpolation": "Nearest", "Extension X": "Extend", "Extension Y": "Extend"},
-                {},
-            )
-            for vertex in range(4)
-        ),
-        *(vector(term.node, "SCALE", End(node=f"sample_{vertex}", socket="Image"), weight) for vertex, (term, weight) in enumerate(zip(terms, weights))),
-        vector("sum_1", "ADD", *terms[:2]),
-        vector("sum_2", "ADD", End(node="sum_1", socket="Vector"), terms[2]),
-        vector("color", "ADD", End(node="sum_2", socket="Vector"), terms[3]),
-    ).map(ended("color", "Vector"))
-    face = Interface(
-        outputs=(Socket(key="color", name="Color", kind=bpy.types.NodeSocketColor),),
-        inputs=(
-            Socket(key=encoded.socket, name="Encoded", kind=bpy.types.NodeSocketVector),
-            Socket(key=tile.socket, name="Tile", kind=bpy.types.NodeSocketColor),
-            Socket(key=size.socket, name="Size", kind=bpy.types.NodeSocketFloat),
-        ),
-    )
-    return body.bind(lambda built: NodeGroup.built("tetrahedral", "Tetrahedral Lookup", face, {"color": built}))
-
 
 # --- [TABLES]
 
 
-def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32], source: Operand, config: PyOpenColorIO.Config) -> BlenderResult[tuple[Fragment, End]]:
+@grouped("tetrahedral", "Tetrahedral Lookup")
+def tetrahedral(encoded: Annotated[Expr, bpy.types.NodeSocketVector], tile: Annotated[Expr, bpy.types.NodeSocketColor], size: Expr | float) -> Mapping[Key, Expr]:
+    """Tetrahedral interpolation of a packed table tile at encoded coordinates over the table's cube size."""
+    limit = size - 1.0
+    limits = xyz(limit, limit, limit)
+    index = vector("MINIMUM", vector("MAXIMUM", (0.0, 0.0, 0.0), encoded * limits), limits)
+    base = vector("FLOOR", index)
+    fraction = index - base
+    red, green, blue = fraction["X"], fraction["Y"], fraction["Z"]
+    ordered = (red > green, green > blue, red > blue)
+    unordered = tuple(1.0 - order for order in ordered)
+    largest = (ordered[0] * ordered[2], unordered[0] * ordered[1])
+    smallest = (unordered[0] * unordered[2], ordered[0] * unordered[1])
+    toward, away = xyz(*largest, 1.0 - (largest[0] + largest[1])), xyz(*smallest, 1.0 - (smallest[0] + smallest[1]))
+    high, low = vector("DOT_PRODUCT", fraction, toward), vector("DOT_PRODUCT", fraction, away)
+    middle = vector("DOT_PRODUCT", fraction, (1.0, 1.0, 1.0)) - high - low
+    opposite = vector("ADD", base, (1.0, 1.0, 1.0))
+    reciprocal = 1.0 / size
+    square = reciprocal * reciprocal
+    cells: tuple[tuple[Expr | float, ...], ...] = (
+        (square, reciprocal, 0.0, square * 0.5),
+        (0.0, 0.0, -reciprocal, math("MULTIPLY_ADD", reciprocal, -0.5, 1.0)),
+        (0.0, 0.0, 0.0, 1.0),
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    addressing = Expr(
+        kind=bpy.types.FunctionNodeCombineMatrix,
+        inputs=tuple((f"Column {column} Row {row}", cell) for row, row_cells in enumerate(cells, 1) for column, cell in enumerate(row_cells, 1)),
+        socket="Matrix",
+    )
+    vertices = (base, vector("MINIMUM", base + toward, limits), vector("MINIMUM", opposite - away, limits), vector("MINIMUM", opposite, limits))
+    terms = tuple(
+        vector(
+            "SCALE",
+            Expr(
+                kind=bpy.types.CompositorNodeMapUV,
+                inputs=(
+                    ("Image", tile),
+                    ("UV", Expr(kind=bpy.types.FunctionNodeTransformPoint, inputs=(("Vector", vertex), ("Transform", addressing)), socket="Vector", shape="VECTOR")),
+                    ("Interpolation", "Nearest"),
+                    ("Extension X", "Extend"),
+                    ("Extension Y", "Extend"),
+                ),
+                socket="Image",
+                shape="RGBA",
+            ),
+            weight,
+        )
+        for vertex, weight in zip(vertices, (1.0 - high, high - middle, middle - low, low))
+    )
+    return {"color": sum(terms[1:], terms[0])}
+
+
+def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32], source: Expr, config: PyOpenColorIO.Config) -> BlenderResult[Expr]:
     """Samples packed outputs at lattice-encoded coordinates.
 
     Args:
-        key: Node prefix and image address.
+        key: Table image node key, stable while the table content changes.
         name: Generated image name.
         lattice: Table size and input encoding.
         plane: Top-first RGB table outputs in blue, green, red node order.
@@ -185,75 +98,56 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
         config: Configuration with data image role.
 
     Returns:
-        Tetrahedral table output, or image and graph faults.
+        Tetrahedral table output, or the data role fault.
     """
+    match lattice.spacing:
+        case Uniform(low=low, high=high):
+            scale = max(abs(low), abs(high))
+            encoded = vector("DIVIDE", vector("SUBTRACT", vector("DIVIDE", source, (scale,) * 3), (low / scale,) * 3), (high / scale - low / scale,) * 3)
+        case Logarithmic(low=low, span=span):
+            tiny = float(np.finfo(np.float32).tiny)
+            encoded = xyz(*(math("MULTIPLY_ADD", math("LOGARITHM", math("MAXIMUM", source[axis] + 2.0**low, tiny), 2.0), 1.0 / span, -low / span) for axis in ("X", "Y", "Z")))
+        case Rational():
+            positive = vector("MAXIMUM", source, (0.0,) * 3)
+            encoded = positive / (positive + (1.0,) * 3)
 
-    def encoded() -> BlenderResult[tuple[Fragment, End]]:
-        match lattice.spacing:
-            case Uniform(low=low, high=high):
-                scale = max(abs(low), abs(high))
-                return (
-                    vector(f"{key}_scale", "DIVIDE", source, (scale,) * 3)
-                    .bind(lambda scaled: vector(f"{key}_offset", "SUBTRACT", scaled, (low / scale,) * 3))
-                    .bind(lambda offset: vector(f"{key}_encoded", "DIVIDE", offset, ((high / scale - low / scale),) * 3))
-                )
-            case Logarithmic(low=low, span=span):
-                channels = node(f"{key}_channels", bpy.types.ShaderNodeSeparateXYZ, {"Vector": source}, {})
-                return Fragment.joined(
-                    channels,
-                    *(
-                        part
-                        for axis in "XYZ"
-                        for part in (
-                            math(f"{key}_{axis.lower()}_offset", "ADD", End(node=f"{key}_channels", socket=axis), 2.0**low),
-                            math(
-                                f"{key}_{axis.lower()}_positive",
-                                "MAXIMUM",
-                                End(node=f"{key}_{axis.lower()}_offset"),
-                                float(np.ldexp(np.float32(1), 2 - np.frexp(np.nextafter(np.float32(np.inf), np.float32(0)))[1])),
-                            ),
-                            math(f"{key}_{axis.lower()}_log", "LOGARITHM", End(node=f"{key}_{axis.lower()}_positive"), 2.0),
-                            math(f"{key}_{axis.lower()}_fit", "MULTIPLY_ADD", End(node=f"{key}_{axis.lower()}_log"), 1.0 / span, -low / span),
-                        )
-                    ),
-                    node(f"{key}_encoded", bpy.types.ShaderNodeCombineXYZ, {axis: End(node=f"{key}_{axis.lower()}_fit") for axis in "XYZ"}, {}),
-                ).map(ended(f"{key}_encoded", "Vector"))
-            case Rational():
-                return vector(f"{key}_positive", "MAXIMUM", source, (0.0,) * 3).bind(
-                    lambda positive: vector(f"{key}_denominator", "ADD", positive, (1.0,) * 3).bind(lambda denominator: vector(f"{key}_encoded", "DIVIDE", positive, denominator))
-                )
-
-    def sampled(parts: tuple[NodeGroup, str, tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
-        group, data, coordinates = parts
+    def sampled(data: str) -> Expr:
         image = Generated(ownership=tiles, content=content_hash(Lattice, lattice, arrays=(plane,)), name=name, plane=lambda: Ok(Some(plane)), tag=Tag(space=Some(data)))
-        return node(key, bpy.types.CompositorNodeImage, {}, {}, Some(image)).bind(
-            lambda tile: nested(f"{key}_lookup", group, {"encoded": coordinates, "tile": ended(key, "Image")(tile), "size": float(lattice.size)}, "color")
-        )
+        return tetrahedral(encoded, Expr(kind=bpy.types.CompositorNodeImage, content=Some(image), socket="Image", shape="RGBA").named(key), float(lattice.size))
 
-    return paired(paired(tetrahedral(), space_item(config, PyOpenColorIO.ROLE_DATA)), encoded()).map(lambda pair: (*pair[0], pair[1])).bind(sampled)
+    return space_item(config, PyOpenColorIO.ROLE_DATA).map(sampled)
 
 
-def looked_up(shell: Shell[Lookup]) -> BlenderResult[tuple[Fragment, End]]:
+def tiled(record: Lookup, config: PyOpenColorIO.Config) -> BlenderResult[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
+    """Splits the record's current file into native prefix operations and its first sampled 3D table."""
+    return current(record.source, config).bind(lambda path: msgspec.structs.replace(record, source=path).tile(config))
+
+
+# --- [GRAPH]
+
+
+def looked_up(shell: Shell[Lookup]) -> BlenderResult[Expr]:
     """Samples prefix on its authored domain, then suffix table."""
     record = shell.record
     name = Path(record.source).name
+    source_field, _, prefix_field = Lookup.__struct_fields__
 
-    def built(parts: tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]) -> BlenderResult[tuple[Fragment, End]]:
+    def built(parts: tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]) -> BlenderResult[Expr]:
         head, suffix = parts
-        source_field, _, prefix_field = Lookup.__struct_fields__
         if len(head) and not record.prefix.enabled and Shell.image not in shell.images:
             return shell.passed()
-
-        def prefix(lattice: Lattice) -> BlenderResult[tuple[Fragment, End]]:
-            sampled: BlenderResult[npt.NDArray[np.float32]] = (
-                paired(processor(PyOpenColorIO.Config(), head), lattice.samples()).map(lambda pair: applied(pair[0].getDefaultCPUProcessor(), pair[1])).map_error(BlenderImagingFault.lifted)
+        lattice = record.prefix.value
+        entering = (
+            Result[npt.NDArray[np.float32], BlenderFaults].bind(
+                lattice.samples().bind(lambda samples: converted(PyOpenColorIO.Config(), head, samples)),
+                lambda plane: tabled(prefix_field, f"{name} Prefix", lattice, plane, shell.color, shell.config),
             )
-            return Result[npt.NDArray[np.float32], BlenderFaults].bind(sampled, lambda plane: tabled(item_key(prefix_field), f"{name} Prefix", lattice, plane, shell.source, shell.config))
+            if len(head) and record.prefix.enabled
+            else Ok(shell.color)
+        )
+        return entering.bind(lambda source: suffix.map(lambda table: tabled(source_field, name, *table, source, shell.config)).default_value(Ok(source)))
 
-        entering = prefix(record.prefix.value) if len(head) and record.prefix.enabled else shell.passed()
-        return entering.bind(lambda source: suffix.map(lambda table: tabled(item_key(source_field), name, *table, source, shell.config)).default_value(Ok(source)))
-
-    return lut_files.current(record.source, shell.config).bind(lambda path: msgspec.structs.replace(record, source=path).tile(shell.config).map_error(BlenderImagingFault.lifted)).bind(built)
+    return tiled(record, shell.config).bind(built)
 
 
 def prepared(
@@ -276,26 +170,14 @@ def prepared(
             head,
             PyOpenColorIO.ColorSpaceTransform(src=record.space, dst=PyOpenColorIO.ROLE_SCENE_LINEAR),
         ])
-        pixels = ImagingBufferFault.pixels(image).map_error(BlenderImagingFault.lifted)
 
         def published(values: npt.NDArray[np.float32]) -> BlenderResult[tuple[Lookup, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
             result = OpenImageIO.ImageBuf(OpenImageIO.ImageSpec(image.spec()))
-            return (
-                Ok((record, {Shell.image: result}))
-                if result.set_pixels(result.roi, values)
-                else Result.Error((BlenderImagingFault(faults=(ImagingBufferFault(request=result, error=result.geterror()),)),))
-            )
+            return Ok((record, {Shell.image: result})) if result.set_pixels(result.roi, values) else Result.Error((ImagingBufferFault(request=result, error=result.geterror()),))
 
-        return Result[tuple[PyOpenColorIO.Processor, npt.NDArray[np.float32]], BlenderFaults].bind(
-            paired(processor(config, operation).map_error(BlenderImagingFault.lifted), pixels), lambda pair: published(applied(pair[0].getDefaultCPUProcessor(), pair[1]))
-        )
+        return Result[npt.NDArray[np.float32], BlenderFaults].bind(ImagingBufferFault.pixels(image).bind(lambda pixels: converted(config, operation, pixels)), published)
 
-    return (
-        lut_files
-        .current(record.source, config)
-        .bind(lambda path: msgspec.structs.replace(record, source=path).tile(config).map_error(BlenderImagingFault.lifted))
-        .bind(lambda parts: processed(parts[0]))
-    )
+    return tiled(record, config).bind(lambda parts: processed(parts[0]))
 
 
 # --- [RELOAD]
@@ -306,9 +188,7 @@ def reloaded(call: Call[Named]) -> BlenderResult[Outcome]:
     return (
         call
         .root(bpy.types.Scene)
-        .bind(
-            lambda scene: lookup.named(call.identity, scene, call.record.name).bind(lambda entry: lookup.read(call.identity, entry).bind(lambda held: lookup.write(call.identity, scene, entry, held)))
-        )
+        .bind(lambda scene: lookup.named(call.identity, scene, call.record.name).bind(lambda entry: revised(lookup, call.identity, scene, entry, Ok)))
         .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.record.name} matches current file"))
     )
 
@@ -320,7 +200,7 @@ reloading = Operator(key="lookup_reload", title="Reload LUT", description="Rebui
 lookup: CompositorEffect[Lookup] = CompositorEffect(
     record=Lookup,
     graph=looked_up,
-    straight=True,
+    alpha=Alpha.STRAIGHT,
     preparation=Some(prepared),
     opened=Some(Opened(extensions=lambda: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())), of=lambda path: Lookup(source=path))),
     registrables=(tiles, reloading),
@@ -329,4 +209,4 @@ lookup: CompositorEffect[Lookup] = CompositorEffect(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["looked_up", "lookup", "reloaded", "reloading", "tabled", "tetrahedral", "tiles"]
+__all__ = ["looked_up", "lookup", "prepared", "reloaded", "reloading", "tabled", "tetrahedral", "tiled", "tiles"]

@@ -14,7 +14,7 @@ from blender.imaging.parameters import Case, ColorSpace, Finite, Presentation, R
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Weight = Annotated[Finite, Presentation(soft=Some((-2.0, 2.0)), decimals=Some(3))]
+type Weight = Annotated[Finite, Presentation(soft=Some((-2.0, 2.0)), precision=Some(3))]
 type Remap = Mixer | Conversion
 
 # --- [MODELS] ---------------------------------------------------------------------------

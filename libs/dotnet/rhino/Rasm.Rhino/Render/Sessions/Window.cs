@@ -99,9 +99,6 @@ public static class RenderWindows {
             select rect)
             .Bind(rect => IO.lift(() => window.InvalidateArea(rect)));
 
-    public static IO<T> Snapshot<T>(RenderWindow window, Func<Bitmap, IO<T>> body) =>
-        DisposalOps.Found(window.GetBitmap, nameof(RenderWindow.GetBitmap), body);
-
     internal static void Widen(float[] block, int components, int stride, int pixels) {
         for (int pixel = pixels - 1; components < 4 && pixel >= 0; pixel--) {
             int source = pixel * stride;

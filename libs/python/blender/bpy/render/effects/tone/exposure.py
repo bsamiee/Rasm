@@ -1,28 +1,28 @@
 """Exposure gain and coverage-normalized bilateral local exposure graphs."""
 
-from collections.abc import Mapping
+import functools
 from itertools import batched
 from math import log2
 from typing import ClassVar
 
 import bpy
-from expression import Option, Result
-import msgspec
+from expression import Ok
 import numpy as np
 
 from blender.bpy.data.rna.animation import Animation
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels
-from blender.bpy.nodes.graphs import compared, End, ended, Fragment, masked, math, mixed, nested, node, NodeGroup, Operand, Part
+from blender.bpy.extension.identity import Identity
+from blender.bpy.faults import BlenderResult
+from blender.bpy.nodes.graphs import Component, Expr, math, mixed, NodeGroup, rgba, where
 from blender.bpy.nodes.interface import Socket
-from blender.bpy.render.effects.compositing.masks import luminance
-from blender.bpy.render.effects.stack import CompositorEffect, entries, keyed_product, Shell
+from blender.bpy.render.color.spaces import COLOR_INPUT
+from blender.bpy.render.effects.compositing.masks import LUMINANCE, luminance
+from blender.bpy.render.effects.coordinates import pixels
+from blender.bpy.render.effects.rows import Alpha, CompositorEffect, Shell
+from blender.bpy.render.effects.stack import keyed_product
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.chain import Effect, GREY
 from blender.imaging.effects.tone.exposure import Exposure, LocalExposure
-from blender.imaging.faults import paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -36,8 +36,8 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
         kind=bpy.types.NodeSocketFloat,
         description="Product of later render-enabled exposure gains mixed by opacity",
         members={
-            Descriptor(root=bpy.types.NodeTreeInterfaceSocket, owner="", prop=bpy.types.NodeTreeInterfaceSocket.bl_rna.properties["hide_in_modifier"]): True,
-            Descriptor(root=bpy.types.NodeTreeInterfaceSocketFloat, owner="", prop=bpy.types.NodeTreeInterfaceSocketFloat.bl_rna.properties["default_value"]): 1.0,
+            Descriptor.declared(bpy.types.NodeTreeInterfaceSocket, "hide_in_modifier", bpy.types.BoolProperty): True,
+            Descriptor.declared(bpy.types.NodeTreeInterfaceSocketFloat, "default_value", bpy.types.FloatProperty): 1.0,
         },
     )
 
@@ -46,103 +46,61 @@ class ExposureEffect(CompositorEffect[Exposure], frozen=True, kw_only=True):
         (stops,) = Exposure.__struct_fields__
         return keyed_product(identity, scene, entry, self.record, stops, self.gain.key, np.exp2)
 
-    def stops(self, identity: Identity, scene: bpy.types.Scene) -> BlenderResult[float]:
-        """Returns earliest exposure stops, zero without exposure entry."""
-        return self.current(identity, scene).map(lambda held: held.map(lambda record: record.stops).default_value(0.0))
-
-    def written(self, identity: Identity, scene: bpy.types.Scene, stops: float) -> BlenderResult[bool]:
-        """Writes absolute stops, keeping blend and masks, answering whether any value changed."""
-        entry: BlenderResult[bpy.types.SceneCompositorEffect] = Option.of_optional(next(iter(entries(identity, scene, self.record)), None)).to_result_with(
-            lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=self.record.__name__),)
-        )
-        return Result[bpy.types.SceneCompositorEffect, BlenderFaults].bind(
-            entry, lambda entry: self.read(identity, entry).bind(lambda held: self.write(identity, scene, entry, msgspec.structs.replace(held, effect=Exposure(stops=stops))))
-        )
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def exposed(shell: Shell[Exposure]) -> BlenderResult[tuple[Fragment, End]]:
+def exposed(shell: Shell[Exposure]) -> BlenderResult[Expr]:
     """Scales stage input RGB by 2^stops, alpha unchanged."""
     (stops,) = Exposure.__struct_fields__
-    return node("gain", bpy.types.CompositorNodeExposure, {"Image": shell.source, "Exposure": shell.socket(stops)}, {}).map(ended("gain", "Image"))
+    return Ok(Expr(kind=bpy.types.CompositorNodeExposure, inputs=(("Image", shell.color), ("Exposure", shell.input(stops))), socket="Image", shape="RGBA"))
 
 
-def localized(source: Operand, working: NodeGroup, frame: FrameSpace, highlights: Operand, shadows: Operand, clarity: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds local gain from straight luminance and shared blurred coverage."""
+def localized(shell: Shell[LocalExposure]) -> BlenderResult[Expr]:
+    """Scales the straight stage input by local gain from a coverage-weighted bilateral grid over working luminance and a shared blurred base.
+
+    Args:
+        shell: Straight stage input, camera frame, working config, and base contrast and clarity inputs.
+
+    Returns:
+        Lowered graph of the source under its local exposure, alpha unchanged, or luminance group faults.
+    """
     (low, high), count, grey = LocalExposure.grid_range, LocalExposure.grid_slices, log2(GREY)
-    pairs = tuple(enumerate(batched(range(count), 2)))
-    alpha, base = End(node="channels", socket="Alpha"), End(node="base", socket="Result_Float")
+    highlights, shadows, clarity = map(shell.input, LocalExposure.__struct_fields__)
+    source, frame = shell.color, shell.space
+    alpha = source["Alpha"]
+    pairs = tuple(batched(range(count), 2))
 
-    def spread(key: Key, channels: Mapping[str, Operand], size: End) -> tuple[Part, ...]:
-        return (
-            node(f"{key}_pack", bpy.types.CompositorNodeCombineColor, channels, {"mode": "RGB"}),
-            node(f"{key}_blur", bpy.types.CompositorNodeBlur, {"Image": End(node=f"{key}_pack", socket="Image"), "Size": size, "Type": "Fast Gaussian"}, {}),
-            node(key, bpy.types.CompositorNodeSeparateColor, {"Image": End(node=f"{key}_blur", socket="Image")}, {"mode": "RGB"}),
-        )
+    def blurred(channels: Expr, radius: float) -> Expr:
+        return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", channels), ("Size", pixels(frame, (radius, radius, 0.0), "VECTOR")), ("Type", "Fast Gaussian")), socket="Image", shape="RGBA")
 
-    return Fragment.joined(
-        nested("luminance", working, {"image": source}, "luminance"),
-        node("channels", bpy.types.CompositorNodeSeparateColor, {"Image": source}, {"mode": "RGB"}),
-        pixels("grid_size", frame, (LocalExposure.grid_radius, LocalExposure.grid_radius, 0.0), "VECTOR"),
-        pixels("frame_size", frame, (LocalExposure.blurred_radius, LocalExposure.blurred_radius, 0.0), "VECTOR"),
-        *(
-            part
-            for j, (a, b) in pairs
-            for part in spread(
-                f"grid_{j}", {"Red": End(node=f"moment_{a}"), "Green": End(node=f"mass_{a}"), "Blue": End(node=f"moment_{b}"), "Alpha": End(node=f"mass_{b}")}, End(node="grid_size", socket="Vector")
-            )
-        ),
-        *spread("frame", {"Red": End(node="weighted"), "Green": alpha}, End(node="frame_size", socket="Vector")),
-        node("gain", bpy.types.CompositorNodeExposure, {"Image": source, "Exposure": End(node="exponent")}, {}),
-        math("floor", "MAXIMUM", End(node="luminance", socket="luminance"), Samples.floor),
-        math("log", "LOGARITHM", End(node="floor"), 2.0),
-        math("weighted", "MULTIPLY", alpha, End(node="log")),
-        math("position", "MULTIPLY_ADD", End(node="log"), 1.0 / (high - low), low / (low - high), clamp=True),
-        *(
-            part
-            for k in range(count)
-            for part in (
-                math(f"offset_{k}", "MULTIPLY_ADD", End(node="position"), float(count - 1), float(-k)),
-                math(f"distance_{k}", "ABSOLUTE", End(node=f"offset_{k}")),
-                math(f"weight_{k}", "SUBTRACT", 1.0, End(node=f"distance_{k}"), clamp=True),
-                math(f"mass_{k}", "MULTIPLY", alpha, End(node=f"weight_{k}")),
-                math(f"moment_{k}", "MULTIPLY", End(node="weighted"), End(node=f"weight_{k}")),
-            )
-        ),
-        *(
-            math(f"{total}_{k}", "MULTIPLY_ADD", End(node=f"weight_{k}"), End(node=f"grid_{j}", socket=channel), End(node=f"{total}_{k - 1}") if k else 0.0)
-            for j, pair in pairs
-            for k, sides in zip(pair, (("Red", "Green"), ("Blue", "Alpha")))
-            for total, channel in zip(("numerator", "denominator"), sides)
-        ),
-        math("blurred", "DIVIDE", End(node="frame", socket="Red"), End(node="frame", socket="Green")),
-        math("sliced", "DIVIDE", End(node=f"numerator_{count - 1}"), End(node=f"denominator_{count - 1}")),
-        compared("covered", "GREATER_THAN", End(node=f"denominator_{count - 1}"), 0.0),
-        masked("bilateral", "FLOAT", End(node="covered", socket="Result"), End(node="blurred"), End(node="sliced")),
-        mixed("base", "FLOAT", LocalExposure.blurred_share, End(node="bilateral"), End(node="blurred")),
-        compared("above", "GREATER_THAN", base, grey),
-        masked("slope", "FLOAT", End(node="above", socket="Result"), shadows, highlights),
-        math("broad", "SUBTRACT", base, grey),
-        math("slope_less", "SUBTRACT", End(node="slope"), 1.0),
-        math("detail", "SUBTRACT", End(node="log"), base),
-        math("clarity_less", "SUBTRACT", clarity, 1.0),
-        math("detail_term", "MULTIPLY", End(node="detail"), End(node="clarity_less")),
-        math("exponent", "MULTIPLY_ADD", End(node="broad"), End(node="slope_less"), End(node="detail_term")),
-    ).map(ended("gain", "Image"))
+    def built(working: NodeGroup) -> Expr:
+        log = math("LOGARITHM", math("MAXIMUM", working.placed({COLOR_INPUT.key: source}, LUMINANCE.key), Samples.floor), 2.0)
+        weighted = alpha * log
+        position = math("MULTIPLY_ADD", log, 1.0 / (high - low), low / (low - high), clamp=True)
+        weights = tuple(math("SUBTRACT", 1.0, abs(math("MULTIPLY_ADD", position, float(count - 1), float(-index))), clamp=True) for index in range(count))
+        grids = tuple(blurred(rgba(weighted * weights[first], alpha * weights[first], weighted * weights[second], alpha * weights[second]), LocalExposure.grid_radius) for first, second in pairs)
+        sides: tuple[tuple[Component, Component], ...] = (("Red", "Green"), ("Blue", "Alpha"))
+        slices = tuple((weights[index], grid[moment], grid[mass]) for grid, pair in zip(grids, pairs) for index, (moment, mass) in zip(pair, sides))
+        first, *rest = slices
+
+        def totaled(side: int) -> Expr:
+            return functools.reduce(lambda total, held: math("MULTIPLY_ADD", held[0], held[side], total), rest, math("MULTIPLY_ADD", first[0], first[side], 0.0))
+
+        numerator, denominator = totaled(1), totaled(2)
+        spread = blurred(rgba(weighted, alpha, 0.0), LocalExposure.blurred_radius)
+        smooth = spread["Red"] / spread["Green"]
+        base = mixed(LocalExposure.blurred_share, where(denominator > 0.0, numerator / denominator, smooth), smooth)
+        exponent = math("MULTIPLY_ADD", base - grey, where(base > grey, highlights, shadows) - 1.0, (log - base) * (clarity - 1.0))
+        return Expr(kind=bpy.types.CompositorNodeExposure, inputs=(("Image", source), ("Exposure", exponent)), socket="Image", shape="RGBA")
+
+    return luminance(shell.config).map(built)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 exposure = ExposureEffect(record=Exposure, graph=exposed)
-local_exposure = CompositorEffect(
-    record=LocalExposure,
-    straight=True,
-    graph=lambda shell: paired(luminance(shell.config), framed("frame_space", shell.source, shell.aspect, shell.scale)).bind(
-        lambda pair: localized(shell.source, *pair, *(shell.socket(field) for field in LocalExposure.__struct_fields__))
-    ),
-)
+local_exposure = CompositorEffect(record=LocalExposure, alpha=Alpha.STRAIGHT, graph=localized)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

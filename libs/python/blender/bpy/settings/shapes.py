@@ -10,8 +10,8 @@ import msgspec
 import msgspec.inspect as native
 from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
-from blender.bpy.faults import BlenderReadFault, BlenderResult
-from blender.imaging.faults import accumulated
+from blender.bpy.faults import BlenderResult
+from blender.imaging.faults import Access, accumulated, ImagingFileFault
 from blender.imaging.parameters import Case, Choice, Gated, GraphForm, Knot, markers, Ramp, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -23,6 +23,7 @@ type Fields = tuple[tuple[msgspec.structs.FieldInfo, Declared], ...]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 ENABLED, VALUE = Gated.__struct_fields__
+EXPANDED = "show_expanded"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -155,7 +156,7 @@ def vector(kind: native.Type) -> bool:
 
 def refused[T](annotation: object, kind: object) -> BlenderResult[T]:
     """Returns read fault for annotation with no supported shape."""
-    return Error((BlenderReadFault(request=repr(annotation), error=TypeError(f"{annotation!r} has no supported field shape ({kind!r})")),))
+    return Error((ImagingFileFault(access=Access.READ, request=repr(annotation), error=TypeError(f"{annotation!r} has no supported field shape ({kind!r})")),))
 
 
 def inherited(annotation: object) -> tuple[object, ...]:
@@ -266,6 +267,7 @@ def field_shapes(record: Record) -> BlenderResult[Fields]:
 
 __all__ = [
     "ENABLED",
+    "EXPANDED",
     "VALUE",
     "Color",
     "Components",

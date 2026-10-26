@@ -41,35 +41,35 @@ public static class GrasshopperEvents {
         Subscriptions.Host<MouseDwellEventArgs>(typeof(FlexControl), h => control.MouseDwell += h, h => control.MouseDwell -= h);
 
     public static HostEvent<ControlDrawEventArgs> FlexControlDraw(FlexControl control) =>
-        Subscriptions.Host<ControlDrawEventArgs>(typeof(FlexControl), h => control.Draw += h, h => control.Draw -= h, nameof(FlexControl.Draw));
+        Subscriptions.During<ControlDrawEventArgs>(typeof(FlexControl), h => control.Draw += h, h => control.Draw -= h, nameof(FlexControl.Draw));
 
     public static HostEvent<PopulateContextMenuEventArgs> PopulateContextMenu(FlexControl control) =>
-        Subscriptions.Host<PopulateContextMenuEventArgs>(typeof(FlexControl), h => control.PopulateContextMenu += h, h => control.PopulateContextMenu -= h);
+        Subscriptions.During<PopulateContextMenuEventArgs>(typeof(FlexControl), h => control.PopulateContextMenu += h, h => control.PopulateContextMenu -= h);
 
     // --- [PAINT]
     public static HostEvent<CanvasBackgroundPaintEventArgs> BeforePaintBackground(Canvas canvas) =>
-        Subscriptions.Host<CanvasBackgroundPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintBackground += h, h => canvas.BeforePaintBackground -= h);
+        Subscriptions.During<CanvasBackgroundPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintBackground += h, h => canvas.BeforePaintBackground -= h);
 
     public static HostEvent<CanvasPaintEventArgs> AfterPaintBackground(Canvas canvas) =>
-        Subscriptions.Host<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintBackground += h, h => canvas.AfterPaintBackground -= h);
+        Subscriptions.During<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintBackground += h, h => canvas.AfterPaintBackground -= h);
 
     public static HostEvent<CanvasPaintEventArgs> BeforePaintGroups(Canvas canvas) =>
-        Subscriptions.Host<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintGroups += h, h => canvas.BeforePaintGroups -= h);
+        Subscriptions.During<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintGroups += h, h => canvas.BeforePaintGroups -= h);
 
     public static HostEvent<CanvasPaintEventArgs> AfterPaintGroups(Canvas canvas) =>
-        Subscriptions.Host<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintGroups += h, h => canvas.AfterPaintGroups -= h);
+        Subscriptions.During<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintGroups += h, h => canvas.AfterPaintGroups -= h);
 
     public static HostEvent<CanvasPaintEventArgs> BeforePaintWires(Canvas canvas) =>
-        Subscriptions.Host<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintWires += h, h => canvas.BeforePaintWires -= h);
+        Subscriptions.During<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintWires += h, h => canvas.BeforePaintWires -= h);
 
     public static HostEvent<CanvasPaintEventArgs> AfterPaintWires(Canvas canvas) =>
-        Subscriptions.Host<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintWires += h, h => canvas.AfterPaintWires -= h);
+        Subscriptions.During<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintWires += h, h => canvas.AfterPaintWires -= h);
 
     public static HostEvent<CanvasPaintEventArgs> BeforePaintObjects(Canvas canvas) =>
-        Subscriptions.Host<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintObjects += h, h => canvas.BeforePaintObjects -= h);
+        Subscriptions.During<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.BeforePaintObjects += h, h => canvas.BeforePaintObjects -= h);
 
     public static HostEvent<CanvasPaintEventArgs> AfterPaintObjects(Canvas canvas) =>
-        Subscriptions.Host<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintObjects += h, h => canvas.AfterPaintObjects -= h);
+        Subscriptions.During<CanvasPaintEventArgs>(typeof(Canvas), h => canvas.AfterPaintObjects += h, h => canvas.AfterPaintObjects -= h);
 
     // --- [DOCUMENTS]
     public static HostEvent<DocumentModifiedEventArgs> ModifiedChanged(Document document) =>

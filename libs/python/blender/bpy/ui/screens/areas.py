@@ -1,19 +1,19 @@
-"""Editor queries, area contexts, and reversible screen arrangements."""
+"""Editor queries, area contexts, and screen arrangements settled one host pass per step."""
 
-from collections.abc import Iterable, Mapping
-from contextlib import ExitStack
-from enum import auto, Enum
-from typing import Annotated, Literal, Self, TYPE_CHECKING
+from collections.abc import Callable, Generator, Iterable, Mapping
+from contextlib import contextmanager
+from typing import Annotated, Final, Literal, Protocol, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.commands.calls import called, Operation
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import rooted, written
 from blender.bpy.extension.identity import Identity
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.extension.scoped import Scoped
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.ui.screens.editors import EditorState
 from blender.imaging.faults import accumulated, paired
 
@@ -22,58 +22,17 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Step = Split | Retype
+
+class Pending(Protocol):
+    """Request the host applies over later passes."""
+
+    def advanced(self) -> BlenderResult[Option[Self]]:
+        """Applies one step, returning the request left to apply, Nothing once settled."""
+        ...
 
 
-class ScreenSide(Enum):
-    """Edge an arrangement places an editor or flips a region to."""
-
-    LEFT = auto()
-    RIGHT = auto()
-    TOP = auto()
-    BOTTOM = auto()
-
-    @property
-    def opposite(self) -> "ScreenSide":
-        """Opposite edge."""
-        match self:
-            case ScreenSide.LEFT:
-                return self.RIGHT
-            case ScreenSide.RIGHT:
-                return self.LEFT
-            case ScreenSide.TOP:
-                return self.BOTTOM
-            case ScreenSide.BOTTOM:
-                return self.TOP
-
-    @property
-    def direction(self) -> Literal["HORIZONTAL", "VERTICAL"]:
-        """`screen.area_split` direction."""
-        return "HORIZONTAL" if self in {self.TOP, self.BOTTOM} else "VERTICAL"
-
-    @property
-    def far(self) -> bool:
-        """Whether edge ends split axis."""
-        return self in {self.TOP, self.RIGHT}
-
-
-class Fullscreen(Enum):
-    """`screen.screen_full_area` modes."""
-
-    MAXIMIZED = auto()
-    FOCUS = auto()
-
-
-class NewWindow(Enum):
-    """Temporary editor windows, the render view where render display preference places it, and area duplicate."""
-
-    PREFERENCES = auto()
-    INFO = auto()
-    DRIVERS = auto()
-    PROJECT = auto()
-    RENDER = auto()
-    DUPLICATE = auto()
-
+type Edge = Literal["LEFT", "RIGHT", "TOP", "BOTTOM"]
+type Step = Split | Retype | EditorState | Arrangement
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -137,161 +96,154 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Split(msgspec.Struct, frozen=True, kw_only=True):
-    """Editor split off at edge, under half of source span."""
+    """Editor split off at an edge, under half of the source span, its state applied on the next pass."""
 
-    side: ScreenSide
+    side: Edge
     share: Annotated[float, msgspec.Meta(gt=0.0, lt=0.5)]
     ui_type: str
     state: EditorState = EditorState()
 
 
 class Retype(msgspec.Struct, frozen=True, kw_only=True):
-    """Temporary editor type change."""
+    """Editor type change, its state applied on the next pass."""
 
     ui_type: str
     state: EditorState = EditorState()
 
 
-class _ArrangedArea(msgspec.Struct, kw_only=True):
-    """Arranged area with prior type and values to restore first."""
-
-    area: int
-    prior: Option[str]
-    restore: EditorState = EditorState()
-
-
 class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
-    """Splits and retypes, then maximization."""
+    """Steps applied to one area one host pass apart, then an optional maximization, holding the writes that revert each."""
 
-    steps: tuple[Step, ...]
-    full: Option[Fullscreen] = Nothing
+    at: Located
+    steps: tuple[Step, ...] = ()
+    use_hide_panels: Option[bool] = Nothing
+    undo: tuple[Callable[[], BlenderResult[None]], ...] = ()
 
-    def applied(self, located: Located) -> BlenderResult["AppliedArrangement"]:
-        """Starts arrangement, undoing finished steps on refusal."""
-        return AppliedArrangement(located, self).started()
+    def advanced(self) -> BlenderResult[Option[Self]]:
+        """Applies the next step on the live area, Nothing once every step and the maximization applied."""
+        return Result[Located, BlenderFaults].bind(
+            Located.found(self.at.window, self.at.area.as_pointer()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.at.window.screen), key=self.at.area.as_pointer()),)), self.stepped
+        )
+
+    def stepped(self, at: Located) -> BlenderResult[Option[Self]]:
+        """Applies the head step, a retype or split leaving its state as the next step and a nested arrangement merging its reverts once settled."""
+        window = at.window
+
+        def kept(undo: Callable[[], BlenderResult[None]], *following: Step) -> Option[Self]:
+            return Some(msgspec.structs.replace(self, steps=(*following, *self.steps[1:]), undo=(*self.undo, undo)))
+
+        def reached(pointer: int, revert: Callable[[Located], BlenderResult[None]]) -> Callable[[], BlenderResult[None]]:
+            return lambda: Located.found(window, pointer).map(revert).default_value(Ok(None))
+
+        def following(state: EditorState) -> tuple[EditorState, ...]:
+            return (state,) if state.values else ()
+
+        match self.steps:
+            case (EditorState() as state, *_):
+                return state.applied(at.area).map(
+                    lambda prior: prior.map(lambda held: kept(reached(at.area.as_pointer(), lambda live: held.applied(live.area).map(lambda _: None)))).default_value(Some(self))
+                )
+            case (Retype(ui_type=ui_type, state=state), *_):
+                prior = at.area.ui_type
+                return written(at.area, "ui_type", ui_type).map(lambda _: kept(reached(at.area.as_pointer(), lambda live: written(live.area, "ui_type", prior).map(lambda _: None)), *following(state)))
+            case (Split(side=side, share=share, ui_type=ui_type, state=state), *_):
+                before = frozenset(area.as_pointer() for area in window.screen.areas)
+                return (
+                    at
+                    .run(bpy.ops.screen.area_split, {"direction": "HORIZONTAL" if side in {"TOP", "BOTTOM"} else "VERTICAL", "factor": 1.0 - share if side in {"TOP", "RIGHT"} else share})
+                    .bind(
+                        lambda _: Option.of_optional(next((area for area in window.screen.areas if area.as_pointer() not in before), None)).to_result_with(
+                            lambda: (BlenderAbsentFault(owner=repr(window.screen), key="screen.area_split"),)
+                        )
+                    )
+                    .bind(
+                        lambda area: written(area, "ui_type", ui_type).map(
+                            lambda _: kept(
+                                reached(area.as_pointer(), lambda live: live.run(bpy.ops.screen.area_close, {})),
+                                *((Arrangement(at=Located(window=window, area=area), steps=(state,)),) if state.values else ()),
+                            )
+                        )
+                    )
+                )
+            case (Arrangement() as nested, *rest):
+                return nested.advanced().bind(
+                    lambda moved: moved.map(lambda held: Ok(Some(msgspec.structs.replace(self, steps=(held, *rest))))).default_with(
+                        lambda: msgspec.structs.replace(self, steps=tuple(rest), undo=(*self.undo, *nested.undo)).stepped(at)
+                    )
+                )
+            case _:
+                return self.use_hide_panels.map(
+                    lambda hidden: at.run(bpy.ops.screen.screen_full_area, {"use_hide_panels": hidden}).map(
+                        lambda _: Some(
+                            msgspec.structs.replace(
+                                self,
+                                use_hide_panels=Nothing,
+                                undo=(*self.undo, lambda: called(bpy.ops.screen.back_to_previous, {}, override=Some(bpy.context.temp_override(window=window))).map(lambda _: None)),
+                            )
+                        )
+                    )
+                ).default_value(Ok(Nothing))
+
+    def reverted(self) -> BlenderResult[None]:
+        """Reverts applied steps in reverse order, accumulating refusals."""
+        return accumulated(undo() for undo in reversed(self.undo)).map(lambda _: None)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class AppliedArrangement:
-    """Running arrangement with one release stack."""
+class Settling(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Requests of one extension advancing one step per host pass on one main-loop timer."""
 
-    def __init__(self, located: Located, arrangement: Arrangement) -> None:
-        """Holds pending steps and releases."""
-        self.window = located.window
-        self.area = located.area.as_pointer()
-        self.steps = arrangement.steps
-        self.full = arrangement.full
-        self.waiting: Option[tuple[_ArrangedArea, EditorState]] = Nothing
-        self.releases = ExitStack()
-        self.results: list[BlenderResult[None]] = []
+    pending: list[Pending]
+    ticked: Callable[[], float | None]
 
-    def started(self) -> BlenderResult[Self]:
-        """Applies first step, undoing finished steps on refusal."""
-        return self.advanced().map(lambda _: self).or_else_with(lambda faults: accumulated((Error(faults), self.released())).map(lambda _: self))
+    @classmethod
+    @contextmanager
+    def opened(cls, identity: Identity) -> Generator[Self]:
+        """Holds the request list and its timer until scope exit.
 
-    def advanced(self) -> BlenderResult[Option[Self]]:
-        """Applies one step per host pass once editor state applies."""
-        for placed, state in self.waiting.to_list():
-            match Located.found(self.window, placed.area).map(lambda located: state.applied(located.area)):
-                case Option(tag="some", some=Result(tag="error", error=faults)):
-                    return Error(faults)
-                case Option(tag="some", some=Result(ok=Option(tag="none"))):
-                    return Ok(Some(self))
-                case Option(tag="some", some=Result(ok=Option(some=restore))):
-                    placed.restore = restore
-                    self.waiting = Nothing
-                case _:
-                    self.waiting = Nothing
+        Args:
+            identity: Extension with reports holding step faults.
 
-        def undone(placed: _ArrangedArea) -> BlenderResult[None]:
-            """Restores retyped area or closes split area."""
+        Yields:
+            Settling whose timer advances every request each pass, waiting while the interface is locked.
+        """
+        pending: list[Pending] = []
 
-            def restored(at: Located) -> BlenderResult[None]:
-                """Restores editor type even when state restore fails."""
-                return placed.prior.map(lambda ui_type: accumulated((placed.restore.applied(at.area).map(lambda _: None), written(at.area, "ui_type", ui_type))).map(lambda _: None)).default_with(
-                    lambda: at.run(bpy.ops.screen.area_close, {})
-                )
+        def advanced(request: Pending) -> BlenderResult[Option[Pending]]:
+            return request.advanced()
 
-            return Located.found(self.window, placed.area).map(restored).default_value(Ok(None))
+        advance = identity.reports.reported(advanced)
 
-        def entered(at: Located, prior: Option[str], ui_type: str, state: EditorState) -> BlenderResult[None]:
-            """Registers release, then retypes, deferring editor state to next pass."""
-            placed = _ArrangedArea(area=at.area.as_pointer(), prior=prior)
-            self.releases.callback(lambda: self.results.append(undone(placed)))
-            self.waiting = Some((placed, state))
-            return written(at.area, "ui_type", ui_type).map(lambda _: None)
+        def ticked() -> float | None:
+            if Option.of_optional(bpy.context.window_manager).map(lambda manager: manager.is_interface_locked).default_value(False):
+                return 0.0
+            pending[:] = [later for request in tuple(pending) for later in advance(request).bind(lambda held: held).to_list()]
+            return 0.0 if pending else None
 
-        def stepped(at: Located, step: Step) -> BlenderResult[None]:
-            """Splits or retypes source area."""
-            match step:
-                case Split(side=side, share=share, ui_type=ui_type, state=state):
-                    before = frozenset(area.as_pointer() for area in self.window.screen.areas)
-                    return (
-                        at
-                        .run(bpy.ops.screen.area_split, {"direction": side.direction, "factor": 1.0 - share if side.far else share})
-                        .bind(
-                            lambda _: Option.of_optional(next((area for area in self.window.screen.areas if area.as_pointer() not in before), None)).to_result_with(
-                                lambda: (BlenderAbsentFault(owner=repr(self.window.screen), key="screen.area_split"),)
-                            )
-                        )
-                        .bind(lambda area: entered(Located(window=self.window, area=area), Nothing, ui_type, state))
-                    )
-                case Retype(ui_type=ui_type, state=state):
-                    return entered(at, Some(at.area.ui_type), ui_type, state)
+        try:
+            yield cls(pending=pending, ticked=ticked)
+        finally:
+            pending.clear()
+            if bpy.app.timers.is_registered(ticked):
+                bpy.app.timers.unregister(ticked)
 
-        match Located.found(self.window, self.area):
-            case Option(tag="none"):
-                return Error((BlenderAbsentFault(owner=repr(self.window.screen), key=self.area),))
-            case Option(some=at) if self.steps:
-                step, *remaining = self.steps
+    def settled(self, request: Pending) -> BlenderResult[None]:
+        """Applies the request's first step now, leaving the rest to later passes."""
 
-                def held(_: None) -> Option[Self]:
-                    """Drops finished step, waiting for next layout pass."""
-                    self.steps = tuple(remaining)
-                    return Some(self)
+        def queued(later: Option[Pending]) -> None:
+            self.pending.extend(later.to_list())
+            if self.pending and not bpy.app.timers.is_registered(self.ticked):
+                bpy.app.timers.register(self.ticked)
 
-                return stepped(at, step).map(held)
-            case Option(some=at):
-                match self.full.map(lambda full: at.run(bpy.ops.screen.screen_full_area, {"use_hide_panels": full is Fullscreen.FOCUS})):
-                    case Option(tag="none"):
-                        return Ok(Nothing)
-                    case Option(some=Result(tag="error", error=faults)):
-                        return Error(faults)
-                    case _:
-                        self.releases.callback(
-                            lambda: self.results.append(called(bpy.ops.screen.back_to_previous, {}, override=Some(bpy.context.temp_override(window=self.window))).map(lambda _: None))
-                        )
-                        self.full = Nothing
-                        return Ok(Nothing)
-
-    def released(self) -> BlenderResult[None]:
-        """Releases in reverse order."""
-        self.releases.close()
-        return accumulated(self.results).map(lambda _: None)
+        return request.advanced().map(queued)
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
-
-def windowed(window: NewWindow, located: Located, identity: Identity) -> BlenderResult[None]:
-    """Opens editor window."""
-    match window:
-        case NewWindow.PREFERENCES:
-            return located.run(bpy.ops.preferences.addon_show, {"module": identity.package})
-        case NewWindow.INFO:
-            return located.run(bpy.ops.screen.info_log_show, {})
-        case NewWindow.DRIVERS:
-            return located.run(bpy.ops.screen.drivers_editor_show, {})
-        case NewWindow.PROJECT:
-            return located.run(bpy.ops.screen.project_setup_show, {})  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        case NewWindow.RENDER:
-            return located.run(bpy.ops.render.view_show, {}, context="INVOKE_DEFAULT")
-        case NewWindow.DUPLICATE:
-            return located.run(bpy.ops.screen.area_dupli, {}, context="INVOKE_DEFAULT")
-
+SETTLING: Final = Scoped[Settling](made=Settling.opened)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AppliedArrangement", "AreaQuery", "Arrangement", "Fullscreen", "Located", "NewWindow", "Retype", "ScreenSide", "Split", "Step", "windowed"]
+__all__ = ["SETTLING", "AreaQuery", "Arrangement", "Edge", "Located", "Pending", "Retype", "Settling", "Split", "Step"]

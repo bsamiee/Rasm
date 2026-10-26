@@ -108,14 +108,14 @@ public sealed record LightingState(bool SkylightEnabled, bool SkylightingOverrid
     public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => EventKind.SkylightChanged;
 
     public static IO<LightingState> Read(RenderSettingsScope scope) =>
-        RenderSettingsSources.SubOwner(scope, static settings => settings.Skylight, skylight => IO.lift(() => new LightingState(
+        DisposalOps.Within(() => scope.Settings.Skylight, skylight => IO.lift(() => new LightingState(
             skylight.Enabled,
             scope.Settings.RenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting),
             Conversions.Present(scope.Settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, RenderSettings.EnvironmentPurpose.Standard)))));
 
     public static IO<LightingState> Write(RenderSettingsScope scope, LightingState state) =>
         IO.pure(state with { SkylightingEnvironment = state.SkylightingEnvironment.Bind(Conversions.Present) })
-            .Bind(accepted => RenderSettingsSources.SubOwner(scope, static settings => settings.Skylight, skylight => IO.lift(() => {
+            .Bind(accepted => DisposalOps.Within(() => scope.Settings.Skylight, skylight => IO.lift(() => {
                 skylight.Enabled = accepted.SkylightEnabled;
                 scope.Settings.SetRenderEnvironmentOverride(RenderSettings.EnvironmentUsage.Skylighting, accepted.SkylightingOverride);
                 scope.Settings.SetRenderEnvironmentId(RenderSettings.EnvironmentUsage.Skylighting, Conversions.Unset(accepted.SkylightingEnvironment));
@@ -149,17 +149,6 @@ public sealed partial class LightingParameter : IStateParameter<LightingState> {
     public ParameterText Text { get; }
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class IntensityParameter {
-    public static readonly IntensityParameter Intensity = new("intensity");
-    public static readonly IntensityParameter Multiplier = new("multiplier");
-    public static readonly IntensityParameter AdjustMultiplier = new("rdk-texture-adjust-multiplier");
-}
-
-public sealed record PhysicalSky(string Name, bool UseDocumentSun, SkylightIntensity Intensity);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
 internal static partial class BackgroundMapper {
@@ -177,7 +166,7 @@ public static class Environments {
     // --- [INTENSITY]
     public static IO<Option<SkylightIntensity>> Intensity(RenderEnvironment lighting) =>
         IO.lift(() => Optional(lighting.FirstChild))
-            .Bind(static child => child.Match(Some: Held, None: static () => IO.pure(Option<(IntensityParameter Parameter, double Gain)>.None)))
+            .Bind(static child => child.Match(Some: Held, None: static () => IO.pure(Option<(string Parameter, double Gain)>.None)))
             .Bind(static held => IO.lift(held.Traverse(static found => SkylightIntensity.Validated(found.Gain)).As()));
 
     public static IO<Unit> SetIntensity(RenderEnvironment lighting, SkylightIntensity intensity) =>
@@ -185,30 +174,30 @@ public static class Environments {
         from written in Contents.WithinContentChange(texture, RenderContent.ChangeContexts.Program, Gain(texture, intensity))
         select written;
 
-    private static IO<Option<(IntensityParameter Parameter, double Gain)>> Held(RenderContent texture) =>
-        toSeq(IntensityParameter.Items)
-            .TraverseM(parameter => ContentFields.GetParameter(texture, parameter.Key, value => Conversions.Typed<double>(value, parameter.Key))
+    private static IO<Option<(string Parameter, double Gain)>> Held(RenderContent texture) =>
+        Seq("intensity", "multiplier", "rdk-texture-adjust-multiplier")
+            .TraverseM(parameter => ContentFields.GetParameter(texture, parameter, value => Conversions.Typed<double>(value, parameter))
                 .Map(gain => gain.Map(held => (Parameter: parameter, Gain: held))))
             .As()
             .Map(static found => found.Somes().Head);
 
     private static IO<Unit> Gain(RenderContent texture, SkylightIntensity intensity) =>
         from held in Held(texture).Bind(static found => IO.lift(found.ToFin(new Refused(nameof(RenderContent.GetParameter), Refused.Absent))))
-        from written in ContentFields.SetParameter(texture, held.Parameter.Key, (double)intensity)
+        from written in ContentFields.SetParameter(texture, held.Parameter, (double)intensity)
         select written;
 
     // --- [PHYSICAL_SKY]
-    public static IO<Guid> AddPhysicalSky(RhinoDoc doc, PhysicalSky sky) =>
+    public static IO<Guid> AddPhysicalSky(RhinoDoc doc, string name, bool useDocumentSun, SkylightIntensity intensity) =>
         DisposalOps.Within<IDisposable, Guid>(retain =>
             from created in Contents.FreeFloating(doc, ContentUuids.BasicEnvironmentType, retain)
             from environment in IO.lift(Conversions.Cast<RenderEnvironment>(created.Content))
             from slot in IO.lift(() => environment.TextureChildSlotName)
             from applied in Contents.Apply(doc, environment, RenderContent.ChangeContexts.Program, [
-                new ContentEdit.SetName(sky.Name, RenameEvents: false, EnsureNameUnique: false),
+                new ContentEdit.Set((content, _) => content.SetName(name, renameEvents: false, ensureNameUnique: false)),
                 new ContentEdit.SetChild(ContentUuids.PhysicalSkyTextureType, slot)])
             from texture in IO.lift(() => Optional(environment.FindChild(slot)).ToFin(new NotFound("child content", $"slot {slot} of {environment.Id}")))
             from configured in Contents.WithinContentChange(texture, RenderContent.ChangeContexts.Program,
-                ContentFields.SetParameter(texture, "use-document-sun", sky.UseDocumentSun).Bind(_ => Gain(texture, sky.Intensity)))
+                ContentFields.SetParameter(texture, "use-document-sun", useDocumentSun).Bind(_ => Gain(texture, intensity)))
             from attached in Contents.Attach(doc, created)
             select environment.Id, DisposalOps.Release);
 }

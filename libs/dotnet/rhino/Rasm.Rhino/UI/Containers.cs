@@ -93,7 +93,7 @@ public abstract partial record ContainerRow {
 public static class Containers {
     // --- [FRAMES]
     public static IO<T> Frame<T>(Func<T> create, Action<IDisposable> retain) where T : Container =>
-        DisposalOps.Acquire(IO.lift(create), Emptied, held => retain(new Disposal<T>(held, static frame => Emptied(frame).Run())));
+        DisposalOps.Acquire(IO.lift(create), Emptied, retain);
 
     private static IO<Unit> Emptied(Container frame) =>
         Callbacks.Each(Seq(IO.lift(frame is StackLayout stack ? stack.Items.Clear : frame.RemoveAll), IO.lift(frame.Dispose))).Map(unit);
@@ -130,7 +130,7 @@ public static class Containers {
         from pages in toSeq(tabs.Pages).TraverseM(page =>
             from tab in DisposalOps.Acquire(IO.lift(static () => new TabPage()), retain)
             from body in ViewOps.Realize(owner, toSeq(page.Body), scope, retain)
-            from seated in IO.lift(() => { tab.Text = Wording.English.Shown(page.Caption, scope.Sink); tab.Content = body; control.Pages.Add(tab); })
+            from seated in IO.lift(() => { tab.Text = RowText.Localize(page.Caption, scope.Sink).Local; tab.Content = body; control.Pages.Add(tab); })
             select unit).As()
         from selected in Subscriptions.Attach(
             handler => control.SelectedIndexChanged += handler, handler => control.SelectedIndexChanged -= handler,

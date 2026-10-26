@@ -1,4 +1,5 @@
 using LanguageExt.ClassInstances;
+using Rasm.Rhino.Document;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.Viewport;
@@ -14,23 +15,17 @@ public static class UserTexts {
         where TRaw : notnull =>
         ValueStore.Of(
             from text in target.Case is ViewportTarget readTarget
-                ? DisposalOps.Within<IDisposable, Option<string>>(retain =>
-                    from row in Viewports.ResolveViewport(doc, readTarget, retain)
-                    from found in IO.lift(() => Conversions.Present(row.Viewport.GetUserString(address.Text)))
-                    select found, DisposalOps.Release)
+                ? Viewports.With(doc, readTarget, row => IO.lift(() => Conversions.Present(row.Viewport.GetUserString(address.Text))))
                 : UserStrings.Value(doc, address)
             from value in IO.lift(text.Traverse(key.Read).As())
             select value,
             value => value.Map(key.Text) switch {
                 var text => target.Case is ViewportTarget writeTarget
-                    ? DisposalOps.Within<IDisposable, Unit>(retain =>
-                        from row in Viewports.ResolveViewport(doc, writeTarget, retain)
-                        from written in UserStrings.Write(row.Viewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((address.Text, text))))
-                        from committed in IO.lift(row.CommitViewportChanges)
-                        from marked in IO.lift(() => { doc.Modified = true; })
-                        select marked, DisposalOps.Release)
+                    ? Viewports.Edit(doc, new ViewportSet.One(writeTarget),
+                            port => UserStrings.Write(port, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((address.Text, text)))), new RedrawPolicy.Silent())
+                        .Bind(_ => IO.lift(() => { doc.Modified = true; }))
                     : UserStrings.Write(doc, address, text).Map(static _ => unit),
             },
             Applied.Live,
-            target.IsNone ? Some(EventKind.UserStringChanged.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit))) : None);
+            Some(target.Match(Some: held => Viewports.Changed(doc, held), None: () => EventKind.UserStringChanged.In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit)))));
 }

@@ -231,7 +231,13 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
     public override string LocalPageTitle => RowText.Localize(row.Caption, IPlugInSink.Of(this)).Local;
 
     public override System.Drawing.Image? PageImage =>
-        Callbacks.Answer(IO.lift(System.Drawing.Image? () => IPlugInViews.Of(this).PlugIn.Icon(new(128, 128))), static () => null, CallbackSite.Of(this));
+        Callbacks.Answer(
+            new System.Drawing.Size(128, 128) switch {
+                var size => row.Icon.Match(
+                    Some: glyph => Icons.Raster(glyph, size).Map(static System.Drawing.Image? (bitmap) => bitmap),
+                    None: () => IO.lift(System.Drawing.Image? () => IPlugInViews.Of(this).PlugIn.Icon(size))),
+            },
+            static () => null, CallbackSite.Of(this));
 
     public override object? PageControl => Realized.Map(static object (held) => held.Frame).ValueUnsafe();
 
@@ -300,31 +306,38 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
 
     public override string LocalPageTitle => RowText.Localize(row.Caption, IPlugInSink.Of(this)).Local;
 
-    public override PropertyPageType PageType => row.PageType.IfNone(() => base.PageType);
+    public override PropertyPageType PageType => row.Subject.Switch(() => base.PageType, objects: static (fallback, held) => held.PageType.IfNone(fallback), viewport: static (_, _) => PropertyPageType.View);
 
-    public override ObjectType SupportedTypes => row.SupportedTypes.IfNone(() => base.SupportedTypes);
+    public override ObjectType SupportedTypes => ObjectSubject.Bind(static held => held.SupportedTypes).IfNone(() => base.SupportedTypes);
 
-    public override bool AllObjectsMustBeSupported => row.AllObjectsMustBeSupported.IfNone(() => base.AllObjectsMustBeSupported);
+    public override bool AllObjectsMustBeSupported => ObjectSubject.Bind(static held => held.AllObjectsMustBeSupported).IfNone(() => base.AllObjectsMustBeSupported);
 
-    public override bool SupportsSubObjects => row.SupportsSubObjects.IfNone(() => base.SupportsSubObjects);
+    public override bool SupportsSubObjects => ObjectSubject.Bind(static held => held.SupportsSubObjects).IfNone(() => base.SupportsSubObjects);
 
     public override int Index => row.Index.IfNone(() => base.Index);
 
-    public override string PageIconEmbeddedResourceString => Conversions.Unset(row.Icon.Map(static glyph => glyph.Key));
+    public override string? PageIconEmbeddedResourceString =>
+        row.Icon.Filter(glyph => glyph.Assets.Assembly == GetType().Assembly).Map(static glyph => glyph.Key).ValueUnsafe();
 
     public override System.Drawing.Icon? PageIcon(System.Drawing.Size sizeInPixels) =>
         Callbacks.Answer(row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, sizeInPixels)).As(),
             static () => Option<System.Drawing.Icon>.None, CallbackSite.Of(this)).ValueUnsafe();
 
-    public override object? PageControl => Realized.Map(static object (held) => held.Host).ValueUnsafe();
+    public override object? PageControl => page.Value.Map(static object (held) => held.Host).ValueUnsafe();
 
-    private bool ViewPage => row.PageType.Exists(static type => type is PropertyPageType.View);
+    private Option<PageSubject.Objects> ObjectSubject =>
+        row.Subject.Switch(objects: static held => Some(held), viewport: static _ => Option<PageSubject.Objects>.None);
 
     // --- [EDGES]
     public override bool ShouldDisplay(ObjectPropertiesPageEventArgs e) =>
         Callbacks.Answer(
-            from included in IO.lift(() => ViewPage ? e.View is not null : base.ShouldDisplay(e))
-            from shown in included && row.Visible.IsSome ? Realized.Match(Some: held => RowRules.Holds(row.Visible, held.Body.Scope), None: static () => IO.pure(value: false)) : IO.pure(included)
+            from included in IO.lift(() => row.Subject.Switch(
+                (Args: e, Objects: (Func<ObjectPropertiesPageEventArgs, bool>)base.ShouldDisplay),
+                objects: static (state, _) => state.Objects(state.Args),
+                viewport: static (state, held) => Optional(state.Args.Viewport).Exists(port => held.ViewportTypes.Contains(port.ViewportType))))
+            from shown in included
+                ? RowScope.Open(IPlugInSink.Of(this), Optional(e.Document), new CommitMode.Targets(this)).Bind(scope => RowRules.Holds(row.Visible, scope))
+                : IO.pure(value: false)
             select shown,
             static () => false,
             CallbackSite.Of(this));
@@ -341,9 +354,9 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
     public override Result RunScript(ObjectPropertiesPageEventArgs e) =>
         Callbacks.Answer(
             Conversions.ToResult(
-                from held in IO.lift(() => Realized.ToFin(new Refused(nameof(PageControl), Refused.Absent)))
                 from document in IO.lift(() => Refused.UnlessFound(e.Document, nameof(ObjectPropertiesPageEventArgs.Document)))
-                from scripted in Showing.RunScript(IPlugInViews.Of(this), row, held.Body.Scope, document)
+                from scope in RowScope.Open(IPlugInSink.Of(this), Some(document), new CommitMode.Targets(this))
+                from scripted in Showing.RunScript(IPlugInViews.Of(this), row, scope, document)
                 select scripted),
             static () => Result.Failure,
             CallbackSite.Of(this));
@@ -360,17 +373,20 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
                 select published,
                 IO.lift(host.Dispose))
             select realized,
-            static () => Option<(ViewBody Body, Control Host)>.None, CallbackSite.Of(this, nameof(PageControl)));
+            static () => Option<(ViewBody Body, Control Host)>.None, CallbackSite.Of(this, nameof(OnActivate)));
 
     private Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>> Refreshing =>
-        ViewPage
-            ? Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>>.None
-            : Some<Func<ViewBody, Action<IDisposable>, IO<Unit>>>(static (body, retain) =>
+        row.Subject.Switch(
+            this,
+            objects: static (owner, _) => Some<Func<ViewBody, Action<IDisposable>, IO<Unit>>>((body, retain) =>
                 body.Scope.Document.ToSeq()
                     .Bind(static document => Seq(
-                        EventKind.ModifyObjectAttributes.In(document.RuntimeSerialNumber).Choose(static _ => Some((unit, unit))),
-                        EventKind.ReplaceRhinoObject.In(document.RuntimeSerialNumber).Choose(static _ => Some((unit, unit)))))
-                    .TraverseM(signal => signal.Through(Subscriptions.Idle<Unit, Unit>(_ => body.Reread), body.Scope.Sink, retain)).As().Map(unit));
+                        EventKind.ModifyObjectAttributes.In(document.RuntimeSerialNumber).Choose(static args => Some((args.RhinoObject.Id, unit))),
+                        EventKind.ReplaceRhinoObject.In(document.RuntimeSerialNumber).Choose(static args => Some((args.ObjectId, unit)))))
+                    .TraverseM(signal => signal.Through(Subscriptions.Idle<Guid, Unit>(changed =>
+                        IO.lift(() => toHashSet(Conversions.Rows(new ObjectPropertiesPageEventArgs(owner).Objects).Map(static target => target.Id)))
+                            .Bind(selected => when(changed.Keys.Exists(selected.Contains), body.Reread).As())), body.Scope.Sink, retain)).As().Map(unit)),
+            viewport: static (_, _) => Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>>.None);
 }
 
 public abstract class DefinedTab(View.Tab row) : ViewPanel(row, Optional(RhinoDoc.ActiveDoc)) {

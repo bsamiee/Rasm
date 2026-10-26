@@ -10,10 +10,10 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, member
-from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult, BlenderWriteFault
+from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.files.blends import folder_made, sourced
-from blender.imaging.faults import accumulated
+from blender.imaging.faults import Access, accumulated, ImagingFileFault
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -141,11 +141,10 @@ class Stale(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def read(cls) -> Self:
         """Returns resync-flagged libraries and `OVERRIDE_RESYNC_LEFTOVERS` objects."""
+        leftovers: bpy.types.Collection | None = bpy.data.collections.get("OVERRIDE_RESYNC_LEFTOVERS")
         return cls(
             libraries=tuple(Handle.of(library) for library in bpy.data.libraries if library.needs_liboverride_resync),
-            leftovers=catch(lambda: bpy.data.collections["OVERRIDE_RESYNC_LEFTOVERS"].all_objects, exception=KeyError)()
-            .map(lambda objects: tuple(Handle.of(block) for block in objects))
-            .default_value(()),
+            leftovers=tuple(Handle.of(block) for held in Option.of_optional(leftovers).to_list() for block in held.all_objects),
         )
 
 
@@ -156,8 +155,12 @@ class Stale(msgspec.Struct, frozen=True, kw_only=True):
 
 def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> BlenderResult[tuple[str, Sequence[str]]]:
     store = member(kind)
-    faults = (BlenderAbsentFault(owner=str(path), key=store),)
-    return Error(faults) if issubclass(kind, bpy.types.Library) else catch(lambda: (store, getattr(source, store)), exception=AttributeError)().map_error(lambda _: faults)
+    return (
+        Option
+        .of_optional(None if issubclass(kind, bpy.types.Library) else getattr(source, store, None))
+        .map(lambda names: (store, names))
+        .to_result_with(lambda: (BlenderAbsentFault(owner=str(path), key=store),))
+    )
 
 
 def listed(path: Path, kind: type[bpy.types.ID], *, assets_only: bool = False) -> BlenderResult[tuple[str, ...]]:
@@ -197,7 +200,7 @@ def library_written(
         lambda _: (
             catch(lambda: bpy.data.libraries.write(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress), exception=OSError)()
             .map(lambda _: path)
-            .map_error(lambda error: (BlenderWriteFault(request=path, error=error),))
+            .map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),))
         )
     )
 
@@ -207,13 +210,7 @@ def library_written(
 
 def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> BlenderResult[bpy.types.Library]:
     """Reloads library, relocating it to path when given."""
-    try:
-        for target in path.to_list():
-            library.filepath = str(target)
-        library.reload()
-    except (AttributeError, RuntimeError) as error:
-        return Error((BlenderEditFault(request=f"{library!r}.filepath", error=error),))
-    return Ok(library)
+    return accumulated(written(library, "filepath", str(target)) for target in path.to_list()).bind(lambda _: BlenderEditFault.attempted(f"{library!r}.reload", library.reload)).map(lambda _: library)
 
 
 # --- [OVERRIDES]
@@ -247,11 +244,7 @@ def override_changed(block: bpy.types.ID, change: OverrideChange) -> BlenderResu
                 apply = lambda: held.destroy(**msgspec.structs.asdict(change))
             case Resync(scene=scene, view_layer=view_layer, residual_storage=residual, do_hierarchy_enforce=enforce, do_whole_hierarchy=whole):
                 apply = lambda: held.resync(scene=scene, view_layer=view_layer, residual_storage=residual.to_optional(), do_hierarchy_enforce=enforce, do_whole_hierarchy=whole)
-        try:
-            done = apply()
-        except RuntimeError as error:
-            return Error((BlenderEditFault(request=request, error=error),))
-        return Error((BlenderAbsentFault(owner=request, key="reference"),)) if done is False else Ok(None)
+        return BlenderEditFault.attempted(request, apply).bind(lambda done: Error((BlenderAbsentFault(owner=request, key="reference"),)) if done is False else Ok(None))
 
     return overriding(block).bind(changed)
 

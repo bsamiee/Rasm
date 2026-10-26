@@ -1,24 +1,24 @@
 """Staged particle light with stored spectra."""
 
 from collections.abc import Mapping
-from contextlib import ExitStack
 
 import bpy
-from expression import Ok, Some
+from expression import Ok, Option, Some
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.nodes.changes import stored
 from blender.bpy.nodes.trees import created
-from blender.bpy.render.effects.stack import CameraFrame, CompositorEffect, Coverage, precise, Shell, Shutter, shuttered
-from blender.imaging.effects.generators.noise import Estimate, Gradient, Precision, spectrum
+from blender.bpy.render.effects.rows import Alpha, CameraFrame, CompositorEffect, precise, Shell, shuttered
+from blender.imaging.effects.generators.noise import Gradient, spectrum
 from blender.imaging.effects.generators.particles import Particles
-from blender.imaging.faults import accumulated, ImagingResult
+from blender.imaging.faults import accumulated, ImagingResult, scoped
 from blender.imaging.parameters import Ramp
+from blender.imaging.sampling import Estimate, Precision
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ def prepared(
     frame: CameraFrame,
     _entry: bpy.types.SceneCompositorEffect,
 ) -> BlenderResult[tuple[Particles, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Integrates particle light over captured window and scene shutter.
+    """Integrates particle light over captured window and scene shutter, spectrum ramps evaluated by host color bands of a scratch tree.
 
     Args:
         identity: Extension owning staged render.
@@ -48,42 +48,47 @@ def prepared(
     Returns:
         Unchanged record and main image estimate, or graph and imaging faults.
     """
-    ramps = tuple(
-        dict.fromkeys(
-            value.ramp for enabled, value in ((record.coverage.enabled, record.coverage.value), (record.emission.enabled, record.emission.value.spectrum)) if enabled and isinstance(value, Gradient)
-        )
-    )
-    with ExitStack() as scope:
+    spectra = ((record.coverage.enabled, record.coverage.value), (record.emission.enabled, record.emission.value.spectrum))
+    ramps = tuple(dict.fromkeys(value.ramp for enabled, value in spectra if enabled and isinstance(value, Gradient)))
+    timing = shuttered(scene)
 
-        def ramped(tree: bpy.types.NodeTree) -> BlenderResult[dict[Ramp, bpy.types.Node]]:
-            scope.callback(bpy.data.node_groups.remove, tree)
-            return accumulated(created(tree, bpy.types.ShaderNodeValToRGB).bind(lambda live: stored(ramp, live, identity).map(lambda _: (ramp, live))) for ramp in ramps).map(dict)
+    def integrated(bands: Mapping[Ramp, bpy.types.ColorRamp]) -> BlenderResult[tuple[Particles, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
+        def gradient(ramp: Ramp, tones: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
+            return Ok(np.asarray([bands[ramp].evaluate(float(tone)) for tone in tones], dtype=np.float64)[:, :3])
 
-        def integrated(native: dict[Ramp, bpy.types.Node], timing: Shutter) -> BlenderResult[tuple[Particles, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-            def gradient(ramp: Ramp, tones: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-                return Ok(np.asarray([native[ramp].color_ramp.evaluate(float(tone)) for tone in tones], dtype=np.float64)[:, :3])  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return record.applied(
+            image,
+            frame.window(image.spec())[0],
+            reference_frame=scene.frame_current_final,
+            shutter=(timing.opening * timing.length, (timing.opening + 1.0) * timing.length),
+            precision=precision,
+            spectrum=lambda request, tones: spectrum(request, tones, config=config, gradient=gradient),
+        ).map(lambda estimate: (record, {Shell.image: estimate}))
 
-            return (
-                record
-                .applied(
-                    image,
-                    frame.window(image.spec())[0],
-                    reference_frame=scene.frame_current_final,
-                    shutter=(timing.opening * timing.length, (timing.opening + 1.0) * timing.length),
-                    precision=precision,
-                    spectrum=lambda request, tones: spectrum(request, tones, config=config, gradient=gradient),
-                )
-                .map_error(BlenderImagingFault.lifted)
-                .map(lambda estimate: (record, {Shell.image: estimate}))
+    def banded(tree: bpy.types.NodeTree, ramp: Ramp) -> BlenderResult[tuple[Ramp, bpy.types.ColorRamp]]:
+        return created(tree, bpy.types.ShaderNodeValToRGB).bind(
+            lambda live: (
+                stored(ramp, live, identity).bind(lambda _: Option.of_optional(live.color_ramp).to_result((BlenderAbsentFault(owner=repr(live), key="color_ramp"),))).map(lambda band: (ramp, band))
             )
+        )
 
-        native = ramped(bpy.data.node_groups.new(record.title, "ShaderNodeTree")) if ramps else Ok({})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        return native.bind(lambda held: integrated(held, shuttered(scene)))
+    def scratch() -> BlenderResult[bpy.types.NodeTree]:
+        return Option.of_optional(bpy.data.node_groups.new(record.title, "ShaderNodeTree")).to_result((BlenderAbsentFault(owner=repr(bpy.data.node_groups), key=record.title),))
+
+    return (
+        scoped(
+            scratch(),
+            lambda tree: accumulated(banded(tree, ramp) for ramp in ramps).map(dict).bind(integrated),
+            lambda tree: BlenderEditFault.attempted(repr(bpy.data.node_groups), lambda: bpy.data.node_groups.remove(tree)),
+        )
+        if ramps
+        else integrated({})
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-particles = CompositorEffect(record=Particles, graph=Shell.passed, coverage=Coverage.RESULT, requested=Some(precise), preparation=Some(prepared))
+particles = CompositorEffect(record=Particles, graph=Shell.passed, alpha=Alpha.RESULT, requested=Some(precise), preparation=Some(prepared))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

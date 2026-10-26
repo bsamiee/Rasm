@@ -32,10 +32,6 @@ public sealed record RowRules(Option<RowRule> Enabled, Option<RowRule> Visible) 
     public Seq<RowRule> Each => Enabled.ToSeq() + Visible.ToSeq();
 
     public static IO<bool> Holds(Option<RowRule> rule, RowScope scope) => rule.Match(Some: held => held.Holds(scope), None: static () => IO.pure(value: true));
-
-    public IO<bool> Enables(RowScope scope) => Holds(Enabled, scope);
-
-    public IO<bool> Shows(RowScope scope) => Holds(Visible, scope);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1,7 +1,5 @@
 using Rasm.Rhino;
 using Rasm.Rhino.Display;
-using Rasm.Rhino.Document.Units;
-using Rasm.Rhino.Modeling.Curves;
 using Rhino.Display;
 
 namespace Arches;
@@ -12,10 +10,10 @@ internal static class ArchFeedback {
 
     public static IO<Unit> DrawEnds(DisplayPipeline display, Line baseline) => Marks.Draw(display, Ends(baseline));
 
-    public static IO<Unit> Draw(DisplayPipeline display, ArchSpan span, Option<ArchForm> form, Tolerances tolerances) =>
+    public static IO<Unit> Draw(DisplayPipeline display, ArchSpan span, Option<Func<Action<IDisposable>, IO<Seq<Curve>>>> build) =>
         DisposalOps.Within((Action<IDisposable> retain) =>
-            form.Match(
-                    Some: held => CurveConstruction.CreateArch(span, held, tolerances, retain).Map(static curves => Some(curves)).Catch(ArchPrompts.Rejected, static _ => IO.pure(Option<Seq<Curve>>.None)),
+            build.Match(
+                    Some: held => held(retain).Map(static curves => Some(curves)).Catch(ArchPrompts.Rejected, static _ => IO.pure(Option<Seq<Curve>>.None)),
                     None: static () => IO.pure(Option<Seq<Curve>>.None))
                 .Bind(curves => Marks.Draw(display, Figure(span, curves))), DisposalOps.Release);
 

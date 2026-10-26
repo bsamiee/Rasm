@@ -16,7 +16,7 @@ public readonly record struct Hsy(double Hue, double Saturation, double Luma) {
     private const double MinLuma = 0.001d;
     private const double MaxLuma = 0.01d;
 
-    public static (double X, double Y, double Z) LumaWeights { get; } = Gamut.StandardRgb.Luminance;
+    private static readonly (double X, double Y, double Z) LumaWeights = Gamut.StandardRgb.Luminance;
 
     public static double SaturationPeak =>
         LumaWeights switch {

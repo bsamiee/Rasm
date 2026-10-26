@@ -1,56 +1,10 @@
-using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChildSlot(Guid Id, string ChildSlotName, Option<string> ChildSlotDisplayName, bool ChildSlotOn, double ChildSlotAmount);
-
-public sealed record ContentState(
-    Guid Id,
-    Guid TypeId,
-    Guid GroupId,
-    RenderContentKind Kind,
-    Option<string> Name,
-    Option<string> DisplayName,
-    Option<string> TypeName,
-    Option<string> TypeDescription,
-    Option<string> Notes,
-    Option<string> Tags,
-    Option<string> Category,
-    RenderContentStyles Styles,
-    ProxyTypes ProxyType,
-    LengthUnit ModelUnits,
-    bool TopLevel,
-    bool Hidden,
-    bool Private,
-    bool IsLocked,
-    bool CanBeEdited,
-    bool IsDefaultInstance,
-    bool IsHiddenByAutoDelete,
-    bool IsReference,
-    int UseCount,
-    Option<uint> DocumentOwner,
-    Option<uint> DocumentAssoc,
-    Option<Guid> Parent,
-    Option<string> ChildSlotName,
-    Seq<ChildSlot> Slots);
-
-public sealed record MaterialClassification(
-    bool SmellsLikePlaster,
-    bool SmellsLikePaint,
-    bool SmellsLikeMetal,
-    bool SmellsLikePlastic,
-    bool SmellsLikeGem,
-    bool SmellsLikeGlass,
-    bool SmellsLikeTexturedPlaster,
-    bool SmellsLikeTexturedPaint,
-    bool SmellsLikeTexturedMetal,
-    bool SmellsLikeTexturedPlastic,
-    bool SmellsLikeTexturedGem,
-    bool SmellsLikeTexturedGlass);
 
 public sealed record TextureState(
     TextureProjectionMode ProjectionMode,
@@ -67,45 +21,7 @@ public sealed record TextureState(
     bool DisplayInViewport,
     (double AmountU, double AmountV, double AmountW, TextureGraphInfo.Axis ActiveAxis, TextureGraphInfo.Channel ActiveChannel) GraphInfo);
 
-public sealed record TextureTraits(
-    Option<(int Width, int Height, int Depth)> PixelSize2,
-    Transform LocalMappingTransform,
-    RenderTexture.eLocalMappingType LocalMappingType,
-    TextureEnvironmentMappingMode InternalEnvironmentMappingMode,
-    bool IsHdrCapable,
-    bool IsLinear,
-    bool IsNormalMap,
-    bool IsImageBased);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper]
-public static partial class ContentMapper {
-    [MapPropertyFromSource(nameof(ContentState.Kind), Use = nameof(@Conversions.KindOf))]
-    [MapPropertyFromSource(nameof(ContentState.IsReference), Use = nameof(IsReference))]
-    [MapPropertyFromSource(nameof(ContentState.UseCount), Use = nameof(UseCount))]
-    [MapPropertyFromSource(nameof(ContentState.Slots), Use = nameof(Slots))]
-    public static partial ContentState ToState(RenderContent content);
-
-    public static partial MaterialClassification ToClassification(RenderMaterial material);
-
-    [UserMapping]
-    private static Option<Guid> Id(RenderContent? content) => Optional(content).Map(static found => found.Id);
-
-    private static bool IsReference(RenderContent content) => content.IsReference();
-
-    private static int UseCount(RenderContent content) => content.UseCount();
-
-    private static Seq<ChildSlot> Slots(RenderContent content) =>
-        toSeq(LanguageExt.List.unfold(content.FirstChild, static child => Optional(child).Map(static found => (found, found.NextSibling))))
-            .Map(child => new ChildSlot(
-                child.Id,
-                child.ChildSlotName,
-                Conversions.Present(child.ChildSlotDisplayName),
-                content.ChildSlotOn(child.ChildSlotName),
-                content.ChildSlotAmount(child.ChildSlotName)))
-            .Strict();
-}
-
 public static class ContentKinds {
     // --- [READS]
     public static IO<Option<ChildSlot>> ReadSlot(RenderMaterial material, RenderMaterial.StandardChildSlots slot) =>
@@ -134,17 +50,6 @@ public static class ContentKinds {
                 texture.GetDisplayInViewport(),
                 (info.AmountU(), info.AmountV(), info.AmountW(), info.ActiveAxis(), info.ActiveChannel()));
         }));
-
-    public static IO<TextureTraits> ReadTraits(RenderTexture texture) =>
-        IO.lift(() => new TextureTraits(
-            Optional(texture.PixelSize2),
-            texture.LocalMappingTransform,
-            texture.GetLocalMappingType(),
-            texture.GetInternalEnvironmentMappingMode(),
-            texture.IsHdrCapable(),
-            texture.IsLinear(),
-            texture.IsNormalMap(),
-            texture.IsImageBased()));
 
     public static IO<T> ReadSimulation<T>(
         RenderTexture texture, RenderTexture.TextureGeneration generation, Option<int> size, Option<RhinoObject> obj, Func<SimulatedTexture, IO<T>> body) =>

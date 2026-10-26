@@ -227,10 +227,6 @@ public static class AppSettings {
     // --- [LIFETIME]
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Hold<T>(ProcessSetting<T> setting, T value) where T : notnull, IEquatable<T> =>
         (_, retain) =>
-            (from prior in setting.Read
-             from lease in IO.lift(() => new Disposal<T>(prior, held =>
-                 setting.Read.Bind(current => when(current.Equals(value) && !held.Equals(value), setting.Write(held)).As()).Run()))
-             from written in DisposalOps.OnFailure(when(!prior.Equals(value), setting.Write(value)).As(), setting.Write(prior))
-             from retained in DisposalOps.OnFailure(IO.lift(() => retain(lease)), IO.lift(lease.Dispose))
-             select retained).Uninterruptible();
+            setting.Read.Bind(prior => DisposalOps.Acquire(DisposalOps.OnFailure(when(!prior.Equals(value), setting.Write(value)).As(), setting.Write(prior)),
+                _ => setting.Read.Bind(current => when(current.Equals(value) && !prior.Equals(value), setting.Write(prior)).As()), retain));
 }

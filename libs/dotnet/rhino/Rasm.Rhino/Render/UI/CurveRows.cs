@@ -61,12 +61,12 @@ public static class CurveRows {
     private static IO<RowCells> Block<TRecord>(RowSource<TRecord> source, IterableNE<CurveLane<TRecord>> lanes, string caption, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain)
         where TRecord : notnull =>
         from keyed in IO.pure(toHashMap(lanes.Map(static lane => (lane.Key, lane))))
-        let named = fun((CurveKey key) => Wording.English.Shown(keyed[key].Field.Caption, scope.Sink))
+        let named = fun((CurveKey key) => RowText.Localize(keyed[key].Field.Caption, scope.Sink).Local)
         from anchor in atomIO(Option<CurveAnchor>.None)
         from editor in DisposalOps.Acquire(IO.lift(() => new CurveEditor(
             scope.Sink,
             new CurveEditorState.Editing(lanes.Head.Key, HashMap<CurveKey, PlottedCurve>(), Seq<int>(), ShowsHistogram: true, None),
-            new CurveText(Wording.English.Shown(caption, scope.Sink), named, Shown),
+            new CurveText(RowText.Localize(caption, scope.Sink).Local, named, Shown),
             stage.Map(static input => input.Read.Map(frame => frame.Map(held => Histograms((held, input.Context.Working))))))), retain)
         let site = new CallbackSite(scope.Sink, typeof(CurveEditor), nameof(CurveEditor.Edited))
         from strip in ChoiceRows.Strip(toSeq(lanes).Map(lane => new ChoiceItem<CurveKey>(lane.Key, named(lane.Key), None)), editor.Choose, scope.Sink, retain)
@@ -151,7 +151,7 @@ public static class CurveRows {
         let guides = Guides(stage, text)
         let output = fun((float code) => text.Shown(Some(code)))
         from editor in DisposalOps.Acquire(IO.lift(() => new CurveEditor(
-            scope.Sink, new CurveEditorState.Graph(Window, None, guides, output), new CurveText(Wording.English.Shown(caption, scope.Sink), static _ => "", Shown), None)), retain)
+            scope.Sink, new CurveEditorState.Graph(Window, None, guides, output), new CurveText(RowText.Localize(caption, scope.Sink).Local, static _ => "", Shown), None)), retain)
         let plot = scope.Read(source).Bind(state => editor.Plot(Window, Response(TStage.Pass(state, stage.Context)), guides, output))
         from heard in scope.Listen(keys => when(keys.Exists(key => string.Equals(key.Owner, source.Owner, StringComparison.Ordinal)), plot).As(), retain)
         select new RowCells(editor, None, None, None, [], [], new RowHelp(None, None), plot, None, None);
@@ -185,7 +185,7 @@ public static class CurveRows {
 
     private static IO<RowCells> Leveled(RowSource<Levels> source, (RowField<Levels> Black, RowField<Levels> White) points, string caption, Option<StageInput> stage, RowScope scope, Action<IDisposable> retain) =>
         from view in DisposalOps.Acquire(IO.lift(() => new ScopeView(
-            scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Points(source.Default),
+            scope.Sink, RowText.Localize(caption, scope.Sink).Local, new ScopeEdit.Points(source.Default),
             stage.Match(Some: static input => input.Read.Map(frame => frame.Map(held => new ScopeFrames(held, input.Context.Working, input.Context.Signal, None, None, None))),
                 None: static () => IO.pure(Option<ScopeFrames>.None)))), retain)
         let site = new CallbackSite(scope.Sink, typeof(ScopeView), nameof(ScopeView.Edited))
@@ -212,7 +212,7 @@ public static class CurveRows {
                 Callbacks.Handler<EventArgs>(
                     _ => stage.Traverse(input => input.Read.Bind(frame => frame.Match(Some: held => bound.Commit(Levels.Auto(held, input.Context.Working)).Map(unit), None: static () => IO.pure(unit)))).As().Map(unit),
                     site with { Member = nameof(Command.Executed) }), retain)
-        from auto in ButtonRows.Push(command, retain)
+        from auto in ButtonRows.Push(command, None, scope.Sink, retain)
         let show =
             from available in stage.Traverse(static input => input.Read.Map(static frame => frame.IsSome)).As()
             from enabled in IO.lift(() => command.Enabled = available.IfNone(noneValue: false))

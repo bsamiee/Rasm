@@ -111,17 +111,17 @@ public static class CanvasChrome {
     private static Seq<FloatingAction> Actions(CommandRow command, IPlugInSink sink) =>
         command.Switch(
             sink,
-            run: static (sink, run) => Seq(new FloatingAction(run.Face.Wording.Shown(run.Face.Caption, sink), run.Face, run.Enabled, run.Execute, None)),
+            run: static (sink, run) => Seq(new FloatingAction(RowText.Localize(run.Face.Caption, sink).Local, run.Face, run.Enabled, run.Execute, None)),
             check: static (sink, check) => Seq(new FloatingAction(
-                check.Face.Wording.Shown(check.Face.Caption, sink), check.Face, check.Enabled, scope => check.Read(scope).Bind(held => check.Write(scope, !held)), Some(check.Read))),
+                RowText.Localize(check.Face.Caption, sink).Local, check.Face, check.Enabled, scope => check.Read(scope).Bind(held => check.Write(scope, !held)), Some(check.Read))),
             radio: static (sink, radio) => radio.Members.Map(member => new FloatingAction(
-                member.Face.Wording.Shown(member.Face.Caption, sink), member.Face, member.Enabled, scope => member.Write(scope, true), Some(member.Read))));
+                RowText.Localize(member.Face.Caption, sink).Local, member.Face, member.Enabled, scope => member.Write(scope, true), Some(member.Read))));
 
     private static IO<Unit> Added(IFlexControl control, (FloatingCommand Command, Seq<FloatingAction> Actions) row, FloatingAction action, RowScope scope, Action<IDisposable> retain) =>
         from icon in IconOf(action.Face, scope.Sink)
         from held in action.Checked.Traverse(read => read(scope)).As()
         from added in DisposalOps.Acquire(IO.lift(() => {
-            string info = action.Face.Wording.Shown(action.Face.Help, scope.Sink);
+            string info = RowText.Localize(action.Face.Help, scope.Sink).Local;
             IIcon? glyph = icon.ValueUnsafe();
             FloatingButtonHandler click = (button, _) => Callbacks.Answer(
                 scope, at => action.Execute(at)
@@ -132,10 +132,10 @@ public static class CanvasChrome {
             _ = row.Command.Placement.Match(
                 Left: position => control.FloatingButtons.Add(position, action.Name, info, Shade(held), glyph, click),
                 Right: anchor => control.FloatingButtons.AddAnchored(anchor, action.Name, info, Shade(held), glyph, click));
-            return new Disposal<FloatingButton>(control.FloatingButtons[action.Name], static button => {
-                button.Enabled = false;
-                button.Close();
-            });
+            return control.FloatingButtons[action.Name];
+        }), static button => IO.lift(() => {
+            button.Enabled = false;
+            button.Close();
         }), retain)
         select unit;
 
@@ -157,8 +157,8 @@ public static class CanvasChrome {
 
     // --- [TIPS]
     public static IO<Unit> Tip(
-        IPlugInSink sink, Option<IGlyph> glyph, string caption, string help, bool warnings, bool errors,
-        Either<Seq<(string Label, string Value)>, (Action<Context, Rectangle> Painter, Size Size)> body) =>
+        IPlugInSink sink, Option<IGlyph> glyph, string caption, string help,
+        Either<Seq<(string Label, string Value)>, (Action<Context, Rectangle> Painter, Size Size)> body, bool warnings = false, bool errors = false) =>
         from icon in glyph.Traverse(shown => CanvasIcons.Vector(sink, shown)).As()
         let local = fun((string text) => RowText.Localize(text, sink).Local)
         from shown in IO.lift(() => body.Match(
@@ -179,8 +179,8 @@ public static class CanvasChrome {
         face.Glyph.Traverse(glyph => CanvasIcons.Vector(sink, glyph)).As();
 
     private static Nomen Named(CommandFace face, Option<string> section, IPlugInSink sink) =>
-        new(face.Wording.Shown(face.Caption, sink), face.Wording.Shown(face.Help, sink), section: section.ValueUnsafe());
+        new(RowText.Localize(face.Caption, sink).Local, RowText.Localize(face.Help, sink).Local, section: section.ValueUnsafe());
 
     private static BarShortcut? Shortcut(CommandFace face, IPlugInSink sink) =>
-        face.Shortcut.Map(keys => new BarShortcut(keys, face.Wording.Shown(face.Help, sink))).ValueUnsafe();
+        face.Shortcut.Map(keys => new BarShortcut(keys, RowText.Localize(face.Help, sink).Local)).ValueUnsafe();
 }

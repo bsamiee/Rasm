@@ -4,59 +4,52 @@ import bpy
 from expression import Ok
 
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.graphs import End, ended, Fragment, menu, node
+from blender.bpy.nodes.graphs import Expr
 from blender.bpy.render.color.spaces import space_item
-from blender.bpy.render.effects.stack import CompositorEffect, Shell
+from blender.bpy.render.effects.rows import Alpha, CompositorEffect, Shell
 from blender.imaging.effects.grade.primaries import Conversion, Mixer, Primaries, Weights
 from blender.imaging.faults import paired
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def remapped(shell: Shell[Primaries]) -> BlenderResult[tuple[Fragment, End]]:
+def remapped(shell: Shell[Primaries]) -> BlenderResult[Expr]:
     """Returns both remap branches behind animatable union menu.
 
     Args:
         shell: Entry inputs, menu items, and retained conversion parameters.
 
     Returns:
-        Body and result endpoint, or accumulated space and graph faults.
+        Remapped color, or accumulated space faults.
     """
     (remap,) = Primaries.__struct_fields__
-    entering = shell.source
-    mixer = (
-        node(
-            "matrix",
-            bpy.types.FunctionNodeCombineMatrix,
-            {
-                f"Column {column} Row {row}": shell.socket(remap, Mixer, output, source)
-                for row, output in enumerate(Mixer.__struct_fields__, 1)
-                for column, source in enumerate(Weights.__struct_fields__, 1)
-            },
-            {},
-        )
-        .map(ended("matrix", "Matrix"))
-        .bind(lambda matrix: node("mixer", bpy.types.FunctionNodeTransformDirection, {"Direction": entering, "Transform": matrix}, {}))
-        .map(ended("mixer", "Direction"))
+    matrix = Expr(
+        kind=bpy.types.FunctionNodeCombineMatrix,
+        inputs=tuple(
+            (f"Column {column} Row {row}", shell.input(remap, Mixer, output, source))
+            for row, output in enumerate(Mixer.__struct_fields__, 1)
+            for column, source in enumerate(Weights.__struct_fields__, 1)
+        ),
+        socket="Matrix",
     )
+    mixer = Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", shell.color), ("Transform", matrix)), socket="Direction", shape="VECTOR")
 
-    def converted(kept: Conversion) -> BlenderResult[dict[str, str]]:
-        return paired(space_item(shell.config, kept.source), space_item(shell.config, kept.target)).map(lambda spaces: dict(zip(("from_color_space", "to_color_space"), spaces)))
+    def converted(spaces: tuple[tuple[str, str], ...]) -> Expr:
+        conversion = Expr(kind=bpy.types.CompositorNodeConvertColorSpace, inputs=(("Image", shell.color),), members=spaces, socket="Image", shape="RGBA")
+        return shell.menu(remap, cases={Mixer.title: mixer, Conversion.title: conversion}, kind="RGBA")
 
-    converting = (
+    spaces: BlenderResult[tuple[tuple[str, str], ...]] = (
         shell
         .case(Conversion, remap)
-        .map(converted)
-        .default_value(Ok({}))
-        .bind(lambda members: node("conversion", bpy.types.CompositorNodeConvertColorSpace, {"Image": entering}, members))
-        .map(ended("conversion", "Image"))
+        .map(lambda kept: paired(space_item(shell.config, kept.source), space_item(shell.config, kept.target)).map(lambda named: tuple(zip(("from_color_space", "to_color_space"), named))))
+        .default_value(Ok(()))
     )
-    return paired(mixer, converting).bind(lambda branches: menu("remap", "RGBA", shell.socket(remap), shell.items[remap,], dict(zip((Mixer.title, Conversion.title), branches))))
+    return spaces.map(converted)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-primaries = CompositorEffect(record=Primaries, graph=remapped, straight=True)
+primaries = CompositorEffect(record=Primaries, graph=remapped, alpha=Alpha.STRAIGHT)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

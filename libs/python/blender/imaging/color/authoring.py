@@ -12,7 +12,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
-from blender.imaging.faults import accumulated, colored, ImagingFaults, ImagingResult, ImagingWriteFault, paired
+from blender.imaging.faults import Access, accumulated, colored, ImagingFaults, ImagingFileFault, ImagingResult, paired
 from blender.imaging.files.images import published, staging
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -25,14 +25,14 @@ class DynamicRange(Enum):
     HIGH = auto()
 
     @staticmethod
+    def of(space: PyOpenColorIO.ColorSpace) -> "DynamicRange":
+        """Classifies display colorspace as Blender does, HIGH for HDR or EDR video."""
+        return DynamicRange.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else DynamicRange.STANDARD
+
+    @staticmethod
     def absolute(space: PyOpenColorIO.ColorSpace) -> bool:
         """Returns whether display colorspace interop ID names PQ luminance."""
         return space.getInteropID().rpartition(":")[2].startswith("pq_")  # type: ignore[attr-defined, no-any-return]  # ty: ignore[unresolved-attribute]
-
-
-def dynamic_range_of(space: PyOpenColorIO.ColorSpace) -> DynamicRange:
-    """Classifies display colorspace as Blender does, HIGH for HDR or EDR video."""
-    return DynamicRange.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else DynamicRange.STANDARD
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -172,7 +172,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 (display_name, formation.view.getName())
                 for formation in self.formations
                 for display_name, space in spaces.items()
-                if formation.dynamic_range is DynamicRange.STANDARD or dynamic_range_of(space) is DynamicRange.HIGH
+                if formation.dynamic_range is DynamicRange.STANDARD or DynamicRange.of(space) is DynamicRange.HIGH
             ):
                 request.addDisplaySharedView(display_name, name)
             for name in built if request.getActiveDisplays() else ():
@@ -191,7 +191,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             return request
 
         def refused(error: OSError) -> ImagingFaults:
-            return (ImagingWriteFault(request=stage, error=error),)
+            return (ImagingFileFault(access=Access.WRITE, request=stage, error=error),)
 
         return colored(rows, authored).bind(
             lambda _: paired(
@@ -247,7 +247,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda _: catch(shutil.rmtree, exception=OSError)(folder).or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error)))
                 .bind(lambda _: catch(stage.rename, exception=OSError)(folder))
                 .map(lambda installed: installed / path.name)
-                .map_error(lambda error: (ImagingWriteFault(request=folder, error=error),))
+                .map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=folder, error=error),))
             )
 
         return staging(folder, lambda stage: self.staged(base, stage).bind(lambda config: replaced(stage, config)))
@@ -255,4 +255,4 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ConfigBuild", "DynamicRange", "Formation", "dynamic_range_of"]
+__all__ = ["ConfigBuild", "DynamicRange", "Formation"]

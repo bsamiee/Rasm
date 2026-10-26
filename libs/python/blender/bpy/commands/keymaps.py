@@ -12,8 +12,7 @@ from expression import Error, Nothing, Ok, Option
 import msgspec
 import rna_keymap_ui
 
-from blender.bpy.commands.calls import CalledPopup, MenuPopup, PanelPopup, resolved, ShelfPopup
-from blender.bpy.commands.operators import Placed, Stock, Writer
+from blender.bpy.commands.calls import MenuPopup, Placed, Stock, Writer
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Scalar
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Band
@@ -27,7 +26,6 @@ if TYPE_CHECKING:
 
 type Location = tuple[str, rna_enums.SpaceTypeItems, rna_enums.RegionTypeItems]
 type Node = tuple[str, rna_enums.SpaceTypeItems, rna_enums.RegionTypeItems, list[Node]]
-type Target = Placed | CalledPopup
 type ModifierState = Literal[-1, 0, 1]
 
 
@@ -65,10 +63,11 @@ class Assign(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Chord(msgspec.Struct, frozen=True, kw_only=True):
-    """Event pattern with modifier states."""
+    """`KeyMapItems.new` event pattern with modifier states."""
 
     type: "rna_enums.EventTypeItems | Button"
     value: Option["rna_enums.EventValueItems"] = Nothing
+    any: bool = False
     shift: ModifierState = 0
     ctrl: ModifierState = 0
     alt: ModifierState = 0
@@ -77,9 +76,10 @@ class Chord(msgspec.Struct, frozen=True, kw_only=True):
     key_modifier: "rna_enums.EventTypeItems" = "NONE"
     direction: "rna_enums.EventDirectionItems" = "ANY"
     repeat: bool = False
+    head: bool = False
 
     def added(self, manager: bpy.types.WindowManager, keymap: bpy.types.KeyMap, operator: str, *, pie: bool = False) -> Iterator[bpy.types.KeyMapItem]:
-        """Adds keymap items lazily, caller holding each for removal."""
+        """Adds keymap items lazily, Ctrl chords doubled as Cmd on macOS, caller holding each for removal."""
 
         def preference(name: str) -> Option[object]:
             return (
@@ -118,7 +118,7 @@ class Keymap:
 
     # --- [LIFECYCLE]
 
-    def __init__(self, *, keymap: str, bindings: Mapping[Chord, Target]) -> None:
+    def __init__(self, *, keymap: str, bindings: Mapping[Chord, Placed]) -> None:
         """Stores bindings with no acquired items."""
         self.keymap, self.bindings = keymap, bindings
         self._items: tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...] = ()
@@ -126,28 +126,28 @@ class Keymap:
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Adds target items to each keymap space after operator registration."""
+        """Adds each binding's items to every space of the keymap name after operator registration."""
 
         @contextmanager
         def added(given: tuple[tuple[Location, ...], bpy.types.WindowManager]) -> Generator[BlenderResult[None]]:
             locations, manager = given
             held: list[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem]] = []
+
+            def placed(native: bpy.types.KeyMap, chord: Chord, target: Placed, invocation: tuple[str, Writer]) -> BlenderResult[None]:
+                operator, write = invocation
+                items = tuple(chord.added(manager, native, operator, pie=isinstance(target, MenuPopup) and target.pie))
+                held.extend((native, item) for item in items)
+                return accumulated(Option.of_optional(item.properties).map(write).default_with(lambda: Error((BlenderAbsentFault(owner=operator, key="properties"),))) for item in items).map(
+                    lambda _: None
+                )
+
             try:
-                writes: list[BlenderResult[None]] = []
-                for name, space, region in locations:
-                    native = manager.keyconfigs.addon.keymaps.new(name, space_type=space, region_type=region)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-
-                    def placed(pair: tuple[str, Writer], chord: Chord, target: Target) -> BlenderResult[None]:
-                        operator, write = pair
-                        written: list[BlenderResult[None]] = []
-                        for item in chord.added(manager, native, operator, pie=isinstance(target, MenuPopup) and target.pie):
-                            held.append((native, item))
-                            written.append(Option.of_optional(item.properties).map(write).default_with(lambda: Error((BlenderAbsentFault(owner=operator, key="properties"),))))
-                        return accumulated(written).map(lambda _: None)
-
-                    writes.extend(invocation(target, identity).bind(lambda pair: placed(pair, chord, target)) for chord, target in self.bindings.items())
+                natives = tuple(manager.keyconfigs.addon.keymaps.new(name, space_type=space, region_type=region) for name, space, region in locations)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                answer = accumulated(target.invocation(identity).map(lambda invocation: (chord, target, invocation)) for chord, target in self.bindings.items()).bind(
+                    lambda bound: accumulated(placed(native, *binding) for native in natives for binding in bound).map(lambda _: None)
+                )
                 self._items = tuple(held)
-                yield accumulated(writes).map(lambda _: None)
+                yield answer
             finally:
                 self._items = ()
                 for native, item in held:
@@ -190,15 +190,6 @@ def nesting(name: str) -> BlenderResult[tuple[Location, ...]]:
     return Ok(found) if found else Error((BlenderAbsentFault(owner="bl_keymap_utils.keymap_hierarchy", key=name),))
 
 
-def invocation(target: Target, identity: Identity) -> BlenderResult[tuple[str, Writer]]:
-    """Resolves target into operator name and writer."""
-    match target:
-        case MenuPopup() | PanelPopup() | ShelfPopup():
-            return resolved(target, identity).bind(lambda pair: Stock(operator=pair[0], values=pair[1]).invocation(identity))
-        case _:
-            return target.invocation(identity)
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Assign", "Button", "Chord", "Keymap", "Location", "Target", "Toggle", "invocation", "nesting"]
+__all__ = ["Assign", "Button", "Chord", "Keymap", "Location", "Toggle", "nesting"]

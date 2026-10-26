@@ -58,7 +58,7 @@ public static class RenderOverrides {
         CyclesSetting.Bindings.Map(cycles => new BindingGroup(scene.Bindings + cycles.Bindings));
 
     public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register =>
-        static (sink, retain) => DisposalOps.Acquire(IO.lift(() => new Disposal<IPlugInSink>(sink, static held => Released(held).Run())), retain).Map(unit);
+        static (sink, retain) => DisposalOps.Acquire(IO.pure(sink), Released, retain).Map(unit);
 
     // --- [CAPTURE]
     private static readonly Atom<(HashMap<uint, Capture> Active, HashMap<uint, Capture> Retiring)> Captures = Atom((HashMap<uint, Capture>(), HashMap<uint, Capture>()));
@@ -96,11 +96,9 @@ public static class RenderOverrides {
     // --- [CLAY]
     private static IO<Unit> Clay(Albedo albedo, OverrideScope scope, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from material in DisposalOps.Acquire(
-                IO.lift(() => RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, scope.Document)),
-                static content => DisposalOps.Release(content),
-                content => Optional(content).Iter(owned))
-                .Bind(static content => IO.lift(() => Refused.UnlessFound(content, nameof(RenderContentType.NewContentFromTypeId)).Bind(Conversions.Cast<RenderMaterial>)))
+            from content in DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(
+                RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, scope.Document), nameof(RenderContentType.NewContentFromTypeId))), owned)
+            from material in IO.lift(() => Conversions.Cast<RenderMaterial>(content))
             from written in Written(material, albedo, scope.Document)
             from provider in DefinedMeshProvider.Register(sink => new ClayMeshProvider(sink, scope.Document.RuntimeSerialNumber, material))(scope.Sink, owned)
             select unit, retain);

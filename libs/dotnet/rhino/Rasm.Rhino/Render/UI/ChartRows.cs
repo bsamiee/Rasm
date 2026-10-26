@@ -80,7 +80,7 @@ public static class ChartRows {
         string caption, IterableNE<ScopeSource> sources, RowSource<ScopeState> source, IterableNE<RowField<ScopeState>> fields, Option<FrameLink> link, RowScope scope, Action<IDisposable> retain) =>
         from held in atomIO(new ScopeHeld(sources.Head, None, None))
         from view in DisposalOps.Acquire(IO.lift(() => new ScopeView(
-            scope.Sink, Wording.English.Shown(caption, scope.Sink), new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(shown => shown.Source.Frames(scope)))), retain)
+            scope.Sink, RowText.Localize(caption, scope.Sink).Local, new ScopeEdit.Chart(source.Default.Options, source.Default.Aspect), held.ValueIO.Bind(shown => shown.Source.Frames(scope)))), retain)
         from label in DisposalOps.Acquire(IO.lift(static () => new Label { Wrap = Eto.Forms.WrapMode.None, Font = HostTheme.Digits(EtoFonts.SmallFont) }), retain)
         from popup in ChoiceRows.Popup(
             ChoiceRows.Items<ScopeKind>(None, scope.Sink), kind => Chosen(view, options => options with { Kind = kind }), scope.Sink, retain)
@@ -120,7 +120,7 @@ public static class ChartRows {
             .Add(new MenuPick.Group(RowText.Localize(ScopeParameter.Channels.Text.Caption).Local, Picks(state.Options.Channels, mix => Chosen(view, options => options with { Channels = mix }))))
         select state.Options.Kind.Map(histogram: histogram, waveformLuma: brightness, waveformRgb: brightness, parade: brightness, vectorscope: brightness, chromaticity: Seq<MenuPick>())
             + Seq<MenuPick>(new MenuPick.Group(RowText.Localize("Source").Local, Picks(
-                    sources, entry => Wording.English.Shown(entry.Caption, scope.Sink), shown.Source,
+                    sources, entry => RowText.Localize(entry.Caption, scope.Sink).Local, shown.Source,
                     picked => held.SwapIO(current => current with { Source = picked }).Map(unit))))
                 .Filter(_ => sources.Count > 1)
             + Seq<MenuPick>(new MenuPick.Group(RowText.Localize("Sample").Local, Picks(
@@ -211,7 +211,7 @@ public static class ChartRows {
     public static ControlRow RampKey(string caption, string help, Func<RowScope, IO<Option<AgXLook>>> look, RowRules rules) =>
         new ControlRow.Readout(RowShape.Block, (scope, retain) =>
             from shown in look(scope)
-            from ramp in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, Wording.English.Shown(caption, scope.Sink), new GradientRampState.Key(shown))), retain)
+            from ramp in DisposalOps.Acquire(IO.lift(() => new GradientRamp(scope.Sink, RowText.Localize(caption, scope.Sink).Local, new GradientRampState.Key(shown))), retain)
             select new RowCells(
                 ramp, None, None, None, [], [], new RowHelp(None, None),
                 look(scope).Bind(current => ramp.Advance(_ => new(new GradientRampState.Key(current), None))),

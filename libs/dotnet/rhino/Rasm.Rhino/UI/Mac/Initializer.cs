@@ -61,28 +61,29 @@ internal static class DisplayLinks {
     private static readonly Selector Tick = new($"{typeof(DisplayLinks).Assembly.GetName().Name}.frame:");
     private static readonly AtomHashMap<nint, Fin<Unit>> Targets = AtomHashMap<nint, Fin<Unit>>();
     private static readonly AtomHashMap<nint, (Sink<FrameTick> Ticks, CallbackSite Site)> Links = AtomHashMap<nint, (Sink<FrameTick> Ticks, CallbackSite Site)>();
-    private static readonly Frame Deliver = static (_, _, link) => Links.Find(link).Iter(static held => Callbacks.Run(held.Ticks.Post(FrameTick.Next), held.Site));
+
+    private static Frame Deliver(CallbackSite site) =>
+        (_, _, link) => Callbacks.Run(IO.lift(() => Links.Find(link).Iter(static held => Callbacks.Run(held.Ticks.Post(FrameTick.Next), held.Site))), site);
 
     // --- [SOURCES]
     internal static Func<Sink<FrameTick>, Action<IDisposable>, IO<Unit>> Of(Control view, IPlugInSink sink) =>
-        (ticks, retain) => {
-            Action<CADisplayLink> release = static held => DisposalOps.Release<IDisposable>(held,
-                new Disposal<CADisplayLink>(held, static link => _ = Links.Remove(link.Handle)),
-                new Disposal<CADisplayLink>(held, static link => link.Invalidate())).Run();
-            return from host in IO.lift(() => Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
-                   from added in IO.lift(() => {
-                       nint target = Class.GetHandle(host.GetType());
-                       return Targets.FindOrAdd(target, () => Refused.Unless(Eto.Mac.ObjCExtensions.AddMethod(target, Tick.Handle, Deliver, "v@:@"), nameof(Eto.Mac.ObjCExtensions.AddMethod)));
-                   })
-                   from attached in NativeControls.Lifetime(view, owned =>
-                       DisposalOps.Acquire(IO.lift(() => host.GetDisplayLink(host, Tick)), held => IO.lift(() => release(held)), held => {
-                           _ = Links.Add(held.Handle, (ticks, new CallbackSite(sink, typeof(CADisplayLink), nameof(NSView.GetDisplayLink))));
-                           held.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
-                           owned(new Disposal<CADisplayLink>(held, release));
-                       }).Map(unit),
-                       new CallbackSite(sink, typeof(CADisplayLink), nameof(NSView.GetDisplayLink)), retain)
-                   select attached;
-        };
+        (ticks, retain) =>
+            from host in IO.lift(() => Refused.UnlessFound(view.GetContainerView(), nameof(MacControlExtensions.GetContainerView)))
+            let site = new CallbackSite(sink, typeof(CADisplayLink), nameof(NSView.GetDisplayLink))
+            from added in IO.lift(() => {
+                nint target = Class.GetHandle(host.GetType());
+                return Targets.FindOrAdd(target, () => Refused.Unless(Eto.Mac.ObjCExtensions.AddMethod(target, Tick.Handle, Deliver(site), "v@:@"), nameof(Eto.Mac.ObjCExtensions.AddMethod)));
+            })
+            from attached in NativeControls.Lifetime(view, owned =>
+                from link in DisposalOps.Acquire(IO.lift(() => host.GetDisplayLink(host, Tick)), static held =>
+                    Callbacks.Each(Seq(IO.lift(held.Invalidate), IO.lift(() => { _ = Links.Remove(held.Handle); }), IO.lift(held.Dispose))).Map(unit), owned)
+                from linked in IO.lift(() => {
+                    _ = Links.Add(link.Handle, (ticks, site));
+                    link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
+                })
+                select unit,
+                site, retain)
+            select attached;
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

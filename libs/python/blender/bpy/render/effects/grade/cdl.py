@@ -3,16 +3,15 @@
 from typing import Annotated
 
 import bpy
-from expression import Option, Some
+from expression import Ok, Option, Some
 import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Open, Operator, Outcome, Save, Unchanged
-from blender.bpy.faults import BlenderAbsentFault, BlenderImagingFault, BlenderResult
-from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, node, vector
-from blender.bpy.nodes.interface import item_key
-from blender.bpy.render.color.luts import Formatted, lut_files, writable
-from blender.bpy.render.effects.stack import CompositorEffect, EffectName, Named, Shell
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.nodes.graphs import Expr, vector, xyz
+from blender.bpy.render.color.luts import current, Formatted, writable
+from blender.bpy.render.effects.rows import Alpha, CompositorEffect, EffectName, Named, revised, Shell
 from blender.bpy.settings.properties import Choices
 from blender.imaging.color.config import resolved
 from blender.imaging.color.luts import LutFormat, written
@@ -65,26 +64,14 @@ class Exported(Formatted, frozen=True, kw_only=True):
 # --- [GRAPH]
 
 
-def corrected(shell: Shell[Cdl]) -> BlenderResult[tuple[Fragment, End]]:
+def corrected(shell: Shell[Cdl]) -> BlenderResult[Expr]:
     """Returns ASC equation with OCIO CDL luma coefficients."""
-    red, green, blue, saturation = Cdl.__struct_fields__
-    channels = (("X", red), ("Y", green), ("Z", blue))
-    members = Channel.__struct_fields__
-    slope, offset, power = (End(node=member, socket="Vector") for member in members)
-    entering = shell.source
-    sloped, positive, negative, powered, graded, chroma = (End(node=key, socket="Vector") for key in ("sloped", "positive", "negative", "powered", "graded", "chroma"))
-    luma = End(node="luma")
-    return Fragment.joined(
-        *(node(member, bpy.types.ShaderNodeCombineXYZ, {axis: End(node=INPUTS, socket=item_key(channel, member)) for axis, channel in channels}, {}) for member in members),
-        vector(sloped.node, "MULTIPLY_ADD", entering, slope, offset),
-        vector(positive.node, "MAXIMUM", sloped, (0.0, 0.0, 0.0)),
-        vector(negative.node, "MINIMUM", sloped, (0.0, 0.0, 0.0)),
-        vector(powered.node, "POWER", positive, power),
-        vector(graded.node, "ADD", powered, negative),
-        vector(luma.node, "DOT_PRODUCT", graded, tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs())),
-        vector(chroma.node, "SUBTRACT", graded, luma),
-        vector("saturated", "MULTIPLY_ADD", chroma, End(node=INPUTS, socket=item_key(saturation)), luma),
-    ).map(ended("saturated", "Vector"))
+    *channels, saturation = Cdl.__struct_fields__
+    slope, offset, power = (xyz(*(shell.input(channel, member) for channel in channels)) for member in Channel.__struct_fields__)
+    sloped = vector("MULTIPLY_ADD", shell.color, slope, offset)
+    graded = vector("POWER", vector("MAXIMUM", sloped, (0.0, 0.0, 0.0)), power) + vector("MINIMUM", sloped, (0.0, 0.0, 0.0))
+    luma = vector("DOT_PRODUCT", graded, tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs()))
+    return Ok(vector("MULTIPLY_ADD", graded - luma, shell.input(saturation), luma))
 
 
 # --- [EXCHANGE]
@@ -99,7 +86,7 @@ def loaded(path: str) -> BlenderResult[tuple[tuple[Option[str], Cdl], ...]]:
     Returns:
         Ordered optional identifiers and corrections, or file and ASC faults.
     """
-    return lut_files.current(path, PyOpenColorIO.GetCurrentConfig()).bind(lambda current: read(current).map_error(BlenderImagingFault.lifted))
+    return current(path, PyOpenColorIO.GetCurrentConfig()).bind(read)
 
 
 def imported(call: Call[Imported]) -> BlenderResult[Outcome]:
@@ -107,14 +94,14 @@ def imported(call: Call[Imported]) -> BlenderResult[Outcome]:
     path, record = str(call.paths[0]), call.record
 
     def chosen(rows: tuple[tuple[Option[str], Cdl], ...]) -> BlenderResult[Cdl]:
-        return Option.of_optional(next((correction for position, (_name, correction) in enumerate(rows) if str(position) == record.correction), None)).to_result_with(
+        return Option.of_optional({str(position): correction for position, (_name, correction) in enumerate(rows)}.get(record.correction)).to_result_with(
             lambda: (BlenderAbsentFault(owner=path, key=record.correction),)
         )
 
     entry = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, record.name).map(lambda entry: (scene, entry)))
     return (
         paired(loaded(path).bind(chosen), entry)
-        .bind(lambda pair: cdl.read(call.identity, pair[1][1]).bind(lambda held: cdl.write(call.identity, *pair[1], msgspec.structs.replace(held, effect=pair[0]))))
+        .bind(lambda pair: revised(cdl, call.identity, *pair[1], lambda _: Ok(pair[0])))
         .map(lambda changed: Done() if changed else Unchanged(reason=f"{record.name} holds chosen correction"))
     )
 
@@ -140,9 +127,7 @@ def exported(call: Call[Exported]) -> BlenderResult[Done]:
                 )
 
     held = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, record.name)).bind(lambda entry: cdl.read(call.identity, entry))
-    return (
-        paired(held, record.output()).bind(lambda pair: source(pair[0].effect).bind(lambda built: written(pair[1], {str(call.paths[0]): built})).map_error(BlenderImagingFault.lifted)).map(Done.wrote)
-    )
+    return paired(held, record.output()).bind(lambda pair: source(pair[0].effect).bind(lambda built: written(pair[1], {str(call.paths[0]): built}))).map(Done.wrote)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -165,7 +150,7 @@ exporter = Operator(
     seed=Some(Exported.seeded),
     undo=False,
 )
-cdl = CompositorEffect(record=Cdl, graph=corrected, straight=True, registrables=(importer, exporter))
+cdl = CompositorEffect(record=Cdl, graph=corrected, alpha=Alpha.STRAIGHT, registrables=(importer, exporter))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

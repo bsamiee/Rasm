@@ -42,7 +42,7 @@ Data, command, and callback needs:
 |  [16]   | Library load, another file's data             | `files.blends` `sourced` and `inspected`, `files.libraries.blocks_loaded`             |
 |  [17]   | IDs written to another file with dependencies | `files.libraries.library_written`                                                     |
 |  [18]   | External paths with presence, portable copy   | `files.blends` `dependencies`, `packed`                                               |
-|  [19]   | Handler, timer, or msgbus callback            | `extension.events` handler rows, `Timer`, `Subscription`                              |
+|  [19]   | Handler, timer, or msgbus callback            | `extension.events` handler rows, `appended`, `Timer`, `Subscription`                  |
 |  [20]   | Callback faults, deferred main-thread write   | `extension.reports.Reports` `reported`, `deferred`, `hold`                            |
 |  [21]   | Extension registration                        | `extension.registration.scope`                                                        |
 
@@ -64,7 +64,7 @@ Node tree needs:
 |  [10]   | Group interface from a record, its versioning | `nodes.interface` `Interface.of`, `MenuItems.of`, `interfaced`, `revised`               |
 |  [11]   | Group spliced after an editor's active node   | `nodes.editing` `Chosen.of`, `inserted`                                                 |
 |  [12]   | Owned node layout once nodes draw             | `nodes.placement.Arranger`                                                              |
-|  [13]   | Compositor effect input by key                | `render.effects.stack.entry_input`                                                      |
+|  [13]   | Compositor effect input by key                | `render.effects.records.entry_input`                                                    |
 
 ### [01.3]-[INTERFACE]
 
@@ -74,7 +74,7 @@ Interface needs, each owner a row `extension.registration.scope` acquires:
 | :-----: | :------------------------------------------ | :----------------------------------------------------------------------------------------- |
 |  [01]   | Panel in a tab, sidebar, region, or popover | `ui.surfaces.panels.Panel` at `Tab`, `Sidebar`, `Joined`, `Child`, `EditorRegion`          |
 |  [02]   | Panel as top bar popover or docked          | `ui.surfaces.panels.Panel` at `PopoverPanel`, `Docked`                                     |
-|  [03]   | Collapsible section inside a draw           | `ui.layout.sections` `Single`, `Each`, `Store`, `Hosted`                                   |
+|  [03]   | Collapsible section inside a draw           | `ui.layout.sections` `Single`, `Each`, `ui.layout.values` `Store`, `Hosted`                |
 |  [04]   | Menu, pie, keyed menu, preset menu          | `ui.surfaces.menus.Menu` with a `Dropdown`, `Keyed`, or `Pie` body, `PresetMenu`           |
 |  [05]   | Registered menu, panel, or shelf popup      | `commands.calls.opened` over `MenuPopup`, `PanelPopup`, `ShelfPopup`                       |
 |  [06]   | Popup or popover a callback draws           | `commands.calls.opened` over `DrawnMenu`, `DrawnPopover`                                   |
@@ -85,7 +85,7 @@ Interface needs, each owner a row `extension.registration.scope` acquires:
 |  [11]   | Report banner, cursor progress              | `ui.layout.status` `Status`, `progressed`                                                  |
 |  [12]   | Generated previews, package icons           | `ui.resources.previews.Previews`, `ui.resources.icons.Icons`                               |
 |  [13]   | Theme colors, interface metrics             | `ui.resources.theme` `Theme`, `Metrics.read`                                               |
-|  [14]   | GPU texture from pixels                     | `ui.resources.textures` `uploaded`, `TextureCache`                                         |
+|  [14]   | GPU texture from pixels                     | `ui.resources.textures` `uploaded`, `TEXTURES`                                             |
 |  [15]   | Draw handler over cached state              | `ui.drawing.handlers` `Overlay`, `Drawing`, `Part`, `Watch`, `Signal`                      |
 |  [16]   | 2D drawing in a region                      | `ui.drawing.canvas.Canvas.of`                                                              |
 |  [17]   | Offscreen draw, view capture, buffer read   | `ui.drawing.offscreen` `Offscreen.drawn`, `Offscreen.viewed`, `captured`                   |
@@ -95,7 +95,7 @@ Interface needs, each owner a row `extension.registration.scope` acquires:
 |  [21]   | Workspace switch                            | `ui.screens.workspaces.Activation`                                                         |
 |  [22]   | Preference page                             | `ui.surfaces.preferences.PreferencesPage`                                                  |
 |  [23]   | Rows on a stock menu, panel, or header      | `ui.surfaces.appends.Append` with a type or `ContextMenu` target                           |
-|  [24]   | Asset shelf                                 | `files.shelves.Shelf`, `ui.layout.templates.ShelfPopover`                                  |
+|  [24]   | Asset shelf                                 | `files.shelves.Shelf`, `ui.layout.rows.ShelfPopover`                                       |
 |  [25]   | Redraw of every area                        | `extension.reports.redrawn`                                                                |
 |  [26]   | Translation table                           | `extension.registries.Translations`                                                        |
 
@@ -120,6 +120,7 @@ Host references go stale after their event, and code holds the form that survive
 |  [13]   | Generated `properties.inputs` struct | Group assignment, any interface write           | `struct_at(owner, "properties.inputs")` |
 |  [14]   | Pointer an operator re-targets       | `object.convert`, importer `obj.data` swaps     | Read through its owner after the call   |
 |  [15]   | `ui_styles` item                     | Theme reset, preset load                        | Re-read from its owner                  |
+|  [16]   | Dynamic enum `EnumPropertyItem`      | End of `enum_items` iteration listing it        | Item `identifier`                       |
 
 Stale references fail by kind:
 - Stale ID, `object_instances` item, `to_mesh()` mesh, and GeometrySet component references raise `ReferenceError` on every read
@@ -156,7 +157,10 @@ Identity and lookup follow host keys:
 - Caches key by `Handle`, its `session_uid` holding across renames, undo, and an undone removal while `as_pointer()` addresses repeat
 - Struct wrappers rebuild per access and ID wrappers per class refinement
 - `bl_rna.identifier` names a refined subtype (`SunLight`), and dispatch matches base classes through `isinstance` or a class pattern
-- RNA members of a class test through `name in T.bl_rna.properties` or `T.bl_rna.functions`, and member lookups resolve through `Descriptor.resolve`
+- Collection struct type tests (`ObjectModifiers`) never match a `bpy_prop_collection` value, and code binds the collection's own member
+- `data.rna.descriptors.subclass` builds a native class on first read, and `bl_rna_get_subclass_py` answers `None` for one nothing read yet
+- RNA members of a class test through `name in T.bl_rna.properties` or `T.bl_rna.functions`
+- Pinned RNA members resolve once through module-level `Descriptor.declared`, and members named at run time through `Descriptor.resolve`
 - Operators test through `"<name>" in dir(bpy.ops.<module>)` and list parameters through `get_rna_type().properties`, `hasattr` answering true for any name
 - Dynamic enums (engine, color management, OCIO views) list a static placeholder in `enum_items` (`BLENDER_EEVEE`, `NONE`), and `written` validates them live
 - `UILayout.enum_item_name(data, prop, identifier)` reads a dynamic enum's live label and `""` for an identifier outside the live items
@@ -241,7 +245,7 @@ Original data holds no modifier, constraint, or animation result, and each read 
 Evaluation follows host rules:
 - Writes to an evaluated ID succeed with no raise and drop at the next evaluation
 - RNA writes to built-in members tag their owner, while `id["key"]` writes, script writes to registered `bpy.props`, `CurveProfile` point writes with `update()`, `PointCloud.resize`, and `GreasePencilFrames.move` tag nothing
-- `scene.frame_current = n` applies at the next `evaluated(view_layer)`, and `frame_set` evaluates at the call and fires the frame handlers
+- `scene.frame_current = n` applies at the next `evaluated(view_layer)`, and `frame_set` evaluates at the call
 - `evaluated(view_layer)` serves every scene's layers, and `context.evaluated_depsgraph_get()` returns the active layer's depsgraph
 - `evaluated_depsgraph_get()` evaluates at viewport settings, and exports needing render results pass `evaluation_mode` (USD, Alembic, PLY, STL) or `export_eval_mode` (OBJ)
 - `evaluated_geometry()` raises `TypeError` on an original or an object without geometry, and `instances_pointcloud()` reads `None` with no instances
@@ -287,7 +291,8 @@ Registered values read and write through the host:
 - Whole-mesh captures cost 1.1 to 1.9 ms per face, and caches over geometry key on `foreach_get` buffers beside a capture selecting the block's own value members
 - `bl_rna.properties[name].is_readonly` is static, and `struct.is_property_readonly(name)` answers whether the member is editable now
 - Data paths (`driver_add`, `keyframe_insert`, `path_resolve`) name a registered property by identifier, `["name"]` resolving ID properties alone
-- `path_from_id()` raises `ValueError` for structs with no ID path (preferences, `Region`, `RegionView3D`), and `path_from_module()` returns the full path with its ID
+- `path_from_id()` raises `ValueError` for structs with no ID path (preferences, `Region`, `RegionView3D`, `CurveMapping`, `Stereo3dFormat`)
+- `id_path` joins a nested struct's member name to a holding struct's path, and `path_from_module()` returns a full path with the ID
 
 ## [06]-[UNDO]
 
@@ -354,7 +359,7 @@ Each entry point translates the result once into the host's form:
 |  [11]   | `execute_blender_code` body     | Raise of the rendered faults, data in `result`                                |
 
 Faults and exceptions stay apart:
-- RNA `RuntimeError` for rejected data becomes a fault at the call
+- Host refusals (`RuntimeError`, `TypeError`) become faults through `BlenderEditFault.attempted(<request>, lambda: <call>)` in place of `Ok(<call>)`
 - Host calls answering `None` (`links.new` across trees) or an invalid result (`NodeLink.is_valid` false) become faults at the call
 - `CANCELLED` keeps the writes a body made before its fault outside undo, and dependent steps roll back through the body's `ExitStack` scope
 - Python raises inside `RenderEngine.render` complete the render as `FINISHED`, and `error_set` cancels nothing

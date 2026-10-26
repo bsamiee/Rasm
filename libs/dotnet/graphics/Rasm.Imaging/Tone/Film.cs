@@ -64,74 +64,33 @@ public readonly partial struct BlackOffset : IMinMaxValue<BlackOffset> {
 }
 
 public sealed record FilmState(
-    Exposure PreExposure, AxisFraction PreFilterRed, AxisFraction PreFilterGreen, AxisFraction PreFilterBlue,
-    PrimaryScale RedScale, PrimaryScale GreenScale, PrimaryScale BlueScale,
-    HueRotation RedRotation, HueRotation GreenRotation, HueRotation BlueRotation,
-    PositiveMagnitude RedMultiplier, PositiveMagnitude GreenMultiplier, PositiveMagnitude BlueMultiplier,
+    Exposure PreExposure, Channels<AxisFraction> PreFilter, Channels<PrimaryScale> Scale, Channels<HueRotation> Rotation, Channels<PositiveMagnitude> Multiplier,
     Exposure SigmoidMinimum, FilmSpan SigmoidSpan, CurveFraction ToeX, CurveFraction ToeY, CurveFraction ShoulderReachX, CurveFraction ShoulderReachY,
-    Exposure NegativeExposure, Density NegativeDensity, PositiveMagnitude BacklightRed, PositiveMagnitude BacklightGreen, PositiveMagnitude BacklightBlue,
-    Exposure PrintExposure, Density PrintDensity, Gated<BlackOffset> BlackPoint,
-    AxisFraction PostFilterRed, AxisFraction PostFilterGreen, AxisFraction PostFilterBlue, Magnitude MidtoneSaturation);
-
-[SmartEnum]
-public sealed partial class FilmPreset {
-    public static readonly FilmPreset Default = new(new FilmState(
-        new Exposure(4.3f), AxisFraction.MaxValue, AxisFraction.MaxValue, AxisFraction.MaxValue,
-        PrimaryScale.Create(1.05f), PrimaryScale.Create(1.12f), PrimaryScale.Create(1.045f),
-        new HueRotation(float.DegreesToRadians(0.5f)), new HueRotation(float.DegreesToRadians(2f)), new HueRotation(float.DegreesToRadians(0.1f)),
-        PositiveMagnitude.Unit, PositiveMagnitude.Unit, PositiveMagnitude.Unit,
+    Exposure NegativeExposure, Density NegativeDensity, Channels<PositiveMagnitude> Backlight,
+    Exposure PrintExposure, Density PrintDensity, Gated<BlackOffset> BlackPoint, Channels<AxisFraction> PostFilter, Magnitude MidtoneSaturation) {
+    public static FilmState Default { get; } = new(
+        new Exposure(4.3f), new(AxisFraction.MaxValue), new(PrimaryScale.Create(1.05f), PrimaryScale.Create(1.12f), PrimaryScale.Create(1.045f)),
+        new(new HueRotation(float.DegreesToRadians(0.5f)), new HueRotation(float.DegreesToRadians(2f)), new HueRotation(float.DegreesToRadians(0.1f))), new(PositiveMagnitude.Unit),
         new Exposure(-10f), new FilmSpan(22f - -10f), new CurveFraction(0.44f), new CurveFraction(0.28f),
         new CurveFraction((0.591f - 0.44f) / (1f - 0.44f)), new CurveFraction((0.779f - 0.28f) / (1f - 0.28f)),
-        new Exposure(6f), new Density(5f), PositiveMagnitude.Unit, PositiveMagnitude.Unit, PositiveMagnitude.Unit,
-        new Exposure(6f), new Density(27.5f), new(Enabled: false, new BlackOffset(0.483f)),
-        AxisFraction.MaxValue, AxisFraction.MaxValue, AxisFraction.MaxValue, Magnitude.Create(1.02f)));
-    public static readonly FilmPreset Nostalgia = new(Default.State with {
-        PreExposure = new Exposure(5.563035f),
-        RedMultiplier = PositiveMagnitude.Create(1.1f),
-        BlueMultiplier = PositiveMagnitude.Create(1.2f),
-        SigmoidSpan = new FilmSpan(23f - -10f),
-        NegativeExposure = new Exposure(5.8f),
-        BacklightRed = PositiveMagnitude.Create(0.99f),
-        BacklightGreen = PositiveMagnitude.Create(1.1f),
-        BacklightBlue = PositiveMagnitude.Create(1.035989f),
-        PrintDensity = new Density(40f),
-        BlackPoint = new(Enabled: true, new BlackOffset(-5f)),
-        MidtoneSaturation = Magnitude.Create(1.1f),
-    });
-    public static readonly FilmPreset Silver = new(Default.State with {
-        PreExposure = new Exposure(3.9f),
-        PreFilterRed = AxisFraction.Create(0.95f),
-        PreFilterGreen = AxisFraction.Create(0.975f),
-        BlueMultiplier = PositiveMagnitude.Create(1.06f),
-        NegativeExposure = new Exposure(4.7f),
-        NegativeDensity = new Density(7f),
-        BacklightRed = PositiveMagnitude.Create(0.9992f),
-        BacklightGreen = PositiveMagnitude.Create(0.99f),
-        PrintExposure = new Exposure(4.7f),
-        PrintDensity = new Density(30f),
-        BlackPoint = new(Enabled: true, new BlackOffset(0.5f)),
-        PostFilterBlue = AxisFraction.Create(0.96f),
-        MidtoneSaturation = Magnitude.Unit,
-    });
-
-    public FilmState State { get; }
+        new Exposure(6f), new Density(5f), new(PositiveMagnitude.Unit),
+        new Exposure(6f), new Density(27.5f), new(Enabled: false, new BlackOffset(0.483f)), new(AxisFraction.MaxValue), Magnitude.Create(1.02f));
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FilmicView : ICaptioned {
-    public static readonly FilmicView VeryHighContrast = new("very-high-contrast", Some("filmic_to_1.20_1-00.spi1d"), "Very high contrast");
-    public static readonly FilmicView HighContrast = new("high-contrast", Some("filmic_to_0.99_1-0075.spi1d"), "High contrast");
-    public static readonly FilmicView MediumHighContrast = new("medium-high-contrast", Some("filmic_to_0-85_1-011.spi1d"), "Medium high contrast");
-    public static readonly FilmicView MediumContrast = new("medium-contrast", Some("filmic_to_0-70_1-03.spi1d"), "Medium contrast");
-    public static readonly FilmicView MediumLowContrast = new("medium-low-contrast", Some("filmic_to_0-60_1-04.spi1d"), "Medium low contrast");
-    public static readonly FilmicView LowContrast = new("low-contrast", Some("filmic_to_0-48_1-09.spi1d"), "Low contrast");
-    public static readonly FilmicView VeryLowContrast = new("very-low-contrast", Some("filmic_to_0-35_1-30.spi1d"), "Very low contrast");
-    public static readonly FilmicView Log = new("log", None, "Log");
+    public static readonly FilmicView VeryHighContrast = new("very-high-contrast", Some("filmic_to_1.20_1-00.spi1d"));
+    public static readonly FilmicView HighContrast = new("high-contrast", Some("filmic_to_0.99_1-0075.spi1d"));
+    public static readonly FilmicView MediumHighContrast = new("medium-high-contrast", Some("filmic_to_0-85_1-011.spi1d"));
+    public static readonly FilmicView MediumContrast = new("medium-contrast", Some("filmic_to_0-70_1-03.spi1d"));
+    public static readonly FilmicView MediumLowContrast = new("medium-low-contrast", Some("filmic_to_0-60_1-04.spi1d"));
+    public static readonly FilmicView LowContrast = new("low-contrast", Some("filmic_to_0-48_1-09.spi1d"));
+    public static readonly FilmicView VeryLowContrast = new("very-low-contrast", Some("filmic_to_0-35_1-30.spi1d"));
+    public static readonly FilmicView Log = new("log", None);
 
     public Option<string> Curve { get; }
-    public string Caption { get; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -146,9 +105,9 @@ internal static class FilmTransform {
             new ColorEncoding(Gamut.StandardRgb, TransferCurve.Linear, Nits.ReferenceWhite));
 
     private static Lut3D Developed(FilmState state) {
-        Matrix<double> extension = Matrix<double>.Build.DiagonalOfDiagonalArray([state.RedMultiplier, state.GreenMultiplier, state.BlueMultiplier])
+        Matrix<double> extension = Matrix<double>.Build.DiagonalOfDiagonalArray([state.Multiplier.Red, state.Multiplier.Green, state.Multiplier.Blue])
             * Matrix<double>.Build.DenseOfRowArrays(
-                Seq((Scale: state.RedScale, Rotation: state.RedRotation), (Scale: state.GreenScale, Rotation: state.GreenRotation), (Scale: state.BlueScale, Rotation: state.BlueRotation))
+                Seq((Scale: state.Scale.Red, Rotation: state.Rotation.Red), (Scale: state.Scale.Green, Rotation: state.Rotation.Green), (Scale: state.Scale.Blue, Rotation: state.Rotation.Blue))
                     .Map(static (primary, index) => new Unicolour(Configuration.Default, ColourSpace.Hsb, (120d * index) + double.RadiansToDegrees(primary.Rotation), 1d / primary.Scale, 1d).Rgb.ToArray()))
                 .NormalizeRows(1d);
         (Func<Vector256<double>, Vector256<double>> gamut, Func<Vector256<double>, Vector256<double>> back) = (Transform(extension), Transform(extension.Inverse()));
@@ -158,9 +117,9 @@ internal static class FilmTransform {
         (double low, double span, double offset) = (state.SigmoidMinimum, state.SigmoidSpan, double.Exp2(state.SigmoidMinimum));
         (double negative, Vector256<double> pre, Vector256<double> post) = (
             double.Exp2(state.NegativeExposure),
-            Vector256.Create(state.PreFilterRed, state.PreFilterGreen, state.PreFilterBlue, 0d) * double.Exp2(state.PreExposure),
-            Vector256.Create(state.PostFilterRed, state.PostFilterGreen, state.PostFilterBlue, 0d));
-        Vector256<double> backlight = gamut(Vector256.Create(state.BacklightRed, state.BacklightGreen, state.BacklightBlue, 0d)) * double.Exp2(state.PrintExposure);
+            state.PreFilter.Lanes(static share => share) * double.Exp2(state.PreExposure),
+            state.PostFilter.Lanes(static share => share));
+        Vector256<double> backlight = gamut(state.Backlight.Lanes(static gain => gain)) * double.Exp2(state.PrintExposure);
         Vector256<double> cap = Transmitted(backlight * double.Exp2(-(float)state.NegativeDensity), state.PrintDensity);
         double black = state.BlackPoint.Active.Match(
             Some: static offset => offset.Fraction,

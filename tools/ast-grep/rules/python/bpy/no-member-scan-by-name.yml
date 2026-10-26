@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-scan-by-name
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+utils:
+    members:
+        any:
+            - kind: attribute
+              has: {field: attribute, regex: '^(properties|parameters|functions)$'}
+            - kind: call
+              has: {field: function, matches: {python-member-use: {module: {regex: '^(msgspec\.structs|dataclasses)$'}, name: {regex: '^fields$'}}}}
+    scanned:
+        kind: for_in_clause
+        all: [{has: {field: left, kind: identifier, pattern: $F}}, {has: {field: right, matches: members}}]
+    named:
+        kind: attribute
+        all: [{has: {field: object, kind: identifier, pattern: $F}}, {has: {field: attribute, regex: '^(identifier|name)$'}}]
+    conjunct:
+        any:
+            - kind: parenthesized_expression
+            - kind: boolean_operator
+              has: {field: operator, regex: '^and$'}
+rule:
+    kind: comparison_operator
+    pattern: $TEST
+    all:
+        - has: {field: operators, regex: '^==$'}
+        - not: {has: {nthChild: 3}}
+        - any:
+            - all: [{has: {nthChild: 1, matches: named}}, {has: {nthChild: 2, matches: python-identifier-string}}]
+            - all: [{has: {nthChild: 2, matches: named}}, {has: {nthChild: 1, matches: python-identifier-string}}]
+        - any:
+            - inside:
+                kind: if_clause
+                stopBy: {not: {matches: conjunct}}
+                follows: {stopBy: end, matches: scanned}
+            - inside:
+                kind: generator_expression
+                field: body
+                all:
+                    - has: {matches: scanned}
+                    - inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^any$'}}}}}
+message: '`$TEST` scans members for the one a literal names'
+note: 'Index `<collection>["<name>"]` tested by `in`, declare `Descriptor.declared(<root>, "<name>", <kind>)`, or unpack `msgspec.structs.fields(<record>)`'

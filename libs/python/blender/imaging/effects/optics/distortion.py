@@ -42,38 +42,21 @@ class Radial(msgspec.Struct, frozen=True, kw_only=True):
 
     def to_rectilinear(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps lens positions to rectilinear samples, covering real branch alone."""
-        offset, offset_power = np.frexp(samples[..., :2] - 0.5)
-        extent, extent_power = np.frexp(self.extent)
-        scale, scale_power = math.frexp(self.scale)
-        strength, strength_power = math.frexp(math.sqrt(abs(self.distortion)))
-        radial, radial_power = np.frexp(offset * extent * scale * strength)
-        radial_power = radial_power + offset_power + extent_power + scale_power + strength_power + 2
-        common = np.maximum(0, np.max(radial_power, axis=-1, keepdims=True, where=radial != 0.0, initial=0))
-        radius = np.hypot.reduce(np.ldexp(radial, radial_power - common), axis=-1, keepdims=True)
+        offset = samples[..., :2] - 0.5
+        radius = np.hypot.reduce(4.0 * offset * self.extent * self.scale * math.sqrt(abs(self.distortion)), axis=-1, keepdims=True)
         if self.distortion < 0.0:
-            unit = np.ldexp(np.ones_like(radius), -common)
-            denominator = unit + np.hypot(unit, radius)
-            position = np.ldexp(2.0 * offset * scale / denominator, offset_power + scale_power - common)
-            return np.concatenate((0.5 + position, samples[..., 2:]), axis=-1)
-        radius = np.ldexp(radius, common, out=np.zeros_like(radius), where=common <= 1)
-        covered = np.logical_and(common <= 1, radius <= 1.0)
+            return np.concatenate((0.5 + 2.0 * offset * self.scale / (1.0 + np.hypot(1.0, radius)), samples[..., 2:]), axis=-1)
+        covered = radius <= 1.0
         root = np.sqrt((1.0 - radius) * (1.0 + radius), out=np.zeros_like(radius), where=covered)
-        position = np.ldexp(2.0 * offset * scale / (1.0 + root), offset_power + scale_power, out=np.zeros_like(offset), where=covered)
+        position = np.divide(2.0 * offset * self.scale, 1.0 + root, out=np.zeros_like(offset), where=covered)
         return np.concatenate((0.5 + position, samples[..., 2:] * covered), axis=-1)
 
     def to_lens(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps rectilinear positions to lens samples on forward map's inverse branch."""
-        offset, offset_power = np.frexp(samples[..., :2] - 0.5)
-        extent, extent_power = np.frexp(self.extent)
-        strength, strength_power = math.frexp(math.sqrt(abs(self.distortion)))
-        radial, radial_power = np.frexp(offset * extent * strength)
-        radial_power = radial_power + offset_power + extent_power + strength_power + 1
-        common = np.maximum(0, np.max(radial_power, axis=-1, keepdims=True, where=radial != 0.0, initial=0))
-        radius = np.hypot.reduce(np.ldexp(radial, radial_power - common), axis=-1, keepdims=True)
-        radius = np.ldexp(radius, common, out=np.zeros_like(radius), where=common <= 1)
-        covered = np.logical_and(common <= 1, radius < 1.0 if self.distortion < 0.0 else radius <= 1.0)
-        scale, scale_power = math.frexp(self.scale)
-        position = np.ldexp(np.divide(offset, (1.0 + np.copysign(radius**2, self.distortion)) * scale, out=np.zeros_like(offset), where=covered), offset_power - scale_power)
+        offset = samples[..., :2] - 0.5
+        radius = np.hypot.reduce(2.0 * offset * self.extent * math.sqrt(abs(self.distortion)), axis=-1, keepdims=True)
+        covered = radius < 1.0 if self.distortion < 0.0 else radius <= 1.0
+        position = np.divide(offset, (1.0 + np.copysign(radius**2, self.distortion)) * self.scale, out=np.zeros_like(offset), where=covered)
         return np.concatenate((0.5 + position, samples[..., 2:] * covered), axis=-1)
 
 

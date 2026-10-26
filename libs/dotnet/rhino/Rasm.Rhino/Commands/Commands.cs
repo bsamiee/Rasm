@@ -4,9 +4,7 @@ using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
-using Rhino.PlugIns;
 using Rhino.UI;
-using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Commands;
 
@@ -23,12 +21,21 @@ public abstract partial record SelectionAnswer {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Source)]
-internal static partial class CommandMapper {
-    internal static partial void Update((bool TestLights, bool TestGrips, bool BeQuiet) options, SelCommand command);
-}
+public static class CommandOps {
+    // --- [EXECUTION]
+    public static IO<Unit> ExecuteCommand(RhinoDoc document, string commandName) =>
+        IO.lift(() => Conversions.FromResult(RhinoApp.ExecuteCommand(document, commandName), nameof(RhinoApp.ExecuteCommand)));
 
-public static class CommandRegistry {
+    public static IO<Unit> RunProxyCommand(IO<Unit> body) =>
+        from running in IO.lift(Command.InCommand)
+        from answer in running ? body : Callbacks.Captured<Unit>(capture => IO.lift(() => Command.RunProxyCommand(
+            (_, _, _) => {
+                Fin<Unit> result = Callbacks.Settled(body, CancellationToken.None);
+                capture(result);
+                return Conversions.ToResult(result).IfFail(Result.Failure);
+            }, doc: null, data: null)), nameof(Command.RunProxyCommand))
+        select answer;
+
     // --- [HISTORY]
     public static IO<Option<(Guid Id, Result Result)>> LastCommand() =>
         IO.lift(static () => Conversions.Present(Command.LastCommandId).Map(static id => (Id: id, Result: Command.LastCommandResult)));
@@ -38,14 +45,8 @@ public static class CommandRegistry {
             .Map(static description => (Conversions.Present(description.DisplayString), Conversions.Present(description.Macro)))
             .Strict());
 
-    // --- [REGISTRATION]
-    public static IO<Seq<Command>> GetCommands(Guid plugInId) =>
-        IO.lift(() => Refused.UnlessFound(PlugIn.Find(plugInId), nameof(PlugIn.Find)).Map(static plugIn => toSeq(plugIn.GetCommands())));
-
     // --- [IDENTITY]
     extension(Command command) {
-        internal string LocalizedName => Localization.LocalizeCommandName(command.EnglishName, command.PlugIn);
-
         internal string HelpUrl(CallbackSite site) =>
             Callbacks.Answer(PlugInRegistry.ReadPlugIn(command.PlugIn.Id).Map(static state => Conversions.Unset(state.Bind(static held => held.WebSite))), static () => "", site);
 
@@ -65,7 +66,7 @@ public abstract class HostCommand(IPlugInSink sink, Guid id, string englishName,
 
     public sealed override string EnglishName { get; } = englishName;
 
-    public sealed override string LocalName => this.LocalizedName;
+    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
 
     protected virtual Option<HelpTopic> Help => None;
 
@@ -77,10 +78,10 @@ public abstract class HostCommand(IPlugInSink sink, Guid id, string englishName,
     protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site);
 
     protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
-        (new CallbackSite(sink, GetType(), nameof(RunCommand)), history.Exists(static row => row.HistoryReplayOnObjectAttributeChange)) switch {
-            (var site, var replayOnAttributeChange) => Callbacks.Answer(
+        new CallbackSite(sink, GetType(), nameof(RunCommand)) switch {
+            var site => Callbacks.Answer(
                 Conversions.ToResult(
-                    from configured in IO.lift(() => { HistoryReplayOnObjectAttributeChange = replayOnAttributeChange; })
+                    from configured in IO.lift(() => { HistoryReplayOnObjectAttributeChange = history.Exists(static row => row.HistoryReplayOnObjectAttributeChange); })
                     from result in Run(doc, mode, site)
                     select result),
                 static () => Result.Failure,
@@ -95,13 +96,13 @@ public abstract class HostCommand(IPlugInSink sink, Guid id, string englishName,
             new CallbackSite(sink, GetType(), nameof(ReplayHistory)));
 }
 
-public abstract class HostSelectionCommand(IPlugInSink sink, Guid id, string englishName, bool testLights, bool testGrips, bool beQuiet) : SelCommand {
+public abstract class HostSelectionCommand(IPlugInSink sink, Guid id, string englishName) : SelCommand {
     // --- [IDENTITY]
     public sealed override Guid Id { get; } = id;
 
     public sealed override string EnglishName { get; } = englishName;
 
-    public sealed override string LocalName => this.LocalizedName;
+    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
 
     protected virtual Option<HelpTopic> Help => None;
 
@@ -111,12 +112,6 @@ public abstract class HostSelectionCommand(IPlugInSink sink, Guid id, string eng
 
     // --- [EXECUTION]
     protected abstract SelectionAnswer Select(RhinoObject candidate);
-
-    protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
-        Callbacks.Answer(
-            Conversions.ToResult(IO.lift(() => CommandMapper.Update((testLights, testGrips, beQuiet), this))),
-            static () => Result.Failure,
-            new CallbackSite(sink, GetType(), nameof(RunCommand)));
 
     protected sealed override bool SelFilter(RhinoObject rhObj) =>
         Callbacks.Answer(
@@ -144,7 +139,7 @@ public abstract class HostTransformCommand(IPlugInSink sink, Guid id, string eng
 
     public sealed override string EnglishName { get; } = englishName;
 
-    public sealed override string LocalName => this.LocalizedName;
+    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
 
     protected virtual Option<HelpTopic> Help => None;
 

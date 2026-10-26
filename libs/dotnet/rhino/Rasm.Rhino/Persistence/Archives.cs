@@ -1,5 +1,4 @@
 using QuikGraph;
-using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
 using Rhino.DocObjects;
@@ -103,9 +102,6 @@ public static partial class Archives {
     [MapProperty(new[] { nameof(File3dm.Notes), nameof(File3dmNotes.Notes) }, nameof(ArchiveHeader.Notes))]
     public static partial ArchiveHeader Header(File3dm archive);
 
-    public static IO<EarthAnchor> Anchor(File3dm archive) =>
-        DisposalOps.Within(() => archive.EarthAnchorPoint, static point => IO.lift(() => EarthAnchor.Of(point)));
-
     public static IO<ArchiveGraph> Graph(File3dm archive) =>
         from read in IO.lift(() => (
             Vertices: Seq<IEnumerable<ModelComponent>>(archive.AllLayers, archive.AllMaterials, archive.AllGroups, archive.AllInstanceDefinitions, archive.Objects)
@@ -138,12 +134,6 @@ public static partial class Archives {
             Some: text => IO.lift(() => ignore(archive.Strings.SetString(key.Text, text))),
             None: () => IO.lift(() => archive.Strings.Delete(key.Text)))
         select prior;
-
-    public static IO<Unit> Write(File3dm archive, EarthAnchor anchor) =>
-        DisposalOps.Within(() => archive.EarthAnchorPoint, point =>
-            from applied in anchor.Apply(point)
-            from committed in IO.lift(() => { archive.EarthAnchorPoint = point; })
-            select committed);
 
     public static IO<Unit> Embed(File3dm archive, string path) =>
         from existing in IO.lift(() => Exchange.ExistingPath(path))

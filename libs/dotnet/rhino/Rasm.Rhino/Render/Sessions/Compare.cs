@@ -9,12 +9,9 @@ using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Drawing;
-using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.Render.PostEffects;
-using UnitsNet;
-using UnitsNet.Units;
 
 namespace Rasm.Rhino.Render.Sessions;
 
@@ -52,26 +49,10 @@ public sealed record ComparisonSettingRows(
     PlugInSetting<BarLevel, double> PsnrRefuse,
     PlugInSetting<BarLevel, double> NrmseAdvisory,
     PlugInSetting<BarLevel, double> NrmseRefuse) {
-    public static ComparisonSettingRows Default { get; } = new(
-        PsnrAdvisory: new(ValueKey.Numeric("ComparePsnrAdvisory", "PSNR advisory", "PSNR in decibels below which compared renders grade advisory", BarLevel.PsnrAdvisory,
-            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LevelUnit.Decibel), Decimals = 1 })), SettingType.Double),
-        PsnrRefuse: new(ValueKey.Numeric("ComparePsnrRefuse", "PSNR refuse", "PSNR in decibels below which compared renders are refused", BarLevel.PsnrRefuse,
-            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(LevelUnit.Decibel), Decimals = 1 })), SettingType.Double),
-        NrmseAdvisory: new(ValueKey.Numeric("CompareNrmseAdvisory", "NRMSE advisory", "Normalized error above which compared renders grade advisory", BarLevel.NrmseAdvisory,
-            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Decimals = 2 })), SettingType.Double),
-        NrmseRefuse: new(ValueKey.Numeric("CompareNrmseRefuse", "NRMSE refuse", "Normalized error above which compared renders are refused", BarLevel.NrmseRefuse,
-            NumericDomain.Bounded<BarLevel, double>(new() { Form = NumberForm.Field, Decimals = 2 })), SettingType.Double));
-
-    public Seq<PlugInSetting> Rows => [.. Levels];
-
-    public Seq<Child> Children => [new ControlRow.Group("Render comparison", RowRules.Always) { Wording = Wording.Library }, .. Levels.Bind(static row => SectionRows.Setting(row, RowRules.Always))];
-
     public IO<ComparisonBars> Bars(ISettingReader node) =>
         IO.lift(() => (node.Current(PsnrAdvisory), node.Current(PsnrRefuse), node.Current(NrmseAdvisory), node.Current(NrmseRefuse))
             .Apply(static (psnrAdvisory, psnrRefuse, nrmseAdvisory, nrmseRefuse) => new ComparisonBars(new Bar(psnrAdvisory, psnrRefuse), new Bar(nrmseAdvisory, nrmseRefuse)))
             .As());
-
-    private Seq<PlugInSetting<BarLevel, double>> Levels => [PsnrAdvisory, PsnrRefuse, NrmseAdvisory, NrmseRefuse];
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -80,7 +61,6 @@ public sealed class RenderingComparison : IDisposable {
     private readonly Ref<Option<Preview>> previewed = Ref(Option<Preview>.None);
     private readonly Atom<Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>>> displayed =
         Atom(Option<Either<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>>.None);
-    private static readonly RowSource<bool> difference = RowSource.Opaque(nameof(RenderingComparison), nameof(Difference), @default: false).Source;
     private readonly Derivations derivations = new();
 
     private readonly Ref<Option<Chosen>> held = Ref(Option<Chosen>.None);
@@ -106,7 +86,7 @@ public sealed class RenderingComparison : IDisposable {
                         .Bind(IO.lift)
                         .Bind(measured => Result.SwapIO(_ => Some(measured)))
                         .Map(unit)
-                        .Catch(error => IO.lift(() => sink.Report(error, typeof(RenderingComparison), nameof(Measures))))
+                        .Catch(error => IO.lift(() => sink.Report(error, typeof(RenderingComparison), nameof(Measure))))
                         .As().Fork().Run(),
                     static fork => fork.Cancel.Run())),
                 static acquired => {
@@ -256,7 +236,7 @@ public sealed class RenderingComparison : IDisposable {
 
     public IO<Unit> Previewed(TileRequest request, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-            from release in DisposalOps.Acquire(IO.lift(() => new Disposal<TileRequest>(request, asked => Withdrawn(asked).Run())), owned)
+            from release in DisposalOps.Acquire(IO.pure(request), Withdrawn, owned)
             from published in Previewed(Some(request))
             select unit, retain);
 
@@ -294,21 +274,19 @@ public sealed class RenderingComparison : IDisposable {
         Withdrawn(failed.Request).Bind(_ => IO.fail<FrameShown>(error));
 
     // --- [ROWS]
-    public static ControlRow Export { get; } = SectionRows.Pushed(new CommandRow.Run(
-        new CommandFace("comparison-export", "Export displayed frame", "Write displayed callback or history frame to output targets", None, None), None,
-        static scope =>
-            from comparison in Current.Of(scope.Sink)
-            from source in comparison.displayed.ValueIO.Bind(static held => IO.lift(held.ToFin(new Refused(nameof(FrameShown.Frame), Refused.Absent))))
-            from document in scope.DocumentIO
-            from written in Saves.Write(document, scope.Sink, source)
-            select unit));
+    public static IO<Unit> Export(RowScope scope) =>
+        from comparison in Current.Of(scope.Sink)
+        from source in comparison.displayed.ValueIO.Bind(static held => IO.lift(held.ToFin(new Refused(nameof(FrameShown.Frame), Refused.Absent))))
+        from document in scope.DocumentIO
+        from written in Saves.Write(document, scope.Sink, source)
+        select unit;
 
-    public static FrameSampling Sample(RowScope scope) {
+    public static FrameSampling Sample(RowScope scope, IO<bool> difference) {
         object owner = new();
         return new(
             Compared(scope, comparison =>
                 from live in comparison.Live
-                from shown in scope.Read(difference)
+                from shown in difference
                 from sampled in comparison.Sampled(owner, live.Current.Frame, shown)
                 from retained in comparison.displayed.SwapIO(_ => live.Source)
                 select (live.Current, sampled.Reference, sampled.Masks),
@@ -317,57 +295,21 @@ public sealed class RenderingComparison : IDisposable {
                 chosen.Measurement.Exists(measurement => ReferenceEquals(measurement.Work.Owner, owner)) ? chosen with { Measurement = None } : chosen)).Map(unit), IO.pure(unit)));
     }
 
-    public static CommandRow.Check Difference { get; } = new(
-        new CommandFace("comparison-difference", "Difference", "Tints frame where compared rendering differs from newest rendering", None, None) { Wording = Wording.Library }, None,
-        static scope => scope.Read(difference), static (scope, on) => scope.Store(difference).Put(Some(on)).Map(unit));
+    public static IO<Option<(FrameComparison Measured, Verdict Verdict)>> Graded(RowScope scope, ComparisonSettingRows bars) =>
+        from measured in Compared(scope, static comparison => comparison.Measure, IO.pure(Option<FrameComparison>.None))
+        from graded in measured.Traverse(result => bars.Bars(((IPlugInViews)scope.Sink).Settings).Map(levels => (result, result.Graded(levels)))).As()
+        select graded;
 
-    public static ControlRow Measures(ComparisonSettingRows bars) =>
-        TextRows.Readout(
-            "Measure",
-            "PSNR and NRMSE against newest rendering, graded by comparison settings",
-            new ReadoutSource<Option<(FrameComparison, Verdict)>>.Scoped(scope =>
-                from measured in Compared(scope, static comparison => comparison.Measure, IO.pure(Option<FrameComparison>.None))
-                from graded in measured.Traverse(result => bars.Bars(((IPlugInViews)scope.Sink).Settings).Map(levels => (result, result.Graded(levels)))).As()
-                select graded),
-            static graded => graded.Match(Some: Shown, None: static () => ""),
-            RowRules.Always) with {
-            Wording = Wording.Library,
-        };
-
-    public static ControlRow Settings { get; } =
-        ListRows.List(
-            "Render Settings",
-            "Compared rendering's saved render settings against current document values",
-            new ListRow<SettingsRow, EntryKey>(
-                IterableNE.create<ListColumn<SettingsRow>>(
-                    new ListColumn<SettingsRow>.Label(Some("Setting"), static row => row.Setting, None, None),
-                    new ListColumn<SettingsRow>.Label(Some("Saved"), static row => row.A.IfNone(""), None, None),
-                    new ListColumn<SettingsRow>.Label(Some("Current"), static row => row.B.IfNone(""), None, None)),
-                static row => row.Key,
-                RowSource.Opaque(nameof(RenderingComparison), nameof(ListRow<,>.Items), Seq<SettingsRow>(), Items),
-                RowSource.Opaque(nameof(RenderingComparison), nameof(ListRow<,>.Selected), LanguageExt.HashSet<EntryKey>.Empty)) {
-                Wording = Wording.Library,
-            },
-            RowRules.Always);
+    public static ValueStore<Seq<SettingsRow>> Items(RowScope scope) =>
+        ValueStore.Readout(Compared(scope, comparison => comparison.Listed(scope.Document), IO.pure(Seq<SettingsRow>())), Some(Marked(scope)));
 
     private static IO<A> Compared<A>(RowScope scope, Func<RenderingComparison, IO<A>> read, IO<A> absent) =>
         (Current.Of(scope.Sink).Map(static comparison => Some(comparison)) | IO.pure(Option<RenderingComparison>.None)).Bind(cell => cell.Match(Some: read, None: () => absent));
 
-    private static string Shown((FrameComparison Measured, Verdict Verdict) graded) =>
-        RowText.Localize("{0}, {1}, {2}", arguments: [
-            RowText.Localize("PSNR {0:F1} dB", arguments: [graded.Measured.Psnr]).Local,
-            graded.Measured.Nrmse.Match(Some: static nrmse => RowText.Localize("NRMSE {0:F3}", arguments: [nrmse]).Local, None: static () => RowText.Localize("NRMSE unmeasured").Local),
-            graded.Verdict.Map(pass: RowText.Localize("Pass"), advisory: RowText.Localize("Advisory"), unmeasured: RowText.Localize("Unmeasured"), refuse: RowText.Localize("Refused")).Local,
-        ]).Local;
-
-    private static ValueStore<Seq<SettingsRow>> Items(RowScope scope) =>
-        ValueStore.Readout(Compared(scope, comparison => comparison.Listed(scope.Document), IO.pure(Seq<SettingsRow>())), Some(Marked(scope)));
-
     private static HostEvent<Unit> Marked(RowScope scope) =>
-        new(typeof(RenderingComparison), nameof(Settings), (deliver, site, retain) =>
-            from cell in Current.Of(scope.Sink).Map(static comparison => Some(comparison)) | IO.pure(Option<RenderingComparison>.None)
-            let raises = scope.Document.ToSeq().Bind(Edited) + cell.ToSeq().Map(static comparison => comparison.Changed)
-            from attached in DisposalOps.Acquire(keep => raises.TraverseM(raise => raise.Attach(deliver, site, keep)).As(), retain)
+        new(typeof(RenderingComparison), nameof(Items), (deliver, site, retain) =>
+            from changed in Compared(scope, static comparison => IO.pure(Seq(comparison.Changed)), IO.pure(Seq<HostEvent<Unit>>()))
+            from attached in DisposalOps.Acquire(keep => (scope.Document.ToSeq().Bind(Edited) + changed).TraverseM(raise => raise.Attach(deliver, site, keep)).As(), retain)
             select unit);
 
     private static Seq<HostEvent<Unit>> Edited(RhinoDoc document) =>

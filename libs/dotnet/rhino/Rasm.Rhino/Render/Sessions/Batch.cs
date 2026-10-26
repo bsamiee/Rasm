@@ -55,7 +55,7 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
 
     public IO<bool> Start(RenderWindow window, Func<Action<IDisposable>, IO<RenderWork>> open, LocalizeStringPair caption) =>
         DisposalOps.OnFailure(
-            from work in DisposalOps.Replace(open, (_, lease) => scenes.Replace(lease))
+            from work in DisposalOps.Acquire(open, (_, lease) => scenes.Replace(lease))
             from control in work.Ready.Traverse(ready => DisposalOps.Acquire(IO.lift(() => new ExecutionControl(ready, Sink)), window.RegisterPostEffectExecutionControl)).As()
             from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
             select started,

@@ -1,0 +1,78 @@
+using System;
+using Eto.Drawing;
+using LanguageExt;
+using Rasm.Rhino;
+using static LanguageExt.Prelude;
+
+namespace Rasm.Rhino {
+    public sealed class Disposal<T>(T held, Action<T> release) : IDisposable {
+        public void Dispose() => release(held);
+    }
+
+    public static class DisposalOps {
+        public static IO<T> Acquire<T>(IO<T> acquire, Action<T> retain) where T : IDisposable => acquire.Map(held => { retain(held); return held; });
+        public static IO<TResult> Within<T, TResult>(Func<T> acquire, Func<T, IO<TResult>> body) where T : IDisposable => IO.lift(acquire).Bind(body);
+        public static IO<Unit> Release<T>(params T[] held) where T : IDisposable => IO.lift(() => System.Array.ForEach(held, static item => item.Dispose()));
+    }
+}
+
+internal static class AcquiredMeasure {
+    internal static IO<float> Measured(Action<IDisposable> retain) =>
+        from regular in DisposalOps.Acquire(IO.lift(static () => {|#0:SystemFonts.Label()|}), retain)
+        from emphasis in DisposalOps.Acquire(IO.lift(() => {|#1:SystemFonts.Bold(regular.Size)|}), retain)
+        select emphasis.MeasureString("caption").Width;
+}
+
+internal static class RangedFont {
+    internal static IO<float> Lifted(Action<IDisposable> retain) =>
+        from regular in IO.lift(() => {|#2:SystemFonts.Label()|})
+        from held in DisposalOps.Acquire(IO.pure(regular), retain)
+        select held.Size;
+
+    internal static IO<Unit> Let() =>
+        from size in IO.pure(1f)
+        let shared = {|#3:SystemFonts.Palette(size)|}
+        from released in DisposalOps.Release(shared)
+        select released;
+
+    internal static IO<Font> Bound(Action<IDisposable> retain) =>
+        IO.lift(() => {|#4:SystemFonts.Message()|}).Bind(font => DisposalOps.Acquire(IO.pure(font), retain));
+
+    internal static IO<float> Scoped() => DisposalOps.Within(() => {|#5:SystemFonts.User()|}, static font => IO.pure(font.Size));
+}
+
+internal static class DisposedFont {
+    internal static float Used() {
+        using Font font = {|#6:SystemFonts.Default()|};
+        return font.Size;
+    }
+
+    internal static void Direct() => {|#7:SystemFonts.Bold()|}.Dispose();
+
+    internal static void Local() {
+        Font font = {|#8:SystemFonts.StatusBar()|};
+        DisposalOps.Release(font).Run();
+    }
+
+    internal static IDisposable Held() => new Disposal<Font>({|#9:SystemFonts.Menu()|}, static font => font.Dispose());
+
+    internal static void Retained(Action<IDisposable> retain) => retain({|#10:SystemFonts.ToolTip()|});
+
+    internal static IO<Unit> Deferred() => IO.lift({|#11:SystemFonts.TitleBar()|}.Dispose);
+}
+
+internal static class ReadFont {
+    internal static IO<float> Measured() =>
+        from regular in IO.lift(static () => SystemFonts.Label())
+        from emphasis in IO.lift(() => SystemFonts.Bold(regular.Size))
+        select emphasis.MeasureString("caption").Width;
+
+    internal static float Cached() {
+        Font shared = SystemFonts.Cached(SystemFont.Bold);
+        return shared.Size;
+    }
+
+    internal static IO<float> Owned(Action<IDisposable> retain) =>
+        from owned in DisposalOps.Acquire(IO.lift(static () => new Font(SystemFont.Label)), retain)
+        select owned.Size;
+}

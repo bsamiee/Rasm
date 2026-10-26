@@ -14,7 +14,7 @@ internal interface IStreamed<TSelf, TIncrement> where TSelf : Gesture, IStreamed
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal abstract partial record Gesture {
     public LanguageExt.HashSet<Modifier> Modifiers { get; init; }
 
@@ -30,8 +30,7 @@ internal abstract partial record Gesture {
     public sealed record Scroll(SKPoint At, Vector2 Travel) : Gesture, IStreamed<Scroll, Vector2> {
         public static Scroll Of(SKPoint at, Vector2 increment, LanguageExt.HashSet<Modifier> modifiers) => new(at, increment) { Modifiers = modifiers };
 
-        public static Option<Scroll> From(Gesture gesture) =>
-            gesture.Switch(press: static _ => None, scroll: static scroll => Some(scroll), magnify: static _ => None, rotate: static _ => None, perform: static _ => None);
+        public static Option<Scroll> From(Gesture gesture) => gesture.SwitchPartially(@default: static _ => Option<Scroll>.None, scroll: static scroll => Some(scroll));
 
         public Scroll Folded(SKPoint at, Vector2 increment, LanguageExt.HashSet<Modifier> modifiers) => this with { At = at, Travel = Travel + increment, Modifiers = modifiers };
     }
@@ -39,8 +38,7 @@ internal abstract partial record Gesture {
     public sealed record Magnify(SKPoint About, float Magnification) : Gesture, IStreamed<Magnify, float> {
         public static Magnify Of(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) => new(at, increment) { Modifiers = modifiers };
 
-        public static Option<Magnify> From(Gesture gesture) =>
-            gesture.Switch(press: static _ => None, scroll: static _ => None, magnify: static magnify => Some(magnify), rotate: static _ => None, perform: static _ => None);
+        public static Option<Magnify> From(Gesture gesture) => gesture.SwitchPartially(@default: static _ => Option<Magnify>.None, magnify: static magnify => Some(magnify));
 
         public Magnify Folded(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) =>
             this with { About = at, Magnification = ((1f + Magnification) * (1f + increment)) - 1f, Modifiers = modifiers };
@@ -49,8 +47,7 @@ internal abstract partial record Gesture {
     public sealed record Rotate(SKPoint About, float Rotation) : Gesture, IStreamed<Rotate, float> {
         public static Rotate Of(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) => new(at, increment) { Modifiers = modifiers };
 
-        public static Option<Rotate> From(Gesture gesture) =>
-            gesture.Switch(press: static _ => None, scroll: static _ => None, magnify: static _ => None, rotate: static rotate => Some(rotate), perform: static _ => None);
+        public static Option<Rotate> From(Gesture gesture) => gesture.SwitchPartially(@default: static _ => Option<Rotate>.None, rotate: static rotate => Some(rotate));
 
         public Rotate Folded(SKPoint at, float increment, LanguageExt.HashSet<Modifier> modifiers) => this with { About = at, Rotation = Rotation + increment, Modifiers = modifiers };
     }

@@ -250,7 +250,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             IO<Unit> cancel = IO.lift(() => ContentBox.Size).Bind(size => control.Cancel(size, Scale()));
             Func<ResponseMouseArgs, Response> press = Reply<ResponseMouseArgs>(args =>
                 DisposalOps.OnFailure(Mouse(args, control.Press).Bind(reply => reply is Response.Capture
-                    ? Capture(owned => DisposalOps.Acquire(IO.lift(() => new Disposal<IO<Unit>>(cancel, static effect => effect.Run())), owned).Map(unit))
+                    ? Capture(owned => DisposalOps.Acquire(IO.pure(unit), _ => cancel, owned))
                     : IO.pure(reply)), cancel));
             Func<ResponseMouseArgs, Response> drag = Reply<ResponseMouseArgs>(args => Mouse(args, control.Move));
             Func<ResponseMouseArgs, Response> up = Reply<ResponseMouseArgs>(args =>
@@ -278,11 +278,11 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
                    from keyed in Subscriptions.Attach(add => Responder.KeyDownHook += add, remove => Responder.KeyDownHook -= remove, key, keep)
                    from invalidated in Subscriptions.Attach(add => control.Redraw += add, remove => control.Redraw -= remove, redraw, keep)
                    from fitted in Subscriptions.Attach(add => control.PreferredSizeChanged += add, remove => control.PreferredSizeChanged -= remove, preferred, keep)
-                   from bound in DisposalOps.Acquire(IO.lift(() => new Disposal<ComponentControl>(control, released => {
+                   from bound in DisposalOps.Acquire(IO.pure(control), released => IO.lift(() => {
                        bool current = hosted.Exists(bound => ReferenceEquals(bound.Surface, surface));
                        hosted = hosted.Filter(_ => !current);
-                       _ = (current ? Callbacks.Each(Seq(Cancelled, released.Leave(ContentBox.Size, Scale()))).Map(unit) : cancel).Uninterruptible().Run();
-                   })), keep)
+                       return current;
+                   }).Bind(current => (current ? Callbacks.Each(Seq(Cancelled, released.Leave(ContentBox.Size, Scale()))).Map(unit) : cancel).Uninterruptible()), keep)
                    from arranged in DisposalOps.OnFailure(IO.lift(() => {
                        hosted = Some((control, surface));
                        InvalidateLayout();
@@ -299,7 +299,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         args => Callbacks.Started(DisposalOps.OnFailure(IO.pure(args).Bind(observe), Cancelled), Site(member));
 
     public IO<Response> Capture(Func<Action<IDisposable>, IO<Unit>> begin) =>
-        DisposalOps.Replace(begin, (_, release) => atomic(() => {
+        DisposalOps.Acquire(begin, (_, release) => atomic(() => {
             Option<Either<Resizing, IDisposable>> prior = track.Value;
             track.Value = Some(Right<Resizing, IDisposable>(release));
             return Cleaned(prior);

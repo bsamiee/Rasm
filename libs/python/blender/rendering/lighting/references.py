@@ -6,21 +6,21 @@ import functools
 import math
 from typing import Annotated, get_origin, Self
 
-from expression import Nothing, Ok, Option, Some
+from expression import Nothing, Ok, Option, Result, Some
 import msgspec.inspect
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.chain import GREY
-from blender.imaging.color.processors import applied, processor, xyz
+from blender.imaging.color.processors import converted, xyz
 from blender.imaging.color.white import White
-from blender.imaging.faults import accumulated, guarded
+from blender.imaging.faults import accumulated, guarded, ImagingNumericFault
 from blender.imaging.hashing import content_hash, rng
-from blender.imaging.parameters import Choice, Finite, Gated, NonNegative, Position, Presentation, Rgb, Seed, Unit
-from blender.rendering.faults import RenderingArithmeticFault, RenderingImagingFault, RenderingResult
-from blender.rendering.lighting.rigs import Disk, Placement, Placements, Point, product, Spot, Sun
-from blender.rendering.outputs.framing import Side
+from blender.imaging.parameters import Choice, Finite, Gated, NonNegative, Position, Presentation, Rgb, Seed, Side, Unit
+from blender.imaging.sampling import smoothstep
+from blender.rendering.faults import RenderingFaults, RenderingResult
+from blender.rendering.lighting.rigs import Disk, Placement, Placements, Point, Spot, Sun
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -42,8 +42,94 @@ class ReferenceDistribution(Choice):
     VIVID = 2
     SOFT = 3
 
+    @property
+    def draw(self) -> "Draw":
+        """Colors, placement, and field ranges references of this distribution draw from."""
+        match self:
+            case ReferenceDistribution.BALANCED:
+                gels = tuple(ReferenceImage.gels().values())
+                return Draw(
+                    colors=gels,
+                    placement=Scattered(count=(1, 3), horizontal=(-0.8, 0.8), vertical=(-0.7, 0.85)),
+                    sharpness=(0.7, 2.4),
+                    intensity=(0.5, 1.1),
+                    level=(0.03, 0.5),
+                    gradient=(0.0, 0.6),
+                    tints=gels,
+                    rim=(0.4, 1.2),
+                    vignette=(0.5, 0.0, 0.5),
+                    cycles=(0.0, 0.0, 0.0, 5.0, 7.0),
+                    dapples=(0, 0, 0, 12),
+                )
+            case ReferenceDistribution.VIVID:
+                return Draw(
+                    colors=(
+                        Rgb(red=1.4, green=0.12, blue=0.85),
+                        Rgb(red=0.15, green=0.75, blue=1.35),
+                        Rgb(red=1.35, green=0.55, blue=0.05),
+                        Rgb(red=0.25, green=1.05, blue=0.35),
+                        Rgb(red=0.75, green=0.25, blue=1.35),
+                    ),
+                    placement=Slotted(
+                        positions=((-0.62, 0.18), (0.62, 0.18), (0.0, 0.58), (-0.38, -0.42), (0.38, -0.42)),
+                        spreads=(((0, 1, 3), (0, 1, 4), (0, 2, 4), (1, 2, 4)), ((0, 1, 2, 3), (0, 1, 3, 4), (0, 2, 3, 4)), ((0, 1, 2, 3, 4),)),
+                        jitter=0.08,
+                    ),
+                    sharpness=(1.3, 2.1),
+                    intensity=(0.85, 1.45),
+                    level=(0.03, 0.1),
+                    gradient=(0.0, 0.15),
+                    tints=(Rgb(red=0.42, green=0.46, blue=0.52),),
+                    rim=(0.25, 0.5),
+                    vignette=(1.0, 0.15, 0.45),
+                )
+            case ReferenceDistribution.SOFT:
+                return Draw(
+                    colors=(Rgb(red=1.0, green=0.96, blue=0.92), Rgb(red=0.94, green=0.96, blue=1.0), Rgb(red=0.98, green=0.95, blue=0.9)),
+                    placement=Scattered(count=(1, 2), horizontal=(-0.45, 0.45), vertical=(-0.35, 0.55)),
+                    sharpness=(0.55, 1.0),
+                    intensity=(0.35, 0.65),
+                    level=(0.32, 0.55),
+                    gradient=(0.0, 0.25),
+                    tints=(Rgb(red=0.97, green=0.95, blue=0.92), Rgb(red=0.93, green=0.95, blue=0.98)),
+                    rim=(0.0, 0.0),
+                    vignette=(0.3, 0.0, 0.2),
+                )
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Scattered(msgspec.Struct, frozen=True, kw_only=True, tag=True):
+    """Highlight count range with offsets drawn over the whole frame."""
+
+    count: tuple[int, int]
+    horizontal: tuple[float, float]
+    vertical: tuple[float, float]
+
+
+class Slotted(msgspec.Struct, frozen=True, kw_only=True, tag=True):
+    """Highlights at one drawn slot group, each slot pairing a position with the color at its index."""
+
+    positions: tuple[tuple[float, float], ...]
+    spreads: tuple[tuple[tuple[int, ...], ...], ...]
+    jitter: float
+
+
+class Draw(msgspec.Struct, frozen=True, kw_only=True):
+    """Ranges one reference distribution draws its fields from."""
+
+    colors: tuple[Rgb, ...]
+    placement: Scattered | Slotted
+    sharpness: tuple[float, float]
+    intensity: tuple[float, float]
+    level: tuple[float, float]
+    gradient: tuple[float, float]
+    tints: tuple[Rgb, ...]
+    rim: Annotated[tuple[float, float], msgspec.Meta(description="Chance of a rim and its amount bound")]
+    vignette: Annotated[tuple[float, float, float], msgspec.Meta(description="Chance of a vignette and its amount range")]
+    cycles: tuple[float, ...] = (0.0,)
+    dapples: tuple[int, ...] = (0,)
 
 
 class DistantLight(msgspec.Struct, frozen=True, kw_only=True):
@@ -116,61 +202,38 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
     def drawn(cls, distribution: ReferenceDistribution, seed: Seed) -> Self:
         """Draws editable reference from distribution and seed."""
         generator = rng(content_hash(ReferenceDistribution), seed, int(distribution))
-        gels = cls.gels()
-        match distribution:
-            case ReferenceDistribution.BALANCED:
-                colors = tuple(gels.values())
+        draw = distribution.draw
+
+        def uniform(low: float, high: float) -> float:
+            return float(generator.uniform(low, high))
+
+        def chosen[T](items: tuple[T, ...]) -> T:
+            return items[int(generator.integers(len(items)))]
+
+        match draw.placement:
+            case Scattered(count=count, horizontal=horizontal, vertical=vertical):
                 slots: tuple[tuple[tuple[float, float], Rgb], ...] = ()
-                count, horizontal, vertical = (1, 3), (-0.8, 0.8), (-0.7, 0.85)
-                sharpness, intensity, level, gradient = (0.7, 2.4), (0.5, 1.1), (0.03, 0.5), (0.0, 0.6)
-                tints, rim, vignette = colors, (0.4, 1.2), (0.5, 0.0, 0.5)
-                cycles: tuple[float, ...] = (0.0, 0.0, 0.0, 5.0, 7.0)
-                dapples: tuple[int, ...] = (0, 0, 0, 12)
-            case ReferenceDistribution.VIVID:
-                colors = (
-                    Rgb(red=1.4, green=0.12, blue=0.85),
-                    Rgb(red=0.15, green=0.75, blue=1.35),
-                    Rgb(red=1.35, green=0.55, blue=0.05),
-                    Rgb(red=0.25, green=1.05, blue=0.35),
-                    Rgb(red=0.75, green=0.25, blue=1.35),
-                )
-                positions = ((-0.62, 0.18), (0.62, 0.18), (0.0, 0.58), (-0.38, -0.42), (0.38, -0.42))
-                spreads = (((0, 1, 3), (0, 1, 4), (0, 2, 4), (1, 2, 4)), ((0, 1, 2, 3), (0, 1, 3, 4), (0, 2, 3, 4)), ((0, 1, 2, 3, 4),))
-                group = spreads[int(generator.integers(len(spreads)))]
-                slots = tuple((positions[index], colors[index]) for index in group[int(generator.integers(len(group)))])
-                slot_count = len(slots)
-                count, horizontal, vertical = (slot_count, slot_count), (-0.08, 0.08), (-0.08, 0.08)
-                sharpness, intensity, level, gradient = (1.3, 2.1), (0.85, 1.45), (0.03, 0.1), (0.0, 0.15)
-                tints, rim, vignette = (Rgb(red=0.42, green=0.46, blue=0.52),), (0.25, 0.5), (1.0, 0.15, 0.45)
-                cycles, dapples = (0.0,), (0,)
-            case ReferenceDistribution.SOFT:
-                colors = (Rgb(red=1.0, green=0.96, blue=0.92), Rgb(red=0.94, green=0.96, blue=1.0), Rgb(red=0.98, green=0.95, blue=0.9))
-                slots = ()
-                count, horizontal, vertical = (1, 2), (-0.45, 0.45), (-0.35, 0.55)
-                sharpness, intensity, level, gradient = (0.55, 1.0), (0.35, 0.65), (0.32, 0.55), (0.0, 0.25)
-                tints, rim, vignette = (Rgb(red=0.97, green=0.95, blue=0.92), Rgb(red=0.93, green=0.95, blue=0.98)), (0.0, 0.0), (0.3, 0.0, 0.2)
-                cycles, dapples = (0.0,), (0,)
+            case Slotted(positions=positions, spreads=spreads, jitter=jitter):
+                slots = tuple((positions[index], draw.colors[index]) for index in chosen(chosen(spreads)))
+                count, horizontal, vertical = (len(slots), len(slots)), (-jitter, jitter), (-jitter, jitter)
         highlights = tuple(
             Highlight(
-                position=(
-                    ((slots[index][0][0] if slots else 0.0) + float(generator.uniform(*horizontal)) + 1.0) / 2.0,
-                    ((slots[index][0][1] if slots else 0.0) + float(generator.uniform(*vertical)) + 1.0) / 2.0,
-                ),
-                sharpness=float(generator.uniform(*sharpness)),
-                intensity=float(generator.uniform(*intensity)),
-                color=slots[index][1] if slots else colors[int(generator.integers(len(colors)))],
+                position=(((slots[index][0][0] if slots else 0.0) + uniform(*horizontal) + 1.0) / 2.0, ((slots[index][0][1] if slots else 0.0) + uniform(*vertical) + 1.0) / 2.0),
+                sharpness=uniform(*draw.sharpness),
+                intensity=uniform(*draw.intensity),
+                color=slots[index][1] if slots else chosen(draw.colors),
             )
             for index in range(int(generator.integers(count[0], count[1] + 1)))
         )
-        rim_on, vignette_on = float(generator.random()) < rim[0], float(generator.random()) < vignette[0]
-        stripes, dapple_count = cycles[int(generator.integers(len(cycles)))], dapples[int(generator.integers(len(dapples)))]
+        rim_on, vignette_on = float(generator.random()) < draw.rim[0], float(generator.random()) < draw.vignette[0]
+        stripes, dapple_count = chosen(draw.cycles), chosen(draw.dapples)
         return cls(
-            tint=tints[int(generator.integers(len(tints)))],
-            level=float(generator.uniform(*level)),
-            gradient=(float(generator.uniform(*gradient)), float(generator.uniform(*gradient))),
+            tint=chosen(draw.tints),
+            level=uniform(*draw.level),
+            gradient=(uniform(*draw.gradient), uniform(*draw.gradient)),
             highlights=highlights,
-            rim=Gated(enabled=rim_on, value=Rim(amount=float(generator.uniform(0.0, rim[1])))),
-            vignette=float(generator.uniform(vignette[1], vignette[2])) if vignette_on else 0.0,
+            rim=Gated(enabled=rim_on, value=Rim(amount=uniform(0.0, draw.rim[1]))),
+            vignette=uniform(*draw.vignette[1:]) if vignette_on else 0.0,
             blinds=Gated(enabled=stripes > 0.0, value=Blinds(cycles=stripes)),
             dapple=Gated(enabled=dapple_count > 0, value=Dapple(count=dapple_count, seed=int(generator.integers(10000)))),
         )
@@ -208,12 +271,9 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
         soft = Rgb(red=1.0, green=0.97, blue=0.92)
         return {
             Family.SKY: {
-                "Golden Hour": cls(level=0.2, gradient=(0.9, 0.1), tint=warm, highlights=(Highlight(position=(0.85, 0.65), sharpness=1.2, intensity=0.7, color=warm),)),
+                "Golden Hour": cls(level=0.2, gradient=(0.9, 0.1), tint=warm, highlights=(Highlight(position=(0.85, 0.65), intensity=0.7, color=warm),)),
                 "Sunrise": cls(
-                    level=0.16,
-                    gradient=(0.5, 0.2),
-                    tint=Rgb(red=1.0, green=0.7, blue=0.45),
-                    highlights=(Highlight(position=(0.2, 0.4), sharpness=1.4, intensity=0.8, color=Rgb(red=1.0, green=0.65, blue=0.4)),),
+                    level=0.16, gradient=(0.5, 0.2), tint=Rgb(red=1.0, green=0.7, blue=0.45), highlights=(Highlight(position=(0.2, 0.4), sharpness=1.4, color=Rgb(red=1.0, green=0.65, blue=0.4)),)
                 ),
                 "Sunset": cls(level=0.18, gradient=(0.6, 0.0), tint=deep, highlights=(Highlight(position=(0.8, 0.375), sharpness=1.3, intensity=0.9, color=deep),), vignette=0.3),
                 "Blue Hour": cls(level=0.12, gradient=(0.0, 0.6), tint=cool),
@@ -227,8 +287,8 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             },
             Family.STUDIO: {
                 "Softbox": cls(level=0.5, highlights=(Highlight(position=(0.5, 0.7), sharpness=0.6, intensity=0.5, color=neutral),)),
-                "Softbox Left": cls(level=0.18, highlights=(Highlight(position=(0.2, 0.675), sharpness=0.9, intensity=0.8, color=neutral),)),
-                "Softbox Right": cls(level=0.18, highlights=(Highlight(position=(0.8, 0.675), sharpness=0.9, intensity=0.8, color=neutral),)),
+                "Softbox Left": cls(level=0.18, highlights=(Highlight(position=(0.2, 0.675), sharpness=0.9, color=neutral),)),
+                "Softbox Right": cls(level=0.18, highlights=(Highlight(position=(0.8, 0.675), sharpness=0.9, color=neutral),)),
                 "Beauty Dish": cls(level=0.2, highlights=(Highlight(position=(0.5, 0.725), sharpness=1.6, intensity=0.9, color=neutral),), rim=Gated(enabled=True, value=Rim(amount=0.25))),
                 "Ring Light": cls(level=0.18, highlights=(Highlight(sharpness=0.8, intensity=0.7, color=neutral),), rim=Gated(enabled=True, value=Rim(amount=0.7))),
                 "Clamshell": cls(level=0.25, highlights=(Highlight(position=(0.5, 0.8), intensity=0.7, color=neutral), Highlight(position=(0.5, 0.2), intensity=0.45, color=neutral))),
@@ -290,24 +350,25 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
         generator = rng(content_hash(Roll), roll.seed)
 
         def drawn(kind: msgspec.inspect.Type, annotation: object) -> Option[object]:
-            if isinstance(kind, msgspec.inspect.Metadata):
-                return drawn(kind.type, annotation)
-            if isinstance(kind, msgspec.inspect.FloatType):
-                return Presentation.of(annotation).soft.map(lambda soft: float(generator.uniform(*soft)))
-            if isinstance(kind, msgspec.inspect.TupleType):
-                return Presentation.of(annotation).soft.map(lambda soft: tuple(float(value) for value in generator.uniform(*soft, size=len(kind.item_types))))
-            if isinstance(kind, msgspec.inspect.StructType):
-                if (record := kind.cls) is Rgb or get_origin(record) is Rgb:
+            match kind:
+                case msgspec.inspect.Metadata(type=inner):
+                    return drawn(inner, annotation)
+                case msgspec.inspect.FloatType():
+                    return Presentation.of(annotation).soft.map(lambda soft: float(generator.uniform(*soft)))
+                case msgspec.inspect.TupleType(item_types=members):
+                    return Presentation.of(annotation).soft.map(lambda soft: tuple(float(value) for value in generator.uniform(*soft, size=len(members))))
+                case msgspec.inspect.StructType(cls=record) if record is Rgb or get_origin(record) is Rgb:
                     red, green, blue = colorsys.hsv_to_rgb(float(generator.random()), roll.saturation, 1.0)
                     return Some(Rgb(red=red, green=green, blue=blue))
-                if get_origin(record) is Gated:
+                case msgspec.inspect.StructType(cls=record) if get_origin(record) is Gated:
                     values = fields(record)
                     return Some(record(enabled=bool(generator.integers(2)), **values))
-                return Some(record(**fields(record)))
-            if isinstance(kind, msgspec.inspect.VarTupleType) and isinstance(kind.item_type, msgspec.inspect.StructType):
-                record = kind.item_type.cls
-                return Some(tuple(record(**fields(record)) for _ in range(roll.highlights)))
-            return Nothing
+                case msgspec.inspect.StructType(cls=record):
+                    return Some(record(**fields(record)))
+                case msgspec.inspect.VarTupleType(item_type=msgspec.inspect.StructType(cls=record)):
+                    return Some(tuple(record(**fields(record)) for _ in range(roll.highlights)))
+                case _:
+                    return Nothing
 
         def fields(record: type[msgspec.Struct]) -> dict[str, object]:
             return {field.name: value for field in msgspec.structs.fields(record) for value in drawn(msgspec.inspect.type_info(field.type), field.type).to_list()}
@@ -330,11 +391,11 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             across, along = (xs + 1.0) / 2.0, (ys + 1.0) / 2.0
             reach, tint = np.hypot(xs, ys), np.array(self.tint)
             dapple, blinds, rim = self.dapple.value, self.blinds.value, self.rim.value
-            floor = product((self.level, tint)) + product((np.maximum(self.gradient[0] * across + self.gradient[1] * along, 0.0)[..., None], tint))
-            lit = sum((product((spot.intensity, glow(*spot.position, spot.sharpness)[..., None], np.array(spot.color))) for spot in self.highlights), floor)
+            floor = self.level * tint + np.maximum(self.gradient[0] * across + self.gradient[1] * along, 0.0)[..., None] * tint
+            lit = sum((spot.intensity * glow(*spot.position, spot.sharpness)[..., None] * np.array(spot.color) for spot in self.highlights), floor)
             speckled = sum(
                 (
-                    product((dapple.intensity, envelope, tint)) + product((float(intensity), dapple.intensity_spread, envelope, tint))
+                    dapple.intensity * envelope * tint + float(intensity) * dapple.intensity_spread * envelope * tint
                     for x, y, sharpness, intensity in speckles
                     for envelope in ((glow(x, y, dapple.sharpness) * glow(x, y, float(sharpness * dapple.sharpness_spread)))[..., None],)
                 ),
@@ -342,10 +403,10 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             )
             phase = np.remainder((np.remainder(blinds.cycles, 2.0 * size) / size) * (size - 2.0 * np.arange(size) - 1.0), 2.0)
             shaded = speckled * (blinds.shade + (1.0 - blinds.shade) * ((phase > 0.0) & (phase < 1.0)))[:, None, None] if self.blinds.enabled else speckled
-            rimmed = shaded + product((rim.amount, np.maximum(reach - rim.radius, 0.0)[..., None] ** rim.falloff, np.array(rim.color))) if self.rim.enabled and rim.amount != 0.0 else shaded
-            return Ok(np.ascontiguousarray(product((rimmed, (1.0 - self.vignette * np.minimum(reach**2, 1.0))[..., None])), dtype=np.float32))
+            rimmed = shaded + rim.amount * np.maximum(reach - rim.radius, 0.0)[..., None] ** rim.falloff * np.array(rim.color) if self.rim.enabled and rim.amount != 0.0 else shaded
+            return Ok(np.ascontiguousarray(rimmed * (1.0 - self.vignette * np.minimum(reach**2, 1.0))[..., None], dtype=np.float32))
 
-        return guarded(RenderingArithmeticFault, self, formed)
+        return guarded(ImagingNumericFault, self, formed)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -377,10 +438,10 @@ def sphere(lights: tuple[DistantLight, ...], size: Side) -> RenderingResult[npt.
 
     def formed() -> RenderingResult[npt.NDArray[np.float32]]:
         normals, coverage = _ball(size)
-        lit = sum((product((np.maximum(normals @ light.direction, 0.0)[..., None], coverage, np.array(light.color)), light.stops) for light in lights), np.zeros((*normals.shape[:2], 3)))
+        lit = sum((np.maximum(normals @ light.direction, 0.0)[..., None] * coverage * np.array(light.color) * np.exp2(light.stops) for light in lights), np.zeros((*normals.shape[:2], 3)))
         return Ok(np.ascontiguousarray(np.concatenate((lit, coverage), axis=-1), dtype=np.float32))
 
-    return guarded(RenderingArithmeticFault, lights, formed)
+    return guarded(ImagingNumericFault, lights, formed)
 
 
 def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) -> RenderingResult[npt.NDArray[np.float32]]:
@@ -407,7 +468,7 @@ def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) 
                         cone, blend = placement.light.emitter.cone, placement.light.emitter.blend
                         along, edge = towards @ direction, math.cos(cone / 2.0)
                         ramp = np.clip(np.divide(along - edge, (1.0 - edge) * blend, out=np.where(along > edge, 1.0, 0.0), where=blend > 0.0), 0.0, 1.0)
-                        level = level * ramp**2 * (3.0 - 2.0 * ramp)
+                        level *= smoothstep(ramp)
             cosine = np.sum(normals * towards, axis=-1)
             sine = np.linalg.norm(np.cross(normals, towards), axis=-1)
             delta = np.arctan2(sine, cosine) - math.pi / 2.0
@@ -420,12 +481,10 @@ def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) 
             cap = np.divide((cosine * np.arccos(y) - cot * z) * spread + np.arctan2(z, cot), math.pi * spread, out=np.zeros_like(sine), where=straddle)
             return level * np.where(straddle, cap, np.maximum(cosine, 0.0))
 
-        world = placements.background.map(lambda background: product((background.strength, np.array(background.color), 1.0 - coverage + coverage * GREY))).default_with(
-            lambda: np.zeros((size, size, 3))
-        )
+        world = placements.background.map(lambda background: background.strength * np.array(background.color) * (1.0 - coverage + coverage * GREY)).default_with(lambda: np.zeros((size, size, 3)))
         lit = sum(
             (
-                product((received(placement)[..., None], color, np.array(placement.light.color), placement.irradiance, coverage, GREY / math.pi))
+                received(placement)[..., None] * color * np.array(placement.light.color) * placement.irradiance * coverage * (GREY / math.pi)
                 for placement, color in zip(placements.lights, colors)
                 if placement.irradiance != 0.0
             ),
@@ -434,20 +493,18 @@ def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) 
         return Ok(np.ascontiguousarray(lit, dtype=np.float32))
 
     def validated(row: npt.NDArray[np.float32]) -> RenderingResult[npt.NDArray[np.float64]]:
-        return guarded(RenderingArithmeticFault, placements, lambda: Ok(np.asarray(msgspec.convert(row.tolist(), type=Rgb[Finite]), dtype=np.float64)))
-
-    def tinted(built: PyOpenColorIO.Processor) -> RenderingResult[tuple[npt.NDArray[np.float64], ...]]:
-        return accumulated(validated(row) for row in applied(built.getDefaultCPUProcessor(), np.array(temperatures, dtype=np.float32)))
+        return guarded(ImagingNumericFault, placements, lambda: Ok(np.asarray(msgspec.convert(row.tolist(), type=Rgb[Finite]), dtype=np.float64)))
 
     temperatures = tuple(White(temperature=placement.light.temperature.value, tint=0.0).xyz for placement in placements.lights if placement.light.temperature.enabled)
     colors = (
-        processor(config, PyOpenColorIO.GroupTransform([xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE))
-        .map_error(RenderingImagingFault.lifted)
-        .bind(tinted)
+        Result[npt.NDArray[np.float32], RenderingFaults].bind(
+            converted(config, PyOpenColorIO.GroupTransform([xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE), np.array(temperatures, dtype=np.float32)),
+            lambda rows: accumulated(validated(row) for row in rows),
+        )
         if temperatures
         else Ok(())
     )
-    return colors.bind(lambda found: guarded(RenderingArithmeticFault, placements, lambda: rendered(found)))
+    return colors.bind(lambda found: guarded(ImagingNumericFault, placements, lambda: rendered(found)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

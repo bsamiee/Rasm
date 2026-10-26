@@ -17,6 +17,8 @@ public sealed record EffectRow<TState, TParameter>
 
     public Option<HelpTopic> Help { get; init; }
 
+    public Option<BuiltinEffect> Replaces { get; init; }
+
     public Seq<(string Name, EffectLook<TState, TParameter> Look)> Looks { get; init; }
 
     public Seq<Func<EtoPostEffectCollapsibleSection, IO<Option<ScopeFrames>>, View.Section>> Sections { get; init; }

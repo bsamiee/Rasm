@@ -16,8 +16,8 @@ from blender.imaging.parameters import ColorSpace, Presentation
 class Channel(msgspec.Struct, frozen=True, kw_only=True):
     """Compression of channel distance from achromatic axis."""
 
-    limit: Annotated[float, msgspec.Meta(ge=1.001, le=65504.0, description="Distance compressed onto gamut boundary"), Presentation(soft=Some((1.001, 2.0)), decimals=Some(3))]
-    threshold: Annotated[float, msgspec.Meta(ge=0.0, le=0.9995, description="Largest unchanged distance"), Presentation(decimals=Some(3))]
+    limit: Annotated[float, msgspec.Meta(ge=1.001, le=65504.0, description="Distance compressed onto gamut boundary"), Presentation(soft=Some((1.001, 2.0)), precision=Some(3))]
+    threshold: Annotated[float, msgspec.Meta(ge=0.0, le=0.9995, description="Largest unchanged distance"), Presentation(precision=Some(3))]
 
 
 class GamutCompression(Effect, frozen=True, kw_only=True, tag=10):
@@ -29,7 +29,7 @@ class GamutCompression(Effect, frozen=True, kw_only=True, tag=10):
     cyan: Annotated[Channel, msgspec.Meta(description="Red channel toward cyan")] = Channel(limit=1.147, threshold=0.815)
     magenta: Annotated[Channel, msgspec.Meta(description="Green channel toward magenta")] = Channel(limit=1.264, threshold=0.803)
     yellow: Annotated[Channel, msgspec.Meta(description="Blue channel toward yellow")] = Channel(limit=1.312, threshold=0.880)
-    power: Annotated[float, msgspec.Meta(ge=1.0, le=65504.0, description="Curve sharpness between threshold and limit"), Presentation(soft=Some((1.0, 2.0)), step=Some(0.01), decimals=Some(3))] = 1.2
+    power: Annotated[float, msgspec.Meta(ge=1.0, le=65504.0, description="Curve sharpness between threshold and limit"), Presentation(soft=Some((1.0, 2.0)), step=Some(0.01), precision=Some(3))] = 1.2
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:

@@ -1,6 +1,5 @@
 """Gated geometric fields and integrated refracting source samples."""
 
-from fractions import Fraction
 import functools
 import math
 from typing import Annotated, Literal
@@ -15,11 +14,13 @@ from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 from blender.imaging.chain import Effect, GREY, Stage
 from blender.imaging.color.processors import unassociated
 from blender.imaging.effects.generators import noise
-from blender.imaging.effects.generators.noise import Basis, Cut, Estimate, Interpolation, Octaves, Perlin, Precision, Profile, sample, uniforms
+from blender.imaging.effects.generators.noise import Basis, Cut, Interpolation, Perlin, Profile, sample
 from blender.imaging.effects.generators.particles import Population
 from blender.imaging.faults import accumulated, guarded, ImagingBufferFault, ImagingNumericFault, ImagingResult, paired
 from blender.imaging.geometry.stmaps import Extension, StMap
+from blender.imaging.hashing import hashed
 from blender.imaging.parameters import Choice, Finite, FrameExtent, FrameLength, Gated, GraphForm, Motion, NonNegative, Position, Positive, Presentation, Quantity, Seed, Unit
+from blender.imaging.sampling import Estimate, Precision, smoothstep
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -89,9 +90,7 @@ class Turbulence(msgspec.Struct, frozen=True, kw_only=True):
     """Movement along evolving fractal noise."""
 
     amplitude: Annotated[FrameLength, msgspec.Meta(description="Farthest noise offset"), Presentation(soft=Some((0.0, 0.2)))] = 0.1
-    basis: Annotated[Basis, msgspec.Meta(description="Noise sampled per displacement axis")] = Perlin(
-        size=0.5, stretch=1.0, octaves=Octaves(), distortion=0.0, cut=Cut(interpolation=Interpolation.LINEAR)
-    )
+    basis: Annotated[Basis, msgspec.Meta(description="Noise sampled per displacement axis")] = Perlin(size=0.5)
     axes: Annotated[tuple[Finite, Finite], msgspec.Meta(description="Signed displacement multiplier per axis")] = (1.0, 1.0)
     motion: Annotated[Motion, msgspec.Meta(description="Noise clock, one noise unit per clock frame")] = Motion(speed=0.5 / 24.0)
     seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
@@ -131,7 +130,7 @@ class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
     motion: Annotated[Motion, msgspec.Meta(description="Fall clock, one drop spacing per clock frame")] = Motion(speed=0.01 / (24.0 * drops.spacing))
     trails: Annotated[Unit, msgspec.Meta(description="Trail height behind each drop")] = 0.0
     seed: Annotated[Seed, msgspec.Meta(description="Number selecting drop population")] = 0
-    strength: Annotated[Finite, msgspec.Meta(description="Signed refraction through trail height"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.0
+    strength: Annotated[Finite, msgspec.Meta(description="Signed refraction through trail height"), Presentation(quantity=Some(Quantity.FRAME))] = 0.0
     softness: Annotated[FrameLength, msgspec.Meta(description="Trail height blur radius"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
 
     def sampled(self, points: npt.NDArray[np.float64], reference_frame: float) -> ImagingResult[npt.NDArray[np.float64]]:
@@ -140,28 +139,27 @@ class Raindrops(msgspec.Struct, frozen=True, kw_only=True):
         def computed() -> ImagingResult[npt.NDArray[np.float64]]:
             sine, cosine = math.sin(self.direction), math.cos(self.direction)
             turn = np.array(((cosine, sine), (-sine, cosine)))
-            local = points @ turn
-            local[:, 1] += self.motion.speed * self.motion.hold * math.floor(reference_frame / self.motion.hold) * self.drops.spacing
-            cells = [(math.floor(point[0] / self.drops.spacing), math.floor(point[1] / self.drops.spacing)) for point in local]
-            unique = tuple(dict.fromkeys(cells))
-            indices = {cell: index for index, cell in enumerate(unique)}
-            ownership = np.array([indices[cell] for cell in cells])
-            result = np.zeros((len(points), 4), dtype=np.float64)
-            for mark in self.drops.sites(unique, seed=self.seed):
-                selected = ownership == indices[mark.cell]
-                arm = local[selected] - tuple(map(float, mark.center))
-                radial = np.linalg.norm(arm, axis=-1) / mark.radius
-                drop = (radial < 1.0).astype(np.float64) if self.drops.softness == 0.0 else np.clip((1.0 - radial) / self.drops.softness, 0.0, 1.0)
-                drop = drop * drop * (3.0 - 2.0 * drop)
-                feature = float(mark.center[1] - Fraction(mark.cell[1]) * Fraction(self.drops.spacing))
-                lag = self.trails * np.where(arm[:, 1] <= 0.0, np.maximum(0.0, 1.0 + arm[:, 1] / feature), 0.0)
-                cross = np.abs(arm[:, 0]) / (0.5 * mark.radius)
-                trail = (cross < 1.0).astype(np.float64) if self.drops.softness == 0.0 else np.clip((1.0 - cross) / self.drops.softness, 0.0, 1.0)
-                trail = trail * trail * (3.0 - 2.0 * trail)
-                result[selected, :2] = (arm @ turn.T) * ((1.0 + self.refraction) * (drop > 0.0))[:, None]
-                result[selected, 2] = np.maximum(drop, lag * trail) * mark.gain
-                result[selected, 3] = lag * (1.0 - drop) * np.sqrt(np.maximum(0.0, 1.0 - cross * cross))
-            return Ok(result)
+            local = points @ turn + (0.0, self.motion.clock(reference_frame) * self.drops.spacing)
+            cells, ownership = np.unique(np.floor(local / self.drops.spacing).astype(np.int64), axis=0, return_inverse=True)
+            draws = hashed(cells, seed=self.seed, stream=0, count=6)
+            occupied = draws[:, 0] < self.drops.density
+            centers, radii, gains = (values[ownership] for values in self.drops.placed(cells, draws, self.drops.spacing))
+            arm = local - centers
+            present = occupied[ownership]
+            radial = np.linalg.norm(arm, axis=-1) / radii
+            drop = smoothstep((radial < 1.0).astype(np.float64) if self.drops.softness == 0.0 else np.clip((1.0 - radial) / self.drops.softness, 0.0, 1.0))
+            feature = centers[:, 1] - cells[ownership, 1] * self.drops.spacing
+            lag = self.trails * np.where(arm[:, 1] <= 0.0, np.maximum(0.0, 1.0 + arm[:, 1] / feature), 0.0)
+            cross = np.abs(arm[:, 0]) / (0.5 * radii)
+            trail = smoothstep((cross < 1.0).astype(np.float64) if self.drops.softness == 0.0 else np.clip((1.0 - cross) / self.drops.softness, 0.0, 1.0))
+            return Ok(
+                np.column_stack((
+                    (arm @ turn.T) * ((1.0 + self.refraction) * (drop > 0.0))[:, None],
+                    np.maximum(drop, lag * trail) * gains,
+                    lag * (1.0 - drop) * np.sqrt(np.maximum(0.0, 1.0 - cross * cross)),
+                ))
+                * present[:, None]
+            )
 
         return guarded(ImagingNumericFault, self, computed)
 
@@ -182,7 +180,7 @@ class Refraction(msgspec.Struct, frozen=True, kw_only=True):
 
     surface: Annotated[Surface, msgspec.Meta(description="Glass height function"), GraphForm.SETTING] = Surface.FROSTED
     size: Annotated[FrameExtent, msgspec.Meta(description="Glass cell width")] = 0.1
-    strength: Annotated[Finite, msgspec.Meta(description="Signed displacement per unit slope in glass-cell coordinates"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.02
+    strength: Annotated[Finite, msgspec.Meta(description="Signed displacement per unit slope in glass-cell coordinates"), Presentation(quantity=Some(Quantity.FRAME))] = 0.02
     softness: Annotated[FrameLength, msgspec.Meta(description="Glass height blur radius"), Presentation(soft=Some((0.0, 0.2)))] = 0.015
     blur: Annotated[FrameLength, msgspec.Meta(description="Refracted image blur radius"), Presentation(soft=Some((0.0, 0.02)))] = 0.0
     seed: Annotated[Seed, msgspec.Meta(description="Number selecting frosted height")] = 0
@@ -228,9 +226,6 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
             centers = np.stack((left + (s + 0.5) * step[0], top - (t + 0.5) * step[1]), axis=-1)
             shape = centers.shape
 
-            def clock(motion: Motion) -> float:
-                return motion.speed * motion.hold * math.floor(reference_frame / motion.hold)
-
             def rotated(points: npt.NDArray[np.float64], angle: float) -> npt.NDArray[np.float64]:
                 sine, cosine = math.sin(angle), math.cos(angle)
                 return points @ np.array(((cosine, sine), (-sine, cosine)), dtype=np.float64)
@@ -268,11 +263,9 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                     case Surface.TINY_LENS:
                         level = Ok(np.sqrt(np.maximum(0.0, 1.0 - 4.0 * np.sum((fraction - 0.5) ** 2, axis=-1))))
                     case Surface.FROSTED:
-                        level = sample(
-                            Perlin(dimensions=2, size=glass.size, stretch=1.0, octaves=Octaves(), distortion=0.0, cut=Cut(interpolation=Interpolation.LINEAR)),
-                            np.column_stack((centers.reshape(-1, 2), np.zeros((width * height, 2)))),
-                            seed=glass.seed,
-                        ).map(lambda field: field[:, 0].reshape(height, width))
+                        level = sample(Perlin(dimensions=2, size=glass.size), np.column_stack((centers.reshape(-1, 2), np.zeros((width * height, 2)))), seed=glass.seed).map(
+                            lambda field: field[:, 0].reshape(height, width)
+                        )
                 return level.map(lambda held: glass.strength * glass.size * slope(softened(held, glass.softness)))
 
             rain_gradient = trailed(self.raindrops.value) if self.raindrops.enabled and self.raindrops.value.strength != 0.0 else Ok(np.zeros(shape, dtype=np.float64))
@@ -316,18 +309,18 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                 return travel, axis, np.maximum(0.0, 1.0 - travel / wave.radius)
 
             def crest(wave: Wave, index: int, points: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-                draw = uniforms((index,), seed=wave.seed, count=3)
+                draw = hashed(np.array((index,)), seed=wave.seed, stream=0, count=3)
                 wavelength = wave.wavelength * (1.0 - wave.wavelength_variation * draw[0])
                 amplitude = wave.amplitude * (1.0 - wave.amplitude_variation * draw[1]) / wave.count
                 direction = wave.direction + wave.spread * (index - (wave.count - 1.0) / 2.0) / max(wave.count - 1, 1)
                 travel, axis, envelope = fronted(wave, np.array((math.cos(direction), math.sin(direction))), points)
-                cycles = travel / wavelength - clock(wave.motion) + wave.phase / math.tau + (draw[2] if wave.count > 1 else 0.0)
+                cycles = travel / wavelength - wave.motion.clock(reference_frame) + wave.phase / math.tau + (draw[2] if wave.count > 1 else 0.0)
                 return sample(
                     noise.Wave(wavelength=1.0, profile=wave.profile, cut=Cut(interpolation=Interpolation.LINEAR)), np.column_stack((cycles.ravel(), np.zeros((cycles.size, 3)))), seed=wave.seed
                 ).map(lambda profile: amplitude * (2.0 * profile[:, 0].reshape(travel.shape) - 1.0)[..., None] * envelope[..., None] * axis * wave.axes)
 
             def stirred(turbulence: Turbulence, points: npt.NDArray[np.float64]) -> ImagingResult[tuple[npt.NDArray[np.float64], ...]]:
-                coordinates = np.column_stack((points.reshape(-1, 2), np.zeros(points[..., 0].size), np.full(points[..., 0].size, clock(turbulence.motion))))
+                coordinates = np.column_stack((points.reshape(-1, 2), np.zeros(points[..., 0].size), np.full(points[..., 0].size, turbulence.motion.clock(reference_frame))))
                 return accumulated(sample(turbulence.basis, coordinates, seed=turbulence.seed, stream=axis) for axis in range(2)).map(
                     lambda axes: (turbulence.amplitude * (2.0 * np.stack([axis[:, 0] for axis in axes], axis=-1).reshape(points.shape) - 1.0) * turbulence.axes,)
                 )
@@ -350,8 +343,7 @@ class Displacement(Effect, frozen=True, kw_only=True, tag=37):
                     twirl = self.twirl.value
                     arm = points - np.array(twirl.center) * extent
                     reach = np.linalg.norm(arm, axis=-1) / twirl.radius
-                    weight = np.clip(1.0 - reach ** (1.0 / twirl.falloff), 0.0, 1.0)
-                    weight = weight * weight * (3.0 - 2.0 * weight)
+                    weight = smoothstep(np.clip(1.0 - reach ** (1.0 / twirl.falloff), 0.0, 1.0))
                     weight *= 0.5 + 0.5 * np.cos(twirl.arms * (np.arctan2(arm[..., 1], arm[..., 0]) - twirl.arm_offset))
                     turn = -twirl.angle * weight
                     sine, cosine = np.sin(turn), np.cos(turn)

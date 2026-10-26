@@ -55,7 +55,7 @@ public static class ValueKey {
 }
 
 public static class StoredText {
-    public static string Serialize<TValue>(TValue value) {
+    private static string Serialize<TValue>(TValue value) {
         StringBuilder text = new();
         using XmlWriter writer = XmlWriter.Create(text);
         new DataContractSerializer(typeof(TValue)).WriteObject(writer, value);
@@ -63,7 +63,7 @@ public static class StoredText {
         return text.ToString();
     }
 
-    public static Fin<TValue> Deserialize<TValue>(string text) =>
+    private static Fin<TValue> Deserialize<TValue>(string text) =>
         Try.lift(() => {
             using StringReader input = new(text);
             using XmlReader reader = XmlReader.Create(input);

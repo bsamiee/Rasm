@@ -89,9 +89,7 @@ public sealed record Traces(BinGrid Red, BinGrid Green, BinGrid Blue, BinGrid Lu
         };
 }
 
-public readonly record struct ChannelCounts(int Red, int Green, int Blue);
-
-public readonly record struct Clips(ChannelCounts Low, ChannelCounts High) {
+public readonly record struct Clips(Channels<int> Low, Channels<int> High) {
     internal const int Ends = 6;
 
     internal static Clips Of(ReadOnlySpan<int> counts) =>

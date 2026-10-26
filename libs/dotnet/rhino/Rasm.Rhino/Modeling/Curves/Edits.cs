@@ -3,14 +3,6 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct TrimLength : System.Numerics.IMinMaxValue<TrimLength> {
-    public static TrimLength MinValue { get; } = new(double.BitIncrement(0d));
-    public static TrimLength MaxValue { get; } = new(double.MaxValue);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SmoothFrame {
     public sealed record World : SmoothFrame;

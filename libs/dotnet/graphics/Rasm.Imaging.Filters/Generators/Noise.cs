@@ -40,7 +40,7 @@ internal interface IOctaveSource<TSelf> where TSelf : IOctaveSource<TSelf> {
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
-internal static class ReferenceFrame {
+public static class ReferenceFrame {
     public const float Height = 1080f;
     public const float GreaterSide = 1920f / Height;
 }
@@ -184,12 +184,10 @@ public readonly partial struct MagicDepth : IMinMaxValue<MagicDepth> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CellMetric : ICaptioned {
-    public static readonly CellMetric Euclidean = new("euclidean", "Euclidean", static (delta, _) => delta.Length());
-    public static readonly CellMetric Manhattan = new("manhattan", "Manhattan", static (delta, _) => Vector4.Sum(Vector4.Abs(delta)));
-    public static readonly CellMetric Chebyshev = new("chebyshev", "Chebyshev", static (delta, _) => Vector4.Abs(delta) switch { var a => float.Max(float.Max(a.X, a.Y), float.Max(a.Z, a.W)) });
-    public static readonly CellMetric Minkowski = new("minkowski", "Minkowski", static (delta, exponent) => MathF.Pow(Vector4.Sum(Vector4.Exp(exponent * Vector4.Log(Vector4.Abs(delta)))), 1f / exponent));
-
-    public string Caption { get; }
+    public static readonly CellMetric Euclidean = new("euclidean", static (delta, _) => delta.Length());
+    public static readonly CellMetric Manhattan = new("manhattan", static (delta, _) => Vector4.Sum(Vector4.Abs(delta)));
+    public static readonly CellMetric Chebyshev = new("chebyshev", static (delta, _) => Vector4.Abs(delta) switch { var a => float.Max(float.Max(a.X, a.Y), float.Max(a.Z, a.W)) });
+    public static readonly CellMetric Minkowski = new("minkowski", static (delta, exponent) => MathF.Pow(Vector4.Sum(Vector4.Exp(exponent * Vector4.Log(Vector4.Abs(delta)))), 1f / exponent));
 
     [UseDelegateFromConstructor]
     public partial float Length(Vector4 delta, float exponent);
@@ -199,8 +197,8 @@ public sealed partial class CellMetric : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WaveForm : ICaptioned {
-    public static readonly WaveForm Bands = new("bands", "Bands", static point => point.X, static point => point.X);
-    public static readonly WaveForm Rings = new("rings", "Rings", static point => point.AsVector2().Length(), static point => {
+    public static readonly WaveForm Bands = new("bands", static point => point.X, static point => point.X);
+    public static readonly WaveForm Rings = new("rings", static point => point.AsVector2().Length(), static point => {
         ERational square = point.X.Multiply(point.X).Add(point.Y.Multiply(point.Y));
         EInteger whole = square.ToEInteger().Sqrt();
         EContext precision = EContext.Binary64.WithUnlimitedExponents();
@@ -208,8 +206,6 @@ public sealed partial class WaveForm : ICaptioned {
             .Divide(square.ToEFloat(precision).Sqrt(precision).Add(EFloat.FromEInteger(whole), precision), precision);
         return ERational.FromEInteger(whole).Add(ERational.FromEFloat(remainder));
     });
-
-    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     public partial float Distance(Vector4 point);
@@ -222,12 +218,10 @@ public sealed partial class WaveForm : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WaveProfile : ICaptioned {
-    public static readonly WaveProfile Sine = new("sine", "Sine", static periods => 0.5f - (0.5f * float.CosPi(2f * periods)));
-    public static readonly WaveProfile Saw = new("saw", "Saw", static periods => periods - MathF.Floor(periods));
-    public static readonly WaveProfile Triangle = new("triangle", "Triangle", static periods => 2f * MathF.Abs(periods - MathF.Floor(periods + 0.5f)));
-    public static readonly WaveProfile Square = new("square", "Square", static periods => MathF.Floor(2f * (periods - MathF.Floor(periods))));
-
-    public string Caption { get; }
+    public static readonly WaveProfile Sine = new("sine", static periods => 0.5f - (0.5f * float.CosPi(2f * periods)));
+    public static readonly WaveProfile Saw = new("saw", static periods => periods - MathF.Floor(periods));
+    public static readonly WaveProfile Triangle = new("triangle", static periods => 2f * MathF.Abs(periods - MathF.Floor(periods + 0.5f)));
+    public static readonly WaveProfile Square = new("square", static periods => MathF.Floor(2f * (periods - MathF.Floor(periods))));
 
     [UseDelegateFromConstructor]
     public partial float Level(float periods);

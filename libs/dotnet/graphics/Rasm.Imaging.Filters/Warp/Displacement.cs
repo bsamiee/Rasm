@@ -122,7 +122,7 @@ public sealed partial class MapReading : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RefractionField : ICaptioned {
-    public static readonly RefractionField Raindrops = new("raindrops", "Raindrops", static (state, held, field) => {
+    public static readonly RefractionField Raindrops = new("raindrops", static (state, held, field) => {
         (Matrix3x2 fall, Matrix3x2 rise) = (Matrix3x2.CreateRotation(state.Direction + (float.Pi / 2f)), Matrix3x2.CreateRotation(-state.Direction - (float.Pi / 2f)));
         return Some<Func<Vector2, Vector4>>(q => {
             Vector2 at = (Vector2.Transform(q, fall) - new Vector2(0f, state.Fall * held)) / state.Scale;
@@ -138,15 +138,13 @@ public sealed partial class RefractionField : ICaptioned {
                 : Vector4.Zero;
         }).Filter(_ => state.Density != AxisFraction.MinValue);
     });
-    public static readonly RefractionField Blocks = new("blocks", "Blocks", static (state, _, _) => Glass(state, static cell =>
+    public static readonly RefractionField Blocks = new("blocks", static (state, _, _) => Glass(state, static cell =>
         Vector2.Abs((2f * Fraction(cell)) - Vector2.One) switch { var edge => (Vector2.One - (edge * edge * edge * edge)) switch { var bevel => bevel.X * bevel.Y } }));
-    public static readonly RefractionField Canvas = new("canvas", "Canvas", static (state, _, _) => Glass(state, static cell => 0.5f + (0.5f * float.SinPi(2f * cell.X) * float.SinPi(2f * cell.Y))));
-    public static readonly RefractionField Frosted = new("frosted", "Frosted", static (state, _, field) =>
+    public static readonly RefractionField Canvas = new("canvas", static (state, _, _) => Glass(state, static cell => 0.5f + (0.5f * float.SinPi(2f * cell.X) * float.SinPi(2f * cell.Y))));
+    public static readonly RefractionField Frosted = new("frosted", static (state, _, field) =>
         Glass(state, cell => 0.5f + (0.5f * NoiseDimensions.Two.Fbm(new Vector4(cell, 0f, 0f), Octaves.Default, CoordinateHash.Branch(field, 2u)))));
-    public static readonly RefractionField TinyLens = new("tiny-lens", "Tiny lens", static (state, _, _) =>
+    public static readonly RefractionField TinyLens = new("tiny-lens", static (state, _, _) =>
         Glass(state, static cell => float.Sqrt(float.Max(0f, 1f - (4f * (Fraction(cell) - new Vector2(0.5f)).LengthSquared())))));
-
-    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     internal partial Option<Func<Vector2, Vector4>> Sampler(Refraction state, float held, uint field);

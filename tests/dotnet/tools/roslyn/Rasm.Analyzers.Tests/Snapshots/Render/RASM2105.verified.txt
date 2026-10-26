@@ -1,0 +1,2 @@
+#0 `doc.RenderSettings = staged` writes `RhinoDoc.RenderSettings` outside `RenderSettingsSources`, and Rhino records no undo for the write. Write through `RenderSettingsSources.Edit`
+#1 `doc.RenderSettings = staged` writes `RhinoDoc.RenderSettings` outside `RenderSettingsSources`, and Rhino records no undo for the write. Write through `RenderSettingsSources.Edit`

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-failure-code
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    coded-call:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, has: {field: name, pattern: $MEMBER, regex: '^CollapseFacesByEdgeLength$'}}
+    lifted-call:
+        any:
+            - matches: coded-call
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^IO$'}}, {has: {field: name, regex: '^lift$'}}]}
+                - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: coded-call}}}}
+    coded:
+        any:
+            - matches: coded-call
+            - kind: identifier
+              pattern: $RELAY
+              inside:
+                stopBy: end
+                kind: 'method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, query_expression'
+                any:
+                    - has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: coded-call}}]}
+                    - has: {kind: from_clause, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: lifted-call}}]}
+                    - has: {kind: let_clause, all: [{has: {kind: identifier, nthChild: 1, pattern: $RELAY}}, {has: {matches: coded-call}}]}
+            - kind: parenthesized_expression
+              has: {matches: coded}
+    code:
+        kind: prefix_unary_expression
+        pattern: $CODE
+        regex: '^-\s*[12]$'
+rule:
+    any:
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - any:
+                - all: [{has: {field: left, matches: coded}}, {has: {field: right, matches: code}}]
+                - all: [{has: {field: left, matches: code}}, {has: {field: right, matches: coded}}]
+        - kind: is_pattern_expression
+          all:
+            - has: {field: expression, matches: coded}
+            - has: {field: pattern, regex: '^(not\s+)?-\s*[12]$', has: {stopBy: end, matches: code}}
+message: '`$MEMBER` result compared with `$CODE` reads the other negative failure code as success'
+note: 'Test `<result> >= 0` for success and `<result> < 0` for failure'

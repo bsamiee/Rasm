@@ -1,6 +1,7 @@
 """Content hashes over canonical record and array bytes."""
 
 from datetime import datetime
+import functools
 import hashlib
 from types import ModuleType
 from typing import Annotated, Final
@@ -19,6 +20,7 @@ type ContentHash = Annotated[bytes, msgspec.Meta(min_length=_DIGEST_SIZE, max_le
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _DIGEST_SIZE: Final = 16
+_MIXERS: Final = (np.uint64(0xFF51AFD7ED558CCD), np.uint64(0xC4CEB9FE1A85EC53), np.uint64(0x9E3779B97F4A7C15))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -75,6 +77,29 @@ def rng(content: ContentHash, *key: int) -> np.random.Generator:
     return np.random.default_rng(np.random.SeedSequence(int.from_bytes(content, "little"), spawn_key=key))
 
 
+def hashed(cells: npt.NDArray[np.int64], *, seed: int, stream: int, count: int) -> npt.NDArray[np.float64]:
+    """Draws stable uniforms per integer lattice cell in one pass over every cell.
+
+    Args:
+        cells: Signed integer coordinates along the last axis.
+        seed: Number selecting the draws.
+        stream: Signed independent draw family under one seed.
+        count: Uniforms per cell.
+
+    Returns:
+        `(*cells.shape[:-1], count)` uniforms in [0, 1).
+    """
+
+    def mixed(values: npt.NDArray[np.uint64]) -> npt.NDArray[np.uint64]:
+        spread = functools.reduce(lambda held, multiplier: (held ^ (held >> np.uint64(33))) * multiplier, _MIXERS[:2], values)
+        return spread ^ (spread >> np.uint64(33))
+
+    rows = cells.reshape(-1, cells.shape[-1]).astype(np.uint64)
+    start = np.full(len(rows), np.random.SeedSequence(seed).generate_state(1, np.uint64)[0], dtype=np.uint64)
+    state = functools.reduce(lambda held, axis: mixed(held ^ axis), (np.full(len(rows), stream).astype(np.uint64), *rows.T), start)
+    return np.ldexp((mixed(state[:, None] ^ (np.arange(1, count + 1, dtype=np.uint64) * _MIXERS[2])) >> np.uint64(11)).astype(np.float64), -53).reshape(*cells.shape[:-1], count)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ContentHash", "content_hash", "rng"]
+__all__ = ["ContentHash", "content_hash", "hashed", "rng"]

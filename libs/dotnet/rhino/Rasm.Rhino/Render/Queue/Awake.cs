@@ -42,7 +42,5 @@ public static class MachinePower {
         };
 
     private static IO<Process> Started(string program, Seq<string> arguments, Action<Process> retain) =>
-        DisposalOps.Acquire(IO.lift(() => Optional(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true }))),
-            static process => DisposalOps.Release(process.ToSeq()), process => process.Iter(retain))
-            .Bind(static process => IO.lift(process.ToFin(new Refused(nameof(Process.Start), Refused.Absent))));
+        DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true }), nameof(Process.Start))), retain);
 }

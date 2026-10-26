@@ -18,7 +18,7 @@ public sealed record ToneMapping(
     Gated<Exposure> ReinhardWhite, HableState Hable)
     : IStateRecord<ToneMapping, ToneMappingParameter>, IPixelStage<ToneMapping> {
     public static ToneMapping Default { get; } = new(
-        Formation.AgXView, None, FilmicView.MediumContrast, FilmPreset.Default.State, CurveApplication.Default,
+        Formation.AgXView, None, FilmicView.MediumContrast, FilmState.Default, CurveApplication.Default,
         SigmoidState.Default, PiecewiseState.Default, LogarithmicState.Default, PhotoreceptorState.Default,
         new(Enabled: false, Exposure.Neutral), HableState.Default);
 
@@ -52,29 +52,29 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
         new("Filmic contrast", "Contrast look, Log shows base log encoding"));
     public static readonly ToneMappingParameter FilmPreExposure = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, Exposure>.New(static film => film.PreExposure, static value => film => film with { PreExposure = value })), FilmStops),
         new("Pre-exposure", "Stops before film stock"));
-    public static readonly ToneMappingParameter FilmPreFilterRed = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, AxisFraction>.New(static film => film.PreFilterRed, static value => film => film with { PreFilterRed = value })), FilmShare),
+    public static readonly ToneMappingParameter FilmPreFilterRed = Film.Row(static section => StateParameter.Bounded(lens(section, Films.PreFilter, Channels<AxisFraction>.RedOf), FilmShare),
         new("Pre-filter red", "Red transmittance of lens filter"));
-    public static readonly ToneMappingParameter FilmPreFilterGreen = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, AxisFraction>.New(static film => film.PreFilterGreen, static value => film => film with { PreFilterGreen = value })), FilmShare),
+    public static readonly ToneMappingParameter FilmPreFilterGreen = Film.Row(static section => StateParameter.Bounded(lens(section, Films.PreFilter, Channels<AxisFraction>.GreenOf), FilmShare),
         new("Pre-filter green", "Green transmittance of lens filter"));
-    public static readonly ToneMappingParameter FilmPreFilterBlue = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, AxisFraction>.New(static film => film.PreFilterBlue, static value => film => film with { PreFilterBlue = value })), FilmShare),
+    public static readonly ToneMappingParameter FilmPreFilterBlue = Film.Row(static section => StateParameter.Bounded(lens(section, Films.PreFilter, Channels<AxisFraction>.BlueOf), FilmShare),
         new("Pre-filter blue", "Blue transmittance of lens filter"));
-    public static readonly ToneMappingParameter FilmRedScale = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PrimaryScale>.New(static film => film.RedScale, static value => film => film with { RedScale = value })), Field),
+    public static readonly ToneMappingParameter FilmRedScale = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Scale, Channels<PrimaryScale>.RedOf), Field),
         new("Red scale", "Red primary gamut extension"));
-    public static readonly ToneMappingParameter FilmGreenScale = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PrimaryScale>.New(static film => film.GreenScale, static value => film => film with { GreenScale = value })), Field),
+    public static readonly ToneMappingParameter FilmGreenScale = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Scale, Channels<PrimaryScale>.GreenOf), Field),
         new("Green scale", "Green primary gamut extension"));
-    public static readonly ToneMappingParameter FilmBlueScale = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PrimaryScale>.New(static film => film.BlueScale, static value => film => film with { BlueScale = value })), Field),
+    public static readonly ToneMappingParameter FilmBlueScale = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Scale, Channels<PrimaryScale>.BlueOf), Field),
         new("Blue scale", "Blue primary gamut extension"));
-    public static readonly ToneMappingParameter FilmRedRotation = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, HueRotation>.New(static film => film.RedRotation, static value => film => film with { RedRotation = value })), FilmTurn),
+    public static readonly ToneMappingParameter FilmRedRotation = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Rotation, Channels<HueRotation>.RedOf), FilmTurn),
         new("Red rotation", "Red primary hue turn"));
-    public static readonly ToneMappingParameter FilmGreenRotation = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, HueRotation>.New(static film => film.GreenRotation, static value => film => film with { GreenRotation = value })), FilmTurn),
+    public static readonly ToneMappingParameter FilmGreenRotation = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Rotation, Channels<HueRotation>.GreenOf), FilmTurn),
         new("Green rotation", "Green primary hue turn"));
-    public static readonly ToneMappingParameter FilmBlueRotation = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, HueRotation>.New(static film => film.BlueRotation, static value => film => film with { BlueRotation = value })), FilmTurn),
+    public static readonly ToneMappingParameter FilmBlueRotation = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Rotation, Channels<HueRotation>.BlueOf), FilmTurn),
         new("Blue rotation", "Blue primary hue turn"));
-    public static readonly ToneMappingParameter FilmRedMultiplier = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PositiveMagnitude>.New(static film => film.RedMultiplier, static value => film => film with { RedMultiplier = value })), Field),
+    public static readonly ToneMappingParameter FilmRedMultiplier = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Multiplier, Channels<PositiveMagnitude>.RedOf), Field),
         new("Red multiplier", "Red primary gain"));
-    public static readonly ToneMappingParameter FilmGreenMultiplier = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PositiveMagnitude>.New(static film => film.GreenMultiplier, static value => film => film with { GreenMultiplier = value })), Field),
+    public static readonly ToneMappingParameter FilmGreenMultiplier = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Multiplier, Channels<PositiveMagnitude>.GreenOf), Field),
         new("Green multiplier", "Green primary gain"));
-    public static readonly ToneMappingParameter FilmBlueMultiplier = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PositiveMagnitude>.New(static film => film.BlueMultiplier, static value => film => film with { BlueMultiplier = value })), Field),
+    public static readonly ToneMappingParameter FilmBlueMultiplier = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Multiplier, Channels<PositiveMagnitude>.BlueOf), Field),
         new("Blue multiplier", "Blue primary gain"));
     public static readonly ToneMappingParameter FilmSigmoidMinimum = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, Exposure>.New(static film => film.SigmoidMinimum, static value => film => film with { SigmoidMinimum = value })), FilmStops),
         new("Sigmoid minimum", "Lowest stop dye response reads"));
@@ -92,11 +92,11 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
         new("Negative exposure", "Light on negative in stops"));
     public static readonly ToneMappingParameter FilmNegativeDensity = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, Density>.New(static film => film.NegativeDensity, static value => film => film with { NegativeDensity = value })), Field),
         new("Negative density", "Negative maximum dye density"));
-    public static readonly ToneMappingParameter FilmBacklightRed = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PositiveMagnitude>.New(static film => film.BacklightRed, static value => film => film with { BacklightRed = value })), Field),
+    public static readonly ToneMappingParameter FilmBacklightRed = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Backlight, Channels<PositiveMagnitude>.RedOf), Field),
         new("Backlight red", "Red of light printing negative"));
-    public static readonly ToneMappingParameter FilmBacklightGreen = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PositiveMagnitude>.New(static film => film.BacklightGreen, static value => film => film with { BacklightGreen = value })), Field),
+    public static readonly ToneMappingParameter FilmBacklightGreen = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Backlight, Channels<PositiveMagnitude>.GreenOf), Field),
         new("Backlight green", "Green of light printing negative"));
-    public static readonly ToneMappingParameter FilmBacklightBlue = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, PositiveMagnitude>.New(static film => film.BacklightBlue, static value => film => film with { BacklightBlue = value })), Field),
+    public static readonly ToneMappingParameter FilmBacklightBlue = Film.Row(static section => StateParameter.Bounded(lens(section, Films.Backlight, Channels<PositiveMagnitude>.BlueOf), Field),
         new("Backlight blue", "Blue of light printing negative"));
     public static readonly ToneMappingParameter FilmPrintExposure = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, Exposure>.New(static film => film.PrintExposure, static value => film => film with { PrintExposure = value })), FilmStops),
         new("Print exposure", "Backlight on print in stops"));
@@ -104,11 +104,11 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
         new("Print density", "Print maximum dye density"));
     public static readonly ToneMappingParameter FilmBlackPoint = Film.Row(static section => StateParameter.OptionalBounded(lens(section, Lens<FilmState, Gated<BlackOffset>>.New(static film => film.BlackPoint, static value => film => film with { BlackPoint = value })), Field),
         new("Black point", "Film black in per mille, stock black when off"));
-    public static readonly ToneMappingParameter FilmPostFilterRed = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, AxisFraction>.New(static film => film.PostFilterRed, static value => film => film with { PostFilterRed = value })), FilmShare),
+    public static readonly ToneMappingParameter FilmPostFilterRed = Film.Row(static section => StateParameter.Bounded(lens(section, Films.PostFilter, Channels<AxisFraction>.RedOf), FilmShare),
         new("Post-filter red", "Red transmittance of print filter"));
-    public static readonly ToneMappingParameter FilmPostFilterGreen = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, AxisFraction>.New(static film => film.PostFilterGreen, static value => film => film with { PostFilterGreen = value })), FilmShare),
+    public static readonly ToneMappingParameter FilmPostFilterGreen = Film.Row(static section => StateParameter.Bounded(lens(section, Films.PostFilter, Channels<AxisFraction>.GreenOf), FilmShare),
         new("Post-filter green", "Green transmittance of print filter"));
-    public static readonly ToneMappingParameter FilmPostFilterBlue = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, AxisFraction>.New(static film => film.PostFilterBlue, static value => film => film with { PostFilterBlue = value })), FilmShare),
+    public static readonly ToneMappingParameter FilmPostFilterBlue = Film.Row(static section => StateParameter.Bounded(lens(section, Films.PostFilter, Channels<AxisFraction>.BlueOf), FilmShare),
         new("Post-filter blue", "Blue transmittance of print filter"));
     public static readonly ToneMappingParameter FilmMidtoneSaturation = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, Magnitude>.New(static film => film.MidtoneSaturation, static value => film => film with { MidtoneSaturation = value })), Field),
         new("Midtone saturation", "Saturation factor at middle gray"));
@@ -118,17 +118,17 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
         new("Purity", "Share of primary inset restored after curve"));
     public static readonly ToneMappingParameter BasePrimaries = Application.Row(static section => new StateParameter<ToneMapping>.OptionalChoice<Gamut>(lens(section, Lens<CurveApplication, Option<Gamut>>.New(static application => application.BasePrimaries, static value => application => application with { BasePrimaries = value })), "Working"),
         new("Base primaries", "Gamut of rendering primaries"));
-    public static readonly ToneMappingParameter RedInset = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, PrimaryInset>.New(static application => application.RedInset, static value => application => application with { RedInset = value })), Inset),
+    public static readonly ToneMappingParameter RedInset = Application.Row(static section => StateParameter.Bounded(lens(section, Applications.Inset, Channels<PrimaryInset>.RedOf), Inset),
         new("Red inset", "Red rendering primary pull to white"));
-    public static readonly ToneMappingParameter GreenInset = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, PrimaryInset>.New(static application => application.GreenInset, static value => application => application with { GreenInset = value })), Inset),
+    public static readonly ToneMappingParameter GreenInset = Application.Row(static section => StateParameter.Bounded(lens(section, Applications.Inset, Channels<PrimaryInset>.GreenOf), Inset),
         new("Green inset", "Green rendering primary pull to white"));
-    public static readonly ToneMappingParameter BlueInset = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, PrimaryInset>.New(static application => application.BlueInset, static value => application => application with { BlueInset = value })), Inset),
+    public static readonly ToneMappingParameter BlueInset = Application.Row(static section => StateParameter.Bounded(lens(section, Applications.Inset, Channels<PrimaryInset>.BlueOf), Inset),
         new("Blue inset", "Blue rendering primary pull to white"));
-    public static readonly ToneMappingParameter RedRotation = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, PrimaryRotation>.New(static application => application.RedRotation, static value => application => application with { RedRotation = value })), Turn),
+    public static readonly ToneMappingParameter RedRotation = Application.Row(static section => StateParameter.Bounded(lens(section, Applications.Rotation, Channels<PrimaryRotation>.RedOf), Turn),
         new("Red rotation", "Red rendering primary turn about white"));
-    public static readonly ToneMappingParameter GreenRotation = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, PrimaryRotation>.New(static application => application.GreenRotation, static value => application => application with { GreenRotation = value })), Turn),
+    public static readonly ToneMappingParameter GreenRotation = Application.Row(static section => StateParameter.Bounded(lens(section, Applications.Rotation, Channels<PrimaryRotation>.GreenOf), Turn),
         new("Green rotation", "Green rendering primary turn about white"));
-    public static readonly ToneMappingParameter BlueRotation = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, PrimaryRotation>.New(static application => application.BlueRotation, static value => application => application with { BlueRotation = value })), Turn),
+    public static readonly ToneMappingParameter BlueRotation = Application.Row(static section => StateParameter.Bounded(lens(section, Applications.Rotation, Channels<PrimaryRotation>.BlueOf), Turn),
         new("Blue rotation", "Blue rendering primary turn about white"));
     public static readonly ToneMappingParameter SigmoidContrast = Sigmoid.Row(static section => StateParameter.Bounded(lens(section, Lens<SigmoidState, CurveGamma>.New(static sigmoid => sigmoid.Contrast, static value => sigmoid => sigmoid with { Contrast = value })), new Presentation<float> { Soft = (0.7f, 3f) }),
         new("Contrast", "Middle gray slope over stops"));
@@ -180,6 +180,20 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
     public StateParameter<ToneMapping> Kind { get; }
     public Seq<Formation> Formations { get; }
     public ParameterText Text { get; }
+
+    private static class Films {
+        public static readonly Lens<FilmState, Channels<AxisFraction>> PreFilter = Lens<FilmState, Channels<AxisFraction>>.New(static film => film.PreFilter, static value => film => film with { PreFilter = value });
+        public static readonly Lens<FilmState, Channels<PrimaryScale>> Scale = Lens<FilmState, Channels<PrimaryScale>>.New(static film => film.Scale, static value => film => film with { Scale = value });
+        public static readonly Lens<FilmState, Channels<HueRotation>> Rotation = Lens<FilmState, Channels<HueRotation>>.New(static film => film.Rotation, static value => film => film with { Rotation = value });
+        public static readonly Lens<FilmState, Channels<PositiveMagnitude>> Multiplier = Lens<FilmState, Channels<PositiveMagnitude>>.New(static film => film.Multiplier, static value => film => film with { Multiplier = value });
+        public static readonly Lens<FilmState, Channels<PositiveMagnitude>> Backlight = Lens<FilmState, Channels<PositiveMagnitude>>.New(static film => film.Backlight, static value => film => film with { Backlight = value });
+        public static readonly Lens<FilmState, Channels<AxisFraction>> PostFilter = Lens<FilmState, Channels<AxisFraction>>.New(static film => film.PostFilter, static value => film => film with { PostFilter = value });
+    }
+
+    private static class Applications {
+        public static readonly Lens<CurveApplication, Channels<PrimaryInset>> Inset = Lens<CurveApplication, Channels<PrimaryInset>>.New(static application => application.Inset, static value => application => application with { Inset = value });
+        public static readonly Lens<CurveApplication, Channels<PrimaryRotation>> Rotation = Lens<CurveApplication, Channels<PrimaryRotation>>.New(static application => application.Rotation, static value => application => application with { Rotation = value });
+    }
 
     private sealed record Section<TSection>(Lens<ToneMapping, TSection> Lens, Seq<Formation> Formations) {
         public ToneMappingParameter Row(Func<Lens<ToneMapping, TSection>, StateParameter<ToneMapping>> kind, ParameterText text, [CallerMemberName] string member = "") =>
@@ -244,18 +258,17 @@ public sealed partial class Display : ICaptioned {
 public sealed partial class AgXLook : ICaptioned {
     public static readonly AgXLook Punchy = new("punchy", (GradingStyle.Log.Neutral with { Shadows = new ZoneSpan(new Vector4(0.2f, 0.2f, 0.2f, 0.35f), 0.4f, 0.3f) })
         .Kernel(GradingStyle.Log).ToSeq()
-        .Add(new LutTable.Cdl(CdlStyle.FwdNoClamp, Vector3.One, Vector3.Zero, new Vector3(1.0912f), 1f).Apply), "Punchy");
-    public static readonly AgXLook Greyscale = new("greyscale", Seq(new LutTable.Antilog(LogSpace.AgXLog.Allocation).Apply, AgX.Grey.Apply, new LutTable.Log(LogSpace.AgXLog.Allocation).Apply), "Greyscale");
-    public static readonly AgXLook VeryHighContrast = new("very-high-contrast", Contrasted(1.57f, 0.9f), "Very high contrast");
-    public static readonly AgXLook HighContrast = new("high-contrast", Contrasted(1.4f, 0.95f), "High contrast");
-    public static readonly AgXLook MediumHighContrast = new("medium-high-contrast", Contrasted(1.2f, 1f), "Medium high contrast");
-    public static readonly AgXLook BaseContrast = new("base-contrast", Contrasted(1f, 1f), "Base contrast");
-    public static readonly AgXLook MediumLowContrast = new("medium-low-contrast", Contrasted(0.9f, 1.05f), "Medium low contrast");
-    public static readonly AgXLook LowContrast = new("low-contrast", Contrasted(0.8f, 1.1f), "Low contrast");
-    public static readonly AgXLook VeryLowContrast = new("very-low-contrast", Contrasted(0.7f, 1.15f), "Very low contrast");
+        .Add(new LutTable.Cdl(CdlStyle.FwdNoClamp, Vector3.One, Vector3.Zero, new Vector3(1.0912f), 1f).Apply));
+    public static readonly AgXLook Greyscale = new("greyscale", Seq(new LutTable.Antilog(LogSpace.AgXLog.Allocation).Apply, AgX.Grey.Apply, new LutTable.Log(LogSpace.AgXLog.Allocation).Apply));
+    public static readonly AgXLook VeryHighContrast = new("very-high-contrast", Contrasted(1.57f, 0.9f));
+    public static readonly AgXLook HighContrast = new("high-contrast", Contrasted(1.4f, 0.95f));
+    public static readonly AgXLook MediumHighContrast = new("medium-high-contrast", Contrasted(1.2f, 1f));
+    public static readonly AgXLook BaseContrast = new("base-contrast", Contrasted(1f, 1f));
+    public static readonly AgXLook MediumLowContrast = new("medium-low-contrast", Contrasted(0.9f, 1.05f));
+    public static readonly AgXLook LowContrast = new("low-contrast", Contrasted(0.8f, 1.1f));
+    public static readonly AgXLook VeryLowContrast = new("very-low-contrast", Contrasted(0.7f, 1.15f));
 
     public Seq<Action<Span<Vector4>>> Steps { get; }
-    public string Caption { get; }
 
     private static Seq<Action<Span<Vector4>>> Contrasted(float contrast, float saturation) =>
         Seq(new LutTable.Cdl(CdlStyle.FwdNoClamp, new Vector3(contrast), new Vector3(0.4f * (1f - contrast)), Vector3.One, saturation).Apply);

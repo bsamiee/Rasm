@@ -1,3 +1,4 @@
+using System.Globalization;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document;
@@ -18,9 +19,27 @@ internal abstract partial record ArchChoice {
     public string Option { get; }
     public string Label { get; }
     public string Tooltip { get; }
-    public sealed record Spanned(string Option, string Label, string Tooltip, SpannedArch Kind) : ArchChoice(Option, Label, Tooltip);
-    public sealed record Raised(string Option, string Label, string Tooltip, RaisedArch Kind) : ArchChoice(Option, Label, Tooltip);
-    public sealed record Foiled(string Option, string Label, string Tooltip, FoiledArch Kind) : ArchChoice(Option, Label, Tooltip);
+    public sealed record Spanned(string Option, string Label, string Tooltip, Func<ArchSpan, Action<IDisposable>, IO<Seq<Curve>>> Curves) : ArchChoice(Option, Label, Tooltip);
+    public sealed record Raised(string Option, string Label, string Tooltip, Interval Ratios, Func<ArchSpan, Point3d, Action<IDisposable>, IO<Seq<Curve>>> Curves) : ArchChoice(Option, Label, Tooltip) {
+        public Fin<Point3d> Apex(ArchSpan span, double height, Tolerances tolerances) =>
+            Admitted(span, tolerances).Bind(admitted => admitted.IncludesParameter(double.Abs(height / span.Baseline.Length))
+                ? Fin.Succ(span.Apex(height))
+                : Error.New(ErrorCodes.ValidationFailed, admitted.Max is double.MaxValue
+                    ? string.Create(CultureInfo.InvariantCulture, $"Arch rise {height:G4} is shorter than the least rise {admitted.Min * span.Baseline.Length:G4} on this span")
+                    : string.Create(CultureInfo.InvariantCulture, $"Arch rise {height:G4} lies outside {admitted.Min * span.Baseline.Length:G4} to {admitted.Max * span.Baseline.Length:G4} on this span")));
+
+        public Fin<Point3d> Nearest(ArchSpan span, double height, Tolerances tolerances) =>
+            Admitted(span, tolerances).Map(admitted => span.Apex(double.CopySign(double.Clamp(double.Abs(height) / span.Baseline.Length, admitted.Min, admitted.Max), height) * span.Baseline.Length));
+
+        private Fin<Interval> Admitted(ArchSpan span, Tolerances tolerances) =>
+            (tolerances.Absolute / span.Baseline.Length) switch {
+                var margin => new Interval(Ratios.T0 + margin, Ratios.T1 - margin) switch {
+                    { IsIncreasing: true } admitted => admitted,
+                    _ => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Arch span {span.Baseline.Length} admits no rise ratio inside {Ratios}")),
+                },
+            };
+    }
+    public sealed record Foiled(string Option, string Label, string Tooltip, Func<ArchSpan, bool, Action<IDisposable>, IO<Seq<Curve>>> Curves) : ArchChoice(Option, Label, Tooltip);
     public sealed record Counted(string Option, string Label, string Tooltip, FoilCount InitialCount) : ArchChoice(Option, Label, Tooltip);
 }
 
@@ -29,8 +48,12 @@ internal abstract partial record ArchStage {
     public sealed record Choosing : ArchStage;
     public sealed record Starting(ArchChoice Choice, bool BothSides) : ArchStage;
     public sealed record Ending(ArchChoice Choice, Point3d Start, Vector3d Normal, bool BothSides, bool Flip, bool Pointed) : ArchStage;
-    public sealed record Rising(RaisedArch Kind, ArchSpan Span) : ArchStage;
-    public sealed record Counting(ArchSpan Span, ArchForm.Multifoil Form) : ArchStage;
+    public sealed record Rising(ArchChoice.Raised Choice, ArchSpan Span) : ArchStage {
+        public Func<Action<IDisposable>, IO<Seq<Curve>>> Built(Point3d apex) => retain => Choice.Curves(Span, apex, retain);
+    }
+    public sealed record Counting(ArchSpan Span, FoilCount Count, bool Pointed) : ArchStage {
+        public Func<Action<IDisposable>, IO<Seq<Curve>>> Built(Tolerances tolerances) => retain => ArchGeometry.Multifoil(Span, Pointed, Count, tolerances, retain);
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -56,19 +79,19 @@ internal static class ArchPrompts {
                     + (end.Choice is ArchChoice.Raised ? [] : Seq(Toggle("Flip", LabelPair.NoYes, end.Flip, value => end with { Flip = value })))
                     + (end.Choice is ArchChoice.Foiled or ArchChoice.Counted ? Seq(Toggle("Shape", new LabelPair("Rounded", "Pointed"), end.Pointed, value => end with { Pointed = value })) : []),
                 Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => Span(end, args.CurrentPoint).Match(
-                    Succ: span => ArchFeedback.Draw(args.Display, span, Previewed(end), at.Tolerances),
+                    Succ: span => ArchFeedback.Draw(args.Display, span, Previewed(end, span, at.Tolerances)),
                     Fail: _ => ArchFeedback.DrawEnds(args.Display, Baseline(end, args.CurrentPoint))))),
             }, pick => Span(end, pick.Pick.Point).Match(
                 Succ: span => end.Choice.Switch((at.Doc, Span: span, end.Pointed, at.Tolerances),
-                    spanned: static (candidate, choice) => Finish(candidate.Doc, candidate.Span, new ArchForm.Spanned(choice.Kind), candidate.Tolerances),
-                    raised: static (candidate, choice) => Advance(new ArchStage.Rising(choice.Kind, candidate.Span)),
-                    foiled: static (candidate, choice) => Finish(candidate.Doc, candidate.Span, new ArchForm.Foiled(choice.Kind, candidate.Pointed), candidate.Tolerances),
-                    counted: static (candidate, choice) => Advance(new ArchStage.Counting(candidate.Span, new ArchForm.Multifoil(choice.InitialCount, candidate.Pointed)))),
+                    spanned: static (candidate, choice) => Finish(candidate.Doc, retain => choice.Curves(candidate.Span, retain), candidate.Tolerances),
+                    raised: static (candidate, choice) => Advance(new ArchStage.Rising(choice, candidate.Span)),
+                    foiled: static (candidate, choice) => Finish(candidate.Doc, retain => choice.Curves(candidate.Span, candidate.Pointed, retain), candidate.Tolerances),
+                    counted: static (candidate, choice) => Advance(new ArchStage.Counting(candidate.Span, choice.InitialCount, candidate.Pointed))),
                 Fail: Retry)),
             rising: static (at, rise) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>("Apex point or rise", at.Site) {
                 Accept = at.Accept with {
-                    Number = new NumberEntry<StageStep<ArchStage, Seq<Guid>>>.Plain(Zero: true, number => ArchForm.Raised.Of(rise.Kind, rise.Span, number, at.Tolerances).Match(
-                        Succ: form => Finish(at.Doc, rise.Span, form, at.Tolerances),
+                    Number = new NumberEntry<StageStep<ArchStage, Seq<Guid>>>.Plain(Zero: true, number => rise.Choice.Apex(rise.Span, number, at.Tolerances).Match(
+                        Succ: apex => Finish(at.Doc, rise.Built(apex), at.Tolerances),
                         Fail: Retry)),
                 },
                 Configure = [getter => IO.lift(() => {
@@ -76,17 +99,17 @@ internal static class ArchPrompts {
                     getter.ConstrainDistanceFromBasePoint(0.0);
                     return Refused.Unless(getter.Constrain(new Line(rise.Span.Midpoint, rise.Span.Frame.YAxis)), nameof(GetPoint.Constrain));
                 })],
-                Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, rise.Span, Raised(rise, args.CurrentPoint, at.Tolerances).ToOption().Map(static form => (ArchForm)form), at.Tolerances))),
-            }, pick => Raised(rise, pick.Pick.Point, at.Tolerances).Match(Succ: form => Finish(at.Doc, rise.Span, form, at.Tolerances), Fail: Retry)),
+                Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, rise.Span, Raised(rise, args.CurrentPoint, at.Tolerances).ToOption().Map(rise.Built)))),
+            }, pick => Raised(rise, pick.Pick.Point, at.Tolerances).Match(Succ: apex => Finish(at.Doc, rise.Built(apex), at.Tolerances), Fail: Retry)),
             counting: static (at, count) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>("Foil count", at.Site) {
                 Accept = at.Accept with {
-                    Nothing = (Some(((int)count.Form.Count).ToString(RowText.Culture)), Finish(at.Doc, count.Span, count.Form, at.Tolerances)),
+                    Nothing = (Some(((int)count.Count).ToString(RowText.Culture)), Finish(at.Doc, count.Built(at.Tolerances), at.Tolerances)),
                     Number = new NumberEntry<StageStep<ArchStage, Seq<Guid>>>.Plain(Zero: false, number => Count(number).Match(
-                        Succ: value => Advance(count with { Form = count.Form with { Count = value } }),
+                        Succ: value => Advance(count with { Count = value }),
                         Fail: Retry)),
                 },
-                Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, count.Span, count.Form, at.Tolerances))),
-            }, _ => Finish(at.Doc, count.Span, count.Form, at.Tolerances)));
+                Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, count.Span, Some(count.Built(at.Tolerances))))),
+            }, _ => Finish(at.Doc, count.Built(at.Tolerances), at.Tolerances)));
 
     // --- [INPUT_BOUNDARIES]
     private static IO<StageStep<ArchStage, Seq<Guid>>> Anchor(PointPick pick, ArchChoice choice, bool bothSides) =>
@@ -99,15 +122,15 @@ internal static class ArchPrompts {
     private static Fin<ArchSpan> Span(ArchStage.Ending stage, Point3d end) =>
         ArchSpan.Of(Baseline(stage, end), stage.Flip ? -stage.Normal : stage.Normal);
 
-    private static Fin<ArchForm.Raised> Raised(ArchStage.Rising stage, Point3d cursor, Tolerances tolerances) =>
-        ArchForm.Raised.Nearest(stage.Kind, stage.Span, stage.Span.Height(cursor), tolerances);
+    private static Fin<Point3d> Raised(ArchStage.Rising stage, Point3d cursor, Tolerances tolerances) =>
+        stage.Choice.Nearest(stage.Span, stage.Span.Height(cursor), tolerances);
 
-    private static Option<ArchForm> Previewed(ArchStage.Ending stage) =>
-        stage.Choice.Switch<bool, Option<ArchForm>>(stage.Pointed,
-            spanned: static (_, choice) => new ArchForm.Spanned(choice.Kind),
+    private static Option<Func<Action<IDisposable>, IO<Seq<Curve>>>> Previewed(ArchStage.Ending stage, ArchSpan span, Tolerances tolerances) =>
+        stage.Choice.Switch<(ArchSpan Span, bool Pointed, Tolerances Tolerances), Option<Func<Action<IDisposable>, IO<Seq<Curve>>>>>((span, stage.Pointed, tolerances),
+            spanned: static (at, choice) => Some<Func<Action<IDisposable>, IO<Seq<Curve>>>>(retain => choice.Curves(at.Span, retain)),
             raised: static (_, _) => None,
-            foiled: static (pointed, choice) => new ArchForm.Foiled(choice.Kind, pointed),
-            counted: static (pointed, choice) => new ArchForm.Multifoil(choice.InitialCount, pointed));
+            foiled: static (at, choice) => Some<Func<Action<IDisposable>, IO<Seq<Curve>>>>(retain => choice.Curves(at.Span, at.Pointed, retain)),
+            counted: static (at, choice) => Some<Func<Action<IDisposable>, IO<Seq<Curve>>>>(retain => ArchGeometry.Multifoil(at.Span, at.Pointed, choice.InitialCount, at.Tolerances, retain)));
 
     private static Fin<FoilCount> Count(double value) =>
         double.IsInteger(value) && value is >= int.MinValue and <= int.MaxValue
@@ -127,9 +150,9 @@ internal static class ArchPrompts {
     private static OptionSpec<StageStep<ArchStage, Seq<Guid>>> Toggle(string caption, LabelPair labels, bool initial, Func<bool, ArchStage> next) =>
         OptionSpec.Of(caption, OptionType.Toggle(labels), initial, value => Advance(next(value)));
 
-    private static IO<StageStep<ArchStage, Seq<Guid>>> Finish(RhinoDoc doc, ArchSpan span, ArchForm form, Tolerances tolerances) =>
+    private static IO<StageStep<ArchStage, Seq<Guid>>> Finish(RhinoDoc doc, Func<Action<IDisposable>, IO<Seq<Curve>>> build, Tolerances tolerances) =>
         TableOps.Place(doc, retain =>
-                from built in CurveConstruction.CreateArch(span, form, tolerances, retain)
+                from built in build(retain)
                 from joined in CurveConstruction.JoinCurves(built, tolerances, preserveDirection: true, simpleJoin: false, retain)
                 select joined.Map(static row => (Row: new GeometryPair(row.Value, None), History: Option<HistoryRecord>.None)), reference: false)
             .Map<StageStep<ArchStage, Seq<Guid>>>(static ids => new StageStep<ArchStage, Seq<Guid>>.Done(ids))

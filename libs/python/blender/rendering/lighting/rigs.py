@@ -10,15 +10,14 @@ from colour.models.rgb.datasets.srgb import MATRIX_sRGB_TO_XYZ
 from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
-import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import applied, processor
-from blender.imaging.faults import accumulated, guarded, paired
+from blender.imaging.faults import accumulated, guarded, ImagingNumericFault, paired
 from blender.imaging.parameters import Case, Choice, Elevation, Finite, Gated, NonNegative, Positive, Presentation, Quantity, Rgb, Stops, Turn, Unit
-from blender.rendering.faults import RenderingArithmeticFault, RenderingImagingFault, RenderingResult
+from blender.rendering.faults import RenderingResult
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -72,7 +71,7 @@ class Light(msgspec.Struct, frozen=True, kw_only=True):
     stops: Annotated[Finite, msgspec.Meta(description="Target irradiance in stops from key")] = 0.0
     size: Annotated[Diameter, msgspec.Meta(description="Angular diameter at target center")] = 2.0 * math.asin(0.2)
     color: Rgb[Finite] = Rgb(red=1.0, green=1.0, blue=1.0)
-    temperature: Annotated[Gated[Annotated[float, msgspec.Meta(ge=1800.0, le=20000.0)]], Presentation(step=Some(1.0), decimals=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = Gated(
+    temperature: Annotated[Gated[Annotated[float, msgspec.Meta(ge=1800.0, le=20000.0)]], Presentation(step=Some(1.0), precision=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = Gated(
         enabled=False, value=6500.0
     )
 
@@ -107,7 +106,7 @@ class Matched(Case, frozen=True, kw_only=True, tag=6):
 
     count: Annotated[int, msgspec.Meta(ge=1, le=8, title="Lights")] = 3
     key: Annotated[Emitter, msgspec.Meta(title="Key Emitter")] = Disk()
-    softness: Annotated[NonNegative, Presentation(soft=Some((0.0, 4.0)), decimals=Some(2))] = 1.0
+    softness: Annotated[NonNegative, Presentation(soft=Some((0.0, 4.0)), precision=Some(2))] = 1.0
     fill_size: Diameter = math.radians(44.0)
     fill: Annotated[Gated[Stops], msgspec.Meta(title="Fill Stops")] = Gated(enabled=False, value=math.log2(0.3))
     rim: Gated[Stops] = Gated(enabled=True, value=0.0)
@@ -159,7 +158,7 @@ class Matched(Case, frozen=True, kw_only=True, tag=6):
             )
 
         return guarded(
-            RenderingArithmeticFault,
+            ImagingNumericFault,
             (self, reading),
             lambda: Ok(lit(reading.hardness) if reading.hardness > 0.0 else Arranged(lights=(), ambient=Gated(enabled=True, value=Ambient(color=filtered(reading.key))))),
         )
@@ -215,8 +214,8 @@ class Placements(msgspec.Struct, frozen=True, kw_only=True):
 class Rig(msgspec.Struct, frozen=True, kw_only=True):
     """Lights about target at key irradiance."""
 
-    irradiance: Annotated[NonNegative, msgspec.Meta(title="Key Irradiance"), Presentation(decimals=Some(3), quantity=Some(Quantity.IRRADIANCE))] = math.pi
-    distance: Annotated[Distance, Presentation(soft=Some((1.0, 10.0)), decimals=Some(2))] = 2.5
+    irradiance: Annotated[NonNegative, msgspec.Meta(title="Key Irradiance"), Presentation(precision=Some(3), quantity=Some(Quantity.IRRADIANCE))] = math.pi
+    distance: Annotated[Distance, Presentation(soft=Some((1.0, 10.0)), precision=Some(2))] = 2.5
     color_strength: Annotated[NonNegative, msgspec.Meta(description="Blend from white up to one, Rec.709 chroma boost above one"), Presentation(soft=Some((0.0, 1.5)))] = 0.85
     color_saturation: Annotated[NonNegative, msgspec.Meta(description="Rec.709 saturation after color strength"), Presentation(soft=Some((0.0, 2.0)))] = 1.0
     layout: Layout = Matched()
@@ -245,7 +244,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
 
             def graded(color: Rgb[Finite]) -> RenderingResult[Rgb[Finite]]:
                 return guarded(
-                    RenderingArithmeticFault,
+                    ImagingNumericFault,
                     (self.color_strength, self.color_saturation, color),
                     lambda: Ok(msgspec.convert(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=Rgb[Finite])),
                 )
@@ -267,22 +266,11 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return self.arranged(reading).bind(
-            lambda arranged: arranged.map(
-                lambda layout: paired(processor(config, transform).map_error(RenderingImagingFault.lifted), _scaled((self.distance, radius))).bind(lambda found: placed(layout, *found))
-            ).default_value(Ok(Nothing))
+            lambda arranged: arranged.map(lambda layout: paired(processor(config, transform), _scaled((self.distance, radius))).bind(lambda found: placed(layout, *found))).default_value(Ok(Nothing))
         )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def product(factors: tuple[float | npt.NDArray[np.float64], ...], stops: float = 0.0) -> npt.NDArray[np.float64]:
-    """Returns broadcast product times 2**stops over split mantissas and exponents."""
-    fraction, whole = math.modf(stops)
-    parts = tuple(np.frexp(factor) for factor in np.broadcast_arrays(*factors))
-    mantissas = np.prod(np.stack(tuple(mantissa for mantissa, _ in parts)), axis=0) * math.exp2(fraction)
-    exponents = np.sum(np.stack(tuple(exponent for _, exponent in parts)), axis=0)
-    return np.asarray(np.ldexp(mantissas, exponents + int(whole)), dtype=np.float64)
 
 
 @functools.cache
@@ -348,10 +336,10 @@ def rig_catalog() -> Mapping[str, Rig]:
 
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> RenderingResult[float]:
-    """Returns product as float, overflow as arithmetic fault."""
-    return guarded(RenderingArithmeticFault, (*factors, stops), lambda: Ok(float(product(factors, stops))))
+    """Returns product times 2**stops as float, overflow as numeric fault."""
+    return guarded(ImagingNumericFault, (*factors, stops), lambda: Ok(float(np.prod(factors) * np.exp2(stops))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Rig", "Role", "Spot", "Sun", "product", "rig_catalog"]
+__all__ = ["Ambient", "Arranged", "Background", "Disk", "Emitter", "Layout", "Light", "Matched", "Placement", "Placements", "Point", "Rig", "Role", "Spot", "Sun", "rig_catalog"]

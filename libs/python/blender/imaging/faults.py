@@ -1,12 +1,15 @@
 """Imaging faults and result accumulation."""
 
+from abc import abstractmethod
 from collections.abc import Callable, Iterable
+from enum import auto, Enum
+from importlib.resources.abc import Traversable
 from itertools import chain
 from pathlib import Path
 import struct
-from typing import Final, Literal, Protocol
+from typing import ClassVar, Literal, overload, override, Protocol
 
-from expression import Error, Ok, Option, Result
+from expression import Error, Nothing, Ok, Option, Result
 from expression.collections import Block
 from imagecodecs import Jpeg8Error
 import msgspec
@@ -24,20 +27,16 @@ type ColorRequest = str | PyOpenColorIO.Config | PyOpenColorIO.Transform | PyOpe
 type ImagingFault = (
     ImagingColorFault
     | ImagingUnresolvedFault
-    | ImagingCoincidentFault
-    | ImagingReadFault
-    | ImagingWriteFault
+    | ImagingFileFault
     | ImagingBufferFault
-    | ImagingMismatchFault
-    | ImagingComparisonFault
+    | ImagingShapeFault
+    | ImagingNumericFault
+    | ImagingCoincidentFault
     | ImagingCalibrationFault
     | ImagingBaseFault
     | ImagingSpectralFault
-    | ImagingNumericFault
     | ImagingContrastFault
-    | ImagingLutShapeFault
     | ImagingWhiteFault
-    | ImagingJpegFault
 )
 type ImagingFaults = Faults[ImagingFault]
 type ImagingResult[T] = Result[T, ImagingFaults]
@@ -51,18 +50,37 @@ class Refused[R, F](Protocol):
         ...
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+class Access(Enum):
+    """Direction of a file operation."""
 
-RAISED: Final[frozenset[Condition]] = frozenset(("over", "divide", "invalid"))
+    READ = auto()
+    WRITE = auto()
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Refusal[R, E](msgspec.Struct, frozen=True, kw_only=True):
+class Fault(msgspec.Struct, frozen=True, kw_only=True):
+    """Refused or unmet operation with its report text."""
+
+    @property
+    @abstractmethod
+    def message(self) -> str:
+        """Report text of the fault."""
+
+
+class Refusal[R, E](Fault, frozen=True, kw_only=True):
     """Request with error that refused it."""
 
+    template: ClassVar[str]
     request: R
     error: E
+
+    @property
+    @override
+    def message(self) -> str:
+        """Report text of the refusal."""
+        return self.template.format(request=self.request, error=self.error)
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -71,30 +89,55 @@ class Refusal[R, E](msgspec.Struct, frozen=True, kw_only=True):
 class ImagingColorFault(Refusal[ColorRequest, PyOpenColorIO.Exception | PyOpenColorIO.ExceptionMissingFile], frozen=True, kw_only=True):
     """Color request OCIO refused."""
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming the request or its type."""
+        return f"Color operation on {self.request if isinstance(self.request, str) else type(self.request).__name__} failed. {self.error}"
+
 
 class ImagingUnresolvedFault(Refusal[PyOpenColorIO.Config, tuple[str, ...]], frozen=True, kw_only=True):
     """Config with unresolved roles or colorspaces."""
 
-
-class ImagingCoincidentFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Curve with knots sharing an input coordinate."""
-
-    curve: msgspec.Struct
-
-
-class ImagingReadFault(Refusal[str | Path, str | msgspec.DecodeError | OSError], frozen=True, kw_only=True):
-    """File its reader refused."""
+    @property
+    @override
+    def message(self) -> str:
+        """Report text listing the unresolved names."""
+        return f"Color configuration lacks color spaces {', '.join(self.error)}"
 
 
-class ImagingWriteFault(Refusal[str | Path, str | OSError | ValueError | OverflowError | struct.error], frozen=True, kw_only=True):
-    """Destination its writer refused."""
+class ImagingFileFault(
+    Refusal[str | Path | Traversable, OSError | ValueError | TypeError | KeyError | OverflowError | MemoryError | NotImplementedError | struct.error | msgspec.DecodeError | str],
+    frozen=True,
+    kw_only=True,
+):
+    """File or stored form its reader or writer refused."""
+
+    access: Access
+
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming the refused direction."""
+        match self.access:
+            case Access.READ:
+                return f"{self.request} is unreadable. {self.error}"
+            case Access.WRITE:
+                return f"{self.request} is unwritable. {self.error}"
 
 
-class ImagingBufferFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Buffer operation OpenImageIO refused."""
+class ImagingBufferFault(Refusal[OpenImageIO.ImageBuf | tuple[int, int, int], str], frozen=True, kw_only=True):
+    """Buffer operation or comparison OpenImageIO refused."""
 
-    request: OpenImageIO.ImageBuf
-    error: str
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming a comparison by its reference shape, else a buffer operation."""
+        match self.request:
+            case tuple():
+                return f"Image comparison failed. {self.error}"
+            case _:
+                return f"Image buffer operation failed. {self.error}"
 
     @classmethod
     def checked(cls, image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
@@ -116,65 +159,109 @@ class ImagingBufferFault(msgspec.Struct, frozen=True, kw_only=True):
         return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (cls(request=image, error=image.geterror()),))
 
 
-class ImagingMismatchFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Image operands with unequal shapes."""
+class ImagingShapeFault(Fault, frozen=True, kw_only=True):
+    """Array shape unequal to its operand or fitting no layout."""
 
-    reference: tuple[int, int, int]
-    test: tuple[int, int, int]
+    subject: str
+    shape: tuple[int, ...]
+    expected: Option[tuple[int, ...]] = Nothing
+
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming both shapes, or the shape no layout fits."""
+        return self.expected.map(lambda expected: f"{self.subject} shapes {expected} and {self.shape} differ").default_value(f"{self.subject} has incompatible shape {self.shape}")
 
 
-class ImagingComparisonFault(Refusal[tuple[int, int, int], str], frozen=True, kw_only=True):
-    """Comparison OpenImageIO refused."""
+class ImagingNumericFault(Refusal[msgspec.Struct | npt.NDArray[np.float64] | tuple[float | msgspec.Struct, ...], Numeric | TypeError | Jpeg8Error], frozen=True, kw_only=True, eq=False):
+    """Request numeric computation, allocation, native representation, or codec refused."""
+
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming the codec or the numeric error type."""
+        match self.error:
+            case Jpeg8Error():
+                return f"JPEG compression for {self.request} failed. {self.error}"
+            case _:
+                return f"Numeric operation for {self.request} failed ({type(self.error).__name__}). {self.error}"
 
 
-class ImagingCalibrationFault(msgspec.Struct, frozen=True, kw_only=True):
+class ImagingCoincidentFault(Fault, frozen=True, kw_only=True):
+    """Curve with knots sharing an input coordinate."""
+
+    curve: msgspec.Struct
+
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming the curve type."""
+        return f"{type(self.curve).__name__} holds two knots at one input"
+
+
+class ImagingCalibrationFault(Fault, frozen=True, kw_only=True):
     """Fitted matrix failing singular value tolerance."""
 
     singular_values: tuple[float, ...]
     tolerance: float
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming values and tolerance."""
+        return f"Calibration matrix singular values {self.singular_values} fail tolerance {self.tolerance:.3g}"
 
-class ImagingBaseFault(msgspec.Struct, frozen=True, kw_only=True):
+
+class ImagingBaseFault(Fault, frozen=True, kw_only=True):
     """Colorspace without linear RGB-to-XYZ matrix."""
 
     space: str
     transform: PyOpenColorIO.Transform
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming space and transform."""
+        return f"Color space {self.space} transform {self.transform} lacks linear RGB geometry"
 
-class ImagingSpectralFault(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+
+class ImagingSpectralFault(Fault, frozen=True, kw_only=True, eq=False):
     """Matching weights without finite nonzero channel integrals."""
 
     space: str
     values: npt.NDArray[np.float64]
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming space and integrals."""
+        return f"{self.space} spectral matching cannot normalize RGB integrals {self.values}"
 
-class ImagingNumericFault(Refusal[msgspec.Struct | npt.NDArray[np.float64], Numeric | TypeError], frozen=True, kw_only=True, eq=False):
-    """Request numeric computation refused."""
 
-
-class ImagingContrastFault(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class ImagingContrastFault(Fault, frozen=True, kw_only=True, eq=False):
     """Endpoints without contrast to normalize."""
 
     request: msgspec.Struct
     black: npt.NDArray[np.float64]
     white: npt.NDArray[np.float64]
 
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming request and endpoints."""
+        return f"{self.request} has no contrast between black {self.black} and white {self.white}"
 
-class ImagingLutShapeFault(msgspec.Struct, frozen=True, kw_only=True):
-    """Shape no LUT image layout fits."""
 
-    path: str
-    shape: tuple[int, ...]
-
-
-class ImagingWhiteFault(msgspec.Struct, frozen=True, kw_only=True):
+class ImagingWhiteFault(Fault, frozen=True, kw_only=True):
     """Scene white outside tone operator domain."""
 
     white: Option[float]
 
-
-class ImagingJpegFault(Refusal[msgspec.Struct, Jpeg8Error], frozen=True, kw_only=True):
-    """Compression request JPEG codec refused."""
+    @property
+    @override
+    def message(self) -> str:
+        """Report text naming the white, or the empty metering."""
+        return self.white.map(lambda value: f"Scene white {value} lies outside tone operator exposure domain").default_value("White metering covers no finite luminance sample")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -187,17 +274,25 @@ def accumulated[T, F](results: Iterable[Result[T, Faults[F]]]) -> Result[tuple[T
     return Error((faults[0], *faults[1:])) if faults else Ok(tuple(block.choose(lambda result: result.to_option())))
 
 
-def paired[A, B, F, G](left: Result[A, Faults[F]], right: Result[B, Faults[G]]) -> Result[tuple[A, B], Faults[F | G]]:
-    """Combines two results, keeping faults left to right."""
-    match left, right:
-        case Result(tag="error", error=first), Result(tag="error", error=second):
-            return Error((first[0], *(first[1:] + second)))
-        case Result(tag="error", error=first), _:
-            return Error(first)
-        case _, Result(tag="error", error=second):
-            return Error(second)
-        case _:
-            return Ok((left.ok, right.ok))
+@overload
+def paired[A, B, FA, FB](a: Result[A, Faults[FA]], b: Result[B, Faults[FB]], /) -> Result[tuple[A, B], Faults[FA | FB]]: ...
+@overload
+def paired[A, B, C, FA, FB, FC](a: Result[A, Faults[FA]], b: Result[B, Faults[FB]], c: Result[C, Faults[FC]], /) -> Result[tuple[A, B, C], Faults[FA | FB | FC]]: ...
+@overload
+def paired[A, B, C, D, FA, FB, FC, FD](
+    a: Result[A, Faults[FA]], b: Result[B, Faults[FB]], c: Result[C, Faults[FC]], d: Result[D, Faults[FD]], /
+) -> Result[tuple[A, B, C, D], Faults[FA | FB | FC | FD]]: ...
+@overload
+def paired[A, B, C, D, E, FA, FB, FC, FD, FE](
+    a: Result[A, Faults[FA]], b: Result[B, Faults[FB]], c: Result[C, Faults[FC]], d: Result[D, Faults[FD]], e: Result[E, Faults[FE]], /
+) -> Result[tuple[A, B, C, D, E], Faults[FA | FB | FC | FD | FE]]: ...
+@overload
+def paired[A, B, C, D, E, G, FA, FB, FC, FD, FE, FG](
+    a: Result[A, Faults[FA]], b: Result[B, Faults[FB]], c: Result[C, Faults[FC]], d: Result[D, Faults[FD]], e: Result[E, Faults[FE]], g: Result[G, Faults[FG]], /
+) -> Result[tuple[A, B, C, D, E, G], Faults[FA | FB | FC | FD | FE | FG]]: ...
+def paired[F](*results: Result[object, Faults[F]]) -> Result[tuple[object, ...], Faults[F]]:
+    """Combines two to six results into one tuple, keeping every fault in input order."""
+    return accumulated(results)
 
 
 def colored[T](request: ColorRequest, build: Callable[[], T]) -> ImagingResult[T]:
@@ -208,7 +303,7 @@ def colored[T](request: ColorRequest, build: Callable[[], T]) -> ImagingResult[T
         return Error((ImagingColorFault(request=request, error=error),))
 
 
-def guarded[R, T, F](fault: Refused[R, F], request: R, compute: Callable[[], Result[T, Faults[F]]], raised: frozenset[Condition] = RAISED) -> Result[T, Faults[F]]:
+def guarded[R, T, F](fault: Refused[R, F], request: R, compute: Callable[[], Result[T, Faults[F]]], raised: frozenset[Condition] = frozenset(("over", "divide", "invalid"))) -> Result[T, Faults[F]]:
     """Runs `compute` raising on `raised` conditions, returning numeric error as `fault`."""
     try:
         with np.errstate(over="raise" if "over" in raised else None, divide="raise" if "divide" in raised else None, invalid="raise" if "invalid" in raised else None):
@@ -233,28 +328,25 @@ def scoped[R, T, F](acquired: Result[R, Faults[F]], use: Callable[[R], Result[T,
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "RAISED",
+    "Access",
     "Condition",
+    "Fault",
     "Faults",
     "ImagingBaseFault",
     "ImagingBufferFault",
     "ImagingCalibrationFault",
     "ImagingCoincidentFault",
     "ImagingColorFault",
-    "ImagingComparisonFault",
     "ImagingContrastFault",
     "ImagingFault",
     "ImagingFaults",
-    "ImagingJpegFault",
-    "ImagingLutShapeFault",
-    "ImagingMismatchFault",
+    "ImagingFileFault",
     "ImagingNumericFault",
-    "ImagingReadFault",
     "ImagingResult",
+    "ImagingShapeFault",
     "ImagingSpectralFault",
     "ImagingUnresolvedFault",
     "ImagingWhiteFault",
-    "ImagingWriteFault",
     "Numeric",
     "Refusal",
     "Refused",

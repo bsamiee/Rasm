@@ -10,7 +10,8 @@ import msgspec
 
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFault, BlenderRegisterFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderRegisterFault, BlenderResult
+from blender.imaging.faults import Access, ImagingFileFault
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -96,7 +97,7 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
                 document, *trailing = arguments
                 decoded = self.decoder.decode(base64.b64decode(document, validate=True))
             except (ValueError, msgspec.DecodeError) as error:
-                return Result[object, BlenderFaults](error=(BlenderReadFault(request=" ".join(arguments), error=error),))
+                return Result[object, BlenderFaults](error=(ImagingFileFault(access=Access.READ, request=" ".join(arguments), error=error),))
             else:
                 return self.run(decoded, tuple(trailing))
 

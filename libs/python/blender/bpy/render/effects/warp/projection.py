@@ -1,39 +1,46 @@
 """Centered mirror folds, polar maps, and covered panorama rays."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+import functools
 from math import pi
+import typing
+from typing import Literal, TypeIs
 
 import bpy
 from expression import Ok, Some
 import msgspec
 
 from blender.bpy.data.rna.conditions import AllOf, Condition
-from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, sampled
-from blender.bpy.nodes.graphs import compared, End, ended, Fragment, math, menu, node, Operand, selected, vector
-from blender.bpy.nodes.interface import item_key, MenuItems
-from blender.bpy.render.effects.stack import CompositorEffect, Coverage, precise, Shell
-from blender.bpy.render.effects.viewers import inspection
-from blender.bpy.render.effects.warp.transforms import extended
+from blender.bpy.nodes.graphs import End, Expr, math, menu, Scalar, switched, Term, vector, xyz
+from blender.bpy.nodes.interface import MenuItems
+from blender.bpy.render.effects.coordinates import extended, FrameSpace, lensed, sampled, shorter
+from blender.bpy.render.effects.rows import Alpha, CompositorEffect, Inspected, precise, Shell
 from blender.bpy.scene.cameras import camera_type
 from blender.imaging.effects.warp.projection import Kaleidoscope, Modes, PanoramaModes, Panoramic, Polar, PolarConversion, Projection, Sampling, Tiling
-from blender.imaging.faults import accumulated, paired
 from blender.imaging.geometry.panoramas import CentralCylindrical, Equirectangular, Fisheye, FisheyeEquidistant, FisheyeEquisolid, MirrorBall, Panini, Panorama, Stereographic
+from blender.imaging.parameters import Case
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def mapped(
-    key: Key, mode: Kaleidoscope | Tiling | Polar | PanoramaModes, frame: FrameSpace, parameters: Mapping[str, Operand], relative: Operand, lens: Operand
-) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds one mode's source positions from its field operands.
+def _mode(case: Case) -> TypeIs[Modes]:
+    """Whether a retained case is a projection mode."""
+    return isinstance(case, typing.get_args(Modes.__value__))
+
+
+def _panoramic(case: Case) -> TypeIs[PanoramaModes]:
+    """Whether a retained case is a panorama the perspective frame maps onto."""
+    return isinstance(case, typing.get_args(PanoramaModes.__value__))
+
+
+def mapped(case: Kaleidoscope | Tiling | Polar | PanoramaModes, frame: FrameSpace, parameters: Mapping[str, Expr], relative: Expr, lens: Expr) -> Expr:
+    """Builds one mode's source positions from its field inputs.
 
     Args:
-        key: Node key prefix.
-        mode: Projection case selecting declared map.
+        case: Projection case selecting declared map.
         frame: Output positions in the displayed camera frame.
-        parameters: Operands keyed by case field names.
+        parameters: Group inputs keyed by case field names.
         relative: Panorama-to-camera rotation without object scale.
         lens: Camera projection matrix onto processed image.
 
@@ -41,335 +48,136 @@ def mapped(
         Whole-image sampling positions with geometric coverage in Z.
     """
     view = (0.0, 0.0, -1.0)
+    sides, centered = frame.fraction, vector("MULTIPLY_ADD", frame.extent, (-0.5, -0.5, 0.0), frame.point)
 
-    def rotated(planar: Operand, angle: Operand) -> BlenderResult[tuple[Fragment, End]]:
-        return (
-            vector(f"{key}_axis", "CROSS_PRODUCT", view, planar)
-            .bind(lambda axis: node(f"{key}_ray", bpy.types.ShaderNodeVectorRotate, {"Vector": view, "Axis": axis, "Angle": angle}, {"rotation_type": "AXIS_ANGLE"}))
-            .map(ended(f"{key}_ray", "Vector"))
-        )
+    def rotated(direction: Term, angle: Scalar, kind: Literal["AXIS_ANGLE", "X_AXIS", "Y_AXIS", "Z_AXIS"], *axis: Term) -> Expr:
+        inputs = (("Vector", direction), *(("Axis", held) for held in axis), ("Angle", angle))
+        return Expr(kind=bpy.types.ShaderNodeVectorRotate, inputs=inputs, members=(("rotation_type", kind),), socket="Vector", shape="VECTOR")
 
-    def projected(ray: tuple[Fragment, End], coverage: Operand) -> BlenderResult[tuple[Fragment, End]]:
+    def projected(ray: Expr, coverage: Scalar) -> Expr:
         turned = (
-            node(f"{key}_upright", bpy.types.FunctionNodeTransformDirection, {"Direction": ray, "Transform": relative}, {}).map(ended(f"{key}_upright", "Direction"))
-            if isinstance(mode, Panorama) and mode.upright
-            else Ok(ray)
+            Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", ray), ("Transform", relative)), socket="Direction", shape="VECTOR")
+            if isinstance(case, Panorama) and case.upright
+            else ray
         )
-        front = (
-            turned
-            .bind(lambda direction: node(f"{key}_depth", bpy.types.ShaderNodeSeparateXYZ, {"Vector": direction}, {}))
-            .bind(lambda depth: math(f"{key}_front", "LESS_THAN", ended(f"{key}_depth", "Z")(depth), 0.0))
-            .bind(lambda front: math(f"{key}_coverage", "MULTIPLY", front, coverage))
-        )
-        position = (
-            turned
-            .bind(lambda direction: node(f"{key}_projected", bpy.types.FunctionNodeProjectPoint, {"Vector": direction, "Transform": lens}, {}))
-            .map(ended(f"{key}_projected", "Vector"))
-            .bind(lambda device: vector(f"{key}_position", "MULTIPLY_ADD", device, (0.5, 0.5, 0.0), (0.5, 0.5, 0.0)))
-        )
-        return paired(position, front).bind(lambda parts: vector(key, "MULTIPLY_ADD", (0.0, 0.0, 1.0), parts[1], parts[0]))
+        device = Expr(kind=bpy.types.FunctionNodeProjectPoint, inputs=(("Vector", turned), ("Transform", lens)), socket="Vector", shape="VECTOR")
+        return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), (turned["Z"] < 0.0) * coverage, vector("MULTIPLY_ADD", device, (0.5, 0.5, 0.0), (0.5, 0.5, 0.0)))
 
-    sides = node(f"{key}_sides", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.fraction}, {})
-    centered = vector(f"{key}_centered", "MULTIPLY_ADD", frame.extent, (-0.5, -0.5, 0.0), frame.point)
-    match mode:
+    def fisheye(planar: Expr, measured: Callable[[Expr], tuple[Expr, Scalar]]) -> Expr:
+        angle, coverage = measured(vector("LENGTH", planar))
+        return projected(rotated(view, angle, "AXIS_ANGLE", vector("CROSS_PRODUCT", view, planar)), coverage)
+
+    match case:
         case Polar():
             _, conversion = Polar.__struct_fields__
-            short = node(f"{key}_extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {}).bind(
-                lambda extent: math(f"{key}_short", "MINIMUM", ended(f"{key}_extent", "X")(extent), End(node=f"{key}_extent", socket="Y"))
-            )
-            axes = centered.bind(lambda local: node(f"{key}_local", bpy.types.ShaderNodeSeparateXYZ, {"Vector": local}, {}))
-            bearing = (
-                axes
-                .bind(lambda axes: math(f"{key}_bearing", "ARCTAN2", ended(f"{key}_local", "X")(axes), End(node=f"{key}_local", socket="Y")))
-                .bind(lambda angle: math(f"{key}_wrapped", "WRAP", angle, 2.0 * pi, 0.0))
-                .bind(lambda angle: math(f"{key}_column", "DIVIDE", angle, 2.0 * pi))
-            )
-            radial = (
-                paired(centered.bind(lambda local: vector(f"{key}_radius", "LENGTH", local)), short)
-                .bind(lambda parts: math(f"{key}_relative_radius", "DIVIDE", *parts))
-                .bind(lambda radius: math(f"{key}_row", "MULTIPLY_ADD", radius, -2.0, 1.0))
-            )
-            wrapped = (
-                paired(bearing, radial)
-                .bind(lambda parts: node(f"{key}_wrapped_fraction", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y"), parts)), {}))
-                .map(ended(f"{key}_wrapped_fraction", "Vector"))
-                .bind(lambda fraction: sampled(f"{key}_wrapped_uv", frame, fraction))
-            )
-            turn = sides.bind(lambda sides: math(f"{key}_turn", "MULTIPLY", ended(f"{key}_sides", "X")(sides), 2.0 * pi))
-            direction = (
-                paired(turn.bind(lambda turn: math(f"{key}_sine", "SINE", turn)), turn.bind(lambda turn: math(f"{key}_cosine", "COSINE", turn)))
-                .bind(lambda parts: node(f"{key}_direction", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y"), parts)), {}))
-                .map(ended(f"{key}_direction", "Vector"))
-            )
-            reach = (
-                sides
-                .bind(lambda sides: math(f"{key}_depth", "SUBTRACT", 1.0, ended(f"{key}_sides", "Y")(sides)))
-                .bind(lambda depth: short.bind(lambda short: math(f"{key}_reach", "MULTIPLY", depth, short)))
-                .bind(lambda reach: math(f"{key}_half_reach", "MULTIPLY", reach, 0.5))
-            )
-            unwrapped = (
-                paired(direction, reach)
-                .bind(lambda parts: vector(f"{key}_disc", "SCALE", *parts))
-                .bind(lambda local: vector(f"{key}_relative_disc", "DIVIDE", local, frame.extent))
-                .bind(lambda local: vector(f"{key}_disc_fraction", "ADD", local, (0.5, 0.5, 0.0)))
-                .bind(lambda fraction: sampled(f"{key}_unwrapped_uv", frame, fraction))
-            )
-            return paired(wrapped, unwrapped).bind(
-                lambda parts: menu(
-                    key, "VECTOR", parameters[conversion], MenuItems.of(PolarConversion), {PolarConversion.RECTANGULAR_TO_POLAR.label: parts[0], PolarConversion.POLAR_TO_RECTANGULAR.label: parts[1]}
-                )
+            short = shorter(frame.extent)
+            column = math("WRAP", math("ARCTAN2", centered["X"], centered["Y"]), 2.0 * pi, 0.0) / (2.0 * pi)
+            turn = sides["X"] * (2.0 * pi)
+            disc = vector("SCALE", xyz(math("SINE", turn), math("COSINE", turn)), (1.0 - sides["Y"]) * short * 0.5)
+            return menu(
+                parameters[conversion],
+                MenuItems.of(PolarConversion),
+                {
+                    PolarConversion.RECTANGULAR_TO_POLAR.label: sampled(frame, xyz(column, math("MULTIPLY_ADD", vector("LENGTH", centered) / short, -2.0, 1.0))),
+                    PolarConversion.POLAR_TO_RECTANGULAR.label: sampled(frame, disc / frame.extent + (0.5, 0.5, 0.0)),
+                },
+                kind="VECTOR",
             )
         case Tiling():
-            _, center_field, count = Tiling.__struct_fields__
-            return (
-                vector(f"{key}_local", "SUBTRACT", frame.fraction, parameters[center_field])
-                .bind(lambda local: vector(f"{key}_scaled", "SCALE", local, parameters[count]))
-                .bind(lambda local: vector(f"{key}_fraction", "ADD", local, parameters[center_field]))
-                .bind(lambda fraction: sampled(key, frame, fraction))
-            )
+            _, pivot, count = Tiling.__struct_fields__
+            return sampled(frame, vector("SCALE", frame.fraction - parameters[pivot], parameters[count]) + parameters[pivot])
         case Kaleidoscope():
-            _, center_field, mirrors, angle_field, zoom = Kaleidoscope.__struct_fields__
-            center = vector(f"{key}_center", "MULTIPLY", parameters[center_field], frame.extent)
-            local = center.bind(lambda center: vector(f"{key}_local", "SUBTRACT", frame.point, center))
-            bearing = (
-                local
-                .bind(lambda local: node(f"{key}_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": local}, {}))
-                .bind(lambda axes: math(f"{key}_bearing", "ARCTAN2", ended(f"{key}_axes", "Y")(axes), End(node=f"{key}_axes", socket="X")))
-                .bind(lambda bearing: math(f"{key}_relative", "SUBTRACT", bearing, parameters[angle_field]))
-            )
-            wedge = math(f"{key}_wedge", "DIVIDE", pi, parameters[mirrors])
-            folded = (
-                paired(bearing, wedge)
-                .bind(lambda parts: math(f"{key}_negative_wedge", "MULTIPLY", parts[1], -1.0).bind(lambda negative: math(f"{key}_wrapped", "WRAP", parts[0], parts[1], negative)))
-                .bind(lambda wrapped: math(f"{key}_reflected", "ABSOLUTE", wrapped))
-                .bind(lambda reflected: math(f"{key}_turn", "SUBTRACT", reflected, End(node=f"{key}_relative")))
-            )
-            return (
-                paired(local, folded)
-                .bind(lambda parts: node(f"{key}_rotated", bpy.types.ShaderNodeVectorRotate, dict(zip(("Vector", "Angle"), parts)), {"rotation_type": "Z_AXIS"}))
-                .map(ended(f"{key}_rotated", "Vector"))
-                .bind(lambda folded: vector(f"{key}_zoomed", "DIVIDE", folded, parameters[zoom]))
-                .bind(lambda zoomed: vector(f"{key}_placed", "ADD", zoomed, End(node=f"{key}_center", socket="Vector")))
-                .bind(lambda placed: vector(f"{key}_fraction", "DIVIDE", placed, frame.extent))
-                .bind(lambda fraction: sampled(key, frame, fraction))
-            )
-
-        case Equirectangular() | CentralCylindrical():
-            longitude = sides.bind(lambda sides: math(f"{key}_longitude", "MULTIPLY_ADD", ended(f"{key}_sides", "X")(sides), -2.0 * pi, pi))
-            if isinstance(mode, Equirectangular):
-                latitude = sides.bind(lambda sides: math(f"{key}_latitude", "MULTIPLY_ADD", ended(f"{key}_sides", "Y")(sides), pi, -pi / 2.0))
-                ray = latitude.bind(lambda latitude: node(f"{key}_latitude_ray", bpy.types.ShaderNodeVectorRotate, {"Vector": view, "Angle": latitude}, {"rotation_type": "X_AXIS"})).map(
-                    ended(f"{key}_latitude_ray", "Vector")
-                )
-            else:
-                height_min, height_max = CentralCylindrical.__struct_fields__
-                height = math(f"{key}_height_span", "SUBTRACT", parameters[height_max], parameters[height_min]).bind(
-                    lambda span: sides.bind(lambda sides: math(f"{key}_height", "MULTIPLY_ADD", ended(f"{key}_sides", "Y")(sides), span, parameters[height_min]))
-                )
-                ray = height.bind(lambda height: node(f"{key}_height_ray", bpy.types.ShaderNodeCombineXYZ, {"Y": height, "Z": -1.0}, {})).map(ended(f"{key}_height_ray", "Vector"))
-            return (
-                paired(ray, longitude)
-                .bind(lambda parts: node(f"{key}_longitude_ray", bpy.types.ShaderNodeVectorRotate, dict(zip(("Vector", "Angle"), parts)), {"rotation_type": "Y_AXIS"}))
-                .map(ended(f"{key}_longitude_ray", "Vector"))
-                .bind(lambda ray: projected(ray, 1.0))
-            )
-        case MirrorBall() | FisheyeEquidistant() | FisheyeEquisolid() | Stereographic():
+            _, center_field, mirrors, angle, zoom = Kaleidoscope.__struct_fields__
+            center = vector("MULTIPLY", parameters[center_field], frame.extent)
+            local = frame.point - center
+            bearing = math("ARCTAN2", local["Y"], local["X"]) - parameters[angle]
+            wedge = pi / parameters[mirrors]
+            folded = rotated(local, abs(math("WRAP", bearing, wedge, -wedge)) - bearing, "Z_AXIS")
+            return sampled(frame, (folded / parameters[zoom] + center) / frame.extent)
+        case Equirectangular():
+            latitude = rotated(view, math("MULTIPLY_ADD", sides["Y"], pi, -pi / 2.0), "X_AXIS")
+            return projected(rotated(latitude, math("MULTIPLY_ADD", sides["X"], -2.0 * pi, pi), "Y_AXIS"), 1.0)
+        case CentralCylindrical():
+            low, high = CentralCylindrical.__struct_fields__
+            height = xyz(0.0, math("MULTIPLY_ADD", sides["Y"], parameters[high] - parameters[low], parameters[low]), -1.0)
+            return projected(rotated(height, math("MULTIPLY_ADD", sides["X"], -2.0 * pi, pi), "Y_AXIS"), 1.0)
+        case MirrorBall():
+            return fisheye(vector("MULTIPLY_ADD", frame.fraction, (2.0, 2.0, 0.0), (-1.0, -1.0, 0.0)), lambda radius: (math("ARCSINE", radius) * 2.0, 1.0 - (radius > 1.0)))
+        case FisheyeEquidistant():
             (field_of_view,) = Fisheye.__struct_fields__
-            _, lens_field, sensor = FisheyeEquisolid.__struct_fields__
-            match mode:
-                case MirrorBall() | FisheyeEquidistant():
-                    planar = vector(f"{key}_disc", "MULTIPLY_ADD", frame.fraction, (2.0, 2.0, 0.0), (-1.0, -1.0, 0.0))
-                case FisheyeEquisolid():
-                    planar = vector(f"{key}_sensor_local", "SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)).bind(lambda local: vector(f"{key}_sensor", "MULTIPLY", local, parameters[sensor]))
-                case Stereographic():
-                    planar = centered
-            radius = planar.bind(lambda planar: vector(f"{key}_radius", "LENGTH", planar))
-            match mode:
-                case MirrorBall():
-                    angle = radius.bind(lambda radius: math(f"{key}_half_angle", "ARCSINE", radius)).bind(lambda half: math(f"{key}_angle", "MULTIPLY", half, 2.0))
-                    coverage = radius.bind(lambda radius: compared(f"{key}_inside", "LESS_EQUAL", radius, 1.0))
-                case FisheyeEquidistant():
-                    angle = radius.bind(lambda radius: math(f"{key}_field", "MULTIPLY", radius, parameters[field_of_view])).bind(lambda field: math(f"{key}_angle", "MULTIPLY", field, 0.5))
-                    coverage = radius.bind(lambda radius: compared(f"{key}_inside", "LESS_EQUAL", radius, 1.0))
-                case FisheyeEquisolid():
-                    diameter = math(f"{key}_diameter", "MULTIPLY", parameters[lens_field], 2.0)
-                    angle = (
-                        paired(radius, diameter)
-                        .bind(lambda parts: math(f"{key}_ratio", "DIVIDE", *parts))
-                        .bind(lambda ratio: math(f"{key}_half_angle", "ARCSINE", ratio))
-                        .bind(lambda half: math(f"{key}_angle", "MULTIPLY", half, 2.0))
-                    )
-                    reach = (
-                        math(f"{key}_quarter_field", "MULTIPLY", parameters[field_of_view], 0.25)
-                        .bind(lambda quarter: math(f"{key}_sine", "SINE", quarter))
-                        .bind(lambda sine: diameter.bind(lambda diameter: math(f"{key}_reach", "MULTIPLY", sine, diameter)))
-                    )
-                    coverage = paired(radius, reach).bind(lambda parts: compared(f"{key}_inside", "LESS_EQUAL", *parts))
-                case Stereographic():
-                    (field_of_view_stereographic,) = Stereographic.__struct_fields__
-                    scale = (
-                        math(f"{key}_quarter_field", "MULTIPLY", parameters[field_of_view_stereographic], 0.25)
-                        .bind(lambda quarter: math(f"{key}_tangent", "TANGENT", quarter))
-                        .bind(lambda tangent: math(f"{key}_scale", "MULTIPLY", tangent, 2.0))
-                    )
-                    angle = (
-                        paired(radius, scale)
-                        .bind(lambda parts: math(f"{key}_scaled_radius", "MULTIPLY", *parts))
-                        .bind(lambda radius: math(f"{key}_half_angle", "ARCTANGENT", radius))
-                        .bind(lambda half: math(f"{key}_angle", "MULTIPLY", half, 2.0))
-                    )
-                    return paired(planar, angle).bind(lambda parts: rotated(*parts)).bind(lambda ray: projected(ray, 1.0))
-            return paired(paired(planar, angle).bind(lambda parts: rotated(*parts)), coverage).bind(lambda parts: projected(*parts))
+            return fisheye(vector("MULTIPLY_ADD", frame.fraction, (2.0, 2.0, 0.0), (-1.0, -1.0, 0.0)), lambda radius: (radius * parameters[field_of_view] * 0.5, 1.0 - (radius > 1.0)))
+        case FisheyeEquisolid():
+            field_of_view, lens_field, sensor = FisheyeEquisolid.__struct_fields__
+            diameter = parameters[lens_field] * 2.0
+            return fisheye(
+                vector("MULTIPLY", frame.fraction - (0.5, 0.5, 0.0), parameters[sensor]),
+                lambda radius: (math("ARCSINE", radius / diameter) * 2.0, 1.0 - (radius > math("SINE", parameters[field_of_view] * 0.25) * diameter)),
+            )
+        case Stereographic():
+            (field_of_view,) = Stereographic.__struct_fields__
+            return fisheye(centered, lambda radius: (math("ARCTANGENT", radius * (math("TANGENT", parameters[field_of_view] * 0.25) * 2.0)) * 2.0, 1.0))
         case Panini():
             field_of_view, distance, compression = Panini.__struct_fields__
-            total = math(f"{key}_total", "ADD", parameters[distance], 1.0)
-            perspective = total.bind(lambda total: math(f"{key}_perspective", "DIVIDE", 1.0, total))
-            cylindrical = total.bind(lambda total: math(f"{key}_cylindrical", "DIVIDE", parameters[distance], total))
-            half = math(f"{key}_half_field", "MULTIPLY", parameters[field_of_view], 0.5)
-            span = (
-                paired(paired(half.bind(lambda half: math(f"{key}_sine_field", "SINE", half)), half.bind(lambda half: math(f"{key}_cosine_field", "COSINE", half))), paired(perspective, cylindrical))
-                .bind(
-                    lambda parts: math(f"{key}_denominator", "MULTIPLY_ADD", parts[1][0], parts[0][1], parts[1][1]).bind(
-                        lambda denominator: math(f"{key}_half_span", "DIVIDE", parts[0][0], denominator)
-                    )
-                )
-                .bind(lambda span: math(f"{key}_span", "MULTIPLY", span, 2.0))
-            )
-            planar_axes = (
-                paired(centered, span)
-                .bind(lambda parts: vector(f"{key}_planar", "SCALE", *parts))
-                .bind(lambda planar: node(f"{key}_planar_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": planar}, {}))
-            )
-            horizontal = planar_axes.map(ended(f"{key}_planar_axes", "X"))
-            length = (
-                paired(horizontal, perspective)
-                .bind(lambda parts: math(f"{key}_perspective_x", "MULTIPLY", *parts))
-                .bind(lambda x: node(f"{key}_length_axes", bpy.types.ShaderNodeCombineXYZ, {"X": x, "Y": 1.0}, {}))
-                .bind(lambda axes: vector(f"{key}_length", "LENGTH", ended(f"{key}_length_axes", "Vector")(axes)))
-            )
-            divided = paired(horizontal, length).bind(lambda parts: math(f"{key}_divided", "DIVIDE", *parts))
-            tangent = paired(divided, perspective).bind(lambda parts: math(f"{key}_tangent", "MULTIPLY", *parts))
-            distant = paired(divided, cylindrical).bind(lambda parts: math(f"{key}_distant", "MULTIPLY", *parts))
-            rest = paired(distant.bind(lambda distant: math(f"{key}_less", "SUBTRACT", 1.0, distant)), distant.bind(lambda distant: math(f"{key}_more", "ADD", 1.0, distant))).bind(
-                lambda parts: math(f"{key}_rest", "MULTIPLY", *parts)
-            )
-            root = rest.bind(lambda rest: math(f"{key}_root", "SQRT", rest))
-            cosine = paired(
-                paired(root, length).bind(lambda parts: math(f"{key}_root_share", "DIVIDE", *parts)), paired(tangent, distant).bind(lambda parts: math(f"{key}_lean", "MULTIPLY", *parts))
-            ).bind(lambda parts: math(f"{key}_cosine", "SUBTRACT", *parts))
-            sine = (
-                paired(
-                    paired(perspective, root).bind(lambda parts: math(f"{key}_perspective_root", "MULTIPLY", *parts)),
-                    paired(cylindrical, length).bind(lambda parts: math(f"{key}_cylindrical_share", "DIVIDE", *parts)),
-                )
-                .bind(lambda parts: math(f"{key}_sine_weight", "ADD", *parts))
-                .bind(lambda weight: divided.bind(lambda divided: math(f"{key}_sine", "MULTIPLY", weight, divided)))
-            )
-            vertical = (
-                math(f"{key}_uncompressed", "SUBTRACT", 1.0, parameters[compression])
-                .bind(lambda weight: cosine.bind(lambda cosine: math(f"{key}_vertical_weight", "MULTIPLY_ADD", weight, cosine, parameters[compression])))
-                .bind(lambda weight: cosine.bind(lambda cosine: math(f"{key}_vertical", "DIVIDE", cosine, weight)))
-            )
-            height = (
-                paired(paired(cosine, perspective).bind(lambda parts: math(f"{key}_projection", "MULTIPLY_ADD", *parts, End(node=f"{key}_cylindrical"))), vertical)
-                .bind(lambda parts: math(f"{key}_height_weight", "MULTIPLY", *parts))
-                .bind(lambda weight: planar_axes.bind(lambda axes: math(f"{key}_height", "MULTIPLY", weight, ended(f"{key}_planar_axes", "Y")(axes))))
-            )
-            depth = cosine.bind(lambda cosine: math(f"{key}_depth_value", "MULTIPLY", cosine, -1.0))
-            coverage = paired(rest.bind(lambda rest: compared(f"{key}_real", "GREATER_EQUAL", rest, 0.0)), cosine.bind(lambda cosine: compared(f"{key}_ahead", "GREATER_THAN", cosine, 0.0))).bind(
-                lambda parts: math(f"{key}_inside", "MULTIPLY", *parts)
-            )
-            return paired(
-                accumulated((sine, height, depth)).bind(lambda parts: node(f"{key}_ray", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y", "Z"), parts)), {})).map(ended(f"{key}_ray", "Vector")),
-                coverage,
-            ).bind(lambda parts: projected(*parts))
+            total = parameters[distance] + 1.0
+            perspective, cylindrical, half = 1.0 / total, parameters[distance] / total, parameters[field_of_view] * 0.5
+            planar = vector("SCALE", centered, math("SINE", half) / math("MULTIPLY_ADD", perspective, math("COSINE", half), cylindrical) * 2.0)
+            length = vector("LENGTH", xyz(planar["X"] * perspective, 1.0))
+            divided = planar["X"] / length
+            distant = divided * cylindrical
+            rest = (1.0 - distant) * (1.0 + distant)
+            root = math("SQRT", rest)
+            cosine = root / length - divided * perspective * distant
+            sine = (perspective * root + cylindrical / length) * divided
+            vertical = cosine / math("MULTIPLY_ADD", 1.0 - parameters[compression], cosine, parameters[compression])
+            height = math("MULTIPLY_ADD", cosine, perspective, cylindrical) * vertical * planar["Y"]
+            return projected(xyz(sine, height, -cosine), (1.0 - (rest < 0.0)) * (cosine > 0.0))
 
 
-def projected(shell: Shell[Projection]) -> BlenderResult[tuple[Fragment, End]]:
+def projected(shell: Shell[Projection]) -> BlenderResult[Expr]:
     """Builds every projection mode and samples covered map of selected mode.
 
     Args:
         shell: Stack inputs, case values, and menu metadata.
 
     Returns:
-        Associated warped image or accumulated graph and case faults.
+        Associated warped image of the selected mode.
     """
-    camera = node("camera", bpy.types.GeometryNodeInputActiveCamera, {}, {}).map(ended("camera", "Active Camera"))
-    lens = camera.bind(lambda camera: node("lens", bpy.types.GeometryNodeCameraInfo, {"Camera": camera}, {})).map(ended("lens", "Projection Matrix"))
-    attitude = (
-        camera
-        .bind(lambda camera: node("attitude", bpy.types.GeometryNodeObjectInfo, {"Object": camera}, {}))
-        .bind(lambda attitude: node("rotation", bpy.types.FunctionNodeCombineTransform, {"Rotation": ended("attitude", "Rotation")(attitude)}, {}))
-        .bind(lambda rotation: node("inverse_rotation", bpy.types.FunctionNodeInvertMatrix, {"Matrix": ended("rotation", "Transform")(rotation)}, {}))
-        .map(ended("inverse_rotation", "Matrix"))
+    (mode_field,) = Projection.__struct_fields__
+    _, projection_field = Panoramic.__struct_fields__
+    (extension,) = Sampling.__struct_fields__
+    camera = Expr(kind=bpy.types.GeometryNodeInputActiveCamera, socket="Active Camera")
+    attitude = Expr(kind=bpy.types.GeometryNodeObjectInfo, inputs=(("Object", camera),), socket="Rotation")
+    unturned = Expr(
+        kind=bpy.types.FunctionNodeInvertMatrix, inputs=(("Matrix", Expr(kind=bpy.types.FunctionNodeCombineTransform, inputs=(("Rotation", attitude),), socket="Transform")),), socket="Matrix"
     )
-    up = attitude.bind(lambda attitude: node("up", bpy.types.FunctionNodeTransformDirection, {"Direction": (0.0, 0.0, 1.0), "Transform": attitude}, {})).bind(
-        lambda up: node("up_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("up", "Direction")(up)}, {})
-    )
-    roll = up.bind(lambda axes: math("roll", "ARCTAN2", ended("up_axes", "X")(axes), End(node="up_axes", socket="Y"))).bind(lambda roll: math("inverse_roll", "MULTIPLY", roll, -1.0))
-    elevation = (
-        up
-        .bind(lambda axes: node("up_planar", bpy.types.ShaderNodeCombineXYZ, {"X": ended("up_axes", "X")(axes), "Y": End(node="up_axes", socket="Y")}, {}))
-        .bind(lambda planar: vector("up_length", "LENGTH", ended("up_planar", "Vector")(planar)))
-        .bind(lambda length: math("negative_back", "MULTIPLY", End(node="up_axes", socket="Z"), -1.0).bind(lambda back: math("elevation", "ARCTAN2", back, length)))
-        .bind(lambda elevation: math("inverse_elevation", "MULTIPLY", elevation, -1.0))
-    )
-    relative = (
-        paired(elevation, roll)
-        .bind(lambda angles: node("panorama_euler", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Z"), angles)), {}))
-        .bind(lambda euler: node("panorama_rotation", bpy.types.FunctionNodeEulerToRotation, {"Euler": ended("panorama_euler", "Vector")(euler)}, {}))
-        .bind(lambda rotation: node("panorama_frame", bpy.types.FunctionNodeCombineTransform, {"Rotation": ended("panorama_rotation", "Rotation")(rotation)}, {}))
-        .map(ended("panorama_frame", "Transform"))
-    )
+    up = Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", (0.0, 0.0, 1.0)), ("Transform", unturned)), socket="Direction", shape="VECTOR")
+    elevation = -math("ARCTAN2", -up["Z"], vector("LENGTH", xyz(up["X"], up["Y"])))
+    rotation = Expr(kind=bpy.types.FunctionNodeEulerToRotation, inputs=(("Euler", xyz(elevation, 0.0, -math("ARCTAN2", up["X"], up["Y"]))),), socket="Rotation")
+    relative = Expr(kind=bpy.types.FunctionNodeCombineTransform, inputs=(("Rotation", rotation),), socket="Transform")
+    frame, lens = shell.space, lensed("Projection Matrix")
 
-    def built(frame: FrameSpace) -> BlenderResult[tuple[Fragment, End]]:
-        (mode_field,) = Projection.__struct_fields__
+    def positions(case: Kaleidoscope | Tiling | Polar | PanoramaModes, *path: str | type[Case]) -> Expr:
+        return mapped(case, frame, {field.name: shell.input(*path, type(case), field.name) for field in msgspec.structs.fields(case)}, relative, lens)
 
-        def arm(mode: Modes) -> BlenderResult[tuple[str, tuple[Fragment, End], tuple[Fragment, End]]]:
-            (extension,) = Sampling.__struct_fields__
-            kind = type(mode)
-            if isinstance(mode, Panoramic):
-                _, projection_field = Panoramic.__struct_fields__
-                panorama_path = (mode_field, Panoramic, projection_field)
+    def arm(case: Modes) -> tuple[str, Expr, Expr]:
+        match case:
+            case Panoramic():
+                at = (mode_field, Panoramic, projection_field)
+                uv = shell.menu(*at, cases={view.title: positions(view, *at) for view in shell.cases[at] if _panoramic(view)}, kind="VECTOR")
+            case Kaleidoscope() | Tiling() | Polar():
+                uv = positions(case, mode_field)
+        path = (mode_field, type(case), extension)
+        border = (shell.input(*path), shell.items[path])
+        return case.title, uv, extended(shell.color, uv, (border, border), clipped=True)
 
-                def panorama(projection: PanoramaModes) -> BlenderResult[tuple[str, tuple[Fragment, End]]]:
-                    kind = type(projection)
-                    return (
-                        paired(relative, lens)
-                        .bind(
-                            lambda camera: mapped(
-                                item_key(Panoramic, kind), projection, frame, {field.name: shell.socket(*panorama_path, kind, field.name) for field in msgspec.structs.fields(kind)}, *camera
-                            )
-                        )
-                        .map(lambda result: (projection.title, result))
-                    )
+    arms = tuple(arm(case) for case in shell.cases[mode_field,] if _mode(case))
+    coordinates = shell.menu(mode_field, cases={title: uv for title, uv, _ in arms}, kind="VECTOR").named("uv")
 
-                positions = accumulated(
-                    panorama(projection)
-                    for projection in shell.cases[panorama_path]
-                    if isinstance(projection, Equirectangular | CentralCylindrical | MirrorBall | FisheyeEquidistant | FisheyeEquisolid | Stereographic | Panini)
-                ).bind(lambda arms: menu("panorama_uv", "VECTOR", shell.socket(*panorama_path), shell.items[panorama_path], dict(arms)))
-            else:
-                positions = paired(relative, lens).bind(
-                    lambda camera: mapped(item_key(kind), mode, frame, {field.name: shell.socket(mode_field, kind, field.name) for field in msgspec.structs.fields(kind)}, *camera)
-                )
-            border_path = (mode_field, kind, extension)
-            return positions.bind(lambda uv: extended(item_key(kind, "sample"), shell.source, uv, shell.socket(*border_path), shell.items[border_path]).map(lambda image: (mode.title, uv, image)))
+    def switch(held: Expr, step: tuple[str, Expr, Expr]) -> Expr:
+        return switched(msgspec.structs.replace(coordinates, socket=step[0], shape="FLOAT"), held, step[2])
 
-        return (
-            accumulated(arm(mode) for mode in shell.cases[mode_field,] if isinstance(mode, Kaleidoscope | Tiling | Polar | Panoramic))
-            .bind(
-                lambda arms: selected(
-                    "uv",
-                    shell.socket(mode_field),
-                    shell.items[mode_field,],
-                    {"coordinates": ("VECTOR", {title: uv for title, uv, _ in arms}), "image": ("RGBA", {title: image for title, _, image in arms})},
-                )
-            )
-            .map(lambda outputs: outputs["image"])
-        )
-
-    return framed("frame", shell.source, shell.aspect, shell.scale).bind(built)
+    first, *rest = arms
+    return Ok(functools.reduce(switch, rest, switch(first[2], first)))
 
 
 def conditioned(effect: Projection) -> Condition:
@@ -383,13 +191,13 @@ def conditioned(effect: Projection) -> Condition:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-projection: CompositorEffect[Projection] = CompositorEffect(
+projection = CompositorEffect(
     record=Projection,
     graph=projected,
-    coverage=Coverage.RESULT,
+    alpha=Alpha.RESULT,
     condition=Some(conditioned),
     requested=Some(precise),
-    registrables=(inspection(lambda: projection, "projection_uv", "View Projection UV", "Source positions and coverage of selected mode", lambda: End(node="uv", socket="Output")),),
+    inspected=(Inspected(key="projection_uv", end=End(node="uv", socket="Output"), description="Source positions and coverage of selected mode"),),
 )
 
 

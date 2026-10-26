@@ -1,21 +1,23 @@
 """Screen coverage and sampled structures for display stylization."""
 
+from collections.abc import Mapping
 from enum import IntEnum
 import functools
-from itertools import product
+from itertools import product, starmap
 from math import pi, sqrt
+from types import MappingProxyType
+from typing import Annotated, Final
 
 import bpy
 from expression import Ok, Some
+import msgspec
 
+from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.coordinates import framed, FrameSpace, gridded, PixelGrid, pixels, sampled
-from blender.bpy.nodes.graphs import Clock, compared, End, ended, Fragment, INPUTS, masked, math, menu, mixed, nested, node, NodeGroup, Operand, origin, switched, vector
-from blender.bpy.nodes.interface import Interface, Socket
-from blender.bpy.render.effects.stack import CompositorEffect, Coverage, precise, Shell
-from blender.bpy.render.effects.viewers import inspection
+from blender.bpy.nodes.graphs import End, Expr, grouped, math, mixed, Scalar, switched, vector, where, xyz
+from blender.bpy.render.effects.coordinates import clocked, FrameSpace, gridded, origin, pixels, sampled, shorter
+from blender.bpy.render.effects.rows import Alpha, CompositorEffect, Inspected, precise, Shell
 from blender.imaging.effects.stylize.patterns import Cells, Direction, Glyphs, Halftone, Metric, Mono, Mosaic, Pattern, Pixelation, PixelSort, Process, RandomColor, Screen, SourceColor, TwoTone
-from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Motion
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -31,530 +33,330 @@ class Noise(IntEnum):
     STREAK = 4
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_HEADINGS: Final = MappingProxyType({Direction.LEFT: (-1.0, 0.0, 0.0), Direction.RIGHT: (1.0, 0.0, 0.0), Direction.UP: (0.0, 1.0, 0.0), Direction.DOWN: (0.0, -1.0, 0.0)})
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@functools.cache
-def halftone_screen() -> BlenderResult[NodeGroup]:
-    """Builds shared unit-square ink coverage antialiased over pixel derivative width.
+@grouped("halftone_screen", "Halftone Screen")
+def halftone_screen(
+    coordinate: Annotated[Expr, bpy.types.NodeSocketVector], offset: Annotated[Expr, bpy.types.NodeSocketVector], angle: Expr, pitch: Expr, jitter: Expr, tone: Expr
+) -> Mapping[Key, Expr]:
+    """Unit-square ink coverage of a rotated dot lattice, antialiased over pixel derivative width.
+
+    Args:
+        coordinate: Displayed point about frame center.
+        offset: Lattice shift in cells.
+        angle: Screen turn.
+        pitch: Lattice spacing.
+        jitter: Dot displacement within its cell.
+        tone: Ink share each cell covers.
 
     Returns:
-        Screen group with coordinate, offset, angle, pitch, jitter, and tone inputs, or accumulated graph faults.
+        Coverage output.
     """
-    coordinate = End(node=INPUTS, socket="coordinate")
-    angle, pitch, tone = (End(node=INPUTS, socket=name) for name in ("angle", "pitch", "tone"))
-    area = End(node="area", socket="Value")
-
-    def antialiased(grid: PixelGrid) -> BlenderResult[tuple[Fragment, End]]:
-        return Fragment.joined(
-            *(
-                grid.at(f"{name}_uv", offset, grid.inverse).bind(
-                    lambda uv: node(name, bpy.types.CompositorNodeMapUV, {"Image": area, "UV": uv, "Interpolation": "Nearest", "Extension X": "Extend", "Extension Y": "Extend"}, {})
-                )
-                for name, offset in (("right", (1.0, 0.0, 0.0)), ("up", (0.0, 1.0, 0.0)))
-            ),
-            math("right_difference", "SUBTRACT", End(node="right", socket="Image"), area),
-            math("up_difference", "SUBTRACT", End(node="up", socket="Image"), area),
-            math("right_width", "ABSOLUTE", End(node="right_difference")),
-            math("up_width", "ABSOLUTE", End(node="up_difference")),
-            math("width", "ADD", End(node="right_width"), End(node="up_width")),
-            math("distance", "SUBTRACT", tone, area),
-            math("fraction", "DIVIDE", End(node="distance"), End(node="width")),
-            math("smooth", "ADD", tone, End(node="fraction"), clamp=True),
-            math("hard", "LESS_THAN", area, tone),
-            math("varying", "GREATER_THAN", End(node="width"), 0.0),
-            masked("inside", "FLOAT", End(node="varying"), End(node="hard"), End(node="smooth")),
-            math("nonempty", "GREATER_THAN", tone, 0.0),
-            math("incomplete", "LESS_THAN", tone, 1.0),
-            masked("filled", "FLOAT", End(node="incomplete"), 1.0, End(node="inside")),
-            math("coverage", "MULTIPLY", End(node="nonempty"), End(node="filled")),
-        ).map(ended("coverage", "Value"))
-
-    return (
-        Fragment
-        .joined(
-            node("axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": coordinate}, {}),
-            math("cosine", "COSINE", angle),
-            math("sine", "SINE", angle),
-            math("rotated_x_term", "MULTIPLY", End(node="axes", socket="Y"), End(node="sine")),
-            math("rotated_x", "MULTIPLY_ADD", End(node="axes", socket="X"), End(node="cosine"), End(node="rotated_x_term")),
-            math("rotated_y_term", "MULTIPLY", End(node="axes", socket="X"), End(node="sine")),
-            math("negative_x", "MULTIPLY", End(node="rotated_y_term"), -1.0),
-            math("rotated_y", "MULTIPLY_ADD", End(node="axes", socket="Y"), End(node="cosine"), End(node="negative_x")),
-            node("rotated", bpy.types.ShaderNodeCombineXYZ, {"X": End(node="rotated_x"), "Y": End(node="rotated_y")}, {}),
-            vector("lattice", "DIVIDE", End(node="rotated", socket="Vector"), pitch),
-            vector("shifted", "ADD", End(node="lattice", socket="Vector"), End(node=INPUTS, socket="offset")),
-            node(
-                "sites",
-                bpy.types.ShaderNodeTexVoronoi,
-                {"Vector": End(node="shifted", socket="Vector"), "Scale": 1.0, "Detail": 0.0, "Randomness": End(node=INPUTS, socket="jitter")},
-                {"voronoi_dimensions": "2D", "feature": "F1", "distance": "EUCLIDEAN", "normalize": False},
-            ),
-            math("squared", "MULTIPLY", End(node="sites", socket="Distance"), End(node="sites", socket="Distance")),
-            math("disc", "MULTIPLY", End(node="squared"), pi),
-            math("segment_radius", "MAXIMUM", End(node="sites", socket="Distance"), 0.5),
-            math("segment_squared", "MULTIPLY", End(node="segment_radius"), End(node="segment_radius")),
-            math("segment_ratio", "DIVIDE", 0.5, End(node="segment_radius")),
-            math("segment_angle", "ARCCOSINE", End(node="segment_ratio")),
-            math("segment_triangle_squared", "SUBTRACT", End(node="segment_squared"), 0.25),
-            math("segment_triangle", "SQRT", End(node="segment_triangle_squared")),
-            math("segment_half_triangle", "MULTIPLY", End(node="segment_triangle"), -0.5),
-            math("segment", "MULTIPLY_ADD", End(node="segment_squared"), End(node="segment_angle"), End(node="segment_half_triangle")),
-            math("segments", "MULTIPLY", End(node="segment"), 4.0),
-            math("clipped_disc", "SUBTRACT", End(node="disc"), End(node="segments")),
-            math("crosses_side", "GREATER_THAN", End(node="sites", socket="Distance"), 0.5),
-            masked("square_area", "FLOAT", End(node="crosses_side"), End(node="disc"), End(node="clipped_disc")),
-            math("inside_corner", "LESS_THAN", End(node="sites", socket="Distance"), sqrt(0.5)),
-            masked("area", "FLOAT", End(node="inside_corner"), 1.0, End(node="square_area")),
-        )
-        .bind(lambda body: gridded("grid", (body, area)).bind(antialiased))
-        .bind(
-            lambda coverage: NodeGroup.built(
-                "halftone_screen",
-                "Halftone Screen",
-                Interface(
-                    inputs=(
-                        *(Socket(key=name, name=name.title(), kind=bpy.types.NodeSocketVector) for name in ("coordinate", "offset")),
-                        *(Socket(key=name, name=name.title(), kind=bpy.types.NodeSocketFloat) for name in ("angle", "pitch", "jitter", "tone")),
-                    ),
-                    outputs=(Socket(key="coverage", name="Coverage", kind=bpy.types.NodeSocketFloat),),
-                ),
-                {"coverage": coverage},
-            )
-        )
+    cosine, sine = math("COSINE", angle), math("SINE", angle)
+    x, y = coordinate["X"], coordinate["Y"]
+    lattice = vector("DIVIDE", xyz(math("MULTIPLY_ADD", x, cosine, y * sine), math("MULTIPLY_ADD", y, cosine, -(x * sine))), pitch) + offset
+    sites = Expr(
+        kind=bpy.types.ShaderNodeTexVoronoi,
+        inputs=(("Vector", lattice), ("Scale", 1.0), ("Detail", 0.0), ("Randomness", jitter)),
+        members=(("voronoi_dimensions", "2D"), ("feature", "F1"), ("distance", "EUCLIDEAN"), ("normalize", False)),
+        socket="Distance",
     )
+    disc = sites * sites * pi
+    radius = math("MAXIMUM", sites, 0.5)
+    segment = math("MULTIPLY_ADD", radius * radius, math("ARCCOSINE", 0.5 / radius), math("SQRT", radius * radius - 0.25) * -0.5)
+    area = where(sites < sqrt(0.5), where(math("GREATER_THAN", sites, 0.5), disc - segment * 4.0, disc), 1.0)
+    grid = gridded(area)
 
-
-def block_mean(key: str, frame: FrameSpace, source: Operand, length: Operand) -> BlenderResult[tuple[Fragment, End]]:
-    """Averages occupied displayed-square bins through rectangular convolution."""
-    dimensions = node(f"{key}_info", bpy.types.CompositorNodeImageInfo, {"Image": source}, {}).map(ended(f"{key}_info", "Dimensions"))
-    span = pixels(f"{key}_span", frame, length, "VECTOR").bind(
-        lambda span: math(f"{key}_positive", "GREATER_THAN", length, 0.0).bind(lambda positive: switched(f"{key}_working_span", "VECTOR", positive, (1.0, 1.0, 0.0), span))
-    )
-    anchor = dimensions.bind(lambda dimensions: vector(f"{key}_anchor", "MULTIPLY", dimensions, frame.margin))
-    coordinate = gridded(f"{key}_grid", source).bind(lambda grid: vector(f"{key}_centers", "DIVIDE", grid.base, grid.inverse))
-
-    def bounded(
-        prefix: str, center: Operand, span: tuple[Fragment, End], anchor: tuple[Fragment, End], dimensions: tuple[Fragment, End]
-    ) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-        return (
-            vector(f"{prefix}_relative", "SUBTRACT", center, anchor)
-            .bind(lambda relative: vector(f"{prefix}_scaled", "DIVIDE", relative, span))
-            .bind(lambda scaled: vector(f"{prefix}_bin", "FLOOR", scaled))
-            .bind(
-                lambda cell: paired(
-                    vector(f"{prefix}_start", "MULTIPLY_ADD", cell, span, anchor)
-                    .bind(lambda start: vector(f"{prefix}_lower_center", "SUBTRACT", start, (0.5, 0.5, 0.0)))
-                    .bind(lambda start: vector(f"{prefix}_lower_index", "CEIL", start))
-                    .bind(lambda start: vector(f"{prefix}_lower", "MAXIMUM", start, (0.0,) * 3)),
-                    vector(f"{prefix}_next", "ADD", cell, (1.0, 1.0, 0.0))
-                    .bind(lambda following: vector(f"{prefix}_stop", "MULTIPLY_ADD", following, span, anchor))
-                    .bind(lambda stop: vector(f"{prefix}_upper_center", "SUBTRACT", stop, (0.5, 0.5, 0.0)))
-                    .bind(lambda stop: vector(f"{prefix}_upper_index", "CEIL", stop))
-                    .bind(lambda stop: vector(f"{prefix}_upper", "MINIMUM", stop, dimensions)),
-                )
-            )
-            .bind(lambda bounds: vector(f"{prefix}_count", "SUBTRACT", bounds[1], bounds[0]).map(lambda count: (bounds[0], count)))
+    def slope(step: tuple[float, float, float]) -> Expr:
+        neighbour = Expr(
+            kind=bpy.types.CompositorNodeMapUV,
+            inputs=(("Image", area), ("UV", grid.at(step, grid.inverse)), ("Interpolation", "Nearest"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
+            socket="Image",
+            shape="RGBA",
         )
+        return abs(math("SUBTRACT", neighbour, area))
 
-    def averaged(parts: tuple[tuple[Fragment, End], tuple[Fragment, End], tuple[Fragment, End], tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
-        span, anchor, dimensions, coordinate = parts
-        first = bounded(f"{key}_first", (0.5, 0.5, 0.0), span, anchor, dimensions).map(lambda bounds: bounds[1])
-        last = vector(f"{key}_last_center", "SUBTRACT", dimensions, (0.5, 0.5, 0.0)).bind(lambda center: bounded(f"{key}_last", center, span, anchor, dimensions)).map(lambda bounds: bounds[1])
-        floor = vector(f"{key}_floor", "FLOOR", span).bind(lambda floor: vector(f"{key}_interior", "MAXIMUM", floor, (1.0, 1.0, 0.0)))
-        ceiling = vector(f"{key}_ceiling", "CEIL", span)
-        counts = accumulated((floor, ceiling, first, last)).bind(
-            lambda counts: accumulated(node(f"{key}_candidate_{index}", bpy.types.ShaderNodeSeparateXYZ, {"Vector": count}, {}) for index, count in enumerate(counts))
+    width = slope((1.0, 0.0, 0.0)) + slope((0.0, 1.0, 0.0))
+    inside = where(width > 0.0, math("ADD", tone, (tone - area) / width, clamp=True), area < tone)
+    return {"coverage": (tone > 0.0) * where(tone < 1.0, inside, 1.0)}
+
+
+def block_mean(frame: FrameSpace, source: Scalar, length: Scalar) -> Expr:
+    """Averages occupied displayed-square bins through rectangular convolution.
+
+    Args:
+        frame: Displayed camera placement within the source data window.
+        source: Image averaged.
+        length: Bin side in displayed units, single pixels at 0.
+
+    Returns:
+        Bin mean of each pixel's bin.
+    """
+    dimensions = Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", source),), socket="Dimensions", shape="VECTOR")
+    span = switched(math("GREATER_THAN", length, 0.0), (1.0, 1.0, 0.0), pixels(frame, length, "VECTOR"))
+    anchor = vector("MULTIPLY", dimensions, frame.margin)
+    grid = gridded(source)
+
+    def bounded(center: Scalar | tuple[float, ...]) -> tuple[Expr, Expr]:
+        cell = vector("FLOOR", vector("DIVIDE", vector("SUBTRACT", center, anchor), span))
+        lower = vector("MAXIMUM", vector("CEIL", vector("MULTIPLY_ADD", cell, span, anchor) - (0.5, 0.5, 0.0)), (0.0, 0.0, 0.0))
+        upper = vector("MINIMUM", vector("CEIL", vector("MULTIPLY_ADD", vector("ADD", cell, (1.0, 1.0, 0.0)), span, anchor) - (0.5, 0.5, 0.0)), dimensions)
+        return lower, upper - lower
+
+    candidates = (vector("MAXIMUM", vector("FLOOR", span), (1.0, 1.0, 0.0)), vector("CEIL", span), bounded((0.5, 0.5, 0.0))[1], bounded(dimensions - (0.5, 0.5, 0.0))[1])
+    lower, count = bounded(vector("DIVIDE", grid.base, grid.inverse))
+    uv = vector("ADD", vector("DIVIDE", vector("ADD", lower + vector("FLOOR", vector("SCALE", count, 0.5)), (0.5, 0.5, 0.0)), dimensions), (0.0, 0.0, 1.0))
+
+    def convolved(x: int, y: int) -> tuple[Expr, Expr]:
+        horizontal, vertical = candidates[x]["X"], candidates[y]["Y"]
+        kernel = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Color", (1.0,) * 4), ("Size", xyz(horizontal, vertical))), socket="Image", shape="RGBA")
+        image = Expr(
+            kind=bpy.types.CompositorNodeConvolve, inputs=(("Image", source), ("Kernel Data Type", "Float"), ("Float Kernel", kernel), ("Normalize Kernel", True)), socket="Image", shape="RGBA"
         )
-        bounds = bounded(f"{key}_occupied", coordinate, span, anchor, dimensions)
+        sample = Expr(
+            kind=bpy.types.CompositorNodeMapUV, inputs=(("Image", image), ("UV", uv), ("Interpolation", "Nearest"), ("Extension X", "Extend"), ("Extension Y", "Extend")), socket="Image", shape="RGBA"
+        )
+        return sample, math("COMPARE", count["X"], horizontal, 0.0) * math("COMPARE", count["Y"], vertical, 0.0)
 
-        def selected(candidates: tuple[Fragment, ...], bounds: tuple[tuple[Fragment, End], tuple[Fragment, End]]) -> BlenderResult[tuple[Fragment, End]]:
-            lower, count = bounds
-            axes = node(f"{key}_count", bpy.types.ShaderNodeSeparateXYZ, {"Vector": count}, {})
-            uv = (
-                vector(f"{key}_half_count", "SCALE", count, 0.5)
-                .bind(lambda half: vector(f"{key}_kernel_center", "FLOOR", half))
-                .bind(lambda center: vector(f"{key}_sample_index", "ADD", lower, center))
-                .bind(lambda center: vector(f"{key}_sample_center", "ADD", center, (0.5, 0.5, 0.0)))
-                .bind(lambda center: vector(f"{key}_sample_fraction", "DIVIDE", center, dimensions))
-                .bind(lambda fraction: vector(f"{key}_uv", "ADD", fraction, (0.0, 0.0, 1.0)))
-            )
-
-            def convolved(indices: tuple[int, int]) -> BlenderResult[tuple[tuple[Fragment, End], tuple[Fragment, End]]]:
-                x, y = indices
-                prefix = f"{key}_{x}_{y}"
-                horizontal = ended(f"{key}_candidate_{x}", "X")(candidates[x])
-                vertical = ended(f"{key}_candidate_{y}", "Y")(candidates[y])
-                size = node(f"{prefix}_size", bpy.types.ShaderNodeCombineXYZ, {"X": horizontal, "Y": vertical}, {}).map(ended(f"{prefix}_size", "Vector"))
-                kernel = size.bind(lambda size: node(f"{prefix}_kernel", bpy.types.CompositorNodeBlankImage, {"Color": (1.0,) * 4, "Size": size}, {})).map(ended(f"{prefix}_kernel", "Image"))
-                image = kernel.bind(
-                    lambda kernel: node(f"{prefix}_convolution", bpy.types.CompositorNodeConvolve, {"Image": source, "Kernel Data Type": "Float", "Float Kernel": kernel, "Normalize Kernel": True}, {})
-                ).map(ended(f"{prefix}_convolution", "Image"))
-                image = (
-                    paired(image, uv)
-                    .bind(
-                        lambda parts: node(
-                            f"{prefix}_sample", bpy.types.CompositorNodeMapUV, {"Image": parts[0], "UV": parts[1], "Interpolation": "Nearest", "Extension X": "Extend", "Extension Y": "Extend"}, {}
-                        )
-                    )
-                    .map(ended(f"{prefix}_sample", "Image"))
-                )
-                matches = axes.bind(
-                    lambda axes: paired(
-                        compared(f"{prefix}_x", "EQUAL", ended(f"{key}_count", "X")(axes), horizontal, epsilon=Some(0.0)),
-                        compared(f"{prefix}_y", "EQUAL", ended(f"{key}_count", "Y")(axes), vertical, epsilon=Some(0.0)),
-                    )
-                ).bind(lambda matches: math(f"{prefix}_matches", "MULTIPLY", *matches))
-                return paired(image, matches)
-
-            def chosen(samples: tuple[tuple[tuple[Fragment, End], tuple[Fragment, End]], ...]) -> BlenderResult[tuple[Fragment, End]]:
-                return functools.reduce(
-                    lambda held, step: held.bind(lambda previous: masked(f"{key}_selected_{step[0]}", "RGBA", step[1][1], previous, step[1][0])), enumerate(samples[1:], 1), Ok(samples[0][0])
-                )
-
-            return accumulated(convolved(indices) for indices in product(range(4), range(4))).bind(chosen)
-
-        return paired(counts, bounds).bind(lambda parts: selected(*parts))
-
-    return paired(paired(span, anchor), paired(dimensions, coordinate)).bind(lambda parts: averaged((*parts[0], *parts[1])))
+    (first, _), *rest = starmap(convolved, product(range(4), repeat=2))
+    return functools.reduce(lambda held, step: where(step[1], step[0], held), rest, first)
 
 
-def patterned[R: Pixelation | Pattern](shell: Shell[R]) -> BlenderResult[tuple[Fragment, End]]:
-    """Builds selected display structure with own color and coverage."""
-    match shell.record:
-        case Pixelation():
-            structure_field, motion, seed = Pixelation.__struct_fields__
-        case Pattern():
-            structure_field, motion, seed = Pattern.__struct_fields__
+def _drawn(shell: Shell[Pixelation] | Shell[Pattern], noise: Noise, instance: int = 0) -> Expr:
+    """Decorrelation origin of one draw, redrawn per whole clock frame."""
+    _, motion, seed = type(shell.record).__struct_fields__
     speed, hold = Motion.__struct_fields__
-    structure = (structure_field,)
-    clock = Clock(key="clock", speed=shell.socket(motion, speed), hold=shell.socket(motion, hold)).pattern
+    return origin(shell.input(seed), noise, math("FLOOR", clocked(shell.input(motion, speed), shell.input(motion, hold))), instance)
 
-    def built(frame: FrameSpace, index: tuple[Fragment, End]) -> BlenderResult[tuple[Fragment, End]]:
-        (size_mosaic,) = Mosaic.__struct_fields__
-        size_cells, jitter_cells, metric_cells = Cells.__struct_fields__
-        pitch_halftone, angle, jitter_halftone, inks_halftone = Halftone.__struct_fields__
-        ink_mono, paper_mono = Mono.__struct_fields__
-        cyan, magenta, yellow, key_process = Process.__struct_fields__
-        offset_screen, scale_screen = Screen.__struct_fields__
-        _, rows, jitter_glyphs, paper_glyphs, coloring_glyphs = Glyphs.__struct_fields__
-        (saturation,) = RandomColor.__struct_fields__
-        (ink_two_tone,) = TwoTone.__struct_fields__
-        direction_sort, low_sort, high_sort, length_sort, softness_sort, falloff_sort, scatter_sort, clump, chunk, edge_fade = PixelSort.__struct_fields__
-        middle = vector("middle", "SCALE", frame.extent, 0.5)
-        centered = middle.bind(lambda middle: vector("centered", "SUBTRACT", frame.point, middle))
-        luma = node("luma", bpy.types.CompositorNodeRGBToBW, {"Image": shell.source}, {}).map(ended("luma", "Val"))
 
-        def drawn(key: str, noise: Noise, instance: int = 0) -> BlenderResult[tuple[Fragment, End]]:
-            return origin(key, shell.socket(seed), noise, index, instance)
+def _filled(shell: Shell[Pixelation] | Shell[Pattern], uv: Expr) -> Expr:
+    """Bilinear entry color at Map UV positions."""
+    return Expr(
+        kind=bpy.types.CompositorNodeMapUV,
+        inputs=(("Image", shell.color), ("UV", uv), ("Interpolation", "Bilinear"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
+        socket="Image",
+        shape="RGBA",
+    )
 
-        def weighted(key: str, color: Operand, weight: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            return node(key, bpy.types.CompositorNodeSetAlpha, {"Image": color, "Alpha": weight, "Type": "Replace Alpha"}, {}).map(ended(key, "Image"))
 
-        def filled(key: str, position: Operand) -> BlenderResult[tuple[Fragment, End]]:
-            return node(key, bpy.types.CompositorNodeMapUV, {"Image": shell.source, "UV": position, "Interpolation": "Bilinear", "Extension X": "Extend", "Extension Y": "Extend"}, {}).map(
-                ended(key, "Image")
-            )
+def _weighted(color: Scalar, weight: Scalar) -> Expr:
+    """Color carrying weight as its alpha."""
+    return Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", color), ("Alpha", weight), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
 
-        if isinstance(shell.record, Pixelation):
-            mosaic = block_mean("mosaic", frame, shell.source, shell.socket(*structure, Mosaic, size_mosaic))
-            offset = drawn("cell_origin", Noise.CELL).bind(lambda origin: vector("cell_offset", "FLOOR", origin))
-            size = shell.socket(*structure, Cells, size_cells)
-            lattice = centered.bind(lambda point: vector("cell_scaled", "DIVIDE", point, size)).bind(lambda point: offset.bind(lambda offset: vector("cell_lattice", "ADD", point, offset)))
-            sites = accumulated(
-                lattice
-                .bind(
-                    lambda lattice: node(
-                        f"cell_{metric.name.lower()}",
-                        bpy.types.ShaderNodeTexVoronoi,
-                        {"Vector": lattice, "Scale": 1.0, "Detail": 0.0, "Randomness": shell.socket(*structure, Cells, jitter_cells)},
-                        {"voronoi_dimensions": "2D", "feature": "F1", "distance": metric.name, "normalize": False},
+
+def structured(shell: Shell[Pixelation] | Shell[Pattern], choices: Mapping[str, Expr], *, covered: bool) -> Expr:
+    """Selects the structure color keeping its replacement weight.
+
+    Args:
+        shell: Entry inputs and structure menu.
+        choices: Color per structure case title.
+        covered: Whether the structure's alpha weighs the replacement, else the whole frame is replaced.
+
+    Returns:
+        Selected structure keeping its weight.
+    """
+    structure, _, _ = type(shell.record).__struct_fields__
+    result = shell.menu(structure, cases=choices, kind="RGBA")
+    weight = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", result if covered else (1.0,) * 4),), members=(("mode", "RGB"),), socket="Alpha").named("structure_weight")
+    return result.keeping(weight)
+
+
+def pixelated(shell: Shell[Pixelation]) -> BlenderResult[Expr]:
+    """Builds mosaic blocks and Voronoi cells, each replacing the whole frame.
+
+    Args:
+        shell: Entry inputs and retained structure cases.
+
+    Returns:
+        Selected structure keeping its weight.
+    """
+    structure, _, _ = Pixelation.__struct_fields__
+    (block,) = Mosaic.__struct_fields__
+    size, jitter, metric = Cells.__struct_fields__
+    frame = shell.space
+
+    def built(case: Mosaic | Cells) -> Expr:
+        match case:
+            case Mosaic():
+                return block_mean(frame, shell.color, shell.input(structure, Mosaic, block))
+            case Cells():
+                offset, middle, side = vector("FLOOR", _drawn(shell, Noise.CELL)), vector("SCALE", frame.extent, 0.5), shell.input(structure, Cells, size)
+                lattice = (frame.point - middle) / side + offset
+                sites = {
+                    choice.label: Expr(
+                        kind=bpy.types.ShaderNodeTexVoronoi,
+                        inputs=(("Vector", lattice), ("Scale", 1.0), ("Detail", 0.0), ("Randomness", shell.input(structure, Cells, jitter))),
+                        members=(("voronoi_dimensions", "2D"), ("feature", "F1"), ("distance", choice.name), ("normalize", False)),
+                        socket="Position",
+                        shape="VECTOR",
                     )
-                )
-                .map(ended(f"cell_{metric.name.lower()}", "Position"))
-                .map(lambda position: (metric.label, position))
-                for metric in Metric
-            )
-            site = sites.bind(lambda sites: menu("cell_site", "VECTOR", shell.socket(*structure, Cells, metric_cells), shell.items[*structure, Cells, metric_cells], dict(sites)))
-            point = (
-                paired(site, offset)
-                .bind(lambda parts: vector("cell_local", "SUBTRACT", *parts))
-                .bind(lambda local: middle.bind(lambda middle: vector("cell_point", "MULTIPLY_ADD", local, size, middle)))
-            )
-            cells = point.bind(lambda point: vector("cell_fraction", "DIVIDE", point, frame.extent)).bind(lambda fraction: sampled("cell_uv", frame, fraction)).bind(lambda uv: filled("cell_fill", uv))
-            choices = paired(mosaic, cells).map(lambda results: {Mosaic.title: results[0], Cells.title: results[1]})
-        else:
-            ht = (*structure, Halftone)
-            inks = (*ht, inks_halftone)
-            screen = halftone_screen()
+                    for choice in Metric
+                }
+                site = shell.menu(structure, Cells, metric, cases=sites, kind="VECTOR")
+                return _filled(shell, sampled(frame, vector("MULTIPLY_ADD", site - offset, side, middle) / frame.extent))
 
-            def screened(key: str, tone: Operand, instance: int, *, offset: Operand = (0.0, 0.0, 0.0), scale: Operand = 1.0) -> BlenderResult[tuple[Fragment, End]]:
-                lattice = (
-                    drawn(f"{key}_origin", Noise.SCREEN, instance).bind(lambda origin: vector(f"{key}_lattice", "FLOOR", origin)).bind(lambda lattice: vector(f"{key}_offset", "ADD", lattice, offset))
-                )
-                pitch = math(f"{key}_pitch", "MULTIPLY", shell.socket(*ht, pitch_halftone), scale)
-                return paired(paired(lattice, pitch), centered).bind(
-                    lambda parts: screen.bind(
-                        lambda group: nested(
-                            key,
-                            group,
-                            {"coordinate": parts[1], "offset": parts[0][0], "pitch": parts[0][1], "angle": shell.socket(*ht, angle), "jitter": shell.socket(*ht, jitter_halftone), "tone": tone},
-                            "coverage",
-                        )
-                    )
-                )
+    return Ok(structured(shell, {case.title: built(case) for case in shell.cases[structure,] if isinstance(case, Mosaic | Cells)}, covered=False))
 
-            mono = luma.bind(lambda luma: math("mono_tone", "SUBTRACT", 1.0, luma)).bind(lambda tone: screened("mono", tone, 0))
-            mono = mono.bind(
-                lambda coverage: mixed("mono_print", "RGBA", coverage, shell.socket(*inks, Mono, paper_mono), shell.socket(*inks, Mono, ink_mono)).bind(
-                    lambda color: weighted("mono_weighted", color, coverage)
-                )
-            )
-            channels = node("halftone_channels", bpy.types.CompositorNodeSeparateColor, {"Image": shell.source}, {"mode": "RGB"})
-            peak = channels.bind(lambda channels: math("peak_rg", "MAXIMUM", ended("halftone_channels", "Red")(channels), End(node="halftone_channels", socket="Green"))).bind(
-                lambda peak: math("peak", "MAXIMUM", peak, End(node="halftone_channels", socket="Blue"))
-            )
-            separations = peak.bind(lambda peak: vector("absent_ink", "SUBTRACT", peak, shell.source).bind(lambda absent: vector("process_ink", "DIVIDE", absent, peak))).bind(
-                lambda ink: node("ink_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ink}, {})
-            )
-            black = peak.bind(lambda peak: math("black_ink", "SUBTRACT", 1.0, peak))
-            tones = separations.map(lambda axes: ((cyan, ended("ink_axes", "X")(axes)), (magenta, (axes, End(node="ink_axes", socket="Y"))), (yellow, (axes, End(node="ink_axes", socket="Z"))))).map2(
-                black, lambda colors, black: (*colors, (key_process, black))
-            )
-            process = tones.bind(
-                lambda tones: accumulated(
-                    screened(f"process_{field}", tone, instance, offset=shell.socket(*inks, Process, field, offset_screen), scale=shell.socket(*inks, Process, field, scale_screen)).bind(
-                        lambda coverage: math(f"process_{field}_clear", "SUBTRACT", 1.0, coverage)
-                    )
-                    for instance, (field, tone) in enumerate(tones)
-                )
+
+def patterned(shell: Shell[Pattern]) -> BlenderResult[Expr]:
+    """Builds halftone screens, tone-ranked glyphs, and pixel sort streaks, each with its own coverage.
+
+    Args:
+        shell: Entry inputs and retained structure cases.
+
+    Returns:
+        Selected structure keeping its weight.
+    """
+    structure, _, _ = Pattern.__struct_fields__
+    pitch, angle, jitter, inks = Halftone.__struct_fields__
+    ink, paper = Mono.__struct_fields__
+    shift, scale = Screen.__struct_fields__
+    cyan, magenta, yellow, black = Process.__struct_fields__
+    _, rows, glyph_jitter, glyph_paper, coloring = Glyphs.__struct_fields__
+    (saturation,) = RandomColor.__struct_fields__
+    (tint,) = TwoTone.__struct_fields__
+    direction, low, high, length, softness, falloff, scatter, clump, chunk, edge_fade = PixelSort.__struct_fields__
+    source, frame = shell.color, shell.space
+    centered = frame.point - vector("SCALE", frame.extent, 0.5)
+
+    def toned(image: Scalar) -> Expr:
+        return Expr(kind=bpy.types.CompositorNodeRGBToBW, inputs=(("Image", image),), socket="Val")
+
+    def halftoned() -> Expr:
+        at = (structure, Halftone)
+
+        def screened(tone: Expr, instance: int, offset: Scalar | tuple[float, ...] = (0.0, 0.0, 0.0), multiple: Scalar = 1.0) -> Expr:
+            return halftone_screen(
+                coordinate=centered,
+                offset=vector("ADD", vector("FLOOR", _drawn(shell, Noise.SCREEN, instance)), offset),
+                angle=shell.input(*at, angle),
+                pitch=math("MULTIPLY", shell.input(*at, pitch), multiple),
+                jitter=shell.input(*at, jitter),
+                tone=tone,
             )
 
-            def printed(clear: tuple[tuple[Fragment, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
-                color = (
-                    node("process_clear", bpy.types.ShaderNodeCombineXYZ, dict(zip(("X", "Y", "Z"), clear[:3])), {})
-                    .map(ended("process_clear", "Vector"))
-                    .bind(lambda color: vector("process_print", "SCALE", color, clear[3]))
-                )
-                paper = (
-                    math("process_paper_cm", "MULTIPLY", clear[0], clear[1])
-                    .bind(lambda paper: math("process_paper_cmy", "MULTIPLY", paper, clear[2]))
-                    .bind(lambda paper: math("process_paper", "MULTIPLY", paper, clear[3]))
-                    .bind(lambda paper: math("process_coverage", "SUBTRACT", 1.0, paper))
-                )
-                return paired(color, paper).bind(lambda parts: weighted("process_weighted", *parts))
+        mono = screened(1.0 - toned(source), 0)
+        peak = math("MAXIMUM", math("MAXIMUM", source["Red"], source["Green"]), source["Blue"])
+        separations = vector("DIVIDE", vector("SUBTRACT", peak, source), peak)
+        tones = ((cyan, separations["X"]), (magenta, separations["Y"]), (yellow, separations["Z"]), (black, 1.0 - peak))
+        clear = tuple(1.0 - screened(tone, instance, shell.input(*at, inks, Process, field, shift), shell.input(*at, inks, Process, field, scale)) for instance, (field, tone) in enumerate(tones))
+        cases = {
+            Mono.title: _weighted(mixed(mono, shell.input(*at, inks, Mono, paper), shell.input(*at, inks, Mono, ink)), mono),
+            Process.title: _weighted(vector("SCALE", xyz(*clear[:3]), clear[3]), 1.0 - clear[0] * clear[1] * clear[2] * clear[3]),
+        }
+        return shell.menu(*at, inks, cases=cases, kind="RGBA")
 
-            halftone = paired(mono, process.bind(printed)).bind(lambda prints: menu("halftone", "RGBA", shell.socket(*inks), shell.items[inks], {Mono.title: prints[0], Process.title: prints[1]}))
-
-            gl = (*structure, Glyphs)
-            glyphs = next(case for case in shell.cases[structure] if isinstance(case, Glyphs)).glyphs
-            levels = len(glyphs)
-            height = (
-                node("glyph_extent", bpy.types.ShaderNodeSeparateXYZ, {"Vector": frame.extent}, {})
-                .bind(lambda extent: math("glyph_short", "MINIMUM", ended("glyph_extent", "X")(extent), End(node="glyph_extent", socket="Y")))
-                .bind(lambda short: math("glyph_height", "DIVIDE", short, shell.socket(*gl, rows)))
-            )
-            strip = (
-                height
-                .bind(lambda height: math("glyph_size", "MULTIPLY", height, frame.greater))
-                .bind(lambda size: node("glyph_strip", bpy.types.CompositorNodeStringToImage, {"String": "\n".join(glyphs), "Size": size, "Wrap": False}, {}))
-                .map(ended("glyph_strip", "Image"))
-            )
-            ratio = (
-                strip
-                .bind(lambda strip: node("glyph_strip_info", bpy.types.CompositorNodeImageInfo, {"Image": strip}, {}))
-                .bind(lambda info: node("glyph_strip_sides", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("glyph_strip_info", "Dimensions")(info)}, {}))
-                .bind(lambda sides: math("glyph_strip_ratio", "DIVIDE", ended("glyph_strip_sides", "X")(sides), End(node="glyph_strip_sides", socket="Y")))
-                .bind(lambda ratio: math("glyph_ratio", "MULTIPLY", ratio, levels))
-            )
-            cell = (
-                paired(height, ratio)
-                .bind(lambda parts: math("glyph_width", "MULTIPLY", *parts).bind(lambda width: node("glyph_cell", bpy.types.ShaderNodeCombineXYZ, {"X": width, "Y": parts[0], "Z": 1.0}, {})))
-                .map(ended("glyph_cell", "Vector"))
-            )
-            coordinates = cell.bind(lambda cell: vector("glyph_cells", "DIVIDE", frame.point, cell))
-            indices = coordinates.bind(lambda coordinates: vector("glyph_index", "FLOOR", coordinates))
-            within = coordinates.bind(lambda coordinates: vector("glyph_within", "FRACTION", coordinates)).bind(
-                lambda within: node("glyph_within_axes", bpy.types.ShaderNodeSeparateXYZ, {"Vector": within}, {})
-            )
-            center = (
-                indices
-                .bind(lambda indices: vector("glyph_middle", "ADD", indices, (0.5, 0.5, 0.0)))
-                .bind(lambda center: cell.bind(lambda cell: vector("glyph_middle_point", "MULTIPLY", center, cell)))
-                .bind(lambda point: vector("glyph_middle_fraction", "DIVIDE", point, frame.extent))
-                .bind(lambda fraction: sampled("glyph_center", frame, fraction))
-                .bind(lambda uv: filled("glyph_sample", uv))
-            )
-            draw = (
-                paired(indices, drawn("glyph_origin", Noise.GLYPH))
-                .bind(lambda parts: vector("glyph_key", "ADD", *parts))
-                .bind(lambda point: node("glyph_draw", bpy.types.ShaderNodeTexWhiteNoise, {"Vector": point}, {"noise_dimensions": "3D"}))
-            )
-            jitter = draw.bind(lambda draw: math("glyph_jitter", "SUBTRACT", ended("glyph_draw", "Value")(draw), 0.5))
-            tone = center.bind(lambda center: node("glyph_luma", bpy.types.CompositorNodeRGBToBW, {"Image": center}, {})).bind(
-                lambda luma: jitter.bind(lambda jitter: math("glyph_tone", "MULTIPLY_ADD", jitter, shell.socket(*gl, jitter_glyphs), ended("glyph_luma", "Val")(luma), clamp=True))
-            )
-            rank = (
-                tone
-                .bind(lambda tone: math("glyph_scaled", "MULTIPLY", tone, levels))
-                .bind(lambda tone: math("glyph_floor", "FLOOR", tone))
-                .bind(lambda level: math("glyph_level", "MINIMUM", level, levels - 1))
-                .bind(lambda level: math("glyph_rank", "SUBTRACT", levels - 1, level))
-            )
-            uv = (
-                paired(rank, within)
-                .bind(
-                    lambda parts: (
-                        math("glyph_line", "ADD", parts[0], ended("glyph_within_axes", "Y")(parts[1]))
-                        .bind(lambda line: math("glyph_v", "DIVIDE", line, levels))
-                        .bind(lambda y: node("glyph_uv", bpy.types.ShaderNodeCombineXYZ, {"X": ended("glyph_within_axes", "X")(parts[1]), "Y": y, "Z": 1.0}, {}))
-                    )
-                )
-                .map(ended("glyph_uv", "Vector"))
-            )
-            mask = (
-                paired(strip, uv)
-                .bind(
-                    lambda parts: node(
-                        "glyph_mask", bpy.types.CompositorNodeMapUV, {"Image": parts[0], "UV": parts[1], "Interpolation": "Bilinear", "Extension X": "Extend", "Extension Y": "Extend"}, {}
-                    )
-                )
-                .map(ended("glyph_mask", "Image"))
-            )
-            coloring = (*gl, coloring_glyphs)
-            random = (
-                draw
-                .bind(lambda draw: node("glyph_hue", bpy.types.ShaderNodeSeparateXYZ, {"Vector": ended("glyph_draw", "Color")(draw)}, {}))
-                .bind(
-                    lambda hue: node(
-                        "glyph_random",
-                        bpy.types.CompositorNodeCombineColor,
-                        {"Red": ended("glyph_hue", "X")(hue), "Green": shell.socket(*coloring, RandomColor, saturation), "Blue": 1.0, "Alpha": 1.0},
-                        {"mode": "HSV"},
-                    )
-                )
-                .map(ended("glyph_random", "Image"))
-            )
-            color = paired(center, random).bind(
-                lambda colors: menu(
-                    "glyph_coloring",
-                    "RGBA",
-                    shell.socket(*coloring),
-                    shell.items[coloring],
-                    {SourceColor.title: colors[0], TwoTone.title: shell.socket(*coloring, TwoTone, ink_two_tone), RandomColor.title: colors[1]},
-                )
-            )
-            glyph = paired(mask, color).bind(
-                lambda parts: mixed("glyph_print", "RGBA", parts[0], shell.socket(*gl, paper_glyphs), parts[1]).bind(lambda color: weighted("glyph_weighted", color, parts[0]))
-            )
-
-            ps = (*structure, PixelSort)
-            headings = {Direction.LEFT: (-1.0, 0.0, 0.0), Direction.RIGHT: (1.0, 0.0, 0.0), Direction.UP: (0.0, 1.0, 0.0), Direction.DOWN: (0.0, -1.0, 0.0)}
-            heading = menu("sort_heading", "VECTOR", shell.socket(*ps, direction_sort), shell.items[*ps, direction_sort], {direction.label: axis for direction, axis in headings.items()})
-            axis = heading.bind(lambda heading: vector("sort_axis", "ABSOLUTE", heading))
-            cross = axis.bind(lambda axis: vector("sort_cross", "SUBTRACT", (1.0, 1.0, 0.0), axis))
-            softness = axis.bind(lambda axis: vector("sort_softness", "SCALE", axis, shell.socket(*ps, softness_sort))).bind(lambda length: pixels("sort_softness_size", frame, length, "VECTOR"))
-            soft = (
-                paired(luma, softness)
-                .bind(lambda parts: node("sort_soft", bpy.types.CompositorNodeBlur, {"Image": parts[0], "Size": parts[1], "Type": "Gaussian"}, {}))
-                .map(ended("sort_soft", "Image"))
-            )
-            low = soft.bind(lambda tone: math("sort_less_low", "LESS_THAN", tone, shell.socket(*ps, low_sort))).bind(lambda less: math("sort_ge_low", "SUBTRACT", 1.0, less))
-            high = soft.bind(lambda tone: math("sort_greater_high", "GREATER_THAN", tone, shell.socket(*ps, high_sort))).bind(lambda greater: math("sort_le_high", "SUBTRACT", 1.0, greater))
-            band = (
-                paired(low, high)
-                .bind(lambda ends: paired(math("sort_inside", "MULTIPLY", *ends), math("sort_outside", "MAXIMUM", *ends)))
-                .bind(lambda bands: math("sort_wrapped", "GREATER_THAN", shell.socket(*ps, low_sort), shell.socket(*ps, high_sort)).bind(lambda wrapped: mixed("sort_key", "FLOAT", wrapped, *bands)))
-            )
-            falloff = axis.bind(lambda axis: vector("sort_falloff", "SCALE", axis, shell.socket(*ps, falloff_sort))).bind(lambda length: pixels("sort_falloff_size", frame, length, "VECTOR"))
-            fall = (
-                paired(band, falloff)
-                .bind(lambda parts: node("sort_fall", bpy.types.CompositorNodeBlur, {"Image": parts[0], "Size": parts[1], "Type": "Gaussian"}, {}))
-                .map(ended("sort_fall", "Image"))
-            )
-            scatter = (
-                drawn("sort_scatter_origin", Noise.SCATTER)
-                .bind(lambda origin: vector("sort_grain_at", "ADD", frame.point, origin))
-                .bind(lambda point: node("sort_grain", bpy.types.ShaderNodeTexWhiteNoise, {"Vector": point}, {"noise_dimensions": "2D"}))
-                .bind(lambda grain: math("sort_scatter", "MULTIPLY", ended("sort_grain", "Value")(grain), shell.socket(*ps, scatter_sort)))
-                .bind(lambda scatter: math("sort_kept", "SUBTRACT", 1.0, scatter))
-            )
-            across = cross.bind(lambda axis: vector("sort_across", "DOT_PRODUCT", frame.fraction, axis))
-            shift = (
-                drawn("sort_streak_origin", Noise.STREAK).bind(lambda origin: node("sort_streak_shift", bpy.types.ShaderNodeSeparateXYZ, {"Vector": origin}, {})).map(ended("sort_streak_shift", "X"))
-            )
-            streak = (
-                paired(across, luma)
-                .bind(lambda parts: math("sort_tone_offset", "MULTIPLY_ADD", parts[1], 2.0, -1.0).bind(lambda tone: math("sort_streak_across", "ADD", parts[0], tone)))
-                .bind(lambda across: shift.bind(lambda shift: math("sort_streak_at", "ADD", across, shift)))
-                .bind(
-                    lambda at: node("sort_streak", bpy.types.ShaderNodeTexNoise, {"W": at, "Roughness": shell.socket(*ps, clump)}, {"noise_dimensions": "1D", "noise_type": "FBM", "normalize": True})
-                )
-                .map(ended("sort_streak", "Fac"))
-            )
-            field = (
-                paired(fall, scatter)
-                .bind(lambda parts: math("sort_keyed", "MULTIPLY", *parts))
-                .bind(lambda keyed: streak.bind(lambda streak: math("sort_unchunked", "MULTIPLY", keyed, streak)))
-                .bind(lambda field: block_mean("sort_chunk", frame, field, shell.socket(*ps, chunk)))
-            )
-            along = axis.bind(lambda axis: vector("sort_along", "DOT_PRODUCT", frame.fraction, axis))
-            fade = (
-                along
-                .bind(lambda along: math("sort_from_end", "SUBTRACT", 1.0, along).bind(lambda other: math("sort_end", "MINIMUM", along, other)))
-                .bind(
-                    lambda distance: node(
-                        "sort_fade", bpy.types.ShaderNodeMapRange, {"Value": distance, "From Min": shell.socket(*ps, edge_fade), "From Max": 0.0, "To Min": 1.0, "To Max": 0.0}, {"clamp": True}
-                    )
-                )
-                .map(ended("sort_fade", "Result"))
-            )
-            weight = paired(field, fade).bind(lambda parts: math("sort_map", "MULTIPLY", *parts))
-            displacement = (
-                heading
-                .bind(lambda heading: vector("sort_reach", "SCALE", heading, shell.socket(*ps, length_sort)))
-                .bind(lambda reach: weight.bind(lambda weight: vector("sort_travel", "SCALE", reach, weight)))
-                .bind(lambda displacement: pixels("sort_displacement", frame, displacement, "VECTOR"))
-            )
-            sorted_image = displacement.bind(
-                lambda displacement: node(
-                    "sort_displaced",
-                    bpy.types.CompositorNodeDisplace,
-                    {"Image": shell.source, "Displacement": displacement, "Interpolation": "Bilinear", "Extension X": "Extend", "Extension Y": "Extend"},
-                    {},
-                )
-            ).map(ended("sort_displaced", "Image"))
-            sort = paired(sorted_image, weight).bind(lambda parts: mixed("sort_print", "RGBA", parts[1], shell.source, parts[0]).bind(lambda color: weighted("sort_weighted", color, parts[1])))
-            choices = accumulated((halftone, glyph, sort)).map(lambda results: {Halftone.title: results[0], Glyphs.title: results[1], PixelSort.title: results[2]})
-
-        result = choices.bind(lambda choices: menu("structure", "RGBA", shell.socket(*structure), shell.items[structure], choices))
-        return result.bind(
-            lambda result: node("structure_weight", bpy.types.CompositorNodeSeparateColor, {"Image": (1.0,) * 4 if isinstance(shell.record, Pixelation) else result}, {"mode": "RGB"}).bind(
-                lambda weight: Fragment.merged((result[0], weight)).map(lambda joined: (joined, result[1]))
-            )
+    def glyphed(glyphs: str) -> Expr:
+        at, levels = (structure, Glyphs), len(glyphs)
+        height = shorter(frame.extent) / shell.input(*at, rows)
+        strip = Expr(kind=bpy.types.CompositorNodeStringToImage, inputs=(("String", "\n".join(glyphs)), ("Size", height * frame.greater), ("Wrap", False)), socket="Image", shape="RGBA")
+        sides = Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", strip),), socket="Dimensions", shape="VECTOR")
+        cell = xyz(height * (sides["X"] / sides["Y"] * levels), height, 1.0)
+        indices, within = vector("FLOOR", frame.point / cell), vector("FRACTION", frame.point / cell)
+        center = _filled(shell, sampled(frame, vector("ADD", indices, (0.5, 0.5, 0.0)) * cell / frame.extent))
+        draw = Expr(kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", indices + _drawn(shell, Noise.GLYPH)),), members=(("noise_dimensions", "3D"),))
+        tone = math("MULTIPLY_ADD", draw - 0.5, shell.input(*at, glyph_jitter), toned(center), clamp=True)
+        rank = (levels - 1) - math("MINIMUM", math("FLOOR", tone * levels), levels - 1)
+        mask = Expr(
+            kind=bpy.types.CompositorNodeMapUV,
+            inputs=(("Image", strip), ("UV", xyz(within["X"], (rank + within["Y"]) / levels, 1.0)), ("Interpolation", "Bilinear"), ("Extension X", "Extend"), ("Extension Y", "Extend")),
+            socket="Image",
+            shape="RGBA",
         )
+        hue = msgspec.structs.replace(draw, socket="Color", shape="RGBA")["X"]
+        random = Expr(
+            kind=bpy.types.CompositorNodeCombineColor,
+            inputs=(("Red", hue), ("Green", shell.input(*at, coloring, RandomColor, saturation)), ("Blue", 1.0), ("Alpha", 1.0)),
+            members=(("mode", "HSV"),),
+            socket="Image",
+            shape="RGBA",
+        )
+        color = shell.menu(*at, coloring, cases={SourceColor.title: center, TwoTone.title: shell.input(*at, coloring, TwoTone, tint), RandomColor.title: random}, kind="RGBA")
+        return _weighted(mixed(mask, shell.input(*at, glyph_paper), color), mask)
 
-    return paired(framed("frame", shell.source, shell.aspect, shell.scale), clock).bind(lambda parts: built(*parts))
+    def sorting() -> Expr:
+        at = (structure, PixelSort)
+        heading = shell.menu(*at, direction, cases={choice.label: axis for choice, axis in _HEADINGS.items()}, kind="VECTOR")
+        axis = abs(heading)
+
+        def blurred(image: Scalar, reach: str) -> Expr:
+            return Expr(
+                kind=bpy.types.CompositorNodeBlur,
+                inputs=(("Image", image), ("Size", pixels(frame, vector("SCALE", axis, shell.input(*at, reach)), "VECTOR")), ("Type", "Gaussian")),
+                socket="Image",
+                shape="RGBA",
+            )
+
+        soft = blurred(toned(source), softness)
+        above, below = 1.0 - (soft < shell.input(*at, low)), 1.0 - (soft > shell.input(*at, high))
+        band = mixed(shell.input(*at, low) > shell.input(*at, high), above * below, math("MAXIMUM", above, below))
+        grain = Expr(kind=bpy.types.ShaderNodeTexWhiteNoise, inputs=(("Vector", frame.point + _drawn(shell, Noise.SCATTER)),), members=(("noise_dimensions", "2D"),))
+        streak = Expr(
+            kind=bpy.types.ShaderNodeTexNoise,
+            inputs=(
+                ("W", vector("DOT_PRODUCT", frame.fraction, (1.0, 1.0, 0.0) - axis) + math("MULTIPLY_ADD", toned(source), 2.0, -1.0) + _drawn(shell, Noise.STREAK)["X"]),
+                ("Roughness", shell.input(*at, clump)),
+            ),
+            members=(("noise_dimensions", "1D"), ("noise_type", "FBM"), ("normalize", True)),
+            socket="Fac",
+        )
+        along = vector("DOT_PRODUCT", frame.fraction, axis)
+        fade = Expr(
+            kind=bpy.types.ShaderNodeMapRange,
+            inputs=(("Value", math("MINIMUM", along, 1.0 - along)), ("From Min", shell.input(*at, edge_fade)), ("From Max", 0.0), ("To Min", 1.0), ("To Max", 0.0)),
+            members=(("clamp", True),),
+            socket="Result",
+        )
+        weight = math("MULTIPLY", block_mean(frame, math("MULTIPLY", blurred(band, falloff), 1.0 - grain * shell.input(*at, scatter)) * streak, shell.input(*at, chunk)), fade)
+        displaced = Expr(
+            kind=bpy.types.CompositorNodeDisplace,
+            inputs=(
+                ("Image", source),
+                ("Displacement", pixels(frame, vector("SCALE", vector("SCALE", heading, shell.input(*at, length)), weight), "VECTOR")),
+                ("Interpolation", "Bilinear"),
+                ("Extension X", "Extend"),
+                ("Extension Y", "Extend"),
+            ),
+            socket="Image",
+            shape="RGBA",
+        )
+        return _weighted(mixed(weight, source, displaced), weight)
+
+    def built(case: Halftone | Glyphs | PixelSort) -> Expr:
+        match case:
+            case Halftone():
+                return halftoned()
+            case Glyphs(glyphs=glyphs):
+                return glyphed(glyphs)
+            case PixelSort():
+                return sorting()
+
+    return Ok(structured(shell, {case.title: built(case) for case in shell.cases[structure,] if isinstance(case, Halftone | Glyphs | PixelSort)}, covered=True))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-pixelation: CompositorEffect[Pixelation] = CompositorEffect(
+pixelation = CompositorEffect(
     record=Pixelation,
-    graph=patterned,
-    coverage=Coverage.RESULT,
+    graph=pixelated,
+    alpha=Alpha.RESULT,
     requested=Some(precise),
-    registrables=(inspection(lambda: pixelation, "pixelation_weight", "View Weight", "Structure replacement weight", lambda: End(node="structure_weight", socket="Alpha")),),
+    inspected=(Inspected(key="pixelation_weight", end=End(node="structure_weight", socket="Alpha"), description="Structure replacement weight"),),
 )
-pattern: CompositorEffect[Pattern] = CompositorEffect(
+pattern = CompositorEffect(
     record=Pattern,
     graph=patterned,
-    straight=True,
+    alpha=Alpha.STRAIGHT,
     requested=Some(precise),
-    registrables=(inspection(lambda: pattern, "pattern_weight", "View Weight", "Selected structure coverage", lambda: End(node="structure_weight", socket="Alpha")),),
+    inspected=(Inspected(key="pattern_weight", end=End(node="structure_weight", socket="Alpha"), description="Selected structure coverage"),),
 )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Noise", "block_mean", "halftone_screen", "pattern", "patterned", "pixelation"]
+__all__ = ["Noise", "block_mean", "halftone_screen", "pattern", "patterned", "pixelated", "pixelation", "structured"]

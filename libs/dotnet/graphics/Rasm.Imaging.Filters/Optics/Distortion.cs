@@ -21,10 +21,8 @@ public readonly partial struct Distortion : IPresented<Distortion, float> {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LensFraming : ICaptioned {
-    public static readonly LensFraming Edges = new("edges", "Edges", static _ => 1d);
-    public static readonly LensFraming Corners = new("corners", "Corners", static extent => (double.Pow(extent.Width, 2d) + double.Pow(extent.Height, 2d)) / double.Pow(int.Max(extent.Width, extent.Height), 2d));
-
-    public string Caption { get; }
+    public static readonly LensFraming Edges = new("edges", static _ => 1d);
+    public static readonly LensFraming Corners = new("corners", static extent => (double.Pow(extent.Width, 2d) + double.Pow(extent.Height, 2d)) / double.Pow(int.Max(extent.Width, extent.Height), 2d));
 
     public double Scale(PixelExtent extent, double distortion) => 1d / (1d + ((distortion > 0d ? Reach(extent) : 1d) * distortion));
 
@@ -36,12 +34,10 @@ public sealed partial class LensFraming : ICaptioned {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LensDirection : ICaptioned {
-    public static readonly LensDirection Distort = new("distort", "Distort", static (distortion, scale, radius) =>
+    public static readonly LensDirection Distort = new("distort", static (distortion, scale, radius) =>
         (4d * distortion * scale * scale * radius) switch { var bound => (2d * scale / (1d + double.Sqrt(double.Max(0d, 1d - bound))), bound > 1d ? 0f : 1f) });
-    public static readonly LensDirection Undistort = new("undistort", "Undistort", static (distortion, scale, radius) =>
+    public static readonly LensDirection Undistort = new("undistort", static (distortion, scale, radius) =>
         (distortion * radius) switch { var bound => bound > -1d ? (1d / ((1d + bound) * scale), bound > 1d ? 0f : 1f) : (0d, 0f) });
-
-    public string Caption { get; }
 
     [UseDelegateFromConstructor]
     internal partial (double Factor, float Weight) Radial(double distortion, double scale, double radius);

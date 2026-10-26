@@ -21,14 +21,6 @@ public abstract partial record PlanarBoolean {
     public sealed record PlanarDifference(Brep First, Brep Second) : PlanarBoolean;
 }
 
-[ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct MergeRoundness : System.Numerics.IMinMaxValue<MergeRoundness> {
-    public static MergeRoundness MinValue { get; } = new(0d);
-    public static MergeRoundness MaxValue { get; } = new(1d);
-
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
-}
-
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SolidEdit {
     public sealed record JoinNakedEdges : SolidEdit;

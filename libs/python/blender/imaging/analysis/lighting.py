@@ -4,7 +4,7 @@ from enum import auto, Enum
 import math
 from typing import Annotated, ClassVar, Self
 
-from colour.models.oklab import MATRIX_1_XYZ_TO_LMS, MATRIX_2_LMS_TO_LAB
+import colour
 from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
@@ -15,9 +15,9 @@ from scipy.cluster.vq import kmeans, vq
 from scipy.spatial.distance import cdist
 from scipy.stats import binned_statistic
 
-from blender.imaging.analysis.metering import Samples, samples_of
+from blender.imaging.analysis.metering import Samples
 from blender.imaging.chain import GREY
-from blender.imaging.color.processors import applied, processor, xyz
+from blender.imaging.color.processors import basis
 from blender.imaging.color.white import White
 from blender.imaging.faults import ImagingBufferFault, ImagingResult, paired
 from blender.imaging.parameters import Position, Rgb
@@ -78,8 +78,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def mood(self) -> LightingMood:
         """Mood from frame luminance, contrast, and split."""
-        decoder = PyOpenColorIO.Config().getProcessor(PyOpenColorIO.ExponentWithLinearTransform(gamma=[2.4] * 3 + [1.0], offset=[0.055] * 3 + [0.0])).getDefaultCPUProcessor()
-        high, low = map(float, applied(decoder, np.repeat(np.array((0.45, 0.22), dtype=np.float32)[:, None], 3, axis=-1))[:, 0])
+        high, low = map(float, colour.cctf_decoding(np.array((0.45, 0.22)), function="sRGB"))
         split_threshold = 0.42
         return (
             LightingMood.HIGH_KEY
@@ -102,8 +101,8 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
     def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], size: Annotated[int, msgspec.Meta(ge=1)] = 3) -> ImagingResult[Option[Self]]:
         """Reads lighting of plane fitted within `grid` pixels, or absence without covered subject."""
 
-        def read(pair: tuple[Samples, PyOpenColorIO.Processor]) -> ImagingResult[Option[Self]]:
-            samples, built = pair
+        def read(pair: tuple[Samples, npt.NDArray[np.float64]]) -> ImagingResult[Option[Self]]:
+            samples, matrix = pair
             covered = samples.finite
             height, width = covered.shape
             rows, columns = np.indices(covered.shape, dtype=np.float64)
@@ -172,9 +171,9 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             ordered_clusters = ordered_clusters[counts[ordered_clusters] > 0]
             key_y, fill_y = (raw[band].mean(dtype=np.float64) for band in bands[:2])
 
-            tristimulus = applied(built.getDefaultCPUProcessor(), means[ordered_clusters, :3].astype(np.float32)).astype(np.float64)
+            tristimulus = means[ordered_clusters, :3] @ matrix.T
             tristimulus /= np.maximum(tristimulus[:, 1:2], Samples.floor)
-            lab = np.matmul(np.cbrt(np.matmul(tristimulus, MATRIX_1_XYZ_TO_LMS.T, dtype=np.float64)), MATRIX_2_LMS_TO_LAB.T, dtype=np.float64)
+            lab = colour.XYZ_to_Oklab(tristimulus)
             distances = cdist(lab, lab)
             shares = counts[ordered_clusters].astype(np.float64) / found.size
             kept = [0]
@@ -215,7 +214,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             ImagingBufferFault
             .checked(OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(plane), filtername="triangle", roi=OpenImageIO.ROI(0, min(cls.grid, plane.shape[1]), 0, min(cls.grid, plane.shape[0]))))
             .bind(ImagingBufferFault.pixels)
-            .bind(lambda pixels: paired(samples_of(config, pixels), processor(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR))))
+            .bind(lambda pixels: paired(Samples.of(config, pixels), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)))
             .bind(read)
         )
 

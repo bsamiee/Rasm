@@ -6,7 +6,7 @@ from expression import Some
 import msgspec
 
 from blender.imaging.chain import Effect, Stage
-from blender.imaging.effects.generators.noise import Basis, Cut, Emission, Gradient, Interpolation, Octaves, Perlin, Tint
+from blender.imaging.effects.generators.noise import Basis, Emission, Gradient, Octaves, Perlin, Tint
 from blender.imaging.effects.optics.defocus import Aperture
 from blender.imaging.effects.optics.glare import Highlights
 from blender.imaging.parameters import AtLeastOne, Case, Choice, Finite, FrameLength, Gated, GraphForm, Motion, NonNegative, Position, Positive, Presentation, Quantity, Ramp, Rgb, Seed, Stop, Unit
@@ -74,9 +74,7 @@ class Starburst(msgspec.Struct, frozen=True, kw_only=True):
     emission: Annotated[Emission, msgspec.Meta(description="Light from streak root to tip")] = Emission(
         spectrum=Tint(start=Rgb(red=1.0, green=0.9, blue=0.8), end=Rgb(red=1.0, green=0.9, blue=0.8)), intensity=0.0
     )
-    basis: Annotated[Basis, msgspec.Meta(title="Noise", description="Texture forming streaks")] = Perlin(
-        size=1.0, stretch=1.0, octaves=Octaves(roughness=0.563), distortion=0.0, cut=Cut(interpolation=Interpolation.LINEAR)
-    )
+    basis: Annotated[Basis, msgspec.Meta(title="Noise", description="Texture forming streaks")] = Perlin(octaves=Octaves(roughness=0.563))
     length: Annotated[FrameLength, msgspec.Meta(description="Streak reach over greater frame side")] = 0.25
     density: Annotated[NonNegative, msgspec.Meta(description="Noise cells around source"), Presentation(soft=Some((0.0, 64.0)))] = 24.0
     sharpness: Annotated[AtLeastOne, msgspec.Meta(description="Exponent narrowing each streak"), Presentation(soft=Some((1.0, 8.0)))] = 3.0

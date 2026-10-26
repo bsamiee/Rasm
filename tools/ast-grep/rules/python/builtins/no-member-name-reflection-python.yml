@@ -54,11 +54,29 @@ utils:
             - has: {field: value, matches: inspect-member-mapping}
             - has: {field: subscript, matches: member-name}
             - not: {matches: python-key-catch}
+    coerced-operand:
+        nthChild: 1
+        inside:
+            kind: argument_list
+            inside:
+                kind: call
+                any:
+                    - has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}
+                    - all:
+                        - has: {field: function, matches: {python-member-use: {module: {regex: '^numpy$'}, name: {regex: '^(asarray|array)$'}}}}
+                        - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^(ravel|flatten)$'}, inside: {kind: call, field: function}}
+    resolved:
+        kind: call
+        all:
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^path_resolve$'}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: python-identifier-string}}, {not: {has: {nthChild: 2}}}]}
+            - not: {matches: coerced-operand}
 rule:
     kind: 'call, subscript'
     pattern: $ACCESS
     any:
         - matches: reached
         - matches: indexed
+        - matches: resolved
 message: '`$ACCESS` reaches a member by a name string'
 note: 'Access `<owner>.<member>` directly, in a lambda for a deferred read or call and a nested `def` for a deferred assignment or `del`'

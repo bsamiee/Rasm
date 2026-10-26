@@ -7,38 +7,39 @@ using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Numeric;
+using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rhino.Resources;
 
 namespace Rasm.Rhino.Render.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class WheelPart {
-    public static readonly WheelPart Disc = new(PartRole.Slider, CursorType.Crosshair, "{0} hue", MarkStyle.Ring, new MarkStyle.Stroke(PaintSlot.Text, 1f, 1f));
-    public static readonly WheelPart Puck = new(PartRole.Handle, CursorType.Move, "{0} strength", new MarkStyle.Stroke(PaintSlot.Text, 1f, 1f), new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f));
+    public static readonly WheelPart Disc = new(PartRole.Slider, Cursors.Crosshair, "{0} hue", MarkStyle.Ring, MarkStyle.Lifted);
+    public static readonly WheelPart Puck = new(PartRole.Handle, Cursors.Move, "{0} strength", MarkStyle.Lifted, new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f));
 
     public PartRole Role { get; }
-    public CursorType Cursor { get; }
+    public Cursor Cursor { get; }
     public string Template { get; }
     public MarkStyle Rest { get; }
     public MarkStyle Cued { get; }
 }
 
-public sealed record ShownWheel(string Caption, NumberText<float> Hue, NumberText<float> Strength);
-
-public sealed record GradingWheelState(ShownWheel Shown, Option<WheelOffset> Offset, Option<Vector2> Target);
+public sealed record GradingWheelState(string Caption, Option<WheelOffset> Offset, Option<Vector2> Target);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
-    : ComponentControl<GradingWheelState, WheelPart, WheelOffset>(sink, new GradingWheelState(shown, None, None), None) {
+public sealed class GradingWheel(IPlugInSink sink, string caption)
+    : ComponentControl<GradingWheelState, WheelPart, WheelOffset>(sink, new GradingWheelState(caption, None, None), None) {
     // --- [STATE]
-    private const float PuckDiameter = 14f;
-    private const float CrossLength = 10f;
     private static readonly Axis.Periodic HueAxis = new(AxisRange.Radians);
     private static readonly Axis.Linear StrengthAxis = new(AxisRange.Unit);
+    private readonly NumberText<float> hue = NumberText.Scalar(NumericDomain.Bounded<WheelHue, float>(WheelHue.Presentation), RowEdit.Varies);
+    private readonly NumberText<float> strength = NumberText.Scalar(NumericDomain.Bounded<AxisFraction, float>(AxisFraction.Presentation), RowEdit.Varies);
+    private readonly float puck = EtoFonts.SmallFont.LineHeight;
     private Option<(int Diameter, Bitmap Raster)> raster;
 
-    public IO<Unit> Show(ShownWheel wheel) => Advance(state => new(state with { Shown = wheel }, None));
+    public IO<Unit> Show(string shown) => Advance(state => new(state with { Caption = shown }, None));
 
     protected override GradingWheelState Received(GradingWheelState state, Option<WheelOffset> value) => state with { Offset = value };
 
@@ -59,10 +60,10 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
     protected override Seq<PlotMark<WheelPart>> Layout(GradingWheelState state, SizeF size, float scale) =>
         Plane(size) switch {
             var plane => new PlotMark<WheelPart>(new MarkShape.Disc(plane.Plot.Center, plane.Plot.Width), WheelPart.Disc.Rest, Some(new MarkPart<WheelPart>(WheelPart.Disc, Plots.Inset)))
-                .Cons(Seq(new SizeF(CrossLength / 2f, 0f), new SizeF(0f, CrossLength / 2f))
+                .Cons(Seq(new SizeF(Plots.Reach, 0f), new SizeF(0f, Plots.Reach))
                     .Map(arm => new PlotMark<WheelPart>(new MarkShape.Rule(plane.Plot.Center - arm, plane.Plot.Center + arm), WheelPart.Puck.Rest, None)))
                 + state.Offset.Map(offset => new PlotMark<WheelPart>(
-                    new MarkShape.Disc(plane.Point(offset.Hue, offset.Strength), PuckDiameter), WheelPart.Puck.Rest, Some(new MarkPart<WheelPart>(WheelPart.Puck, 0f)))).ToSeq(),
+                    new MarkShape.Disc(plane.Point(offset.Hue, offset.Strength), puck), WheelPart.Puck.Rest, Some(new MarkPart<WheelPart>(WheelPart.Puck, 0f)))).ToSeq(),
         };
 
     // --- [TRANSITIONS]
@@ -83,10 +84,10 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
             var next => new(state with { Offset = Some(next), Target = Some(target) }, next == held ? None : Some<Edit<WheelOffset>>(new Edit<WheelOffset>.Preview(next))),
         };
 
-    private static Option<Transition<GradingWheelState, WheelOffset>> Nudged(GradingWheelState state, WheelPart part, double steps, Keys modifiers) =>
-        state.Offset.Bind(held => part.Switch((State: state, Held: held, Steps: steps, Modifiers: modifiers),
-                disc: static nudge => Some(Placed(nudge.Held, Shifted(nudge.State.Shown.Hue, nudge.Held.Hue, nudge.Steps, nudge.Modifiers), nudge.Held.Strength)),
-                puck: static nudge => AxisFraction.Validated(Shifted(nudge.State.Shown.Strength, nudge.Held.Strength, nudge.Steps, nudge.Modifiers))
+    private Option<Transition<GradingWheelState, WheelOffset>> Nudged(GradingWheelState state, WheelPart part, double steps, Keys modifiers) =>
+        state.Offset.Bind(held => part.Switch((Hue: hue, Strength: strength, Held: held, Steps: steps, Modifiers: modifiers),
+                disc: static nudge => Some(Placed(nudge.Held, Shifted(nudge.Hue, nudge.Held.Hue, nudge.Steps, nudge.Modifiers), nudge.Held.Strength)),
+                puck: static nudge => AxisFraction.Validated(Shifted(nudge.Strength, nudge.Held.Strength, nudge.Steps, nudge.Modifiers))
                     .ToOption()
                     .Map(strength => Placed(nudge.Held, nudge.Held.Hue, strength))))
             .Map(next => new Transition<GradingWheelState, WheelOffset>(state with { Offset = Some(next) }, Some<Edit<WheelOffset>>(new Edit<WheelOffset>.Step(next))));
@@ -125,10 +126,10 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
 
     // --- [ACCESSIBILITY]
     protected override PartFacet Facet(GradingWheelState state, WheelPart key) =>
-        new(key.Role, Cursors.Cached(key.Cursor), RowText.Localize(key.Template, arguments: [state.Shown.Caption]).Local,
-            Some(key.Switch(state,
-                disc: static held => held.Shown.Hue.Shown(held.Offset.Map(static offset => (float)offset.Hue)),
-                puck: static held => held.Shown.Strength.Shown(held.Offset.Map(static offset => (float)offset.Strength)))),
+        new(key.Role, key.Cursor, RowText.Localize(key.Template, arguments: [state.Caption]).Local,
+            Some(key.Switch((Hue: hue, Strength: strength, state.Offset),
+                disc: static held => held.Hue.Shown(held.Offset.Map(static offset => (float)offset.Hue)),
+                puck: static held => held.Strength.Shown(held.Offset.Map(static offset => (float)offset.Strength)))),
             None);
 
     // --- [PAINT]
@@ -137,21 +138,19 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
             var plane =>
                 from well in Plots.Well(canvas, bounds)
                 from disc in ImagePlots.Device(plane, canvas.Scale).Match(Succ: extent => Tinted(canvas, plane.Plot, extent), Fail: static _ => IO.pure(unit))
-                from painted in Plots.Paint(canvas, marks.Map(mark => Cue(mark, interaction)) + (canvas.Focused ? Seq(new PlotMark<WheelPart>(new MarkShape.Band(bounds), new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f), None)) : Seq<PlotMark<WheelPart>>()))
+                from painted in Plots.Paint(canvas, marks.Map(mark => Cue(mark, interaction)) + (canvas.Focused ? Seq(new PlotMark<WheelPart>(new MarkShape.Band(bounds), WheelPart.Puck.Cued, None)) : Seq<PlotMark<WheelPart>>()))
                 select unit,
         };
 
     private IO<Unit> Tinted(PlotCanvas canvas, RectangleF plot, PixelExtent extent) =>
-        from image in IO.lift(() => raster.Filter(held => held.Diameter == extent.Width).IfNone(() => Rebuilt(extent)).Raster)
+        from image in IO.lift(() => raster.Filter(held => held.Diameter == extent.Width).IfNone(() => Replaced((extent.Width, ImagePlots.Pixels(extent, Tints(extent.Width))))).Raster)
         from drawn in Plots.Raster(canvas, plot, image)
         from veil in Plots.Veiled(canvas, new MarkShape.Disc(plot.Center, plot.Width))
         select unit;
 
-    private (int Diameter, Bitmap Raster) Rebuilt(PixelExtent extent) {
-        (int Diameter, Bitmap Raster) built = (extent.Width, ImagePlots.Pixels(extent, Tints(extent.Width)));
-        Option<(int Diameter, Bitmap Raster)> prior = raster;
+    private (int Diameter, Bitmap Raster) Replaced((int Diameter, Bitmap Raster) built) {
+        _ = raster.Iter(static held => held.Raster.Dispose());
         raster = built;
-        _ = prior.Iter(static held => held.Raster.Dispose());
         return built;
     }
 
@@ -172,8 +171,7 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
         base.Dispose(disposing);
         if (!disposing) return;
 
-        Option<(int Diameter, Bitmap Raster)> prior = raster;
+        _ = raster.Iter(static held => held.Raster.Dispose());
         raster = None;
-        _ = prior.Iter(static held => held.Raster.Dispose());
     }
 }

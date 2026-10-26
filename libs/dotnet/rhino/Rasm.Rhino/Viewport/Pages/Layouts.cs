@@ -47,11 +47,8 @@ public static class Layouts {
         from named in IO.lift(() => copy.PageName = name)
         select copy;
 
-    private static Seq<RhinoPageView> Pages(RhinoDoc doc) =>
-        toSeq(doc.Views.GetPageViews().OrderBy(static page => page.PageNumber)).Strict();
-
     private static Option<RhinoPageView> Find(RhinoDoc doc, LayoutName name) =>
-        Pages(doc).Find(page => name == page.PageName);
+        Viewports.Pages(doc.Views.GetPageViews()).Find(page => name == page.PageName);
 
     private static Unit Update<T>(T held, T wanted, Action<T> write) =>
         EqualityComparer<T>.Default.Equals(held, wanted) ? unit : fun(write)(wanted);
@@ -61,12 +58,10 @@ public static class Layouts {
         from accepted in IO.lift(TitleField.Accept(convention, entries))
         from written in accepted.TraverseM(entry => entry.Field.Source.Switch(
             (Doc: doc, Page: page, entry.Field.Key, entry.Text),
-            projectText: static (state, _) => UserStrings.Write(state.Doc, new DocumentKey(KeyName.Create(state.Key)), state.Text).Map(static _ => unit),
-            sheetText: static (state, _) => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((state.Key, state.Text)))),
-            identifier: static (_, _) => IO.pure(unit),
-            ordinal: static (_, _) => IO.pure(unit),
-            count: static (_, _) => IO.pure(unit),
-            designation: static (_, _) => IO.pure(unit))).As()
+            projectText: static state => UserStrings.Write(state.Doc, new DocumentKey(KeyName.Create(state.Key)), state.Text).Map(static _ => unit),
+            sheetText: static state => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((state.Key, state.Text)))),
+            identifier: static _ => IO.pure(unit),
+            designation: static _ => IO.pure(unit))).As()
         select unit;
 
     // --- [GROUPS]
@@ -90,7 +85,7 @@ public static class Layouts {
 
     // --- [ORDER]
     public static IO<Seq<(RhinoPageView Page, StandardName Number)>> Sheets(RhinoDoc doc, NamingStandard grammar) =>
-        IO.lift(() => toSeq(Pages(doc).Choose(page => StandardName.From(grammar, page.PageName).ToOption().Map(number => (Page: page, Number: number))).OrderBy(static sheet => sheet.Number)).Strict());
+        IO.lift(() => toSeq(Viewports.Pages(doc.Views.GetPageViews()).Choose(page => StandardName.From(grammar, page.PageName).ToOption().Map(number => (Page: page, Number: number))).OrderBy(static sheet => sheet.Number)).Strict());
 
     public static IO<Unit> Arrange(Seq<RhinoPageView> pages) =>
         from start in IO.lift(() => pages.Fold(int.MaxValue, static (least, page) => int.Min(least, page.PageNumber)))
@@ -109,7 +104,7 @@ public static class Layouts {
     public static IO<Unit> Number(RhinoDoc doc, NamingStandard grammar) =>
         from sheets in Sheets(doc, grammar)
         let positions = toHashMap(StandardName.Positions(sheets).Map(static sheet => (sheet.Sheet.RuntimeSerialNumber, (sheet.Ordinal, sheet.Count))))
-        from written in Pages(doc).TraverseM(page =>
+        from written in Viewports.Pages(doc.Views.GetPageViews()).TraverseM(page =>
             from position in IO.pure(positions.Find(page.RuntimeSerialNumber))
             from stored in UserStrings.Write(page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq(
                 (TitleField.SegmentNumber.Key, position.Map(static at => at.Ordinal.ToString(CultureInfo.InvariantCulture))),
@@ -166,7 +161,7 @@ public static class Layouts {
             TableOps.WithAttributes(doc.CreateDefaultAttributes, None, attributes =>
                 from placed in IO.lift(() => { (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer, ActiveSpace.PageSpace, page.MainViewport.Id); })
                 from weighted in IO.lift(() => width.Iter(stroke => (attributes.PlotWeightSource, attributes.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, PlotWeight.Of(stroke).ToHost())))
-                from tagged in IO.lift(() => Refused.Unless(attributes.SetUserString(FrameKey, sheet.Size.Key), nameof(ObjectAttributes.SetUserString)))
+                from tagged in IO.lift(() => Refused.Unless(attributes.SetUserString(FrameKey, sheet.Size.Name), nameof(ObjectAttributes.SetUserString)))
                 from id in DisposalOps.Within(shape,
                     made => IO.lift(made).Bind(geometry => TableOps.Add(doc, new GeometryPair(geometry, Some(attributes)), None, reference: false)),
                     static made => DisposalOps.Release(made.ToOption().ToSeq()))

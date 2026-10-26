@@ -59,13 +59,13 @@ public static partial class Drawings {
             retain);
 
     private static IO<Unit> Projected(ProjectionFrame frame, BoundingBox bounds, HiddenLineDrawingParameters parameters, Action<IDisposable> temporary) =>
-        frame.Switch(
-            (Bounds: bounds, Retain: temporary),
-            rhinoViewport: static (state, live) => DisposalOps.Acquire(IO.lift(() => new ViewportInfo(live)), state.Retain)
-                .OnUiThread()
-                .Bind(camera => IO.lift(() => Refused.Unless(camera.SetFrustumNearFar(state.Bounds), camera, nameof(ViewportInfo.SetFrustumNearFar)))),
-            cameraPose: static (state, pose) => Cameras.ToViewportInfo(pose, state.Bounds, state.Retain))
-            .Bind(viewport => IO.lift(() => parameters.SetViewport(viewport)));
+        from camera in frame.Switch(
+            temporary,
+            rhinoViewport: static (retain, live) => DisposalOps.Acquire(IO.lift(() => new ViewportInfo(live)), retain).OnUiThread(),
+            cameraPose: static (retain, pose) => DisposalOps.Acquire(IO.lift(static () => new ViewportInfo()), retain).Bind(made => IO.lift(() => Cameras.Pose(made, pose))))
+        from bounded in IO.lift(() => Refused.Unless(camera.SetFrustumNearFar(bounds), nameof(ViewportInfo.SetFrustumNearFar)))
+        from viewed in IO.lift(() => parameters.SetViewport(camera))
+        select viewed;
 
     private static IO<HiddenLineDrawing> Computed(HiddenLineDrawingParameters parameters, bool multipleThreads, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         from token in cancelToken

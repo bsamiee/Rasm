@@ -16,7 +16,6 @@ public sealed record PrinterForm(string Name, double Width, double Height, HashM
 public readonly partial struct Dpi : System.Numerics.IMinMaxValue<Dpi> {
     public static Dpi MinValue { get; } = new(double.BitIncrement(0d));
     public static Dpi MaxValue { get; } = new(double.MaxValue);
-    public static Dpi PrintDefault { get; } = new(300d);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -39,9 +38,9 @@ public static class Printers {
     public static IO<T> WithCustomPages<T>(Seq<SheetSize> sheets, IO<T> write) =>
         from pages in IO.lift(sheets.Traverse(static sheet => Quantities.System(sheet.Sides.Short.Unit)
             .Map(system => new PrintedPageDefinition {
-                Description = sheet.Key, Width = sheet.Sides.Short.Value.ToDouble(), Height = sheet.Sides.Long.As(sheet.Sides.Short.Unit).ToDouble(), Units = system,
+                Description = sheet.Name, Width = sheet.Sides.Short.Value.ToDouble(), Height = sheet.Sides.Long.As(sheet.Sides.Short.Unit).ToDouble(), Units = system,
             })
-            .ToFin(Error.New($"sheet {sheet} unit has no Rhino unit system"))).As())
+            .ToFin(Error.New($"sheet {sheet.Name} unit has no Rhino unit system"))).As())
         from written in DisposalOps.Within(FilePdf.GetCustomPages,
             prior => IO.lift(() => FilePdf.SetCustomPages([.. prior, .. pages])).Bind(_ => write),
             static prior => IO.lift(() => FilePdf.SetCustomPages(prior)))

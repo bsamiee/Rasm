@@ -1,6 +1,4 @@
 using System.Globalization;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Rhino;
 using Rhino.PlugIns;
 using Rhino.Runtime;
@@ -70,13 +68,4 @@ public static partial class ErrorOps {
 
     private static Seq<Error> Causes(Error error) =>
         error.FoldM(static leaf => leaf.Cons(leaf.Inner.ToSeq().Bind(Causes))).As();
-}
-
-public static class CommandWindowLogging {
-    extension(ILoggingBuilder builder) {
-        public ILoggingBuilder AddCommandWindow() {
-            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, CommandWindowLoggerProvider>());
-            return builder;
-        }
-    }
 }

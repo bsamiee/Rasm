@@ -31,7 +31,7 @@ public static class NativeControls {
             let site = new CallbackSite(sink, typeof(NativeControls), nameof(Events))
             from responder in IO.lift(() => EventViews.TryGetValue(view, out EventResponder? existing)
                 ? existing
-                : new EventResponder(SafeNativeMethods.object_getClass(view.Handle)).Attach(view))
+                : new EventResponder(SafeNativeMethods.object_getClass(view.Handle), site).Attach(view))
             from id in IO.lift(Guid.NewGuid)
             from attached in Subscriptions.Attach(
                 receiver => responder.Receivers.Swap(receivers => receivers.Add((id, receiver, site))),
@@ -44,19 +44,17 @@ public static class NativeControls {
             from handler in IO.lift(() => Refused.UnlessFound(control.GetMacControl(), nameof(MacControlExtensions.GetMacControl)))
             let view = handler.EventControl
             from attached in recognizers.TraverseM(recognizer =>
-                DisposalOps.Acquire(IO.lift(() => new Disposal<NSGestureRecognizer>(recognizer, view.RemoveGestureRecognizer)), lease => {
-                    view.AddGestureRecognizer(recognizer);
-                    owned(lease);
-                })).As()
+                DisposalOps.Acquire(IO.lift(() => view.AddGestureRecognizer(recognizer)), _ => IO.lift(() => view.RemoveGestureRecognizer(recognizer)), owned)).As()
             select unit,
             new CallbackSite(sink, typeof(NativeControls), nameof(Gestures)), retain);
 
     private sealed class EventResponder {
         private readonly nint parent;
+        private readonly CallbackSite site;
         private readonly NativeEvent receive;
 
-        internal EventResponder(nint parent) {
-            this.parent = parent;
+        internal EventResponder(nint parent, CallbackSite site) {
+            (this.parent, this.site) = (parent, site);
             receive = Dispatch;
         }
 
@@ -73,17 +71,18 @@ public static class NativeControls {
 
         internal void Detach(Guid id) => Receivers.Swap(receivers => receivers.Filter(receiver => receiver.Id != id));
 
-        private void Dispatch(nint view, nint selector, nint current) {
-            bool handled = Receivers.Value.Exists(receiver => Callbacks.Answer(
-                from input in IO.lift(() => (
-                    Refused.UnlessFound(Runtime.GetNSObject<NSView>(view), nameof(Runtime.GetNSObject)),
-                    Refused.UnlessFound(Runtime.GetNSObject<NSEvent>(current), nameof(Runtime.GetNSObject)))
-                    .Apply(static (host, native) => (Host: host, Native: native)).As())
-                from consumed in receiver.Receive(input.Host, input.Native)
-                select consumed, static () => false, receiver.Site));
-            if (!handled)
-                Marshal.GetDelegateForFunctionPointer<NativeEvent>(SafeNativeMethods.method_getImplementation(ObjCExtensions.GetInstanceMethod(parent, selector)))(view, selector, current);
-        }
+        private void Dispatch(nint view, nint selector, nint current) =>
+            Callbacks.Run(IO.lift(() => {
+                bool handled = Receivers.Value.Exists(receiver => Callbacks.Answer(
+                    from input in IO.lift(() => (
+                        Refused.UnlessFound(Runtime.GetNSObject<NSView>(view), nameof(Runtime.GetNSObject)),
+                        Refused.UnlessFound(Runtime.GetNSObject<NSEvent>(current), nameof(Runtime.GetNSObject)))
+                        .Apply(static (host, native) => (Host: host, Native: native)).As())
+                    from consumed in receiver.Receive(input.Host, input.Native)
+                    select consumed, static () => false, receiver.Site));
+                if (!handled)
+                    Marshal.GetDelegateForFunctionPointer<NativeEvent>(SafeNativeMethods.method_getImplementation(ObjCExtensions.GetInstanceMethod(parent, selector)))(view, selector, current);
+            }), site);
     }
 
     internal static Fin<nint> Subclass(nint parent, Seq<(nint Selector, Delegate Implementation)> methods) {
@@ -127,19 +126,19 @@ public static class NativeControls {
             new CallbackSite(grid.Sink, typeof(RowGrid), nameof(Rows)));
 
     // --- [SCRUB]
-    private static unsafe NSObject? Monitor(Func<NativeHandle, NativeHandle> receive) {
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    [UserDelegateType(typeof(Func<NSEvent, NSEvent?>))]
+    private delegate NativeHandle KeyMonitor(nint block, NativeHandle current);
+
+    private static unsafe NSObject? Monitor(TextBoxHandler handler, CallbackSite site) {
         NSApplication.EnsureUIThread();
-        BlockLiteral block = new((delegate* unmanaged<nint, NativeHandle, NativeHandle>)&Monitored,
-            receive, typeof(NativeControls), nameof(Monitored));
+        KeyMonitor monitored = (_, current) => Escaped(handler, current, site);
+        BlockLiteral block = default;
+        block.SetupBlock(monitored, monitored);
         using (block)
             return Runtime.GetNSObject(SafeNativeMethods.objc_msgSend(Class.GetHandle(typeof(NSEvent)),
                 Selector.GetHandle("addLocalMonitorForEventsMatchingMask:handler:"), (ulong)NSEventMask.KeyDown, &block));
     }
-
-    [UnmanagedCallersOnly]
-    [UserDelegateType(typeof(Func<NSEvent, NSEvent?>))]
-    private static NativeHandle Monitored(nint block, NativeHandle current) =>
-        BlockLiteral.GetTarget<Func<NativeHandle, NativeHandle>>(block)(current);
 
     private static void Scrubbed(NumberField field, TextBoxHandler handler) =>
         Callbacks.Run(
@@ -149,30 +148,23 @@ public static class NativeControls {
                 field.ScrubStarted += Callbacks.Handler<EventArgs>(_ => Held(handler, held, site), site);
                 field.ScrubEnded += Callbacks.Handler<EventArgs>(_ => Freed(held), site);
                 field.LoadComplete += Callbacks.Handler<EventArgs>(_ => IO.lift(() => { field.Font = HostTheme.Digits(field.Font); }), site);
-                handler.Control.AccessibilityCustomActions = Steps(field.Adjust);
+                handler.Control.AccessibilityCustomActions = Actions(Seq<(NSString, Func<bool>)>(
+                    (NSAccessibilityActions.IncrementAction, () => field.Adjust(1)), (NSAccessibilityActions.DecrementAction, () => field.Adjust(-1))));
             })
             select unit,
             new CallbackSite(field.Sink, typeof(TextBoxHandler), nameof(Field)));
 
-    private static IO<Unit> Held(TextBoxHandler handler, Ref<Option<IDisposable>> held, CallbackSite site) {
-        Action<NSObject> release = static token => DisposalOps.Release<IDisposable>(token, new Disposal<NSObject>(token, NSEvent.RemoveMonitor)).Run();
-        return DisposalOps.Acquire(owned =>
-            from monitor in DisposalOps.Acquire(IO.lift(() => Monitor(key => Escaped(handler, key, site))), token => IO.lift(() => Optional(token).Iter(release)), token => Optional(token).Iter(value => owned(new Disposal<NSObject>(value, release))))
-            from present in IO.lift(() => Refused.UnlessFound(monitor, nameof(Monitor)))
-            from hidden in DisposalOps.Acquire(IO.lift(static () => new Disposal<Unit>(unit, static _ => NSCursor.Unhide())), lease => {
-                NSCursor.Hide();
-                owned(lease);
-            })
-            from pointer in DisposalOps.Acquire(IO.lift(static () => new Disposal<Unit>(unit, static _ => IO.lift(static () =>
-                Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: true) is 0,
-                    nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition))).Run())), lease => {
-                        _ = Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected: false) is 0,
-                            nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition)).ThrowIfFail();
-                        owned(lease);
-                    })
+    private static IO<Unit> Held(TextBoxHandler handler, Ref<Option<IDisposable>> held, CallbackSite site) =>
+        DisposalOps.Acquire(owned =>
+            from monitor in DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(Monitor(handler, site), nameof(Monitor))),
+                static token => Callbacks.Each(Seq(IO.lift(() => NSEvent.RemoveMonitor(token)), IO.lift(token.Dispose))).Map(unit), owned)
+            from hidden in DisposalOps.Acquire(IO.lift(NSCursor.Hide), static _ => IO.lift(NSCursor.Unhide), owned)
+            from pointer in DisposalOps.Acquire(IO.lift(static () => Associated(connected: false)), static _ => IO.lift(static () => Associated(connected: true)), owned)
             select unit,
             lease => _ = atomic(() => held.Value = Some(lease)));
-    }
+
+    private static Fin<Unit> Associated(bool connected) =>
+        Refused.Unless(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition(connected) is 0, nameof(SafeNativeMethods.CGAssociateMouseAndMouseCursorPosition));
 
     private static IO<Unit> Freed(Ref<Option<IDisposable>> held) =>
         from released in atomicIO(() => {
@@ -216,8 +208,7 @@ public static class NativeControls {
             ? NSControlSize.Small
             : NSControlSize.Regular;
 
-    // --- [STEPS]
-    private static NSAccessibilityCustomAction[] Steps(Func<int, bool> adjust) =>
-        [.. Seq((Action: NSAccessibilityActions.IncrementAction, Steps: 1), (Action: NSAccessibilityActions.DecrementAction, Steps: -1))
-            .Choose(row => Optional(NSAccessibility.GetActionDescription(row.Action)).Map(name => new NSAccessibilityCustomAction { Name = name, Handler = () => adjust(row.Steps) }))];
+    // --- [ACCESSIBILITY]
+    internal static NSAccessibilityCustomAction[] Actions(Seq<(NSString Action, Func<bool> Perform)> rows) =>
+        [.. rows.Choose(static row => Optional(NSAccessibility.GetActionDescription(row.Action)).Map(name => new NSAccessibilityCustomAction { Name = name, Handler = row.Perform }))];
 }

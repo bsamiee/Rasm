@@ -266,8 +266,7 @@ public static class Painter {
 
     private static void Covered(SKCanvas canvas, Material material, SKRect bounds, Action<SKCanvas> clip, Action draw) {
         using SKAutoCanvasRestore restore = new(canvas, doSave: false);
-        _ = material.Switch(
-                solid: static _ => None, gradient: static _ => None, drawn: static _ => None, backdrop: static _ => None, blurred: static blurred => Some(blurred.Sigma))
+        _ = material.SwitchPartially(@default: static _ => Option<float>.None, blurred: static blurred => Some(blurred.Sigma))
             .Iter(sigma => {
                 _ = canvas.Save();
                 clip(canvas);
@@ -340,28 +339,16 @@ public static class Painter {
             text: static (held, text) => Texted(held.Canvas, held.Pass, text, held.Context, held.Content));
 
     private static void Contained(SKCanvas canvas, Pass pass, Laid.Box laid, Context context, SKRect content) =>
-        laid.Node.Switch(
+        laid.Node.SwitchPartially(
             (Canvas: canvas, Pass: pass, Laid: laid, Context: context, Content: content),
-            box: static (_, _) => { },
-            flex: static (_, _) => { },
-            grid: static (_, _) => { },
-            lazy: static (_, _) => { },
-            overlay: static (_, _) => { },
-            choice: static (_, _) => { },
-            scroll: static (_, _) => { },
-            split: static (_, _) => { },
-            plot: static (_, _) => { },
-            pin: static (_, _) => { },
             mark: static (held, mark) => held.Context.Plot.Iter(plot => Marked(held.Canvas, held.Pass.Theme, held.Laid.Style, held.Context.Washes, mark, held.Context.Pen(held.Laid.Style), plot, held.Pass.Clock)),
-            text: static (_, _) => { },
             glyph: static (held, glyph) => Inked(held.Pass.Theme, held.Laid.Style, held.Context.Washes, held.Laid.Style.Text, None)
                 .Iter(tint => held.Pass.Cache.Glyph(held.Canvas, glyph.Art, held.Context.Ground, held.Context.Pen(held.Laid.Style), tint, held.Content)),
             image: static (held, image) => Pictured(held.Canvas, held.Pass.Theme, held.Laid.Style, held.Context.Washes, image, held.Content),
             slot: static (held, _) => {
                 using SKPaint clear = new() { BlendMode = SKBlendMode.Clear };
                 held.Canvas.DrawRect(SKRect.Create(held.Laid.Frame.Size), clear);
-            },
-            styled: static (_, _) => { });
+            });
 
     private static void Texted(SKCanvas canvas, Pass pass, Laid.Text laid, Context context, SKRect content) =>
         _ = Inked(pass.Theme, laid.Style, context.Washes, laid.Style.Text, None).Iter(ink => pass.Editing.Filter(held => held.Path == laid.Path).Match(

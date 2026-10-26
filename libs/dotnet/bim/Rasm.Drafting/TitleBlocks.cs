@@ -50,60 +50,45 @@ public sealed partial class TitleRule {
 
     public Fin<Option<string>> Accept(TitleField field, RevisionAlphabet alphabet, Option<string> entry) =>
         entry.Match(
-            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} has invalid entry", error)),
-            None: () => Mandatory ? Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} has no entry") : Option<string>.None);
+            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"title-block field {field.Key} has invalid entry", error)),
+            None: () => Mandatory ? Error.New(ErrorCodes.ValidationFailed, $"title-block field {field.Key} has no entry") : Option<string>.None);
 
     [UseDelegateFromConstructor]
     private partial Fin<string> Normalize(RevisionAlphabet alphabet, string text);
 }
 
-[Union(MapMethods = SwitchMapMethodsGeneration.None)]
-public abstract partial record TitleSource {
-    public sealed record ProjectText(TitleRule Rule) : TitleSource;
-    public sealed record SheetText(TitleRule Rule) : TitleSource;
-    public sealed record Identifier : TitleSource;
-    public sealed record Ordinal : TitleSource;
-    public sealed record Count : TitleSource;
-    public sealed record Designation : TitleSource;
+[SmartEnum(MapMethods = SwitchMapMethodsGeneration.None)]
+public sealed partial class TitleSource {
+    public static readonly TitleSource ProjectText = new();
+    public static readonly TitleSource SheetText = new();
+    public static readonly TitleSource Identifier = new();
+    public static readonly TitleSource Designation = new();
 }
 
-[SmartEnum<string>]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class TitleField {
-    public static readonly TitleField LegalOwner = new("legal-owner", new TitleSource.ProjectText(TitleRule.Required));
-    public static readonly TitleField IdentificationNumber = new("identification-number", new TitleSource.Identifier());
-    public static readonly TitleField RevisionIndex = new("revision-index", new TitleSource.SheetText(TitleRule.Revision));
-    public static readonly TitleField DateOfIssue = new("date-of-issue", new TitleSource.SheetText(TitleRule.IssueDate));
-    public static readonly TitleField SegmentNumber = new("segment-number", new TitleSource.Ordinal());
-    public static readonly TitleField SegmentCount = new("segment-count", new TitleSource.Count());
-    public static readonly TitleField LanguageCode = new("language-code", new TitleSource.ProjectText(TitleRule.Optional));
-    public static readonly TitleField Title = new("title", new TitleSource.SheetText(TitleRule.Required));
-    public static readonly TitleField SupplementaryTitle = new("supplementary-title", new TitleSource.SheetText(TitleRule.Optional));
-    public static readonly TitleField ResponsibleDepartment = new("responsible-department", new TitleSource.ProjectText(TitleRule.Optional));
-    public static readonly TitleField TechnicalReference = new("technical-reference", new TitleSource.ProjectText(TitleRule.Optional));
-    public static readonly TitleField ApprovalPerson = new("approval-person", new TitleSource.SheetText(TitleRule.Required));
-    public static readonly TitleField Creator = new("creator", new TitleSource.SheetText(TitleRule.Required));
-    public static readonly TitleField DocumentType = new("document-type", new TitleSource.ProjectText(TitleRule.Required));
-    public static readonly TitleField Classification = new("classification", new TitleSource.ProjectText(TitleRule.Optional));
-    public static readonly TitleField DocumentStatus = new("document-status", new TitleSource.SheetText(TitleRule.Optional));
-    public static readonly TitleField PaperSize = new("paper-size", new TitleSource.Designation());
-    public static readonly TitleField ProjectName = new("project-name", new TitleSource.ProjectText(TitleRule.Optional));
-    public static readonly TitleField Client = new("client", new TitleSource.ProjectText(TitleRule.Optional));
-    public static readonly TitleField Checker = new("checker", new TitleSource.SheetText(TitleRule.Optional));
-
-    public TitleSource Source { get; }
+public sealed record TitleField(string Key, TitleSource Source, Option<TitleRule> Rule) {
+    public static readonly TitleField LegalOwner = new("legal-owner", TitleSource.ProjectText, TitleRule.Required);
+    public static readonly TitleField IdentificationNumber = new("identification-number", TitleSource.Identifier, None);
+    public static readonly TitleField RevisionIndex = new("revision-index", TitleSource.SheetText, TitleRule.Revision);
+    public static readonly TitleField DateOfIssue = new("date-of-issue", TitleSource.SheetText, TitleRule.IssueDate);
+    public static readonly TitleField SegmentNumber = new("segment-number", TitleSource.SheetText, None);
+    public static readonly TitleField SegmentCount = new("segment-count", TitleSource.SheetText, None);
+    public static readonly TitleField LanguageCode = new("language-code", TitleSource.ProjectText, TitleRule.Optional);
+    public static readonly TitleField Title = new("title", TitleSource.SheetText, TitleRule.Required);
+    public static readonly TitleField SupplementaryTitle = new("supplementary-title", TitleSource.SheetText, TitleRule.Optional);
+    public static readonly TitleField ResponsibleDepartment = new("responsible-department", TitleSource.ProjectText, TitleRule.Optional);
+    public static readonly TitleField TechnicalReference = new("technical-reference", TitleSource.ProjectText, TitleRule.Optional);
+    public static readonly TitleField ApprovalPerson = new("approval-person", TitleSource.SheetText, TitleRule.Required);
+    public static readonly TitleField Creator = new("creator", TitleSource.SheetText, TitleRule.Required);
+    public static readonly TitleField DocumentType = new("document-type", TitleSource.ProjectText, TitleRule.Required);
+    public static readonly TitleField Classification = new("classification", TitleSource.ProjectText, TitleRule.Optional);
+    public static readonly TitleField DocumentStatus = new("document-status", TitleSource.SheetText, TitleRule.Optional);
+    public static readonly TitleField PaperSize = new("paper-size", TitleSource.Designation, None);
+    public static readonly TitleField ProjectName = new("project-name", TitleSource.ProjectText, TitleRule.Optional);
+    public static readonly TitleField Client = new("client", TitleSource.ProjectText, TitleRule.Optional);
+    public static readonly TitleField Checker = new("checker", TitleSource.SheetText, TitleRule.Optional);
 
     public static Fin<Seq<(TitleField Field, Option<string> Text)>> Accept(DraftingConvention convention, HashMap<TitleField, string> entries) =>
-        toSeq(Items).Filter(entries.ContainsKey)
-            .Traverse(field => field.Source.Switch(
-                    (Field: field, Alphabet: convention.Revisions, Entry: entries.Find(field).Map(static text => text.Trim()).Filter(static text => text.Length > 0)),
-                    projectText: static (input, source) => source.Rule.Accept(input.Field, input.Alphabet, input.Entry),
-                    sheetText: static (input, source) => source.Rule.Accept(input.Field, input.Alphabet, input.Entry),
-                    identifier: static (_, _) => Option<string>.None,
-                    ordinal: static (_, _) => Option<string>.None,
-                    count: static (_, _) => Option<string>.None,
-                    designation: static (_, _) => Option<string>.None)
-                .Map(text => (field, text)))
+        toSeq(entries.AsIterable()).Choose(static entry => entry.Key.Rule.Map(rule => (Field: entry.Key, Rule: rule, Entry: Some(entry.Value.Trim()).Filter(static text => text.Length > 0))))
+            .Traverse(entry => entry.Rule.Accept(entry.Field, convention.Revisions, entry.Entry).Map(text => (entry.Field, text)))
             .As();
 }

@@ -37,9 +37,6 @@ class Quantity(Enum):
     IRRADIANCE = auto()
     LUMINANCE = auto()
     FRAME = auto()
-    FRAME_WIDTH = auto()
-    FRAME_HEIGHT = auto()
-    FRAME_GREATER = auto()
 
 
 class Choice(IntEnum):
@@ -95,7 +92,7 @@ class GraphForm(Enum):
     COLOR_SPACE = auto()
 
 
-type Stops = Annotated[float, msgspec.Meta(ge=STOP_RANGE[0], le=STOP_RANGE[1]), Presentation(soft=Some((-10.0, 10.0)), step=Some(0.01), decimals=Some(3))]
+type Stops = Annotated[float, msgspec.Meta(ge=_STOP_RANGE[0], le=_STOP_RANGE[1]), Presentation(soft=Some((-10.0, 10.0)), step=Some(0.01), precision=Some(3))]
 type Seed = Annotated[int, msgspec.Meta(ge=0, le=2**24)]
 type ColorSpace = Annotated[str, msgspec.Meta(min_length=1), GraphForm.COLOR_SPACE]
 type Finite = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max)]
@@ -103,15 +100,16 @@ type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 type Positive = Annotated[float, msgspec.Meta(gt=0.0, le=sys.float_info.max)]
 type NonNegative = Annotated[float, msgspec.Meta(ge=0.0, le=sys.float_info.max)]
 type AtLeastOne = Annotated[float, msgspec.Meta(ge=1.0, le=sys.float_info.max)]
-type FrameLength = Annotated[NonNegative, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME_GREATER))]
-type FrameExtent = Annotated[Positive, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME_GREATER))]
+type Side = Annotated[int, msgspec.Meta(ge=1)]
+type FrameLength = Annotated[NonNegative, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
+type FrameExtent = Annotated[Positive, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
 type Turn = Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi), Presentation(quantity=Some(Quantity.ANGLE))]
 type Elevation = Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0), Presentation(quantity=Some(Quantity.ANGLE))]
 type Position = Annotated[tuple[Finite, Finite], Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-STOP_RANGE: Final = (-32.0, 32.0)
+_STOP_RANGE: Final = (-32.0, 32.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -121,7 +119,7 @@ class Presentation(msgspec.Struct, frozen=True, kw_only=True):
 
     soft: Option[tuple[float, float]] = Nothing
     step: Option[float] = Nothing
-    decimals: Option[int] = Nothing
+    precision: Option[int] = Nothing
     quantity: Option[Quantity] = Nothing
 
     @classmethod
@@ -142,6 +140,14 @@ class Motion(msgspec.Struct, frozen=True, kw_only=True):
 
     speed: Annotated[NonNegative, msgspec.Meta(description="Clock frames per scene frame, still at 0"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
     hold: Annotated[int, msgspec.Meta(ge=1, description="Scene frames each clock value holds")] = 1
+
+    def held(self, frame: float) -> float:
+        """Returns scene `frame` held to the first frame of its hold."""
+        return self.hold * math.floor(frame / self.hold)
+
+    def clock(self, frame: float) -> float:
+        """Returns clock frames at held scene `frame`."""
+        return self.speed * self.held(frame)
 
 
 class Rgb[T: float = float](msgspec.Struct, frozen=True, kw_only=True, array_like=True):
@@ -205,7 +211,6 @@ def markers[M](annotation: object, marker: type[M]) -> tuple[M, ...]:
 
 
 __all__ = [
-    "STOP_RANGE",
     "AtLeastOne",
     "Case",
     "CaseMeta",
@@ -230,6 +235,7 @@ __all__ = [
     "Ramp",
     "Rgb",
     "Seed",
+    "Side",
     "Stop",
     "Stops",
     "Turn",

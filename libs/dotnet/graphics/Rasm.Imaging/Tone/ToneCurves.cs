@@ -187,14 +187,8 @@ public readonly partial struct PrimaryRotation : IMinMaxValue<PrimaryRotation> {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
-public sealed record CurveApplication(
-    AxisFraction PreserveHue, AxisFraction Purity, Option<Gamut> BasePrimaries,
-    PrimaryInset RedInset, PrimaryInset GreenInset, PrimaryInset BlueInset,
-    PrimaryRotation RedRotation, PrimaryRotation GreenRotation, PrimaryRotation BlueRotation) {
-    public static CurveApplication Default { get; } = new(
-        AxisFraction.MaxValue, AxisFraction.MinValue, None,
-        PrimaryInset.Neutral, PrimaryInset.Neutral, PrimaryInset.Neutral,
-        PrimaryRotation.Neutral, PrimaryRotation.Neutral, PrimaryRotation.Neutral);
+public sealed record CurveApplication(AxisFraction PreserveHue, AxisFraction Purity, Option<Gamut> BasePrimaries, Channels<PrimaryInset> Inset, Channels<PrimaryRotation> Rotation) {
+    public static CurveApplication Default { get; } = new(AxisFraction.MaxValue, AxisFraction.MinValue, None, new(PrimaryInset.Neutral), new(PrimaryRotation.Neutral));
 }
 
 public sealed record SigmoidState(CurveGamma Contrast, SignedFraction Skew, TargetBlack Black) {
@@ -416,9 +410,9 @@ public static class ToneCurves {
     private static Configuration Adjusted(Gamut basis, CurveApplication application, AxisFraction share) =>
         basis.Configuration.Rgb switch {
             var rgb => new(new RgbConfiguration(
-                Moved(rgb, rgb.ChromaticityR, 1d - ((float)share * application.RedInset), application.RedRotation),
-                Moved(rgb, rgb.ChromaticityG, 1d - ((float)share * application.GreenInset), application.GreenRotation),
-                Moved(rgb, rgb.ChromaticityB, 1d - ((float)share * application.BlueInset), application.BlueRotation),
+                Moved(rgb, rgb.ChromaticityR, 1d - ((float)share * application.Inset.Red), application.Rotation.Red),
+                Moved(rgb, rgb.ChromaticityG, 1d - ((float)share * application.Inset.Green), application.Rotation.Green),
+                Moved(rgb, rgb.ChromaticityB, 1d - ((float)share * application.Inset.Blue), application.Rotation.Blue),
                 rgb.WhitePoint, static linear => linear, static linear => linear)),
         };
 

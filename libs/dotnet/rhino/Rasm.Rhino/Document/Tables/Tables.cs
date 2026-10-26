@@ -26,24 +26,6 @@ public sealed record TableKind<T>(
     Func<RhinoDoc, T, int, bool> Modify,
     Func<RhinoDoc, string> FreeName) where T : ModelComponent, new();
 
-[SmartEnum<ModelComponentType>(SkipIComparable = true)]
-public sealed partial class PurgeKind {
-    public static readonly PurgeKind Linetypes = new(ModelComponentType.LinePattern, static doc => doc.Linetypes.PurgeUnused());
-
-    public static readonly PurgeKind Layers = new(ModelComponentType.Layer, static doc => doc.Layers.PurgeUnused());
-
-    public static readonly PurgeKind Groups = new(ModelComponentType.Group, static doc => doc.Groups.PurgeUnused());
-
-    public static readonly PurgeKind DimensionStyles = new(ModelComponentType.DimStyle, static doc => doc.DimStyles.PurgeUnused());
-
-    public static readonly PurgeKind HatchPatterns = new(ModelComponentType.HatchPattern, static doc => doc.HatchPatterns.PurgeUnused());
-
-    public static readonly PurgeKind InstanceDefinitions = new(ModelComponentType.InstanceDefinition, static doc => doc.InstanceDefinitions.PurgeUnused());
-
-    [UseDelegateFromConstructor]
-    public partial int PurgeUnused(RhinoDoc doc);
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PlotWeight {
     public sealed record Default() : PlotWeight;
@@ -180,8 +162,6 @@ public abstract partial record ImmediateOp {
     public sealed record Flash(ObjectTarget Target, bool UseSelectionColor) : ImmediateOp;
 
     public sealed record Purge(ObjectTarget Target) : ImmediateOp;
-
-    public sealed record PurgeUnused(PurgeKind Kind) : ImmediateOp;
 }
 
 [Union]
@@ -388,8 +368,7 @@ public static class TableOps {
                 from objects in flash.Target.Objects(document)
                 from flashed in IO.lift(() => document.Views.FlashObjects(objects, flash.UseSelectionColor))
                 select objects.Count,
-            purge: static (document, purge) => Each(document, purge.Target, document.Objects.Purge, nameof(ObjectTable.Purge)).Map(static ids => ids.Count),
-            purgeUnused: static (document, unused) => IO.lift(() => unused.Kind.PurgeUnused(document))));
+            purge: static (document, purge) => Each(document, purge.Target, document.Objects.Purge, nameof(ObjectTable.Purge)).Map(static ids => ids.Count)));
 
     // --- [UNDO]
     public static IO<Unit> Undo(RhinoDoc doc, RedrawPolicy redraw, UndoOp op) =>
@@ -403,7 +382,4 @@ public static class TableOps {
                 None: () => document.ClearUndoRecords(clear.PurgeDeleted))),
             clearRedo: static (document, _) => IO.lift(document.ClearRedoRecords)))
         select stepped;
-
-    public static IO<(Seq<UndoRecordEntry> Undo, Seq<UndoRecordEntry> Redo)> UndoRecords(RhinoDoc doc) =>
-        IO.lift(() => (Conversions.Rows(doc.GetUndoRecords()), Conversions.Rows(doc.GetRedoRecords())));
 }

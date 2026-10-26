@@ -15,9 +15,9 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderResult
 from blender.bpy.nodes.changes import made, valued
 from blender.bpy.nodes.graphs import NodeGroup
-from blender.bpy.nodes.interface import slot
+from blender.bpy.nodes.interface import addresses, slot
 from blender.bpy.nodes.placement import NodeSize, NodeSpacing
-from blender.bpy.nodes.trees import created, GraphTree, group_node, grouped, joined, ordered
+from blender.bpy.nodes.trees import created, GraphTree, GROUP_NODES, grouped, joined, ordered
 from blender.bpy.ui.screens.areas import Located
 from blender.bpy.ui.screens.regions import RegionView
 from blender.imaging.faults import accumulated, paired
@@ -131,25 +131,10 @@ class _Edit(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@contextmanager
-def _editing(chosen: Chosen) -> Generator[_Edit]:
-    tree = chosen.tree
-    selected, active = tuple((node, node.select) for node in tree.nodes), tree.nodes.active
-
-    def restored() -> None:
-        for node, state in selected:
-            node.select = state
-        tree.nodes.active = active
-
-    with ExitStack() as resources:
-        resources.callback(restored)
-        yield _Edit(tree=tree, resources=resources)
-
-
 def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, spacing: NodeSpacing, *, inputs: Mapping[Key, Value] = {}) -> BlenderResult[bpy.types.Node]:
     """Splices group after active node's first enabled output, routing each consumer link through group."""
 
-    def spliced(node: bpy.types.Node) -> BlenderResult[bpy.types.Node]:
+    def spliced(node: bpy.types.Node, tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.Node]:
         sources = tuple(socket for active in chosen.active.to_list() for socket in tuple(each for each in active.outputs if each.enabled)[:1])
         at = chosen.active.map(lambda active: (active.location_absolute.x + NodeSize.of(active, chosen.view).width + spacing.across, active.location_absolute.y)).default_with(
             lambda: chosen.view.to_view(chosen.view.region.width / 2.0, chosen.view.region.height / 2.0)
@@ -172,7 +157,7 @@ def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, spacing: Node
 
         return (
             slot(identity)
-            .bind(lambda name: valued(node, node.inputs, inputs, name))
+            .bind(lambda name: valued(node.inputs, inputs, addresses(tree, name)))
             .bind(lambda _: accumulated(linked(source) for source in sources))
             .bind(lambda _: written(node, "location_absolute", at))
             .bind(lambda _: accumulated(written(each, "select", each == node) for each in chosen.tree.nodes))
@@ -180,7 +165,22 @@ def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, spacing: Node
         )
 
     with _editing(chosen) as edit:
-        return made(group, identity).bind(lambda tree: edit.added(group_node(type(chosen.tree))).bind(lambda node: grouped(node, tree).bind(lambda _: spliced(node)))).map(edit.committed)
+        return made(group, identity).bind(lambda tree: edit.added(GROUP_NODES[type(chosen.tree)]).bind(lambda node: grouped(node, tree).bind(lambda _: spliced(node, tree)))).map(edit.committed)
+
+
+@contextmanager
+def _editing(chosen: Chosen) -> Generator[_Edit]:
+    tree = chosen.tree
+    selected, active = tuple((node, node.select) for node in tree.nodes), tree.nodes.active
+
+    def restored() -> None:
+        for node, state in selected:
+            node.select = state
+        tree.nodes.active = active
+
+    with ExitStack() as resources:
+        resources.callback(restored)
+        yield _Edit(tree=tree, resources=resources)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

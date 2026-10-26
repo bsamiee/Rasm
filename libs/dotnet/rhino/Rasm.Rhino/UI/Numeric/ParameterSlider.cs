@@ -9,13 +9,13 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.UI.Numeric;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record SliderGrip<TKey>(double Knob, double Pointer, (TKey Low, TKey High) Track) where TKey : struct, INumber<TKey>;
+internal sealed record SliderGrip<TKey>(double Knob, double Pointer, (TKey Low, TKey High) Track) where TKey : struct, INumber<TKey>;
 
-public sealed record ParameterSliderState<TValue, TKey>(Option<TValue> Shown, Option<SliderGrip<TKey>> Grip)
+internal sealed record ParameterSliderState<TValue, TKey>(Option<TValue> Shown, Option<SliderGrip<TKey>> Grip)
     where TValue : notnull where TKey : struct, INumber<TKey>;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, ScalarText<TValue, TKey> text, string caption)
+internal sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, ScalarText<TValue, TKey> text, string caption)
     : ComponentControl<ParameterSliderState<TValue, TKey>, Unit, TValue>(sink, new ParameterSliderState<TValue, TKey>(None, None), None)
     where TValue : notnull
     where TKey : struct, INumber<TKey> {

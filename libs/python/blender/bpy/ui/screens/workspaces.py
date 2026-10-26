@@ -1,59 +1,44 @@
 """Owned workspaces with add-on filters and deferred activation."""
 
 from contextlib import ExitStack
-from enum import auto, Enum
 from typing import Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.commands.calls import called
+from blender.bpy.commands.calls import called, Operation
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle, named, vacant
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.extension.events.handlers import PathHandler
-from blender.bpy.extension.events.timers import Timer
+from blender.bpy.extension.events.timers import Startup
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
+from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.imaging.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class TabOrder(Enum):
-    """Ends of workspace tab order."""
-
-    FRONT = auto()
-    BACK = auto()
-
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Activation(msgspec.Struct, frozen=True, kw_only=True):
-    """Deferred workspace switch with prior workspace and tab end."""
+    """Deferred workspace switch with prior workspace and the tab reorder operator run once it applies."""
 
     window: bpy.types.Window
     target: Handle[bpy.types.WorkSpace]
     prior: Handle[bpy.types.WorkSpace]
-    order: Option[TabOrder]
+    order: Option[Operation]
 
     def advanced(self) -> BlenderResult[Option[Self]]:
         """Returns switch while pending, Nothing after activation or user switch."""
-
-        def reordered(order: TabOrder) -> BlenderResult[None]:
-            """Moves workspace tab to requested end."""
-            return called(bpy.ops.workspace.reorder_to_front if order is TabOrder.FRONT else bpy.ops.workspace.reorder_to_back, {}, override=Some(bpy.context.temp_override(window=self.window))).map(
-                lambda _: None
-            )
-
         shown = self.window.workspace.session_uid
-        return self.order.map(reordered).default_value(Ok(None)).map(lambda _: Nothing) if shown == self.target.uid else Ok(Some(self) if shown == self.prior.uid else Nothing)
+        return (
+            self.order.map(lambda order: called(order, {}, override=Some(bpy.context.temp_override(window=self.window))).map(lambda _: Nothing)).default_value(Ok(Nothing))
+            if shown == self.target.uid
+            else Ok(Some(self) if shown == self.prior.uid else Nothing)
+        )
 
     def reverted(self) -> BlenderResult[None]:
         """Requests prior workspace, fault once it no longer resolves."""
@@ -66,14 +51,14 @@ class Activation(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
-    """Saved copy of source workspace with mode, add-on filter, and tab end."""
+    """Saved copy of source workspace with mode, add-on filter, and tab reorder operator (`workspace.reorder_to_front` or `reorder_to_back`)."""
 
     key: Key
     name: str
     source: str
     mode: "Option[rna_enums.WorkspaceObjectModeItems]" = Nothing
     owners: Option[tuple[str, ...]] = Nothing
-    order: Option[TabOrder] = Nothing
+    order: Option[Operation] = Nothing
 
     # --- [OWNERSHIP]
 
@@ -83,16 +68,8 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
         return Ownership(kind=bpy.types.WorkSpace, key=self.key, saved=Saved.ALWAYS)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Declares ownership and add-on filters for file load and first pass."""
-        listed: tuple[Registrable, ...] = (
-            (
-                PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: self.filtered(identity)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                Timer(body=lambda: self.filtered(identity).map(lambda _: Nothing)),
-            )
-            if self.owners.is_some()
-            else ()
-        )
-        return Ok((self.ownership, *listed))
+        """Declares ownership and add-on filters applied after registration and every file load."""
+        return Ok((self.ownership, *self.owners.map(lambda _: Startup(body=lambda: self.filtered(identity))).to_list()))
 
     # --- [FILTERING]
 
@@ -160,4 +137,4 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Activation", "TabOrder", "WorkspaceSetup"]
+__all__ = ["Activation", "WorkspaceSetup"]

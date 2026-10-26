@@ -92,7 +92,7 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
     """Seeded front-element dirt coverage."""
 
     coverage: Annotated[float, msgspec.Meta(ge=0.01, le=1.0, description="Covered lens share")] = 0.2
-    scale: Annotated[float, msgspec.Meta(ge=0.001, le=0.5, description="Largest speck size"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.05
+    scale: Annotated[float, msgspec.Meta(ge=0.001, le=0.5, description="Largest speck size"), Presentation(quantity=Some(Quantity.FRAME))] = 0.05
     seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
 
     def field(self, size: tuple[int, int]) -> ImagingResult[npt.NDArray[np.float32]]:
@@ -129,7 +129,7 @@ class Bloom(Effect, frozen=True, kw_only=True, tag=27):
     stage = Stage.SCATTER
     pointwise = False
     scatter: Annotated[Unit, msgspec.Meta(description="Share of scene light spread into bloom"), Presentation(soft=Some((0.0, 0.25)))] = 0.7 * 0.15**1.5
-    size: Annotated[Unit, msgspec.Meta(description="Widest bloom level"), Presentation(quantity=Some(Quantity.FRAME_GREATER))] = 0.28125
+    size: Annotated[Unit, msgspec.Meta(description="Widest bloom level"), Presentation(quantity=Some(Quantity.FRAME))] = 0.28125
     dirt: Annotated[Gated[Dirt], msgspec.Meta(title="Lens Dirt", description="Bloom-lit front-element dirt")] = Gated(enabled=False, value=Dirt())
 
 

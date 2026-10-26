@@ -10,17 +10,18 @@ import bpy
 from expression import Nothing, Ok, Option
 from expression.collections import Map
 import msgspec
+import OpenImageIO
 
-from blender.bpy.data.ids.images import intermediates
 from blender.bpy.extension.events.handlers import SceneHandler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderResult
 from blender.bpy.render.outputs.formats import compression, depth, Kind, kind
 from blender.bpy.render.outputs.framing import FrameSize
+from blender.bpy.render.outputs.results import INTERMEDIATES
 from blender.imaging.faults import accumulated
 from blender.imaging.files.images import Compressions, Depth
-from blender.imaging.files.multilayer import rewritten, Window
+from blender.imaging.files.multilayer import Multilayer
 from blender.rendering.outputs.conventions import Blender, Conventions
 from blender.rendering.outputs.naming import Output
 
@@ -51,7 +52,7 @@ class Written(msgspec.Struct, frozen=True, kw_only=True):
     compression: Option[Compressions] = Nothing
     convention: Conventions = Blender()
     passes: Map[str, str] = Map.empty()
-    display: Option[Window] = Nothing
+    display: Option[OpenImageIO.ROI] = Nothing
 
     @classmethod
     def of(cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, convention: Conventions, layer: str, passes: Map[str, str]) -> Option[Self]:
@@ -93,7 +94,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
             return Ok(None)
 
         def windowed(scene: bpy.types.Scene, files: tuple[Written, ...]) -> BlenderResult[None]:
-            if scene.session_uid in intermediates:
+            if scene.session_uid in INTERMEDIATES.of(identity):
                 return Ok(None)
             return (
                 FrameSize()
@@ -102,7 +103,12 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(
                     lambda held: self.finished(
                         scene,
-                        tuple(msgspec.structs.replace(file, display=held.map(lambda base: Window(x=base.padding[0], y=base.padding[1], width=base.size[0], height=base.size[1]))) for file in files),
+                        tuple(
+                            msgspec.structs.replace(
+                                file, display=held.map(lambda base: OpenImageIO.ROI(base.padding[0], base.padding[0] + base.size[0], base.padding[1], base.padding[1] + base.size[1]))
+                            )
+                            for file in files
+                        ),
                         identity,
                     )
                 )
@@ -111,6 +117,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
         stopped = functools.partial(bracket, started=False)
         return Ok((
             FrameSize.attachment,
+            INTERMEDIATES,
             SceneHandler(handlers=bpy.app.handlers.render_init, body=functools.partial(bracket, started=True)),
             SceneHandler(handlers=bpy.app.handlers.render_complete, body=stopped),
             SceneHandler(handlers=bpy.app.handlers.render_cancel, body=stopped),
@@ -119,7 +126,7 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
                 handlers=bpy.app.handlers.render_post,
                 body=lambda scene: (
                     self.files.written(scene, scene.frame_current, identity).bind(lambda files: windowed(scene, files))
-                    if scene.session_uid in running and scene.session_uid not in intermediates
+                    if scene.session_uid in running and scene.session_uid not in INTERMEDIATES.of(identity)
                     else Ok(None)
                 ),
             ),
@@ -162,7 +169,7 @@ def rewritten_file(_scene: bpy.types.Scene, file: Written, _identity: Identity) 
             for layer in (name.rpartition(".")[0],)
         )
 
-    return rewritten(file.path, file.display, channels, file.compression).map(lambda _: None).map_error(BlenderImagingFault.lifted)
+    return Multilayer.rewritten(file.path, file.display, channels, file.compression).map(lambda _: None)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

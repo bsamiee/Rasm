@@ -1,7 +1,9 @@
 """Light group membership by rule, member selection, and lobe split children."""
 
+from collections.abc import Mapping
 from contextlib import ExitStack
 from itertools import chain
+from types import MappingProxyType
 from typing import Annotated, ClassVar
 
 import bpy
@@ -19,8 +21,8 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.scene.collections import joined
-from blender.bpy.scene.lights.emitters import emitters, focused, picked
-from blender.bpy.scene.objects import ObjectState, reconciled, spawned
+from blender.bpy.scene.lights.emitters import emitters, picked
+from blender.bpy.scene.objects import focused, ObjectState, reconciled, spawned
 from blender.bpy.ui.layout.rows import Member, OperatorButton, SearchField
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.imaging.faults import accumulated
@@ -83,62 +85,8 @@ class Split(msgspec.Struct, frozen=True, kw_only=True):
 class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
     """Light group operators and section."""
 
-    children: ClassVar[dict[Lobe, Ownership[bpy.types.Object]]] = {lobe: Ownership(kind=bpy.types.Object, key=lobe.name.lower(), saved=Saved.USED) for lobe in Lobe}
-    cycles: ClassVar[Option[Setting]] = Some(
-        Setting(descriptor=Descriptor(root=bpy.types.Context, owner="scene.render", prop=bpy.types.RenderSettings.bl_rna.properties["engine"]), accepted=("CYCLES",))
-    )
-
-    @staticmethod
-    def lights(layer: bpy.types.ViewLayer) -> dict[bpy.types.Object, bpy.types.Light]:
-        """Returns selected objects with light data."""
-        return {item: light for item in layer.objects.selected for light in (item.data,) if isinstance(light, bpy.types.Light)}
-
-    commands: ClassVar[tuple[Operator[Assignment], Operator[Empty], Operator[Split], Operator[Empty], Operator[Empty]]] = (
-        Operator(
-            key="light_groups_assign",
-            title="Assign Light Groups",
-            description="Write rule light groups to emitters and worlds in scope",
-            form=Assignment,
-            condition=cycles,
-            run=lambda call: assigned(call.record.membership, call.record.scope, call.context).map(
-                lambda change: change.map(lambda names: Done(notes=(("INFO", f"Light groups {', '.join(sorted(names))}"),))).default_value(
-                    Unchanged(reason="Every emitter and world in scope holds its light group")
-                )
-            ),
-        ),
-        Operator(
-            key="light_group_select",
-            title="Select Group Members",
-            description="Select objects in light group of active emitter",
-            form=Empty,
-            condition=cycles,
-            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: focused(layer).bind(lambda item: picked(members(item, layer), layer))).map(lambda _: Done()),
-        ),
-        Operator(
-            key="light_split",
-            title="Split Lobes",
-            description="Split selected lights into one light group child per ray kind",
-            form=Split,
-            condition=cycles,
-            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: lobed(layer, call.record, call.identity)),
-        ),
-        Operator(
-            key="light_split_toggle",
-            title="Toggle Split",
-            description="Swap visibility of selected split lights and their children",
-            form=Empty,
-            condition=cycles,
-            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: toggled(layer, call.identity)),
-        ),
-        Operator(
-            key="light_unsplit",
-            title="Remove Split",
-            description="Remove split children and render selected lights again",
-            form=Empty,
-            condition=cycles,
-            run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: unsplit(layer, call.identity)),
-        ),
-    )
+    children: ClassVar[Mapping[Lobe, Ownership[bpy.types.Object]]] = MappingProxyType({lobe: Ownership(kind=bpy.types.Object, key=lobe.name.lower(), saved=Saved.USED) for lobe in Lobe})
+    cycles: ClassVar[Option[Setting]] = Some(Setting(descriptor=Descriptor.declared(bpy.types.Context, "scene.render.engine", bpy.types.EnumProperty), accepted=("CYCLES",)))
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns lobe child ownerships and section."""
@@ -152,7 +100,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
             title="Light Groups",
             rows=(
                 SearchField(target=Member(root=bpy.types.Object, path="lightgroup", reach=active), collection=Member(root=bpy.types.ViewLayer, path="lightgroups")),
-                *(OperatorButton(target=command) for command in self.commands),
+                *(OperatorButton(target=command) for command in (light_groups_assign, light_group_select, light_split, light_split_toggle, light_unsplit)),
             ),
         )
 
@@ -258,9 +206,14 @@ def split(master: bpy.types.Object, light: bpy.types.Light, record: Split, view_
         )
 
 
+def lights(view_layer: bpy.types.ViewLayer) -> dict[bpy.types.Object, bpy.types.Light]:
+    """Returns selected objects with light data."""
+    return {item: light for item in view_layer.objects.selected if isinstance(light := item.data, bpy.types.Light)}
+
+
 def splits(view_layer: bpy.types.ViewLayer, identity: Identity) -> dict[bpy.types.Object, tuple[bpy.types.Object, ...]]:
     """Returns selected split lights in selection order with children."""
-    return {master: held for master in LightGroupEdits.lights(view_layer) if (held := tuple(item for row in LightGroupEdits.children.values() for item in row.serving(identity, master)))}
+    return {master: held for master in lights(view_layer) if (held := tuple(item for row in LightGroupEdits.children.values() for item in row.serving(identity, master)))}
 
 
 def lobed(view_layer: bpy.types.ViewLayer, record: Split, identity: Identity) -> BlenderResult[Outcome]:
@@ -274,9 +227,9 @@ def lobed(view_layer: bpy.types.ViewLayer, record: Split, identity: Identity) ->
     Returns:
         `Done`, `Unchanged` when no light is selected, or split faults.
     """
-    if not (lights := LightGroupEdits.lights(view_layer)):
+    if not (selected := lights(view_layer)):
         return Ok(Unchanged(reason="No light selected"))
-    return accumulated(split(master, light, record, view_layer, identity) for master, light in lights.items()).map(lambda _: Done())
+    return accumulated(split(master, light, record, view_layer, identity) for master, light in selected.items()).map(lambda _: Done())
 
 
 def toggled(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[Outcome]:
@@ -314,6 +267,53 @@ def unsplit(view_layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResul
     )
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+light_groups_assign: Operator[Assignment] = Operator(
+    key="light_groups_assign",
+    title="Assign Light Groups",
+    description="Write rule light groups to emitters and worlds in scope",
+    form=Assignment,
+    condition=LightGroupEdits.cycles,
+    run=lambda call: assigned(call.record.membership, call.record.scope, call.context).map(
+        lambda change: change.map(lambda names: Done(notes=(("INFO", f"Light groups {', '.join(sorted(names))}"),))).default_value(
+            Unchanged(reason="Every emitter and world in scope holds its light group")
+        )
+    ),
+)
+light_group_select: Operator[Empty] = Operator(
+    key="light_group_select",
+    title="Select Group Members",
+    description="Select objects in light group of active emitter",
+    form=Empty,
+    condition=LightGroupEdits.cycles,
+    run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: focused(layer).bind(lambda item: picked(members(item, layer), layer))).map(lambda _: Done()),
+)
+light_split: Operator[Split] = Operator(
+    key="light_split",
+    title="Split Lobes",
+    description="Split selected lights into one light group child per ray kind",
+    form=Split,
+    condition=LightGroupEdits.cycles,
+    run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: lobed(layer, call.record, call.identity)),
+)
+light_split_toggle: Operator[Empty] = Operator(
+    key="light_split_toggle",
+    title="Toggle Split",
+    description="Swap visibility of selected split lights and their children",
+    form=Empty,
+    condition=LightGroupEdits.cycles,
+    run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: toggled(layer, call.identity)),
+)
+light_unsplit: Operator[Empty] = Operator(
+    key="light_unsplit",
+    title="Remove Split",
+    description="Remove split children and render selected lights again",
+    form=Empty,
+    condition=LightGroupEdits.cycles,
+    run=lambda call: call.root(bpy.types.ViewLayer).bind(lambda layer: unsplit(layer, call.identity)),
+)
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
@@ -327,6 +327,12 @@ __all__ = [
     "Split",
     "Ungrouped",
     "assigned",
+    "light_group_select",
+    "light_groups_assign",
+    "light_split",
+    "light_split_toggle",
+    "light_unsplit",
+    "lights",
     "lobed",
     "members",
     "split",
