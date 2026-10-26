@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial, reduce
 from itertools import chain, starmap
-from typing import Annotated, Final
+from typing import Final
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -13,15 +13,15 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.operators import answered, Operator, Outcome
+from blender.bpy.commands.operators import Answer, answered, Call, Operator
 from blender.bpy.data.ids.ownership import kept
-from blender.bpy.data.ids.store import Handle, vacant
+from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Not, Setting
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, written
-from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, Selection, Snapshot, ViewLayers
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult, BlenderUnmetFault
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct, Value, written
+from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, scoped, SCOPES, Selection, Snapshot, ViewLayers
+from blender.bpy.faults import BlenderReason
 from blender.bpy.scene.collections import joined
-from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.trees import Deleted, diff, Edit, Owner, Reparametrized, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -29,7 +29,7 @@ from blender.records.trees import Deleted, diff, Edit, Owner, Reparametrized, Tr
 type Entries = Mapping[str, Option[Snapshot] | StackEntry]
 type Stack = bpy.types.VertexGroups | bpy.types.ObjectModifiers | bpy.types.ObjectConstraints | bpy.types.ObjectShaderFx
 type Mover = Callable[[int, int], None]
-type Step = Callable[[], BlenderResult[None]]
+type Step = Callable[[], Outcome[None]]
 type ObjectChange = Swapped | Parented | Resized | Layered | Restacked
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -125,28 +125,32 @@ class Reconciled(msgspec.Struct, frozen=True, kw_only=True):
     applied: tuple[Applied, ...]
 
 
-class SubdivisionLevels(msgspec.Struct, frozen=True, kw_only=True):
-    """Viewport and render subdivision levels within Subsurf bounds."""
+class LevelEdit(bpy.types.PropertyGroup):
+    """Viewport and render subdivision levels within Subsurf bounds and the objects they write."""
 
-    levels: Annotated[int, _LEVELS.meta, _LEVELS.presentation] = _LEVELS.prop.default
-    render_levels: Annotated[int, _RENDER_LEVELS.meta, _RENDER_LEVELS.presentation] = _RENDER_LEVELS.prop.default
-
-
-class LevelEdit(msgspec.Struct, frozen=True, kw_only=True):
-    """Levels and target objects."""
-
-    levels: Annotated[SubdivisionLevels, msgspec.Meta(description="Viewport and render subdivision levels")] = SubdivisionLevels()
-    scope: Annotated[Scope, msgspec.Meta(description="Objects to write")] = Selection()
+    levels: bpy.props.IntProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name=_LEVELS.prop.name, description=_LEVELS.prop.description, min=_LEVELS.prop.hard_min, max=_LEVELS.prop.hard_max, soft_max=_LEVELS.prop.soft_max, default=_LEVELS.prop.default
+    )
+    render_levels: bpy.props.IntProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name=_RENDER_LEVELS.prop.name,
+        description=_RENDER_LEVELS.prop.description,
+        min=_RENDER_LEVELS.prop.hard_min,
+        max=_RENDER_LEVELS.prop.hard_max,
+        soft_max=_RENDER_LEVELS.prop.soft_max,
+        default=_RENDER_LEVELS.prop.default,
+    )
+    scope: bpy.props.EnumProperty(name="Scope", description="Objects to write", items=SCOPES, default="SELECTION")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    collection: bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [READS]
 
 
-def focused(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Object]:
+def focused(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Object]:
     """Returns active object of view layer, `absent` when none is active."""
     objects = view_layer.objects
-    return Option.of_optional(objects.active).to_result_with(lambda: (BlenderAbsentFault(owner=repr(objects), key="active"),))
+    return Option.of_optional(objects.active).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(objects), member="active"),))
 
 
 def descendants(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> tuple[bpy.types.Object, ...]:
@@ -172,15 +176,18 @@ def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) ->
 # --- [CREATION]
 
 
-def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collection) -> BlenderResult[bpy.types.Object]:
+def spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collection) -> Outcome[bpy.types.Object]:
     """Creates object linked into collection, removing it on fault."""
-    return kept(BlenderEditFault.attempted(name, lambda: bpy.data.objects.new(vacant(name, bpy.data.objects.keys()), data.to_optional())), lambda item: joined(collection, (item,)).map(lambda _: item))
+    return kept(
+        catch(bpy.data.objects.new, exception=RuntimeError)(name, data.to_optional()).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=name, cause=error),)),
+        lambda item: joined(collection, (item,)).map(lambda _: item),
+    )
 
 
 # --- [STACKS]
 
 
-def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> BlenderResult[tuple[Restacked, ...]]:
+def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> Outcome[tuple[Restacked, ...]]:
     """Returns stack edits toward entries, recreating out-of-order entries of a stack without reorder call."""
     inputs = tuple(parameter for parameter in stack.bl_rna.functions["new"].parameters if not parameter.is_output)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     choices = {parameter.identifier: tuple(item.identifier for item in parameter.enum_items) for parameter in inputs if isinstance(parameter, bpy.types.EnumProperty)}
@@ -190,7 +197,7 @@ def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> BlenderRes
     trees = tuple(Tree(roots=tuple(key for key, _ in pairs), owners={key: Owner(values=values) for key, values in pairs}) for pairs in (live, live if move.is_some() else live[:prefix], wanted))
     edits = (*diff(trees[0], trees[1]), *diff(trees[1], trees[2]))
     return accumulated(
-        Ok(value) if value in choices[key] else Error((DomainFault(subject=repr(stack), value=value, accepted=", ".join(choices[key])),))
+        Ok(value) if value in choices[key] else Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(stack), member=", ".join(choices[key]), cause=value),))
         for _, parameters in wanted
         for key, value in parameters.items()
     ).map(lambda _: (Restacked(stack=stack, move=move, edits=edits, wanted=wanted),) if edits else ())
@@ -201,30 +208,35 @@ def restack(row: Restacked) -> tuple[Step, ...]:
     stack, parameters = row.stack, dict(row.wanted)
     named = "name" in stack.bl_rna.functions["new"].parameters  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
-    def removed(key: str) -> Step:
-        return lambda: BlenderEditFault.attempted(repr(stack), lambda: stack.remove(stack[key]))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    def removed(key: str) -> Outcome[None]:
+        return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(stack), cause=error),))
 
-    def added(key: str) -> Step:
-        def inserted() -> BlenderResult[None]:
-            try:
-                entry = stack.new(**({"name": key} if named else {}), **parameters[key])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            except RuntimeError as error:
-                return Error((BlenderEditFault(request=repr(stack), error=error),))
-            return Result.bind(
-                Option.of_optional(entry).to_result_with(lambda: (BlenderAbsentFault(owner=repr(stack), key=key),)), lambda made: Ok(None) if named else written(made, "name", key).map(lambda _: None)
-            )
+    def added(key: str) -> Outcome[None]:
+        entry: Outcome[Struct | None] = catch(stack.new, exception=RuntimeError)(**({"name": key} if named else {}), **parameters[key]).map_error(
+            lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(stack), cause=error),)
+        )
 
-        return inserted
+        def renamed(held: Struct | None) -> Outcome[None]:
+            match held:
+                case None:
+                    return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(stack), member=key),))
+                case made:
+                    return Ok(None) if named else written(made, "name", key).map(lambda _: None)
+
+        return Result[Struct | None, Faults].bind(entry, renamed)
+
+    def moved(move: Mover, before: int, index: int) -> Outcome[None]:
+        return catch(move, exception=RuntimeError)(before, index).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(stack), cause=error),))
 
     leaving = tuple(edit.key for edit in row.edits if isinstance(edit, (Deleted, Reparametrized)))
     order = [entry.name for entry in stack if entry.name not in leaving]
-    planned = [removed(key) for key in leaving]
+    planned: list[Step] = [partial(removed, key) for key in leaving]
     for index, (key, _) in enumerate(row.wanted):
         if key not in order:
-            planned.append(added(key))
+            planned.append(partial(added, key))
             order.append(key)
         if (before := order.index(key)) != index:
-            planned.extend(partial(BlenderEditFault.attempted, repr(stack), partial(move, before, index)) for move in row.move.to_list())
+            planned.extend(partial(moved, move, before, index) for move in row.move.to_list())
             order.insert(index, order.pop(before))
     return tuple(planned)
 
@@ -232,28 +244,32 @@ def restack(row: Restacked) -> tuple[Step, ...]:
 # --- [CHANGES]
 
 
-def diverged(
-    state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...], data: Option[bpy.types.ID], parent: Option[bpy.types.Object]
-) -> BlenderResult[tuple[ObjectChange, ...]]:
+def diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...], data: Option[bpy.types.ID], parent: Option[bpy.types.Object]) -> Outcome[tuple[ObjectChange, ...]]:
     """Returns changes from object to state, accumulating independent faults."""
 
-    def swapped(block: bpy.types.ID) -> BlenderResult[tuple[ObjectChange, ...]]:
-        return Ok(()) if item.data == block else Error((BlenderUnmetFault(requirement=Not(condition=_EDITING)),)) if _EDITING.descriptor.read(item) in _EDITING.accepted else Ok((Swapped(data=block),))
+    def swapped(block: bpy.types.ID) -> Outcome[tuple[ObjectChange, ...]]:
+        return (
+            Ok(())
+            if item.data == block
+            else Error((Fault(reason=BlenderReason.UNMET, subject=Not(condition=_EDITING).message),))
+            if _EDITING.descriptor.read(item) in _EDITING.accepted
+            else Ok((Swapped(data=block),))
+        )
 
-    def parented(block: bpy.types.Object) -> BlenderResult[tuple[ObjectChange, ...]]:
+    def parented(block: bpy.types.Object) -> Outcome[tuple[ObjectChange, ...]]:
         return (
             Ok(())
             if item.parent == block
-            else Error((DomainFault(subject=f"{item!r}.parent", value=block.name, accepted="objects outside its own hierarchy"),))
+            else Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{item!r}.parent", member="objects outside its own hierarchy", cause=block.name),))
             if block == item or block in item.children_recursive
             else Ok((Parented(parent=block),))
         )
 
-    def resized(slots: tuple[Snapshot, ...]) -> BlenderResult[tuple[ObjectChange, ...]]:
+    def resized(slots: tuple[Snapshot, ...]) -> Outcome[tuple[ObjectChange, ...]]:
         return (
-            Result[bpy.types.ID, BlenderFaults]
+            Result[bpy.types.ID, Faults]
             .bind(
-                data.or_else(Option.of_optional(item.data)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="data.materials"),)),
+                data.or_else(Option.of_optional(item.data)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(item), member="data.materials"),)),
                 lambda block: Descriptor.resolve(block, "materials", bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)),
             )
             .map(lambda materials: (Resized(materials=materials, before=before, after=after),) if (before := len(materials)) != (after := len(slots)) else ())
@@ -276,8 +292,8 @@ def diverged(
 def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
     """Returns dependent writes of change."""
 
-    def refused(error: RuntimeError) -> BlenderFaults:
-        return (BlenderEditFault(request=repr(item), error=error),)
+    def refused(error: RuntimeError) -> Faults:
+        return (Fault(reason=BlenderReason.REFUSED, subject=repr(item), cause=error),)
 
     match change:
         case Swapped(data=data):
@@ -307,7 +323,7 @@ def steps(item: bpy.types.Object, change: ObjectChange) -> tuple[Step, ...]:
             return restack(change)
 
 
-def reconciling(state: ObjectState) -> BlenderResult[Callable[[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], BlenderResult[Reconciled]]]:
+def reconciling(state: ObjectState) -> Outcome[Callable[[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], Outcome[Reconciled]]]:
     """Resolves state handles once, returning per-object reconcile writing placement in parent frame."""
     framed = state.placement.map(
         lambda matrix: Snapshot.of(
@@ -316,11 +332,11 @@ def reconciling(state: ObjectState) -> BlenderResult[Callable[[bpy.types.Object,
         )
     )
 
-    def live[T: bpy.types.ID](handle: Option[Handle[T]]) -> BlenderResult[Option[T]]:
+    def live[T: bpy.types.ID](handle: Option[Handle[T]]) -> Outcome[Option[T]]:
         return handle.map(lambda held: held.resolve().map(Some)).default_value(Ok(Nothing))
 
-    def each(found: tuple[Option[bpy.types.ID], Option[bpy.types.Object]], item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
-        def applied(rows: tuple[ObjectChange, ...]) -> BlenderResult[Reconciled]:
+    def each(found: tuple[Option[bpy.types.ID], Option[bpy.types.Object]], item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> Outcome[Reconciled]:
+        def applied(rows: tuple[ObjectChange, ...]) -> Outcome[Reconciled]:
             pairs = chain(
                 ((item, values) for values in (*state.values.to_list(), *framed.to_list())),
                 (pair for slots in state.material_slots.to_list() for pair in zip(item.material_slots, slots)),
@@ -343,7 +359,7 @@ def reconciling(state: ObjectState) -> BlenderResult[Callable[[bpy.types.Object,
     return paired(live(state.data), live(state.parent)).map(lambda found: partial(each, found))
 
 
-def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Reconciled]:
+def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> Outcome[Reconciled]:
     """Reconciles object to state."""
     return reconciling(state).bind(lambda each: each(item, layers))
 
@@ -351,7 +367,7 @@ def reconciled(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.typ
 # --- [GEOMETRY]
 
 
-def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.NDArray[np.int64]) -> BlenderResult[None]:
+def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.NDArray[np.int64]) -> Outcome[None]:
     """Writes mesh vertices and faces when they differ from live geometry.
 
     Args:
@@ -373,14 +389,14 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
         mesh.clear_geometry()
         mesh.from_pydata(vertices, (), faces)
     except (ReferenceError, RuntimeError, TypeError, ValueError) as error:
-        return Error((BlenderEditFault(request=repr(mesh), error=error),))
+        return Error((Fault(reason=BlenderReason.REFUSED, subject=repr(mesh), cause=error),))
     return Ok(None)
 
 
 # --- [SCOPES]
 
 
-def targets(scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[tuple[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], ...]]:
+def targets(scope: Scope, context: bpy.types.Context) -> Outcome[tuple[tuple[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], ...]]:
     """Returns scope objects once with their view layers."""
 
     def reaching(layers: tuple[bpy.types.ViewLayer, ...]) -> tuple[tuple[bpy.types.Object, tuple[bpy.types.ViewLayer, ...]], ...]:
@@ -394,23 +410,23 @@ def targets(scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[tup
             return paired(scope.owners(context), rooted(bpy.types.ViewLayer, context)).map(lambda pair: tuple((item, (pair[1],)) for item in pair[0]))
 
 
-def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> BlenderResult[tuple[Reconciled, ...]]:
+def fanned(state: ObjectState, scope: Scope, context: bpy.types.Context) -> Outcome[tuple[Reconciled, ...]]:
     """Reconciles every scope object to state, accumulating faults."""
     return paired(reconciling(state), targets(scope, context)).bind(lambda pair: accumulated(starmap(*pair)))
 
 
-def levelled(levels: SubdivisionLevels, scope: Scope, context: bpy.types.Context) -> BlenderResult[Outcome]:
+def levelled(levels: Mapping[str, Value], scope: Scope, context: bpy.types.Context) -> Outcome[Answer]:
     """Writes subdivision levels to each Subsurf and Multires modifier in scope.
 
     Args:
-        levels: Viewport and render levels.
+        levels: Viewport and render levels by Subsurf member name.
         scope: Objects to write.
         context: Context `targets` reads.
 
     Returns:
         `Done` with skipped faults when a modifier changed, `Unchanged` when no level changes, or scope and modifier faults when none changed.
     """
-    snapshots = {kind: Snapshot.of(kind, msgspec.structs.asdict(levels)) for kind in (bpy.types.SubsurfModifier, bpy.types.MultiresModifier)}
+    snapshots = {kind: Snapshot.of(kind, levels) for kind in (bpy.types.SubsurfModifier, bpy.types.MultiresModifier)}
     return targets(scope, context).bind(
         lambda reached: answered(
             Applied.join(tuple(snapshot.apply(entry) for item, _ in reached for entry in item.modifiers for kind, snapshot in snapshots.items() if isinstance(entry, kind))),
@@ -421,14 +437,13 @@ def levelled(levels: SubdivisionLevels, scope: Scope, context: bpy.types.Context
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-subdivision: Operator[LevelEdit] = Operator(
-    key="subdivision_levels",
-    title="Set Subdivision Levels",
-    description="Write subdivision levels to modifiers in scope",
-    form=LevelEdit,
-    run=lambda call: levelled(call.record.levels, call.record.scope, call.context),
-    presets=True,
-)
+
+def subdivision_levels(call: Call[LevelEdit]) -> Outcome[Answer]:
+    """Writes subdivision levels to the modifiers in scope."""
+    return levelled({"levels": call.properties.levels, "render_levels": call.properties.render_levels}, scoped(call.properties.scope, call.properties.collection), call.context)
+
+
+subdivision_levels_command: Operator[LevelEdit] = Operator(form=LevelEdit, run=subdivision_levels, presets=True)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -448,7 +463,6 @@ __all__ = [
     "Stack",
     "StackEntry",
     "Step",
-    "SubdivisionLevels",
     "Swapped",
     "WorldBounds",
     "descendants",
@@ -463,6 +477,6 @@ __all__ = [
     "shaped",
     "spawned",
     "steps",
-    "subdivision",
+    "subdivision_levels_command",
     "targets",
 ]

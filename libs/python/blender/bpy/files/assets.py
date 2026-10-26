@@ -8,17 +8,17 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs
 import bpy
-from expression import Error, Nothing, Ok, Option
+from expression import Error, Nothing, Ok, Option, Result
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.descriptors import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.files.blends import folder_made
 from blender.bpy.files.libraries import blocks_loaded, library_written, LibraryLink, Linked, listed, LocalCopy
-from blender.records.faults import accumulated, FileFault, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -43,7 +43,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
     tags: frozenset[str] = frozenset()
     method: Option[LinkOrAppend] = Nothing
 
-    def marked[T: bpy.types.ID](self, identity: Identity, block: T, uid: UUID) -> BlenderResult[T]:
+    def marked[T: bpy.types.ID](self, identity: Identity, block: T, uid: UUID) -> Outcome[T]:
         """Marks block as asset, replacing its metadata.
 
         Args:
@@ -55,7 +55,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
             Marked block, edit fault for unmarkable block, faults per refused member write.
         """
 
-        def applied(data: bpy.types.AssetMetaData) -> BlenderResult[T]:
+        def applied(data: bpy.types.AssetMetaData) -> Outcome[T]:
             for tag in tuple(data.tags):
                 if tag.name not in self.tags:
                     data.tags.remove(tag)
@@ -75,12 +75,8 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
                 },
             ).map(lambda _: block)
 
-        return (
-            BlenderEditFault
-            .attempted(repr(block), block.asset_mark)
-            .bind(lambda _: Option.of_optional(block.asset_data).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="asset_data"),)))
-            .bind(applied)
-        )
+        block.asset_mark()
+        return Option.of_optional(block.asset_data).map(applied).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(block), member="asset_data"),)))
 
 
 class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
@@ -94,12 +90,12 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
         """Returns library folder under extension user folder."""
         return identity.folder / "assets" / self.folder
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Returns row acquisition."""
         return Ok(((Band.RESOURCES, self.acquired(identity)),))
 
     @contextmanager
-    def acquired(self, identity: Identity) -> Generator[BlenderResult[None]]:
+    def acquired(self, identity: Identity) -> Generator[Outcome[None]]:
         """Holds library row, reusing saved one, until release.
 
         Args:
@@ -110,13 +106,17 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
         """
         with ExitStack() as lifetime:
 
-            def held(folder: Path, rows: bpy.types.AssetLibraryCollection) -> BlenderResult[bpy.types.UserAssetLibrary]:
+            def held(folder: Path, rows: bpy.types.AssetLibraryCollection) -> Outcome[bpy.types.UserAssetLibrary]:
                 made = (
                     Option
                     .of_optional(next((row for row in rows if isinstance(row, bpy.types.PreferencesAssetLibrary) and Path(row.path) == folder), None))
                     .map(Ok)
-                    .default_with(lambda: BlenderEditFault.attempted(repr(rows), lambda: rows.new(name=self.title, directory=str(folder))))
-                    .bind(lambda row: Option.of_optional(row).to_result_with(lambda: (BlenderAbsentFault(owner=repr(rows), key=self.title),)))
+                    .default_with(
+                        lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder)).map_error(
+                            lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(rows), cause=error),)
+                        )
+                    )
+                    .bind(lambda row: Option.of_optional(row).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(rows), member=self.title),)))
                 )
                 for row in made.to_option().to_list():
                     lifetime.callback(rows.remove, row)
@@ -134,7 +134,7 @@ class AssetLibrary(msgspec.Struct, frozen=True, kw_only=True):
 # --- [PUBLICATION]
 
 
-def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[bpy.types.ID, AssetMark], ...], *, kept: bool = False) -> BlenderResult[Path]:
+def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[bpy.types.ID, AssetMark], ...], *, kept: bool = False) -> Outcome[Path]:
     """Writes marked blocks and catalogs into library.
 
     Args:
@@ -150,10 +150,10 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
     target = folder / "blender_assets.cats.txt"
     fresh = () if kept else tuple(block for block, _ in entries if block.asset_data is None)
 
-    def unread(error: msgspec.ValidationError | ValueError) -> BlenderFaults:
-        return (FileFault(access="read", request=target, error=error),)
+    def unread(error: msgspec.ValidationError | ValueError) -> Faults:
+        return (Fault(reason=RecordReason.UNREADABLE, subject=str(target), cause=error),)
 
-    def ensured(_: Path) -> BlenderResult[dict[str, UUID]]:
+    def ensured(_: Path) -> Outcome[dict[str, UUID]]:
         try:
             return accumulated(
                 paired(
@@ -163,9 +163,9 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
                 for catalog in parse_catalogs(folder)  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[not-iterable]
             ).map(dict)
         except (OSError, UnicodeError) as error:
-            return Error((FileFault(access="read", request=target, error=error),))
+            return Error((Fault(reason=RecordReason.UNREADABLE, subject=str(target), cause=error),))
 
-    def appended(held: dict[str, UUID]) -> BlenderResult[dict[str, UUID]]:
+    def appended(held: dict[str, UUID]) -> Outcome[dict[str, UUID]]:
         added = {path: uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}") for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
 
         def written() -> dict[str, UUID]:
@@ -173,9 +173,9 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
                 file.write(("VERSION 1\n\n" if file.tell() == 0 else "\n") + "".join(f"{uid}:{path}:{path.replace('/', '-')}\n" for path, uid in added.items()))
             return held | added
 
-        return catch(written, exception=OSError)().map_error(lambda error: (FileFault(access="write", request=target, error=error),)) if added else Ok(held)
+        return catch(written, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(target), cause=error),)) if added else Ok(held)
 
-    def marked(catalogs: dict[str, UUID]) -> BlenderResult[Path]:
+    def marked(catalogs: dict[str, UUID]) -> Outcome[Path]:
         try:
             return accumulated(mark.marked(identity, block, catalogs[mark.catalog]) for block, mark in entries).bind(lambda blocks: library_written(folder / f"{stem}.blend", frozenset(blocks)))
         finally:
@@ -203,7 +203,7 @@ def essential() -> "rna_enums.AssetImportMethodItems":
     return "APPEND_REUSE" if bpy.context.preferences.experimental.no_data_block_packing else "PACK"  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
-def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T], library: Option[bpy.types.UserAssetLibrary] = Nothing) -> BlenderResult[T]:
+def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T], library: Option[bpy.types.UserAssetLibrary] = Nothing) -> Outcome[T]:
     """Returns local asset data, else imports it by import method.
 
     Args:
@@ -216,21 +216,21 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
     """
     match Option.of_optional(asset.local_id):
         case Option(tag="some", some=block):
-            return Ok(block) if isinstance(block, kind) else Error((BlenderAbsentFault(owner=asset.full_path, key=asset.name),))
+            return Ok(block) if isinstance(block, kind) else Error((Fault(reason=BlenderReason.ABSENT, subject=asset.full_path, member=asset.name),))
         case Option():
             path = Path(asset.full_library_path)
             preferred = Option.of_optional(asset.metadata).filter(lambda data: data.use_preferred_import_method).map(lambda data: data.preferred_import_method)
-            link: BlenderResult[LibraryLink] = (
+            link: Outcome[LibraryLink] = (
                 Ok(linking(preferred.default_with(essential), relative=True))
                 if Option.of_optional(asset.owner_asset_library).filter(lambda owner: owner.type == "ESSENTIALS").is_some()
                 else library.map(lambda row: linking(preferred.default_value(row.import_method), relative=row.use_relative_path)).to_result_with(
-                    lambda: (BlenderAbsentFault(owner=asset.full_path, key="owner_asset_library"),)
+                    lambda: (Fault(reason=BlenderReason.ABSENT, subject=asset.full_path, member="owner_asset_library"),)
                 )
             )
             return link.bind(lambda method: blocks_loaded(path, kind, (asset.name,), method)).map(lambda blocks: blocks[0])
 
 
-def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
+def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     """Imports named asset from bundled asset libraries.
 
     Args:
@@ -241,13 +241,16 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
         Imported block, absent fault for missing name.
     """
     root = Path(bpy.utils.system_resource("DATAFILES", path="assets"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    try:
-        paths = tuple(sorted(root.rglob("*.blend")))
-    except OSError as error:
-        return Error((FileFault(access="read", request=root, error=error),))
     return (
-        accumulated(listed(path, kind, assets_only=True) for path in paths)
-        .bind(lambda listings: Option.of_optional(next((path for path, names in zip(paths, listings) if name in names), None)).to_result_with(lambda: (BlenderAbsentFault(owner=str(root), key=name),)))
+        Result[tuple[Path, ...], Faults]
+        .bind(
+            catch(lambda: tuple(sorted(root.rglob("*.blend"))), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(root), cause=error),)),
+            lambda paths: accumulated(listed(path, kind, assets_only=True) for path in paths).bind(
+                lambda listings: Option.of_optional(next((path for path, names in zip(paths, listings) if name in names), None)).to_result_with(
+                    lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(root), member=name),)
+                )
+            ),
+        )
         .bind(lambda path: blocks_loaded(path, kind, (name,), linking(essential(), relative=True)))
         .map(lambda blocks: blocks[0])
     )

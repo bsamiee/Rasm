@@ -1,34 +1,36 @@
-"""Procedural textures cut to density over greater frame sides and the light they emit, sampled as nodes and on the CPU through the host texture records."""
+"""Procedural textures cut to density over greater frame sides and the light they emit: their menus and panels, their node forms, their CPU evaluation, and entry input decoding."""
 
 from collections.abc import Callable, Mapping
 import functools
+import inspect
 from math import pi, tau
-from typing import Annotated, Literal
+from types import MappingProxyType
+import typing
+from typing import Annotated, Final, Literal
 
 import bpy
 from expression import Nothing, Ok, Option, Some
+from expression.extra.result import catch
 import msgspec
+import msgspec.inspect
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
+from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
-from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.graphs import DataType, Expr, math, menu, mixed, NodeGroup, Scalar, switched, vector, xyz
-from blender.bpy.nodes.interface import item_key, MenuItems
+from blender.bpy.nodes.interface import InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.nodes.ramps import Ramp
 from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.colors import COLOR_INPUT
 from blender.bpy.render.compositor.coordinates import origin
 from blender.bpy.render.compositor.effects import Shell
-from blender.bpy.render.compositor.inputs import KeyPath
-from blender.bpy.settings.shapes import GraphForm
 from blender.imaging.color import observer, processors
-from blender.imaging.color.processors import Stops
 from blender.imaging.geometry.arithmetic import Field, Namespace
-from blender.imaging.geometry.regions import FrameExtent
-from blender.records.fields import Case, Finite, NonNegative, Positive, Presentation, Quantity, Rgb, Unit
+from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
 
 from ...chain.stages import Effect
 
@@ -39,6 +41,12 @@ type Basis = Perlin | Voronoi | Wave | Gabor | Magic | White
 type Spectrum = Tint | Incandescence | Gradient
 type Inlet = Callable[..., Expr]
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+FACTOR: Final[Mapping[str, Value]] = MappingProxyType({"subtype": "FACTOR", "min_value": 0.0, "max_value": 1.0})
+ANGLE: Final[Mapping[str, Value]] = MappingProxyType({"subtype": "ANGLE"})
+PLANAR: Final[Mapping[str, Value]] = MappingProxyType({"dimensions": 2})
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [TEXTURES]
@@ -47,23 +55,20 @@ type Inlet = Callable[..., Expr]
 class Perlin(Case, frozen=True, kw_only=True):
     """Fractal Perlin noise over greater frame sides cut to a density."""
 
-    title = "Perlin Noise"
-    texture: Annotated[textures.Noise, msgspec.Meta(title="Noise", description="Noise texture, scale counting features per greater frame side")] = textures.Noise(noise_dimensions="4D", scale=1.0)
-    stretch: Annotated[Positive, msgspec.Meta(description="Feature height over width"), Presentation(soft=Some((0.25, 4.0)))] = 1.0
-    cut: Annotated[textures.MapRange, msgspec.Meta(title="Density", description="Noise value mapped to density")] = textures.MapRange()
+    texture: textures.Noise = textures.Noise(noise_dimensions="4D", scale=1.0)
+    stretch: Positive = 1.0
+    cut: textures.MapRange = textures.MapRange()
 
 
 class Voronoi(Case, frozen=True, kw_only=True):
     """Cellular distances over greater frame sides cut to a density."""
 
-    texture: Annotated[textures.Voronoi, msgspec.Meta(title="Cells", description="Voronoi texture, scale counting cells per greater frame side")] = textures.Voronoi(
-        voronoi_dimensions="4D", normalize=True, scale=10.0
-    )
-    cut: Annotated[textures.MapRange, msgspec.Meta(title="Density", description="Distance mapped to density")] = textures.MapRange(interpolation_type="SMOOTHSTEP")
-    cell_color: Annotated[bool, msgspec.Meta(description="Cell red sets tone, green scales density")] = False
+    texture: textures.Voronoi = textures.Voronoi(voronoi_dimensions="4D", normalize=True, scale=10.0)
+    cut: textures.MapRange = textures.MapRange(interpolation_type="SMOOTHSTEP")
+    cell_color: bool = False
 
     @property
-    def colored(self) -> textures.Voronoi:
+    def feature_cells(self) -> textures.Voronoi:
         """Cells whose `Color` belongs to the nearest feature, F1 Euclidean cells where the feature measures edges."""
         return msgspec.structs.replace(self.texture, feature="F1", distance="EUCLIDEAN") if self.texture.feature == "DISTANCE_TO_EDGE" else self.texture
 
@@ -71,15 +76,15 @@ class Voronoi(Case, frozen=True, kw_only=True):
 class Wave(Case, frozen=True, kw_only=True):
     """Bands or rings of a periodic profile over greater frame sides cut to a density."""
 
-    wavelength: Annotated[FrameExtent, msgspec.Meta(description="Band or ring spacing over greater frame side"), Presentation(soft=Some((0.005, 1.0)), precision=Some(4))] = 0.1
-    pattern: Annotated[Literal["BANDS", "RINGS"], msgspec.Meta(description="Bands across field or rings about center"), GraphForm.SETTING] = "BANDS"
-    profile: Annotated[WaveProfile, msgspec.Meta(description="Shape of each period"), GraphForm.SETTING] = "SIN"
-    phase: Annotated[Finite, msgspec.Meta(description="Profile phase offset"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    distortion: Annotated[Finite, msgspec.Meta(description="Distortion noise phase offset in radians"), Presentation(soft=Some((-20.0, 20.0)))] = 0.0
-    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0, description="Distortion noise octaves past first"), Presentation(soft=Some((0.0, 8.0)), precision=Some(1))] = 2.0
-    detail_scale: Annotated[NonNegative, msgspec.Meta(description="Distortion noise frequency"), Presentation(soft=Some((0.0, 10.0)))] = 1.0
-    detail_roughness: Annotated[Unit, msgspec.Meta(description="Distortion octave amplitude over previous")] = 0.5
-    cut: Annotated[textures.MapRange, msgspec.Meta(title="Density", description="Wave value mapped to density")] = textures.MapRange(interpolation_type="SMOOTHSTEP")
+    wavelength: Positive = 0.1
+    pattern: Literal["BANDS", "RINGS"] = "BANDS"
+    profile: WaveProfile = "SIN"
+    phase: Finite = 0.0
+    distortion: Finite = 0.0
+    detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0)] = 2.0
+    detail_scale: NonNegative = 1.0
+    detail_roughness: Unit = 0.5
+    cut: textures.MapRange = textures.MapRange(interpolation_type="SMOOTHSTEP")
 
     @property
     def texture(self) -> textures.Wave:
@@ -100,26 +105,23 @@ class Wave(Case, frozen=True, kw_only=True):
 class Gabor(Case, frozen=True, kw_only=True):
     """Sparse windowed oscillations over greater frame sides cut to a density."""
 
-    texture: Annotated[textures.Gabor, msgspec.Meta(title="Oscillations", description="Gabor texture, scale counting impulse cells per greater frame side")] = textures.Gabor(
-        gabor_type="3D", scale=10.0
-    )
-    cut: Annotated[textures.MapRange, msgspec.Meta(title="Density", description="Oscillation value mapped to density")] = textures.MapRange(interpolation_type="SMOOTHSTEP")
+    texture: textures.Gabor = textures.Gabor(gabor_type="3D", scale=10.0)
+    cut: textures.MapRange = textures.MapRange(interpolation_type="SMOOTHSTEP")
 
 
 class Magic(Case, frozen=True, kw_only=True):
     """Nested trigonometric turbulence over greater frame sides cut to a density."""
 
-    texture: Annotated[textures.Magic, msgspec.Meta(title="Turbulence", description="Magic texture, scale counting patterns per greater frame side")] = textures.Magic(scale=10.0)
-    cut: Annotated[textures.MapRange, msgspec.Meta(title="Density", description="Mean color mapped to density")] = textures.MapRange(interpolation_type="SMOOTHSTEP")
+    texture: textures.Magic = textures.Magic(scale=10.0)
+    cut: textures.MapRange = textures.MapRange(interpolation_type="SMOOTHSTEP")
 
 
 class White(Case, frozen=True, kw_only=True):
     """Constant random values on lattice cells cut to a density."""
 
-    title = "White Noise"
-    texture: Annotated[textures.White, msgspec.Meta(title="Noise", description="White noise texture")] = textures.White(noise_dimensions="4D")
-    spacing: Annotated[FrameExtent, msgspec.Meta(description="Cell width over greater frame side")] = 0.1
-    cut: Annotated[textures.MapRange, msgspec.Meta(title="Density", description="Cell value mapped to density")] = textures.MapRange(interpolation_type="SMOOTHSTEP")
+    texture: textures.White = textures.White(noise_dimensions="4D")
+    spacing: Positive = 0.1
+    cut: textures.MapRange = textures.MapRange(interpolation_type="SMOOTHSTEP")
 
 
 # --- [LIGHT]
@@ -128,31 +130,184 @@ class White(Case, frozen=True, kw_only=True):
 class Tint(Case, frozen=True, kw_only=True):
     """Color graded from start to end by field tone."""
 
-    start: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear color at tone 0")] = Rgb(red=1.0, green=1.0, blue=1.0)
-    end: Annotated[Rgb[Finite], msgspec.Meta(description="Scene-linear color at tone 1")] = Rgb(red=1.0, green=1.0, blue=1.0)
+    start: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
+    end: tuple[Finite, Finite, Finite] = (1.0, 1.0, 1.0)
 
 
 class Incandescence(Case, frozen=True, kw_only=True):
     """Unit-luminance blackbody color graded from cool to hot temperature by field tone."""
 
-    cool: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 0"), Presentation(step=Some(1.0), precision=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 1000.0
-    hot: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0, description="Temperature at tone 1"), Presentation(step=Some(1.0), precision=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE))] = 2000.0
+    cool: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0)] = 1000.0
+    hot: Annotated[float, msgspec.Meta(ge=800.0, le=12000.0)] = 2000.0
 
 
 class Gradient(Case, frozen=True, kw_only=True):
     """Color read from a color ramp at field tone."""
 
-    ramp: Annotated[Ramp, msgspec.Meta(description="Scene-linear colors along tone 0 to 1")] = Ramp()
+    ramp: Ramp = Ramp()
 
 
 class Emission(msgspec.Struct, frozen=True, kw_only=True):
-    """Light a generator adds over its coverage, colored by tone."""
+    """Light a generator adds over its coverage, colored by tone, its luminance at full density in stops."""
 
-    spectrum: Annotated[Spectrum, msgspec.Meta(description="Color emitted at each tone")] = Incandescence()
-    intensity: Annotated[Stops, msgspec.Meta(description="Luminance at full density in stops")] = 2.0
+    spectrum: Spectrum = Incandescence()
+    intensity: Annotated[float, msgspec.Meta(ge=-32.0, le=32.0)] = 2.0
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [INTERFACES]
+
+
+def clock(key: Key, speed: float = 1.0) -> InterfacePanel:
+    """Clock panel at `key` holding the speed and frame hold of animated parameters, the speed defaulting to `speed`."""
+    return InterfacePanel(
+        key=key,
+        name=bpy.path.display_name(key),
+        description="Clock speed and frame hold of animated parameters",
+        inputs=(
+            Socket(
+                key=item_key(key, "speed"), name="Speed", kind=bpy.types.NodeSocketFloat, description="Clock frames per scene frame, still at 0", members={"min_value": 0.0, "default_value": speed}
+            ),
+            Socket(key=item_key(key, "hold"), name="Hold", kind=bpy.types.NodeSocketInt, description="Scene frames each clock value holds", members={"min_value": 1, "default_value": 1}),
+        ),
+    )
+
+
+def bases(key: Key, chosen: Basis, description: str, name: str = "Basis") -> InterfacePanel:
+    """Basis panel at `key`: its case menu at `<key>_kind` defaulting to the chosen case, then one panel per case under `<key>_<case>` holding its texture inputs, its own sockets, and its density cut, each other case at its defaults."""
+
+    def floats(prefix: Key, settings: textures.NodeSettings, title: str) -> tuple[Socket, ...]:
+        return tuple(
+            Socket(
+                key=item_key(prefix, field),
+                name=f"{title}{bpy.path.display_name(field)}",
+                kind=bpy.types.NodeSocketVector if isinstance(value, tuple) else bpy.types.NodeSocketFloat,
+                members={"default_value": value},
+            )
+            for field, value in msgspec.structs.asdict(settings).items()
+            if field not in settings.kind.bl_rna.properties
+        )
+
+    def panel(case: Basis) -> InterfacePanel:
+        prefix = item_key(key, type(case))
+        match case:
+            case Perlin(stretch=stretch):
+                rows: tuple[tuple[str, type[bpy.types.NodeSocket], str, Mapping[str, Value]], ...] = (
+                    ("stretch", bpy.types.NodeSocketFloat, "Feature height over width", {"min_value": 0.0, "default_value": stretch}),
+                )
+            case Voronoi(cell_color=cell_color):
+                rows = (("cell_color", bpy.types.NodeSocketBool, "Cell red sets tone, green scales density", {"default_value": cell_color}),)
+            case Wave():
+                rows = (
+                    ("wavelength", bpy.types.NodeSocketFloat, "Band or ring spacing over greater frame side", {"min_value": 0.0, "default_value": case.wavelength}),
+                    ("phase", bpy.types.NodeSocketFloat, "Profile phase offset", {**ANGLE, "default_value": case.phase}),
+                    ("distortion", bpy.types.NodeSocketFloat, "Distortion noise phase offset in radians", {"default_value": case.distortion}),
+                    ("detail", bpy.types.NodeSocketFloat, "Distortion noise octaves past first", {"min_value": 0.0, "max_value": 15.0, "default_value": case.detail}),
+                    ("detail_scale", bpy.types.NodeSocketFloat, "Distortion noise frequency", {"min_value": 0.0, "default_value": case.detail_scale}),
+                    ("detail_roughness", bpy.types.NodeSocketFloat, "Distortion octave amplitude over previous", {**FACTOR, "default_value": case.detail_roughness}),
+                )
+            case White(spacing=spacing):
+                rows = (("spacing", bpy.types.NodeSocketFloat, "Cell width over greater frame side", {"min_value": 0.0, "default_value": spacing}),)
+            case Gabor() | Magic():
+                rows = ()
+        own = tuple(Socket(key=item_key(prefix, field), name=bpy.path.display_name(field), kind=kind, description=text, members=members) for field, kind, text, members in rows)
+        texture = () if isinstance(case, Wave) else floats(item_key(prefix, "texture"), case.texture, "")
+        return InterfacePanel(
+            key=prefix, name=bpy.path.display_name(item_key(type(case))), description=str(inspect.getdoc(type(case))), inputs=(*texture, *own, *floats(item_key(prefix, "cut"), case.cut, "Density "))
+        )
+
+    cases = tuple(chosen if isinstance(chosen, kind) else kind() for kind in typing.get_args(Basis.__value__))
+    return InterfacePanel(
+        key=key,
+        name=name,
+        description=description,
+        inputs=(
+            Socket(
+                key=item_key(key, "kind"),
+                name="Texture",
+                kind=bpy.types.NodeSocketMenu,
+                description="Texture case",
+                members={"default_value": bpy.path.display_name(item_key(type(chosen)))},
+                items=Some(_items(cases)),
+            ),
+        ),
+        panels=tuple(map(panel, cases)),
+    )
+
+
+def incandescence(key: Key, case: Incandescence, description: str) -> InterfacePanel:
+    """Blackbody panel at `key` holding the temperatures at tone 0 and 1."""
+    return InterfacePanel(
+        key=key,
+        name=bpy.path.display_name(key),
+        description=description,
+        inputs=tuple(
+            Socket(
+                key=item_key(key, field),
+                name=bpy.path.display_name(field),
+                kind=bpy.types.NodeSocketFloat,
+                description=text,
+                members={"subtype": "COLOR_TEMPERATURE", "min_value": 800.0, "max_value": 12000.0, "default_value": kelvin},
+            )
+            for field, text, kelvin in (("cool", "Temperature at tone 0", case.cool), ("hot", "Temperature at tone 1", case.hot))
+        ),
+    )
+
+
+def spectra(key: Key, chosen: Spectrum, description: str, toggle: Option[bool] = Nothing) -> InterfacePanel:
+    """Spectrum panel at `key`: its case menu at `<key>_kind` defaulting to the chosen case, then the tint and blackbody panels, the ramp held by the record."""
+    cases = tuple(chosen if isinstance(chosen, kind) else kind() for kind in typing.get_args(Spectrum.__value__))
+    tint = next(case for case in cases if isinstance(case, Tint))
+    return InterfacePanel(
+        key=key,
+        name=bpy.path.display_name(key.rsplit("_", 1)[-1]),
+        description=description,
+        toggle=toggle,
+        inputs=(
+            Socket(
+                key=item_key(key, "kind"),
+                name="Spectrum",
+                kind=bpy.types.NodeSocketMenu,
+                description="Spectrum case",
+                members={"default_value": bpy.path.display_name(item_key(type(chosen)))},
+                items=Some(_items(cases)),
+            ),
+        ),
+        panels=(
+            InterfacePanel(
+                key=item_key(key, Tint),
+                name="Tint",
+                description=str(inspect.getdoc(Tint)),
+                inputs=tuple(
+                    Socket(key=item_key(key, Tint, field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketColor, description=text, members={"default_value": (*color, 1.0)})
+                    for field, text, color in (("start", "Scene-linear color at tone 0", tint.start), ("end", "Scene-linear color at tone 1", tint.end))
+                ),
+            ),
+            incandescence(item_key(key, Incandescence), next(case for case in cases if isinstance(case, Incandescence)), str(inspect.getdoc(Incandescence))),
+        ),
+    )
+
+
+def emission(key: Key, light: Emission, description: str, toggle: Option[bool] = Nothing) -> InterfacePanel:
+    """Emission panel at `key`: luminance in stops, then the spectrum panel defaulting to the light's case."""
+    return InterfacePanel(
+        key=key,
+        name=bpy.path.display_name(key.rsplit("_", 1)[-1]),
+        description=description,
+        toggle=toggle,
+        inputs=(
+            Socket(
+                key=item_key(key, "intensity"),
+                name="Intensity",
+                kind=bpy.types.NodeSocketFloat,
+                description="Luminance at full density in stops",
+                members={"min_value": -32.0, "max_value": 32.0, "default_value": light.intensity},
+            ),
+        ),
+        panels=(spectra(item_key(key, "spectrum"), light.spectrum, "Color emitted at each tone"),),
+    )
+
 
 # --- [PROFILES]
 
@@ -179,12 +334,15 @@ def density_range(field: Basis) -> tuple[float, float]:
 # --- [NODES]
 
 
-def textured[R: Effect](shell: Shell[R], path: KeyPath, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]] = (0,)) -> tuple[tuple[Expr, Expr], ...]:
-    """Returns density and tone per stream of the basis menu at `path`, every stream switched by the one menu.
+def textured[R: Effect](
+    shell: Shell[R], key: Key, chosen: Basis, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]] = (0,)
+) -> tuple[tuple[Expr, Expr], ...]:
+    """Returns density and tone per stream of the basis menu at `key`, every stream switched by the one menu.
 
     Args:
-        shell: Entry inputs and retained basis cases.
-        path: Basis union path in the record.
+        shell: Entry inputs.
+        key: Basis menu key.
+        chosen: Record basis holding the node members of its case, every other case at its defaults.
         point: Greater-side frame position.
         time: Signed evolution coordinate.
         seed: Record seed operand.
@@ -195,69 +353,145 @@ def textured[R: Effect](shell: Shell[R], path: KeyPath, point: Expr, time: Scala
         Density and tone per stream.
     """
 
+    def linked(inlet: Inlet, at: tuple[Key, ...], info: msgspec.structs.FieldInfo) -> Option[Scalar]:
+        return Some(inlet(*at, info.name))
+
+    def node(texture: textures.Texture, at: Expr, inlet: Inlet, *, socket: Option[str] = Nothing, floored: bool = False) -> Expr:
+        w: Scalar
+        match texture.rank:
+            case 1:
+                axis, w = at, at["X"]
+            case 3:
+                axis, w = at + xyz(z=time), time
+            case _:
+                axis, w = at, time
+        coordinates = (vector("FLOOR", axis), math("FLOOR", w)) if floored else (axis, w)
+        return texture.node(*coordinates, socket=socket, linked=Some(functools.partial(linked, inlet, ("texture",))))
+
+    def raw(field: Basis, offset: Expr, inlet: Inlet) -> Expr:
+        match field:
+            case Perlin(texture=noise):
+                return node(noise, (point + offset) / xyz(1.0, inlet("stretch"), 1.0), inlet)
+            case Voronoi(texture=cells):
+                return node(cells, point + offset, inlet)
+            case Wave(profile=profile) as wave:
+                phase = math("MULTIPLY_ADD", time, -tau, inlet("phase"))
+                at = vector("DIVIDE", point, xyz(inlet("wavelength"), inlet("wavelength"), 1.0)) + offset * (0.0, 0.0, 1.0)
+                fac = wave.texture.node(at, linked=Some(lambda info: Some(phase) if info.name == "phase_offset" else Nothing if info.name == "scale" else linked(inlet, (), info)))
+                return math("FLOOR", fac * 2.0) if profile == "SQUARE" else fac
+            case Gabor(texture=oscillations):
+                return node(oscillations, point + offset, inlet)
+            case Magic(texture=turbulence):
+                return node(turbulence, point + offset, inlet)
+            case White(texture=noise):
+                return node(noise, (point + offset) / xyz(inlet("spacing"), inlet("spacing"), 1.0), inlet, floored=True)
+
     def drawn(field: Basis, stream: int) -> tuple[Expr, Expr]:
-        inlet = functools.partial(shell.input, *path, type(field))
+        inlet = functools.partial(shell.input, key, type(field))
         offset = origin(seed, float(stream))
-        density = field.cut.node(_raw(field, point, offset, time, inlet) - loss, linked=Some(_linked(inlet, "cut")))
+        density = field.cut.node(raw(field, offset, inlet) - loss, linked=Some(functools.partial(linked, inlet, ("cut",))))
         match field:
             case Voronoi():
-                color = _node(field.colored, point + offset, time, inlet, socket=Some("Color"))
+                color = node(field.feature_cells, point + offset, inlet, socket=Some("Color"))
                 return switched(inlet("cell_color"), density, density * color["Green"]), switched(inlet("cell_color"), density, color["Red"])
             case _:
                 return density, density
 
-    bases = tuple(case for case in shell.cases[path] if isinstance(case, Perlin | Voronoi | Wave | Gabor | Magic | White))
-    titles = tuple(type(case).title for case in bases)
-    pairs = tuple(tuple(drawn(case, stream) for case in bases) for stream in streams)
-    chosen = _selected(
-        shell.input(*path),
-        shell.items[path],
+    cases = tuple(chosen if isinstance(chosen, kind) else kind() for kind in typing.get_args(Basis.__value__))
+    titles = tuple(item.name for item in _items(cases).items)
+    pairs = tuple(tuple(drawn(case, stream) for case in cases) for stream in streams)
+    selected = _selected(
+        shell.input(key, "kind"),
+        _items(cases),
         {item_key(stream, part): dict(zip(titles, (pair[index] for pair in held))) for stream, held in zip(streams, pairs) for index, part in enumerate(("density", "tone"))},
         "FLOAT",
     )
-    return tuple((chosen[item_key(stream, "density")], chosen[item_key(stream, "tone")]) for stream in streams)
+    return tuple((selected[item_key(stream, "density")], selected[item_key(stream, "tone")]) for stream in streams)
 
 
-def emitted[R: Effect](shell: Shell[R], path: KeyPath, tones: tuple[Scalar, *tuple[Scalar, ...]]) -> BlenderResult[tuple[Expr, ...]]:
-    """Returns scene-linear emitted light at each tone through the one spectrum menu of the emission at `path`.
+def emitted[R: Effect](shell: Shell[R], key: Key, light: Emission, tones: tuple[Scalar, *tuple[Scalar, ...]]) -> Outcome[tuple[Expr, ...]]:
+    """Returns scene-linear emitted light at each tone through the one spectrum menu of the emission panel at `key`.
 
     Args:
-        shell: Working config, entry inputs, and retained spectrum cases.
-        path: Emission record path.
+        shell: Working config and entry inputs.
+        key: Emission panel key.
+        light: Record emission holding the ramp of its gradient case.
         tones: Tone operands in output order.
 
     Returns:
         Light per tone, or the working luminance fault.
     """
-    spectrum_field, intensity = Emission.__struct_fields__
-    spectral = (*path, spectrum_field)
-    start, end = Tint.__struct_fields__
-    cool, hot = Incandescence.__struct_fields__
-    (ramp,) = Gradient.__struct_fields__
-    brightness = math("POWER", 2.0, shell.input(*path, intensity))
+    spectral = item_key(key, "spectrum")
+    ramp = light.spectrum.ramp if isinstance(light.spectrum, Gradient) else Gradient().ramp
+    brightness = math("POWER", 2.0, shell.input(key, "intensity"))
+    spectra = tuple(light.spectrum if isinstance(light.spectrum, kind) else kind() for kind in typing.get_args(Spectrum.__value__))
 
     def lit(working: NodeGroup) -> tuple[Expr, ...]:
-        def colored(index: int, tone: Scalar) -> dict[str, Expr]:
+        def tinted(index: int, tone: Scalar) -> dict[str, Expr]:
             body = Expr(
                 kind=bpy.types.ShaderNodeBlackbody,
-                inputs=(("Temperature", mixed(tone, shell.input(*spectral, Incandescence, cool), shell.input(*spectral, Incandescence, hot))),),
+                inputs=(("Temperature", mixed(tone, shell.input(spectral, Incandescence, "cool"), shell.input(spectral, Incandescence, "hot"))),),
                 socket="Color",
                 shape="RGBA",
             )
-            gradient = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", tone),), content=shell.case(Gradient, *spectral).map(lambda held: held.ramp), socket="Color", shape="RGBA")
+            gradient = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", tone),), content=Some(ramp), socket="Color", shape="RGBA")
             return {
-                Tint.title: mixed(tone, shell.input(*spectral, Tint, start), shell.input(*spectral, Tint, end)),
-                Incandescence.title: vector("DIVIDE", body, working.placed({COLOR_INPUT.key: body}, masks.LUMINANCE.key)),
-                Gradient.title: gradient.named(item_key(*spectral, Gradient, ramp) if index == 0 else item_key(*path, index, ramp)),
+                "Tint": mixed(tone, shell.input(spectral, Tint, "start"), shell.input(spectral, Tint, "end")),
+                "Incandescence": vector("DIVIDE", body, working.placed({COLOR_INPUT.key: body}, masks.LUMINANCE.key)),
+                "Gradient": gradient.named(item_key(spectral, Gradient, "ramp") if index == 0 else item_key(key, index, "ramp")),
             }
 
-        colors = _selected(shell.input(*spectral), shell.items[spectral], {item_key(index): colored(index, tone) for index, tone in enumerate(tones)}, "RGBA")
+        colors = _selected(shell.input(spectral, "kind"), _items(spectra), {item_key(index): tinted(index, tone) for index, tone in enumerate(tones)}, "RGBA")
         return tuple(vector("SCALE", colors[item_key(index)], brightness) for index in range(len(tones)))
 
     return masks.luminance(shell.config).map(lit)
 
 
 # --- [CPU]
+
+
+def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], prefix: Key = "") -> Outcome[T]:
+    """Decodes the record its entry inputs override, each field at its item key under `prefix`.
+
+    Nested records sit under their field key, an optional value holds while its panel toggle is on with a plain value at `<key>_value`, a case union takes the case its `<key>_kind` menu names, an enum the member its menu item names, and RGBA colors cut to RGB.
+
+    Args:
+        record: Stored record whose fields no input holds.
+        values: Entry input values by interface item key.
+        prefix: Key the record's fields sit under.
+
+    Returns:
+        Record of the input values, or the refused value fault.
+    """
+
+    def raw(info: msgspec.inspect.Type, held: object, key: Key) -> object:
+        match info, values.get(key):
+            case msgspec.inspect.StructType(cls=kind, fields=fields), _:
+                base = held if isinstance(held, dict) else msgspec.to_builtins(kind())
+                return {**base, **{field.encode_name: raw(field.type, base.get(field.encode_name), item_key(key, field.name) if key else field.name) for field in fields}}
+            case msgspec.inspect.UnionType(types=types), bool(on) if any(isinstance(option, msgspec.inspect.NoneType) for option in types):
+                present = tuple(option for option in types if not isinstance(option, msgspec.inspect.NoneType))
+                inner = present[0] if len(present) == 1 else msgspec.inspect.UnionType(types=present)
+                return (raw(inner, held, key) if isinstance(inner, msgspec.inspect.StructType | msgspec.inspect.UnionType) else raw(inner, held, item_key(key, "value"))) if on else None
+            case msgspec.inspect.UnionType(types=types), _ if isinstance(name := values.get(item_key(key, "kind")), str):
+                cases = {kind: option for option in types if isinstance(option, msgspec.inspect.StructType) and issubclass(kind := option.cls, Case)}
+                match next((kind for kind in cases if bpy.path.display_name(item_key(kind)) == name), None):
+                    case None:
+                        return held
+                    case kind:
+                        return raw(cases[kind], held if isinstance(held, dict) and held.get("kind") == kind.__name__ else msgspec.to_builtins(kind()), item_key(key, kind))
+            case msgspec.inspect.EnumType(cls=kind), str(name):
+                return next((member.value for member in kind if bpy.path.display_name(member.name.lower()) == name), held)
+            case msgspec.inspect.TupleType(item_types=items), tuple(found) if len(items) == 3 and len(found) == 4:
+                return found[:3]
+            case _, None:
+                return held
+            case _, found:
+                return found
+
+    return catch(msgspec.convert, exception=msgspec.ValidationError)(raw(msgspec.inspect.type_info(type(record)), msgspec.to_builtins(record), prefix), type(record)).map_error(
+        lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=type(record).__name__, cause=error),)
+    )
 
 
 def evaluated(field: Basis, points: npt.NDArray[np.float64], time: npt.NDArray[np.float64], *, seed: int, stream: int) -> npt.NDArray[np.float64]:
@@ -276,11 +510,21 @@ def evaluated(field: Basis, points: npt.NDArray[np.float64], time: npt.NDArray[n
     offset = textures.White(noise_dimensions="4D").evaluated(np.array(((seed, stream, 0.0),)), 0.0)["Color"][0] * 256.0
     planar = np.column_stack((points, np.zeros(len(points))))
     located = planar + offset
+
+    def axes(rank: int, at: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        match rank:
+            case 1:
+                return at, at[:, 0]
+            case 3:
+                return at + np.column_stack((np.zeros((len(time), 2)), time)), time
+            case _:
+                return at, time
+
     match field:
         case Perlin(texture=noise, stretch=stretch):
-            raw = noise.evaluated(*_axes(noise.rank, located / (1.0, stretch, 1.0), time))[noise.primary]
+            raw = noise.evaluated(*axes(noise.rank, located / (1.0, stretch, 1.0)))[noise.primary]
         case Voronoi(texture=cells):
-            raw = cells.evaluated(*_axes(cells.rank, located, time))[cells.primary]
+            raw = cells.evaluated(*axes(cells.rank, located))[cells.primary]
         case Wave(wavelength=wavelength, phase=phase, profile=profile) as wave:
             at = planar / (wavelength, wavelength, 1.0) + offset * (0.0, 0.0, 1.0)
             raw = np.empty(len(points), dtype=np.float32)
@@ -289,22 +533,22 @@ def evaluated(field: Basis, points: npt.NDArray[np.float64], time: npt.NDArray[n
                 fac = msgspec.structs.replace(wave.texture, phase_offset=phase - tau * float(moment)).evaluated(at[held])["Fac"]
                 raw[held] = np.floor(fac * 2.0) if profile == "SQUARE" else fac
         case Gabor(texture=oscillations):
-            raw = oscillations.evaluated(*_axes(oscillations.rank, located, time))[oscillations.primary]
+            raw = oscillations.evaluated(*axes(oscillations.rank, located))[oscillations.primary]
         case Magic(texture=turbulence):
-            raw = turbulence.evaluated(*_axes(turbulence.rank, located, time))[turbulence.primary]
+            raw = turbulence.evaluated(*axes(turbulence.rank, located))[turbulence.primary]
         case White(texture=noise, spacing=spacing):
-            cells, w = _axes(noise.rank, located / (spacing, spacing, 1.0), time)
-            raw = noise.evaluated(np.floor(cells), np.floor(w))[noise.primary]
+            lattice, w = axes(noise.rank, located / (spacing, spacing, 1.0))
+            raw = noise.evaluated(np.floor(lattice), np.floor(w))[noise.primary]
     density = np.asarray(field.cut.evaluated(raw), dtype=np.float64)
     match field:
         case Voronoi(cell_color=True) as cellular:
-            tint = cellular.colored.evaluated(*_axes(cellular.texture.rank, located, time))["Color"]
+            tint = cellular.feature_cells.evaluated(*axes(cellular.texture.rank, located))["Color"]
             return np.column_stack((density * tint[:, 1], tint[:, 0])).astype(np.float64)
         case _:
             return np.column_stack((density, density))
 
 
-def spectrum(request: Spectrum, tones: npt.NDArray[np.float64], config: PyOpenColorIO.Config) -> BlenderResult[npt.NDArray[np.float64]]:
+def spectrum(request: Spectrum, tones: npt.NDArray[np.float64], config: PyOpenColorIO.Config) -> Outcome[npt.NDArray[np.float64]]:
     """Evaluates scene-linear RGB of linear tints, host ramps, or unit-luminance blackbodies integrated against the observer at each tone."""
     match request:
         case Tint(start=start, end=end):
@@ -319,54 +563,9 @@ def spectrum(request: Spectrum, tones: npt.NDArray[np.float64], config: PyOpenCo
 # --- [LOWERING]
 
 
-def _raw(field: Basis, point: Expr, offset: Expr, time: Scalar, inlet: Inlet) -> Expr:
-    """Texture value of one basis at a greater-side position decorrelated by a drawn offset."""
-    match field:
-        case Perlin(texture=noise):
-            return _node(noise, (point + offset) / xyz(1.0, inlet("stretch"), 1.0), time, inlet)
-        case Voronoi(texture=cells):
-            return _node(cells, point + offset, time, inlet)
-        case Wave(profile=profile) as wave:
-            phase = math("MULTIPLY_ADD", time, -tau, inlet("phase"))
-            read = _linked(inlet)
-            at = vector("DIVIDE", point, xyz(inlet("wavelength"), inlet("wavelength"), 1.0)) + offset * (0.0, 0.0, 1.0)
-            fac = wave.texture.node(at, linked=Some(lambda info: Some(phase) if info.name == "phase_offset" else Nothing if info.name == "scale" else read(info)))
-            return math("FLOOR", fac * 2.0) if profile == "SQUARE" else fac
-        case Gabor(texture=oscillations):
-            return _node(oscillations, point + offset, time, inlet)
-        case Magic(texture=turbulence):
-            return _node(turbulence, point + offset, time, inlet)
-        case White(texture=noise):
-            return _node(noise, (point + offset) / xyz(inlet("spacing"), inlet("spacing"), 1.0), time, inlet, floored=True)
-
-
-def _node(texture: textures.Texture, point: Expr, time: Scalar, inlet: Inlet, *, socket: Option[str] = Nothing, floored: bool = False) -> Expr:
-    """Builds a texture over a position, time on Z at rank 3 and on W at rank 4, W reading X at rank 1, both coordinates floored to cells when `floored`."""
-    match texture.rank:
-        case 1:
-            vector_axis, w = point, point["X"]
-        case 3:
-            vector_axis, w = point + xyz(z=time), time
-        case _:
-            vector_axis, w = point, time
-    coordinates = (vector("FLOOR", vector_axis), math("FLOOR", w)) if floored else (vector_axis, w)
-    return texture.node(*coordinates, socket=socket, linked=Some(_linked(inlet, "texture")))
-
-
-def _linked(inlet: Inlet, *at: Key) -> textures.Linked:
-    """Reads each texture or map range field at its group input under `at`."""
-    return lambda info: Some(inlet(*at, info.name))
-
-
-def _axes(rank: int, located: npt.NDArray[np.float64], time: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    """`Vector` and `W` coordinates the node path builds at a rank."""
-    match rank:
-        case 1:
-            return located, located[:, 0]
-        case 3:
-            return located + np.column_stack((np.zeros((len(time), 2)), time)), time
-        case _:
-            return located, time
+def _items(cases: tuple[Case, ...]) -> MenuItems:
+    """Menu items of union cases, each named by its key and described by its docstring."""
+    return MenuItems(items=tuple(MenuItem(name=bpy.path.display_name(item_key(type(case))), description=str(inspect.getdoc(type(case)))) for case in cases))
 
 
 def _selected(selector: Expr, items: MenuItems, outputs: Mapping[Key, Mapping[str, Expr]], kind: DataType) -> dict[Key, Expr]:
@@ -381,9 +580,17 @@ def _selected(selector: Expr, items: MenuItems, outputs: Mapping[Key, Mapping[st
     return {first: head} | {output: chosen(outputs[output]) for output in rest}
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+CLOCK: Final = clock("clock")
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "ANGLE",
+    "CLOCK",
+    "FACTOR",
+    "PLANAR",
     "Basis",
     "Emission",
     "Gabor",
@@ -397,10 +604,16 @@ __all__ = [
     "Wave",
     "WaveProfile",
     "White",
+    "bases",
+    "clock",
+    "decoded",
     "density_range",
+    "emission",
     "emitted",
     "evaluated",
+    "incandescence",
     "profiled",
+    "spectra",
     "spectrum",
     "textured",
 ]

@@ -3,37 +3,10 @@
 [project]
 name            = "rasm"
 version         = "1.0.0"
-description     = "Rasm monorepo's Python libraries in one wheel, one import root per domain or host"
+description     = "Rasm monorepo's Python workspace root over its library and host members, its tools, and their dependency groups"
 requires-python = ">=3.13"
 
-dependencies = [
-    "atomicwrites",      # Atomic preset moves that preserve occupied destinations
-    "cbor2",             # Canonical binary content hashing with unbounded integers
-    "colour-science",    # CIE observer datasets
-    "expression",        # Results, options, fault unions, and collections of every library package
-    "httpx2",            # HTTP for batch render targets and notices
-    "imagecodecs",       # JPEG codec for compression emulation
-    "matplotlib",        # colour-science plotting import
-    "msgspec",           # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
-    "numpy",             # Arrays for image planes, previews, and analysis
-    "opencolorio",       # Color processing, config authoring, and LUT baking
-    "openimageio",       # Image IO and analysis
-    "psdtags",           # Photoshop layer records for layered documents
-    "scikit-image",      # Structural similarity over image comparison planes
-    "scipy",             # Color algebra, vector quadrature, FFT sizing, and zoom
-    "structlog",         # Structured logging through typed bound loggers holding each extension's context
-    "tenacity",          # Batch target retries over configured domain retry policies
-    "tifffile",          # Linear Raw DNG and TIFF containers for layered documents
-    "typing-extensions", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
-    "typing-inspection", # Annotation metadata and generic type-alias inspection
-    "tzdata",            # IANA time zones for zoneinfo on platforms without a database
-]
-
-# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
-
-[build-system]
-requires      = ["uv_build"]
-build-backend = "uv_build"
+dependencies = ["blender"]
 
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
@@ -379,9 +352,12 @@ dev       = [
     "coloraide",                                                                  # SVG tool paint parsing and sRGB gamut fitting
     "cyclopts",                                                                   # CLI parser for tool commands
     "editorconfig",                                                               # EditorConfig property resolution for clean-prose fence indent sizes
+    "expression",                                                                 # Results and options in tools, fitout, skill scripts, and test support
     "fonttools",                                                                  # Cubic pens for Blender geometry icons
+    "httpx2",                                                                     # Blender Lab HTTP calls of extension installs
     "mcp",                                                                        # Blender Lab execution through its public MCP service
     "msgspec[yaml]",                                                              # Structs and codecs for tools, skill scripts, and test support
+    "numpy",                                                                      # Icon geometry arrays and test array assertions
     "packaging",                                                                  # Wheel filename parsing for Blender extension assembly
     "picosvg",                                                                    # SVG geometry normalization for Blender glyphs
     "psutil",                                                                     # Blender identity, use-ghidra process lookup, benchmark readings
@@ -389,6 +365,7 @@ dev       = [
     "regex",                                                                      # DEFINE groups and pictograph property classes `re` lacks for clean-prose
     "shapely",                                                                    # Filled-region geometry for Blender tool icons
     "skia-pathops",                                                               # Glyph stroke expansion and filled-region unions
+    "structlog",                                                                  # Structured logs of fitout, refurb events, and test log capture
     "tomlkit",                                                                    # Comment-preserving Blender extension manifest assembly
     "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
 
@@ -415,6 +392,7 @@ dev       = [
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
+package                  = false
 default-groups           = "all"
 python-preference        = "only-system"
 python-downloads         = "never"
@@ -428,7 +406,12 @@ prerelease               = "allow"
 no-build-package         = ["epdx", "numpy"]                                                                                                                                         # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
 constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
 extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
-build-backend            = { module-name = ["blender"], module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
+
+[tool.uv.workspace]
+members = ["libs/python/blender", "apps/blender/darkroom"]
+
+[tool.uv.sources]
+blender = { workspace = true }
 
 [tool.uv.dependency-groups]
 dev       = { requires-python = ">=3.15" }
@@ -517,7 +500,7 @@ ignore                    = [
     "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
-    "implicit-namespace-package",                                                                                                                                                                                    # Import roots under backend `module-root` are namespace packages
+    "implicit-namespace-package",                                                                                                                                                                                    # The `blender` import root and its packages are namespace packages
     "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
     "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<FAMILY>]` subsection dividers as code
     "float-equality-comparison",                                                                                                                                                                                     # Code compares authored controls with exact identity values (`0.0`, `1.0`) and guards division by exact zero
@@ -562,14 +545,13 @@ pylint                    = { allow-magic-value-types = ["str", "bytes", "int"],
 [tool.ruff.lint.per-file-ignores]
 "tests/**"                              = ["assert"]
 "{libs/python/blender,apps/blender}/**" = [
-    "boolean-positional-value-in-call",                             # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
-    "import-private-name",                                          # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
-    "no-self-use",                                                  # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
-    "non-pep695-generic-class",                                     # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
+    "boolean-positional-value-in-call",              # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
+    "import-private-name",                           # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
+    "non-pep695-generic-class",                      # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
 ]
 "apps/blender/**"                       = [
-    "non-empty-init-module", # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-    "relative-imports",      # Blender imports an extension under `bl_ext.<repository>.<id>`, so its folders reach each other relatively alone
+    "non-empty-init-module",                         # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+    "relative-imports",                              # Blender imports an extension under `bl_ext.<repository>.<id>`, so its folders reach each other relatively alone
 ]
 
 [tool.ruff.lint.flake8-tidy-imports]
@@ -676,12 +658,15 @@ require-lazy = [
 
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
-analysis    = { respect-type-ignore-comments = false }
 rules       = { all = "error", unsound-assignment = "ignore", unsound-return-statement = "ignore" } # `expression` `Ok` and `Error` build `Result[T, Any]`, each return and assignment of one reads as unsound
 
 [[tool.ty.overrides]]
 include  = ["libs/python/blender/**", "apps/blender/**"]
 analysis = { replace-imports-with-any = ["cycles.**"] }  # Blender supplies `cycles` with no typings package
+
+[[tool.ty.overrides]]
+include = ["apps/blender/**"]
+rules   = { missing-direct-dependency = "ignore" } # Extensions import the `blender` library's dependency closure through their one `blender` row
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
@@ -697,10 +682,10 @@ explicit_package_bases  = true
 exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
-untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                    # Callees mypy reports as untyped calls in packages that ship no typed signatures
+untyped_calls_exclude   = ["OpenImageIO", "picosvg", "skimage"]                                                                                                                                                                             # Callees mypy reports as untyped calls in packages that ship no typed signatures
 plugins                 = ["pydantic.mypy"]
 enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
-overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }]
+overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }, { module = ["blender.*", "apps.blender.*"], disallow_any_explicit = false }]
 
 # --- [PYDANTIC]
 [tool.pydantic-mypy]
@@ -776,15 +761,6 @@ disable    = [
     "FURB189",                # Ruff runs FURB189
     "FURB192",                # Ruff runs FURB192
 ]
-
-# --- [DEPTRY] ---------------------------------------------------------------------------
-
-[tool.deptry]
-experimental_namespace_package = true # Import roots under backend `module-root` are namespace packages holding no top-level module
-
-[tool.deptry.per_rule_ignores]
-DEP001 = ["_blendfile_header", "_bpy_internal", "_bpy_types", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui"] # Modules Blender supplies to host code
-DEP002 = ["matplotlib", "tzdata"]                                                                                                                                                                                     # `import colour` loads matplotlib its metadata marks optional, zoneinfo reads tzdata data files
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 

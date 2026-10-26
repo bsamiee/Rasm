@@ -1,7 +1,7 @@
 """Translations, CLI commands, and Online Manual links."""
 
 import base64
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 
 import bpy
@@ -10,8 +10,8 @@ import msgspec
 
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderRegisterFault, BlenderResult
-from blender.records.faults import DomainFault
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import Fault, Faults, Outcome, RecordReason
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -19,9 +19,9 @@ from blender.records.faults import DomainFault
 class Translations(msgspec.Struct, frozen=True, kw_only=True):
     """English text translations registered under extension package."""
 
-    table: dict[str, dict[str, str]]
+    table: Mapping[str, Mapping[str, str]]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Builds table registration acquisition.
 
         Args:
@@ -65,9 +65,9 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
 
     key: Key
     decoder: msgspec.json.Decoder[A]
-    run: Callable[[A, tuple[str, ...]], BlenderResult[object]]
+    run: Callable[[A, tuple[str, ...]], Outcome[object]]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Builds named command acquisition.
 
         Args:
@@ -79,7 +79,7 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
         return identity.name(Name.CLI, self.key).map(lambda command: ((Band.REGISTRIES, self.registered(identity, command)),))
 
     @contextmanager
-    def registered(self, identity: Identity, command: str) -> Generator[BlenderResult[None] | None]:
+    def registered(self, identity: Identity, command: str) -> Generator[Outcome[None] | None]:
         """Registers command, unregistering its handle at exit.
 
         Args:
@@ -91,20 +91,20 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
         """
 
         @identity.reports.reported
-        def executed(arguments: list[str]) -> BlenderResult[object]:
+        def executed(arguments: list[str]) -> Outcome[object]:
             """Decodes first argument, passing rest unchanged."""
             try:
                 document, *trailing = arguments
                 decoded = self.decoder.decode(base64.b64decode(document, validate=True))
             except (ValueError, msgspec.DecodeError) as error:
-                return Result[object, BlenderFaults](error=(DomainFault(subject="Command arguments", value=" ".join(arguments), accepted=str(error)),))
+                return Result[object, Faults](error=(Fault(reason=RecordReason.OUTSIDE, subject="Command arguments", member=str(error), cause=" ".join(arguments)),))
             else:
                 return self.run(decoded, tuple(trailing))
 
         try:
             handle = bpy.utils.register_cli_command(command, lambda arguments: executed(arguments).map(lambda _: 0).default_value(1))
         except ValueError as error:
-            yield Result[None, BlenderFaults](error=(BlenderRegisterFault(request=(command,), error=error),))
+            yield Result[None, Faults](error=(Fault(reason=BlenderReason.UNREGISTERED, subject=command, cause=error),))
         else:
             try:
                 yield None
@@ -115,7 +115,7 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
 class ManualMap(msgspec.Struct, frozen=True, kw_only=True):
     """Online Manual links from manifest website and extension operators."""
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Builds manual hook acquisition over manifest website.
 
         Args:
@@ -128,7 +128,7 @@ class ManualMap(msgspec.Struct, frozen=True, kw_only=True):
             Option
             .of_optional(identity.manifest.website)
             .map(lambda website: ((Band.REGISTRIES, self.registered(identity, website)),))
-            .to_result_with(lambda: (BlenderAbsentFault(owner=identity.package, key="website"),))
+            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=identity.package, member="website"),))
         )
 
     @staticmethod

@@ -3,16 +3,17 @@
 from collections.abc import Callable, Iterable, Mapping
 from functools import reduce
 from itertools import count, takewhile
-from typing import Annotated, ClassVar, Protocol, Self, TypeGuard
+from typing import Annotated, ClassVar, Final, Protocol, Self, TypeGuard
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 
-from blender.bpy.data.rna.descriptors import beneath, Descriptor, effective, id_path, LEADING, member_path, Native, rooted, sequenced, struct_at, Value
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.records.faults import accumulated, DomainFault, paired
+from blender.bpy.data.rna.descriptors import beneath, Descriptor, effective, id_path, LEADING, member_path, Native, rooted, sequenced, Struct, struct_at, Value
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case
 from blender.records.trees import Owner, revert, transfer, Tree
 
@@ -25,7 +26,7 @@ type NativeValue = tuple[NativeOwner, Value | bytes | bpy.types.bpy_struct[objec
 type Persisted = Tree[tuple[tuple[object, str], object]]
 
 
-class Scoped[O: "bpy.types.bpy_struct[object]" = "bpy.types.bpy_struct[object]"](Protocol):
+class Scoped[O: Struct = Struct](Protocol):
     """Context-selected owners of one struct type."""
 
     @property
@@ -33,7 +34,7 @@ class Scoped[O: "bpy.types.bpy_struct[object]" = "bpy.types.bpy_struct[object]"]
         """Owner struct type."""
         ...
 
-    def owners(self, context: bpy.types.Context, /) -> BlenderResult[tuple[O, ...]]:
+    def owners(self, context: bpy.types.Context, /) -> Outcome[tuple[O, ...]]:
         """Returns selected owners in stable order."""
         ...
 
@@ -51,7 +52,7 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
     written: tuple[str, ...] = ()
     unchanged: tuple[str, ...] = ()
     skipped: tuple[str, ...] = ()
-    outcome: BlenderResult[None] = Ok(None)
+    outcome: Outcome[None] = Ok(None)
 
     @classmethod
     def join(cls, outcomes: tuple[Self, ...]) -> Self:
@@ -64,7 +65,7 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     @classmethod
-    def refused(cls, faults: BlenderFaults) -> Self:
+    def refused(cls, faults: Faults) -> Self:
         """Returns outcome failing with faults."""
         return cls(outcome=Error(faults))
 
@@ -83,7 +84,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         return cls(struct=struct.bl_rna.identifier, tree=Tree(roots=("",), owners={"": Owner(values=dict(values))}))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     @classmethod
-    def capture(cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing) -> BlenderResult[Self]:
+    def capture(cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing) -> Outcome[Self]:
         """Captures assignable values keyed by path, the selected members alone when given.
 
         Args:
@@ -91,14 +92,18 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             selection: Members to capture, every saved member when Nothing.
 
         Returns:
-            Snapshot, domain fault for an undecodable value, edit fault for a stale owner.
+            Snapshot, domain fault for an undecodable value.
         """
 
         def stored(descriptor: Descriptor, struct: Native, _: frozenset[tuple[int, str]]) -> Option[Value]:
             value = descriptor.read(struct)
             return Nothing if isinstance(descriptor.prop, bpy.types.EnumProperty) and not descriptor.prop.is_enum_flag and not bool(value) else Some(value)
 
-        return _attempted(owner, lambda: cls(struct=owner.bl_rna.identifier, tree=_walked(owner, owner, _Walk(read=stored), selection)))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        return (
+            catch(_walked, exception=msgspec.ValidationError)(owner, owner, _Walk(read=stored), selection)
+            .map(lambda tree: cls(struct=owner.bl_rna.identifier, tree=tree))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            .map_error(lambda error: (Fault(reason=RecordReason.OUTSIDE, subject="Snapshot members", member=str(error), cause=repr(owner)),))
+        )
 
     @staticmethod
     def settings(setting: Descriptor, compound: "tuple[type[bpy.types.bpy_struct[object]], ...]" = ()) -> tuple[Descriptor, ...]:
@@ -126,15 +131,13 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
     def apply(self, owner: Native) -> Applied:
         """Writes snapshot to owner in host order."""
-        match _attempted(owner, lambda: owner.bl_rna.identifier):  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            case Result(tag="ok", ok=identifier) if identifier == self.struct:
+        match owner.bl_rna.identifier:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            case self.struct:
                 return self._applied(owner, self.tree, lambda _, value: value)
-            case Result(tag="ok", ok=identifier):
-                return Applied.refused((DomainFault(subject=repr(owner), value=self.struct, accepted=identifier),))
-            case Result(error=faults):
-                return Applied.refused(faults)
+            case identifier:
+                return Applied.refused((Fault(reason=RecordReason.OUTSIDE, subject=repr(owner), member=identifier, cause=self.struct),))
 
-    def applied[O: "bpy.types.bpy_struct[object]"](self, owners: tuple[O, ...]) -> tuple[Applied, ...]:
+    def applied[O: Struct](self, owners: tuple[O, ...]) -> tuple[Applied, ...]:
         """Writes snapshot to every owner, one outcome each."""
         return tuple(map(self.apply, owners))
 
@@ -156,14 +159,16 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             ),
         )
 
-    def projected(self, owner: Native, current: "Snapshot", locked: frozenset[str] = frozenset()) -> "BlenderResult[tuple[Snapshot, Snapshot]]":
+    def projected(self, owner: Native, current: "Snapshot", locked: frozenset[str] = frozenset()) -> "Outcome[tuple[Snapshot, Snapshot]]":
         """Returns unlocked assignments with resulting current state."""
 
         def within(path: str, roots: frozenset[str]) -> bool:
             return any(path == root or beneath(path, root) for root in roots)
 
-        def split(identifier: str) -> BlenderResult[tuple[Snapshot, Snapshot]]:
-            if incompatible := tuple(DomainFault(subject=repr(owner), value=snapshot.struct, accepted=identifier) for snapshot in (self, current) if snapshot.struct != identifier):
+        def split(identifier: str) -> Outcome[tuple[Snapshot, Snapshot]]:
+            if incompatible := tuple(
+                Fault(reason=RecordReason.OUTSIDE, subject=repr(owner), member=identifier, cause=snapshot.struct) for snapshot in (self, current) if snapshot.struct != identifier
+            ):
                 return Error((incompatible[0], *incompatible[1:]))
             free = {
                 key: Owner(
@@ -183,13 +188,13 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             values = {key: held for key, held in current.tree.owners.items() if not within(key, compounds)}
             for key, held in free.items():
                 previous = values.get(key, Owner(values={}))
-                values[key] = held if within(key, compounds) else Owner(values=previous.values | held.values, children=tuple(dict.fromkeys((*previous.children, *held.children))))
+                values[key] = held if within(key, compounds) else Owner(values={**previous.values, **held.values}, children=tuple(dict.fromkeys((*previous.children, *held.children))))
             nested = frozenset(child for held in values.values() for child in held.children)
             sparse = msgspec.structs.replace(self, tree=Tree(roots=tuple(key for key in self.tree.roots if key in free), owners=free))
             matching = msgspec.structs.replace(self, tree=Tree(roots=tuple(dict.fromkeys(key for key in (*current.tree.roots, *sparse.tree.roots) if key not in nested)), owners=values))
             return Ok((sparse, matching))
 
-        return _attempted(owner, lambda: owner.bl_rna.identifier).bind(split)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        return split(owner.bl_rna.identifier)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
     @classmethod
     def _applied[W](cls, owner: Native, tree: Tree[W], projected: "Callable[[Descriptor, W], Value | bytes | bpy.types.bpy_struct[object] | Tree[NativeValue]]") -> Applied:
@@ -197,10 +202,10 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         reports: list[Applied] = []
         completed: set[tuple[str, str]] = set()
 
-        def every(results: Iterable[BlenderResult[None]]) -> BlenderResult[None]:
+        def every(results: Iterable[Outcome[None]]) -> Outcome[None]:
             return accumulated(results).map(lambda _: None)
 
-        def member(struct: Native, key: str, descriptor: Descriptor, value: W) -> BlenderResult[None]:
+        def member(struct: Native, key: str, descriptor: Descriptor, value: W) -> Outcome[None]:
             desired = projected(descriptor, value)
             reports.append(
                 cls._applied(struct, desired, lambda found, row: cls._value(found, row[1]))
@@ -209,7 +214,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             )
             return reports[-1].outcome
 
-        def lead(prop: bpy.types.Property) -> BlenderResult[None]:
+        def lead(prop: bpy.types.Property) -> Outcome[None]:
             steps = tuple(
                 (struct, key, held.values[prop.identifier])
                 for key, held in tree.owners.items()
@@ -220,7 +225,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             completed.update((key, prop.identifier) for _, key, _ in steps)
             return every(member(struct, key, Descriptor(root=type(struct), owner="", prop=prop), value) for struct, key, value in steps)
 
-        def resized(struct: Native, key: str, prop: bpy.types.CollectionProperty) -> BlenderResult[None]:
+        def resized(struct: Native, key: str, prop: bpy.types.CollectionProperty) -> Outcome[None]:
             if (path := member_path(key, prop.identifier)) not in tree.owners and f"{path}[0]" not in tree.owners:
                 return Ok(None)
             keys = tree.owners[path].children if path in tree.owners else tuple(takewhile(tree.owners.__contains__, (f"{path}[{index}]" for index in count())))
@@ -238,7 +243,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                     added = lambda _: items.add()
                 case bpy.types.bpy_struct():
                     present = sum(item is not None for item in items)
-                    return Ok(None) if present == len(keys) else Error((DomainFault(subject=f"{struct!r}.{prop.identifier}", value=str(len(keys)), accepted=str(present)),))
+                    return Ok(None) if present == len(keys) else Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{struct!r}.{prop.identifier}", member=str(present), cause=str(len(keys))),))
 
             def changed() -> None:
                 properties = fixed.bl_rna.properties
@@ -248,10 +253,10 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 for _ in range(len(items) - len(keys)):
                     items.remove(len(items) - 1 if isinstance(fixed, bpy.types.PropertyGroup) and prop.is_runtime else items[-1])
 
-            return BlenderEditFault.attempted(f"{struct!r}.{prop.identifier}", changed)
+            return catch(changed, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{struct!r}.{prop.identifier}", cause=error),))
 
-        def located(key: str) -> BlenderResult[None]:
-            def written(struct: Native) -> BlenderResult[None]:
+        def located(key: str) -> Outcome[None]:
+            def written(struct: Native) -> Outcome[None]:
                 definitions = tuple(struct.bl_rna.properties)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                 members = tuple((name, value, Descriptor.resolve(struct, name, bpy.types.Property).to_option()) for name, value in tree.owners[key].values.items() if (key, name) not in completed)
                 reports.append(Applied(skipped=tuple(member_path(key, name) for name, _, descriptor in members if descriptor.is_none())))
@@ -277,23 +282,23 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                     return Ok(None)
 
         try:
-            outcome = reduce(lambda state, prop: state.bind(lambda _: lead(prop)), LEADING, Result[None, BlenderFaults](ok=None)).bind(lambda _: every(located(key) for key in tree.roots))
+            outcome = reduce(lambda state, prop: state.bind(lambda _: lead(prop)), LEADING, Result[None, Faults](ok=None)).bind(lambda _: every(located(key) for key in tree.roots))
         except ReferenceError as error:
-            outcome = Error((BlenderEditFault(request=repr(owner), error=error),))
+            outcome = Error((Fault(reason=BlenderReason.REFUSED, subject=repr(owner), cause=error),))
         return msgspec.structs.replace(Applied.join(tuple(reports)), outcome=outcome)
 
     @staticmethod
-    def persisted(tree: Tree[NativeValue]) -> BlenderResult[Persisted]:
+    def persisted(tree: Tree[NativeValue]) -> Outcome[Persisted]:
         """Converts native restoration tree to ID-keyed stored form."""
 
-        def member(row: NativeValue) -> BlenderResult[tuple[tuple[object, str], object]]:
+        def member(row: NativeValue) -> Outcome[tuple[tuple[object, str], object]]:
             target, value = row
             if not isinstance(target, tuple):
-                return Error((DomainFault(subject=repr(target), value=type(target).__name__, accepted=bpy.types.ID.__name__),))
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(target), member=bpy.types.ID.__name__, cause=type(target).__name__),))
             if isinstance(value, Tree):
                 return Snapshot.persisted(value).map(lambda held: (target, held))
             if isinstance(value, bpy.types.bpy_struct) and not isinstance(value, bpy.types.ID):
-                return Error((DomainFault(subject=repr(target), value=type(value).__name__, accepted=bpy.types.ID.__name__),))
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(target), member=bpy.types.ID.__name__, cause=type(value).__name__),))
             return Ok((target, value))
 
         return accumulated(
@@ -302,30 +307,30 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         ).map(lambda owners: Tree(roots=tree.roots, owners=dict(owners)))
 
     @staticmethod
-    def decoded(tree: Persisted, *, compound: bool = False) -> BlenderResult[Tree[NativeValue]]:
+    def decoded(tree: Persisted, *, compound: bool = False) -> Outcome[Tree[NativeValue]]:
         """Validates stored ID references and rebuilds keys from current IDs."""
         owners: dict[str, Owner[NativeValue]] = {key: Owner(values={}, children=held.children) for key, held in tree.owners.items()} if compound else {}
 
-        def member(key: str, name: str, row: tuple[tuple[object, str], object]) -> BlenderResult[None]:
+        def member(key: str, name: str, row: tuple[tuple[object, str], object]) -> Outcome[None]:
             (block, path), value = row
             if block is None:
                 return Ok(None)
             if not isinstance(block, bpy.types.ID):
-                return Error((DomainFault(subject=path, value=type(block).__name__, accepted=bpy.types.ID.__name__),))
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject=path, member=bpy.types.ID.__name__, cause=type(block).__name__),))
             descriptors = (
                 Descriptor.resolve(type(block), member_path(path, name), bpy.types.Property).to_option()
                 if compound
                 else struct_at(block, path).bind(lambda struct: Descriptor.resolve(struct, name, bpy.types.Property).to_option())
             )
             for descriptor in descriptors.to_list():
-                answer: BlenderResult[Value | bytes | bpy.types.bpy_struct[object] | Tree[NativeValue]]
+                answer: Outcome[Value | bytes | bpy.types.bpy_struct[object] | Tree[NativeValue]]
                 match descriptor.prop:
                     case bpy.types.CollectionProperty() | bpy.types.PointerProperty(is_readonly=True):
                         answer = Snapshot.decoded(msgspec.convert(value, type=Persisted), compound=True)
                     case bpy.types.PointerProperty() if value is None or isinstance(value, bpy.types.ID):
                         answer = Ok(value)
                     case bpy.types.PointerProperty():
-                        return Error((DomainFault(subject=member_path(path, name), value=type(value).__name__, accepted=bpy.types.ID.__name__),))
+                        return Error((Fault(reason=RecordReason.OUTSIDE, subject=member_path(path, name), member=bpy.types.ID.__name__, cause=type(value).__name__),))
                     case bpy.types.FloatProperty() as prop:
                         size = (prop.array_length if prop.is_array and descriptor.index.is_none() else 1) * _FLOAT_STORAGE.itemsize
                         answer = Ok(msgspec.convert(value, Annotated[bytes, msgspec.Meta(min_length=size, max_length=size)]))
@@ -333,7 +338,9 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                         answer = Ok(msgspec.convert(value, Value))
                 match answer:
                     case Result(tag="ok", ok=held):
-                        owners.setdefault(key if compound else _session_key(block, path), Owner(values={}, children=tree.owners[key].children if compound else ())).values[name] = ((block, path), held)
+                        target = key if compound else _session_key(block, path)
+                        prior = owners.get(target, Owner(values={}, children=tree.owners[key].children if compound else ()))
+                        owners[target] = msgspec.structs.replace(prior, values={**prior.values, name: ((block, path), held)})
                     case Result(error=faults):
                         return Error(faults)
             return Ok(None)
@@ -343,12 +350,12 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 lambda _: Tree(roots=tree.roots if compound else tuple(owners), owners=owners)
             )
         except (msgspec.ValidationError, TypeError) as error:
-            return Error((DomainFault(subject="Snapshot members", value=tree, accepted=str(error)),))
+            return Error((Fault(reason=RecordReason.OUTSIDE, subject="Snapshot members", member=str(error), cause=str(tree)),))
         except ReferenceError as error:
-            return Error((BlenderEditFault(request=repr(tree), error=error),))
+            return Error((Fault(reason=BlenderReason.REFUSED, subject=repr(tree), cause=error),))
 
     @staticmethod
-    def reverted(before: Persisted, after: Persisted) -> BlenderResult[None]:
+    def reverted(before: Persisted, after: Persisted) -> Outcome[None]:
         """Decodes stored trees and restores values still at after state."""
         return paired(Snapshot.decoded(before), Snapshot.decoded(after)).bind(lambda pair: Snapshot.restore(*pair).outcome)
 
@@ -364,7 +371,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
         def absent(key: str, name: str, target: NativeOwner) -> tuple[Applied, ...]:
             try:
-                return tuple(Applied(outcome=Error((BlenderAbsentFault(owner=repr(struct), key=descriptor.path),))) for struct, descriptor in resolved(target, name))
+                return tuple(Applied(outcome=Error((Fault(reason=BlenderReason.ABSENT, subject=repr(struct), member=descriptor.path),))) for struct, descriptor in resolved(target, name))
             except ReferenceError:
                 return (Applied(skipped=(member_path(key, name),)),)
 
@@ -385,7 +392,8 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def refreshed(struct: bpy.types.CurveMapping | bpy.types.CurveProfile) -> tuple[Applied, ...]:
-            return BlenderEditFault.attempted(repr(struct), struct.update).map(lambda _: ()).default_with(lambda faults: (Applied.refused(faults),))
+            struct.update()
+            return ()
 
         missing = tuple(
             report
@@ -418,7 +426,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         ))
 
     @staticmethod
-    def _reported(path: str, answer: "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]") -> Applied:
+    def _reported(path: str, answer: "Outcome[Option[Value | bpy.types.bpy_struct[object]]]") -> Applied:
         """Classifies write as written, unchanged, or refused."""
         return answer.map(lambda prior: Applied(written=(path,)) if prior.is_some() else Applied(unchanged=(path,))).default_with(Applied.refused)
 
@@ -439,11 +447,11 @@ class Endpoints(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
     before: Persisted
     after: Persisted | None = None
 
-    def completed(self, owner: object, key: str) -> BlenderResult[Persisted]:
+    def completed(self, owner: object, key: str) -> Outcome[Persisted]:
         """Returns stored after values, absent fault before write finishes."""
-        return Option.of_optional(self.after).to_result_with(lambda: (BlenderAbsentFault(owner=repr(owner), key=f"{key}.after"),))
+        return Option.of_optional(self.after).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=f"{key}.after"),))
 
-    def decoded(self, owner: object, key: str) -> BlenderResult[tuple[Tree[NativeValue], Tree[NativeValue]]]:
+    def decoded(self, owner: object, key: str) -> Outcome[tuple[Tree[NativeValue], Tree[NativeValue]]]:
         """Decodes before and after trees, accumulating faults of both."""
         return paired(Snapshot.decoded(self.before), self.completed(owner, key).bind(Snapshot.decoded))
 
@@ -454,12 +462,16 @@ class Scenes(Case, frozen=True, kw_only=True):
     owner_type: ClassVar[type[bpy.types.Scene]] = bpy.types.Scene
     names: tuple[str, ...] | None = None
 
-    def owners(self, _context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene, ...]]:
+    def owners(self, _context: bpy.types.Context) -> Outcome[tuple[bpy.types.Scene, ...]]:
         """Returns scenes, absent fault per missing name."""
         return (
             Option
             .of_optional(self.names)
-            .map(lambda names: accumulated(Option.of_optional(bpy.data.scenes.get(name)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.data.scenes), key=name),)) for name in names))
+            .map(
+                lambda names: accumulated(
+                    Option.of_optional(bpy.data.scenes.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.scenes), member=name),)) for name in names
+                )
+            )
             .default_with(lambda: Ok(tuple(scene for scene in bpy.data.scenes if not scene.is_runtime_data)))
         )
 
@@ -470,7 +482,7 @@ class ViewLayers(Case, frozen=True, kw_only=True):
     owner_type: ClassVar[type[bpy.types.ViewLayer]] = bpy.types.ViewLayer
     scenes: tuple[str, ...] | None = None
 
-    def owners(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.ViewLayer, ...]]:
+    def owners(self, context: bpy.types.Context) -> Outcome[tuple[bpy.types.ViewLayer, ...]]:
         """Returns view layers in scene and layer order."""
         return Scenes(names=self.scenes).owners(context).map(lambda owners: tuple(layer for scene in owners for layer in scene.view_layers))
 
@@ -481,7 +493,7 @@ class Selection(Case, frozen=True, kw_only=True):
     owner_type: ClassVar[type[bpy.types.Object]] = bpy.types.Object
 
     @staticmethod
-    def owners(context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+    def owners(context: bpy.types.Context) -> Outcome[tuple[bpy.types.Object, ...]]:
         """Returns selected objects in view layer order."""
         return rooted(bpy.types.ViewLayer, context).map(lambda layer: tuple(layer.objects.selected))
 
@@ -489,16 +501,15 @@ class Selection(Case, frozen=True, kw_only=True):
 class Objects(Case, frozen=True, kw_only=True):
     """Objects of named collection and its descendants."""
 
-    title = "Collection Objects"
     owner_type: ClassVar[type[bpy.types.Object]] = bpy.types.Object
     collection: str
 
-    def owners(self, _context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Object, ...]]:
+    def owners(self, _context: bpy.types.Context) -> Outcome[tuple[bpy.types.Object, ...]]:
         """Returns collection objects."""
         return (
             Option
             .of_optional(bpy.data.collections.get(self.collection))
-            .to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.data.collections), key=self.collection),))
+            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.collections), member=self.collection),))
             .map(lambda collection: tuple(collection.all_objects))
         )
 
@@ -512,10 +523,17 @@ class _Walk[W](msgspec.Struct, frozen=True, kw_only=True):
     enclosing: frozenset[tuple[int, str]] = frozenset()
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
+SCOPES: Final = tuple(
+    (key, bpy.path.display_name(key.lower()), Option.of_optional(case.__doc__).default_value(""))
+    for key, case in (("SCENES", Scenes), ("VIEW_LAYERS", ViewLayers), ("SELECTION", Selection), ("OBJECTS", Objects))
+)
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, prior: Option[Tree[NativeValue]] = Nothing) -> BlenderResult[Tree[NativeValue]]:
+def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, prior: Option[Tree[NativeValue]] = Nothing) -> Outcome[Tree[NativeValue]]:
     """Captures live values for restoration, owners keyed by ID session, collections and curves held whole.
 
     Args:
@@ -524,19 +542,11 @@ def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, p
         prior: Tree whose values the capture keeps, adding paths it lacks.
 
     Returns:
-        Native tree, domain fault for an undecodable value, edit fault for a stale owner.
+        Native tree, domain fault for an undecodable value.
     """
-    return _attempted(owner, lambda: _walked(owner, owner, _Walk(read=_actual(owner), native=True), selection, prior))
-
-
-def _attempted[T](owner: Native, call: Callable[[], T]) -> BlenderResult[T]:
-    """Runs one walk or definition read, an undecodable value as domain fault and a stale owner as edit fault."""
-    try:
-        return Ok(call())
-    except msgspec.ValidationError as error:
-        return Error((DomainFault(subject="Snapshot members", value=owner, accepted=str(error)),))
-    except ReferenceError as error:
-        return Error((BlenderEditFault(request=repr(owner), error=error),))
+    return catch(_walked, exception=msgspec.ValidationError)(owner, owner, _Walk(read=_actual(owner), native=True), selection, prior).map_error(
+        lambda error: (Fault(reason=RecordReason.OUTSIDE, subject="Snapshot members", member=str(error), cause=repr(owner)),)
+    )
 
 
 def _actual(owner: Native) -> Callable[[Descriptor, Native, frozenset[tuple[int, str]]], Option[NativeValue]]:
@@ -568,7 +578,7 @@ def _walked[W](owner: Native, source: Native, walk: _Walk[W], chosen: Option[tup
     Returns:
         Tree keyed by path, or by session key and pointer for a native top-level walk.
     """
-    owners: dict[str, Owner[W]] = prior.map(lambda tree: {key: msgspec.structs.replace(row, values=row.values.copy()) for key, row in tree.owners.items()}).default_with(dict)
+    owners: dict[str, Owner[W]] = prior.map(lambda tree: dict(tree.owners)).default_with(dict)
     seen: set[tuple[int, str]] = set(walk.enclosing)
     sessioned, indexed = walk.native and walk.expanded.is_none(), walk.expanded.is_some()
 
@@ -637,7 +647,7 @@ def _walked[W](owner: Native, source: Native, walk: _Walk[W], chosen: Option[tup
             if not (walk.native and (isinstance(descriptor.prop, bpy.types.CollectionProperty) or _curve(descriptor.prop)))
         )
         nested = tuple(at for prop, keys in branches for at in grouped(path, prop, keys))
-        owners[key] = Owner(values=held.values | values, children=tuple(dict.fromkeys((*held.children, *nested))))
+        owners[key] = Owner(values={**held.values, **values}, children=tuple(dict.fromkeys((*held.children, *nested))))
         for descriptor in members:
             if arrayed(descriptor.prop, held.values):
                 for index in range(descriptor.prop.array_length):
@@ -669,7 +679,7 @@ def _walked[W](owner: Native, source: Native, walk: _Walk[W], chosen: Option[tup
                 if descriptor.index.is_none() and key in owners and arrayed(descriptor.prop, owners[key].values):
                     return tuple(at for index in range(descriptor.prop.array_length) for at in picked(msgspec.structs.replace(descriptor, index=Some(index)), above))
                 for value in walk.read(descriptor, struct, walk.enclosing | inside).to_list():
-                    owners.setdefault(key, Owner(values={})).values[name] = value
+                    owners[key] = msgspec.structs.replace(held := owners.get(key, Owner(values={})), values={**held.values, name: value})
                     return (key,)
                 return ()
             nested = branched(struct, descriptor.owner, descriptor.prop, inside)
@@ -726,6 +736,19 @@ def _session_key(block: bpy.types.ID, path: str) -> str:
     return f"{block.session_uid}:{path}"
 
 
+def scoped(kind: str, collection: str) -> Scope:
+    """Returns the scope a `SCOPES` choice names, a collection's objects by its name."""
+    match kind:
+        case "SCENES":
+            return Scenes()
+        case "VIEW_LAYERS":
+            return ViewLayers()
+        case "SELECTION":
+            return Selection()
+        case _:
+            return Objects(collection=collection)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Applied", "Endpoints", "NativeValue", "Objects", "Persisted", "Scenes", "Scope", "Scoped", "Selection", "Snapshot", "ViewLayers", "native"]
+__all__ = ["SCOPES", "Applied", "Endpoints", "NativeValue", "Objects", "Persisted", "Scenes", "Scope", "Scoped", "Selection", "Snapshot", "ViewLayers", "native", "scoped"]

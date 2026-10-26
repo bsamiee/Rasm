@@ -13,9 +13,8 @@ import PyOpenColorIO
 import tifffile
 
 from blender.imaging.color.processors import basis
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import written
-from blender.records.faults import NumericFault
+from blender.records.faults import Fault, Outcome, RecordReason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -35,7 +34,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
     exposure: float = 0.0
     optics: Option[Optics] = Nothing
 
-    def written(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> ImagingResult[str]:
+    def written(self, path: str, frame: npt.NDArray[np.float32], config: PyOpenColorIO.Config) -> Outcome[str]:
         """Writes scene-linear frame as Linear Raw DNG.
 
         Args:
@@ -88,8 +87,8 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
                 extratags=[(tifffile.TIFF.TAGS[name], kind, count, value, True) for name, kind, count, value in rows],
             )
 
-        def inverted(matrix: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-            return catch(lambda: np.linalg.inv(matrix), exception=np.linalg.LinAlgError)().map_error(lambda error: (NumericFault(request=matrix, error=error),))
+        def inverted(matrix: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
+            return catch(lambda: np.linalg.inv(matrix), exception=np.linalg.LinAlgError)().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(matrix), cause=error),))
 
         return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).bind(inverted).bind(lambda matrix: written(path, functools.partial(tiff, matrix)))
 

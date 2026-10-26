@@ -2,8 +2,8 @@
 
 from collections.abc import Callable, Iterable
 from copy import replace
-from enum import Enum, Flag
-from functools import cache, reduce
+from enum import auto, Enum, Flag
+from functools import cache, cached_property, reduce
 from itertools import accumulate, groupby, pairwise, starmap, takewhile, zip_longest
 from operator import or_
 from pathlib import Path
@@ -24,39 +24,25 @@ from wcwidth import wcswidth
 
 
 class Marker(Enum):
-    """Comment sign, owned suffixes, and preamble openings per language."""
+    """Comment syntax per language."""
 
-    sign: str
-    suffixes: tuple[str, ...]
-    preamble: str
-    MARKDOWN = "", (".md",), "(?!)"
-    HASH = "#", (".py", ".sh"), r"#!|import |from [\w.]+ import |if (?:typing\.)?TYPE_CHECKING:|set [-+]\w"
-    HASH_DATA = "#", (".toml", ".nix", ".yml", ".yaml"), "(?!)"
-    SLASH = (
-        "//",
-        (".cs", ".ts", ".tsx", ".js", ".jsx", ".java", ".swift"),
-        r"#[!:]|(?:@\w+ )?import |(?:global )?using (?:static )?[\w.]+(?: = [^;]+)?;|namespace [\w.]+;|package [\w.]+;|extern alias \w+;|\[assembly: ",
-    )
-    SLASH_DATA = "//", (".jsonc",), "(?!)"
-    DASH = "--", (".sql", ".lua"), "(?!)"
-
-    def __init__(self, sign: str, suffixes: tuple[str, ...], preamble: str) -> None:
-        """Stores sign, owned suffixes, and preamble openings on member."""
-        self.sign = sign
-        self.suffixes = suffixes
-        self.preamble = preamble
+    MARKDOWN = auto()
+    HASH = auto()
+    HASH_DATA = auto()
+    SLASH = auto()
+    SLASH_DATA = auto()
+    DASH = auto()
 
     @property
     def kinds(self) -> Kind:
         """Block kinds of marker's files."""
-        return (SOURCE if self.sign else MARKDOWN) | Kind.BLANK
+        return (SOURCE if SYNTAXES[self].sign else MARKDOWN) | Kind.BLANK
 
 
 class Kind(Flag):
     """Block kinds in claim order, patterns capturing text as `t` and calling `claimed`, `sign`, and `preamble` subpatterns."""
 
     pattern: str
-    rx: regex.Pattern[str]
     FRONTMATTER = r"\A---\n(?:.*\n)*?---$"
     FENCE = r"^(?P<fence>```|~~~)[`~]*(?P<info>[^\s`~]*).*\n(?:.*\n)*?(?P=fence).*$"
     METADATA = r"^# /// [a-zA-Z0-9-]+$(?:\n#(?: .*)?$)*?\n# ///$"
@@ -73,17 +59,20 @@ class Kind(Flag):
     CODE = r"^.+$(?:\n(?!(?&claimed)).+$)*"
 
     def __new__(cls, pattern: str) -> Self:
-        """Member with next bit and pattern compiled alone, `claimed` matching nothing."""
+        """Member with next bit and pattern."""
         member = object.__new__(cls)
         member._value_ = 2 ** len(cls.__members__)
         member.pattern = pattern
-        signs = "|".join(regex.escape(m.sign) for m in Marker if m.sign)
-        openings = "|".join(m.preamble for m in Marker)
-        member.rx = regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))(?P<sign>{signs})(?P<preamble>{openings}))\A{pattern}", regex.MULTILINE)
         return member
 
+    @cached_property
+    def rx(self) -> regex.Pattern[str]:
+        """Pattern compiled alone, `claimed` matching nothing."""
+        signs = "|".join(regex.escape(s.sign) for s in SYNTAXES.values() if s.sign)
+        openings = "|".join(s.preamble for s in SYNTAXES.values())
+        return regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))(?P<sign>{signs})(?P<preamble>{openings}))\A{self.pattern}", regex.MULTILINE)
 
-TEXT = reduce(or_, (k for k in Kind if "t" in k.rx.groupindex))
+
 MARKDOWN = Kind.FRONTMATTER | Kind.FENCE | Kind.HEADING | Kind.TABLE | Kind.LIST_ITEM | Kind.LABEL | Kind.PARAGRAPH
 SOURCE = Kind.METADATA | Kind.DIVIDER | Kind.DIRECTIVE | Kind.COMMENT | Kind.PREAMBLE | Kind.CODE
 
@@ -123,6 +112,14 @@ SPAN = r"(?<!`)(?P<run>`+)(?!`).+?(?<!`)(?P=run)(?!`)"
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class Syntax(msgspec.Struct, frozen=True):
+    """Comment sign, owned suffixes, and preamble openings of one marker."""
+
+    sign: str
+    suffixes: tuple[str, ...]
+    preamble: str
+
+
 class Line(msgspec.Struct, frozen=True):
     """Text line, `n` its source line through every join and insert."""
 
@@ -159,13 +156,13 @@ class Doc(msgspec.Struct, frozen=True):
     """File blocks and count of blocks fixes changed."""
 
     path: Path
-    blocks: list[Block]
+    blocks: tuple[Block, ...]
     fixed: int = 0
 
     def renumbered(self) -> Doc:
         """Doc with lines numbered by place in written file."""
         starts = accumulate((len(b.lines) for b in self.blocks), initial=1)
-        return replace(self, blocks=[replace(b, lines=tuple(Line(start + i, line.text) for i, line in enumerate(b.lines))) for b, start in zip(self.blocks, starts)])
+        return replace(self, blocks=tuple(replace(b, lines=tuple(Line(start + i, line.text) for i, line in enumerate(b.lines))) for b, start in zip(self.blocks, starts)))
 
 
 class Fix(msgspec.Struct, frozen=True):
@@ -176,7 +173,7 @@ class Fix(msgspec.Struct, frozen=True):
 
     def apply(self, doc: Doc) -> Doc:
         """Doc with transform output, differing blocks counted by first line."""
-        out = self.fn(self.mask, doc.blocks)
+        out = tuple(self.fn(self.mask, list(doc.blocks)))
         return replace(doc, blocks=out, fixed=doc.fixed + len({b.head.n for b in set(doc.blocks) ^ set(out)}))
 
 
@@ -189,7 +186,7 @@ class Report(msgspec.Struct, frozen=True):
 
     def apply(self, doc: Doc) -> list[Line]:
         """Each line report names over masked blocks, text replaced by message."""
-        return [replace(line, text=self.message.format(line.text)) for line in self.fn(replace(doc, blocks=[b for b in doc.blocks if b.kind in self.mask]))]
+        return [replace(line, text=self.message.format(line.text)) for line in self.fn(replace(doc, blocks=tuple(b for b in doc.blocks if b.kind in self.mask)))]
 
 
 class Number(msgspec.Struct, frozen=True):
@@ -506,6 +503,19 @@ def shallow(d: Doc) -> list[Line]:
 
 # --- [REGISTRY] -------------------------------------------------------------------------
 
+SYNTAXES = frozendict({
+    Marker.MARKDOWN: Syntax("", (".md",), "(?!)"),
+    Marker.HASH: Syntax("#", (".py", ".sh"), r"#!|import |from [\w.]+ import |if (?:typing\.)?TYPE_CHECKING:|set [-+]\w"),
+    Marker.HASH_DATA: Syntax("#", (".toml", ".nix", ".yml", ".yaml"), "(?!)"),
+    Marker.SLASH: Syntax(
+        "//",
+        (".cs", ".ts", ".tsx", ".js", ".jsx", ".java", ".swift"),
+        r"#[!:]|(?:@\w+ )?import |(?:global )?using (?:static )?[\w.]+(?: = [^;]+)?;|namespace [\w.]+;|package [\w.]+;|extern alias \w+;|\[assembly: ",
+    ),
+    Marker.SLASH_DATA: Syntax("//", (".jsonc",), "(?!)"),
+    Marker.DASH: Syntax("--", (".sql", ".lua"), "(?!)"),
+})
+TEXT = reduce(or_, (k for k in Kind if "t" in k.rx.groupindex))
 FIXES = (
     Fix(TEXT | Kind.BLANK, lift_block(lambda b: b.rewrite(line.text.rstrip(" \t") for line in b.lines))),
     Fix(TEXT & MARKDOWN, lift_text(opaque(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s)))),
@@ -554,14 +564,14 @@ def lint(path: Path, marker: Marker) -> Doc:
     src = path.read_text(encoding="utf-8").removesuffix("\n")
     kinds = {name: k for name, k in Kind.__members__.items() if k in marker.kinds}
     *claimed, rest = (f"(?P<{name}>{k.pattern})" for name, k in kinds.items())
-    lexer = regex.compile(f"(?(DEFINE)(?P<sign>{regex.escape(marker.sign)})(?P<preamble>{marker.preamble}))(?P<claimed>{'|'.join(claimed)})|{rest}", regex.MULTILINE)
+    lexer = regex.compile(f"(?(DEFINE)(?P<sign>{regex.escape(SYNTAXES[marker].sign)})(?P<preamble>{SYNTAXES[marker].preamble}))(?P<claimed>{'|'.join(claimed)})|{rest}", regex.MULTILINE)
 
     def claim(m: regex.Match[str]) -> Block:
         first = src.count("\n", 0, m.start()) + 1
         kind = next(k for name, k in kinds.items() if m[name] is not None)
         return Block(kind, tuple(Line(first + i, t) for i, t in enumerate(m[0].split("\n"))))
 
-    return reduce(lambda d, f: f.apply(d), (f for f in FIXES if f.mask & marker.kinds), Doc(path, [claim(m) for m in lexer.finditer(src)] if src else []))
+    return reduce(lambda d, f: f.apply(d), (f for f in FIXES if f.mask & marker.kinds), Doc(path, tuple(claim(m) for m in lexer.finditer(src)) if src else ()))
 
 
 def findings(doc: Doc) -> list[str]:
@@ -578,7 +588,7 @@ def files(paths: tuple[Path, ...]) -> dict[Path, Marker]:
         else ""
     )
     found = sorted({*named, *(Path(f) for f in listed.split("\0")[:-1])})
-    return {f: m for m in Marker for f in found if f.suffix in m.suffixes and f.is_file() and not f.is_symlink()}
+    return {f: m for m, syntax in SYNTAXES.items() for f in found if f.suffix in syntax.suffixes and f.is_file() and not f.is_symlink()}
 
 
 def check(*paths: ExistingPath) -> int:
@@ -607,7 +617,3 @@ app.command(fix)
 
 if __name__ == "__main__":
     app()
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__ = ["app"]

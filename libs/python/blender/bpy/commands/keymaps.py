@@ -16,8 +16,8 @@ from blender.bpy.commands.calls import MenuPopup, Placed, Stock, Writer
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Scalar
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
-from blender.records.faults import accumulated, paired
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import accumulated, Fault, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -44,21 +44,21 @@ class Toggle(msgspec.Struct, frozen=True, kw_only=True):
 
     path: str
 
-    def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
+    def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
         """Resolves boolean path and its `wm.context_toggle` operator."""
         return Descriptor.resolve(bpy.types.Context, self.path, bpy.types.BoolProperty).bind(lambda _: Stock(operator=bpy.ops.wm.context_toggle, values={"data_path": self.path}).invocation(identity))
 
 
 class Assign(msgspec.Struct, frozen=True, kw_only=True):
-    """Assignment through `wm.context_set_<type>` of property type."""
+    """Assignment through `wm.context_set_value` of a value the context path accepts."""
 
     path: str
     value: Scalar
 
-    def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Resolves setter operator and values."""
+    def invocation(self, identity: Identity, /) -> Outcome[tuple[str, Writer]]:
+        """Resolves the context path and the setter values."""
         return Descriptor.resolve(bpy.types.Context, self.path, bpy.types.Property).bind(
-            lambda setting: Stock(operator=getattr(bpy.ops.wm, f"context_set_{setting.prop.type.lower()}"), values={"data_path": self.path, "value": self.value}).invocation(identity)
+            lambda _: Stock(operator=bpy.ops.wm.context_set_value, values={"data_path": self.path, "value": repr(self.value)}).invocation(identity)
         )
 
 
@@ -125,21 +125,21 @@ class Keymap:
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Adds each binding's items to every space of the keymap name after operator registration."""
 
         @contextmanager
-        def added(given: tuple[tuple[Location, ...], bpy.types.WindowManager]) -> Generator[BlenderResult[None]]:
+        def added(given: tuple[tuple[Location, ...], bpy.types.WindowManager]) -> Generator[Outcome[None]]:
             locations, manager = given
             held: list[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem]] = []
 
-            def placed(native: bpy.types.KeyMap, chord: Chord, target: Placed, invocation: tuple[str, Writer]) -> BlenderResult[None]:
+            def placed(native: bpy.types.KeyMap, chord: Chord, target: Placed, invocation: tuple[str, Writer]) -> Outcome[None]:
                 operator, write = invocation
                 items = tuple(chord.added(manager, native, operator, pie=isinstance(target, MenuPopup) and target.pie))
                 held.extend((native, item) for item in items)
-                return accumulated(Option.of_optional(item.properties).map(write).default_with(lambda: Error((BlenderAbsentFault(owner=operator, key="properties"),))) for item in items).map(
-                    lambda _: None
-                )
+                return accumulated(
+                    Option.of_optional(item.properties).map(write).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=operator, member="properties"),))) for item in items
+                ).map(lambda _: None)
 
             try:
                 natives = tuple(manager.keyconfigs.addon.keymaps.new(name, space_type=space, region_type=region) for name, space, region in locations)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -161,23 +161,21 @@ class Keymap:
         """Returns user keymap and item matching each owned item."""
         return tuple(
             (keymap, item)
-            for manager in Option.of_optional(context.window_manager).to_list()
             for added, mine in self._items
-            for keymap in Option.of_optional(manager.keyconfigs.user.keymaps.find_match(added)).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            for keymap in Option.of_optional(context.window_manager.keyconfigs.user.keymaps.find_match(added)).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             for item in Option.of_optional(keymap.keymap_items.find_match(added, mine)).to_list()
         )
 
     def drawn(self, layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
         """Draws user shortcut editors with per-item restore controls."""
-        for manager in Option.of_optional(context.window_manager).to_list():
-            for keymap, item in self.counterparts(context):
-                rna_keymap_ui.draw_kmi([], manager.keyconfigs.user, keymap, item, layout, 0)
+        for keymap, item in self.counterparts(context):
+            rna_keymap_ui.draw_kmi([], context.window_manager.keyconfigs.user, keymap, item, layout, 0)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def nesting(name: str) -> BlenderResult[tuple[Location, ...]]:
+def nesting(name: str) -> Outcome[tuple[Location, ...]]:
     """Returns distinct spaces and regions of keymap name."""
 
     def walked(nodes: list[Node]) -> Iterator[Location]:
@@ -187,7 +185,7 @@ def nesting(name: str) -> BlenderResult[tuple[Location, ...]]:
             yield from walked(children)
 
     found = tuple(dict.fromkeys(walked(keymap_hierarchy.generate())))  # type: ignore[func-returns-value, arg-type]  # ty: ignore[invalid-argument-type]
-    return Ok(found) if found else Error((BlenderAbsentFault(owner="bl_keymap_utils.keymap_hierarchy", key=name),))
+    return Ok(found) if found else Error((Fault(reason=BlenderReason.ABSENT, subject="bl_keymap_utils.keymap_hierarchy", member=name),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

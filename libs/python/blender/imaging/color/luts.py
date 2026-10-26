@@ -1,6 +1,7 @@
 """LUT formats, encoded lattices, and text and image LUT files."""
 
 from collections.abc import Iterable, Mapping
+from enum import IntEnum
 import math
 import pathlib
 from typing import Annotated, ClassVar, Self
@@ -14,23 +15,23 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.imaging.color.processors import converted, processor
-from blender.imaging.faults import colored, ImagingResult, ImagingShapeFault
+from blender.imaging.faults import ImagingReason
 from blender.imaging.files.images import emitted, ImageFile, read_file, Subimage
-from blender.records.faults import accumulated, FileFault
-from blender.records.fields import Case, Choice
+from blender.records.faults import accumulated, Fault, Outcome, RecordReason
+from blender.records.fields import Case
 from blender.records.stores import committed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class LutLayout(Choice):
+class LutLayout(IntEnum):
     """Arrangement of uniform cube nodes in an image."""
 
     HALD = 1
-    KEYSHOT = 2, "KeyShot"
+    KEYSHOT = 2
 
     @classmethod
-    def read(cls, path: str, config: PyOpenColorIO.Config) -> ImagingResult[PyOpenColorIO.GroupTransform]:
+    def read(cls, path: str, config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.GroupTransform]:
         """Reads Hald or KeyShot image as uniform cube.
 
         Args:
@@ -41,9 +42,9 @@ class LutLayout(Choice):
             Table group, or `read`, LUT shape, and `color` faults.
         """
 
-        def decoded(image: ImageFile[np.float32]) -> ImagingResult[PyOpenColorIO.GroupTransform]:
+        def decoded(image: ImageFile[np.float32]) -> Outcome[PyOpenColorIO.GroupTransform]:
             if (pixels := (image.pixels)).ndim != 3:
-                return Error((ImagingShapeFault(subject=f"LUT image {path}", shape=pixels.shape),))
+                return Error((Fault(reason=ImagingReason.SHAPE, subject=f"LUT image {path}", member=str(pixels.shape)),))
             height, width, channels = pixels.shape
             rgb = pixels[..., :3] if channels >= 3 else np.broadcast_to(pixels[..., :1], (height, width, 3))
             level = round(np.cbrt(width))
@@ -55,14 +56,14 @@ class LutLayout(Choice):
                     size = height
                     plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
                 case _:
-                    return Error((ImagingShapeFault(subject=f"LUT image {path}", shape=pixels.shape),))
-            return colored(path, lambda: Lattice(size=size).transform(plane))
+                    return Error((Fault(reason=ImagingReason.SHAPE, subject=f"LUT image {path}", member=str(pixels.shape)),))
+            return catch(Lattice(size=size).transform, exception=PyOpenColorIO.Exception)(plane).map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),))
 
         options = OpenImageIO.ImageSpec()
         options.attribute("oiio:UnassociatedAlpha", 1)
         return read_file(path, config, colorspace=Some(PyOpenColorIO.ROLE_DATA), options=Some(options)).bind(decoded)
 
-    def written(self, table: PyOpenColorIO.Lut3DTransform, path: str) -> ImagingResult[str]:
+    def written(self, table: PyOpenColorIO.Lut3DTransform, path: str) -> Outcome[str]:
         """Writes stored cube nodes as 16-bit image in this layout.
 
         Args:
@@ -77,7 +78,7 @@ class LutLayout(Choice):
         match self:
             case LutLayout.HALD:
                 if (level := (math.isqrt(size))) * level != size:
-                    return Error((ImagingShapeFault(subject=f"LUT image {path}", shape=cube.shape),))
+                    return Error((Fault(reason=ImagingReason.SHAPE, subject=f"LUT image {path}", member=str(cube.shape)),))
                 side = level**3
                 pixels = cube.reshape(side, side, 3)
             case LutLayout.KEYSHOT:
@@ -166,7 +167,7 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
                 table.setData(np.repeat(compressed, 3))
                 return Some(table)
 
-    def samples(self) -> ImagingResult[npt.NDArray[np.float32]]:
+    def samples(self) -> Outcome[npt.NDArray[np.float32]]:
         """Returns decoded RGB node inputs, or color fault."""
         grid = (
             np.linspace(self.spacing.low, self.spacing.high, self.size, dtype=np.float64).astype(np.float32)
@@ -195,11 +196,11 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
     format: LutFormat
     lattice: Option[Lattice] = Nothing
 
-    def written(self, sources: Mapping[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, ...]]:
+    def written(self, sources: Mapping[str, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[str, ...]]:
         """Encodes every source before publishing each path atomically in mapping order."""
 
-        def baked(source: PyOpenColorIO.GroupTransform, lattice: Lattice) -> ImagingResult[str]:
-            def baker() -> PyOpenColorIO.Baker:
+        def baked(source: PyOpenColorIO.GroupTransform, lattice: Lattice) -> Outcome[str]:
+            def text() -> str:
                 config = PyOpenColorIO.Config()
                 entry = PyOpenColorIO.ColorSpace(name="source")
                 target = PyOpenColorIO.ColorSpace(name="target", fromReference=source)
@@ -214,24 +215,30 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
                     cubeSize=lattice.size,
                     shaperSize=65536,
                     shaperSpace=shapers[0].getName() if shapers else "",
-                )
+                ).bake()
 
-            return colored(self.format.name, baker).bind(lambda built: colored(built, built.bake))
+            return catch(text, exception=PyOpenColorIO.Exception)().map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=self.format.name, cause=error),))
 
-        def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, str]]:
+        def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[str, str]]:
             path, source = item
             return (
                 self.lattice
                 .map(lambda lattice: baked(source, lattice))
-                .default_with(lambda: colored(source, lambda: source.write(formatName=self.format.name, config=PyOpenColorIO.Config())))
+                .default_with(
+                    lambda: catch(lambda: source.write(formatName=self.format.name, config=PyOpenColorIO.Config()), exception=PyOpenColorIO.Exception)().map_error(
+                        lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),)
+                    )
+                )
                 .map(lambda text: (path, text))
             )
 
-        def installed(item: tuple[str, str]) -> ImagingResult[str]:
+        def installed(item: tuple[str, str]) -> Outcome[str]:
             path, text = item
             return committed(
                 pathlib.Path(path),
-                lambda stage: catch(stage.write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(lambda error: (FileFault(access="write", request=path, error=error),)),
+                lambda stage: catch(stage.write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(
+                    lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)
+                ),
             ).map(str)
 
         return accumulated(map(encoded, sources.items())).bind(lambda texts: accumulated(map(installed, texts)))
@@ -240,10 +247,10 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> ImagingResult[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
+def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
     """Returns the processor operations of `transform` before its first 3D table, and that table's lattice with the suffix sampled at its nodes."""
 
-    def sampled(built: PyOpenColorIO.Processor) -> ImagingResult[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
+    def sampled(built: PyOpenColorIO.Processor) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
         operations = list(built.createGroupTransform())
         return (
             Option
@@ -262,10 +269,12 @@ def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> I
     return processor(config, transform).bind(sampled)
 
 
-def corrections(path: str) -> ImagingResult[tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]]:
+def corrections(path: str) -> Outcome[tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]]:
     """Reads every ASC correction of a CC, CCC, or CDL file in file order, each with its ID when named."""
-    return colored(path, lambda: PyOpenColorIO.CDLTransform.CreateGroupFromFile(path)).map(
-        lambda group: tuple((Some(correction.getFormatMetadata().getID()).filter(bool), correction) for correction in group if isinstance(correction, PyOpenColorIO.CDLTransform))
+    return (
+        catch(PyOpenColorIO.CDLTransform.CreateGroupFromFile, exception=PyOpenColorIO.Exception)(path)
+        .map_error(lambda error: (Fault(reason=ImagingReason.COLOR, subject=path, cause=error),))
+        .map(lambda group: tuple((Some(correction.getFormatMetadata().getID()).filter(bool), correction) for correction in group if isinstance(correction, PyOpenColorIO.CDLTransform)))
     )
 
 

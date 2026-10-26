@@ -1,7 +1,7 @@
 """Output format value sets and written file storage."""
 
 from collections.abc import Callable
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Final, Self
 
 import bpy
@@ -10,30 +10,28 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import answered
-from blender.bpy.data.rna.descriptors import Descriptor, rooted
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import DataType
 from blender.bpy.nodes.trees import nested
 from blender.bpy.settings.presets import Preset
-from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.values import Listing
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.files.images import Codec, Compressions, Depth, Format, Plain
-from blender.records.faults import DomainFault, paired
-from blender.records.fields import Choice
+from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
 from blender.records.trees import transfer
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Kind(Choice):
+class Kind(IntEnum):
     """File layout written by a native output owner."""
 
-    LAYERED = 1, "Multilayer EXR"
-    EXR = 2, "OpenEXR"
-    IMAGE = 3, "Image"
+    LAYERED = 1
+    EXR = 2
+    IMAGE = 3
 
 
 class Verdict(Enum):
@@ -77,7 +75,7 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
     format: Snapshot
 
     @classmethod
-    def of(cls, output: Output, kind: Kind) -> BlenderResult[Self]:
+    def of(cls, output: Output, kind: Kind) -> Outcome[Self]:
         """Returns node format, choice faults for an unsupported class or layout."""
         match kind:
             case Kind.LAYERED:
@@ -85,18 +83,20 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
             case Kind.EXR:
                 container = Ok({"media_type": "IMAGE", "file_format": "OPEN_EXR"})
             case Kind.IMAGE:
-                container = Error((DomainFault(subject="File Output format", value=kind.name, accepted=f"{Kind.LAYERED.name}, {Kind.EXR.name}"),))
+                container = Error((Fault(reason=RecordReason.OUTSIDE, subject="File Output format", member=f"{Kind.LAYERED.name}, {Kind.EXR.name}", cause=str(kind.name)),))
         match output:
             case Output.BEAUTY:
                 stored = Ok({"color_depth": "16", "exr_codec": "DWAB"})
             case Output.DATA | Output.MATTE:
                 stored = Ok({"color_depth": "32", "exr_codec": "ZIP"})
             case Output.PREVIEW:
-                stored = Error((DomainFault(subject="File Output class", value=output.name, accepted=", ".join(member.name for member in Output if member is not Output.PREVIEW)),))
+                stored = Error((
+                    Fault(reason=RecordReason.OUTSIDE, subject="File Output class", member=", ".join(member.name for member in Output if member is not Output.PREVIEW), cause=str(output.name)),
+                ))
         return paired(container, stored).map(lambda pair: cls(own=Snapshot.of(bpy.types.CompositorNodeOutputFile, {}), format=Snapshot.of(bpy.types.ImageFormatSettings, pair[0] | pair[1])))
 
     @classmethod
-    def typed(cls, kind: DataType) -> BlenderResult[Option[Self]]:
+    def typed(cls, kind: DataType) -> Outcome[Option[Self]]:
         """Returns full-float item override for data sockets, Nothing for color."""
         return (
             cls.of(Output.DATA, Kind.EXR).map(
@@ -106,11 +106,11 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
             else Ok(Nothing)
         )
 
-    def applied(self, target: bpy.types.Node | bpy.types.NodeCompositorFileOutputItem) -> BlenderResult[Applied]:
+    def applied(self, target: bpy.types.Node | bpy.types.NodeCompositorFileOutputItem) -> Outcome[Applied]:
         """Applies owner settings before format they constrain."""
         own = self.own.apply(target)
 
-        def formatted() -> BlenderResult[Applied]:
+        def formatted() -> Outcome[Applied]:
             written = self.format.apply(getattr(target, pointer(type(target))))
             return written.outcome.map(lambda _: Applied.join((own, written)))
 
@@ -120,7 +120,7 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def pointer(struct: "type[bpy.types.bpy_struct[object]]") -> str:
+def pointer(struct: type[Struct]) -> str:
     """Returns the member holding the struct's image format."""
     (identifier,) = (prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.ImageFormatSettings))
     return identifier
@@ -131,22 +131,22 @@ def writer(name: str) -> Option[Format]:
     return Option.of_optional(next((row for row in Format.writable() if row.name == name), None))
 
 
-def sample(selected: Format, depth: Depth) -> BlenderResult[Depth]:
+def sample(selected: Format, depth: Depth) -> Outcome[Depth]:
     """Accepts a depth the writer stores."""
     accepted = selected.depths
-    return Ok(depth) if depth in accepted else Error((DomainFault(subject=selected.name, value=depth.name, accepted=", ".join(member.name for member in accepted)),))
+    return Ok(depth) if depth in accepted else Error((Fault(reason=RecordReason.OUTSIDE, subject=selected.name, member=", ".join(member.name for member in accepted), cause=str(depth.name)),))
 
 
-def display_space(config: PyOpenColorIO.Config, display: str) -> BlenderResult[str]:
+def display_space(config: PyOpenColorIO.Config, display: str) -> Outcome[str]:
     """Resolves a certified display baseline encoding in native view order."""
-    found: BlenderResult[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, display)
-    return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], BlenderFaults].bind(
+    found: Outcome[Option[tuple[DisplayView, PyOpenColorIO.Processor]]] = DisplayView.for_encoding(config, display)
+    return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], Faults].bind(
         found,
         lambda choice: (
             choice
             .bind(lambda pair: pair[0].colorspace(config))
             .map(PyOpenColorIO.ColorSpace.getName)
-            .to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"display encoding {display}"),))
+            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(config), member=f"display encoding {display}"),))
         ),
     )
 
@@ -154,7 +154,7 @@ def display_space(config: PyOpenColorIO.Config, display: str) -> BlenderResult[s
 def readouts(selected: Format, depth: Depth, display: str, config: PyOpenColorIO.Config) -> tuple[Readout, Readout, Readout]:
     """Describes writer depth compatibility and certified display encoding."""
     return Readout.rows(
-        (selected.name, depth.label, display),
+        (selected.name, depth.name, display),
         (
             Verdict.HONORED,
             sample(selected, depth).map(lambda _: Verdict.HONORED).default_value(Verdict.UNSUPPORTED),
@@ -165,11 +165,11 @@ def readouts(selected: Format, depth: Depth, display: str, config: PyOpenColorIO
 
 def native_readouts(settings: bpy.types.ImageFormatSettings, display: str) -> tuple[Readout, Readout, Readout]:
     """Describes native settings and whether writes apply display transform."""
-    stored = depth(settings).map(lambda value: value.label).default_with(lambda: COLOR_DEPTH.prop.enum_items[settings.color_depth].description)
+    stored = depth(settings).map(lambda value: value.name).default_with(lambda: COLOR_DEPTH.prop.enum_items[settings.color_depth].description)
     return Readout.rows((settings.file_format, stored, display), (Verdict.HONORED, Verdict.HONORED, Verdict.COLORSPACE if settings.has_linear_colorspace else Verdict.HONORED))
 
 
-def output_rows(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+def output_rows(layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
     """Draws native output format, depth, and display policy."""
     for scene in Option.of_optional(context.scene).to_list():
         settings = scene.render.image_settings
@@ -238,10 +238,10 @@ def owners(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
     )
 
 
-def struct_listing(preset: Preset[Snapshot], struct: Callable[[bpy.types.Scene], "bpy.types.bpy_struct[object]"], unchanged: str) -> Listing[Snapshot]:
+def struct_listing(preset: Preset[Snapshot], struct: Callable[[bpy.types.Scene], Struct], unchanged: str) -> Listing[Snapshot]:
     """Returns preset actions over one struct of the context scene."""
 
-    def captured(context: bpy.types.Context) -> BlenderResult[Snapshot]:
+    def captured(context: bpy.types.Context) -> Outcome[Snapshot]:
         return rooted(bpy.types.Scene, context).bind(lambda scene: Snapshot.capture(struct(scene)))
 
     return Listing(
@@ -255,8 +255,6 @@ def struct_listing(preset: Preset[Snapshot], struct: Callable[[bpy.types.Scene],
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-writers = Choices(lambda _identity, _owner, _context: ((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in Format.writable()))
-displays = Choices.named(lambda _identity, _owner, _context: PyOpenColorIO.GetCurrentConfig().getDisplays())
 presets = Preset(key="image_formats", form=Snapshot)
 format_listing = struct_listing(presets, lambda scene: scene.render.image_settings, "Output format already holds preset")
 
@@ -271,7 +269,6 @@ __all__ = [
     "compression",
     "depth",
     "display_space",
-    "displays",
     "extension",
     "format_listing",
     "kind",
@@ -284,5 +281,4 @@ __all__ = [
     "sample",
     "struct_listing",
     "writer",
-    "writers",
 ]

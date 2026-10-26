@@ -8,8 +8,7 @@ from expression import Result
 from mcp.types import CallToolResult
 import structlog
 
-from eng.python.fitout.assembly import pack, site
-from eng.python.fitout.install import install, RemoteFailure
+from eng.python.fitout.install import RemoteFailure
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -40,15 +39,10 @@ def _reported[E](result: Result[int, E]) -> int:
 
 structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
 app = App(help=__doc__, result_action=(_reported, "sys_exit"))
-app.command(pack)
-app.command(install)
-app.command(site)
+app.command("eng.python.fitout.assembly:pack")
+app.command("eng.python.fitout.install:install")
+app.command("eng.python.fitout.assembly:site")
 
 
 if __name__ == "__main__":
     app()
-
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__ = []

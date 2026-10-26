@@ -1,9 +1,11 @@
 """Extension identity and generated host names."""
 
-from enum import Enum
+from collections.abc import Mapping
+from enum import auto, Enum
 import importlib.resources
 from pathlib import Path
-from typing import Annotated, Self
+from types import MappingProxyType
+from typing import Annotated, Final, Self
 from uuid import NAMESPACE_URL, uuid5
 
 import bpy
@@ -14,8 +16,8 @@ import structlog
 from structlog.typing import FilteringBoundLogger
 
 from blender.bpy.extension.reports import Reports
-from blender.bpy.faults import BlenderRegisterFault, BlenderResult
-from blender.records.faults import FileFault
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import Fault, Outcome, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -23,35 +25,31 @@ type Key = Annotated[str, msgspec.Meta(pattern=r"\A[a-z][a-z0-9]*(?:_[a-z0-9]+)*
 
 
 class Name(Enum):
-    """Host name template and constraints."""
+    """Host name form."""
 
-    PANEL = ("{ID}_PT_{key}", msgspec.Meta(max_length=63))
-    MENU = ("{ID}_MT_{key}", msgspec.Meta(max_length=63))
-    HEADER = ("{ID}_HT_{key}", msgspec.Meta(max_length=63))
-    LIST = ("{ID}_UL_{key}", msgspec.Meta(max_length=63))
-    SHELF = ("{ID}_AST_{key}", msgspec.Meta(max_length=63))
-    FILE_HANDLER = ("{ID}_FH_{key}", msgspec.Meta(max_length=63))
-    GIZMO_GROUP = ("{ID}_GGT_{key}", msgspec.Meta(max_length=63))
-    GROUP = ("GROUP_{digest}", msgspec.Meta(max_length=63))
-    ENGINE = ("{ID}_{KEY}", msgspec.Meta(max_length=63))
-    ATTACHMENT = ("{id}_{key}", msgspec.Meta(max_length=63))
-    OPERATOR = ("{id}.{key}", msgspec.Meta(max_length=60), r"\A[a-z0-9_]+\.[a-z0-9_]+\Z")
-    CLI = ("{id}_{key}", msgspec.Meta())
-
-    def __init__(self, template: str, constraint: msgspec.Meta, pattern: str | None = None) -> None:
-        """Holds name template and constraints.
-
-        Args:
-            template: Format over manifest ID and row key in either case, or digest of both.
-            constraint: Host UTF-8 byte length limit.
-            pattern: Character syntax host enforces.
-        """
-        self.template = template
-        self.constraint = constraint
-        self.pattern = pattern
+    PANEL = auto()
+    MENU = auto()
+    HEADER = auto()
+    LIST = auto()
+    SHELF = auto()
+    FILE_HANDLER = auto()
+    GIZMO_GROUP = auto()
+    GROUP = auto()
+    ENGINE = auto()
+    ATTACHMENT = auto()
+    OPERATOR = auto()
+    CLI = auto()
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _Form(msgspec.Struct, frozen=True):
+    """Format over manifest ID and row key in either case or digest of both, host UTF-8 byte length limit, and character syntax host enforces."""
+
+    template: str
+    constraint: msgspec.Meta = msgspec.Meta(max_length=63)
+    pattern: str | None = None
 
 
 class Manifest(msgspec.Struct, frozen=True, kw_only=True):
@@ -74,7 +72,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [NAMING]
 
-    def name(self, form: Name, key: Key) -> BlenderResult[str]:
+    def name(self, form: Name, key: Key) -> Outcome[str]:
         """Builds validated row host name.
 
         Args:
@@ -84,20 +82,22 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(name), register fault for refused name.
         """
-        name = form.template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{form.name}/{key}").hex)
+        name = _FORMS[form].template.format(
+            ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{form.name}/{key}").hex
+        )
         return (
             catch(
-                lambda: msgspec.convert((key, name, name.encode()), tuple[Key, Annotated[str, msgspec.Meta(pattern=form.pattern)], Annotated[bytes, form.constraint]]),
+                lambda: msgspec.convert((key, name, name.encode()), tuple[Key, Annotated[str, msgspec.Meta(pattern=_FORMS[form].pattern)], Annotated[bytes, _FORMS[form].constraint]]),
                 exception=msgspec.ValidationError,
             )()
             .map(lambda _: name)
-            .map_error(lambda error: (BlenderRegisterFault(request=(name,), error=error),))
+            .map_error(lambda error: (Fault(reason=BlenderReason.UNREGISTERED, subject=name, cause=error),))
         )
 
     # --- [READING]
 
     @classmethod
-    def read(cls, package: str) -> BlenderResult[Self]:
+    def read(cls, package: str) -> Outcome[Self]:
         """Reads enabled extension's manifest and user folder.
 
         Args:
@@ -110,10 +110,27 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         try:
             manifest = msgspec.toml.decode(path.read_bytes(), type=Manifest)
         except (OSError, msgspec.DecodeError) as error:
-            return Error((FileFault(access="read", request=path, error=error),))
+            return Error((Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=error),))
         logger = structlog.get_logger(package, extension=manifest.id)
         return Ok(cls(package=package, manifest=manifest, folder=Path(bpy.utils.extension_path_user(package)), logger=logger, reports=Reports(logger)))
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+_FORMS: Final[Mapping[Name, _Form]] = MappingProxyType({
+    Name.PANEL: _Form("{ID}_PT_{key}"),
+    Name.MENU: _Form("{ID}_MT_{key}"),
+    Name.HEADER: _Form("{ID}_HT_{key}"),
+    Name.LIST: _Form("{ID}_UL_{key}"),
+    Name.SHELF: _Form("{ID}_AST_{key}"),
+    Name.FILE_HANDLER: _Form("{ID}_FH_{key}"),
+    Name.GIZMO_GROUP: _Form("{ID}_GGT_{key}"),
+    Name.GROUP: _Form("GROUP_{digest}"),
+    Name.ENGINE: _Form("{ID}_{KEY}"),
+    Name.ATTACHMENT: _Form("{id}_{key}"),
+    Name.OPERATOR: _Form("{id}.{key}", msgspec.Meta(max_length=60), r"\A[a-z0-9_]+\.[a-z0-9_]+\Z"),
+    Name.CLI: _Form("{id}_{key}", msgspec.Meta()),
+})
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING
 import bpy
 from expression import Ok
 
+from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.faults import BlenderResult
 from blender.bpy.ui.layout.rows import Line, RowDraw
+from blender.records.faults import Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -21,7 +22,7 @@ class Status(Line, frozen=True, kw_only=True):
     """Report banner over held failures."""
 
     @staticmethod
-    def drawn(identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(identity: Identity) -> Outcome[RowDraw]:
         """Draws report banner, then held entries."""
 
         def marked(kind: "rna_enums.WmReportItems") -> tuple["rna_enums.IconItems", bool]:
@@ -39,7 +40,7 @@ class Status(Line, frozen=True, kw_only=True):
                 case "OPERATOR":
                     return "CHECKMARK", False
 
-        def draw(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
+        def draw(layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
             layout.template_reports_banner()
             for kind, text in identity.reports.entries:
                 icon, alert = marked(kind)

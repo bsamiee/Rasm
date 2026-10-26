@@ -12,9 +12,9 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.faults import BlenderResult, BlenderUnmetFault
+from blender.bpy.faults import BlenderReason
 from blender.imaging.color.authoring import DynamicRange
-from blender.records.faults import accumulated
+from blender.records.faults import accumulated, Fault, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import WmJobTypeItems
@@ -197,13 +197,13 @@ def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
             return all(holds(member, context, item) for member in members)
 
 
-def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> BlenderResult[None]:
+def check(condition: Condition, context: bpy.types.Context, item: "Option[bpy.types.bpy_struct[object]]" = Nothing) -> Outcome[None]:
     """Returns unmet fault per failing requirement, each `AllOf` member checked."""
     match condition:
         case AllOf(conditions=members):
             return accumulated(check(member, context, item) for member in members).map(lambda _: None)
         case Setting() | Present() | Not() | Count() | Job() | Extension() | Folder() | HdrWindow() | AnyOf():
-            return Ok(None) if holds(condition, context, item) else Error((BlenderUnmetFault(requirement=condition),))
+            return Ok(None) if holds(condition, context, item) else Error((Fault(reason=BlenderReason.UNMET, subject=condition.message),))
 
 
 def polled(condition: Option[Condition]) -> Mapping[str, object]:

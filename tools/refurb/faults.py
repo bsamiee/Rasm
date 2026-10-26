@@ -1,8 +1,8 @@
-"""`Result` errors typed as `str` or as a union of error classes."""
+"""`Result` errors typed as `str` or as a bare exception class."""
 
 from expression import Result
 from mypy.nodes import Block, ClassDef, Decorator, FuncDef, MypyFile, Node, Statement, TypeAlias
-from mypy.types import CallableType, get_proper_type, Instance, ProperType, TupleType, Type, TypeAliasType, UnionType
+from mypy.types import CallableType, get_proper_type, Instance, ProperType, TupleType, Type, TypeAliasType
 from refurb.error import Error
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -13,25 +13,18 @@ _RESULT = f"{Result.__module__}.{Result.__qualname__}"
 
 
 class ErrorResultFaultError(Error):
-    """`Result` error typed as `str` or as a union of error classes.
+    """`Result` error typed as `str` or as a bare exception class.
 
     Bad:
 
     ```
-    type Fault = ParseFault | ReadFault | WriteFault
-    type Outcome[T] = Result[T, tuple[Fault, *tuple[Fault, ...]]]
-
-
     def parsed(text: str) -> Result[int, str]: ...
     ```
 
     Good:
 
     ```
-    type Outcome[T] = Result[T, tuple[Fault, *tuple[Fault, ...]]]
-
-
-    def parsed(text: str) -> Outcome[int]: ...
+    def parsed(text: str) -> Result[int, Fault]: ...
     ```
     """
 
@@ -60,7 +53,7 @@ def _defined(statement: Statement) -> tuple[FuncDef, ...]:
 
 
 def check(node: MypyFile, errors: list[Error]) -> None:
-    """Reports each `Result` error typed as `str` or as a union of error classes on a module-level alias, function, or method."""
+    """Reports each `Result` error typed as `str` or as a bare exception class on a module-level alias, function, or method."""
 
     def element(error: Type) -> ProperType:
         match get_proper_type(error):
@@ -71,25 +64,12 @@ def check(node: MypyFile, errors: list[Error]) -> None:
             case other:
                 return other
 
-    def classes(error: Type) -> int:
-        match element(error):
-            case UnionType(items=items):
-                return sum(isinstance(get_proper_type(item), Instance) for item in items)
-            case _:
-                return 0
-
     def reported(declaration: Node, name: str, returned: Type, *, aliased: bool) -> tuple[Error, ...]:
         match get_proper_type(returned):
-            case Instance(type=info, args=[_, error]) if info.fullname == _RESULT:
-                match get_proper_type(error), classes(error):
-                    case Instance(type=text), _ if text.fullname == "builtins.str":
-                        return (ErrorResultFaultError.from_node(declaration, f"`{name}` types its `Result` error as `str`, return the fault record the package raises"),)
-                    case _, count if count > 1 and (aliased or not isinstance(error, TypeAliasType)):
-                        return (
-                            ErrorResultFaultError.from_node(
-                                declaration, f"`{name}` types its `Result` error as a union of {count} error classes, hold reason, subject, member, and cause in one fault record"
-                            ),
-                        )
+            case Instance(type=info, args=[_, error]) if info.fullname == _RESULT and (aliased or not isinstance(returned, TypeAliasType)):
+                match element(error):
+                    case Instance(type=untyped) if untyped.fullname in {"builtins.str", "builtins.Exception", "builtins.BaseException"}:
+                        return (ErrorResultFaultError.from_node(declaration, f"`{name}` types its `Result` error as `{untyped.name}`, type it as the package fault"),)
                     case _:
                         return ()
             case _:

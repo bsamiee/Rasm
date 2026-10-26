@@ -10,10 +10,9 @@ import numpy.typing as npt
 import OpenImageIO
 from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import checked, pixels
 from blender.imaging.sampling.integration import Raster
-from blender.records.faults import paired
+from blender.records.faults import Outcome, paired
 from blender.records.fields import Positive
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -59,7 +58,7 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         s, t = np.meshgrid((np.arange(width) + 0.5) / width, 1.0 - (np.arange(height) + 0.5) / height)
         return cls.of(mapping(np.stack((s, t, np.ones_like(s)), axis=-1)), extension, source_size=source_size)
 
-    def warp(self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: Positive = 2.0) -> ImagingResult[npt.NDArray[np.float32]]:
+    def warp(self, plane: npt.NDArray[np.float32], *, filtername: str = "triangle", filterwidth: Positive = 2.0) -> Outcome[npt.NDArray[np.float32]]:
         """Returns `plane` warped through filter, weighted by coverage."""
 
         def padding(mode: OpenImageIO.Wrap) -> Literal["constant", "edge", "wrap", "symmetric"]:
@@ -125,7 +124,7 @@ def displaced(
     *,
     filtername: str = "triangle",
     filterwidth: Positive = 2.0,
-) -> ImagingResult[npt.NDArray[np.float32]]:
+) -> Outcome[npt.NDArray[np.float32]]:
     """Returns `plane` over `raster` sampled at each pixel's global source position through `extension`, weighted by `coverage`."""
     left, bottom, right, top = raster.bounds
     height, width = raster.shape

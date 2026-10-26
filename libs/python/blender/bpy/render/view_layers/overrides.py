@@ -1,35 +1,36 @@
 """View layer list, commands, and per-layer overrides."""
 
-from collections.abc import Callable
 import colorsys
 from contextlib import ExitStack
+from enum import auto, Enum
 import itertools
+from types import MappingProxyType
 from typing import Annotated, ClassVar, Final
 
 import bpy
 from expression import Ok, Option, Result, Some
+from expression.extra.result import catch
 import mathutils
 import msgspec
 import numpy as np
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome, Own, tallied, Unchanged
-from blender.bpy.data.ids.store import IdName, vacant
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Own, Unchanged
+from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna import conditions
-from blender.bpy.data.rna.descriptors import Descriptor, rooted
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, written
 from blender.bpy.data.rna.snapshots import Scenes, ViewLayers
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.faults import BlenderEditFault, BlenderFaults, BlenderResult
-from blender.bpy.render.color.spaces import config_of
-from blender.bpy.render.view_layers.collections import applied, CollectionState, copying, isolates, pasting, Restriction, Spread
+from blender.bpy.faults import BlenderReason
+from blender.bpy.render.view_layers.collections import applied, copying, isolates, pasting, Restriction, Spread
 from blender.bpy.scene.materials import Clay, material, Utility
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.rows import Caption, Flow, joined, Line, Matrix, Member, OperatorButton, placed, Property, RowDraw
 from blender.bpy.ui.layout.sections import Single
-from blender.records.faults import accumulated, paired
-from blender.records.fields import Case, Choice, Rgb
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.fields import Case
 from blender.rendering.outputs.naming import Count, Fields, OutputName, Word
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -37,48 +38,41 @@ from blender.rendering.outputs.naming import Count, Fields, OutputName, Word
 type Palette = Spectrum | Published
 
 
-class Role(Choice):
+class Role(Enum):
     """View layer purpose."""
 
-    BEAUTY = 1, "Beauty"
-    DATA = 2, "Data"
+    BEAUTY = auto()
+    DATA = auto()
 
 
-class MoveDirection(Choice):
+class MoveDirection(Enum):
     """Direction active layer moves in list."""
 
-    UP = 1, "Up", "Move active view layer up the list"
-    DOWN = 2, "Down", "Move active view layer down the list"
+    UP = auto()
+    DOWN = auto()
 
 
-class Swatch(Choice):
-    """Published color-blind safe palette with its sRGB swatches as byte triples."""
+class Swatch(Enum):
+    """Published color-blind safe palette."""
 
-    swatches: bytes
-
-    def __init__(self, value: int, label: str, swatches: str) -> None:
-        """Sets member label and swatches from hexadecimal triples."""
-        super().__init__(value, label)
-        self.swatches = bytes.fromhex(swatches)
-
-    IBM = 1, "IBM", "648FFF 785EF0 DC267F FE6100 FFB000"
-    WONG = 2, "Wong", "000000 E69F00 56B4E9 009E73 F0E442 0072B2 D55E00 CC79A7"
-    TOL = 3, "Tol", "332288 117733 44AA99 88CCEE DDCC77 CC6677 AA4499 882255"
+    IBM = auto()
+    WONG = auto()
+    TOL = auto()
 
 
-class Others(Choice):
+class Others(Enum):
     """Flag every other top-level collection takes in a split layer."""
 
-    INDIRECT_ONLY = 1, "Indirect Only"
-    HOLDOUT = 2, "Holdout"
-    EXCLUDE = 3, "Exclude"
+    INDIRECT_ONLY = auto()
+    HOLDOUT = auto()
+    EXCLUDE = auto()
 
 
-class Within(Choice):
+class Within(Enum):
     """Scenes a rename reaches."""
 
-    SCENE = 1, "This Scene"
-    FILE = 2, "Every Scene"
+    SCENE = auto()
+    FILE = auto()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -87,6 +81,11 @@ _USE: Final = Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProp
 _NAME: Final = Descriptor.declared(bpy.types.ViewLayer, "name", bpy.types.StringProperty)
 _OVERRIDE: Final = Descriptor.declared(bpy.types.ViewLayer, "material_override", bpy.types.PointerProperty)
 _LAYERS: Final = Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty)
+SWATCHES: Final = MappingProxyType({
+    Swatch.IBM: "648FFF 785EF0 DC267F FE6100 FFB000",
+    Swatch.WONG: "000000 E69F00 56B4E9 009E73 F0E442 0072B2 D55E00 CC79A7",
+    Swatch.TOL: "332288 117733 44AA99 88CCEE DDCC77 CC6677 AA4499 882255",
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -94,48 +93,62 @@ _LAYERS: Final = Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.C
 class Spectrum(Case, frozen=True, kw_only=True):
     """Hues spaced evenly on color wheel."""
 
-    title = "Spectrum"
-    saturation: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Saturation", description="Saturation of every hue")] = 0.7
-    value: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Value", description="Brightness of every hue")] = 0.36
+    saturation: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Saturation of every hue")] = 0.7
+    value: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Brightness of every hue")] = 0.36
 
 
 class Published(Case, frozen=True, kw_only=True):
     """Color-blind safe palette cycled over layers."""
 
-    title = "Published"
-    swatches: Annotated[Swatch, msgspec.Meta(title="Palette", description="Published palette the layers cycle through")] = Swatch.IBM
+    swatches: Swatch = Swatch.IBM
 
 
-class LayerTag(msgspec.Struct, frozen=True, kw_only=True):
+class LayerTag(bpy.types.PropertyGroup):
     """Purpose and tag of a view layer."""
 
-    role: Annotated[Role, msgspec.Meta(title="Role", description="Beauty layers form image, data layers hold data passes and mattes")] = Role.BEAUTY
-    color: Annotated[Rgb, msgspec.Meta(title="Tag", description="Layer color in lists and on its nodes")] = msgspec.field(default_factory=lambda: colors(Spectrum(saturation=0.0), 1)[0])
+    role: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name="Role", description="Beauty layers form image, data layers hold data passes and mattes", items=tuple((role.name, bpy.path.display_name(role.name.lower()), "") for role in Role)
+    )
+    color: bpy.props.FloatVectorProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name="Tag",
+        description="Layer color in lists and on its nodes",
+        subtype="COLOR",
+        min=0.0,
+        max=1.0,
+        default=np.asarray(mathutils.Color((Spectrum().value,) * 3).from_srgb_to_scene_linear()).tolist(),
+    )
 
 
-class Moving(msgspec.Struct, frozen=True, kw_only=True):
+class Moving(bpy.types.PropertyGroup):
     """Active layer move."""
 
-    direction: Annotated[MoveDirection, msgspec.Meta(title="MoveDirection", description="Direction active layer moves in list")] = MoveDirection.UP
+    direction: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name="Direction", description="Direction active layer moves in list", items=tuple((direction.name, bpy.path.display_name(direction.name.lower()), "") for direction in MoveDirection)
+    )
 
 
-class Renaming(msgspec.Struct, frozen=True, kw_only=True):
+class Renaming(bpy.types.PropertyGroup):
     """Rename of every layer by its list position."""
 
-    template: Annotated[str, msgspec.Meta(min_length=1, title="Names", description="Layer name grammar holding {order:<width>} and {layer}")] = "{order:2}_{layer}"
-    within: Annotated[Within, msgspec.Meta(title="Scenes", description="Scenes rename reaches")] = Within.SCENE
+    template: bpy.props.StringProperty(name="Names", description="Layer name grammar holding {order:<width>} and {layer}", default="{order:2}_{layer}")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    within: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=tuple((scope.name, bpy.path.display_name(scope.name.lower()), "") for scope in Within))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Tinting(msgspec.Struct, frozen=True, kw_only=True):
+class Tinting(bpy.types.PropertyGroup):
     """Tag colors written from a palette."""
 
-    palette: Annotated[Palette, msgspec.Meta(title="Palette", description="Palette tags take in list order")] = Spectrum()
+    palette: bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=tuple((case.__name__, case.__name__, "") for case in (Spectrum, Published)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    saturation: bpy.props.FloatProperty(name="Saturation", description="Saturation of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=Spectrum().saturation)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    value: bpy.props.FloatProperty(name="Value", description="Brightness of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=Spectrum().value)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    swatches: bpy.props.EnumProperty(name="Swatches", description="Published palette the layers cycle through", items=tuple((swatch.name, swatch.name, "") for swatch in Swatch))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Splitting(msgspec.Struct, frozen=True, kw_only=True):
+class Splitting(bpy.types.PropertyGroup):
     """Split of top-level collections into layers."""
 
-    others: Annotated[Others, msgspec.Meta(title="Others", description="Flag other top-level collections take in a new layer")] = Others.INDIRECT_ONLY
+    others: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name="Others", description="Flag other top-level collections take in a new layer", items=tuple((flag.name, bpy.path.display_name(flag.name.lower()), "") for flag in Others)
+    )
 
 
 class LayerOverride(Line, frozen=True, kw_only=True):
@@ -154,16 +167,16 @@ class LayerOverride(Line, frozen=True, kw_only=True):
             attachment=Some(self.layer),
             columns=(Property(target=Member(root=bpy.types.ViewLayer, path="use"), text=""),),
             side=tuple(
-                OperatorButton(target=Own(command=MOVE, values=Moving(direction=direction)), text="", icon=Some("TRIA_UP" if direction is MoveDirection.UP else "TRIA_DOWN"))
+                OperatorButton(target=Own(command=MOVE, values={"direction": direction.name}), text="", icon=Some("TRIA_UP" if direction is MoveDirection.UP else "TRIA_DOWN"))
                 for direction in MoveDirection
             ),
         )
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Draws layer list over command grid."""
         return placed((self.listed(), Caption(rows=tuple(OperatorButton(target=action) for action in ACTIONS), flow=Flow.GRID)), identity).map(joined)
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns layer list and commands."""
         return Ok((self.listed(), MOVE, *ACTIONS))
 
@@ -193,69 +206,65 @@ class LayerOverride(Line, frozen=True, kw_only=True):
 # --- [LAYERS]
 
 
-def colors(palette: Palette, count: int) -> tuple[Rgb, ...]:
+def colors(palette: Palette, count: int) -> tuple[tuple[float, float, float], ...]:
     """Returns scene-linear palette colors in list order."""
     match palette:
         case Spectrum(saturation=saturation, value=value):
             encoded = tuple(colorsys.hsv_to_rgb(index / count, saturation, value) for index in range(count))
         case Published(swatches=chosen):
-            encoded = tuple(map(tuple, np.resize(np.frombuffer(chosen.swatches, np.uint8).reshape(-1, 3), (count, 3)) / 255))
-    return tuple(Rgb(red=linear.r, green=linear.g, blue=linear.b) for linear in (mathutils.Color(rgb).from_srgb_to_scene_linear() for rgb in encoded))
+            encoded = tuple(map(tuple, np.resize(np.frombuffer(bytes.fromhex(SWATCHES[chosen]), np.uint8).reshape(-1, 3), (count, 3)) / 255))
+    return tuple((linear.r, linear.g, linear.b) for linear in (mathutils.Color(rgb).from_srgb_to_scene_linear() for rgb in encoded))
 
 
-def encoded(color: Rgb) -> tuple[float, float, float]:
+def encoded(color: tuple[float, float, float]) -> tuple[float, float, float]:
     """Returns sRGB form of a scene-linear color, as `Node.color` and document rasters hold."""
-    shown = mathutils.Color((color.red, color.green, color.blue)).from_scene_linear_to_srgb()
+    shown = mathutils.Color(color).from_scene_linear_to_srgb()
     return (shown.r, shown.g, shown.b)
 
 
-def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[LayerTag]) -> BlenderResult[Outcome]:
+def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[LayerTag]) -> Outcome[Answer]:
     """Writes palette tags onto layers in list order where they differ."""
     layers = tuple(scene.view_layers)
-
-    def wrote(held: tuple[LayerTag, ...]) -> BlenderResult[Outcome]:
-        if not (differing := tuple((layer, record, color) for layer, record, color in zip(layers, held, colors(palette, len(layers))) if record.color != color)):
-            return Ok(Unchanged(reason=f"View layers of {scene.name} hold palette tags"))
-        return tallied(tuple(attached.write(layer, msgspec.structs.replace(record, color=color)) for layer, record, color in differing))
-
-    return accumulated(map(attached.read, layers)).bind(wrote)
+    return accumulated(written(attached.struct(layer), "color", color) for layer, color in zip(layers, colors(palette, len(layers)))).map(
+        lambda priors: Done() if any(prior.is_some() for prior in priors) else Unchanged(reason=f"View layers of {scene.name} hold palette tags")
+    )
 
 
-def renamed(scene: bpy.types.Scene, grammar: OutputName) -> BlenderResult[int]:
+def renamed(scene: bpy.types.Scene, grammar: OutputName) -> Outcome[int]:
     """Names each layer from list position and base name, returning renamed count."""
 
-    def named(index: int, layer: bpy.types.ViewLayer) -> BlenderResult[bool]:
+    def named(index: int, layer: bpy.types.ViewLayer) -> Outcome[bool]:
         base = grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.words.get(Word.LAYER))).default_value(layer.name)
-        wanted: BlenderResult[str] = grammar.compose(Fields(words={Word.LAYER: base}, counts={Count.ORDER: index + 1}))
-        return Result[str, BlenderFaults].bind(wanted, lambda value: _NAME.write(layer, value)).map(Option.is_some)
+        wanted: Outcome[str] = grammar.compose(Fields(words={Word.LAYER: base}, counts={Count.ORDER: index + 1}))
+        return Result[str, Faults].bind(wanted, lambda value: _NAME.write(layer, value)).map(Option.is_some)
 
     return accumulated(itertools.starmap(named, enumerate(scene.view_layers))).map(sum)
 
 
-def split(scene: bpy.types.Scene, flag: Restriction) -> BlenderResult[tuple[str, ...]]:
+def split(scene: bpy.types.Scene, flag: Restriction) -> Outcome[tuple[str, ...]]:
     """Adds one layer per top-level collection no layer isolates, removing every added layer on fault."""
     lone = tuple(collection for collection in scene.collection.children if not any(isolates(layer, collection, flag) for layer in scene.view_layers))
     with ExitStack() as rollback:
 
-        def made(collection: bpy.types.Collection) -> BlenderResult[str]:
-            layer = scene.view_layers.new(vacant(collection.name, scene.view_layers.keys()))
+        def made(collection: bpy.types.Collection) -> Outcome[str]:
+            layer = scene.view_layers.new(collection.name)
             rollback.callback(scene.view_layers.remove, layer)
-            return applied(CollectionState(layer=layer.name, collection=IdName.of(collection), flag=flag, value=False, extent=Spread.ISOLATE), scene).map(lambda _: layer.name)
+            return applied(scene, layer=layer.name, collection=collection.session_uid, flag=flag, value=False, extent=Spread.ISOLATE).map(lambda _: layer.name)
 
         if (added := (accumulated(map(made, lone)))).is_ok():
             rollback.pop_all()
         return added
 
 
-def overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, config: PyOpenColorIO.Config, identity: Identity) -> BlenderResult[None]:
+def overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, config: PyOpenColorIO.Config, identity: Identity) -> Outcome[None]:
     """Toggles layer material override to owned setup material, data setups writing layer role with it."""
 
-    def toggled(held: bpy.types.Material) -> BlenderResult[None]:
+    def toggled(held: bpy.types.Material) -> Outcome[None]:
         on = not _OVERRIDE.equal(_OVERRIDE.read(layer), IdName.of(held))
         wrote = _OVERRIDE.write(layer, held if on else None)
         match setup:
             case Utility():
-                role = LayerOverride.layer.revised(identity, layer, lambda record: Ok(msgspec.structs.replace(record, role=Role.DATA if on else Role.BEAUTY)))
+                role = LayerOverride.layer.read(identity, layer).bind(lambda group: written(group, "role", (Role.DATA if on else Role.BEAUTY).name))
                 return paired(wrote, role).map(lambda _: None)
             case Clay():
                 return wrote.map(lambda _: None)
@@ -266,25 +275,34 @@ def overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, config: PyOpen
 # --- [COMMANDS]
 
 
-def moved(call: Call[Moving]) -> BlenderResult[Outcome]:
-    """Moves the active layer one place in the list, `Unchanged` at the list end."""
+def tinting(properties: Tinting) -> Palette:
+    """Returns the palette the tint properties choose."""
+    return Spectrum(saturation=properties.saturation, value=properties.value) if properties.palette == Spectrum.__name__ else Published(swatches=Swatch[properties.swatches])
 
-    def shifted(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Outcome]:
+
+def view_layer_move(call: Call[Moving]) -> Outcome[Answer]:
+    """Move active view layer in list."""
+
+    def shifted(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Outcome[Answer]:
         index = scene.view_layers.find(layer.name)
-        match call.record.direction:
+        match MoveDirection[call.properties.direction]:
             case MoveDirection.UP:
                 target = index - 1
             case MoveDirection.DOWN:
                 target = index + 1
         if not 0 <= target < len(scene.view_layers):
             return Ok(Unchanged(reason=f"{layer.name} is at list end"))
-        return BlenderEditFault.attempted(repr(scene.view_layers), lambda: scene.view_layers.move(index, target)).map(lambda _: Done())
+        return (
+            catch(scene.view_layers.move, exception=RuntimeError)(index, target)
+            .map(lambda _: Done())
+            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(scene.view_layers), cause=error),))
+        )
 
     return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(lambda pair: shifted(*pair))
 
 
-def soloed(call: Call[Empty]) -> BlenderResult[Outcome]:
-    """Renders the active layer alone."""
+def view_layer_solo(call: Call[Empty]) -> Outcome[Answer]:
+    """Render active view layer alone."""
     return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(
         lambda pair: accumulated(_USE.write(layer, layer == pair[1]) for layer in pair[0].view_layers).map(
             lambda priors: Done() if any(prior.is_some() for prior in priors) else Unchanged(reason=f"{pair[1].name} renders alone")
@@ -292,82 +310,86 @@ def soloed(call: Call[Empty]) -> BlenderResult[Outcome]:
     )
 
 
-def renaming(call: Call[Renaming]) -> BlenderResult[Outcome]:
-    """Renames the layers of the scenes the rename reaches."""
-    scenes: BlenderResult[tuple[bpy.types.Scene, ...]]
-    match call.record.within:
+def view_layer_rename(call: Call[Renaming]) -> Outcome[Answer]:
+    """Name view layers by list position and base name."""
+    scenes: Outcome[tuple[bpy.types.Scene, ...]]
+    match Within[call.properties.within]:
         case Within.SCENE:
             scenes = rooted(bpy.types.Scene, call.context).map(lambda scene: (scene,))
         case Within.FILE:
             scenes = rooted(bpy.types.BlendData, call.context).map(lambda data: tuple(data.scenes))
     return (
-        paired(OutputName.of(call.record.template), scenes)
+        paired(OutputName.of(call.properties.template), scenes)
         .bind(lambda pair: accumulated(renamed(scene, pair[0]) for scene in pair[1]))
         .map(lambda counts: Done(notes=(("INFO", f"Renamed {sum(counts)} view layers"),)) if sum(counts) else Unchanged(reason="View layers hold their composed names"))
     )
 
 
-def overriding(setup: Clay | Utility) -> Callable[[Call[Empty]], BlenderResult[Done]]:
-    """Returns the body toggling the active layer's override to the setup material."""
-    return lambda call: paired(config_of(), call.root(bpy.types.ViewLayer)).bind(lambda pair: overridden(pair[1], setup, pair[0], call.identity)).map(lambda _: Done())
+def overriding(setup: Clay | Utility, call: Call[Empty]) -> Outcome[Done]:
+    """Toggles the active layer's override to the setup material."""
+    return call.root(bpy.types.ViewLayer).bind(lambda layer: overridden(layer, setup, PyOpenColorIO.GetCurrentConfig(), call.identity)).map(lambda _: Done())
+
+
+def view_layer_tint(call: Call[Tinting]) -> Outcome[Answer]:
+    """Set view layer tags from palette in list order."""
+    return paired(call.root(bpy.types.Scene), LayerOverride.layer.bound(call.identity)).bind(lambda pair: tinted(pair[0], tinting(call.properties), pair[1]))
+
+
+def view_layer_split(call: Call[Splitting]) -> Outcome[Answer]:
+    """Add a view layer per top-level collection no layer isolates."""
+    return (
+        Result[bpy.types.Scene, Faults]
+        .bind(call.root(bpy.types.Scene), lambda scene: split(scene, Restriction[call.properties.others]))
+        .map(lambda added: Done(notes=tuple(("INFO", f"Added {name}") for name in added)) if added else Unchanged(reason="Each top-level collection has a layer isolating it"))
+    )
+
+
+def view_layer_clay(call: Call[Empty]) -> Outcome[Done]:
+    """Toggle clay material override on active layer."""
+    return overriding(Clay(), call)
+
+
+def view_layer_data(call: Call[Empty]) -> Outcome[Done]:
+    """Toggle data material override and role on active layer."""
+    return overriding(Utility(), call)
+
+
+def view_layer_copy(call: Call[Empty]) -> Outcome[Done]:
+    """Copy active view layer settings."""
+    return copying(lambda layer: layer, call)
+
+
+def view_layer_paste(call: Call[Empty]) -> Outcome[Answer]:
+    """Paste settings into active view layer."""
+    return pasting(lambda held: held.root(bpy.types.ViewLayer).map(lambda layer: (layer,)), "View layers match clipboard", call)
+
+
+def view_layer_paste_all(call: Call[Empty]) -> Outcome[Answer]:
+    """Paste settings into every used view layer."""
+    return pasting(
+        lambda held: (
+            Result[bpy.types.Scene, Faults]
+            .bind(held.root(bpy.types.Scene), lambda scene: ViewLayers(scenes=(scene.name,)).owners(held.context))
+            .map(lambda found: tuple(layer for layer in found if bool(_USE.read(layer))))
+        ),
+        "View layers match clipboard",
+        call,
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-MOVE: Final = Operator(
-    key="view_layer_move",
-    title="Move View Layer",
-    description="Move active view layer in list",
-    form=Moving,
-    run=moved,
-    condition=Some(conditions.Count(collection=_LAYERS, least=2)),
-    undo="Move View Layer",
-)
+MOVE: Final = Operator(form=Moving, run=view_layer_move, condition=Some(conditions.Count(collection=_LAYERS, least=2)), undo=view_layer_move.__name__)
 ACTIONS: Final[tuple[Operator[Empty] | Operator[Renaming] | Operator[Tinting] | Operator[Splitting], ...]] = (
-    Operator(key="view_layer_solo", title="Solo View Layer", description="Render active view layer alone", form=Empty, run=soloed),
-    Operator(key="view_layer_rename", title="Rename View Layers", description="Name view layers by list position and base name", form=Renaming, run=renaming),
-    Operator(
-        key="view_layer_tint",
-        title="Tint View Layers",
-        description="Set view layer tags from palette in list order",
-        form=Tinting,
-        run=lambda call: paired(call.root(bpy.types.Scene), LayerOverride.layer.bound(call.identity)).bind(lambda pair: tinted(pair[0], call.record.palette, pair[1])),
-    ),
-    Operator(
-        key="view_layer_split",
-        title="View Layers from Collections",
-        description="Add a view layer per top-level collection no layer isolates",
-        form=Splitting,
-        run=lambda call: (
-            Result[bpy.types.Scene, BlenderFaults]
-            .bind(call.root(bpy.types.Scene), lambda scene: split(scene, Restriction[call.record.others.name]))
-            .map(lambda added: Done(notes=tuple(("INFO", f"Added {name}") for name in added)) if added else Unchanged(reason="Each top-level collection has a layer isolating it"))
-        ),
-    ),
-    Operator(key="view_layer_clay", title="Clay Override", description="Toggle clay material override on active layer", form=Empty, run=overriding(Clay())),
-    Operator(key="view_layer_data", title="Data Layer", description="Toggle data material override and role on active layer", form=Empty, run=overriding(Utility())),
-    Operator(key="view_layer_copy", title="Copy View Layer", description="Copy active view layer settings", form=Empty, undo=False, run=copying(lambda layer: layer)),
-    Operator(
-        key="view_layer_paste",
-        title="Paste View Layer",
-        description="Paste settings into active view layer",
-        form=Empty,
-        run=pasting(lambda call: call.root(bpy.types.ViewLayer).map(lambda layer: (layer,)), "View layers match clipboard"),
-    ),
-    Operator(
-        key="view_layer_paste_all",
-        title="Paste to Used Layers",
-        description="Paste settings into every used view layer",
-        form=Empty,
-        run=pasting(
-            lambda call: (
-                Result[bpy.types.Scene, BlenderFaults]
-                .bind(call.root(bpy.types.Scene), lambda scene: ViewLayers(scenes=(scene.name,)).owners(call.context))
-                .map(lambda found: tuple(layer for layer in found if bool(_USE.read(layer))))
-            ),
-            "View layers match clipboard",
-        ),
-    ),
+    Operator(form=Empty, run=view_layer_solo),
+    Operator(form=Renaming, run=view_layer_rename),
+    Operator(form=Tinting, run=view_layer_tint),
+    Operator(form=Splitting, run=view_layer_split),
+    Operator(form=Empty, run=view_layer_clay),
+    Operator(form=Empty, run=view_layer_data),
+    Operator(form=Empty, undo=False, run=view_layer_copy),
+    Operator(form=Empty, run=view_layer_paste),
+    Operator(form=Empty, run=view_layer_paste_all),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -375,6 +397,7 @@ ACTIONS: Final[tuple[Operator[Empty] | Operator[Renaming] | Operator[Tinting] | 
 __all__ = [
     "ACTIONS",
     "MOVE",
+    "SWATCHES",
     "LayerOverride",
     "LayerTag",
     "MoveDirection",
@@ -391,12 +414,20 @@ __all__ = [
     "Within",
     "colors",
     "encoded",
-    "moved",
     "overridden",
     "overriding",
     "renamed",
-    "renaming",
-    "soloed",
     "split",
     "tinted",
+    "tinting",
+    "view_layer_clay",
+    "view_layer_copy",
+    "view_layer_data",
+    "view_layer_move",
+    "view_layer_paste",
+    "view_layer_paste_all",
+    "view_layer_rename",
+    "view_layer_solo",
+    "view_layer_split",
+    "view_layer_tint",
 ]

@@ -8,13 +8,14 @@ import math
 from typing import Annotated, ClassVar, Final, Self
 import zoneinfo
 
-from expression import Error, Ok
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.records.fields import Case, Elevation, Turn
-from blender.rendering.faults import RenderingResult, RenderingTimeFault
+from blender.records.faults import Fault, Outcome
+from blender.records.fields import Case
+from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,10 +40,10 @@ DAY_SECONDS: Final = datetime.timedelta(days=1).total_seconds()
 class Site(msgspec.Struct, frozen=True, kw_only=True):
     """Place on Earth with clock time zone."""
 
-    latitude: Annotated[Elevation, msgspec.Meta(description="Angle north of equator")] = 0.0
-    longitude: Annotated[Turn, msgspec.Meta(description="Angle east of Greenwich")] = 0.0
-    north: Annotated[Turn, msgspec.Meta(description="True north counterclockwise from +Y")] = 0.0
-    zone: Annotated[str, msgspec.Meta(title="Time Zone", description="IANA time zone of site clock")] = "UTC"
+    latitude: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Angle north of equator")] = 0.0
+    longitude: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Angle east of Greenwich")] = 0.0
+    north: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="True north counterclockwise from +Y")] = 0.0
+    zone: Annotated[str, msgspec.Meta(description="IANA time zone of site clock")] = "UTC"
 
     def __post_init__(self) -> None:
         """Validates zone as a key the time zone database holds."""
@@ -174,7 +175,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
     light: Daylight | Polar
 
     @classmethod
-    def of(cls, site: Site, date: datetime.date, zone: zoneinfo.ZoneInfo) -> RenderingResult[Self]:
+    def of(cls, site: Site, date: datetime.date, zone: zoneinfo.ZoneInfo) -> Outcome[Self]:
         """Solves solar noon and horizon crossings, time fault on overflow."""
         side = np.array([0.0, -1.0, 1.0], dtype=np.float64)
         latitude_sine, latitude_cosine = math.sin(site.latitude), math.cos(site.latitude)
@@ -193,15 +194,19 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)
         _, ratios = reach(solved)
         ratio = float(ratios[0])
-        try:
-            noon, *crossings = ((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1])
-        except OverflowError as error:
-            return Error((RenderingTimeFault(request=date, error=error),))
-        match crossings:
-            case [sunrise, sunset]:
-                return Ok(cls(noon=noon, light=Daylight(sunrise=sunrise, sunset=sunset)))
-            case _:
-                return Ok(cls(noon=noon, light=Polar.DAY if ratio <= -1.0 else Polar.NIGHT))
+
+        def lit(moments: tuple[datetime.datetime, ...]) -> Daylight | Polar:
+            match moments:
+                case [_, sunrise, sunset]:
+                    return Daylight(sunrise=sunrise, sunset=sunset)
+                case _:
+                    return Polar.DAY if ratio <= -1.0 else Polar.NIGHT
+
+        return (
+            catch(lambda: tuple((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1]), exception=OverflowError)()
+            .map(lambda moments: cls(noon=moments[0], light=lit(moments)))
+            .map_error(lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=str(date), cause=error),))
+        )
 
 
 class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -239,7 +244,7 @@ class DayStudy(Case, frozen=True, kw_only=True):
 
     title = "Day"
     start: Annotated[LocalTime, msgspec.Meta(description="Date and time of first frame")] = LocalTime(hour=6)
-    minutes: Annotated[int, msgspec.Meta(ge=1, le=1440, title="Step", description="Minutes between frames")] = 30
+    minutes: Annotated[int, msgspec.Meta(ge=1, le=1440, description="Minutes between frames")] = 30
     frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
 
 
@@ -248,14 +253,14 @@ class SeasonStudy(Case, frozen=True, kw_only=True):
 
     title = "Season"
     start: Annotated[LocalTime, msgspec.Meta(description="First date and clock time of every frame")] = LocalTime(hour=6)
-    days: Annotated[int, msgspec.Meta(ge=1, le=366, title="Step", description="Days between frames")] = 30
+    days: Annotated[int, msgspec.Meta(ge=1, le=366, description="Days between frames")] = 30
     frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def moments(study: SunStudy, zone: zoneinfo.ZoneInfo) -> RenderingResult[tuple[datetime.datetime, ...]]:
+def moments(study: SunStudy, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
     """Returns study moments, time fault on overflow."""
     first = study.start.moment(zone)
     match study:
@@ -263,11 +268,10 @@ def moments(study: SunStudy, zone: zoneinfo.ZoneInfo) -> RenderingResult[tuple[d
             step = datetime.timedelta(minutes=minutes)
         case SeasonStudy(days=days):
             step = datetime.timedelta(days=days)
-    try:
-        origin = first.astimezone(datetime.UTC) if isinstance(study, DayStudy) else first
-        return Ok(tuple((origin + frame * step).astimezone(zone) for frame in range(study.frames)))
-    except OverflowError as error:
-        return Error((RenderingTimeFault(request=(first, step, study.frames), error=error),))
+    origin = first.astimezone(datetime.UTC) if isinstance(study, DayStudy) else first
+    return catch(lambda: tuple((origin + frame * step).astimezone(zone) for frame in range(study.frames)), exception=OverflowError)().map_error(
+        lambda error: (Fault(reason=RenderingReason.CALENDAR, subject=f"{first} + {study.frames} x {step}", cause=error),)
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

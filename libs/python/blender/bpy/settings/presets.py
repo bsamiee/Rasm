@@ -7,16 +7,15 @@ from typing import Annotated
 
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Error, Nothing, Ok, Option, Result
+from expression import Nothing, Ok, Option, Result
 from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
-from blender.imaging.faults import ImagingResult
-from blender.records.faults import accumulated, FileFault
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
 from blender.records.stores import committed, RecordFile
 from blender.records.trees import merge, transfer
 
@@ -35,7 +34,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     form: TypeForm[T]
     stock: Mapping[str, T] = msgspec.field(default_factory=dict)
     directory: Option[Path] = Nothing
-    admitted: Option[Callable[[T], ImagingResult[T]]] = Nothing
+    admitted: Option[Callable[[T], Outcome[T]]] = Nothing
 
     # --- [LISTING]
 
@@ -53,10 +52,10 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Returns enum rows, user files tooltipped by their path."""
         return ((stem, bpy.path.display_name(stem), str(value) if isinstance(value, Path) else "") for stem, value in self.listed(identity).items())
 
-    def found(self, identity: Identity, stem: str) -> BlenderResult[T | Path]:
+    def found(self, identity: Identity, stem: str) -> Outcome[T | Path]:
         """Returns stock preset or user path of stem."""
         found: Option[T | Path] = Option.of_optional(self.listed(identity).get(stem))
-        return found.to_result_with(lambda: (BlenderAbsentFault(owner=str(self.folder(identity)), key=stem),))
+        return found.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(self.folder(identity)), member=stem),))
 
     # --- [FILES]
 
@@ -64,32 +63,34 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Returns record file of preset form at path."""
         return RecordFile(path=path, form=self.form)
 
-    def read(self, source: T | Path) -> BlenderResult[T]:
+    def read(self, source: T | Path) -> Outcome[T]:
         """Decodes and validates user file, passing stock preset through."""
-        return Result[T, BlenderFaults].bind(self.file(source).read(), lambda value: self.admitted.map(lambda admit: admit(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
+        return Result[T, Faults].bind(self.file(source).read(), lambda value: self.admitted.map(lambda admit: admit(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
 
-    def written(self, target: Path, value: T) -> BlenderResult[Path]:
+    def written(self, target: Path, value: T) -> Outcome[Path]:
         """Writes JSON at target through one atomic commit."""
         return self.file(target).written(value)
 
-    def saved(self, identity: Identity, name: PresetName, value: T) -> BlenderResult[Path]:
+    def saved(self, identity: Identity, name: PresetName, value: T) -> Outcome[Path]:
         """Creates user preset file, refusing a name a file holds."""
         return self.file(self.folder(identity) / f"{AddPresetBase.as_filename(name)}.json").written(value, exclusive=True)
 
     @staticmethod
-    def renamed(source: Path, name: PresetName) -> BlenderResult[Path]:
+    def renamed(source: Path, name: PresetName) -> Outcome[Path]:
         """Moves user preset to a free name."""
         target = source.with_stem(AddPresetBase.as_filename(name))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         copied = committed(
-            target, lambda stage: catch(shutil.copyfile, exception=OSError)(source, stage).map_error(lambda error: (FileFault(access="read", request=source, error=error),)), exclusive=True
+            target,
+            lambda stage: catch(shutil.copyfile, exception=OSError)(source, stage).map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(source), cause=error),)),
+            exclusive=True,
         )
-        return Result[Path, BlenderFaults].bind(copied, lambda _: removed(source)).map(lambda _: target)
+        return Result[Path, Faults].bind(copied, lambda _: removed(source)).map(lambda _: target)
 
-    def imported(self, identity: Identity, source: Path) -> BlenderResult[Path]:
+    def imported(self, identity: Identity, source: Path) -> Outcome[Path]:
         """Copies validated file into user folder."""
         return self.read(source).bind(lambda value: self.written((self.folder(identity) / source.name).with_suffix(".json"), value))
 
-    def exported(self, source: Path, target: Path) -> BlenderResult[Path]:
+    def exported(self, source: Path, target: Path) -> Outcome[Path]:
         """Writes validated user file to target."""
         return self.read(source).bind(lambda value: self.written(target, value))
 
@@ -97,9 +98,9 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def removed(source: Path) -> BlenderResult[None]:
+def removed(source: Path) -> Outcome[None]:
     """Deletes file."""
-    return catch(source.unlink, exception=OSError)().map_error(lambda error: (FileFault(access="write", request=source, error=error),))
+    return catch(source.unlink, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(source), cause=error),))
 
 
 def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
@@ -107,18 +108,19 @@ def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
     manager.clipboard = msgspec.json.encode(snapshot, order="deterministic").decode()
 
 
-def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> BlenderResult[tuple[Applied, ...]]:
+def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct[object], ...]") -> Outcome[tuple[Applied, ...]]:
     """Applies clipboard snapshot to each owner."""
-    try:
-        clip = msgspec.json.decode(manager.clipboard, type=Snapshot)
-    except msgspec.DecodeError as error:
-        return Error((FileFault(access="read", request=f"{manager!r}.clipboard", error=error),))
-    return accumulated(
-        Snapshot
-        .capture(owner)
-        .map(lambda target: msgspec.structs.replace(clip, tree=merge(target.tree, transfer(target.tree, clip.tree))).apply(owner))
-        .bind(lambda applied: applied.outcome.map(lambda _: applied))
-        for owner in owners
+    return Result[Snapshot, Faults].bind(
+        catch(msgspec.json.Decoder(Snapshot).decode, exception=msgspec.DecodeError)(manager.clipboard).map_error(
+            lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=f"{manager!r}.clipboard", cause=error),)
+        ),
+        lambda clip: accumulated(
+            Snapshot
+            .capture(owner)
+            .map(lambda target: msgspec.structs.replace(clip, tree=merge(target.tree, transfer(target.tree, clip.tree))).apply(owner))
+            .bind(lambda applied: applied.outcome.map(lambda _: applied))
+            for owner in owners
+        ),
     )
 
 

@@ -5,25 +5,27 @@ from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 
 from expression import Nothing, Ok, Option
-import msgspec
 
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderResult
+from blender.records.faults import Outcome
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Scoped[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Scoped[T]:
     """Value each extension holds while its registration scope stands, optionally renewed after every file load.
 
     Rows reading the value list the cell among their prerequisites, and scope builds it once per extension.
     """
 
-    made: Callable[[Identity], AbstractContextManager[T]]
-    renewed: Option[Callable[[T], T]] = Nothing
-    held: dict[str, T] = msgspec.field(default_factory=dict)
+    __slots__ = ("held", "made", "renewed")
+
+    def __init__(self, *, made: Callable[[Identity], AbstractContextManager[T]], renewed: Option[Callable[[T], T]] = Nothing) -> None:
+        """Holds no value until an extension scope makes one."""
+        self.made, self.renewed = made, renewed
+        self.held: dict[str, T] = {}
 
     def of(self, identity: Identity) -> T:
         """Returns the value extension holds.
@@ -36,7 +38,7 @@ class Scoped[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """
         return self.held[identity.package]
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Builds the resource acquisition, with a `LOAD_POST` renewal when the cell renews.
 
         Args:
@@ -47,7 +49,7 @@ class Scoped[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """
 
         def renewal(renew: Callable[[T], T]) -> PathHandler:
-            def renewed(_: Option[Path]) -> BlenderResult[None]:
+            def renewed(_: Option[Path]) -> Outcome[None]:
                 self.held[identity.package] = renew(self.of(identity))
                 return Ok(None)
 

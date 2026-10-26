@@ -7,21 +7,21 @@ from typing import Annotated, ClassVar, Final
 
 import bpy
 from expression import Error, Ok, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.operators import Call, Empty, Operator, Outcome, tallied, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Empty, Operator, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
-from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import joined, Line, OperatorButton, placed, RowDraw
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.values import Listing
-from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -53,7 +53,7 @@ class LineStyle(msgspec.Struct, frozen=True, kw_only=True):
     """Line style values and modifiers per stack identifier."""
 
     values: Snapshot
-    modifiers: dict[str, tuple[StyleModifier, ...]] = msgspec.field(default_factory=dict)
+    modifiers: Mapping[str, tuple[StyleModifier, ...]] = msgspec.field(default_factory=dict)
 
 
 class LineSet(msgspec.Struct, frozen=True, kw_only=True):
@@ -86,11 +86,11 @@ class FreestyleSection(Line, frozen=True):
             applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: onto(value, used(scene), identity)),
         )
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Draws preset listing and copy button."""
         return placed((self.listing(identity), OperatorButton(target=COPY)), identity).map(joined)
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns preset listing, copy operator, and line style ownership."""
         return Ok((self.listing(identity), COPY, self.ownership))
 
@@ -112,58 +112,62 @@ def used(scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
     return tuple(layer for layer in scene.view_layers if bool(_USE.read(layer)))
 
 
-def captured(layer: bpy.types.ViewLayer) -> BlenderResult[Freestyle]:
+def captured(layer: bpy.types.ViewLayer) -> Outcome[Freestyle]:
     """Captures layer Freestyle settings and line sets in layer order."""
     settings = layer.freestyle_settings
 
-    def lineset(held: bpy.types.FreestyleLineSet) -> BlenderResult[LineSet]:
-        def styled(style: bpy.types.FreestyleLineStyle) -> BlenderResult[LineSet]:
+    def lineset(held: bpy.types.FreestyleLineSet) -> Outcome[LineSet]:
+        def styled(style: bpy.types.FreestyleLineStyle) -> Outcome[LineSet]:
             modifiers = {stack.prop.identifier: tuple(StyleModifier(name=item.name, kind=item.type) for item in getattr(style, stack.prop.identifier)) for stack in _STACKS}
             return paired(Snapshot.capture(held, Some(_LINESET)), Snapshot.capture(style)).map(
                 lambda pair: LineSet(name=held.name, values=pair[0], style=LineStyle(values=pair[1], modifiers=modifiers))
             )
 
-        return Result[bpy.types.FreestyleLineStyle, BlenderFaults].bind(Option.of_optional(held.linestyle).to_result_with(lambda: (BlenderAbsentFault(owner=repr(held), key="linestyle"),)), styled)
+        return Result[bpy.types.FreestyleLineStyle, Faults].bind(
+            Option.of_optional(held.linestyle).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(held), member="linestyle"),)), styled
+        )
 
     return paired(Snapshot.capture(settings, Some(_SETTINGS)), accumulated(map(lineset, settings.linesets))).map(lambda pair: Freestyle(settings=pair[0], linesets=pair[1]))
 
 
-def styled(row: LineStyle, style: bpy.types.FreestyleLineStyle) -> BlenderResult[Applied]:
+def styled(row: LineStyle, style: bpy.types.FreestyleLineStyle) -> Outcome[Applied]:
     """Matches line style modifiers to captured ones, then applies captured values."""
 
-    def stacked(stack: Descriptor[bpy.types.CollectionProperty], kinds: tuple[str, ...]) -> BlenderResult[None]:
+    def stacked(stack: Descriptor[bpy.types.CollectionProperty], kinds: tuple[str, ...]) -> Outcome[None]:
         identifier = stack.prop.identifier
         held = getattr(style, identifier)
         wanted = row.modifiers.get(identifier, ())
         count = kept(held, wanted, lambda modifier, desired: (modifier.name, modifier.type) == (desired.name, desired.kind))
 
-        def removed(modifier: bpy.types.LineStyleModifier) -> BlenderResult[None]:
-            return BlenderEditFault.attempted(repr(style), lambda: held.remove(modifier))
+        def removed(modifier: bpy.types.LineStyleModifier) -> Outcome[None]:
+            return catch(held.remove, exception=RuntimeError)(modifier).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(style), cause=error),))
 
-        def added(modifier: StyleModifier) -> BlenderResult[None]:
+        def added(modifier: StyleModifier) -> Outcome[None]:
             return (
-                BlenderEditFault.attempted(f"{style!r}.{identifier}", lambda: held.new(name=modifier.name, type=modifier.kind)).map(lambda _: None)
+                catch(held.new, exception=RuntimeError)(name=modifier.name, type=modifier.kind)
+                .map(lambda _: None)
+                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{style!r}.{identifier}", cause=error),))
                 if modifier.kind in kinds
-                else Error((DomainFault(subject=f"{style!r}.{identifier}", value=modifier.kind, accepted=", ".join(kinds)),))
+                else Error((Fault(reason=RecordReason.OUTSIDE, subject=f"{style!r}.{identifier}", member=", ".join(kinds), cause=modifier.kind),))
             )
 
         return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, wanted[count:]))).map(lambda _: None)
 
-    def written() -> BlenderResult[Applied]:
+    def written() -> Outcome[Applied]:
         applied = row.values.apply(style)
         return applied.outcome.map(lambda _: applied)
 
     return accumulated(itertools.starmap(stacked, _STACKS.items())).bind(lambda _: written())
 
 
-def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity) -> BlenderResult[Applied]:
+def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[Applied]:
     """Writes Freestyle settings onto layer, then reconciles line sets by name in order."""
     linesets = layer.freestyle_settings.linesets
     wanted = tuple(row.name for row in freestyle.linesets)
     prefix = wanted[: kept((held.name for held in linesets), wanted, lambda current, desired: current == desired)]
     ownership = FreestyleSection.ownership
 
-    def built(row: LineSet) -> BlenderResult[Applied]:
+    def built(row: LineSet) -> Outcome[Applied]:
         held = Option.of_optional(linesets.get(row.name)).default_with(lambda: linesets.new(row.name))
         style = (
             Option
@@ -172,19 +176,22 @@ def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity
             .map(Ok)
             .default_with(
                 lambda: ownership.made(
-                    identity, lambda: BlenderEditFault.attempted(f"{layer.name} {row.name}", lambda: bpy.data.linestyles.new(vacant(f"{layer.name} {row.name}", bpy.data.linestyles.keys())))
+                    identity,
+                    lambda: catch(bpy.data.linestyles.new, exception=RuntimeError)(f"{layer.name} {row.name}").map_error(
+                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{layer.name} {row.name}", cause=error),)
+                    ),
                 )
             )
         )
 
-        def values(outcome: Applied) -> BlenderResult[Applied]:
+        def values(outcome: Applied) -> Outcome[Applied]:
             applied = row.values.apply(held)
             return applied.outcome.map(lambda _: Applied.join((applied, outcome)))
 
         return style.bind(lambda owned: _LINESTYLE.write(held, owned).bind(lambda _: styled(row.style, owned))).bind(values)
 
-    def removed(held: bpy.types.FreestyleLineSet) -> BlenderResult[None]:
-        return BlenderEditFault.attempted(repr(layer.freestyle_settings), lambda: linesets.remove(held))
+    def removed(held: bpy.types.FreestyleLineSet) -> Outcome[None]:
+        return catch(linesets.remove, exception=RuntimeError)(held).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(layer.freestyle_settings), cause=error),))
 
     first = freestyle.settings.apply(layer.freestyle_settings)
     return (
@@ -195,10 +202,10 @@ def applied(freestyle: Freestyle, layer: bpy.types.ViewLayer, identity: Identity
     )
 
 
-def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...], identity: Identity) -> BlenderResult[Outcome]:
+def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...], identity: Identity) -> Outcome[Answer]:
     """Applies Freestyle settings to each layer whose capture differs."""
 
-    def wrote(current: tuple[Freestyle, ...]) -> BlenderResult[Outcome]:
+    def wrote(current: tuple[Freestyle, ...]) -> Outcome[Answer]:
         if not (differing := tuple(layer for layer, held in zip(layers, current) if held != value)):
             return Ok(Unchanged(reason="Used view layers match Freestyle settings"))
         return tallied(tuple(applied(value, layer, identity) for layer in differing))
@@ -206,9 +213,9 @@ def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...], identity: Id
     return accumulated(map(captured, layers)).bind(wrote)
 
 
-def copying(call: Call[Empty]) -> BlenderResult[Outcome]:
-    """Copies the active layer's Freestyle settings onto the other used layers."""
-    return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], BlenderFaults].bind(
+def freestyle_copy(call: Call[Empty]) -> Outcome[Answer]:
+    """Copy active layer Freestyle settings and line sets to other used layers."""
+    return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], Faults].bind(
         paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)),
         lambda pair: captured(pair[1]).bind(lambda value: onto(value, tuple(layer for layer in used(pair[0]) if layer != pair[1]), call.identity)),
     )
@@ -216,9 +223,9 @@ def copying(call: Call[Empty]) -> BlenderResult[Outcome]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-COPY: Final = Operator(key="freestyle_copy", title="Copy Lines to Used Layers", description="Copy active layer Freestyle settings and line sets to other used layers", form=Empty, run=copying)
+COPY: Final = Operator(form=Empty, run=freestyle_copy)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COPY", "Freestyle", "FreestyleSection", "LineSet", "LineStyle", "StyleModifier", "applied", "captured", "copying", "kept", "onto", "styled", "used"]
+__all__ = ["COPY", "Freestyle", "FreestyleSection", "LineSet", "LineStyle", "StyleModifier", "applied", "captured", "freestyle_copy", "kept", "onto", "styled", "used"]

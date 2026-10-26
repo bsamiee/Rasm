@@ -15,7 +15,6 @@ from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import root_in
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderResult
 from blender.bpy.ui.drawing.canvas import Canvas
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Part, Refresh
 from blender.bpy.ui.images.views import framed, image_type
@@ -23,7 +22,7 @@ from blender.bpy.ui.resources.textures import uploaded
 from blender.bpy.ui.resources.theme import Color, color, Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.imaging.geometry.homography import Quad
-from blender.records.faults import accumulated
+from blender.records.faults import accumulated, Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -38,9 +37,9 @@ class Tint(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class Masks(msgspec.Struct, frozen=True, kw_only=True):
     """Part uploading coverage tints per refresh and drawing them over the frame."""
 
-    source: Callable[[Metrics], BlenderResult[Option[tuple[Tint, ...]]]]
+    source: Callable[[Metrics], Outcome[Option[tuple[Tint, ...]]]]
 
-    def read(self, metrics: Metrics) -> BlenderResult[Option[tuple[gpu.types.GPUTexture, ...]]]:
+    def read(self, metrics: Metrics) -> Outcome[Option[tuple[gpu.types.GPUTexture, ...]]]:
         """Uploads each tint as its color with alpha times coverage."""
         return self.source(metrics).bind(
             lambda found: found.map(
@@ -61,10 +60,10 @@ class Masks(msgspec.Struct, frozen=True, kw_only=True):
 class Edges(msgspec.Struct, frozen=True, kw_only=True):
     """Part outlining a frame quad in a theme color."""
 
-    quad: Callable[[bpy.types.Context], BlenderResult[Option[Quad]]]
+    quad: Callable[[bpy.types.Context], Outcome[Option[Quad]]]
     role: Callable[[bpy.types.ThemeUserInterface], mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]]
 
-    def read(self, _metrics: Metrics, /) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
+    def read(self, _metrics: Metrics, /) -> Outcome[Option[npt.NDArray[np.float32]]]:
         """Reads the quad as a closed corner strip in frame fractions."""
         return self.quad(bpy.context).map(lambda found: found.map(lambda held: held.samples[(0, 1, 2, 3, 0), :2].astype(np.float32)))
 
@@ -79,11 +78,11 @@ class Edges(msgspec.Struct, frozen=True, kw_only=True):
 class FrameMask(msgspec.Struct, frozen=True, kw_only=True):
     """Row drawing coverage masks over images of `kinds`."""
 
-    read: Callable[[Metrics], BlenderResult[Option[tuple[Tint, ...]]]]
+    read: Callable[[Metrics], Outcome[Option[tuple[Tint, ...]]]]
     kinds: tuple[str, ...] = ("RENDER_RESULT",)
     refreshes: tuple[Refresh, ...] = ()
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns the mask overlay."""
         return Ok((overlaid(Masks(source=self.read), image_type(self.kinds), self.refreshes),))
 

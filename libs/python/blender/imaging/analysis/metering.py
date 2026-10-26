@@ -10,10 +10,10 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.color.processors import converted, GREY, luma
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import unassociated
 from blender.imaging.geometry.regions import Region
-from blender.records.fields import Frozen, Gated, Presentation, Unit
+from blender.records.faults import Outcome
+from blender.records.fields import Frozen, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
     covered: npt.NDArray[np.bool]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Self]:
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Outcome[Self]:
         """Reads associated RGB or RGBA as straight samples."""
         straight, covered = unassociated(plane)[..., :3], (plane[..., 3:] > 0.0).all(axis=-1)
         return luma(config).map(lambda coefficients: cls(color=straight, luminance=np.where(covered, np.matmul(straight, coefficients, dtype=np.float64), 0.0), covered=covered))
@@ -57,11 +57,9 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
         rows, columns = np.arange(height, dtype=np.float64)[:, None], np.arange(width, dtype=np.float64)[None, :]
         return np.asarray((np.abs(rows + 0.5 - height / 2.0) < height / 4.0) & (np.abs(columns + 0.5 - width / 2.0) < width / 4.0), dtype=np.bool)
 
-    def peak(self) -> ImagingResult[Option[float]]:
+    def peak(self) -> Outcome[Option[float]]:
         """Returns covered percentile PQ peak in cd/m², decoded through the OCIO ST-2084 curve, absent without covered samples."""
-        greatest = self.color.max(axis=-1)
-        found = greatest[self.covered & np.isfinite(greatest)]
-        if not found.size:
+        if not (found := (greatest := self.color.max(axis=-1))[self.covered & np.isfinite(greatest)]).size:
             return Ok(Nothing)
         code = np.full((1, 3), np.clip(np.percentile(found, Extent.percentile, method="inverted_cdf"), 0.0, 1.0), dtype=np.float32)
         return converted(PyOpenColorIO.Config(), PyOpenColorIO.BuiltinTransform(style="CURVE - ST-2084_to_LINEAR"), code).map(lambda linear: Some(100.0 * float(linear[0, 0])))
@@ -80,16 +78,15 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
 
 
 class Meter(msgspec.Struct, frozen=True, kw_only=True):
-    """Exposure percentile trims, center weight, and region."""
+    """Exposure percentile trims, center weight, and region, the whole frame by default."""
 
-    low: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, title="Low Trim"), Presentation(step=Some(1.0), precision=Some(1))] = 0.0
-    high: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, title="High Trim"), Presentation(step=Some(1.0), precision=Some(1))] = 100.0
-    centre: Annotated[Unit, msgspec.Meta(title="Center Weight")] = 0.0
-    region: Gated[Region] = Gated(enabled=False, value=Region())
+    low: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, description="Percentile trimmed below")] = 0.0
+    high: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, description="Percentile trimmed above")] = 100.0
+    centre: Annotated[Unit, msgspec.Meta(description="Weight taken from samples outside the center")] = 0.0
+    region: Region = Region()
 
-    def stops(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Option[float]]:
+    def stops(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Outcome[Option[float]]:
         """Returns stops to scene gray, or absence without weighted samples."""
-        box = self.region.value if self.region.enabled else Region()
 
         def metered(samples: Samples) -> Option[float]:
             covered = samples.finite
@@ -108,7 +105,7 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
             return Some(levels).filter(lambda found: found.size > 0).bind(trimmed)
 
-        return Samples.of(config, plane[box.window(*plane.shape[:2])]).map(metered)
+        return Samples.of(config, plane[self.region.window(*plane.shape[:2])]).map(metered)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

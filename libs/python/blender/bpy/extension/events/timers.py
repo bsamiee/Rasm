@@ -10,7 +10,7 @@ import msgspec
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Acquisitions, Band
-from blender.bpy.faults import BlenderResult
+from blender.records.faults import Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -18,10 +18,10 @@ from blender.bpy.faults import BlenderResult
 class Timer(msgspec.Struct, frozen=True, kw_only=True):
     """Main-loop work returning next interval, Nothing to stop."""
 
-    body: Callable[[], BlenderResult[Option[float]]]
+    body: Callable[[], Outcome[Option[float]]]
     first_interval: float = 0.0
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity, /) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Builds timer acquisition.
 
         Args:
@@ -52,9 +52,9 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
 class Startup(msgspec.Struct, frozen=True, kw_only=True):
     """Work run on the first main-loop pass after registration and after every file load."""
 
-    body: Callable[[], BlenderResult[None]]
+    body: Callable[[], Outcome[None]]
 
-    def acquisitions(self, _identity: Identity, /) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity, /) -> Outcome[Acquisitions]:
         """Builds the load handler and one-shot timer running body.
 
         Args:

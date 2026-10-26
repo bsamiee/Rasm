@@ -17,7 +17,8 @@ from blender.bpy.extension.events.handlers import appended, ImportHandler
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import Fault, Outcome
 from blender.records.identity import ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -60,10 +61,10 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
             case _:
                 return Nothing
 
-    def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> BlenderResult[None]:
+    def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Outcome[None]:
         """Writes present fields under manifest ID."""
         fields = {name: value for name, held in msgspec.structs.asdict(self).items() for value in (held.to_list() if isinstance(held, Option) else (held,))}
-        return BlenderEditFault.attempted(identity.manifest.id, lambda: holder.__setitem__(identity.manifest.id, fields))
+        return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=identity.manifest.id, cause=error),))
 
 
 class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
@@ -93,15 +94,8 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         return tuple(block for block, mark in self.held(identity) if mark.of == Some(source))
 
     def owned(
-        self,
-        identity: Identity,
-        block: T,
-        *,
-        of: Option[bpy.types.ID] = Nothing,
-        content: Option[ContentHash] = Nothing,
-        filled: Callable[[T], BlenderResult[T]] = Ok,
-        scope: Option[ExitStack] = Nothing,
-    ) -> BlenderResult[T]:
+        self, identity: Identity, block: T, *, of: Option[bpy.types.ID] = Nothing, content: Option[ContentHash] = Nothing, filled: Callable[[T], Outcome[T]] = Ok, scope: Option[ExitStack] = Nothing
+    ) -> Outcome[T]:
         """Marks and fills new block under `kept` rollback."""
 
         def configured() -> T:
@@ -109,18 +103,18 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             block.use_fake_user = self.saved is Saved.ALWAYS
             return block
 
-        return kept(Ok(block), lambda block: Mark(key=self.key, of=of, content=content).write(identity, block).bind(lambda _: BlenderEditFault.attempted(repr(block), configured)).bind(filled), scope)
+        return kept(Ok(block), lambda block: Mark(key=self.key, of=of, content=content).write(identity, block).map(lambda _: configured()).bind(filled), scope)
 
     def made(
         self,
         identity: Identity,
-        build: Callable[[], BlenderResult[T]],
+        build: Callable[[], Outcome[T]],
         *,
         of: Option[bpy.types.ID] = Nothing,
         content: Option[ContentHash] = Nothing,
-        filled: Callable[[T], BlenderResult[T]] = Ok,
+        filled: Callable[[T], Outcome[T]] = Ok,
         scope: Option[ExitStack] = Nothing,
-    ) -> BlenderResult[T]:
+    ) -> Outcome[T]:
         """Reuses equal-mark holder of single row or owns built block, then fills it."""
         return (
             (self.found(identity, of=of, content=content) if self.single else Nothing)
@@ -128,10 +122,10 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             .default_with(lambda: build().bind(lambda block: self.owned(identity, block, of=of, content=content, filled=filled, scope=scope)))
         )
 
-    def rebuilt(self, identity: Identity, held: T, build: Callable[[], BlenderResult[T]]) -> BlenderResult[T]:
+    def rebuilt(self, identity: Identity, held: T, build: Callable[[], Outcome[T]]) -> Outcome[T]:
         """Replaces marked block with built one under its name."""
 
-        def swapped(block: T) -> BlenderResult[T]:
+        def swapped(block: T) -> Outcome[T]:
             name = held.name
             held.user_remap(block)
             return released((held,)).bind(lambda _: named(block, name))
@@ -140,15 +134,15 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             case Option(tag="some", some=mark):
                 return build().bind(lambda block: self.owned(identity, block, of=mark.of, content=mark.content)).bind(swapped)
             case Option():
-                return Error((BlenderAbsentFault(owner=repr(held), key=identity.manifest.id),))
+                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(held), member=identity.manifest.id),))
 
-    def removed(self, identity: Identity) -> BlenderResult[int]:
+    def removed(self, identity: Identity) -> Outcome[int]:
         """Removes zero-user holders of `USED` row, returning their count."""
         return released(tuple(block for block, _ in self.held(identity) if block.users == 0)) if self.saved is Saved.USED else Ok(0)
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the saved single row's place on its extension's import merge."""
         return Ok((MERGES, (Band.APP_HANDLERS, Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ())
 
@@ -156,10 +150,14 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Merges(msgspec.Struct, frozen=True, eq=False):
+class Merges:
     """Saved single rows of one extension, imported duplicates of each remapped to its earliest local holder by one import handler."""
 
-    rows: list[tuple[type[bpy.types.ID], Key]] = msgspec.field(default_factory=list)
+    __slots__ = ("rows",)
+
+    def __init__(self) -> None:
+        """Holds no row."""
+        self.rows: list[tuple[type[bpy.types.ID], Key]] = []
 
     @classmethod
     @contextmanager
@@ -181,7 +179,7 @@ class Merges(msgspec.Struct, frozen=True, eq=False):
         finally:
             merges.rows.remove(row)
 
-    def merged(self, identity: Identity, context: bpy.types.BlendImportContext) -> BlenderResult[None]:
+    def merged(self, identity: Identity, context: bpy.types.BlendImportContext) -> Outcome[None]:
         """Scans each held kind once, remapping imported duplicates and removing them in one batch."""
         imported = frozenset(item.id for item in context.import_items if item.id is not None and item.id.library is None)
         kinds = {kind: frozenset(key for held, key in self.rows if held is kind) for kind, _ in self.rows}
@@ -204,7 +202,7 @@ MERGES: Final = Scoped[Merges](made=Merges.opened)
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def committed[T](result: BlenderResult[T], rollback: ExitStack, scope: Option[ExitStack] = Nothing) -> BlenderResult[T]:
+def committed[T](result: Outcome[T], rollback: ExitStack, scope: Option[ExitStack] = Nothing) -> Outcome[T]:
     """Moves rollback callbacks into scope on success, dropping them without scope."""
     for _ in result.to_option().to_list():
         held = rollback.pop_all()
@@ -213,10 +211,10 @@ def committed[T](result: BlenderResult[T], rollback: ExitStack, scope: Option[Ex
     return result
 
 
-def kept[B: bpy.types.ID, T](made: BlenderResult[B], fill: Callable[[B], BlenderResult[T]], scope: Option[ExitStack] = Nothing) -> BlenderResult[T]:
+def kept[B: bpy.types.ID, T](made: Outcome[B], fill: Callable[[B], Outcome[T]], scope: Option[ExitStack] = Nothing) -> Outcome[T]:
     """Fills new data-block, removing it when fill fails or when given scope unwinds."""
 
-    def filled(block: B) -> BlenderResult[T]:
+    def filled(block: B) -> Outcome[T]:
         with ExitStack() as rollback:
             rollback.callback(bpy.data.batch_remove, ids=(block,))
             return committed(fill(block), rollback, scope)
@@ -224,9 +222,13 @@ def kept[B: bpy.types.ID, T](made: BlenderResult[B], fill: Callable[[B], Blender
     return made.bind(filled)
 
 
-def released(blocks: tuple[bpy.types.ID, ...]) -> BlenderResult[int]:
+def released(blocks: tuple[bpy.types.ID, ...]) -> Outcome[int]:
     """Removes blocks in one `batch_remove`, returning their count."""
-    return BlenderEditFault.attempted(repr(blocks), lambda: bpy.data.batch_remove(ids=blocks) if blocks else None).map(lambda _: len(blocks))
+    return (
+        (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None))
+        .map(lambda _: len(blocks))
+        .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(blocks), cause=error),))
+    )
 
 
 def _held[T: bpy.types.ID](identity: Identity, kind: type[T], keys: frozenset[Key]) -> tuple[tuple[T, Mark], ...]:

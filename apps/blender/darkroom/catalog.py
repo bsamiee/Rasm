@@ -5,14 +5,16 @@ from typing import Final
 from bl_ui.properties_compositor import SCENE_MT_add_compositor_effect, SCENE_PT_compositor_effects
 from bl_ui.space_node import NODE_PT_backdrop
 from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
+import bpy
 from expression import Some
 
+from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.render.compositor.blending import Entry
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.compositor.entries import Edge, Pinned
 from blender.bpy.render.compositor.layers import Adjustment, Layer, LayerStack
 from blender.bpy.render.compositor.library import save_effect
-from blender.bpy.render.compositor.stacking import OWNERSHIP, TITLE
+from blender.bpy.render.compositor.stacking import OWNERSHIP, TITLE, Valued
 from blender.bpy.render.compositor.strips import Strips
 from blender.bpy.render.compositor.viewers import Viewers
 from blender.bpy.render.previews.nodes import NodePreview
@@ -20,7 +22,7 @@ from blender.bpy.render.view_layers.passes import PassSet
 from blender.bpy.ui.layout.rows import Pulldown
 from blender.bpy.ui.surfaces.appends import Append
 from blender.bpy.ui.surfaces.panels import Joined, Panel, PopoverPanel, Tab
-from blender.records.fields import Gated, heading
+from blender.records.trees import Owner, Tree
 
 from .chain import layers
 from .chain.panels import effect_section
@@ -49,7 +51,7 @@ from .effects.grade.white_balance import white_balance
 from .effects.grade.zones import zones
 from .effects.optics.atmosphere import atmosphere
 from .effects.optics.defocus import defocus
-from .effects.optics.denoise import filtering, Rendered, spatial_denoise, TemporalDenoise
+from .effects.optics.denoise import filtering, Rendered, spatial_denoise
 from .effects.optics.displacement import displacement
 from .effects.optics.distortion import aberration, distortion
 from .effects.optics.flares import lens_flare, light_rays
@@ -61,7 +63,7 @@ from .effects.optics.shapes import shapes
 from .effects.optics.sharpen import sharpen
 from .effects.optics.transforms import transform
 from .effects.optics.vignette import vignette
-from .preferences import previewed, previewing
+from .preferences import previewing
 from .rendering.sets import locks
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -122,7 +124,7 @@ chain: Final = Chain(
     gain=gain,
     pinned=(
         Pinned(ownership=OWNERSHIP, title=TITLE, edge=Edge.HEAD),
-        Pinned(ownership=Rendered.ownership, title=heading(TemporalDenoise.__name__), edge=Edge.HEAD, enables=frozenset({Enabled.RENDER})),
+        Pinned(ownership=Rendered.ownership, title=bpy.path.display_name(Rendered.ownership.key), edge=Edge.HEAD, enables=frozenset({Enabled.RENDER})),
         Pinned(ownership=PassSet.ownership, title=PassSet.title, edge=Edge.TAIL, enables=frozenset({Enabled.RENDER})),
     ),
 )
@@ -130,22 +132,23 @@ stacks: Final = layers.stacks(
     chain,
     filtering=filtering,
     looks={
-        name: LayerStack(
-            layers=(
-                Layer(
-                    key="look",
-                    name=name,
-                    source=Adjustment(),
-                    effects=Gated(enabled=True, value=tuple(Gated(enabled=True, value=Entry(record=effect)) for effect in (Exposure(stops=stops), Contrast(slope=slope)))),
-                ),
-            )
+        name: Valued(
+            structure=LayerStack(layers=(Layer(key="look", name=name, source=Adjustment(), effects=(Entry(record=Exposure()), Entry(record=Contrast()))),)),
+            values=Snapshot(
+                struct="SceneCompositorEffectInterfaceInputs",
+                tree=Tree(roots=("",), owners={"": Owner(values={}, children=tuple(values)), **{key: Owner(values={"value": value}) for key, value in values.items()}}),
+            ),
         )
-        for name, stops, slope in (("Rhino Filmic, Low Contrast", 4.0, 0.5), ("Rhino Filmic, Medium Contrast", 1.0, 1.0), ("Rhino Filmic, High Contrast", -1.0, 2.0))
+        for name, values in (
+            ("Rhino Filmic, Low Contrast", {"look_effects_1_stops": 4.0, "look_effects_2_slope": 0.5}),
+            ("Rhino Filmic, Medium Contrast", {"look_effects_1_stops": 1.0, "look_effects_2_slope": 1.0}),
+            ("Rhino Filmic, High Contrast", {"look_effects_1_stops": -1.0, "look_effects_2_slope": 2.0}),
+        )
     },
 )
 tiles: Final = Tiles(chain=chain)
 strips: Final = Strips(rows=chain.rows)
-nodes: Final = NodePreview(settings=previewing, stored=previewed, entering=tiles.entering)
+nodes: Final = NodePreview(settings=previewing)
 adding: Final = chain.rows.menu
 rows: Final = (
     chain.rows,

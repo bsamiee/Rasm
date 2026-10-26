@@ -14,9 +14,9 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.extension.reports import rendered
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.render.outputs.exports import COMBINED
-from blender.records.faults import accumulated
+from blender.records.faults import accumulated, Fault, Faults, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -68,7 +68,7 @@ class RenderRequest(msgspec.Struct, frozen=True, kw_only=True):
     scene: bpy.types.Scene
     layer: bpy.types.ViewLayer
 
-    def written(self, tiles: Iterable[BlenderResult[Tile]]) -> BlenderResult[int]:
+    def written(self, tiles: Iterable[Outcome[Tile]]) -> Outcome[int]:
         """Writes tiles until cancellation or first fault, returning written count."""
         count, area = 0, 0
         for answer in tiles:
@@ -108,21 +108,20 @@ class Baking(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class Viewport(msgspec.Struct, frozen=True, kw_only=True):
     """Viewport update and draw bodies."""
 
-    update: Callable[[bpy.types.Context, bpy.types.Depsgraph], BlenderResult[None]]
-    draw: Callable[[bpy.types.Context, bpy.types.Depsgraph], BlenderResult[None]]
+    update: Callable[[bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]
+    draw: Callable[[bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]
 
 
 class Engine(msgspec.Struct, frozen=True, kw_only=True):
-    """Render engine built from enabled `bl_` flags, others at their RNA default, and callback bodies."""
+    """Render engine built from enabled `bl_` flags, others at their RNA default, and callback bodies, labelled by its key."""
 
     combined: ClassVar[Pass] = Pass(name=COMBINED, chanid="RGBA")
     key: Key
-    title: str
-    render: Callable[[RenderRequest], Iterable[BlenderResult[Tile]]]
+    render: Callable[[RenderRequest], Iterable[Outcome[Tile]]]
     enabled: frozenset[Descriptor[bpy.types.BoolProperty]] = frozenset()
     passes: tuple[Pass, ...] | Callable[[bpy.types.Scene, bpy.types.ViewLayer], tuple[Pass, ...]] = ()
     viewport: Option[Viewport] = Nothing
-    bake: Option[Callable[[Baking], BlenderResult[npt.NDArray[np.float32]]]] = Nothing
+    bake: Option[Callable[[Baking], Outcome[npt.NDArray[np.float32]]]] = Nothing
     joins: frozenset[str] = frozenset()
 
     # --- [CALLBACKS]
@@ -139,19 +138,19 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
         def render(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph) -> None:
             """Writes body tiles and reports each fault at ERROR level."""
-            request: BlenderResult[RenderRequest] = (
+            request: Outcome[RenderRequest] = (
                 Option
                 .of_optional(depsgraph.scene)
                 .bind(lambda scene: Option.of_optional(depsgraph.view_layer).map(lambda layer: RenderRequest(engine=engine, depsgraph=depsgraph, scene=scene, layer=layer)))
-                .to_result_with(lambda: (BlenderAbsentFault(owner=repr(depsgraph), key="view_layer"),))
+                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(depsgraph), member="view_layer"),))
             )
-            for _, text in Result[RenderRequest, BlenderFaults].bind(request, lambda held: held.written(self.render(held))).swap().map(rendered).default_value(()):
+            for _, text in Result[RenderRequest, Faults].bind(request, lambda held: held.written(self.render(held))).swap().map(rendered).default_value(()):
                 engine.report({"ERROR"}, text)
 
         namespace: dict[str, object] = {
             "__module__": identity.package,
             "bl_idname": name,
-            "bl_label": self.title,
+            "bl_label": bpy.path.display_name(self.key),
             **{prop.identifier: prop.default or any(prop == descriptor.prop for descriptor in self.enabled) for prop in FLAGS},
             "update_render_passes": update_render_passes,
             "render": render,
@@ -194,7 +193,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     @contextmanager
-    def replayed(cls, identity: Identity, key: Key, planes: Mapping[Captured, Tile], frame: Callable[[], int]) -> Generator[BlenderResult[str]]:
+    def replayed(cls, identity: Identity, key: Key, planes: Mapping[Captured, Tile], frame: Callable[[], int]) -> Generator[Outcome[str]]:
         """Registers postprocess engine replaying captured planes until scope exit."""
 
         def matching(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Iterable[Tile]:
@@ -204,17 +203,18 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
         def passes(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> tuple[Pass, ...]:
             return tuple({held.name: held for tile in matching(scene, layer) for held, _image in tile.planes if held.name != cls.combined.name}.values())
 
-        replay = cls(key=key, title="Captured Render", render=lambda request: map(Ok, matching(request.scene, request.layer)), passes=passes, enabled=frozenset({POSTPROCESS}))
+        replay = cls(key=key, render=lambda request: map(Ok, matching(request.scene, request.layer)), passes=passes, enabled=frozenset({POSTPROCESS}))
         with ExitStack() as scope:
             yield identity.name(Name.ENGINE, key).bind(lambda name: entered(scope, (replay.built(identity, name),)).map(lambda _: name))
 
     @contextmanager
-    def joined(self, name: str) -> Generator[BlenderResult[None]]:
+    def joined(self, name: str) -> Generator[Outcome[None]]:
         """Adds engine to `COMPAT_ENGINES` sets holding a `joins` name until scope exit."""
         panels = tuple(panel.COMPAT_ENGINES for panel in bpy.types.Panel.__subclasses__() if hasattr(panel, "COMPAT_ENGINES") and isinstance(panel.COMPAT_ENGINES, set))
         selected = {id(engines): engines for engines in panels if self.joins.intersection(engines) and name not in engines}
         answer = accumulated(
-            Ok(None) if any(identifier in engines for engines in panels) else Error((BlenderAbsentFault(owner="COMPAT_ENGINES", key=identifier),)) for identifier in sorted(self.joins)
+            Ok(None) if any(identifier in engines for engines in panels) else Error((Fault(reason=BlenderReason.ABSENT, subject="COMPAT_ENGINES", member=identifier),))
+            for identifier in sorted(self.joins)
         ).map(lambda _: None)
         if answer.is_ok():
             for engines in selected.values():
@@ -226,7 +226,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                 for engines in selected.values():
                     engines.discard(name)
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Acquires engine class, then `COMPAT_ENGINES` memberships."""
         return identity.name(Name.ENGINE, self.key).map(lambda name: ((Band.INTERFACE, self.built(identity, name)), (Band.INTERFACE, self.joined(name))))
 

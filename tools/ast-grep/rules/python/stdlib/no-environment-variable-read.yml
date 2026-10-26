@@ -2,6 +2,8 @@
 id: no-environment-variable-read
 language: python
 severity: error
+ignores:
+    - '**/__main__.py'
 utils:
     mapping:
         any:
@@ -57,8 +59,16 @@ utils:
             - matches: {python-assigned-name: {value: {matches: copy-source}}}
     environment-file:
         inside: {kind: module, stopBy: end, regex: '\benvironb?\b'}
+    boundary:
+        inside:
+            kind: module
+            stopBy: end
+            any:
+                - matches: python-entry-module
+                - has: {kind: 'import_from_statement, import_statement', regex: '^(from|import)\s+cyclopts\b'}
 rule:
     pattern: $READ
+    not: {matches: boundary}
     any:
         - kind: identifier, attribute
           all:
@@ -94,5 +104,5 @@ rule:
             - has: {field: operators, regex: '^(not\s+)?in$'}
             - matches: environment-file
             - has: {nthChild: 2, matches: relayed}
-message: '`$READ` reads process environment in place of a settings field passed from the boundary'
-note: 'Pass frozen settings decoded at the boundary, `msgspec.convert` in libraries and extensions, else pydantic `model_validate` or `BaseSettings`'
+message: '`$READ` reads process environment outside the entry module or CLI command'
+note: 'Read the variable in the entry module or CLI command and pass its value as an argument'

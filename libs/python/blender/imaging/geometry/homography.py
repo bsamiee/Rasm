@@ -8,35 +8,33 @@ import numpy as np
 import numpy.typing as npt
 from skimage.transform import ProjectiveTransform
 
-from blender.imaging.faults import ImagingResult
-from blender.imaging.geometry.regions import Position, Region
-from blender.records.faults import DomainFault
+from blender.imaging.geometry.regions import Region
+from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.fields import Finite
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Quad(msgspec.Struct, frozen=True, kw_only=True):
-    """Image quad corners."""
+    """Image quad corners clockwise from top left."""
 
-    top_left: Position = (0.0, 1.0)
-    top_right: Position = (1.0, 1.0)
-    bottom_right: Position = (1.0, 0.0)
-    bottom_left: Position = (0.0, 0.0)
+    corners: tuple[tuple[Finite, Finite], tuple[Finite, Finite], tuple[Finite, Finite], tuple[Finite, Finite]] = ((0.0, 1.0), (1.0, 1.0), (1.0, 0.0), (0.0, 0.0))
 
     @classmethod
     def of(cls, samples: npt.NDArray[np.float64]) -> Self:
-        """Reads corners from first two sample components."""
-        return cls(**{name: (float(samples[index, 0]), float(samples[index, 1])) for index, name in enumerate(cls.__struct_fields__)})
+        """Reads corners from first two components of the first four samples."""
+        first, second, third, fourth = ((float(row[0]), float(row[1])) for row in samples[:4])
+        return cls(corners=(first, second, third, fourth))
 
     @classmethod
     def of_region(cls, region: Region) -> Self:
         """Returns corners of an axis-aligned frame rectangle."""
-        return cls(top_left=(region.left, region.top), top_right=(region.right, region.top), bottom_right=(region.right, region.bottom), bottom_left=(region.left, region.bottom))
+        return cls(corners=((region.left, region.top), (region.right, region.top), (region.right, region.bottom), (region.left, region.bottom)))
 
     @property
     def samples(self) -> npt.NDArray[np.float64]:
-        """Corner positions with unit coverage in declaration order."""
-        return np.array([(*corner, 1.0) for corner in msgspec.structs.astuple(self)])
+        """Corner positions with unit coverage clockwise from top left."""
+        return np.array([(*corner, 1.0) for corner in self.corners])
 
     @property
     def convex(self) -> bool:
@@ -55,15 +53,15 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     matrix: npt.NDArray[np.float64]
 
     @classmethod
-    def of(cls, quad: Quad) -> ImagingResult[Option[Self]]:
+    def of(cls, quad: Quad) -> Outcome[Option[Self]]:
         """Returns map of `quad`, absent for a quad that is not strictly convex, domain fault when its corners admit no projective map."""
         if not quad.convex:
             return Ok(Nothing)
-        match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):  # type: ignore[no-untyped-call]
+        match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):
             case ProjectiveTransform() as found:
                 return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))
             case failed:
-                return Error((DomainFault(subject="Homography", value=msgspec.structs.astuple(quad), accepted=f"corners of a projective quad, {failed}"),))
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject="Homography", member=f"corners of a projective quad, {failed}", cause=str(quad.corners)),))
 
     def to_image(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps plane samples to image, zero coverage beyond vanishing line."""

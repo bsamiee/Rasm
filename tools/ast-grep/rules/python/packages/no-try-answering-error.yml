@@ -8,17 +8,17 @@ utils:
         all:
             - has: {nthChild: 1, kind: return_statement, has: {kind: call, has: {field: function, kind: identifier, regex: '^Error$'}}}
             - not: {has: {nthChild: 2}}
-    relayed-call:
-        kind: block
+    single-class:
+        kind: except_clause
         all:
-            - has: {nthChild: 1, pattern: 'return Ok($CALL(*$ARGS, **$KWARGS))'}
-            - not: {has: {nthChild: 2}}
+            - has: {field: value, any: [{kind: identifier}, {kind: attribute}, {kind: as_pattern, has: {kind: 'identifier, attribute'}}]}
+            - not: {has: {nthChild: 2, not: {kind: block}}}
 rule:
     kind: try_statement
     all:
         - has: {kind: except_clause}
         - not: {has: {kind: finally_clause}}
-        - not: {has: {field: body, matches: relayed-call}}
+        - not: {has: {kind: except_clause, not: {matches: single-class}}}
         - not: {has: {kind: except_clause, not: {has: {matches: error-return}}}}
 message: '`try` answers `Error` from every handler'
-note: 'Decorate the raising step with `@catch(exception=<error>)` or a package refusal decorator, or call `host(<callee>, <arguments>)`, caught error kept as cause'
+note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)`'

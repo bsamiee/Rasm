@@ -11,8 +11,9 @@ from expression import Error, Nothing, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
+from blender.records.faults import Fault, Faults, Outcome
 from blender.rendering.batch.queue import RenderQueue
-from blender.rendering.faults import RenderingFaults, RenderingResult, RenderingRunFault
+from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -57,22 +58,26 @@ class Host(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def refused(argv: tuple[str, ...]) -> Callable[[OSError | int], RenderingFaults]:
-    """Maps launch error or exit code to run fault."""
-    return lambda error: (RenderingRunFault(request=argv, error=error),)
+def refused(argv: tuple[str, ...]) -> Callable[[OSError], Faults]:
+    """Maps launch error to run fault."""
+    return lambda error: (Fault(reason=RenderingReason.UNSTARTED, subject=" ".join(argv), cause=error),)
 
 
-def ran(argv: tuple[str, ...]) -> RenderingResult[None]:
+def ran(argv: tuple[str, ...]) -> Outcome[None]:
     """Runs process to exit, nonzero code as fault."""
-    return catch(lambda: subprocess.run(argv, check=False).returncode, exception=OSError)().map_error(refused(argv)).bind(lambda code: Ok(None) if code == 0 else Error(refused(argv)(code)))
+    return (
+        catch(lambda: subprocess.run(argv, check=False).returncode, exception=OSError)()
+        .map_error(refused(argv))
+        .bind(lambda code: Ok(None) if code == 0 else Error((Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(code)),)))
+    )
 
 
-def spawned(argv: tuple[str, ...], stream: int | None = None) -> RenderingResult[subprocess.Popen[bytes]]:
+def spawned(argv: tuple[str, ...], stream: int | None = None) -> Outcome[subprocess.Popen[bytes]]:
     """Starts process, stdin and stdout on stream."""
     return catch(lambda: subprocess.Popen(argv, stdin=stream, stdout=stream), exception=OSError)().map_error(refused(argv))
 
 
-def detached(argv: tuple[str, ...], log: Path) -> RenderingResult[Path]:
+def detached(argv: tuple[str, ...], log: Path) -> Outcome[Path]:
     """Starts process in own session with output appended to log."""
 
     def launched() -> Path:

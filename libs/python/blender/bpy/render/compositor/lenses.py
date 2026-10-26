@@ -6,14 +6,14 @@ import functools
 import bpy
 import msgspec
 
-from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.graphs import Expr, group_input, math, NodeGroup, NODES, Scalar, switched, Term, vector, xyz
+from blender.bpy.nodes.graphs import Expr, group_input, math, NodeGroup, Scalar, switched, Term, vector, xyz
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.compositor.colors import COLOR_INPUT
 from blender.bpy.render.compositor.coordinates import framed, lensed
 from blender.imaging.geometry.arithmetic import Namespace
 from blender.imaging.geometry.lenses import Aperture
 from blender.imaging.geometry.panoramas import Point
+from blender.records.faults import Outcome
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ def mapped(position: Expr, transform: Callable[[Point[Expr], Namespace[Expr, Exp
     Returns:
         Mapped positions with coverage in Z.
     """
-    s, t, coverage = transform((position["X"], position["Y"], position["Z"]), NODES)
+    s, t, coverage = transform((position["X"], position["Y"], position["Z"]), Expr)
     return xyz(s, t, coverage)
 
 
@@ -38,7 +38,7 @@ def mapped(position: Expr, transform: Callable[[Point[Expr], Namespace[Expr, Exp
 
 
 @functools.cache
-def _chief_ray() -> BlenderResult[NodeGroup]:
+def _chief_ray() -> Outcome[NodeGroup]:
     """Chief-ray cosine group of the scene camera over its image's frame, sensor fit and shift included."""
     pixel = framed(group_input(COLOR_INPUT.key, "RGBA"), 1.0).fraction
     inverse = Expr(kind=bpy.types.FunctionNodeInvertMatrix, inputs=(("Matrix", lensed("Projection Matrix")),), socket="Matrix")
@@ -47,10 +47,10 @@ def _chief_ray() -> BlenderResult[NodeGroup]:
         for plane in (-1.0, 0.0)
     )
     face = Interface(inputs=(COLOR_INPUT,), outputs=(Socket(key="cosine", name="Cosine", kind=bpy.types.NodeSocketFloat),))
-    return NodeGroup.built("chief_ray", "Chief Ray", face, {"cosine": abs(vector("NORMALIZE", middle - near)["Z"])})
+    return NodeGroup.built("chief_ray", "Chief Ray", face, {"cosine": abs(vector("NORMALIZE", middle - near)["Z"])}, bpy.types.CompositorNodeTree)
 
 
-def chief_ray(image: Term) -> BlenderResult[Expr]:
+def chief_ray(image: Term) -> Outcome[Expr]:
     """Cosine between the scene camera's axis and the ray through each pixel of an image of its frame, its fourth power the natural illumination falloff."""
     return _chief_ray().map(lambda group: group.placed({COLOR_INPUT.key: image}, "cosine"))
 

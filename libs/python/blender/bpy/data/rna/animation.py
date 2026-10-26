@@ -1,6 +1,6 @@
 """RNA channel keyframes, drivers, modifiers, and sampling."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Annotated, TYPE_CHECKING
 
 import bpy
@@ -11,10 +11,9 @@ import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
-from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import Descriptor, member_path, struct_at, Value, written
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.records.faults import accumulated, DomainFault, paired
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.fields import Case
 
 if TYPE_CHECKING:
@@ -63,7 +62,7 @@ class Modifier(msgspec.Struct, frozen=True, kw_only=True):
     """F-curve modifier type and property values."""
 
     kind: "rna_enums.FmodifierTypeItems"
-    values: dict[str, Value] = msgspec.field(default_factory=dict)
+    values: Mapping[str, Value] = msgspec.field(default_factory=dict)
 
 
 class Animation(msgspec.Struct, frozen=True, kw_only=True):
@@ -82,7 +81,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         """RNA data path of channel without array index."""
         return member_path(self.struct, self.member)
 
-    def channel(self, owner: bpy.types.ID) -> BlenderResult[bpy.types.Property]:
+    def channel(self, owner: bpy.types.ID) -> Outcome[bpy.types.Property]:
         """Returns animatable property at member and index."""
 
         def fits(prop: bpy.types.Property) -> bool:
@@ -100,16 +99,16 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             struct_at(owner, self.struct)
             .bind(lambda struct: Option.of_optional(struct.bl_rna.properties.get(self.member)))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             .filter(fits)
-            .to_result_with(lambda: (BlenderAbsentFault(owner=repr(owner), key=self.path),))
+            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=self.path),))
         )
 
     # --- [CHANNELS]
 
-    def apply(self, owner: bpy.types.ID, context: bpy.types.Context) -> BlenderResult[bool]:
+    def apply(self, owner: bpy.types.ID, context: bpy.types.Context) -> Outcome[bool]:
         """Reconciles channel, returning whether it wrote."""
         path, index = self.path, Option.of_optional(self.index).default_value(0)
 
-        def matching(curve: bpy.types.FCurve, source: NDArray[np.float32] | Driven) -> BlenderResult[bool]:
+        def matching(curve: bpy.types.FCurve, source: NDArray[np.float32] | Driven) -> Outcome[bool]:
             coordinates = (
                 len(curve.keyframe_points) == len(source) and all(bool((point == key.co).all()) for key, point in zip(curve.keyframe_points, source))
                 if isinstance(source, np.ndarray)
@@ -157,8 +156,8 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 for name, value in row.values.items()
             ).map(all)
 
-        def modified(curve: bpy.types.FCurve) -> BlenderResult[None]:
-            def added(row: Modifier) -> BlenderResult[None]:
+        def modified(curve: bpy.types.FCurve) -> Outcome[None]:
+            def added(row: Modifier) -> Outcome[None]:
                 return (
                     catch(lambda: curve.modifiers.new(row.kind), exception=TypeError)()
                     .to_option()
@@ -166,18 +165,22 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                     .map(lambda made: accumulated(written(made, name, value) for name, value in row.values.items()).map(lambda _: None))
                     .default_with(
                         lambda: Descriptor.resolve(bpy.types.FModifier, "type", bpy.types.EnumProperty).bind(
-                            lambda kind: Error((DomainFault(subject=repr(curve.modifiers), value=row.kind, accepted=", ".join(item.identifier for item in kind.prop.enum_items if item.value)),))
+                            lambda kind: Error((
+                                Fault(
+                                    reason=RecordReason.OUTSIDE, subject=repr(curve.modifiers), member=", ".join(item.identifier for item in kind.prop.enum_items if item.value), cause=str(row.kind)
+                                ),
+                            ))
                         )
                     )
                 )
 
             return accumulated(map(added, self.modifiers)).map(lambda _: None)
 
-        def replaced(data: bpy.types.AnimData, source: NDArray[np.float32] | Driven) -> BlenderResult[bool]:
+        def replaced(data: bpy.types.AnimData, source: NDArray[np.float32] | Driven) -> Outcome[bool]:
             held = self.source.curves(data).bind(lambda curves: Option.of_optional(curves.find(path, index=index)))
             request = f"{owner!r}.{path}"
 
-            def stored() -> BlenderResult[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]:
+            def stored() -> Outcome[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]:
                 return (
                     Ok(data.drivers)
                     if isinstance(source, Driven)
@@ -185,8 +188,9 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                     .of_optional(data.action)
                     .map(Ok)
                     .default_with(
-                        lambda: BlenderEditFault.attempted(request, lambda: bpy.data.actions.new(vacant(f"{owner.name}Action", bpy.data.actions.keys()))).bind(
-                            lambda action: written(data, "action", action).map(lambda _: action)
+                        lambda: Result[bpy.types.Action, Faults].bind(
+                            catch(bpy.data.actions.new, exception=RuntimeError)(f"{owner.name}Action").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)),
+                            lambda action: written(data, "action", action).map(lambda _: action),
                         )
                     )
                     .bind(
@@ -195,17 +199,24 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                             .of_optional(data.action_slot)
                             .map(Ok)
                             .default_with(
-                                lambda: BlenderEditFault.attempted(request, lambda: action.slots.new(id_type=owner.id_type, name=owner.name)).bind(
-                                    lambda slot: written(data, "action_slot", slot).map(lambda _: slot)
+                                lambda: Result[bpy.types.ActionSlot, Faults].bind(
+                                    catch(action.slots.new, exception=RuntimeError)(id_type=owner.id_type, name=owner.name).map_error(
+                                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)
+                                    ),
+                                    lambda slot: written(data, "action_slot", slot).map(lambda _: slot),
                                 )
                             )
-                            .bind(lambda slot: BlenderEditFault.attempted(request, lambda: anim_utils.action_ensure_channelbag_for_slot(action, slot)))
+                            .bind(
+                                lambda slot: catch(anim_utils.action_ensure_channelbag_for_slot, exception=RuntimeError)(action, slot).map_error(
+                                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),)
+                                )
+                            )
                         )
                     )
                     .map(lambda bag: bag.fcurves)
                 )
 
-            def filled(curve: bpy.types.FCurve) -> BlenderResult[bool]:
+            def filled(curve: bpy.types.FCurve) -> Outcome[bool]:
                 match source:
                     case np.ndarray() as points:
                         curve.keyframe_points.add(len(points))
@@ -236,7 +247,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                                     .map(lambda _: True)
                                 )
                             )
-                            .default_with(lambda: Error((BlenderAbsentFault(owner=repr(curve), key="driver"),)))
+                            .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(curve), member="driver"),)))
                         )
 
             return (
@@ -251,9 +262,10 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                         .bind(
                             lambda curves: (
                                 held
-                                .map(lambda curve: BlenderEditFault.attempted(request, lambda: curves.remove(curve)))
+                                .map(catch(curves.remove, exception=RuntimeError))
                                 .default_value(Ok(None))
-                                .bind(lambda _: BlenderEditFault.attempted(request, lambda: curves.new(path, index=index)))
+                                .bind(lambda _: catch(curves.new, exception=RuntimeError)(path, index=index))
+                                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
                             )
                         )
                         .bind(filled)
@@ -261,11 +273,15 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        def read(variable: Variable) -> BlenderResult[None]:
-            return catch(lambda: owner.path_resolve(variable.path), exception=ValueError)().map_error(lambda _: (BlenderAbsentFault(owner=repr(owner), key=variable.path),)).map(lambda _: None)
+        def read(variable: Variable) -> Outcome[None]:
+            return (
+                catch(lambda: owner.path_resolve(variable.path), exception=ValueError)()
+                .map_error(lambda _: (Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=variable.path),))
+                .map(lambda _: None)
+            )
 
         variables = self.source.variables if isinstance(self.source, Driven) else ()
-        coordinates: BlenderResult[NDArray[np.float32] | Driven]
+        coordinates: Outcome[NDArray[np.float32] | Driven]
         match self.source:
             case Keys(points=points):
                 coordinates = Descriptor.resolve(bpy.types.Keyframe, "co", bpy.types.FloatProperty).bind(lambda coordinate: Descriptor.quantized(coordinate.prop, np.asarray(points, dtype=np.float64)))
@@ -276,15 +292,15 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 Option
                 .of_optional(owner.animation_data_create())
                 .map(lambda data: replaced(data, checked[1]))
-                .default_with(lambda: Result[bool, BlenderFaults](error=(BlenderAbsentFault(owner=repr(owner), key=path),)))
+                .default_with(lambda: Result[bool, Faults](error=(Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=path),)))
             )
         )
 
-    def clear(self, owner: bpy.types.ID) -> BlenderResult[None]:
+    def clear(self, owner: bpy.types.ID) -> Outcome[None]:
         """Removes channel's F-curve or driver."""
         path, index = self.path, Option.of_optional(self.index).default_value(0)
 
-        def cleared(_: bpy.types.Property) -> BlenderResult[None]:
+        def cleared(_: bpy.types.Property) -> Outcome[None]:
             held: Option[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers] = _animation_data(owner).bind(self.source.curves)
             for curves in held.to_list():
                 for curve in Option.of_optional(curves.find(path, index=index)).to_list():
@@ -297,12 +313,12 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> BlenderResult[tuple[float, ...]]:
+def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int = 0, proposed: Option[float] = Nothing) -> Outcome[tuple[float, ...]]:
     """Samples keyed channel at frames, repeating proposed or stored value when unkeyed."""
-    held, request = tuple(frames), f"{owner!r}.{path}"
+    held = tuple(frames)
 
-    def keyed(curve: bpy.types.FCurve) -> BlenderResult[tuple[float, ...]]:
-        def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> BlenderResult[tuple[float, ...]]:
+    def keyed(curve: bpy.types.FCurve) -> Outcome[tuple[float, ...]]:
+        def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> Outcome[tuple[float, ...]]:
             match prop:
                 case bpy.types.BoolProperty():
                     return Ok(tuple((values > (np.float32(1) - np.spacing(np.float32(1)))).astype(float).tolist()))
@@ -314,18 +330,17 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
                     return Ok(tuple(float(int(value)) for value in values))
                 case _:
                     return Error((
-                        DomainFault(
+                        Fault(
+                            reason=RecordReason.OUTSIDE,
                             subject=path,
-                            value=type(prop).__name__,
-                            accepted=", ".join(kind.__name__ for kind in (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)),
+                            member=", ".join(kind.__name__ for kind in (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)),
+                            cause=type(prop).__name__,
                         ),
                     ))
 
-        return paired(Descriptor.resolve(owner, path, bpy.types.Property), BlenderEditFault.attempted(request, lambda: np.asarray(tuple(map(curve.evaluate, held)), dtype=np.float32))).bind(
-            lambda pair: projected(pair[0].prop, pair[1])
-        )
+        return Descriptor.resolve(owner, path, bpy.types.Property).bind(lambda descriptor: projected(descriptor.prop, np.asarray(tuple(map(curve.evaluate, held)), dtype=np.float32)))
 
-    def stored() -> BlenderResult[float]:
+    def stored() -> Outcome[float]:
         return Descriptor.resolve(owner, path, bpy.types.Property).bind(
             lambda descriptor: (
                 descriptor
@@ -334,12 +349,12 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
                 .map(lambda held: np.asarray(descriptor.read(held), np.float64).ravel())
                 .filter(lambda values: index < values.size)
                 .map(lambda values: float(values[index]))
-                .to_result_with(lambda: (BlenderAbsentFault(owner=repr(owner), key=path),))
+                .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(owner), member=path),))
             )
         )
 
-    def unkeyed() -> BlenderResult[tuple[float, ...]]:
-        return proposed.map(Result[float, BlenderFaults].Ok).default_with(stored).map(lambda value: tuple(value for _ in held))
+    def unkeyed() -> Outcome[tuple[float, ...]]:
+        return proposed.map(Result[float, Faults].Ok).default_with(stored).map(lambda value: tuple(value for _ in held))
 
     return _animation_data(owner).bind(Keys.curves).bind(lambda curves: Option.of_optional(curves.find(path, index=index))).map(keyed).default_with(unkeyed)
 

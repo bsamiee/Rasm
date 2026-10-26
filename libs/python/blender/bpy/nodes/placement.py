@@ -17,12 +17,9 @@ from blender.bpy.data.ids.store import Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes.trees import tree_of
 from blender.bpy.ui.drawing.handlers import hooked
-from blender.bpy.ui.screens.areas import Located
-from blender.bpy.ui.screens.regions import RegionView
-from blender.records.faults import accumulated
+from blender.records.faults import accumulated, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -32,15 +29,15 @@ LOCATION: Final = Descriptor.declared(bpy.types.Node, "location_absolute", bpy.t
 
 
 class NodeSize(msgspec.Struct, frozen=True, kw_only=True):
-    """Drawn node size in node space."""
+    """Drawn node size in node space, the drawn dimensions over the interface scale."""
 
     width: float
     height: float
 
     @classmethod
-    def of(cls, node: bpy.types.Node, view: RegionView) -> Self:
-        """Returns drawn dimensions over region interface scale."""
-        size, scale = node.dimensions, view.scale
+    def of(cls, node: bpy.types.Node) -> Self:
+        """Returns drawn dimensions over `PreferencesSystem.ui_scale`."""
+        size, scale = node.dimensions, bpy.context.preferences.system.ui_scale  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         return cls(width=size.x / scale, height=size.y / scale)
 
 
@@ -78,10 +75,10 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [MEASUREMENT]
 
-    def owned(self, tree: bpy.types.NodeTree, identity: Identity, view: RegionView) -> tuple[tuple[str, tuple[float, float]], ...]:
+    def owned(self, tree: bpy.types.NodeTree, identity: Identity) -> tuple[tuple[str, tuple[float, float]], ...]:
         """Returns changed owned node positions once every owned node draws."""
         marked = {node.name: node for node in tree.nodes if not isinstance(node, bpy.types.NodeFrame) and Mark.read(identity, node).is_some()}
-        sizes = {name: NodeSize.of(node, view) for name, node in marked.items()}
+        sizes = {name: NodeSize.of(node) for name, node in marked.items()}
         slots = {socket.as_pointer(): slot for node in marked.values() for slot, socket in enumerate(node.outputs)}
         links = tuple(
             (link.from_node.name, slots[link.from_socket.as_pointer()], link.to_node.name)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -100,10 +97,10 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Registers the node editor draw hook queueing owned node positions."""
 
-        def moved(held: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> BlenderResult[Option[str]]:
+        def moved(held: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> Outcome[Option[str]]:
             """Writes owned node positions still in tree, with no undo step."""
             desired = dict(places)
             return (
@@ -119,18 +116,16 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         @contextmanager
-        def drawn() -> Generator[BlenderResult[None]]:
+        def drawn() -> Generator[Outcome[None]]:
             """Retires pending writes after removing the draw hook."""
             with identity.reports.deferred(moved) as later:
 
                 def drew() -> None:
                     """Queues changed owned node positions of active editable tree."""
                     context = bpy.context
-                    match context.space_data, context.window, context.area, context.region:
-                        case bpy.types.SpaceNodeEditor(
-                            edit_tree=bpy.types.NodeTree(is_editable=True) as tree
-                        ), bpy.types.Window() as window, bpy.types.Area() as area, bpy.types.Region() as region if not window.modal_operators:
-                            if places := self.owned(tree, identity, RegionView(located=Located(window=window, area=area), region=region)):
+                    match context.space_data, context.window:
+                        case bpy.types.SpaceNodeEditor(edit_tree=bpy.types.NodeTree(is_editable=True) as tree), bpy.types.Window() as window if not window.modal_operators:
+                            if places := self.owned(tree, identity):
                                 for found in holder(tree).to_list():
                                     later(Handle.of(found), places)
 

@@ -1,14 +1,10 @@
-"""Region and widget theme colors, interface metrics, and the appearance file Rasm.UI shares."""
+"""Region and widget theme colors and interface metrics."""
 
 from collections.abc import Iterable
-import functools
-import importlib.resources
 import math
-from typing import Annotated, ClassVar, Literal, Self, TYPE_CHECKING
+from typing import ClassVar, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option
-from expression.collections import Block
 import mathutils
 import msgspec
 import numpy as np
@@ -19,8 +15,6 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Color = tuple[float, float, float, float]
-type Hex = Annotated[str, msgspec.Meta(pattern=r"\A#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\Z")]
-type SkiaBlend = Literal["src-over", "plus"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -190,108 +184,6 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
         return (red, green, blue, alpha if self.overlaps else 1.0)
 
 
-class Ink(msgspec.Struct, frozen=True, kw_only=True):
-    """Part of a look in one fixed ink."""
-
-    ink: Hex
-
-
-class Solid(Ink, frozen=True, kw_only=True, tag_field="kind", tag="solid"):
-    """Solid fill of a look in one fixed ink."""
-
-
-class Stroke(Ink, frozen=True, kw_only=True):
-    """Stroke without dash, `Canvas` drawing none."""
-
-    dash: Annotated[tuple[tuple[float, ...], ...], msgspec.Meta(max_length=0)] = ()
-
-
-class Shadow(Ink, frozen=True, kw_only=True):
-    """Hard text shadow offset in points with y down, one per blf font."""
-
-    blur: Annotated[float, msgspec.Meta(ge=0.0, le=0.0)]
-    x: float = 0.0
-    y: float = 0.0
-    spread: Annotated[float, msgspec.Meta(ge=0.0, le=0.0)] = 0.0
-
-
-class Look(msgspec.Struct, frozen=True, kw_only=True):
-    """Shared appearance row in fixed inks, the parts Blender draws, with the rows it scopes onto its subtree decoded where read."""
-
-    fills: tuple[Solid, ...] = ()
-    strokes: tuple[Stroke, ...] = ()
-    shadows: Annotated[tuple[Shadow, ...], msgspec.Meta(max_length=1)] = ()
-    lettering: Hex | None = msgspec.field(default=None, name="text")
-    blend: SkiaBlend = "src-over"
-    within: dict[str, msgspec.Raw] = {}
-
-    # --- [READING]
-
-    @property
-    def fill(self) -> Color:
-        """First fill ink, clear where the row states none."""
-        return next((rgba(part.ink) for part in self.fills), CLEAR)
-
-    @property
-    def edge(self) -> Color:
-        """First stroke ink, clear where the row states none."""
-        return next((rgba(part.ink) for part in self.strokes), CLEAR)
-
-    @property
-    def shadow(self) -> Option[Shadow]:
-        """Text shadow, absent where the row states none."""
-        return Block.of_seq(self.shadows).try_head()
-
-    @property
-    def text(self) -> Color:
-        """Text ink, clear where the row states none."""
-        return Option.of_optional(self.lettering).map(rgba).default_value(CLEAR)
-
-    @property
-    def mode(self) -> Literal["ALPHA", "ADDITIVE"]:
-        """Blend mode drawing the row's Skia blend in `gpu` over straight-alpha inks."""
-        match self.blend:
-            case "src-over":
-                return "ALPHA"
-            case "plus":
-                return "ADDITIVE"
-
-    def scoped(self, role: str) -> Self:
-        """Decodes the look this row scopes onto a role in its subtree, refusing host and data inks."""
-        return msgspec.json.decode(self.within[role], type=type(self))
-
-
-class Sizes(msgspec.Struct, frozen=True, kw_only=True, rename="kebab"):
-    """Shared metrics of one role Blender draws, in points, font size as a factor of the widget font."""
-
-    inset: float
-    radius: float
-    stroke: float
-    font_size: float
-
-
-class Shipped(msgspec.Struct, frozen=True, kw_only=True):
-    """Appearances, metric defaults, and densities of the file Rasm.UI embeds, Blender drawing the native looks at regular density, each look decoded where read."""
-
-    appearances: dict[str, dict[str, msgspec.Raw]]
-    defaults: dict[str, float]
-    densities: dict[str, dict[str, dict[str, float]]]
-
-    @classmethod
-    @functools.cache
-    def read(cls) -> Self:
-        """Reads the packaged appearance file once."""
-        return msgspec.json.decode(importlib.resources.files(__name__).joinpath("appearances.json").read_bytes(), type=cls)
-
-    def look(self, role: str) -> Look:
-        """Decodes a native role's look, refusing host and data inks."""
-        return msgspec.json.decode(self.appearances["native"][role], type=Look)
-
-    def sizes(self, role: str) -> Sizes:
-        """Returns a role's regular metrics over the file's defaults."""
-        return msgspec.convert(self.defaults | self.densities["regular"].get(role, {}), type=Sizes)
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -305,11 +197,6 @@ def color(values: mathutils.Color | bpy.types.bpy_prop_array | Iterable[float]) 
             return (red, green, blue, alpha[0] if alpha else 1.0)
 
 
-def rgba(ink: Hex) -> Color:
-    """Returns `#RRGGBB[AA]` as display RGBA, alpha 1 when absent."""
-    return color(byte / 255.0 for byte in bytes.fromhex(ink[1:]))
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CLEAR", "Checker", "Color", "Hex", "Ink", "Look", "Metrics", "Shadow", "Shipped", "Sizes", "SkiaBlend", "Solid", "Stroke", "StyleSpacing", "Theme", "color", "rgba"]
+__all__ = ["CLEAR", "Checker", "Color", "Metrics", "StyleSpacing", "Theme", "color"]

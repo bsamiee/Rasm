@@ -15,25 +15,24 @@ import OpenImageIO
 from blender.bpy.extension.events.handlers import SceneHandler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderResult
 from blender.bpy.render.outputs.formats import compression, depth, Kind, kind
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.results import INTERMEDIATES
 from blender.imaging.files.images import Compressions, Depth
 from blender.imaging.files.multilayer import Multilayer
-from blender.records.faults import accumulated
-from blender.rendering.outputs.conventions import Blender, Conventions
+from blender.records.faults import accumulated, Outcome
+from blender.rendering.outputs.conventions import Nuke
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Body = Callable[[bpy.types.Scene, Written, Identity], BlenderResult[None]]
+type Body = Callable[[bpy.types.Scene, Written, Identity], Outcome[None]]
 
 
 class Files(Protocol):
     """Files written by marked compositor outputs for one scene frame."""
 
-    def written(self, scene: bpy.types.Scene, frame: int, identity: Identity) -> BlenderResult[tuple["Written", ...]]:
+    def written(self, scene: bpy.types.Scene, frame: int, identity: Identity) -> Outcome[tuple["Written", ...]]:
         """Returns frame's written files."""
         ...
 
@@ -50,12 +49,12 @@ class Written(msgspec.Struct, frozen=True, kw_only=True):
     depth: Depth
     layer: str
     compression: Option[Compressions] = Nothing
-    convention: Conventions = Blender()
+    convention: Option[Nuke] = Nothing
     passes: Map[str, str] = Map.empty()
     display: Option[OpenImageIO.ROI] = Nothing
 
     @classmethod
-    def of(cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, convention: Conventions, layer: str, passes: Map[str, str]) -> Option[Self]:
+    def of(cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, convention: Option[Nuke], layer: str, passes: Map[str, str]) -> Option[Self]:
         """Returns written file when native depth maps to a storage depth."""
         return depth(settings).map(lambda held: cls(path=path, output=output, kind=kind(settings), depth=held, layer=layer, compression=compression(settings), convention=convention, passes=passes))
 
@@ -79,21 +78,21 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
     rows: tuple[Finish, ...]
     files: Files
 
-    def finished(self, scene: bpy.types.Scene, files: tuple[Written, ...], identity: Identity) -> BlenderResult[None]:
+    def finished(self, scene: bpy.types.Scene, files: tuple[Written, ...], identity: Identity) -> Outcome[None]:
         """Chains operations per file, faults accumulating across files."""
         return accumulated(functools.reduce(lambda done, row: done.bind(lambda _: row.run(scene, file, identity)), (row for row in self.rows if row.accepts(file)), Ok(None)) for file in files).map(
             lambda _: None
         )
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Declares handlers binding registered framing per event."""
         running: set[int] = set()
 
-        def bracket(scene: bpy.types.Scene, *, started: bool) -> BlenderResult[None]:
+        def bracket(scene: bpy.types.Scene, *, started: bool) -> Outcome[None]:
             (running.add if started else running.discard)(scene.session_uid)
             return Ok(None)
 
-        def windowed(scene: bpy.types.Scene, files: tuple[Written, ...]) -> BlenderResult[None]:
+        def windowed(scene: bpy.types.Scene, files: tuple[Written, ...]) -> Outcome[None]:
             if scene.session_uid in INTERMEDIATES.of(identity):
                 return Ok(None)
             return (
@@ -148,7 +147,7 @@ def scene_files(scene: bpy.types.Scene) -> tuple[Written, ...]:
             for view in views
             for path in (render.frame_path(frame=scene.frame_current, view=view),)
             if Path(path).is_file()
-            for file in Written.of(path, settings, Output.PREVIEW, Blender(), scene.view_layers[0].name, Map.empty()).to_list()
+            for file in Written.of(path, settings, Output.PREVIEW, Nothing, bpy.context.view_layer.name, Map.empty()).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         )
     )
 
@@ -158,13 +157,18 @@ def stamped(identity: Identity) -> Mapping[str, str]:
     return {"Software": f"{identity.manifest.name} {identity.manifest.version}"}
 
 
-def rewritten_file(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> BlenderResult[None]:
-    """Rewrites file display window and one-channel pass names."""
+def rewritten_file(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> Outcome[None]:
+    """Rewrites file display window and the one-channel pass names its Nuke convention renames."""
 
     def channels(names: tuple[str, ...]) -> tuple[str, ...]:
         counts = Counter(name.rpartition(".")[0] for name in names)
         return tuple(
-            file.passes.try_find(layer).bind(file.convention.channel).filter(lambda _: counts[layer] == 1).map(lambda channel: f"{layer}.{channel}" if layer else channel).default_value(name)
+            file.passes
+            .try_find(layer)
+            .bind(lambda source: file.convention.bind(lambda nuke: nuke.channel(source)))
+            .filter(lambda _: counts[layer] == 1)
+            .map(lambda channel: f"{layer}.{channel}" if layer else channel)
+            .default_value(name)
             for name in names
             for layer in (name.rpartition(".")[0],)
         )

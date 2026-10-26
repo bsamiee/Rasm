@@ -1,33 +1,34 @@
 """Soft points in depth layers covering the frame or emitting light, integrated over pixels, the iris, and the scene shutter with ordered occlusion."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from math import cos, exp2, floor, pi, sin, tau
 from typing import Annotated
 
 import bpy
-from expression import Nothing, Ok, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.extension.identity import Identity
-from blender.bpy.faults import BlenderResult
+from blender.bpy.data.ids.store import IdName
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import textures
+from blender.bpy.nodes.graphs import Expr
+from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.compositor.coordinates import Clock, Shutter
-from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, precise, Prepared, Prepares, Requests, Shell
-from blender.bpy.settings.shapes import GraphForm
+from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, precise, Requests, Shell
 from blender.imaging.files import images
 from blender.imaging.geometry.lenses import Aperture
-from blender.imaging.geometry.regions import FrameLength
 from blender.imaging.sampling.integration import Estimate, Precision
 from blender.imaging.sampling.populations import Population, transmitted
-from blender.records.faults import accumulated
-from blender.records.fields import AtLeastOne, Finite, Gated, Positive, Presentation, Quantity, Seed, Unit
+from blender.records.faults import accumulated, Outcome
+from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Seed, Unit
 
-from ...chain.stages import Effect, Stage
-from .procedural import Basis, density_range, Emission, evaluated, Incandescence, Perlin, Spectrum, spectrum, Tint
+from ...chain.stages import Effect, prepared, Stage
+from .procedural import ANGLE, bases, Basis, clock, decoded, density_range, Emission, emission, evaluated, FACTOR, Incandescence, incandescence, Perlin, spectra, Spectrum, spectrum, Tint
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -44,33 +45,34 @@ class Layered(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Particles(Effect, frozen=True, kw_only=True):
-    """Soft points in depth layers covering frame or emitting light: rain, snow, sparks, dust, and stars."""
+    """Soft points in depth layers covering frame or emitting light: rain, snow, sparks, dust, and stars, decoded from the entry inputs for the CPU render, the image it prepares in `staged`."""
 
     stage = Stage.GENERATE
     pointwise = False
-    population: Annotated[Population, msgspec.Meta(description="Particle layout, size, and edge")] = Population()
-    coverage: Annotated[Gated[Spectrum], msgspec.Meta(description="Scene-linear cover color by particle tone")] = Gated(enabled=True, value=Tint())
-    emission: Annotated[Gated[Emission], msgspec.Meta(description="Light a particle adds")] = Gated(enabled=False, value=Emission())
-    incandescence: Annotated[Unit, msgspec.Meta(description="Blackbody share of emitted color")] = 0.0
-    temperature: Annotated[Incandescence, msgspec.Meta(description="Blackbody band multiplying emitted spectrum")] = Incandescence()
-    clock: Annotated[Clock, msgspec.Meta(description="Nearest layer travel in greater frame sides per scene frame")] = Clock(speed=2.5 / 24.0)
-    direction: Annotated[Finite, msgspec.Meta(description="Particle travel direction"), Presentation(quantity=Some(Quantity.ANGLE))] = -pi / 2.0
-    turbulence: Annotated[FrameLength, msgspec.Meta(description="Nearest layer sway over greater frame side"), Presentation(soft=Some((0.0, 0.1)), precision=Some(4))] = 0.0
-    wind: Annotated[Basis, msgspec.Meta(description="Texture displacing each axis independently")] = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=3.2))
-    evolution: Annotated[Finite, msgspec.Meta(description="Signed wind field evolution per scene frame")] = 0.0
-    motion_blur: Annotated[bool, msgspec.Meta(description="Streaks each particle across scene shutter")] = True
-    layers: Annotated[int, msgspec.Meta(ge=1, description="Depth layers drawn from far to near"), GraphForm.SETTING] = 3
-    depth: Annotated[AtLeastOne, msgspec.Meta(description="Farthest layer distance over nearest"), Presentation(soft=Some((1.0, 16.0)), precision=Some(2))] = 4.0
-    depth_variation: Annotated[Unit, msgspec.Meta(description="Random depth within each layer interval")] = 0.0
-    focus: Annotated[Unit, msgspec.Meta(description="Focused depth between nearest and farthest layers")] = 1.0
-    defocus: Annotated[FrameLength, msgspec.Meta(description="Blur radius per reciprocal depth difference"), Presentation(soft=Some((0.0, 0.05)))] = 0.0
-    iris: Annotated[Aperture, msgspec.Meta(description="Projected particle outline")] = Aperture()
-    squeeze: Annotated[Positive, msgspec.Meta(description="Horizontal compression of particle outline")] = 1.0
-    fringe: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0, description="Channel radius shift, toward blue above zero")] = 0.0
-    fade: Annotated[Unit, msgspec.Meta(description="Trail share fading toward tail")] = 0.0
-    twinkle: Annotated[Unit, msgspec.Meta(description="Light share flickering over time")] = 0.0
-    scintillation: Annotated[Clock, msgspec.Meta(title="Twinkle Clock", description="Independent twinkle field rate and hold")] = Clock(speed=0.0)
-    seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
+    population: Population = Population()
+    coverage: Spectrum | None = Tint()
+    emission: Emission | None = None
+    incandescence: Unit = 0.0
+    temperature: Incandescence = Incandescence()
+    clock: Clock = Clock(speed=2.5 / 24.0)
+    direction: Finite = -pi / 2.0
+    turbulence: NonNegative = 0.0
+    wind: Basis = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=3.2))
+    evolution: Finite = 0.0
+    motion_blur: bool = True
+    layers: Annotated[int, msgspec.Meta(ge=1)] = 3
+    depth: AtLeastOne = 4.0
+    depth_variation: Unit = 0.0
+    focus: Unit = 1.0
+    defocus: NonNegative = 0.0
+    iris: Aperture = Aperture()
+    squeeze: Positive = 1.0
+    fringe: Annotated[float, msgspec.Meta(ge=-1.0, le=1.0)] = 0.0
+    fade: Unit = 0.0
+    twinkle: Unit = 0.0
+    scintillation: Clock = Clock(speed=0.0)
+    seed: Seed = 0
+    staged: IdName | None = None
 
     @property
     def channels(self) -> npt.NDArray[np.float64]:
@@ -82,7 +84,7 @@ class Particles(Effect, frozen=True, kw_only=True):
         left, bottom, right, top = bounds
         heading = np.array((cos(self.direction), sin(self.direction)))
         focus = self.depth ** (-self.focus)
-        drawn = self.population.density > 0.0 and self.iris.obstruction < 1.0 and (self.coverage.enabled or self.emission.enabled)
+        drawn = self.population.density > 0.0 and self.iris.obstruction < 1.0 and (self.coverage is not None or self.emission is not None)
 
         def layer(index: int) -> tuple[npt.NDArray[np.float64] | npt.NDArray[np.int64], ...]:
             midpoint = (index + 0.5) / self.layers
@@ -114,8 +116,8 @@ class Particles(Effect, frozen=True, kw_only=True):
         frame: float,
         shutter: tuple[float, float],
         precision: Precision,
-        colored: Callable[[Spectrum, npt.NDArray[np.float64]], BlenderResult[npt.NDArray[np.float64]]],
-    ) -> BlenderResult[Estimate[OpenImageIO.ImageBuf]]:
+        linear_rgb: Callable[[Spectrum, npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]],
+    ) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
         """Integrates particle supports along their shutter paths into the associated plane, nearer particles occluding farther ones.
 
         Args:
@@ -124,7 +126,7 @@ class Particles(Effect, frozen=True, kw_only=True):
             frame: Scene frame the clocks hold.
             shutter: Shutter opening and closing in frames from the held frame.
             precision: Sobol resolution and independent error replicates.
-            colored: Scene-linear RGB of a spectrum at tones.
+            linear_rgb: Scene-linear RGB of a spectrum at tones.
 
         Returns:
             Estimated plane with replicate error and emitted area normalization, or image and color faults.
@@ -140,10 +142,10 @@ class Particles(Effect, frozen=True, kw_only=True):
         drawn = self.layered(bounds, held, (opening, closing), reach)
         optical = drawn.radii + self.defocus * np.abs(drawn.scales - focus)
         extent = optical * channel.max() * max(1.0, 1.0 / self.squeeze) + drawn.scales * (self.clock.speed * max(abs(held + opening), abs(held + closing)) + self.turbulence * reach)
-        emitting = len(drawn.keys) > 0 and self.emission.enabled
+        emitting = len(drawn.keys) > 0 and self.emission is not None
 
         def moved(selected: npt.NDArray[np.intp], times: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-            rest = drawn.centers[selected, None, :] + times[None, :, None] * heading * self.clock.speed * drawn.scales[selected, None, None]
+            rest: npt.NDArray[np.float64] = drawn.centers[selected, None, :] + times[None, :, None] * heading * self.clock.speed * drawn.scales[selected, None, None]
             if self.turbulence == 0.0:
                 return rest - (left, bottom)
             points = (rest / drawn.scales[selected, None, None]).reshape(-1, 2)
@@ -153,22 +155,21 @@ class Particles(Effect, frozen=True, kw_only=True):
 
         def profiles(selected: npt.NDArray[np.intp], offsets: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
             scaled = (offsets * (self.squeeze, 1.0))[..., None, :] / (optical[selected, None, None, None] * np.where(channel > 0.0, channel, 1.0)[:, None])
-            return self.iris.profile(scaled[..., 0], scaled[..., 1], self.population.softness, np) * (channel > 0.0)
+            profile: npt.NDArray[np.float64] = self.iris.profile(scaled[..., 0], scaled[..., 1], self.population.softness, np)
+            return np.where(channel > 0.0, profile, 0.0)
 
         def modulated(index: int, times: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-            if not (self.emission.enabled and self.twinkle > 0.0):
+            if not (self.emission is not None and self.twinkle > 0.0):
                 return np.ones(len(times), dtype=np.float64)
             moments = self.scintillation.clock(frame) + self.scintillation.speed * (times - held)
             field = textures.Noise(noise_dimensions="4D", scale=1.0, detail=0.0).evaluated(np.broadcast_to(drawn.keys[index], (len(times), 3)), moments)["Fac"]
             return 1.0 - self.twinkle * field.astype(np.float64)
 
-        def rendered(
-            source: npt.NDArray[np.float64], coating: npt.NDArray[np.float64], light: npt.NDArray[np.float64], thermal: npt.NDArray[np.float64]
-        ) -> BlenderResult[Estimate[OpenImageIO.ImageBuf]]:
+        def rendered(source: npt.NDArray[np.float64], coating: npt.NDArray[np.float64], light: npt.NDArray[np.float64], thermal: npt.NDArray[np.float64]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
             height, width = source.shape[:2]
             dx, dy = (right - left) / width, (top - bottom) / height
             illuminant = light * (1.0 - self.incandescence + self.incandescence * thermal)
-            radiance = exp2(self.emission.value.intensity) if self.emission.enabled else 0.0
+            radiance = exp2(self.emission.intensity) if self.emission is not None else 0.0
             unit_area, area_error = self.iris.integral(self.population.softness, epsabs=precision.absolute, epsrel=precision.relative) if emitting else (1.0, 0.0)
             nets = tuple(precision.points(3, replicate) for replicate in range(precision.replicates))
 
@@ -192,10 +193,10 @@ class Particles(Effect, frozen=True, kw_only=True):
                 nearer = np.flatnonzero(np.linalg.norm(drawn.centers[:index] - drawn.centers[index], axis=-1) <= extent[:index] + extent[index])
                 transmittance = transmitted(drawn.gains[nearer], np.mean(profiles(nearer, arrived[None] - moved(nearer, kept)), axis=-1))
                 contribution = np.zeros((len(kept), 4), dtype=np.float64)
-                if self.coverage.enabled:
+                if self.coverage is not None:
                     contribution[:, :3] = opacity[:, None] * (coating[index] - pixel[:, :3])
                     contribution[:, 3] = opacity * (1.0 - pixel[:, 3])
-                if self.emission.enabled:
+                if self.emission is not None:
                     energy = radiance * drawn.gains[index] * pi * drawn.radii[index] ** 2
                     area = unit_area * np.square(optical[index] * channel) / self.squeeze
                     peak = np.divide(energy * illuminant[index], area, out=np.zeros(3, dtype=np.float64), where=channel > 0.0)
@@ -212,40 +213,110 @@ class Particles(Effect, frozen=True, kw_only=True):
         zeros, ones = np.zeros((len(drawn.keys), 3), dtype=np.float64), np.ones((len(drawn.keys), 3), dtype=np.float64)
         return accumulated((
             images.pixels(plane).map(lambda values: values.astype(np.float64)),
-            colored(self.coverage.value, drawn.tones) if self.coverage.enabled else Ok(zeros),
-            colored(self.emission.value.spectrum, drawn.tones) if self.emission.enabled else Ok(zeros),
-            colored(self.temperature, drawn.tones) if self.emission.enabled and self.incandescence > 0.0 else Ok(ones),
+            linear_rgb(self.coverage, drawn.tones) if self.coverage is not None else Ok(zeros),
+            linear_rgb(self.emission.spectrum, drawn.tones) if self.emission is not None else Ok(zeros),
+            linear_rgb(self.temperature, drawn.tones) if self.emission is not None and self.incandescence > 0.0 else Ok(ones),
         )).bind(lambda parts: rendered(*parts))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def prepared(
-    _identity: Identity,
-    scene: bpy.types.Scene,
-    record: Particles,
-    config: PyOpenColorIO.Config,
-    image: OpenImageIO.ImageBuf,
-    precision: Precision,
-    frame: CameraFrame,
-    _entry: bpy.types.SceneCompositorEffect,
-) -> BlenderResult[Prepared[Particles]]:
-    """Integrates particle light over the captured window and the scene shutter, the record unchanged."""
+@prepared.register
+def _(
+    record: Particles, values: Mapping[Key, Value], config: PyOpenColorIO.Config, image: OpenImageIO.ImageBuf, precision: Precision, frame: CameraFrame, scene: bpy.types.Scene, /
+) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]:
+    """Integrates particle light over the captured window and the scene shutter."""
     timing = Shutter.of(scene)
-    return record.applied(
-        image,
-        frame.window(image.spec())[0],
-        frame=scene.frame_current_final,
-        shutter=(timing.opening * timing.length, (timing.opening + 1.0) * timing.length),
-        precision=precision,
-        colored=lambda request, tones: spectrum(request, tones, config),
-    ).map(lambda estimate: (record, {Shell.image: estimate}))
+    return (
+        decoded(record, values)
+        .bind(
+            lambda particles: particles.applied(
+                image,
+                frame.window(image.spec())[0],
+                frame=scene.frame_current_final,
+                shutter=(timing.opening * timing.length, (timing.opening + 1.0) * timing.length),
+                precision=precision,
+                linear_rgb=lambda request, tones: spectrum(request, tones, config),
+            )
+        )
+        .map(Some)
+    )
+
+
+def particled(shell: Shell[Particles]) -> Outcome[Expr]:
+    """Reads the image the CPU render prepared, the stage input outside one."""
+    return Ok(shell.color if shell.record.staged is None else Expr(kind=bpy.types.CompositorNodeImage, members=(("image", shell.record.staged),), socket="Image", shape="RGBA"))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-particles = CompositorEffect(record=Particles, graph=Shell.passed, alpha=Alpha.RESULT, parts=(Requests[Particles](request=precise), Prepares(prepare=prepared)))
+particles = CompositorEffect(
+    record=Particles,
+    graph=particled,
+    interface=Interface(
+        inputs=tuple(
+            Socket(key=key, name=bpy.path.display_name(key), kind=kind, description=text, members=members)
+            for key, kind, text, members in (
+                ("incandescence", bpy.types.NodeSocketFloat, "Blackbody share of emitted color", FACTOR),
+                ("direction", bpy.types.NodeSocketFloat, "Particle travel direction", {**ANGLE, "default_value": -pi / 2.0}),
+                ("turbulence", bpy.types.NodeSocketFloat, "Nearest layer sway over greater frame side", {"min_value": 0.0}),
+                ("evolution", bpy.types.NodeSocketFloat, "Signed wind field evolution per scene frame", {}),
+                ("motion_blur", bpy.types.NodeSocketBool, "Streaks each particle across scene shutter", {"default_value": True}),
+                ("layers", bpy.types.NodeSocketInt, "Depth layers drawn from far to near", {"min_value": 1, "default_value": 3}),
+                ("depth", bpy.types.NodeSocketFloat, "Farthest layer distance over nearest", {"min_value": 1.0, "default_value": 4.0}),
+                ("depth_variation", bpy.types.NodeSocketFloat, "Random depth within each layer interval", FACTOR),
+                ("focus", bpy.types.NodeSocketFloat, "Focused depth between nearest and farthest layers", {**FACTOR, "default_value": 1.0}),
+                ("defocus", bpy.types.NodeSocketFloat, "Blur radius per reciprocal depth difference", {"min_value": 0.0}),
+                ("squeeze", bpy.types.NodeSocketFloat, "Horizontal compression of particle outline", {"min_value": 0.0, "default_value": 1.0}),
+                ("fringe", bpy.types.NodeSocketFloat, "Channel radius shift, toward blue above zero", {"min_value": -1.0, "max_value": 1.0}),
+                ("fade", bpy.types.NodeSocketFloat, "Trail share fading toward tail", FACTOR),
+                ("twinkle", bpy.types.NodeSocketFloat, "Light share flickering over time", FACTOR),
+                ("seed", bpy.types.NodeSocketInt, "Number selecting pattern", {"min_value": 0, "max_value": 2**24}),
+            )
+        ),
+        panels=(
+            InterfacePanel(
+                key="population",
+                name="Population",
+                description="Particle layout, size, and edge",
+                inputs=tuple(
+                    Socket(key=item_key("population", field), name=bpy.path.display_name(field), kind=bpy.types.NodeSocketFloat, description=text, members=members)
+                    for field, text, members in (
+                        ("spacing", "Cell width at nearest layer over greater frame side", {"min_value": 0.0, "default_value": 0.01}),
+                        ("density", "Share of cells holding a particle", {**FACTOR, "default_value": 0.5}),
+                        ("size", "Particle diameter over cell width", {"min_value": 0.0, "max_value": 0.5, "default_value": 0.2}),
+                        ("variation", "Diameter shrink share below size", {**FACTOR, "default_value": 0.5}),
+                        ("spread", "Per-particle coverage drop in stops", {"min_value": 0.0, "default_value": 1.0}),
+                        ("softness", "Edge fade over radius before pixel filtering", {**FACTOR, "default_value": 0.5}),
+                    )
+                ),
+            ),
+            spectra("coverage", Tint(), "Scene-linear cover color by particle tone", Some(True)),
+            emission("emission", Emission(), "Light a particle adds", Some(False)),
+            incandescence("temperature", Incandescence(), "Blackbody band multiplying emitted spectrum"),
+            clock("clock", speed=2.5 / 24.0),
+            bases("wind", Particles().wind, "Texture displacing each axis independently", "Wind"),
+            InterfacePanel(
+                key="iris",
+                name="Iris",
+                description="Projected particle outline",
+                inputs=tuple(
+                    Socket(key=item_key("iris", field), name=bpy.path.display_name(field), kind=kind, description=text, members=members)
+                    for field, kind, text, members in (
+                        ("blades", bpy.types.NodeSocketInt, "Blades outlining bokeh", {"min_value": 3, "max_value": 24, "default_value": 5}),
+                        ("rotation", bpy.types.NodeSocketFloat, "Clockwise blade vertex turn from vertical", {**ANGLE, "min_value": -pi, "max_value": pi}),
+                        ("roundness", bpy.types.NodeSocketFloat, "Blade curvature, circular at 1", {**FACTOR, "default_value": 1.0}),
+                        ("obstruction", bpy.types.NodeSocketFloat, "Central mirror share of iris", FACTOR),
+                    )
+                ),
+            ),
+            clock("scintillation", speed=0.0),
+        ),
+    ),
+    alpha=Alpha.RESULT,
+    parts=(Requests[Particles](request=precise),),
+)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

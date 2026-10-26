@@ -2,13 +2,46 @@
 
 [project]
 name            = "blender"
-dynamic         = ["version"]
+version         = "1.0.0"
 requires-python = ">=3.13"
 
-# --- [UV] -------------------------------------------------------------------------------
+dependencies = [
+    "atomicwrites",      # Atomic preset moves that preserve occupied destinations
+    "cbor2",             # Canonical binary content hashing with unbounded integers
+    "colour-science",    # CIE observer datasets
+    "expression",        # Results, options, and collections of every library package
+    "httpx2",            # HTTP for batch render targets and notices
+    "imagecodecs",       # JPEG codec for compression emulation
+    "matplotlib",        # colour-science plotting import
+    "msgspec",           # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
+    "numpy",             # Arrays for image planes, previews, and analysis
+    "opencolorio",       # Color processing, config authoring, and LUT baking
+    "openimageio",       # Image IO and analysis
+    "psdtags",           # Photoshop layer records for layered documents
+    "scikit-image",      # Structural similarity over image comparison planes
+    "scipy",             # Color algebra, vector quadrature, FFT sizing, and zoom
+    "structlog",         # Structured logging through typed bound loggers holding each extension's context
+    "tenacity",          # Batch target retries over configured domain retry policies
+    "tifffile",          # Linear Raw DNG and TIFF containers for layered documents
+    "typing-extensions", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
+    "typing-inspection", # Annotation metadata and generic type-alias inspection
+    "tzdata",            # IANA time zones for zoneinfo on platforms without a database
+]
 
-[tool.uv]
-managed = false
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+# --- [HATCH] ----------------------------------------------------------------------------
+
+[tool.hatch.build]
+dev-mode-dirs = [".."] # Editable installs expose the folder holding the import root
+
+[tool.hatch.build.targets.wheel]
+only-include = ["bpy", "imaging", "records", "rendering"] # Import packages under the `blender` root, the manifest left out
+sources      = { "" = "blender" }                         # Project folder is the `blender` import root
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -17,3 +50,12 @@ extend = "../../../pyproject.toml"
 
 [tool.ruff.lint.flake8-self]
 extend-ignore-names = ["_PropertyDeferred"] # Blender names deferred `bpy.props` definitions by this class alone
+
+# --- [DEPTRY] ---------------------------------------------------------------------------
+
+[tool.deptry]
+experimental_namespace_package = true # The `blender` import root is a namespace package holding no top-level module
+
+[tool.deptry.per_rule_ignores]
+DEP001 = ["_blendfile_header", "_bpy_internal", "_bpy_types", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui"] # Modules Blender supplies to host code
+DEP002 = ["matplotlib", "tzdata"]                                                                                                                                                                                     # `import colour` loads matplotlib its metadata marks optional, zoneinfo reads tzdata data files

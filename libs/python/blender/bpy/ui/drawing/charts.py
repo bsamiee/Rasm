@@ -1,4 +1,4 @@
-"""Chart wells and chart geometry over plain arrays in plot fractions, inked by the roles a well look scopes."""
+"""Chart wells in the paints of Blender's scopes and chart geometry over plain arrays in plot fractions."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -11,9 +11,9 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.faults import BlenderResult
 from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, Rect
-from blender.bpy.ui.resources.theme import CLEAR, Color, Look, Metrics, Shipped
+from blender.bpy.ui.resources.theme import CLEAR, Color, Metrics
+from blender.records.faults import Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -31,23 +31,34 @@ type ChartLayer = Rules | Trace | Points
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Well(msgspec.Struct, frozen=True, kw_only=True):
-    """Rounded chart well, its fill, rim, and role inks read from `look`, its inset and radius in device pixels."""
+class Paint(msgspec.Struct, frozen=True, kw_only=True):
+    """Layer paint over a well: display color, blend, and stroke width in points."""
 
+    color: Color
+    blend: Blend = "ALPHA"
+    stroke: float = 1.0
+
+
+class Well(msgspec.Struct, frozen=True, kw_only=True):
+    """Rounded chart well in the black ground, half-black rim, soft white text, and white layer paints of Blender's scopes, its inset and radius in device pixels."""
+
+    ground: ClassVar[Color] = (0.0, 0.0, 0.0, 1.0)
+    rim: ClassVar[Color] = (0.0, 0.0, 0.0, 0.5)
+    text: ClassVar[Color] = (1.0, 1.0, 1.0, 0.7)
+    fine: ClassVar[Paint] = Paint(color=(1.0, 1.0, 1.0, 0.08))
+    grid: ClassVar[Paint] = Paint(color=(1.0, 1.0, 1.0, 0.2))
+    major: ClassVar[Paint] = Paint(color=(1.0, 1.0, 1.0, 0.5))
+    trace: ClassVar[Paint] = Paint(color=(1.0, 1.0, 1.0, 0.75), blend="ADDITIVE", stroke=1.5)
     width: float
     height: float
     inset: float
     radius: float
-    look: Look
 
     @classmethod
-    def of(cls, metrics: Metrics, aspect: float, look: Option[Look] = Nothing) -> Self:
-        """Returns a ten-unit well whose plot height is `aspect` times its plot width, in the shipped well look unless `look` states one."""
-        shipped, width = Shipped.read(), float(metrics.unit * 10)
-        sizes = shipped.sizes("well")
-        return cls(
-            width=width, height=(width - 2.0) * aspect + 2.0, inset=float(metrics.scaled(sizes.inset)), radius=float(metrics.scaled(sizes.radius)), look=look.default_with(lambda: shipped.look("well"))
-        )
+    def of(cls, metrics: Metrics, aspect: float) -> Self:
+        """Returns a ten-unit well whose plot height is `aspect` times its plot width."""
+        width = float(metrics.unit * 10)
+        return cls(width=width, height=(width - 2.0) * aspect + 2.0, inset=float(metrics.scaled(7.2)), radius=float(metrics.scaled(3.0)))
 
     @property
     def plot(self) -> Rect:
@@ -60,10 +71,10 @@ class Well(msgspec.Struct, frozen=True, kw_only=True):
         gpu.matrix.push()
         try:
             gpu.matrix.translate((x, y))
-            canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), self.look.fill, CLEAR, self.radius)
+            canvas.frame(Rect(x=0.0, y=0.0, width=self.width, height=self.height), Well.ground, CLEAR, self.radius)
             yield
         finally:
-            canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), CLEAR, self.look.edge, self.radius)
+            canvas.frame(Rect(x=0.0, y=1.0, width=self.width, height=self.height - 1.0), CLEAR, Well.rim, self.radius)
             gpu.matrix.pop()
 
 
@@ -72,7 +83,7 @@ class Rules(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     primitive: ClassVar[Literal["LINES"]] = "LINES"
     segments: npt.NDArray[np.float32]
-    role: str = "grid"
+    paint: Paint = Well.grid
 
 
 class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -80,15 +91,15 @@ class Trace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     primitive: ClassVar[Literal["LINE_STRIP"]] = "LINE_STRIP"
     points: npt.NDArray[np.float32]
-    role: str = "trace"
+    paint: Paint = Well.trace
 
 
 class Points(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Points in plot fractions, each weight scaling the role ink's alpha."""
+    """Points in plot fractions, each weight scaling the paint's alpha."""
 
     points: npt.NDArray[np.float32]
     weights: npt.NDArray[np.float32]
-    role: str = "trace"
+    paint: Paint = Well.trace
 
 
 class Label(msgspec.Struct, frozen=True, kw_only=True):
@@ -101,18 +112,16 @@ class Label(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class LayerBatch(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Chart layer batch with its role ink, blend, and stroke width, points drawing at no width."""
+    """Chart layer batch with its paint, points drawing at no width."""
 
     batch: gpu.types.GPUBatch
-    color: Color
-    mode: Blend
+    paint: Paint
     width: Option[float]
 
     @classmethod
-    def of(cls, layer: ChartLayer, plot: Rect, look: Look, shipped: Shipped) -> Self:
+    def of(cls, layer: ChartLayer, plot: Rect) -> Self:
         """Builds a layer's batch over plot pixels."""
-        ink = look.scoped(layer.role)
-        color = ink.edge
+        color = layer.paint.color
 
         def placed(at: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
             return (at * (plot.width, plot.height) + (plot.x, plot.y)).astype(np.float32)
@@ -121,18 +130,18 @@ class LayerBatch(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             case Points(points=at, weights=weights):
                 tints = np.column_stack((np.broadcast_to(np.asarray(color[:3], np.float32), (len(weights), 3)), color[3] * weights)).astype(np.float32)
                 batch = batch_for_shader(gpu.shader.from_builtin("POINT_FLAT_COLOR"), "POINTS", {"pos": placed(at).tolist(), "color": tints.tolist()})
-                return cls(batch=batch, color=color, mode=ink.mode, width=Nothing)
+                return cls(batch=batch, paint=layer.paint, width=Nothing)
             case Rules(segments=at) | Trace(points=at):
                 batch = batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), layer.primitive, {"pos": placed(at).tolist()})
-                return cls(batch=batch, color=color, mode=ink.mode, width=Some(shipped.sizes(layer.role).stroke))
+                return cls(batch=batch, paint=layer.paint, width=Some(layer.paint.stroke))
 
     def drawn(self, canvas: Canvas) -> None:
-        """Draws the batch under its role's blend."""
-        with Canvas.blended(self.mode):
+        """Draws the batch under its paint's blend."""
+        with Canvas.blended(self.paint.blend):
             match self.width:
                 case Option(tag="some", some=width):
                     shader = canvas.lines(width)
-                    shader.uniform_float("color", self.color)
+                    shader.uniform_float("color", self.paint.color)
                 case _:
                     shader = canvas.points()
             self.batch.draw(shader)
@@ -146,22 +155,12 @@ class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     labels: tuple[Label, ...]
     caption: tuple[str, ...]
     corner: Align
-    ink: Color
     size: float
 
     @classmethod
     def of(cls, metrics: Metrics, *, well: Well, layers: tuple[ChartLayer, ...], labels: tuple[Label, ...] = (), caption: tuple[str, ...] = (), corner: Align = Align.START) -> Self:
-        """Builds every layer's batch once for the interface scale of `metrics`."""
-        shipped = Shipped.read()
-        return cls(
-            well=well,
-            marks=tuple(LayerBatch.of(layer, well.plot, well.look, shipped) for layer in layers),
-            labels=labels,
-            caption=caption,
-            corner=corner,
-            ink=well.look.scoped("label").text,
-            size=metrics.points(shipped.sizes("label").font_size),
-        )
+        """Builds every layer's batch once for the interface scale of `metrics`, text at the scopes' fraction of the widget font."""
+        return cls(well=well, marks=tuple(LayerBatch.of(layer, well.plot) for layer in layers), labels=labels, caption=caption, corner=corner, size=metrics.points(0.73))
 
     def drawn(self, canvas: Canvas) -> None:
         """Draws the chart at its lower corner of the canvas extent."""
@@ -174,15 +173,15 @@ class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 for mark in self.marks:
                     mark.drawn(canvas)
             for label in self.labels:
-                canvas.label(label.text, (plot.x + label.x * plot.width + size / 2 * (1 - 2 * label.align.value), plot.y + label.y * plot.height + size / 2), self.ink, size, label.align)
+                canvas.label(label.text, (plot.x + label.x * plot.width + size / 2 * (1 - 2 * label.align.value), plot.y + label.y * plot.height + size / 2), Well.text, size, label.align)
             for index, line in enumerate(self.caption, 1):
-                canvas.label(line, (plot.x + size / 2 + (plot.width - size) * self.corner.value, plot.y + plot.height - size / 2 - index * pitch), self.ink, size, self.corner)
+                canvas.label(line, (plot.x + size / 2 + (plot.width - size) * self.corner.value, plot.y + plot.height - size / 2 - index * pitch), Well.text, size, self.corner)
 
 
 class Plotted[S: Plot](msgspec.Struct, frozen=True, kw_only=True):
     """Part reading chart geometry per interface scale and drawing it in its well."""
 
-    read: Callable[[Metrics], BlenderResult[Option[S]]]
+    read: Callable[[Metrics], Outcome[Option[S]]]
 
     @staticmethod
     def drawn(canvas: Canvas, plot: S, /) -> None:
@@ -192,4 +191,4 @@ class Plotted[S: Plot](msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Chart", "ChartLayer", "Label", "LayerBatch", "Plot", "Plotted", "Points", "Rules", "Trace", "Well"]
+__all__ = ["Chart", "ChartLayer", "Label", "LayerBatch", "Paint", "Plot", "Plotted", "Points", "Rules", "Trace", "Well"]

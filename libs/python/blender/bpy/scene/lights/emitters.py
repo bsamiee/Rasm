@@ -2,22 +2,23 @@
 
 from collections import deque
 from collections.abc import Callable
-from typing import Annotated, ClassVar, Final
+from typing import ClassVar, Final
 
 from bl_ui.space_view3d import VIEW3D_MT_light_add
 import bpy
 from expression import Nothing, Ok, Option, Some
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 
-from blender.bpy.commands.operators import Done, Operator
+from blender.bpy.commands.operators import Call, Done, Operator
 from blender.bpy.data.ids.ownership import kept, Ownership, Saved
-from blender.bpy.data.ids.store import Handle, IdName, vacant
+from blender.bpy.data.ids.store import Handle, IdName
 from blender.bpy.data.rna.descriptors import Descriptor, typed, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes import changes
 from blender.bpy.nodes.graphs import Expr, Graph, mixed
 from blender.bpy.nodes.trees import emptied, socket_at, tree_of
@@ -28,12 +29,7 @@ from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.surfaces.appends import Append
-from blender.records.faults import accumulated, paired
-from blender.records.fields import Finite, Gated, NonNegative, Presentation, Quantity, Rgb
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Kelvin = Annotated[Gated[Annotated[float, TEMPERATURE.meta]], TEMPERATURE.presentation]
+from blender.records.faults import accumulated, Fault, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -42,26 +38,36 @@ TEMPERATURE: Final = Descriptor.declared(bpy.types.Light, "temperature", bpy.typ
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class MeshLight(msgspec.Struct, frozen=True, kw_only=True):
+class MeshLight(bpy.types.PropertyGroup):
     """Emissive square a person edits as one light."""
 
-    size: Annotated[NonNegative, msgspec.Meta(description="Square edge length"), Presentation(soft=Some((0.0254, 3.048)), quantity=Some(Quantity.LENGTH))] = 0.9144
-    strength: Annotated[NonNegative, msgspec.Meta(description="Emission strength"), Presentation(soft=Some((0.0, 100.0)), precision=Some(2))] = 1.0
-    color: Annotated[Rgb[Finite], msgspec.Meta(description="Emission filter")] = Rgb(red=1.0, green=1.0, blue=1.0)
-    temperature: Annotated[Kelvin, msgspec.Meta(description="Blackbody color the color filters")] = Gated(enabled=True, value=5500.0)
-    single_sided: Annotated[bool, msgspec.Meta(description="Front face alone emits")] = True
-    constant: Annotated[bool, msgspec.Meta(title="Constant Falloff", description="Strength equal at every distance")] = False
-    camera: Annotated[bool, msgspec.Meta(description="Visible to camera")] = False
+    size: bpy.props.FloatProperty(name="Size", description="Square edge length", subtype="DISTANCE", min=0.0, soft_min=0.0254, soft_max=3.048, default=0.9144)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    strength: bpy.props.FloatProperty(name="Strength", description="Emission strength", min=0.0, soft_max=100.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    color: bpy.props.FloatVectorProperty(name="Color", description="Emission filter", subtype="COLOR", size=3, default=(1.0, 1.0, 1.0))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_temperature: bpy.props.BoolProperty(name="Blackbody", description="Filter a blackbody color", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    temperature: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name=TEMPERATURE.prop.name,
+        description="Blackbody color the color filters",
+        subtype="COLOR_TEMPERATURE",
+        min=TEMPERATURE.prop.hard_min,
+        max=TEMPERATURE.prop.hard_max,
+        soft_min=TEMPERATURE.prop.soft_min,
+        soft_max=TEMPERATURE.prop.soft_max,
+        default=5500.0,
+    )
+    single_sided: bpy.props.BoolProperty(name="Single Sided", description="Front face alone emits", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    constant: bpy.props.BoolProperty(name="Constant Falloff", description="Strength equal at every distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    camera: bpy.props.BoolProperty(name="Camera", description="Visible to camera")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
     """Mesh light attachment, add operator, and section."""
 
-    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
+    retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
 
     @staticmethod
-    def reshaped(light: Handle[bpy.types.Object], identity: Identity) -> BlenderResult[Option[str]]:
-        """Reconciles mesh light to stored record in deferred write.
+    def reshaped(light: Handle[bpy.types.Object], identity: Identity) -> Outcome[Option[str]]:
+        """Reconciles mesh light to its stored group in deferred write.
 
         Args:
             light: Handle of mesh light object.
@@ -70,27 +76,21 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Nothing` naming no undo step, or `absent`, `register`, `read`, and `lit` faults.
         """
-        return light.resolve().bind(lambda item: MeshLights.attachment.read(identity, item).bind(lambda record: lit(record, item, identity))).map(lambda _: Nothing)
+        return light.resolve().bind(lambda item: MeshLights.attachment.read(identity, item).bind(lambda group: lit(group, item, identity))).map(lambda _: Nothing)
 
     attachment: ClassVar[Attachment[MeshLight]] = Attachment(key="mesh_light", form=MeshLight, owner=bpy.types.Object, changed=Some(reconciling(bpy.types.Object, reshaped)))
     light: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="mesh_light", saved=Saved.USED, single=False)
     material: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="mesh_light", saved=Saved.USED)
 
-    add: ClassVar[Operator[MeshLight]] = Operator(
-        key="mesh_light_add",
-        title="Mesh Light",
-        description="Add emissive square at 3D cursor",
-        form=MeshLight,
-        run=lambda call: (
-            paired(call.root(bpy.types.Scene), call.root(bpy.types.Collection))
-            .bind(lambda pair: made(call.record, *pair, call.identity))
-            .map(lambda item: Done(notes=(("INFO", f"Added {item.name}"),)))
-        ),
-    )
-
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns attachment, ownerships, add operator, its Add Light menu entry, and section."""
-        return Ok((MeshLights.attachment, MeshLights.light, MeshLights.material, Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=self.add),)), *acquired((self.section(),))))
+        return Ok((
+            MeshLights.attachment,
+            MeshLights.light,
+            MeshLights.material,
+            Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=mesh_light_add_command),)),
+            *acquired((self.section(),)),
+        ))
 
     def section(self) -> Section:
         """Returns mesh light section of active object."""
@@ -158,19 +158,19 @@ def emitters(owner: bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object) ->
     return tuple(item for item in (owner.objects if isinstance(owner, bpy.types.Scene | bpy.types.ViewLayer) else (owner,)) if emitting(item))
 
 
-def picked(chosen: frozenset[bpy.types.Object], view_layer: bpy.types.ViewLayer) -> BlenderResult[None]:
+def picked(chosen: frozenset[bpy.types.Object], view_layer: bpy.types.ViewLayer) -> Outcome[None]:
     """Selects chosen objects of view layer alone."""
     return accumulated(reconciled(ObjectState(selected=Some(item in chosen)), item, (view_layer,)) for item in view_layer.objects).map(lambda _: None)
 
 
-def emission_graph(record: MeshLight) -> BlenderResult[Graph]:
-    """Returns shader graph of mesh light record, `absent` and `choice` faults for missing node members."""
-    filtered = (*msgspec.structs.astuple(record.color), 1.0)
-    blackbody = Expr(kind=bpy.types.ShaderNodeBlackbody, inputs=(("Temperature", record.temperature.value),), socket="Color", shape="RGBA")
+def emission_graph(record: MeshLight) -> Outcome[Graph]:
+    """Returns shader graph of mesh light values, `absent` and `choice` faults for missing node members."""
+    filtered = (*record.color, 1.0)
+    blackbody = Expr(kind=bpy.types.ShaderNodeBlackbody, inputs=(("Temperature", record.temperature),), socket="Color", shape="RGBA")
     falloff = Expr(kind=bpy.types.ShaderNodeLightFalloff, inputs=(("Strength", record.strength),), socket="Constant")
     emission = Expr(
         kind=bpy.types.ShaderNodeEmission,
-        inputs=(("Color", mixed(1.0, blackbody, filtered, blend="MULTIPLY") if record.temperature.enabled else filtered), ("Strength", falloff if record.constant else record.strength)),
+        inputs=(("Color", mixed(1.0, blackbody, filtered, blend="MULTIPLY") if record.use_temperature else filtered), ("Strength", falloff if record.constant else record.strength)),
         socket="Emission",
     )
     sides = Expr(
@@ -183,11 +183,11 @@ def emission_graph(record: MeshLight) -> BlenderResult[Graph]:
     )
 
 
-def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> BlenderResult[None]:
-    """Writes mesh light quad, material graph, slot, and ray visibility from record.
+def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Outcome[None]:
+    """Writes mesh light quad, material graph, slot, and ray visibility from mesh light values.
 
     Args:
-        record: Mesh light values.
+        record: Mesh light values of the stored group or the add operator.
         item: Owned mesh light object.
         identity: Identity marking material and nodes.
 
@@ -198,8 +198,10 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
     visibility = Snapshot.of(bpy.types.Object, {"visible_camera": record.camera, "visible_shadow": False, "show_wire": True, "show_all_edges": True})
     vertices = Descriptor.quantized(VERTEX.prop, np.array(((-half, -half, 0.0), (-half, half, 0.0), (half, half, 0.0), (half, -half, 0.0)), dtype=np.float64))
 
-    def built() -> BlenderResult[bpy.types.Material]:
-        return kept(BlenderEditFault.attempted(f"{item.name} material", lambda: bpy.data.materials.new(vacant(item.name, bpy.data.materials.keys()))), emptied)
+    def built() -> Outcome[bpy.types.Material]:
+        return kept(
+            catch(bpy.data.materials.new, exception=RuntimeError)(item.name).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{item.name} material", cause=error),)), emptied
+        )
 
     return (
         typed(item.data, bpy.types.Mesh, f"{item!r}.data")
@@ -220,11 +222,11 @@ def lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Blende
     )
 
 
-def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collection, identity: Identity) -> BlenderResult[bpy.types.Object]:
-    """Creates owned mesh light at 3D cursor, storing and applying record.
+def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collection, identity: Identity) -> Outcome[bpy.types.Object]:
+    """Creates owned mesh light at 3D cursor, storing and applying the add operator's values.
 
     Args:
-        record: Mesh light values.
+        record: Mesh light values of the add operator.
         scene: Scene with cursor placing light.
         collection: Collection receiving light.
         identity: Identity marking object, material, and nodes.
@@ -233,22 +235,36 @@ def made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Collec
         Mesh light, or `register`, `edit`, and `lit` faults.
     """
 
-    def configured(item: bpy.types.Object) -> BlenderResult[bpy.types.Object]:
+    def configured(item: bpy.types.Object) -> Outcome[bpy.types.Object]:
         return (
             MeshLights.attachment
             .bound(identity)
-            .bind(lambda attached: attached.write(item, record))
+            .bind(lambda attached: Snapshot.capture(record).bind(lambda held: msgspec.structs.replace(held, struct=MeshLight.__name__).apply(attached.struct(item)).outcome))
             .bind(lambda _: reconciled(ObjectState(placement=Some(scene.cursor.matrix)), item, ()))
             .bind(lambda _: lit(record, item, identity))
             .map(lambda _: item)
         )
 
     return kept(
-        BlenderEditFault.attempted("Mesh Light mesh", lambda: bpy.data.meshes.new(vacant("Mesh Light", bpy.data.meshes.keys()))),
+        catch(bpy.data.meshes.new, exception=RuntimeError)("Mesh Light").map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject="Mesh Light mesh", cause=error),)),
         lambda mesh: MeshLights.light.made(identity, lambda: spawned("Mesh Light", Some(mesh), collection), filled=configured),
     )
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+def mesh_light_add(call: Call[MeshLight]) -> Outcome[Done]:
+    """Adds an emissive square at the 3D cursor."""
+    return (
+        paired(call.root(bpy.types.Scene), call.root(bpy.types.Collection))
+        .bind(lambda pair: made(call.properties, *pair, call.identity))
+        .map(lambda item: Done(notes=(("INFO", f"Added {item.name}"),)))
+    )
+
+
+mesh_light_add_command: Operator[MeshLight] = Operator(form=MeshLight, run=mesh_light_add)
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TEMPERATURE", "Kelvin", "MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "lit", "made", "picked", "strengths"]
+__all__ = ["TEMPERATURE", "MeshLight", "MeshLights", "emission_graph", "emitters", "emitting", "lit", "made", "mesh_light_add_command", "picked", "strengths"]

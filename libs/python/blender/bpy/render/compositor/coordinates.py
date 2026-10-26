@@ -1,31 +1,29 @@
 """Compositor frame positions, data-window pixel grids, clocks and shutter poses, affine and projective placement, camera re-aim, and bordered Map UV sampling."""
 
-from typing import Annotated, Literal, overload, Self
+from enum import IntEnum
+from typing import Annotated, Final, Literal, overload, Self
 
 import bpy
-from expression import Some
 import msgspec
-import msgspec.inspect
 import numpy as np
 import OpenImageIO
 
 from blender.bpy.data.rna import animation
 from blender.bpy.data.rna.animation import Animation, Keys
+from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes.graphs import End, Expr, math, menu, Scalar, switched, Term, vector, where, xyz
-from blender.bpy.nodes.interface import item_key, MenuItems
+from blender.bpy.nodes.interface import item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor.colors import AXES, composed, inverted
-from blender.bpy.render.compositor.inputs import entry_input, Field, path, reached
-from blender.bpy.settings.shapes import unwrapped
+from blender.bpy.render.compositor.inputs import entry_input, path
 from blender.imaging.geometry.homography import Homography
-from blender.records.faults import accumulated, paired
-from blender.records.fields import Case, Choice, Finite, NonNegative, Presentation
+from blender.records.faults import accumulated, Outcome, paired
+from blender.records.fields import Finite, NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Border(Choice):
+class Border(IntEnum):
     """Sampling past an image edge under OpenImageIO's wrap names and values."""
 
     BLACK = 1
@@ -38,6 +36,19 @@ class Border(Choice):
         """OpenImageIO wrap mode of the border."""
         return OpenImageIO.Wrap(self.value)
 
+    @property
+    def item(self) -> MenuItem:
+        """Menu item of the border."""
+        return MenuItem(name=bpy.path.display_name(self.name.lower()))
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+BORDERS: Final = MenuItems(items=tuple(border.item for border in Border))
+SHUTTER: Final = tuple(
+    Socket(key=key, name=bpy.path.display_name(key), kind=bpy.types.NodeSocketFloat, description=description, members={"hide_in_modifier": True})
+    for key, description in (("length", "Shutter length in frames"), ("opening", "Shutter opening relative to frame in shutter lengths"))
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -78,7 +89,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
 class Clock(msgspec.Struct, frozen=True, kw_only=True):
     """Clock speed and frame hold of animated parameters."""
 
-    speed: Annotated[NonNegative, msgspec.Meta(description="Clock frames per scene frame, still at 0"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
+    speed: Annotated[NonNegative, msgspec.Meta(description="Clock frames per scene frame, still at 0")] = 1.0
     hold: Annotated[int, msgspec.Meta(ge=1, description="Scene frames each clock value holds")] = 1
 
     def held(self, frame: float) -> float:
@@ -110,65 +121,50 @@ class Shutter(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
-    """Numeric record fields sampled at both shutter endpoints into hidden pose inputs keyed `pose_<side>_<path>`, the shutter beside them."""
+    """Numeric sockets sampled at both shutter endpoints into hidden pose sockets keyed `pose_<side>_<key>`, the shutter beside them."""
 
-    fields: tuple[Field, ...]
-    record: type[msgspec.Struct]
+    sockets: tuple[Socket, ...]
 
-    @classmethod
-    def of(cls, fields: tuple[Field, ...]) -> Self:
-        """Declares the pose record of `fields` over the shutter record."""
-        return cls(
-            fields=fields,
-            record=msgspec.defstruct(
-                "Poses",
-                [
-                    (
-                        cls.key(side, *field.path),
-                        field.info.type,
-                        msgspec.field(default_factory=field.info.default_factory) if field.info.default_factory is not msgspec.NODEFAULT else msgspec.field(default=field.info.default),
-                    )
-                    for side in range(2)
-                    for field in fields
-                ],
-                bases=(Shutter,),
-                module=__name__,
-                frozen=True,
-                kw_only=True,
-            ),
-        )
+    @property
+    def poses(self) -> tuple[Socket, ...]:
+        """Hidden shutter sockets, then one hidden pose socket per posed socket and shutter endpoint."""
+        return (*SHUTTER, *(msgspec.structs.replace(socket, key=self.key(side, socket.key), members={**socket.members, "hide_in_modifier": True}) for side in range(2) for socket in self.sockets))
 
     @staticmethod
-    def key(side: int, *at: Key | int | type[Case]) -> Key:
-        """Pose input key of a field path at one shutter endpoint."""
-        return item_key("pose", side, *at)
+    def key(side: int, key: Key) -> Key:
+        """Pose input key of a socket at one shutter endpoint."""
+        return item_key("pose", side, key)
 
-    def posed(self, scene: bpy.types.Scene, record: msgspec.Struct) -> msgspec.Struct:
-        """Returns the scene shutter with both endpoint poses held at the record's values."""
-        return msgspec.convert(
-            msgspec.structs.asdict(Shutter.of(scene)) | {self.key(side, *field.path): msgspec.to_builtins(reached(record, field.path)) for side in range(2) for field in self.fields}, self.record
-        )
+    def posed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[dict[Key, Value]]:
+        """Returns the scene shutter with both endpoint poses held at the entry's input values."""
+        shutter = Shutter.of(scene)
+        return accumulated(
+            entry_input(identity, entry, socket.key).bind(lambda held: Descriptor.resolve(held, "value", bpy.types.Property).map(lambda descriptor: (socket.key, descriptor.read(held))))
+            for socket in self.sockets
+        ).map(lambda values: {"length": shutter.length, "opening": shutter.opening, **{self.key(side, key): value for side in range(2) for key, value in values}})
 
-    def keyed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[tuple[Animation, ...]]:
-        """Keys every pose component at its field channel sampled at both fractional shutter endpoints of every rendered frame."""
+    def keyed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[Animation, ...]]:
+        """Keys every pose component at its socket channel sampled at both fractional shutter endpoints of every rendered frame."""
         frames = tuple(range(scene.frame_start, scene.frame_end + 1))
         opening = Shutter.of(scene).opening
 
-        def components(shape: msgspec.inspect.Type) -> tuple[int | None, ...]:
-            return tuple(range(len(shape.item_types))) if isinstance(shape, msgspec.inspect.TupleType) else (None,)
+        def components(socket: Socket) -> tuple[int | None, ...]:
+            match socket.members.get("dimensions"):
+                case int(count) if socket.kind is bpy.types.NodeSocketVector:
+                    return tuple(range(count))
+                case _:
+                    return tuple(range(3)) if socket.kind is bpy.types.NodeSocketVector else (None,)
 
-        def component(lengths: tuple[float, ...], field: Field, side: int, index: int | None) -> BlenderResult[Animation]:
-            def samples(source: str, target: str) -> BlenderResult[Animation]:
+        def component(lengths: tuple[float, ...], socket: Socket, side: int, index: int | None) -> Outcome[Animation]:
+            def samples(source: str, target: str) -> Outcome[Animation]:
                 return animation.sampled(scene, source, (frame + (opening + side) * length for frame, length in zip(frames, lengths)), 0 if index is None else index).map(
                     lambda values: Animation(struct=target, member="value", index=index, source=Keys(points=tuple(zip(map(float, frames), values))))
                 )
 
-            return paired(path(identity, entry, item_key(*field.path)), entry_input(identity, entry, self.key(side, *field.path)).map(lambda held: held.path_from_id())).bind(
-                lambda values: samples(*values)
-            )
+            return paired(path(identity, entry, socket.key), entry_input(identity, entry, self.key(side, socket.key)).map(lambda held: held.path_from_id())).bind(lambda values: samples(*values))
 
         return animation.sampled(scene, "render.motion_blur_shutter", frames).bind(
-            lambda lengths: accumulated(component(lengths, field, side, index) for field in self.fields for side in range(2) for index in components(unwrapped(field.shape)))
+            lambda lengths: accumulated(component(lengths, socket, side, index) for socket in self.sockets for side in range(2) for index in components(socket))
         )
 
 
@@ -534,19 +530,18 @@ def extended(source: Scalar, uv: Expr, borders: tuple[Scalar | str, Scalar | str
     Args:
         source: Associated image being sampled.
         uv: Map UV positions with geometric coverage in Z.
-        borders: `Border` menu input or item label for X, then for Y.
+        borders: `Border` menu input or item name for X, then for Y.
         clipped: Whether black borders fade over the edge pixel as coverage, else Map UV clips them.
 
     Returns:
         Covered associated sample.
     """
     dimensions = Expr(kind=bpy.types.CompositorNodeImageInfo, inputs=(("Image", source),), socket="Dimensions", shape="VECTOR")
-    items = MenuItems.of(Border)
     native = {Border.BLACK: "Extend" if clipped else "Clip", Border.CLAMP: "Extend", Border.PERIODIC: "Repeat", Border.MIRROR: "Extend"}
 
     def axis(name: Literal["X", "Y"], selector: Scalar | str) -> tuple[Expr, Expr, Expr]:
-        mode = menu(selector, items, {member.label: native[member] for member in Border}, kind="MENU")
-        mirrored, black = (msgspec.structs.replace(mode, socket=member.label, shape="FLOAT") for member in (Border.MIRROR, Border.BLACK))
+        mode = menu(selector, BORDERS, {member.item.name: native[member] for member in Border}, kind="MENU")
+        mirrored, black = (msgspec.structs.replace(mode, socket=member.item.name, shape="FLOAT") for member in (Border.MIRROR, Border.BLACK))
         coordinate = uv[name]
         edge = math("MULTIPLY_ADD", math("MINIMUM", coordinate, 1.0 - coordinate), dimensions[name], 0.5, clamp=True)
         return switched(mirrored, coordinate, math("PINGPONG", coordinate, 1.0)), switched(black, 1.0, edge), mode
@@ -596,6 +591,8 @@ def _projected(point: Expr, transform: Expr) -> Expr:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "BORDERS",
+    "SHUTTER",
     "Border",
     "Clock",
     "FrameSpace",

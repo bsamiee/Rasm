@@ -14,12 +14,12 @@ import PyOpenColorIO
 
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, UpdateHandler
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.trees import fingerprinted
-from blender.bpy.render.color.spaces import config_of, viewed
+from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import PreviewScene
@@ -30,8 +30,7 @@ from blender.bpy.ui.images.views import image_type
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.color.processors import DisplayView, GREY, processor
 from blender.imaging.files.images import applied
-from blender.records.faults import accumulated, paired
-from blender.records.fields import heading
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.identity import content_hash, ContentHash
 
 from ..catalog import chain
@@ -53,15 +52,41 @@ class _Request(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     content: Option[ContentHash]
 
 
-class _Feed(msgspec.Struct, kw_only=True):
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class _Feed:
     """Plot columns the chart last drew, the wanted request, and the sampled response it answered."""
 
-    columns: int = 0
-    wanted: Option[_Request] = Nothing
-    cached: Option[tuple[_Request, npt.NDArray[np.float32], tuple[float, ...]]] = Nothing
+    __slots__ = ("cached", "columns", "wanted")
 
+    def __init__(self) -> None:
+        """Holds no columns, request, or response."""
+        self.columns = 0
+        self.wanted: Option[_Request] = Nothing
+        self.cached: Option[tuple[_Request, npt.NDArray[np.float32], tuple[float, ...]]] = Nothing
 
-# --- [SERVICES] -------------------------------------------------------------------------
+    def wanting(self, request: _Request) -> bool:
+        """Holds the request as wanted, dropping a response to another, answering whether the wanted request changed."""
+        changed = self.wanted.filter(lambda held: held is request).is_none()
+        self.wanted = Some(request)
+        if changed:
+            self.cached = Nothing
+        return changed
+
+    def published(self, request: _Request, values: npt.NDArray[np.float32], codes: tuple[float, ...]) -> bool:
+        """Holds the response while its request stays wanted, answering whether it held it."""
+        if self.wanted.filter(lambda current: current is request).is_none():
+            return False
+        self.cached = Some((request, values, codes))
+        return True
+
+    def cleared(self) -> bool:
+        """Drops the wanted request and its response, answering whether either was held."""
+        changed = self.wanted.is_some() or self.cached.is_some()
+        self.wanted, self.cached = Nothing, Nothing
+        return changed
+
 
 _FEED: Final = Scoped[_Feed](made=lambda _identity: nullcontext(_Feed()))
 
@@ -76,10 +101,11 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     enabled: Enabled = Enabled.RENDER
     signal: Signal = msgspec.field(default_factory=Signal)
     levels: ClassVar[tuple[float, ...]] = (*(GREY * 2.0**stop for stop in range(-4, 3)), 1.0)
+    key: ClassVar[Key] = "tone_response"
 
     # --- [READOUT]
 
-    def chart(self, identity: Identity, metrics: Metrics) -> BlenderResult[Option[Chart]]:
+    def chart(self, identity: Identity, metrics: Metrics) -> Outcome[Option[Chart]]:
         """Charts the cached response of the wanted request, recording the plot columns it draws at."""
         feed, well = _FEED.of(identity), Well.of(metrics, 0.5)
         feed.columns = round(well.plot.width)
@@ -96,20 +122,19 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     Trace(points=np.column_stack((x, values.mean(axis=1))).astype(np.float32)),
                 ),
                 labels=tuple(Label(text=f"{level:.2%}", x=0.0, y=code) for level, code in zip(self.levels, guides)),
-                caption=(heading(type(self).__name__),),
+                caption=(bpy.path.display_name(self.key),),
             )
 
         return Ok(feed.cached.filter(lambda held: feed.wanted.filter(lambda request: held[0] is request and request.columns == feed.columns).is_some()).map(plotted))
 
     # --- [DEMAND]
 
-    def fed(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
+    def fed(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns the current sampling job, reusing the wanted request while its observed state holds."""
-        feed = _FEED.of(identity)
-        if not feed.columns:
+        if not (feed := _FEED.of(identity)).columns:
             return Ok(())
 
-        def allocated(config: PyOpenColorIO.Config) -> BlenderResult[PyOpenColorIO.Processor]:
+        def allocated(config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.Processor]:
             def walked(transform: PyOpenColorIO.Transform, *, inverse: bool) -> Generator[tuple[PyOpenColorIO.AllocationTransform, bool]]:
                 match transform:
                     case PyOpenColorIO.AllocationTransform():
@@ -120,7 +145,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     case _:
                         pass
 
-            def selected(space: PyOpenColorIO.ColorSpace) -> BlenderResult[PyOpenColorIO.Processor]:
+            def selected(space: PyOpenColorIO.ColorSpace) -> Outcome[PyOpenColorIO.Processor]:
                 transform = (
                     Option
                     .of_optional(space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE))
@@ -131,23 +156,23 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     case ((value, inverse),):
                         return processor(config, PyOpenColorIO.GroupTransform([value], direction=PyOpenColorIO.TRANSFORM_DIR_FORWARD if inverse else PyOpenColorIO.TRANSFORM_DIR_INVERSE))
                     case _:
-                        return Error((BlenderAbsentFault(owner=space.getName(), key=PyOpenColorIO.AllocationTransform.__name__),))
+                        return Error((Fault(reason=BlenderReason.ABSENT, subject=space.getName(), member=PyOpenColorIO.AllocationTransform.__name__),))
 
             match self.allocation:
                 case str(name):
-                    return Result[PyOpenColorIO.ColorSpace, BlenderFaults].bind(
-                        Option.of_optional(config.getColorSpace(name)).to_result_with(lambda: (BlenderAbsentFault(owner=config.getName(), key=name),)), selected
+                    return Result[PyOpenColorIO.ColorSpace, Faults].bind(
+                        Option.of_optional(config.getColorSpace(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=config.getName(), member=name),)), selected
                     )
                 case transform:
                     return processor(config, PyOpenColorIO.GroupTransform([transform], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE))
 
-        def prepared(scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> BlenderResult[tuple[Job, ...]]:
-            def guided() -> BlenderResult[PyOpenColorIO.Processor]:
-                def encoded(held: Option[DisplayView]) -> BlenderResult[PyOpenColorIO.Processor]:
+        def prepared(scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> Outcome[tuple[Job, ...]]:
+            def guided() -> Outcome[PyOpenColorIO.Processor]:
+                def encoded(held: Option[DisplayView]) -> Outcome[PyOpenColorIO.Processor]:
                     display = held.map(lambda view: view.display).default_with(lambda: viewed(scene).display)
-                    return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], BlenderFaults].bind(
+                    return Result[Option[tuple[DisplayView, PyOpenColorIO.Processor]], Faults].bind(
                         DisplayView.for_encoding(config, display),
-                        lambda found: found.map(lambda pair: pair[1]).to_result_with(lambda: (BlenderAbsentFault(owner=display, key=DisplayView.for_encoding.__name__),)),
+                        lambda found: found.map(lambda pair: pair[1]).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=display, member=DisplayView.for_encoding.__name__),)),
                     )
 
                 return self.guide.map(lambda transform: processor(config, transform)).default_with(
@@ -160,7 +185,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             observations = accumulated(paired(Snapshot.capture(entry), Option.of_optional(entry.node_group).map(fingerprinted).default_value(Ok(Nothing))) for entry in selected)
             encoding = paired(guided(), allocated(config)).map(lambda built: tuple(value.getDefaultCPUProcessor() for value in built))
 
-            def requested(local: tuple[bool, ...], captured: tuple[tuple[Snapshot, Option[ContentHash]], ...], processors: tuple[PyOpenColorIO.CPUProcessor, ...]) -> BlenderResult[tuple[Job, ...]]:
+            def requested(local: tuple[bool, ...], captured: tuple[tuple[Snapshot, Option[ContentHash]], ...], processors: tuple[PyOpenColorIO.CPUProcessor, ...]) -> Outcome[tuple[Job, ...]]:
                 guide, allocation = processors
                 low, high = np.log2(applied(allocation, np.repeat(np.asarray((0.0, 1.0), dtype=np.float32)[:, None], 3, axis=1))[:, 0] / GREY)
                 window = float(low), float(high)
@@ -185,60 +210,51 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 request = feed.wanted.filter(lambda held: held.observed == observed and held.entries == selected).default_with(
                     lambda: _Request(scene=scene, entries=selected, guide=guide, window=window, columns=feed.columns, observed=observed, content=content)
                 )
-                changed = feed.wanted.filter(lambda held: held is request).is_none()
-                feed.wanted = Some(request)
+                changed = feed.wanting(request)
                 if feed.cached.filter(lambda held: held[0] is request).is_some():
                     return Ok(())
-                if changed:
-                    feed.cached = Nothing
                 return (self.signal.fired() if changed else Ok(None)).map(
-                    lambda _: (Job(place=(ToneResponse, identity.package), key=request.content.default_value(request), rank=Rank.SHOWN, run=lambda: self.rendered(identity, request)),)
+                    lambda _: (Job(place=(self.key, identity.package), key=request.content.default_value(request), rank=Rank.SHOWN, run=lambda: self.rendered(identity, request)),)
                 )
 
             return paired(locality, observations, encoding).bind(lambda parts: requested(*parts))
 
         return (
-            config_of()
-            .bind(lambda config: Option.of_optional(context.scene).map(lambda scene: prepared(scene, config)).default_with(lambda: self.cleared(identity)))
+            Option
+            .of_optional(context.scene)
+            .map(lambda scene: prepared(scene, PyOpenColorIO.GetCurrentConfig()))
+            .default_with(lambda: self.cleared(identity))
             .or_else_with(lambda faults: paired(Error(faults), self.cleared(identity)).map(lambda _: ()))
         )
 
-    def rendered(self, identity: Identity, request: _Request) -> BlenderResult[None]:
+    def rendered(self, identity: Identity, request: _Request) -> Outcome[None]:
         """Samples the entries and publishes the response only while the request stays wanted."""
-        feed = _FEED.of(identity)
         positions = (np.arange(request.columns, dtype=np.float32) + 0.5) / request.columns
         low, high = request.window
         levels = (GREY * np.exp2(low + (high - low) * positions)).astype(np.float32)
         codes = tuple(map(float, applied(request.guide, np.repeat(np.asarray(self.levels, dtype=np.float32)[:, None], 3, axis=1)).mean(axis=1)))
 
-        def published(values: npt.NDArray[np.float32]) -> BlenderResult[None]:
-            if feed.wanted.filter(lambda current: current is request).is_none():
-                return Ok(None)
-            feed.cached = Some((request, values[0, :, :3], codes))
-            return self.signal.fired()
-
-        return self.sampling.sampled(identity, request.scene, request.entries, np.repeat(levels[None, :, None], 3, axis=2)).bind(published)
+        return self.sampling.sampled(identity, request.scene, request.entries, np.repeat(levels[None, :, None], 3, axis=2)).bind(
+            lambda values: self.signal.fired() if _FEED.of(identity).published(request, values[0, :, :3], codes) else Ok(None)
+        )
 
     # --- [LIFETIME]
 
-    def cleared(self, identity: Identity) -> BlenderResult[tuple[Job, ...]]:
+    def cleared(self, identity: Identity) -> Outcome[tuple[Job, ...]]:
         """Clears the wanted request and its cached response."""
-        feed = _FEED.of(identity)
-        changed = feed.wanted.is_some() or feed.cached.is_some()
-        feed.wanted, feed.cached = Nothing, Nothing
-        return (self.signal.fired() if changed else Ok(None)).map(lambda _: ())
+        return (self.signal.fired() if _FEED.of(identity).cleared() else Ok(None)).map(lambda _: ())
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Holds the feed cell, the queue feed, the chart over the compositor viewer, and the invalidations removed before the cell clears."""
         with ExitStack() as scopes:
 
-            def invalidated() -> BlenderResult[Option[str]]:
+            def invalidated() -> Outcome[Option[str]]:
                 return self.cleared(identity).map(lambda _: Nothing) if _FEED.of(identity).wanted.filter(lambda request: request.content.is_none()).is_some() else Ok(Nothing)
 
             later = scopes.enter_context(identity.reports.deferred(invalidated))
 
-            def loaded(_path: Option[Path]) -> BlenderResult[None]:
+            def loaded(_path: Option[Path]) -> Outcome[None]:
                 identity.reports.cancelled(later)
                 return self.cleared(identity).map(lambda _: None)
 

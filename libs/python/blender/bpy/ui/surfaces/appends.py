@@ -1,7 +1,8 @@
 """Rows appended to stock panels, menus, headers, and context menus."""
 
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from contextlib import contextmanager
+from functools import partial
 
 import _bpy_types
 from bl_ui import UI_MT_button_context_menu, UI_MT_list_item_context_menu
@@ -13,8 +14,8 @@ import msgspec
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderFaults, BlenderResult
 from blender.bpy.ui.layout.rows import acquired, painted, placed, Row, RowDraw, SurfaceDraw
+from blender.records.faults import Faults, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,51 +40,53 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
     prepend: bool = False
     condition: Option[Condition] = Nothing
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns row acquisitions and appended draw scope."""
         destination = self.target
         target = destination.menu if isinstance(destination, ContextMenu) else destination
-        separator_after = self.prepend and not isinstance(destination, ContextMenu)
-
-        def drawn(paint: SurfaceDraw) -> Callable[[Extended, bpy.types.Context], None]:
-            def shown(surface: Extended, context: bpy.types.Context) -> None:
-                if not all(holds(condition, context) for condition in self.condition.to_list()):
-                    return
-                if (
-                    isinstance(destination, ContextMenu)
-                    and catch(lambda: context.button_pointer, exception=AttributeError)().to_option().filter(lambda pointer: isinstance(pointer, destination.hovered)).is_none()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                ):
-                    return
-                for layout in Option.of_optional(surface.layout).to_list():
-                    match surface:
-                        case bpy.types.Panel():
-                            column = layout.column()
-                            column.use_property_split = True
-                            paint(column, context)
-                        case bpy.types.Menu():
-                            if not separator_after:
-                                layout.separator()
-                            paint(layout, context)
-                            if separator_after:
-                                layout.separator()
-                        case bpy.types.Header():
-                            paint(layout, context)
-
-            return shown
 
         @contextmanager
-        def appended() -> Generator[BlenderResult[None]]:
-            match placed(self.rows, identity).map(painted).map(drawn):
+        def appended() -> Generator[Outcome[None]]:
+            match placed(self.rows, identity).map(painted).map(lambda paint: partial(_shown, self, paint)):
                 case Result(tag="error", error=faults):
-                    yield Result[None, BlenderFaults].Error(faults)
+                    yield Result[None, Faults].Error(faults)
                 case Result(ok=draw):
-                    (target.prepend if self.prepend else target.append)(draw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    (target.prepend if self.prepend else target.append)(draw)  # ty: ignore[invalid-argument-type]
                     try:
-                        yield Result[None, BlenderFaults].Ok(None)
+                        yield Result[None, Faults].Ok(None)
                     finally:
-                        target.remove(draw)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        target.remove(draw)  # ty: ignore[invalid-argument-type]
 
-        return Result[Acquisitions, BlenderFaults](ok=(*acquired(self.rows), (Band.APPENDS, appended())))
+        return Result[Acquisitions, Faults](ok=(*acquired(self.rows), (Band.APPENDS, appended())))
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _shown(append: Append, paint: SurfaceDraw, surface: Extended, context: bpy.types.Context) -> None:
+    """Paints rows on the surface while the condition holds and a context menu's button shows its struct type."""
+    destination, separator_after = append.target, append.prepend and not isinstance(append.target, ContextMenu)
+    if not all(holds(condition, context) for condition in append.condition.to_list()):
+        return
+    if (
+        isinstance(destination, ContextMenu)
+        and catch(lambda: context.button_pointer, exception=AttributeError)().to_option().filter(lambda pointer: isinstance(pointer, destination.hovered)).is_none()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    ):
+        return
+    for layout in Option.of_optional(surface.layout).to_list():
+        match surface:
+            case bpy.types.Panel():
+                column = layout.column()
+                column.use_property_split = True
+                paint(column, context)
+            case bpy.types.Menu():
+                if not separator_after:
+                    layout.separator()
+                paint(layout, context)
+                if separator_after:
+                    layout.separator()
+            case bpy.types.Header():
+                paint(layout, context)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

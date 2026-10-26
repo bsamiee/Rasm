@@ -18,8 +18,8 @@ from blender.bpy.commands.calls import called
 from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.ids.store import Handle, STORES
 from blender.bpy.data.rna.descriptors import assigned, Value
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
-from blender.records.faults import accumulated, FileFault, paired
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -138,33 +138,39 @@ class Project(msgspec.Struct, frozen=True, kw_only=True):
 # --- [LIFTS]
 
 
-def folder_made(folder: Path) -> BlenderResult[Path]:
+def folder_made(folder: Path) -> Outcome[Path]:
     """Returns existing or created folder, or write fault."""
-    return catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map(lambda _: folder).map_error(lambda error: (FileFault(access="write", request=folder, error=error),))
+    return (
+        catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)()
+        .map(lambda _: folder)
+        .map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(folder), cause=error),))
+    )
 
 
-def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path, ...]]:
+def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]]:
     """Copies distinct pairs, returning targets in path order."""
 
     def copy(source: Path, target: Path) -> Path:
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
 
-    def one(source: Path, target: Path) -> BlenderResult[Path]:
-        return folder_made(target.parent).bind(lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (FileFault(access="write", request=target, error=error),)))
+    def one(source: Path, target: Path) -> Outcome[Path]:
+        return folder_made(target.parent).bind(
+            lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(target), cause=error),))
+        )
 
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 
 
 def sourced[T](
     data: bpy.types.BlendData, path: Path, take: Callable[[object], tuple[T, Mapping[str, Sequence[str]]]], **keywords: bool
-) -> BlenderResult[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
+) -> Outcome[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
     """Returns source selection with loaded destination slots, read fault when the library load refuses the file."""
     load: AbstractContextManager[tuple[object, object]] = data.libraries.load(str(path), **keywords)  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
     with ExitStack() as loading:
         try:
             source, target = loading.enter_context(load)
         except (OSError, ValueError) as error:
-            return Error((FileFault(access="read", request=path, error=error),))
+            return Error((Fault(reason=RecordReason.UNREADABLE, subject=str(path), cause=error),))
         value, chosen = take(source)
         for name, names in chosen.items():
             setattr(target, name, list(names))
@@ -174,11 +180,11 @@ def sourced[T](
 # --- [SAVE]
 
 
-def saved(path: Path, kind: SaveMode, *, compress: Option[bool] = Nothing, remap: Option[bool] = Nothing) -> BlenderResult[Path]:
+def saved(path: Path, kind: SaveMode, *, compress: Option[bool] = Nothing, remap: Option[bool] = Nothing) -> Outcome[Path]:
     """Saves file, returning saved path."""
     relative = remap.default_with(lambda: bpy.context.preferences.filepaths.use_relative_paths)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
-    def written() -> BlenderResult[Path]:
+    def written() -> Outcome[Path]:
         match kind:
             case SaveMode.ACTIVE | SaveMode.INCREMENTAL:
                 return called(bpy.ops.wm.save_mainfile, {"filepath": str(path), "relative_remap": relative, "incremental": kind is SaveMode.INCREMENTAL, "compress": compress}).map(
@@ -193,7 +199,7 @@ def saved(path: Path, kind: SaveMode, *, compress: Option[bool] = Nothing, remap
 # --- [LOAD]
 
 
-def session_loaded(load: Load) -> BlenderResult[BlendFile]:
+def session_loaded(load: Load) -> Outcome[BlendFile]:
     """Replaces session data, returning file state."""
     match load:
         case OpenFile(path=path, ui=ui, scripts=scripts):
@@ -208,7 +214,7 @@ def session_loaded(load: Load) -> BlenderResult[BlendFile]:
 
 
 @contextmanager
-def inspected(path: Path) -> Generator[BlenderResult[bpy.types.BlendData]]:
+def inspected(path: Path) -> Generator[Outcome[bpy.types.BlendData]]:
     """Yields temporary BlendData of another file until scope exit, libraries and workspaces left unlinked."""
     stores = frozenset(identifier for kind, identifier in STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
     with bpy.data.temp_data(filepath="") as data:  # type: ignore[var-annotated]
@@ -264,10 +270,10 @@ def relinked(relink: Relink) -> dict[tuple[Handle[bpy.types.ID], str], str]:
     return changes
 
 
-def packed(root: Path, *, compress: Option[bool] = Nothing) -> BlenderResult[Pack]:
+def packed(root: Path, *, compress: Option[bool] = Nothing) -> Outcome[Pack]:
     """Packs file and dependencies under root, absent fault for unsaved file."""
 
-    def written(source: Path) -> BlenderResult[Path]:
+    def written(source: Path) -> Outcome[Path]:
         changes = relinked(Mirrored(root=root, source=source))
         try:
             return saved(mirrored(root, source), SaveMode.COPY, compress=compress, remap=Some(False))
@@ -281,32 +287,38 @@ def packed(root: Path, *, compress: Option[bool] = Nothing) -> BlenderResult[Pac
                 lambda pair: Pack(blend=pair[0], files=pair[1], missing=tuple(item for item in found if not item.present))
             )
         case _:
-            return Error((BlenderAbsentFault(owner="bpy.data", key="filepath"),))
+            return Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.data", member="filepath"),))
 
 
 # --- [PROJECT]
 
 
-def projected(project: Project) -> BlenderResult[None]:
+def projected(project: Project) -> Outcome[None]:
     """Reconciles open project with desired state, removing items it created when any write refuses."""
 
-    def initialized() -> BlenderResult[bpy.types.BlenderProject]:
-        return BlenderEditFault.attempted("bpy.data", lambda: bpy.data.project_init(project.name, str(project.root))).bind(
-            lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.data", key="project"),))
+    def initialized() -> Outcome[bpy.types.BlenderProject]:
+        return (
+            catch(bpy.data.project_init, exception=RuntimeError)(project.name, str(project.root))
+            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject="bpy.data", cause=error),))
+            .bind(lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="bpy.data", member="project"),)))
         )
 
-    def reconciled(current: bpy.types.BlenderProject) -> BlenderResult[None]:
+    def reconciled(current: bpy.types.BlenderProject) -> Outcome[None]:
         variables, libraries = dict(current.variables.items()), tuple(current.asset_libraries.items())
         with ExitStack() as cleanup:
 
-            def created[T](request: str, name: str, made: Callable[[], T | None], removed: Callable[[T], object]) -> BlenderResult[T]:
+            def created[T](request: str, name: str, made: Callable[[], T | None], removed: Callable[[T], object]) -> Outcome[T]:
                 def held(item: T) -> T:
                     cleanup.callback(removed, item)
                     return item
 
-                return BlenderEditFault.attempted(request, made).bind(lambda item: Option.of_optional(item).map(held).to_result_with(lambda: (BlenderAbsentFault(owner=request, key=name),)))
+                return (
+                    catch(made, exception=RuntimeError)()
+                    .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
+                    .bind(lambda item: Option.of_optional(item).map(held).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=request, member=name),)))
+                )
 
-            def placed(name: str, variable: TemplateVariable) -> BlenderResult[None]:
+            def placed(name: str, variable: TemplateVariable) -> Outcome[None]:
                 kind: Literal["STRING", "INTEGER", "FLOAT"]
                 values: Mapping[str, Value]
                 match variable.value:
@@ -319,7 +331,7 @@ def projected(project: Project) -> BlenderResult[None]:
                     case float(number):
                         kind, values = "FLOAT", {"value": number}
 
-                def replaced() -> BlenderResult[bpy.types.ProjectVariable]:
+                def replaced() -> Outcome[bpy.types.ProjectVariable]:
                     for item in Option.of_optional(variables.get(name)).to_list():
                         current.variables.remove(item)
                     return created(repr(current.variables), name, lambda: current.variables.new(name, type=kind), current.variables.remove)
@@ -333,7 +345,7 @@ def projected(project: Project) -> BlenderResult[None]:
                     .bind(lambda item: assigned(item, {**values, "description": variable.description}))
                 )
 
-            def library(name: str, path: str) -> BlenderResult[None]:
+            def library(name: str, path: str) -> Outcome[None]:
                 match tuple(item for held, item in libraries if held == name):
                     case ():
                         return created(repr(current.asset_libraries), name, lambda: current.asset_libraries.new(name=name, directory=path), current.asset_libraries.remove).map(lambda _: None)

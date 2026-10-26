@@ -1,7 +1,7 @@
 """Render queue submission to Flamenco Manager."""
 
 import base64
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from http import HTTPMethod
 from itertools import batched, starmap
 from pathlib import Path, PurePath
@@ -16,11 +16,11 @@ import httpx2
 import msgspec
 from scipy.cluster.hierarchy import DisjointSet
 
-from blender.records.faults import accumulated, FileFault, paired
-from blender.records.fields import Case, Gated, Presentation
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
+from blender.records.fields import Case
 from blender.rendering.batch.exchange import Endpoint, exchange, sent
 from blender.rendering.batch.queue import Job, RenderFrames, RenderQueue
-from blender.rendering.faults import RenderingFaults, RenderingResult, RenderingSendFault
+from blender.rendering.faults import RenderingReason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -119,7 +119,7 @@ class _SubmittedJob(msgspec.Struct, frozen=True, kw_only=True):
     type: str
     priority: int
     submitter_platform: str
-    settings: dict[str, str | tuple[_JobTasks, ...]]
+    settings: Mapping[str, str | tuple[_JobTasks, ...]]
     initial_status: Literal["queued", "paused"]
     type_etag: str | None = None
     worker_tag: str | None = None
@@ -135,7 +135,7 @@ class _ManagerJob(msgspec.Struct, frozen=True, kw_only=True):
 class _ManagerFiles(msgspec.Struct, frozen=True, kw_only=True):
     """Manager path per source file with Shaman checkout."""
 
-    files: dict[str, str]
+    files: Mapping[str, str]
     storage: Option[_JobStorageInfo]
 
 
@@ -147,7 +147,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
     tags: tuple[_WorkerTag, ...]
 
     @classmethod
-    def queried(cls, client: httpx2.Client) -> RenderingResult[Self]:
+    def queried(cls, client: httpx2.Client) -> Outcome[Self]:
         """Reads storage location, the Rasm job type, and worker tags."""
         return paired(
             exchange(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{PLATFORM}", _SharedStorageLocation),
@@ -155,13 +155,13 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             exchange(client, HTTPMethod.GET, "/api/v3/worker-mgt/tags", _WorkerTagList),
         ).map(lambda found: cls(storage=found[0], job_type=Option.of_optional(next((kind for kind in found[1].job_types if kind.name == Flamenco.kind), None)), tags=found[2].tags))
 
-    def placed(self, client: httpx2.Client, queue: RenderQueue) -> RenderingResult[_ManagerFiles]:
+    def placed(self, client: httpx2.Client, queue: RenderQueue) -> Outcome[_ManagerFiles]:
         """Uploads blend files to Shaman when enabled, else copies them to Manager storage."""
         local = {PurePath(str(part), PurePath(job.file).name).as_posix(): job for part, job in {job.file: (part, job) for part, job in enumerate(queue.jobs)}.values()}
         files = local.items()
         folder = queue.stem
 
-        def copied(name: str, job: Job) -> RenderingResult[tuple[str, str]]:
+        def copied(name: str, job: Job) -> Outcome[tuple[str, str]]:
             relative = PurePath(folder, name)
             target = Path(self.storage.location, relative)
 
@@ -170,20 +170,22 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
                 shutil.copy2(job.file, target)
                 return job.file, f"{{jobs}}/{relative.as_posix()}"
 
-            return catch(copy, exception=OSError)().map_error(lambda error: (FileFault(access="write", request=target, error=error),))
+            return catch(copy, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(target), cause=error),))
 
-        def read[T](source: str, reader: Callable[[Path], T]) -> RenderingResult[T]:
+        def read[T](source: str, reader: Callable[[Path], T]) -> Outcome[T]:
             return catch(lambda: reader(Path(source)), exception=OSError)().map_error(
-                lambda error: (RenderingSendFault(request=source, error=424) if isinstance(error, FileNotFoundError) else FileFault(access="read", request=source, error=error),)
+                lambda error: (
+                    Fault(reason=RenderingReason.STATUS, subject=source, member="424") if isinstance(error, FileNotFoundError) else Fault(reason=RecordReason.UNREADABLE, subject=source, cause=error),
+                )
             )
 
-        def specified(name: str, job: Job) -> RenderingResult[_ShamanFileSpec]:
+        def specified(name: str, job: Job) -> Outcome[_ShamanFileSpec]:
             return read(job.file, lambda path: path.stat().st_size).map(lambda size: _ShamanFileSpec(sha=job.digest.hex(), size=size, path=name))
 
-        def checked(specs: tuple[_ShamanFileSpec, ...]) -> RenderingResult[_ManagerFiles]:
-            def uploaded(spec: _ShamanFileSpec) -> RenderingResult[httpx2.Response]:
-                def unlisted() -> RenderingFaults:
-                    return (FileFault(access="read", request=spec.path, error=KeyError(spec.path)),)
+        def checked(specs: tuple[_ShamanFileSpec, ...]) -> Outcome[_ManagerFiles]:
+            def uploaded(spec: _ShamanFileSpec) -> Outcome[httpx2.Response]:
+                def unlisted() -> Faults:
+                    return (Fault(reason=RecordReason.UNREADABLE, subject=spec.path, cause=KeyError(spec.path)),)
 
                 return (
                     Option
@@ -216,22 +218,22 @@ class Flamenco(Case, frozen=True, kw_only=True):
 
     script: ClassVar[str] = "rasm_render.js"
     kind: ClassVar[str] = PurePath(script).stem.replace("_", "-")
-    server: Annotated[Endpoint, msgspec.Meta(title="Manager", description="Flamenco Manager address")] = Endpoint(url="http://localhost:8080")
-    priority: Annotated[int, msgspec.Meta(description="Order among queued jobs"), Presentation(soft=Some((1.0, 100.0)))] = 50
-    chunk: Annotated[int, msgspec.Meta(ge=1, le=sys.maxsize, title="Chunk Size", description="Frames each task renders"), Presentation(soft=Some((1.0, 4096.0)))] = 10
-    paused: Annotated[bool, msgspec.Meta(title="Submit Paused", description="Jobs wait for start from Manager")] = False
-    tag: Annotated[Gated[str], msgspec.Meta(title="Worker Tag", description="Workers taking jobs, every worker when off")] = Gated(enabled=False, value="")
+    server: Annotated[Endpoint, msgspec.Meta(description="Flamenco Manager address")] = Endpoint(url="http://localhost:8080")
+    priority: Annotated[int, msgspec.Meta(description="Order among queued jobs")] = 50
+    chunk: Annotated[int, msgspec.Meta(ge=1, le=sys.maxsize, description="Frames each task renders")] = 10
+    paused: Annotated[bool, msgspec.Meta(description="Jobs wait for start from Manager")] = False
+    tag: Annotated[str | None, msgspec.Meta(description="Workers taking jobs, every worker when absent")] = None
 
-    def submitted(self, client: httpx2.Client, queue: RenderQueue, render_command: str) -> RenderingResult[tuple[RenderingResult[str], ...]]:
+    def submitted(self, client: httpx2.Client, queue: RenderQueue, render_command: str) -> Outcome[tuple[Outcome[str], ...]]:
         """Submits each prerequisite-joined job group as one Manager job."""
 
-        def posted(manager: Manager, stored: _ManagerFiles) -> tuple[RenderingResult[str], ...]:
+        def posted(manager: Manager, stored: _ManagerFiles) -> tuple[Outcome[str], ...]:
             components = DisjointSet(range(len(queue.jobs)))
             for part, job in enumerate(queue.jobs):
                 for prerequisite in job.prerequisites:
                     components.merge(part, prerequisite)
 
-            def component(parts: set[int]) -> RenderingResult[str]:
+            def component(parts: set[int]) -> Outcome[str]:
                 jobs = tuple((part, job) for part, job in enumerate(queue.jobs) if part in parts)
                 positions = {part: index for index, (part, _) in enumerate(jobs)}
                 tasks = tuple(
@@ -263,7 +265,7 @@ class Flamenco(Case, frozen=True, kw_only=True):
                             submitter_platform=PLATFORM,
                             settings={"jobs": tuple(task for _, task in tasks), "render_command": render_command, **{task.output_root: root for root, task in tasks}},
                             initial_status="paused" if self.paused else "queued",
-                            worker_tag=self.tag.value if self.tag.enabled else None,
+                            worker_tag=self.tag,
                             storage=stored.storage.to_optional(),
                         )
                     ),

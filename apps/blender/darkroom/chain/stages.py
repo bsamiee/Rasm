@@ -1,20 +1,23 @@
 """Darkroom chain positions: the stage each effect processes at, the phase a run of stages forms, and the effect record a chain entry holds."""
 
-from abc import ABCMeta, abstractmethod
+from collections.abc import Mapping
 from enum import auto, IntEnum
+from functools import singledispatch
 from typing import ClassVar
 
+import bpy
 from expression import Nothing, Ok, Option
+import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.faults import ImagingResult
-from blender.records.fields import Case, CaseMeta
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.extension.identity import Key
+from blender.bpy.render.compositor.effects import CameraFrame
+from blender.imaging.sampling.integration import Estimate, Precision
+from blender.records.faults import Outcome
+from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-
-class EffectMeta(CaseMeta, ABCMeta):
-    """Metaclass of effect records with abstract members."""
 
 
 class Phase(IntEnum):
@@ -77,22 +80,30 @@ Stage.single = frozenset({Stage.CDL, Stage.TONE, Stage.FORMATION, Stage.PEAK, St
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Effect(Case, metaclass=EffectMeta, frozen=True, kw_only=True):
-    """Chain record with its processing stage, pixel locality, and the OCIO operation it has where one exists."""
+class Effect(Case, frozen=True, kw_only=True):
+    """Chain record with its processing stage and whether each output pixel reads its input pixel alone."""
 
     stage: ClassVar[Stage]
+    pointwise: ClassVar[bool]
 
-    @property
-    @abstractmethod
-    def pointwise(self) -> bool:
-        """Whether each output pixel reads its input pixel alone."""
-        ...
 
-    def transform(self, _config: PyOpenColorIO.Config, /) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the OCIO operation of the effect, Nothing for an effect with none."""
-        return Ok(Nothing)
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+@singledispatch
+def transform(_record: Effect, _values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
+    """Returns the OCIO operation of an effect over its entry input values by item key, Nothing for an effect with none."""
+    return Ok(Nothing)
+
+
+@singledispatch
+def prepared(
+    _record: Effect, _values: Mapping[Key, Value], _config: PyOpenColorIO.Config, _image: OpenImageIO.ImageBuf, _precision: Precision, _frame: CameraFrame, _scene: bpy.types.Scene, /
+) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf] | Mapping[Key, Value]]]:
+    """Returns the CPU image replacing the entering color of an effect entry, or input values by item key measured from it, Nothing for an effect its node graph alone evaluates."""
+    return Ok(Nothing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Effect", "EffectMeta", "Phase", "Stage"]
+__all__ = ["Effect", "Phase", "Stage", "prepared", "transform"]

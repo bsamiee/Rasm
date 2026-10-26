@@ -203,6 +203,7 @@ rule:
                 stopBy: end
                 all:
                     - not: {has: {matches: exported}}
+                    - not: {has: {stopBy: end, kind: identifier, pattern: $NAME, nthChild: 1, inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: functools-partial-callee}}}}}
                     - not:
                         has:
                             stopBy: end
@@ -212,6 +213,6 @@ rule:
                                 - all: [{matches: mention}, {not: {inside: {stopBy: end, pattern: $READER, matches: function-owner}}}]
                                 - all: [{matches: rebinding}, {not: {inside: {kind: function_definition, pattern: $DECLARATION}}}]
 message: '`$NAME` has one reader'
-note: 'Move the declaration into its reader as a nested `def`, a `match` for a mapping of up to eight rows, an `in` set display, or an inline literal'
+note: 'Move the declaration into its reader as a nested `def`, a `match` for a mapping of up to eight rows, an `in` set display, or an inline literal, keeping a function `functools.partial` binds at module level'
 labels:
     READER: {style: secondary, message: Only reader}

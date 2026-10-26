@@ -6,22 +6,27 @@ from contextlib import nullcontext
 from typing import Final
 
 from expression import Option
+from expression.extra.result import catch
 import gpu
-import msgspec
 import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.imaging.files.images import unassociated
+from blender.records.faults import Fault, Outcome
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Textures(msgspec.Struct, kw_only=True, eq=False):
+class Textures:
     """Preview textures of one extension, least recently shown first."""
 
-    held: OrderedDict[Hashable, gpu.types.GPUTexture] = msgspec.field(default_factory=OrderedDict)
+    __slots__ = ("held",)
+
+    def __init__(self) -> None:
+        """Holds no texture."""
+        self.held: OrderedDict[Hashable, gpu.types.GPUTexture] = OrderedDict()
 
     @property
     def memory(self) -> int:
@@ -34,7 +39,7 @@ class Textures(msgspec.Struct, kw_only=True, eq=False):
             self.held.move_to_end(key)
         return Option.of_optional(self.held.get(key))
 
-    def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable]) -> BlenderResult[gpu.types.GPUTexture]:
+    def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable]) -> Outcome[gpu.types.GPUTexture]:
         """Uploads unassociated display colors, evicting oldest unpinned textures past limit.
 
         Args:
@@ -61,13 +66,16 @@ class Textures(msgspec.Struct, kw_only=True, eq=False):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def uploaded(plane: npt.NDArray[np.float32]) -> BlenderResult[gpu.types.GPUTexture]:
+def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
     """Uploads top-first RGBA into RGBA16F texture with bottom-first rows."""
     pixels = np.ascontiguousarray(plane[::-1])
-    return BlenderEditFault.attempted("gpu.init", gpu.init).bind(
-        lambda _: BlenderEditFault.attempted(
-            "gpu.types.GPUTexture",
-            lambda: gpu.types.GPUTexture((pixels.shape[1], pixels.shape[0]), format="RGBA16F", data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    return (
+        catch(gpu.init, exception=RuntimeError)()
+        .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject="gpu.init", cause=error),))
+        .bind(
+            lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format="RGBA16F", data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                lambda error: (Fault(reason=BlenderReason.REFUSED, subject="gpu.types.GPUTexture", cause=error),)
+            )
         )
     )
 

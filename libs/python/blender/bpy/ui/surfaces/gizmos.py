@@ -17,20 +17,20 @@ from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisition, Band, entered
-from blender.bpy.faults import BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.layout.rows import Member, ResolvedMember
 from blender.bpy.ui.resources.icons import Glyph, Icons
 from blender.bpy.ui.resources.theme import color
-from blender.records.faults import accumulated, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Place = Callable[[bpy.types.Context], BlenderResult[Option[mathutils.Matrix]]]
+type Place = Callable[[bpy.types.Context], Outcome[Option[mathutils.Matrix]]]
 type GizmoPart = Button | Primitive | Cage | Arrow | Dial | Move
-type Target = Callable[[bpy.types.Gizmo, bpy.types.Context], BlenderResult[None]]
+type Target = Callable[[bpy.types.Gizmo, bpy.types.Context], Outcome[None]]
 type Binding = tuple[str, Member | ResolvedMember[bpy.types.FloatProperty]] | Target
 type MatrixValues = tuple[float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float]
 
@@ -41,7 +41,7 @@ class Handler[V](msgspec.Struct, frozen=True, kw_only=True):
     """Gizmo target context callbacks and range."""
 
     get: Callable[[bpy.types.Context], V]
-    set: Callable[[bpy.types.Context, V], BlenderResult[None]]
+    set: Callable[[bpy.types.Context, V], Outcome[None]]
     range: Option[Callable[[bpy.types.Context], tuple[float, float]]] = Nothing
 
 
@@ -168,32 +168,20 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [NAMING]
 
-    def named(self, identity: Identity) -> BlenderResult[str]:
+    def named(self, identity: Identity) -> Outcome[str]:
         """Returns group `bl_idname` for tools and linking."""
         return identity.name(Name.GIZMO_GROUP, self.key)
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Binds part targets, registering group class in the interface band once button glyphs resolve."""
 
         def target[V](key: str, handler: Handler[V]) -> Target:
             """Binds handler as target callbacks."""
-            write = identity.reports.reported(handler.set)
+            return partial(_bound, key, handler, identity.reports.reported(handler.set))
 
-            def bound(gizmo: bpy.types.Gizmo, context: bpy.types.Context) -> BlenderResult[None]:
-                """Binds callbacks to group context."""
-                gizmo.target_set_handler(
-                    key,
-                    get=lambda: handler.get(context),
-                    set=lambda value: write(context, value).to_optional(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    range=handler.range.map(lambda extent: partial(extent, context)).to_optional(),
-                )
-                return Ok(None)
-
-            return bound
-
-        def acquired(part: GizmoPart) -> BlenderResult[tuple[GizmoPart, Binding]]:
+        def acquired(part: GizmoPart) -> Outcome[tuple[GizmoPart, Binding]]:
             """Resolves operator, property, or handler target."""
 
             def operator(invocation: tuple[str, Writer]) -> tuple[GizmoPart, Binding]:
@@ -218,7 +206,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
         def built(name: str, parts: tuple[tuple[GizmoPart, Binding], ...], icons: tuple[Option[int], ...]) -> type[bpy.types.GizmoGroup]:
             """Builds gizmo group class over resolved parts and button icons."""
 
-            def reached(member: Member | ResolvedMember[bpy.types.FloatProperty], context: bpy.types.Context) -> BlenderResult[Option[ResolvedMember[bpy.types.FloatProperty]]]:
+            def reached(member: Member | ResolvedMember[bpy.types.FloatProperty], context: bpy.types.Context) -> Outcome[Option[ResolvedMember[bpy.types.FloatProperty]]]:
                 """Resolves member on its source's current struct."""
                 return (
                     member.reach.bind(lambda source: source(context)).map(lambda actual: member.resolved(bpy.types.FloatProperty, root=Some(actual)).map(Some)).default_value(Ok(Nothing))
@@ -226,7 +214,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                     else Ok(Some(member))
                 )
 
-            def attach(gizmo: bpy.types.Gizmo, binding: Binding, context: bpy.types.Context) -> BlenderResult[None]:
+            def attach(gizmo: bpy.types.Gizmo, binding: Binding, context: bpy.types.Context) -> Outcome[None]:
                 """Binds part target, property refusal as edit fault."""
                 if not isinstance(binding, tuple):
                     return binding(gizmo, context)
@@ -235,13 +223,14 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                     case Result(tag="error", error=faults):
                         return Error(faults)
                     case Result(ok=found):
-                        for held in found.to_list():
-                            try:
-                                for owner, identifier in held.at(context, context).to_list():
-                                    gizmo.target_set_prop(key, owner, identifier, index=held.descriptor.index.default_value(-1))
-                            except RuntimeError as error:
-                                return Error((BlenderEditFault(request=held.descriptor.path, error=error),))
-                        return Ok(None)
+                        return found.map(
+                            lambda held: accumulated(
+                                catch(gizmo.target_set_prop, exception=RuntimeError)(key, owner, identifier, index=held.descriptor.index.default_value(-1)).map_error(
+                                    lambda error: (Fault(reason=BlenderReason.REFUSED, subject=held.descriptor.path, cause=error),)
+                                )
+                                for owner, identifier in held.at(context, context).to_list()
+                            ).map(lambda _: None)
+                        ).default_value(Ok(None))
 
             def poll(_cls: type[bpy.types.GizmoGroup], context: bpy.types.Context) -> bool:
                 """Returns whether condition holds and every owner resolves."""
@@ -302,7 +291,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
             return type(name, (bpy.types.GizmoGroup,), native)
 
         @contextmanager
-        def registered(name: str, parts: tuple[tuple[GizmoPart, Binding], ...]) -> Generator[BlenderResult[None]]:
+        def registered(name: str, parts: tuple[tuple[GizmoPart, Binding], ...]) -> Generator[Outcome[None]]:
             """Registers group class for the scope once every button glyph resolves."""
             with ExitStack() as stack:
                 yield accumulated(Icons.value(identity, part.glyph).map(Some) if isinstance(part, Button) else Ok(Nothing) for part, _ in parts).bind(
@@ -318,11 +307,13 @@ class Linked(Gizmos, frozen=True, kw_only=True):
     persistent: ClassVar[bool] = False
 
     @contextmanager
-    def linked(self, identity: Identity) -> Generator[BlenderResult[None]]:
+    def linked(self, identity: Identity) -> Generator[Outcome[None]]:
         """Links group into its regions for the scope."""
         acquired = paired(self.named(identity), rooted(bpy.types.WindowManager, bpy.context)).bind(
             lambda held: (
-                catch(lambda: held[1].gizmo_group_type_ensure(held[0]), exception=RuntimeError)().map(lambda _: held).map_error(lambda error: (BlenderEditFault(request=held[0], error=error),))
+                catch(lambda: held[1].gizmo_group_type_ensure(held[0]), exception=RuntimeError)()
+                .map(lambda _: held)
+                .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=held[0], cause=error),))
             )
         )
         try:
@@ -330,6 +321,20 @@ class Linked(Gizmos, frozen=True, kw_only=True):
         finally:
             for name, manager in acquired.to_option().to_list():
                 manager.gizmo_group_type_unlink_delayed(name)
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _bound[V](key: str, handler: Handler[V], write: Callable[[bpy.types.Context, V], Option[None]], gizmo: bpy.types.Gizmo, context: bpy.types.Context) -> Outcome[None]:
+    """Binds handler callbacks as gizmo target in group context."""
+    gizmo.target_set_handler(
+        key,
+        get=lambda: handler.get(context),
+        set=lambda value: write(context, value).to_optional(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        range=handler.range.map(lambda extent: partial(extent, context)).to_optional(),
+    )
+    return Ok(None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -3,20 +3,20 @@
 from collections.abc import Callable
 import functools
 import itertools
+import math
 import typing
 from typing import Annotated, ClassVar, Final, Literal, override
 
 import bpy
-from expression import Nothing, Option, Some
+from expression import Nothing, Option
 import msgspec
 import msgspec.structs
 import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.nodes.graphs import DataType, Expr, Scalar, Term
-from blender.bpy.settings.shapes import GraphForm
 from blender.imaging.geometry.arithmetic import Field, Namespace
-from blender.records.fields import Finite, heading, markers, NonNegative, Presentation, Quantity, Unit
+from blender.records.fields import Finite, NonNegative, Unit
 from blender.records.identity import content_hash
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -37,7 +37,7 @@ _TAU: Final = 2.0 * np.pi
 
 
 class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
-    """One node's settings: fields marked `GraphForm.SETTING` are its members, every other field the input socket its heading names."""
+    """One node's settings: fields its RNA declares are its members, every other field the input socket its display name names."""
 
     kind: ClassVar[type[bpy.types.ShaderNode]]
     outputs: ClassVar[tuple[tuple[str, DataType], ...]]
@@ -63,13 +63,14 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Output expression in the output's shape.
         """
+        rna: bpy.types.Struct = self.kind.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         fields = msgspec.structs.fields(self)
-        settings = tuple(field for field in fields if GraphForm.SETTING in markers(field.type, GraphForm))
+        settings = tuple(field for field in fields if field.name in rna.properties)
         sockets = tuple(field for field in fields if field not in settings and getattr(type(self), field.name) not in self.unfed)
         chosen = socket.default_value(self.primary)
         return Expr(
             kind=self.kind,
-            inputs=(*coordinates, *((heading(field.name), linked.bind(lambda read: read(field)).default_value(getattr(self, field.name))) for field in sockets)),
+            inputs=(*coordinates, *((bpy.path.display_name(field.name), linked.bind(lambda read: read(field)).default_value(getattr(self, field.name))) for field in sockets)),
             members=tuple((field.name, getattr(self, field.name)) for field in settings),
             socket=chosen,
             shape=dict(self.outputs)[chosen],
@@ -110,9 +111,9 @@ class Noise(Texture, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexNoise
     outputs = (("Fac", "FLOAT"), ("Color", "RGBA"))
-    noise_dimensions: Annotated[Dimensions, GraphForm.SETTING] = "3D"
-    noise_type: Annotated[Literal["MULTIFRACTAL", "RIDGED_MULTIFRACTAL", "HYBRID_MULTIFRACTAL", "FBM", "HETERO_TERRAIN"], GraphForm.SETTING] = "FBM"
-    normalize: Annotated[bool, GraphForm.SETTING] = True
+    noise_dimensions: Dimensions = "3D"
+    noise_type: Literal["MULTIFRACTAL", "RIDGED_MULTIFRACTAL", "HYBRID_MULTIFRACTAL", "FBM", "HETERO_TERRAIN"] = "FBM"
+    normalize: bool = True
     scale: Annotated[float, msgspec.Meta(ge=-1000.0, le=1000.0)] = 5.0
     detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0)] = 2.0
     roughness: Unit = 0.5
@@ -152,10 +153,10 @@ class Voronoi(Texture, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexVoronoi
     outputs = (("Distance", "FLOAT"), ("Color", "RGBA"), ("Position", "VECTOR"), ("W", "FLOAT"), ("Radius", "FLOAT"))
-    voronoi_dimensions: Annotated[Dimensions, GraphForm.SETTING] = "3D"
-    feature: Annotated[Literal["F1", "F2", "SMOOTH_F1", "DISTANCE_TO_EDGE", "N_SPHERE_RADIUS"], GraphForm.SETTING] = "F1"
-    distance: Annotated[Literal["EUCLIDEAN", "MANHATTAN", "CHEBYCHEV", "MINKOWSKI"], GraphForm.SETTING] = "EUCLIDEAN"
-    normalize: Annotated[bool, GraphForm.SETTING] = False
+    voronoi_dimensions: Dimensions = "3D"
+    feature: Literal["F1", "F2", "SMOOTH_F1", "DISTANCE_TO_EDGE", "N_SPHERE_RADIUS"] = "F1"
+    distance: Literal["EUCLIDEAN", "MANHATTAN", "CHEBYCHEV", "MINKOWSKI"] = "EUCLIDEAN"
+    normalize: bool = False
     scale: Annotated[float, msgspec.Meta(ge=-1000.0, le=1000.0)] = 5.0
     detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0)] = 0.0
     roughness: Unit = 0.5
@@ -350,10 +351,10 @@ class Wave(Texture, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexWave
     outputs = (("Fac", "FLOAT"), ("Color", "RGBA"))
-    wave_type: Annotated[Literal["BANDS", "RINGS"], GraphForm.SETTING] = "BANDS"
-    bands_direction: Annotated[Literal["X", "Y", "Z", "DIAGONAL"], GraphForm.SETTING] = "X"
-    rings_direction: Annotated[Literal["X", "Y", "Z", "SPHERICAL"], GraphForm.SETTING] = "X"
-    wave_profile: Annotated[WaveProfile, GraphForm.SETTING] = "SIN"
+    wave_type: Literal["BANDS", "RINGS"] = "BANDS"
+    bands_direction: Literal["X", "Y", "Z", "DIAGONAL"] = "X"
+    rings_direction: Literal["X", "Y", "Z", "SPHERICAL"] = "X"
+    wave_profile: WaveProfile = "SIN"
     scale: Annotated[float, msgspec.Meta(ge=-1000.0, le=1000.0)] = 5.0
     distortion: Annotated[float, msgspec.Meta(ge=-1000.0, le=1000.0)] = 0.0
     detail: Annotated[float, msgspec.Meta(ge=0.0, le=15.0)] = 2.0
@@ -397,7 +398,7 @@ class Magic(Texture, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexMagic
     outputs = (("Fac", "FLOAT"), ("Color", "RGBA"))
-    turbulence_depth: Annotated[int, msgspec.Meta(ge=0, le=10), GraphForm.SETTING] = 2
+    turbulence_depth: Annotated[int, msgspec.Meta(ge=0, le=10)] = 2
     scale: Annotated[float, msgspec.Meta(ge=-1000.0, le=1000.0)] = 5.0
     distortion: Annotated[float, msgspec.Meta(ge=-1000.0, le=1000.0)] = 1.0
 
@@ -430,12 +431,12 @@ class Gabor(Texture, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexGabor
     outputs = (("Value", "FLOAT"), ("Phase", "FLOAT"), ("Intensity", "FLOAT"))
-    gabor_type: Annotated[Literal["2D", "3D"], GraphForm.SETTING] = "2D"
+    gabor_type: Literal["2D", "3D"] = "2D"
     scale: Finite = 5.0
     frequency: NonNegative = 2.0
     anisotropy: Unit = 1.0
-    orientation_2d: Annotated[Finite, Presentation(quantity=Some(Quantity.ANGLE))] = np.pi / 4.0
-    orientation_3d: tuple[Finite, Finite, Finite] = (np.sqrt(2.0), np.sqrt(2.0), 0.0)
+    orientation_2d: Finite = math.pi / 4.0
+    orientation_3d: tuple[Finite, Finite, Finite] = (math.sqrt(2.0), math.sqrt(2.0), 0.0)
 
     @property
     @override
@@ -500,7 +501,7 @@ class White(Texture, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeTexWhiteNoise
     outputs = (("Value", "FLOAT"), ("Color", "RGBA"))
-    noise_dimensions: Annotated[Dimensions, GraphForm.SETTING] = "3D"
+    noise_dimensions: Dimensions = "3D"
 
     @property
     @override
@@ -519,8 +520,8 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
 
     kind = bpy.types.ShaderNodeMapRange
     outputs = (("Result", "FLOAT"),)
-    interpolation_type: Annotated[Literal["LINEAR", "STEPPED", "SMOOTHSTEP", "SMOOTHERSTEP"], GraphForm.SETTING] = "LINEAR"
-    clamp: Annotated[bool, GraphForm.SETTING] = True
+    interpolation_type: Literal["LINEAR", "STEPPED", "SMOOTHSTEP", "SMOOTHERSTEP"] = "LINEAR"
+    clamp: bool = True
     from_min: float = 0.0
     from_max: float = 1.0
     to_min: float = 0.0

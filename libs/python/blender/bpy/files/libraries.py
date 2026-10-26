@@ -11,9 +11,9 @@ import msgspec
 
 from blender.bpy.data.ids.store import Handle, member
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.files.blends import folder_made, sourced
-from blender.records.faults import accumulated, FileFault
+from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -153,27 +153,29 @@ class Stale(msgspec.Struct, frozen=True, kw_only=True):
 # --- [LOADS]
 
 
-def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> BlenderResult[tuple[str, Sequence[str]]]:
+def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tuple[str, Sequence[str]]]:
     store = member(kind)
     return (
         Option
         .of_optional(None if issubclass(kind, bpy.types.Library) else getattr(source, store, None))
         .map(lambda names: (store, names))
-        .to_result_with(lambda: (BlenderAbsentFault(owner=str(path), key=store),))
+        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(path), member=store),))
     )
 
 
-def listed(path: Path, kind: type[bpy.types.ID], *, assets_only: bool = False) -> BlenderResult[tuple[str, ...]]:
+def listed(path: Path, kind: type[bpy.types.ID], *, assets_only: bool = False) -> Outcome[tuple[str, ...]]:
     """Returns names in blend file store of kind."""
     return sourced(bpy.data, path, lambda source: (_listing(source, kind, path), {}), assets_only=assets_only).bind(lambda answer: answer[0].map(lambda listing: tuple(listing[1])))
 
 
-def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, ...], link: LibraryLink) -> BlenderResult[tuple[T, ...]]:
+def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, ...], link: LibraryLink) -> Outcome[tuple[T, ...]]:
     """Links or appends named blocks, absent fault per missing name or kind."""
 
-    def chosen(source: object) -> tuple[BlenderResult[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
+    def chosen(source: object) -> tuple[Outcome[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
         found = _listing(source, kind, path).bind(
-            lambda listing: accumulated(Ok(name) if name in listing[1] else Error((BlenderAbsentFault(owner=str(path), key=name),)) for name in names).map(lambda selected: (listing[0], selected))
+            lambda listing: accumulated(Ok(name) if name in listing[1] else Error((Fault(reason=BlenderReason.ABSENT, subject=str(path), member=name),)) for name in names).map(
+                lambda selected: (listing[0], selected)
+            )
         )
         return found, found.map(lambda selected: {selected[0]: selected[1]}).default_value({})
 
@@ -187,20 +189,22 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     return sourced(bpy.data, path, chosen, **keywords).bind(
         lambda answer: answer[0].bind(
-            lambda selected: accumulated(Ok(block) if isinstance(block, kind) else Error((BlenderAbsentFault(owner=str(path), key=name),)) for name, block in zip(selected[1], answer[1][selected[0]]))
+            lambda selected: accumulated(
+                Ok(block) if isinstance(block, kind) else Error((Fault(reason=BlenderReason.ABSENT, subject=str(path), member=name),)) for name, block in zip(selected[1], answer[1][selected[0]])
+            )
         )
     )
 
 
 def library_written(
     path: Path, blocks: frozenset[bpy.types.ID], *, remap: Literal["NONE", "RELATIVE", "RELATIVE_ALL", "ABSOLUTE"] = "RELATIVE_ALL", fake_user: bool = True, compress: bool = False
-) -> BlenderResult[Path]:
+) -> Outcome[Path]:
     """Writes blocks to library file, returning path."""
     return folder_made(path.parent).bind(
         lambda _: (
             catch(lambda: bpy.data.libraries.write(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress), exception=OSError)()
             .map(lambda _: path)
-            .map_error(lambda error: (FileFault(access="write", request=path, error=error),))
+            .map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
         )
     )
 
@@ -208,33 +212,37 @@ def library_written(
 # --- [LIBRARIES]
 
 
-def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> BlenderResult[bpy.types.Library]:
+def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> Outcome[bpy.types.Library]:
     """Reloads library, relocating it to path when given."""
-    return accumulated(written(library, "filepath", str(target)) for target in path.to_list()).bind(lambda _: BlenderEditFault.attempted(f"{library!r}.reload", library.reload)).map(lambda _: library)
+    return (
+        accumulated(written(library, "filepath", str(target)) for target in path.to_list())
+        .bind(lambda _: catch(library.reload, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=f"{library!r}.reload", cause=error),)))
+        .map(lambda _: library)
+    )
 
 
 # --- [OVERRIDES]
 
 
-def overridden(block: bpy.types.ID, scope: OverrideScope) -> BlenderResult[bpy.types.ID]:
+def overridden(block: bpy.types.ID, scope: OverrideScope) -> Outcome[bpy.types.ID]:
     """Creates override, absent fault when ID takes none."""
     match scope:
         case Isolated(remap_local_usages=remap):
             made = block.override_create(remap_local_usages=remap)
         case Hierarchy(scene=scene, view_layer=view_layer, reference=reference, do_fully_editable=editable):
             made = block.override_hierarchy_create(scene, view_layer, reference=reference.to_optional(), do_fully_editable=editable)
-    return Option.of_optional(made).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="override_library"),))
+    return Option.of_optional(made).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(block), member="override_library"),))
 
 
-def overriding(block: bpy.types.ID) -> BlenderResult[bpy.types.IDOverrideLibrary]:
+def overriding(block: bpy.types.ID) -> Outcome[bpy.types.IDOverrideLibrary]:
     """Returns override data of ID."""
-    return Option.of_optional(block.override_library).to_result_with(lambda: (BlenderAbsentFault(owner=repr(block), key="override_library"),))
+    return Option.of_optional(block.override_library).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(block), member="override_library"),))
 
 
-def override_changed(block: bpy.types.ID, change: OverrideChange) -> BlenderResult[None]:
+def override_changed(block: bpy.types.ID, change: OverrideChange) -> Outcome[None]:
     """Resets, destroys, or resyncs override, absent fault for missing reference."""
 
-    def changed(held: bpy.types.IDOverrideLibrary) -> BlenderResult[None]:
+    def changed(held: bpy.types.IDOverrideLibrary) -> Outcome[None]:
         request = repr(held)
         apply: Callable[[], bool | None]
         match change:
@@ -244,12 +252,16 @@ def override_changed(block: bpy.types.ID, change: OverrideChange) -> BlenderResu
                 apply = lambda: held.destroy(**msgspec.structs.asdict(change))
             case Resync(scene=scene, view_layer=view_layer, residual_storage=residual, do_hierarchy_enforce=enforce, do_whole_hierarchy=whole):
                 apply = lambda: held.resync(scene=scene, view_layer=view_layer, residual_storage=residual.to_optional(), do_hierarchy_enforce=enforce, do_whole_hierarchy=whole)
-        return BlenderEditFault.attempted(request, apply).bind(lambda done: Error((BlenderAbsentFault(owner=request, key="reference"),)) if done is False else Ok(None))
+        return (
+            catch(apply, exception=RuntimeError)()
+            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=request, cause=error),))
+            .bind(lambda done: Error((Fault(reason=BlenderReason.ABSENT, subject=request, member="reference"),)) if done is False else Ok(None))
+        )
 
     return overriding(block).bind(changed)
 
 
-def edits(block: bpy.types.ID) -> BlenderResult[tuple[Descriptor[bpy.types.Property], ...]]:
+def edits(block: bpy.types.ID) -> Outcome[tuple[Descriptor[bpy.types.Property], ...]]:
     """Returns descriptor per override property."""
     return overriding(block).bind(lambda held: accumulated(Descriptor.resolve(type(block), item.rna_path, bpy.types.Property) for item in held.properties))
 

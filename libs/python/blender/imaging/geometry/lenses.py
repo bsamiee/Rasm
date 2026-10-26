@@ -4,7 +4,6 @@ import itertools
 import math
 from typing import Annotated
 
-from expression import Some
 import msgspec
 import numpy as np
 from numpy.polynomial import Polynomial
@@ -14,7 +13,7 @@ from scipy.integrate import quad_vec
 from blender.imaging.geometry.arithmetic import Field, Namespace
 from blender.imaging.geometry.panoramas import Point, Rectilinear
 from blender.imaging.sampling.integration import smoothstep
-from blender.records.fields import Finite, Positive, Presentation, Quantity, Unit
+from blender.records.fields import Finite, Positive, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -23,9 +22,9 @@ class Aperture(msgspec.Struct, frozen=True, kw_only=True):
     """Iris outline of bokeh and diffraction pupils."""
 
     blades: Annotated[int, msgspec.Meta(ge=3, le=24, description="Blades outlining bokeh")] = 5
-    rotation: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Clockwise blade vertex turn from vertical"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
+    rotation: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Clockwise blade vertex turn from vertical")] = 0.0
     roundness: Annotated[Unit, msgspec.Meta(description="Blade curvature, circular at 1")] = 1.0
-    obstruction: Annotated[Unit, msgspec.Meta(title="Catadioptric", description="Central mirror share of iris")] = 0.0
+    obstruction: Annotated[Unit, msgspec.Meta(description="Central mirror share of iris")] = 0.0
 
     @property
     def sector(self) -> float:
@@ -196,10 +195,10 @@ class Radial(msgspec.Struct, frozen=True, kw_only=True):
 class ThinLens(msgspec.Struct, frozen=True, kw_only=True):
     """Thin lens focal length, f-number, focus distance, and sensor width, lengths in meters."""
 
-    focal_length: Annotated[Positive, Presentation(quantity=Some(Quantity.FOCAL_LENGTH))]
-    f_number: Annotated[Positive, msgspec.Meta(title="F-Stop")]
-    focus: Annotated[Positive, Presentation(quantity=Some(Quantity.LENGTH))]
-    sensor: Annotated[Positive, Presentation(quantity=Some(Quantity.FOCAL_LENGTH))]
+    focal_length: Positive
+    f_number: Positive
+    focus: Positive
+    sensor: Positive
 
     def confusion[V: Field, B](self, depth: V, ns: Namespace[V, B]) -> V:
         """Returns circle of confusion radius over sensor width at scene depths, unbounded when focused at the focal length."""

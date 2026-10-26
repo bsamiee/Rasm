@@ -1,27 +1,27 @@
 """BT.2390 peak mapping of formed absolute PQ display codes into a display's peak and black."""
 
-from typing import Annotated
+from typing import Final
 
-from expression import Ok, Some
-import msgspec
+import bpy
+from expression import Nothing, Ok, Option, Some
+import numpy as np
+import PyOpenColorIO
 
-from blender.bpy.commands.operators import Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Operator
 from blender.bpy.data.rna.conditions import AllOf, HdrWindow, Job
-from blender.bpy.faults import BlenderResult
+from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.graphs import Expr
+from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.render.compositor import grades
-from blender.bpy.render.compositor.effects import CompositorEffect, Measures, Named, Shell
-from blender.bpy.render.compositor.viewers import measuring
+from blender.bpy.render.compositor.effects import CompositorEffect, entered, Named, Registers, Shell
+from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import Domain
-from blender.records.fields import Presentation, Quantity, Unit
+from blender.imaging.files.images import ImageFile
+from blender.records.faults import Outcome
 
 from ...chain.stages import Effect, Stage
 from .display import shown_space
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Luminance = Annotated[float, msgspec.Meta(ge=0.0, le=10000.0), Presentation(soft=Some((100.0, 10000.0)), step=Some(1.0), precision=Some(0), quantity=Some(Quantity.LUMINANCE))]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -31,48 +31,56 @@ class PeakMapping(Effect, frozen=True, kw_only=True):
 
     stage = Stage.PEAK
     pointwise = True
-    source_peak: Annotated[Luminance, msgspec.Meta(description="Brightest frame luminance")] = 10000.0
-    target_peak: Annotated[Luminance, msgspec.Meta(description="Display peak luminance")] = 1000.0
-    black: Annotated[
-        Unit,
-        msgspec.Meta(title="Display Black", description="Share of fitted peak luminance, inverse of display contrast ratio"),
-        Presentation(soft=Some((0.0, 0.001)), step=Some(0.00001), precision=Some(6)),
-    ] = 0.0
-    knee_offset: Annotated[float, msgspec.Meta(ge=0.5, le=2.0, description="Offset from fitted peak down to knee, 0.5 in BT.2390"), Presentation(step=Some(0.01), precision=Some(2))] = 0.5
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def peaked(shell: Shell[PeakMapping]) -> BlenderResult[Expr]:
+def peaked(shell: Shell[PeakMapping]) -> Outcome[Expr]:
     """Maps formed PQ codes through the BT.2390 EETF over live peak, black, and knee inputs."""
-    source_peak, target_peak, black, knee_offset = map(shell.input, PeakMapping.__struct_fields__)
-    return Ok(grades.eetf(shell.color, source=source_peak, target=target_peak, black=black, knee=knee_offset))
+    return Ok(grades.eetf(shell.color, source=shell.input("source_peak"), target=shell.input("target_peak"), black=shell.input("display_black"), knee=shell.input("knee_offset")))
+
+
+def measure_peak(call: Call[Named]) -> Outcome[Answer]:
+    """Measure source peak from stage input."""
+
+    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+        return (
+            Samples
+            .of(PyOpenColorIO.GetCurrentConfig(), file.pixels)
+            .bind(Samples.peak)
+            .bind(lambda peak: peak.map(lambda value: entered(identity, entry, {"source_peak": value})).default_value(Ok(False)))
+            .map(lambda wrote: Some(bpy.path.display_name(measure_peak.__name__)) if wrote else Nothing)
+        )
+
+    return (
+        call
+        .root(bpy.types.Scene)
+        .bind(lambda scene: peak_mapping.named(call.identity, scene, call.properties.name).bind(lambda entry: READ.entering(call.identity, scene, entry, measured)))
+        .map(lambda _: Done())
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-measure_peak = Operator(
-    key="measure_peak",
-    title="Measure Source Peak",
-    description="Measure source peak from stage input",
-    form=Named,
-    undo=False,
-    condition=Some(AllOf(conditions=(Job(kind="RENDER"), HdrWindow(space=shown_space)))),
-    run=lambda call: measuring(peak_mapping, call),
-)
-peak_mapping: CompositorEffect[PeakMapping] = CompositorEffect(
+peak_mapping: Final[CompositorEffect[PeakMapping]] = CompositorEffect(
     record=PeakMapping,
     graph=peaked,
-    domain=Domain.DISPLAY,
-    parts=(
-        Measures(
-            revise=lambda config, record, file: Samples.of(config, file.pixels).bind(Samples.peak).map(lambda peak: peak.map(lambda value: msgspec.structs.replace(record, source_peak=value))),
-            command=Some(measure_peak),
-        ),
+    interface=Interface(
+        inputs=tuple(
+            Socket(key=key, name=bpy.path.display_name(key), kind=bpy.types.NodeSocketFloat, description=description, members={"subtype": subtype, **members})
+            for key, subtype, description, members in (
+                ("source_peak", "NONE", "Brightest frame luminance", {"min_value": 0.0, "max_value": 10000.0, "default_value": 10000.0}),
+                ("target_peak", "NONE", "Display peak luminance", {"min_value": 0.0, "max_value": 10000.0, "default_value": 1000.0}),
+                ("display_black", "FACTOR", "Share of fitted peak luminance, inverse of display contrast ratio", {"min_value": 0.0, "max_value": 1.0}),
+                ("knee_offset", "NONE", "Offset from fitted peak down to knee, 0.5 in BT.2390", {"min_value": 0.5, "max_value": 2.0, "default_value": 0.5}),
+            )
+        )
     ),
+    domain=Domain.DISPLAY,
+    parts=(Registers(rows=(Operator(form=Named, run=measure_peak, undo=False, condition=Some(AllOf(conditions=(Job(kind="RENDER"), HdrWindow(space=shown_space))))),)),),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Luminance", "PeakMapping", "measure_peak", "peak_mapping"]
+__all__ = ["PeakMapping", "peak_mapping"]

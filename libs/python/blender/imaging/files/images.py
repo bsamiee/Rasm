@@ -1,11 +1,14 @@
 """Image files, storage settings, integer coding, buffer operations, and atomic writes."""
 
 from collections.abc import Callable, Mapping
+import contextlib
+from enum import IntEnum
 import functools
 import pathlib
 import struct
+from types import MappingProxyType
 import typing
-from typing import Annotated, IO, Literal, overload, Self
+from typing import Annotated, Final, IO, Literal, overload, Self
 
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
@@ -16,9 +19,9 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.faults import ImagingFaults, ImagingImageFault, ImagingResult, ImagingUnresolvedFault
-from blender.records.faults import FileFault, paired, RecordResult, scoped
-from blender.records.fields import Case, Choice
+from blender.imaging.faults import ImagingReason
+from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
+from blender.records.fields import Case
 from blender.records.stores import committed
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -26,24 +29,13 @@ from blender.records.stores import committed
 type IntegerDepth = Literal[8, 16]
 
 
-class Writable(Choice):
-    """Choice naming writers that store each member."""
-
-    writers: frozenset[str]
-
-    def __init__(self, value: int, writers: tuple[str, ...], label: str | None = None) -> None:
-        """Sets member writers and label."""
-        super().__init__(value, label)
-        self.writers = frozenset(writers)
-
-
-class Depth(Writable):
+class Depth(IntEnum):
     """Stored channel type, its lowercased name an OpenImageIO type name."""
 
-    UINT8 = 1, ("bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"), "8-bit Integer"
-    UINT16 = 2, ("dpx", "iff", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "tiff"), "16-bit Integer"
-    HALF = 3, ("jpegxl", "openexr", "tiff"), "16-bit Float"
-    FLOAT = 4, ("dpx", "fits", "hdr", "jpegxl", "openexr", "pnm", "rla", "tiff"), "32-bit Float"
+    UINT8 = 1
+    UINT16 = 2
+    HALF = 3
+    FLOAT = 4
 
     def coded(self, plane: npt.NDArray[np.float32], coding: "Coding") -> npt.NDArray[np.uint8 | np.uint16 | np.float32]:
         """Returns straight display values stored at depth, integer depths coded through `coding`."""
@@ -56,29 +48,44 @@ class Depth(Writable):
                 return plane
 
 
-class Codec(Writable):
+class Codec(IntEnum):
     """Codec without level."""
 
-    NONE = 1, ("openexr", "tiff")
-    RLE = 2, ("openexr",), "RLE"
-    ZIPS = 3, ("openexr",), "ZIPS"
-    PIZ = 4, ("openexr",), "PIZ"
-    PXR24 = 5, ("openexr",)
-    B44 = 6, ("openexr",)
-    B44A = 7, ("openexr",)
-    HTJ2K32 = 8, ("openexr",), "HTJ2K 32 Scanlines"
-    HTJ2K256 = 9, ("openexr",), "HTJ2K 256 Scanlines"
-    LZW = 10, ("tiff",), "LZW"
-    PACKBITS = 11, ("tiff",), "PackBits"
-    LOSSLESS = 12, ("webp",)
+    NONE = 1
+    RLE = 2
+    ZIPS = 3
+    PIZ = 4
+    PXR24 = 5
+    B44 = 6
+    B44A = 7
+    HTJ2K32 = 8
+    HTJ2K256 = 9
+    LZW = 10
+    PACKBITS = 11
+    LOSSLESS = 12
 
 
-class Blocks(Choice):
+class Blocks(IntEnum):
     """Scanlines per DWA block, its lowercased name the OpenEXR codec."""
 
-    DWAA = 1, "32 Scanlines"
-    DWAB = 2, "256 Scanlines"
+    DWAA = 1
+    DWAB = 2
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+DEPTH_WRITERS: Final = MappingProxyType({
+    Depth.UINT8: frozenset({"bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"}),
+    Depth.UINT16: frozenset({"dpx", "iff", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "tiff"}),
+    Depth.HALF: frozenset({"jpegxl", "openexr", "tiff"}),
+    Depth.FLOAT: frozenset({"dpx", "fits", "hdr", "jpegxl", "openexr", "pnm", "rla", "tiff"}),
+})
+CODEC_WRITERS: Final = MappingProxyType({
+    Codec.NONE: frozenset({"openexr", "tiff"}),
+    **dict.fromkeys((Codec.RLE, Codec.ZIPS, Codec.PIZ, Codec.PXR24, Codec.B44, Codec.B44A, Codec.HTJ2K32, Codec.HTJ2K256), frozenset({"openexr"})),
+    **dict.fromkeys((Codec.LZW, Codec.PACKBITS), frozenset({"tiff"})),
+    Codec.LOSSLESS: frozenset({"webp"}),
+})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -86,7 +93,7 @@ class Blocks(Choice):
 class Plain(Case, frozen=True, kw_only=True):
     """Codec without level."""
 
-    writers = frozenset[str]().union(*(codec.writers for codec in Codec))
+    writers = frozenset[str]().union(*CODEC_WRITERS.values())
     margin = 0
     codec: Annotated[Codec, msgspec.Meta(description="Codec the writer applies")] = Codec.NONE
 
@@ -118,7 +125,6 @@ class Deflate(Case, frozen=True, kw_only=True):
 class Dwa(Case, frozen=True, kw_only=True):
     """Lossy DCT compression of OpenEXR color channels."""
 
-    title = "DWA"
     writers = frozenset({"openexr"})
     lossy = True
     blocks: Annotated[Blocks, msgspec.Meta(description="Scanlines per compressed block")] = Blocks.DWAA
@@ -141,7 +147,7 @@ class Quality(Case, frozen=True, kw_only=True):
     writers = frozenset({"jpeg", "webp"})
     lossy = True
     margin = 0
-    level: Annotated[int, msgspec.Meta(ge=0, le=100, title="Quality", description="Encoder quality from smallest to best")] = 90
+    level: Annotated[int, msgspec.Meta(ge=0, le=100, description="Encoder quality from smallest to best")] = 90
 
     @property
     def attributes(self) -> tuple[tuple[str, OpenImageIO.TypeDesc, str | int], ...]:
@@ -205,7 +211,7 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def depths(self) -> tuple[Depth, ...]:
         """Depths format writer stores unchanged."""
-        return tuple(depth for depth in Depth if self.name in depth.writers)
+        return tuple(depth for depth in Depth if self.name in DEPTH_WRITERS[depth])
 
     @property
     def compressions(self) -> tuple[type[Compressions], ...]:
@@ -217,10 +223,13 @@ class Rounded(Case, frozen=True, kw_only=True):
     """Integer codes rounding each straight display value half up."""
 
     @overload
-    def coded(self, plane: npt.NDArray[np.float32], depth: Literal[8]) -> npt.NDArray[np.uint8]: ...
+    @staticmethod
+    def coded(plane: npt.NDArray[np.float32], depth: Literal[8]) -> npt.NDArray[np.uint8]: ...
     @overload
-    def coded(self, plane: npt.NDArray[np.float32], depth: Literal[16]) -> npt.NDArray[np.uint16]: ...
-    def coded(self, plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np.uint8 | np.uint16]:
+    @staticmethod
+    def coded(plane: npt.NDArray[np.float32], depth: Literal[16]) -> npt.NDArray[np.uint16]: ...
+    @staticmethod
+    def coded(plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np.uint8 | np.uint16]:
         """Returns clamped integer codes of the same shape."""
         dtype = np.uint8 if depth == 8 else np.uint16
         limits = np.iinfo(dtype)
@@ -231,12 +240,11 @@ class Rounded(Case, frozen=True, kw_only=True):
 class Diffused(Case, frozen=True, kw_only=True):
     """Floyd-Steinberg diffusion of separate color errors in raster order, alpha rounded."""
 
-    title = "Error Diffusion"
-
-    def coded(self, plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np.uint8 | np.uint16]:
+    @staticmethod
+    def coded(plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np.uint8 | np.uint16]:
         """Returns codes of a straight BW, RGB, or RGBA frame, each color error spread over unvisited neighbors along anti-diagonal wavefronts."""
         height, width, _ = plane.shape
-        coded = Rounded().coded(plane, 8) if depth == 8 else Rounded().coded(plane, 16)
+        coded = Rounded.coded(plane, 8) if depth == 8 else Rounded.coded(plane, 16)
         levels = float(np.iinfo(coded.dtype).max)
         color = levels * plane[..., :3]
         ring = np.zeros((height + 1, 4, color.shape[2]), np.float32)
@@ -263,7 +271,7 @@ class Subimage[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True
 
     spec: OpenImageIO.ImageSpec
     attributes: tuple[tuple[str, OpenImageIO.TypeDesc, object], ...]
-    pixels: Callable[[], ImagingResult[npt.NDArray[D]]]
+    pixels: Callable[[], Outcome[npt.NDArray[D]]]
 
 
 class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -273,7 +281,7 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
     colorspace: str
     header: tuple[OpenImageIO.ParamValue, ...] = ()
 
-    def write(self, path: str, storage: Storage, fields: Mapping[str, str], config: PyOpenColorIO.Config) -> ImagingResult[str]:
+    def write(self, path: str, storage: Storage, fields: Mapping[str, str], config: PyOpenColorIO.Config) -> Outcome[str]:
         """Writes pixels with header, fields, storage, and colorspace tags.
 
         Args:
@@ -307,7 +315,7 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
                 *(
                     ("CICP", OpenImageIO.TypeDesc("int[4]"), (code[0], code[1], 0, 1))
                     for code in interop
-                    .bind(lambda name: Option.of_optional(OpenImageIO.ColorConfig("ocio://default").get_cicp(name)))  # type: ignore[no-untyped-call]
+                    .bind(lambda name: Option.of_optional(OpenImageIO.ColorConfig("ocio://default").get_cicp(name)))
                     .filter(lambda code: tagged and code[1] != bt709_transfer)
                     .to_list()
                 ),
@@ -331,12 +339,12 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
 # --- [BUFFERS]
 
 
-def checked(image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
+def checked(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
     """Returns buffer, or image fault when buffer holds an error."""
-    return Error((ImagingImageFault(request=image, error=image.geterror()),)) if image.has_error else Ok(image)
+    return Error((Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),)) if image.has_error else Ok(image)
 
 
-def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
+def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
     """Returns values as buffer with metadata, origin, and full window of `like`."""
     image = OpenImageIO.ImageBuf(values)
     image.copy_metadata(like)
@@ -345,12 +353,12 @@ def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageB
     return checked(image)
 
 
-def pixels(image: OpenImageIO.ImageBuf) -> ImagingResult[npt.NDArray[np.float32]]:
+def pixels(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]:
     """Returns float32 pixels of buffer, or image fault."""
-    return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingImageFault(request=image, error=image.geterror()),))
+    return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),))
 
 
-def resampled(values: npt.NDArray[np.float32], size: tuple[int, int]) -> ImagingResult[npt.NDArray[np.float32]]:
+def resampled(values: npt.NDArray[np.float32], size: tuple[int, int]) -> Outcome[npt.NDArray[np.float32]]:
     """Returns values fitted exactly into `size` width and height, letterboxed at their aspect, for linear-light planes."""
     return (
         checked(OpenImageIO.ImageBuf(values))
@@ -360,7 +368,7 @@ def resampled(values: npt.NDArray[np.float32], size: tuple[int, int]) -> Imaging
     )
 
 
-def fitted(values: npt.NDArray[np.float32], side: int) -> ImagingResult[npt.NDArray[np.float32]]:
+def fitted(values: npt.NDArray[np.float32], side: int) -> Outcome[npt.NDArray[np.float32]]:
     """Returns values shrunk so their longest side fits `side`, unchanged within it."""
     height, width, channels = values.shape
     longest = max(width, height)
@@ -368,17 +376,16 @@ def fitted(values: npt.NDArray[np.float32], side: int) -> ImagingResult[npt.NDAr
     return checked(OpenImageIO.ImageBufAlgo.resize(OpenImageIO.ImageBuf(values), roi=OpenImageIO.ROI(0, size[0], 0, size[1], 0, 1, 0, channels))).bind(pixels) if longest > side else Ok(values)
 
 
-def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: tuple[int, int], count: int) -> ImagingResult[npt.NDArray[np.uint8]]:
+def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: tuple[int, int], count: int) -> Outcome[npt.NDArray[np.uint8]]:
     """Returns contiguous eight-bit RGB after `count` JPEG encode and decode cycles at IJG `quality` and chroma block `subsampling`."""
 
     def cycled(held: npt.NDArray[np.uint8], _: int) -> npt.NDArray[np.uint8]:
         coded = imagecodecs.jpeg8_encode(held, level=quality, colorspace=imagecodecs.JPEG8.CS.RGB, outcolorspace=imagecodecs.JPEG8.CS.YCbCr, subsampling=subsampling)
         return np.asarray(imagecodecs.jpeg8_decode(coded, outcolorspace=imagecodecs.JPEG8.CS.RGB), dtype=np.uint8)
 
-    try:
-        return Ok(functools.reduce(cycled, range(count), rgb))
-    except imagecodecs.Jpeg8Error as error:
-        return Error((ImagingImageFault(request=rgb.shape, error=error),))
+    return catch(lambda: functools.reduce(cycled, range(count), rgb), exception=imagecodecs.Jpeg8Error)().map_error(
+        lambda error: (Fault(reason=ImagingReason.CODEC, subject=str(rgb.shape), cause=error),)
+    )
 
 
 def unassociated(values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
@@ -408,7 +415,7 @@ def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.flo
 # --- [IO]
 
 
-def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[ImageFile[np.float32]]:
+def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[ImageFile[np.float32]]:
     """Reads every channel of first subimage as float32 with its colorspace.
 
     Args:
@@ -421,7 +428,7 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
         File, or `read` or `unresolved` fault.
     """
 
-    def decoded(image: OpenImageIO.ImageInput) -> ImagingResult[ImageFile[np.float32]]:
+    def decoded(image: OpenImageIO.ImageInput) -> Outcome[ImageFile[np.float32]]:
         spec, requested = image.spec(), colorspace.default_with(lambda: config.getColorSpaceFromFilepath(path)[0])
         resolved = (
             (
@@ -439,15 +446,15 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
                 )
             )
             .map(PyOpenColorIO.ColorSpace.getName)
-            .to_result_with(lambda: (ImagingUnresolvedFault(request=config, error=(requested,)),))
+            .to_result_with(lambda: (Fault(reason=ImagingReason.UNRESOLVED, subject=config.getName(), member=requested),))
         )
-        read = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (FileFault(access="read", request=path, error=image.geterror()),))
+        read = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (Fault(reason=RecordReason.UNREADABLE, subject=path, cause=image.geterror()),))
         return paired(resolved, read).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
 
     return opened(path, decoded, options=options)
 
 
-def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[T]:
+def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[T]:
     """Opens a file for reading, uses it, and closes it on every path.
 
     Args:
@@ -458,15 +465,16 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T
     Returns:
         Reader value, or `read` fault for open, read, or close.
     """
+
+    def held(image: OpenImageIO.ImageInput) -> Outcome[T]:
+        with contextlib.closing(image):
+            return use(image)
+
     image = options.map(lambda spec: OpenImageIO.ImageInput.open(path, spec)).default_with(lambda: OpenImageIO.ImageInput.open(path))
-    return scoped(
-        Option.of_optional(image).to_result_with(lambda: (FileFault(access="read", request=path, error=OpenImageIO.geterror()),)),
-        use,
-        lambda held: Ok(None) if held.close() else Error((FileFault(access="read", request=path, error=held.geterror()),)),
-    )
+    return Option.of_optional(image).map(held).default_with(lambda: Error((Fault(reason=RecordReason.UNREADABLE, subject=path, cause=OpenImageIO.geterror()),)))
 
 
-def written(path: str, write: Callable[[IO[bytes]], None]) -> ImagingResult[str]:
+def written(path: str, write: Callable[[IO[bytes]], None]) -> Outcome[str]:
     """Streams one whole-file encoder into `path` through one atomic commit, creating its folder.
 
     Args:
@@ -477,18 +485,18 @@ def written(path: str, write: Callable[[IO[bytes]], None]) -> ImagingResult[str]
         Path, or `write` fault for folder creation, encoding, or commit.
     """
 
-    def streamed(stage: pathlib.Path) -> RecordResult[None]:
+    def streamed(stage: pathlib.Path) -> Outcome[None]:
         try:
             with stage.open("wb") as output:
                 write(output)
         except (OSError, ValueError, OverflowError, struct.error) as error:
-            return Error((FileFault(access="write", request=path, error=error),))
+            return Error((Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),))
         return Ok(None)
 
     return committed(pathlib.Path(path), streamed).map(str)
 
 
-def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> ImagingResult[str]:
+def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> Outcome[str]:
     """Encodes subimages through one output, closing it before replacing file.
 
     Args:
@@ -499,12 +507,12 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
         Path, or `write` fault.
     """
 
-    def refused(error: str) -> ImagingFaults:
-        return (FileFault(access="write", request=path, error=error),)
+    def refused(error: str) -> Faults:
+        return (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)
 
-    def encode(stage: str) -> ImagingResult[str]:
-        def into(output: OpenImageIO.ImageOutput) -> ImagingResult[str]:
-            def answered(*, done: bool) -> ImagingResult[str]:
+    def encode(stage: str) -> Outcome[str]:
+        def into(output: OpenImageIO.ImageOutput) -> Outcome[str]:
+            def answered(*, done: bool) -> Outcome[str]:
                 return Ok(path) if done else Error(refused(output.geterror()))
 
             def specified(subimage: Subimage[D]) -> OpenImageIO.ImageSpec:
@@ -512,7 +520,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
                     subimage.spec.attribute(name, kind, value)
                 return subimage.spec
 
-            def step(written: ImagingResult[str], indexed: tuple[int, Subimage[D]]) -> ImagingResult[str]:
+            def step(written: Outcome[str], indexed: tuple[int, Subimage[D]]) -> Outcome[str]:
                 index, subimage = indexed
                 return (
                     written
@@ -521,14 +529,11 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
                     .bind(lambda array: answered(done=output.write_image(array)))
                 )
 
-            parts = subimages(output)
-            return functools.reduce(step, enumerate(parts), answered(done=output.open(stage, [specified(part) for part in parts])))
+            with contextlib.closing(output):
+                parts = subimages(output)
+                return functools.reduce(step, enumerate(parts), answered(done=output.open(stage, [specified(part) for part in parts]))).bind(lambda _: answered(done=output.close()))
 
-        return scoped(
-            Option.of_optional(OpenImageIO.ImageOutput.create(path)).to_result_with(lambda: refused(OpenImageIO.geterror())),
-            into,
-            lambda output: Ok(None) if output.close() else Error(refused(output.geterror())),
-        )
+        return Option.of_optional(OpenImageIO.ImageOutput.create(path)).map(into).default_with(lambda: Error(refused(OpenImageIO.geterror())))
 
     return committed(pathlib.Path(path), lambda stage: encode(str(stage))).map(str)
 
@@ -536,7 +541,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
 # --- [COLOR_TAGS]
 
 
-def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Option[bytes]]:
+def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[bytes]]:
     """Reads colorspace ICC profile from config search path.
 
     Args:
@@ -570,7 +575,11 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
                 Nothing,
             )
         )
-        .map(lambda location: catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (FileFault(access="read", request=location, error=error),)).map(Some))
+        .map(
+            lambda location: (
+                catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=str(location), cause=error),)).map(Some)
+            )
+        )
         .default_value(Ok(Nothing))
     )
 
@@ -578,6 +587,8 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "CODEC_WRITERS",
+    "DEPTH_WRITERS",
     "Blocks",
     "Codec",
     "Coding",
@@ -594,7 +605,6 @@ __all__ = [
     "Rounded",
     "Storage",
     "Subimage",
-    "Writable",
     "applied",
     "checked",
     "emitted",

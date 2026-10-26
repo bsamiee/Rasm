@@ -5,18 +5,16 @@ from typing import Annotated, ClassVar, Self
 import colour
 from expression import Nothing, Ok, Option, Some
 import msgspec
-import msgspec.inspect
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color import observer
-from blender.imaging.color.processors import chromaticities, converted, DisplayView, luma, Stops, xyz
-from blender.imaging.faults import ImagingResult
+from blender.imaging.color.processors import chromaticities, converted, DisplayView, luma, xyz
 from blender.imaging.files.images import unassociated
-from blender.records.faults import paired
-from blender.records.fields import bounds, Frozen
+from blender.records.faults import Outcome, paired
+from blender.records.fields import Frozen
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -31,10 +29,10 @@ class Histogram(Frozen, frozen=True, kw_only=True, eq=False):
     clipped: Option[npt.NDArray[np.intp]]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], clip: Option[tuple[float, float]] = Nothing) -> ImagingResult[Self]:
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], clip: Option[tuple[float, float]] = Nothing) -> Outcome[Self]:
         """Counts covered RGB and luminance, `clip` counting channels outside [low, high)."""
 
-        def counted(samples: Samples) -> ImagingResult[Self]:
+        def counted(samples: Samples) -> Outcome[Self]:
             color, bins = samples.color[samples.covered], np.r_[-np.inf, cls.edges(), np.inf]
             return Ok(
                 cls(
@@ -63,10 +61,10 @@ class Waveform(Frozen, frozen=True, kw_only=True, eq=False):
     traces: npt.NDArray[np.float64]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int]) -> ImagingResult[Self]:
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int]) -> Outcome[Self]:
         """Counts covered RGB and luminance over `cells` columns and value rows."""
 
-        def traced(samples: Samples) -> ImagingResult[Self]:
+        def traced(samples: Samples) -> Outcome[Self]:
             width, rows = min(cells[0], plane.shape[1]), cells[1]
             columns = np.broadcast_to(np.arange(plane.shape[1]), samples.covered.shape)[samples.covered]
             bins = (np.r_[-np.inf, np.arange(1, rows) / rows, np.inf], np.linspace(0.0, plane.shape[1], width + 1))
@@ -83,10 +81,10 @@ class Vectorscope(Frozen, frozen=True, kw_only=True, eq=False):
     inverse: npt.NDArray[np.float64]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int], zoom: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0) -> ImagingResult[Self]:
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], cells: tuple[int, int], zoom: Annotated[float, msgspec.Meta(gt=0.0)] = 1.0) -> Outcome[Self]:
         """Returns covered Cb/Cr counts with full-range YCbCr-to-RGB matrix of working luminance weights."""
 
-        def scoped(coefficients: npt.NDArray[np.float64]) -> ImagingResult[Self]:
+        def traced(coefficients: npt.NDArray[np.float64]) -> Outcome[Self]:
             weights = coefficients[[0, 2]]
             values = colour.RGB_to_YCbCr(unassociated(plane)[..., :3][(plane[..., 3:] > 0.0).all(axis=-1)].astype(np.float64), K=weights, in_legal=False, out_legal=False, out_int=False)
             reach = 0.5 / zoom
@@ -98,7 +96,7 @@ class Vectorscope(Frozen, frozen=True, kw_only=True, eq=False):
                 )
             )
 
-        return luma(config).bind(scoped)
+        return luma(config).bind(traced)
 
 
 class Clipping(Frozen, frozen=True, kw_only=True, eq=False):
@@ -125,17 +123,18 @@ class Clipping(Frozen, frozen=True, kw_only=True, eq=False):
 
 
 class Bands(Frozen, frozen=True, kw_only=True, eq=False):
-    """Constant view colors and their scene-linear boundaries in ramp order."""
+    """Constant view colors and their scene-linear boundaries in ramp order, the ramp spanning the exposure stop range."""
 
     resolution: ClassVar[int] = 256
+    stops: ClassVar[tuple[int, int]] = (-32, 32)
     colors: npt.NDArray[np.float32]
     edges: npt.NDArray[np.float64]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, view: DisplayView) -> ImagingResult[Option[Self]]:
+    def of(cls, config: PyOpenColorIO.Config, view: DisplayView) -> Outcome[Option[Self]]:
         """Reads a stepped view's constant levels across the stop range, absent unless each level the range holds whole outlasts every step between levels."""
-        least, most = bounds(msgspec.inspect.type_info(Stops))
-        exposures = np.arange(round(least * cls.resolution), round(most * cls.resolution) + 1) / cls.resolution
+        least, most = cls.stops
+        exposures = np.arange(least * cls.resolution, most * cls.resolution + 1) / cls.resolution
 
         def banded(formed: npt.NDArray[np.float32]) -> Option[Self]:
             colors = formed[0]
@@ -155,11 +154,11 @@ class Chromaticity(Frozen, frozen=True, kw_only=True, eq=False):
     display: Option[npt.NDArray[np.float64]]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, cells: tuple[int, int]) -> ImagingResult[Self]:
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, cells: tuple[int, int]) -> Outcome[Self]:
         """Returns xy counts over `cells` spanning the diagram frame, or every color fault."""
         extent, _ = observer.frame()
 
-        def built(parts: tuple[npt.NDArray[np.float32], npt.NDArray[np.float64], Option[npt.NDArray[np.float64]]]) -> ImagingResult[Self]:
+        def built(parts: tuple[npt.NDArray[np.float32], npt.NDArray[np.float64], Option[npt.NDArray[np.float64]]]) -> Outcome[Self]:
             tristimulus, working, display = parts
             points = observer.coordinates(tristimulus[..., :3][(plane[..., 3:] > 0.0).all(axis=-1)])
             return Ok(cls(trace=np.histogram2d(points[:, 0], points[:, 1], bins=cells, range=np.stack((np.zeros(2), extent), axis=-1))[0], working=working, display=display))

@@ -1,7 +1,7 @@
 """Keyed owner trees with their diffs, merges, transfers, and reverts."""
 
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from difflib import SequenceMatcher
 from typing import Self
 
@@ -19,7 +19,7 @@ type Edit[V] = Inserted[V] | Deleted[V] | Moved | Reparametrized[V]
 class Owner[V](msgspec.Struct, frozen=True, kw_only=True):
     """Owner values by name and ordered child keys."""
 
-    values: dict[str, V]
+    values: Mapping[str, V]
     children: tuple[str, ...] = ()
 
 
@@ -34,7 +34,7 @@ class Tree[V](msgspec.Struct, frozen=True, kw_only=True):
     """Owners by stable key, ordered under parents."""
 
     roots: tuple[str, ...]
-    owners: dict[str, Owner[V]]
+    owners: Mapping[str, Owner[V]]
 
     @classmethod
     def joined(cls, trees: Iterable["Tree[V]"]) -> Self:
@@ -53,7 +53,7 @@ class Tree[V](msgspec.Struct, frozen=True, kw_only=True):
         """
         return type(self)(
             roots=tuple(dict.fromkeys((*self.roots, *other.roots))),
-            owners=self.owners | {key: msgspec.structs.replace(owner, values=self.owners[key].values | owner.values) if key in self.owners else owner for key, owner in other.owners.items()},
+            owners={**self.owners, **{key: msgspec.structs.replace(owner, values={**self.owners[key].values, **owner.values}) if key in self.owners else owner for key, owner in other.owners.items()}},
         )
 
     def children(self, parent: Option[str]) -> tuple[str, ...]:
@@ -70,7 +70,7 @@ class Inserted[V](msgspec.Struct, frozen=True, kw_only=True):
 
     key: str
     place: Place
-    values: dict[str, V]
+    values: Mapping[str, V]
 
 
 class Deleted[V](msgspec.Struct, frozen=True, kw_only=True):
@@ -78,7 +78,7 @@ class Deleted[V](msgspec.Struct, frozen=True, kw_only=True):
 
     key: str
     place: Place
-    values: dict[str, V]
+    values: Mapping[str, V]
 
 
 class Moved(msgspec.Struct, frozen=True, kw_only=True):
@@ -93,11 +93,11 @@ class Reparametrized[V](msgspec.Struct, frozen=True, kw_only=True):
     """Owner values changed, removed, or added."""
 
     key: str
-    before: dict[str, V]
-    after: dict[str, V]
+    before: Mapping[str, V]
+    after: Mapping[str, V]
 
     @classmethod
-    def of(cls, key: str, before: dict[str, V], after: dict[str, V], *, shared: bool = False) -> Option[Self]:
+    def of(cls, key: str, before: Mapping[str, V], after: Mapping[str, V], *, shared: bool = False) -> Option[Self]:
         """Returns changed values, shared names alone when shared."""
         names = before.keys() & after.keys() if shared else before.keys() | after.keys()
         old = {name: value for name, value in before.items() if name in names and (name not in after or after[name] != value)}
@@ -138,7 +138,7 @@ def merge[V](state: Tree[V], edits: Iterable[Edit[V]]) -> Tree[V]:
                 lifted.add(key)
                 entering.append((place, key))
             case Reparametrized(key=key, before=old, after=new):
-                values[key] = {name: value for name, value in values[key].items() if name not in old} | new
+                values[key] = {**{name: value for name, value in values[key].items() if name not in old}, **new}
     order = defaultdict[Option[str], list[str]](list, {parent: [key for key in state.children(parent) if key not in lifted] for parent in (Nothing, *map(Some, state.owners))})
     for place, key in sorted(entering, key=lambda row: row[0].index):
         order[place.parent].insert(place.index, key)

@@ -13,12 +13,12 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.extension.identity import Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import Component, Expr, INPUTS, math, mixed, NodeGroup, rgba, Term, vector, where, xyz
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import lin_to_log, luma
-from blender.records.faults import DomainFault, paired
+from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -44,16 +44,16 @@ class HsyLinear(msgspec.Struct, frozen=True, kw_only=True):
 # --- [SPACES]
 
 
-def space_item(config: PyOpenColorIO.Config, name: str) -> BlenderResult[str]:
+def space_item(config: PyOpenColorIO.Config, name: str) -> Outcome[str]:
     """Returns conversion-node item of a role or colorspace."""
     return (
         Ok(name)
         if name == PyOpenColorIO.ROLE_SCENE_LINEAR
-        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(lambda: (BlenderAbsentFault(owner=config.getName(), key=name),))
+        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=config.getName(), member=name),))
     )
 
 
-def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, entering: Term) -> BlenderResult[Expr]:
+def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, entering: Term) -> Outcome[Expr]:
     """Converts straight RGB between colorspaces, scene-linear role resolved live."""
     return paired(space_item(config, source), space_item(config, target)).map(
         lambda pair: Expr(
@@ -62,7 +62,7 @@ def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, 
     )
 
 
-def pointwise(key: Key, entering: Term, operation: Callable[[Expr], BlenderResult[Expr]]) -> BlenderResult[Expr]:
+def pointwise(key: Key, entering: Term, operation: Callable[[Expr], Outcome[Expr]]) -> Outcome[Expr]:
     """Applies straight-color graph to associated RGB, zero alpha keeping transformed RGB."""
     alpha = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", entering),), members=(("mode", "RGB"),), socket="Alpha")
 
@@ -78,14 +78,16 @@ def pointwise(key: Key, entering: Term, operation: Callable[[Expr], BlenderResul
 # --- [COORDINATES]
 
 
-def _converter(key: Key, name: str, body: Callable[[Expr, Expr, Expr], tuple[Expr, Expr, Expr]]) -> BlenderResult[NodeGroup]:
+def _converter(key: Key, name: str, body: Callable[[Expr, Expr, Expr], tuple[Expr, Expr, Expr]]) -> Outcome[NodeGroup]:
     """Converts RGB channels and passes alpha unchanged."""
     image = Expr(kind=bpy.types.NodeGroupInput, socket=COLOR_INPUT.key, shape="RGBA", label=Some(INPUTS))
-    return NodeGroup.built(key, name, Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: rgba(*body(image["Red"], image["Green"], image["Blue"]), image["Alpha"])})
+    return NodeGroup.built(
+        key, name, Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: rgba(*body(image["Red"], image["Green"], image["Blue"]), image["Alpha"])}, bpy.types.CompositorNodeTree
+    )
 
 
 @functools.cache
-def logarithmic(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[NodeGroup]:
+def logarithmic(direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGroup]:
     """Builds OCIO channel stop coordinates from LogCamera parameters."""
     transform = lin_to_log()
     base, forward = transform.getBase(), direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
@@ -113,13 +115,13 @@ def logarithmic(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[No
     )
 
 
-def hsy(config: PyOpenColorIO.Config, direction: PyOpenColorIO.TransformDirection) -> BlenderResult[NodeGroup]:
+def hsy(config: PyOpenColorIO.Config, direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGroup]:
     """Builds OCIO linear HSY coordinates as compositor math nodes over the configuration's scene-linear luma weights."""
-    return Result[npt.NDArray[np.float64], BlenderFaults].bind(luma(config), lambda weights: _hsy(direction, tuple(map(float, weights))))
+    return Result[npt.NDArray[np.float64], Faults].bind(luma(config), lambda weights: _hsy(direction, tuple(map(float, weights))))
 
 
 @functools.cache
-def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]) -> BlenderResult[NodeGroup]:
+def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]) -> Outcome[NodeGroup]:
     """HSY group of one direction and luma weight triple."""
     constants = HsyLinear()
     low_luma, high_luma = constants.ramp
@@ -279,12 +281,16 @@ def from_ycc(level: Expr, blue_difference: Expr, red_difference: Expr, weights: 
 # --- [WHITE]
 
 
-def whitened(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> BlenderResult[float]:
+def whitened(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Outcome[float]:
     """Returns the percentile white of covered scene-linear pixels, refusing a frame holding no covered finite luminance."""
     return (
         Samples
         .of(config, plane)
-        .bind(lambda samples: samples.extent().to_result_with(lambda: (DomainFault(subject="White metering", value=plane.shape, accepted="covered pixels holding finite luminance"),)))
+        .bind(
+            lambda samples: samples.extent().to_result_with(
+                lambda: (Fault(reason=RecordReason.OUTSIDE, subject="White metering", member="covered pixels holding finite luminance", cause=str(plane.shape)),)
+            )
+        )
         .map(lambda extent: extent.white)
     )
 

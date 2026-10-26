@@ -1,33 +1,18 @@
 """Frame-edge falloff in scene-linear light: natural chief-ray illumination or a feathered outline pulling toward a color."""
 
-from typing import Annotated
-
 import bpy
+from expression import Some
 import msgspec
 
-from blender.bpy.data.rna.conditions import AllOf, Condition
-from blender.bpy.faults import BlenderResult
-from blender.bpy.nodes.graphs import End, Expr, mixed, NodeGroup, switched
+from blender.bpy.nodes.graphs import Expr, mixed, NodeGroup, switched
+from blender.bpy.nodes.interface import Interface, InterfacePanel, MenuItem, MenuItems, Socket, under
 from blender.bpy.render.compositor import lenses, masks
-from blender.bpy.render.compositor.effects import CameraFrame, CompositorEffect, Conditions, Inspects, Shell
-from blender.bpy.scene import cameras
-from blender.records.faults import paired
-from blender.records.fields import Case, Rgb
+from blender.bpy.render.compositor.effects import CompositorEffect, Shell
+from blender.records.faults import Outcome, paired
 
 from ...chain.stages import Effect, Stage
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Natural(Case, frozen=True, kw_only=True):
-    """Relative illumination as fourth power of chief-ray cosine."""
-
-
-class Shaped(Case, frozen=True, kw_only=True):
-    """Light kept inside a feathered outline, falling to a color outside."""
-
-    shape: Annotated[masks.Shape, msgspec.Meta(description="Outline keeping frame light")] = masks.Shape(size=(0.8, 0.45), feather=0.2)
-    color: Annotated[Rgb, msgspec.Meta(description="Scene-linear color outside shape")] = Rgb(red=0.0, green=0.0, blue=0.0)
 
 
 class Vignette(Effect, frozen=True, kw_only=True):
@@ -35,37 +20,25 @@ class Vignette(Effect, frozen=True, kw_only=True):
 
     stage = Stage.VIGNETTE
     pointwise = False
-    falloff: Annotated[Natural | Shaped, msgspec.Meta(description="Lens law or drawn outline")] = Natural()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def vignetted(shell: Shell[Vignette]) -> BlenderResult[Expr]:
+def vignetted(shell: Shell[Vignette]) -> Outcome[Expr]:
     """Mixes the stage input toward the pull color by the selected falloff weight."""
-    (falloff,) = Vignette.__struct_fields__
-    shape, color = Shaped.__struct_fields__
-    aspect, scale, _ = CameraFrame.__struct_fields__
     source = shell.color
-    entering = {"image": source, "aspect": shell.input(Shell.frame, aspect), "scale": shell.input(Shell.frame, scale)}
+    entering = {"image": source, "aspect": shell.input(Shell.frame, "aspect"), "scale": shell.input(Shell.frame, "scale")}
 
-    def built(cosine: Expr, outline: NodeGroup) -> Expr:
-        shaped = outline.placed(masks.relayed(lambda key: entering[key] if key in entering else shell.input(falloff, Shaped, shape, key), outline.interface), masks.KEY.key)
-        pull = shell.menu(falloff, cases={Natural.title: (0.0, 0.0, 0.0, 1.0), Shaped.title: shell.input(falloff, Shaped, color)}, kind="RGBA")
-        weight = switched(msgspec.structs.replace(pull, socket=Shaped.title, shape="FLOAT"), cosine**4.0, shaped).named("weight")
+    def built(cosine: Expr, outline: NodeGroup, pull: Expr) -> Expr:
+        shaped = outline.placed(masks.relayed(lambda key: entering[key] if key in entering else shell.input("shaped", key), outline.interface), masks.KEY.key)
+        weight = switched(msgspec.structs.replace(pull, socket="Shaped", shape="FLOAT"), cosine**4.0, shaped).named("weight")
         covered = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", pull), ("Alpha", source["Alpha"]), ("Type", "Apply Mask")), socket="Image", shape="RGBA")
         return mixed(weight, covered, source)
 
-    return paired(lenses.chief_ray(source), masks.shape()).map(lambda parts: built(*parts))
-
-
-def conditioned(record: Vignette) -> Condition:
-    """Requires a projecting camera for the natural falloff alone."""
-    match record.falloff:
-        case Natural():
-            return cameras.camera_type("PERSP", "ORTHO")
-        case Shaped():
-            return AllOf(conditions=())
+    return paired(paired(lenses.chief_ray(source), masks.shape()), shell.menu("falloff", cases={"Natural": (0.0, 0.0, 0.0, 1.0), "Shaped": shell.input("shaped", "color")}, kind="RGBA")).map(
+        lambda parts: built(*parts[0], parts[1])
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -73,9 +46,45 @@ def conditioned(record: Vignette) -> Condition:
 vignette = CompositorEffect(
     record=Vignette,
     graph=vignetted,
-    parts=(Conditions[Vignette](condition=conditioned), Inspects(key="vignette_weight", end=End(node="weight", socket="Output"), description="Selected natural or shaped falloff")),
+    interface=Interface(
+        inputs=(
+            Socket(
+                key="falloff",
+                name="Falloff",
+                kind=bpy.types.NodeSocketMenu,
+                description="Lens law or drawn outline",
+                members={"default_value": "Natural"},
+                items=Some(
+                    MenuItems(
+                        items=(
+                            MenuItem(name="Natural", description="Relative illumination as fourth power of chief-ray cosine"),
+                            MenuItem(name="Shaped", description="Light kept inside a feathered outline, falling to a color outside"),
+                        )
+                    )
+                ),
+            ),
+        ),
+        panels=(
+            InterfacePanel(
+                key="shaped",
+                name="Shaped",
+                description="Outline keeping frame light and the color outside it",
+                inputs=(
+                    *(
+                        msgspec.structs.replace(socket, members={**socket.members, "default_value": (0.8, 0.45)})
+                        if socket.key == "shaped_size"
+                        else msgspec.structs.replace(socket, members={**socket.members, "default_value": 0.2})
+                        if socket.key == "shaped_feather"
+                        else socket
+                        for socket in under("shaped", masks.SHAPE).inputs
+                    ),
+                    Socket(key="shaped_color", name="Color", kind=bpy.types.NodeSocketColor, description="Scene-linear color outside shape", members={"default_value": (0.0, 0.0, 0.0, 1.0)}),
+                ),
+            ),
+        ),
+    ),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Natural", "Shaped", "Vignette", "vignette"]
+__all__ = ["Vignette", "vignette"]

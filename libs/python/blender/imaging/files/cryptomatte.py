@@ -1,5 +1,6 @@
 """Cryptomatte manifests and rank channels decoded into coverage."""
 
+from collections.abc import Mapping
 from copy import replace
 import functools
 import operator
@@ -12,10 +13,8 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.multilayer import Layer, Multilayer
-from blender.records.faults import accumulated, FileFault
-from blender.records.fields import Rgb
+from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -24,12 +23,12 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
     """Cryptomatte layer with hash per ID and rank layers in order."""
 
     name: str
-    ids: dict[str, int]
+    ids: Mapping[str, int]
     ranks: tuple[Layer, ...]
     file: Multilayer
 
     @classmethod
-    def found(cls, file: Multilayer) -> ImagingResult[tuple[Self, ...]]:
+    def found(cls, file: Multilayer) -> Outcome[tuple[Self, ...]]:
         """Decodes every Cryptomatte layer a file's header names.
 
         Args:
@@ -41,7 +40,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         header = {key: value for part in file.parts for key, value in part.header.items()}
         layers, rgba = sorted(file.layers, key=lambda owner: owner.name), "rgba"
 
-        def decoded(name: str, manifest: str) -> ImagingResult[Self]:
+        def decoded(name: str, manifest: str) -> Outcome[Self]:
             ranks = tuple(
                 replace(layer, channels=tuple(folded[key] for key in rgba))
                 for layer in layers
@@ -49,7 +48,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             )
             return (
                 catch(lambda: msgspec.json.decode(manifest, type=dict[str, Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{8}$")]]), exception=msgspec.DecodeError)()
-                .map_error(lambda error: (FileFault(access="read", request=file.path, error=error),))
+                .map_error(lambda error: (Fault(reason=RecordReason.UNREADABLE, subject=file.path, cause=error),))
                 .map(
                     lambda entries: cls(
                         name=name,
@@ -67,7 +66,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             for manifest in Option.of_optional(header.get(f"{key.removesuffix('/name')}/manifest")).to_list()
         )
 
-    def coverage(self, names: frozenset[str]) -> ImagingResult[npt.NDArray[np.float32]]:
+    def coverage(self, names: frozenset[str]) -> Outcome[npt.NDArray[np.float32]]:
         """Sums coverage of named IDs.
 
         Args:
@@ -83,7 +82,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             for rank in self.ranks
         ).map(lambda terms: functools.reduce(operator.add, terms, frame))
 
-    def areas(self) -> ImagingResult[dict[str, float]]:
+    def areas(self) -> Outcome[dict[str, float]]:
         """Measures frame share each manifest name covers.
 
         Returns:
@@ -102,17 +101,17 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
 
         return accumulated(self.file.plane(rank, rank.channels).map(counted) for rank in self.ranks).map(joined)
 
-    def filled(self, names: frozenset[str], color: Rgb) -> ImagingResult[npt.NDArray[np.float32]]:
+    def filled(self, names: frozenset[str], color: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float32]]:
         """Fills named ID coverage with color as associated RGBA.
 
         Args:
             names: Manifest names the fill covers.
-            color: Fill color.
+            color: Fill color of shape `(3,)`.
 
         Returns:
             `(height, width, 4)` plane with coverage alpha, or `read` fault.
         """
-        tint = np.array((*msgspec.structs.astuple(color), 1.0), dtype=np.float32)
+        tint = np.append(color, 1.0).astype(np.float32)
         return self.coverage(names).map(lambda covered: covered[..., None] * tint)
 
 

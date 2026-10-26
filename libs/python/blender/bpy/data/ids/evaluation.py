@@ -6,12 +6,14 @@ from typing import Self
 
 import bpy
 from expression import Nothing, Option, Result, Some
+from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import msgspec
 
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.extension.events.handlers import Change, changed
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import Fault, Faults, Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -83,26 +85,28 @@ class Hit(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def evaluated(view_layer: bpy.types.ViewLayer) -> BlenderResult[bpy.types.Depsgraph]:
+def evaluated(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
     """Returns updated layer depsgraph, edit fault while evaluation runs."""
-    return Result[None, BlenderFaults].bind(
-        BlenderEditFault.attempted(repr(view_layer), view_layer.update),
-        lambda _: Option.of_optional(view_layer.depsgraph).to_result_with(lambda: (BlenderAbsentFault(owner=repr(view_layer), key="depsgraph"),)),
+    return Result[None, Faults].bind(
+        catch(view_layer.update, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(view_layer), cause=error),)),
+        lambda _: Option.of_optional(view_layer.depsgraph).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(view_layer), member="depsgraph"),)),
     )
 
 
 @contextmanager
-def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve_all_data_layers: bool = False) -> Generator[BlenderResult[bpy.types.Mesh]]:
+def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve_all_data_layers: bool = False) -> Generator[Outcome[bpy.types.Mesh]]:
     """Yields evaluated mesh, cleared at scope exit."""
     copy = source.evaluated_get(depsgraph)
     with ExitStack() as lifetime:
         lifetime.callback(copy.to_mesh_clear)
-        yield BlenderEditFault.attempted(repr(source), lambda: copy.to_mesh(preserve_all_data_layers=preserve_all_data_layers, depsgraph=depsgraph)).bind(
-            lambda mesh: Option.of_optional(mesh).to_result_with(lambda: (BlenderAbsentFault(owner=repr(source), key="to_mesh"),))
+        yield (
+            catch(copy.to_mesh, exception=RuntimeError)(preserve_all_data_layers=preserve_all_data_layers, depsgraph=depsgraph)
+            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(source), cause=error),))
+            .bind(lambda mesh: Option.of_optional(mesh).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(source), member="to_mesh"),)))
         )
 
 
-def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector, distance: float, direction: Option[Vector] = Nothing) -> BlenderResult[Option[Hit]]:
+def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector, distance: float, direction: Option[Vector] = Nothing) -> Outcome[Option[Hit]]:
     """Returns object-space surface hit, Nothing on miss.
 
     Args:
@@ -122,7 +126,7 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector
         )
         return Some(Hit(location=location, normal=normal, face=face)) if found else Nothing  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
-    return BlenderEditFault.attempted(repr(source), answered)
+    return catch(answered, exception=RuntimeError)().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(source), cause=error),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

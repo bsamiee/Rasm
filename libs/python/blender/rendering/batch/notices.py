@@ -4,13 +4,12 @@ from fractions import Fraction
 from http import HTTPMethod
 from typing import Annotated, ClassVar, override
 
-from expression import Ok, Some
+from expression import Ok, Option, Some
 import msgspec
 
-from blender.records.fields import Gated
+from blender.records.faults import Outcome
 from blender.rendering.batch.estimate import Forecast
 from blender.rendering.batch.exchange import Endpoint, sent
-from blender.rendering.faults import RenderingResult
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -24,7 +23,7 @@ class Listener(msgspec.Struct, frozen=True, kw_only=True):
     """ntfy server and topic."""
 
     server: Annotated[Endpoint, msgspec.Meta(description="ntfy server")] = Endpoint(url="https://ntfy.sh")
-    topic: Annotated[Gated[str], msgspec.Meta(description="Topic devices subscribe to, no notices when off")] = Gated(enabled=False, value="")
+    topic: Annotated[str | None, msgspec.Meta(description="Topic devices subscribe to, no notices when absent")] = None
 
 
 class Posted(msgspec.Struct, frozen=True, kw_only=True):
@@ -127,10 +126,15 @@ class Publication(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def published(listener: Listener, notice: Notice) -> RenderingResult[None]:
-    """Posts notice when topic is enabled."""
-    publication = Publication(topic=listener.topic.value, title=notice.title, message=notice.message, priority=notice.priority, tags=notice.tags)
-    return listener.server.opened(lambda client: sent(client, HTTPMethod.POST, "/", Some(publication)).map(lambda _: None)) if listener.topic.enabled else Ok(None)
+def published(listener: Listener, notice: Notice) -> Outcome[None]:
+    """Posts notice when the listener holds a topic."""
+    return (
+        Option
+        .of_optional(listener.topic)
+        .map(lambda topic: Publication(topic=topic, title=notice.title, message=notice.message, priority=notice.priority, tags=notice.tags))
+        .map(lambda publication: listener.server.opened(lambda client: sent(client, HTTPMethod.POST, "/", Some(publication)).map(lambda _: None)))
+        .default_value(Ok(None))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

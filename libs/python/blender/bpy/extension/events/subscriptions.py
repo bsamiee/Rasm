@@ -11,7 +11,7 @@ import msgspec
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Band, Registrable
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderResult
+from blender.records.faults import Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -21,14 +21,14 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
 
     owner: "type[bpy.types.bpy_struct[object]]"
     setting: bpy.types.Property
-    body: Callable[[], BlenderResult[None]]
+    body: Callable[[], Outcome[None]]
 
     @property
     def prerequisites(self) -> tuple[Registrable, ...]:
         """Extension bus the subscription holds its key on."""
         return (BUS,)
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity, /) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Builds the subscription on its extension's bus.
 
         Args:
@@ -67,10 +67,14 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Bus(msgspec.Struct, frozen=True, eq=False):
+class Bus:
     """Msgbus owner of one extension with its keys, each subscribed again after every file load."""
 
-    keys: "list[tuple[tuple[type[bpy.types.bpy_struct[object]], str], Callable[[], None]]]" = msgspec.field(default_factory=list)
+    __slots__ = ("keys",)
+
+    def __init__(self) -> None:
+        """Holds no key."""
+        self.keys: list[tuple[tuple[type[bpy.types.bpy_struct[object]], str], Callable[[], None]]] = []
 
     @classmethod
     @contextmanager

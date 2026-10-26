@@ -20,9 +20,10 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.reports import redrawn
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import Color, color
+from blender.records.faults import Fault, Faults, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -34,12 +35,15 @@ type Glyph = rna_enums.IconItems | Path
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class IconSet(msgspec.Struct, kw_only=True, eq=False):
+class IconSet:
     """Staged glyphs of one extension in its preview collection, with original pixels and applied tint per glyph and the brand glyph's icon ID."""
 
-    collection: bpy.utils.previews.ImagePreviewCollection
-    sources: dict[Path, tuple[npt.NDArray[np.float32], Option[Color]]]
-    brand: Option[int] = Nothing
+    __slots__ = ("brand", "collection", "sources")
+
+    def __init__(self, collection: bpy.utils.previews.ImagePreviewCollection, sources: dict[Path, tuple[npt.NDArray[np.float32], Option[Color]]]) -> None:
+        """Holds the collection and glyph sources with no brand icon."""
+        self.collection, self.sources = collection, sources
+        self.brand: Option[int] = Nothing
 
     @classmethod
     def loaded(cls, identity: Identity) -> Self:
@@ -68,13 +72,13 @@ class IconSet(msgspec.Struct, kw_only=True, eq=False):
             self.sources[source] = (original, current)
         return bool(changed)
 
-    def icon(self, identity: Identity, glyph: Path) -> BlenderResult[int]:
+    def icon(self, identity: Identity, glyph: Path) -> Outcome[int]:
         """Returns staged glyph icon ID, absent fault for a glyph the folder lacks."""
         return (
             Option
             .of_optional(self.collection.get(glyph.as_posix()))
             .map(lambda preview: preview.icon_id)
-            .to_result_with(lambda: (BlenderAbsentFault(owner=str(Icons.folder(identity)), key=glyph.as_posix()),))
+            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(Icons.folder(identity)), member=glyph.as_posix()),))
         )
 
 
@@ -86,27 +90,27 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [ACQUISITION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Builds the glyph set, its tints and brand held in the resources band, and theme color subscriptions rewriting tints."""
         later: Callable[[], None]
 
-        def reinked() -> BlenderResult[Option[str]]:
+        def reinked() -> Outcome[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
             return redrawn() if ICONS.of(identity).reinked(self.tint) else Ok(Nothing)
 
-        def scheduled() -> BlenderResult[None]:
+        def scheduled() -> Outcome[None]:
             """Schedules tint write on theme color change."""
             later()
             return Ok(None)
 
         @contextmanager
-        def inked() -> Generator[BlenderResult[None]]:
+        def inked() -> Generator[Outcome[None]]:
             """Inks glyphs and records the brand icon, holding the deferred tint writer for the scope."""
             nonlocal later
             icons = ICONS.of(identity)
             with identity.reports.deferred(reinked) as later:
                 icons.reinked(self.tint)
-                branded: BlenderResult[Option[int]] = self.brand.map(lambda glyph: icons.icon(identity, glyph).map(Some)).default_value(Ok(Nothing))
+                branded: Outcome[Option[int]] = self.brand.map(lambda glyph: icons.icon(identity, glyph).map(Some)).default_value(Ok(Nothing))
                 for brand in branded.to_option().to_list():
                     icons.brand = brand
                 yield branded.map(lambda _: None)
@@ -126,12 +130,12 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         return importlib.resources.files(identity.package) / "icons"
 
     @staticmethod
-    def value(identity: Identity, glyph: Glyph) -> BlenderResult[int]:
+    def value(identity: Identity, glyph: Glyph) -> Outcome[int]:
         """Returns built-in icon value or staged glyph icon ID, absent fault for a glyph the host or the staged set lacks."""
         match glyph:
             case Path():
-                return Result[IconSet, BlenderFaults].bind(
-                    Option.of_optional(ICONS.held.get(identity.package)).to_result_with(lambda: (BlenderAbsentFault(owner=str(Icons.folder(identity)), key=glyph.as_posix()),)),
+                return Result[IconSet, Faults].bind(
+                    Option.of_optional(ICONS.held.get(identity.package)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=str(Icons.folder(identity)), member=glyph.as_posix()),)),
                     lambda icons: icons.icon(identity, glyph),
                 )
             case _:
@@ -139,7 +143,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                     Option
                     .of_optional(bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.get(glyph))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     .map(lambda item: item.value)
-                    .to_result_with(lambda: (BlenderAbsentFault(owner=bpy.types.UILayout.__name__, key=glyph),))
+                    .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=bpy.types.UILayout.__name__, member=glyph),))
                 )
 
     @staticmethod

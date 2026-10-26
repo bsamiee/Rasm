@@ -7,7 +7,8 @@ import OpenImageIO
 from scipy.special import ndtri
 from scipy.stats import rankdata
 
-from blender.imaging.faults import ImagingImageFault, ImagingResult
+from blender.imaging.faults import ImagingReason
+from blender.records.faults import Fault, Outcome
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -22,12 +23,12 @@ def gaussian(generator: np.random.Generator, side: int, channels: int, deviation
     return standardized(np.moveaxis(np.fft.irfft2(np.fft.rfft2(draw) * response[:, : side // 2 + 1], s=(side, side)), 0, -1))
 
 
-def ranks(image: OpenImageIO.ImageBuf) -> ImagingResult[npt.NDArray[np.float32]]:
+def ranks(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]:
     """Returns the first channel of a provider rank image, such as `ImageBufAlgo.bluenoise_image`, as centered unit ranks with rows bottom first."""
     return (
         Option
         .of_optional(image.get_pixels(OpenImageIO.UINT16))
-        .to_result_with(lambda: (ImagingImageFault(request=image, error=image.geterror()),))
+        .to_result_with(lambda: (Fault(reason=ImagingReason.BUFFER, subject=image.name, cause=image.geterror()),))
         .map(lambda codes: np.ascontiguousarray(codes[::-1, :, :1], dtype=np.float32))
         .map(lambda table: (table + 0.5) / float(table.size))
     )

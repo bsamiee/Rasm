@@ -1,27 +1,26 @@
 """Black and white points of scene-linear values, white in stops above black, measured from the entering frame's covered extent."""
 
-from typing import Annotated, Final, override, Self
+from collections.abc import Mapping
+from typing import Final
 
 import bpy
-from expression import Ok, Option, Some
-from expression.extra.result import catch
-import msgspec
+from expression import Error, Nothing, Ok, Option, Some
 import numpy as np
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Operator
 from blender.bpy.data.rna.conditions import Job
-from blender.bpy.faults import BlenderResult
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.render.compositor.effects import CompositorEffect, Measures, Named, Shell
-from blender.bpy.render.compositor.viewers import measuring
+from blender.bpy.nodes.interface import Interface, Socket
+from blender.bpy.render.compositor.effects import CompositorEffect, entered, Named, Registers, Shell
+from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.processors import Stops
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import ImageFile
-from blender.records.fields import Finite, Presentation
+from blender.records.faults import Fault, Outcome, RecordReason
 
-from ...chain.stages import Effect, Stage
+from ...chain.stages import Effect, Stage, transform
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -31,55 +30,65 @@ class Levels(Effect, frozen=True, kw_only=True):
 
     stage = Stage.LEVELS
     pointwise = True
-    black: Annotated[Finite, msgspec.Meta(description="Scene-linear value mapping to 0"), Presentation(soft=Some((-0.1, 0.1)), precision=Some(4))] = 0.0
-    white: Annotated[Stops, msgspec.Meta(description="Stops from black point to the value mapping to 1")] = 0.0
-
-    @classmethod
-    def of(cls, black: float, white: float) -> Option[Self]:
-        """Builds the levels mapping two scene-linear points to 0 and 1, Nothing when their span is empty or past the stop domain."""
-        return (
-            Some(white - black)
-            .filter(lambda span: span > 0.0)
-            .bind(lambda span: catch(lambda: msgspec.convert({"black": black, "white": float(np.log2(span))}, cls), exception=msgspec.ValidationError)().to_option())
-        )
-
-    @classmethod
-    def measured(cls, config: PyOpenColorIO.Config, _record: Self, file: ImageFile[np.float32]) -> BlenderResult[Option[Self]]:
-        """Reads the levels spanning the entering frame's covered luminance extent."""
-        return Samples.of(config, file.pixels).map(lambda samples: samples.extent().bind(lambda extent: cls.of(extent.low, extent.white)))
-
-    @override
-    def transform(self, _config: PyOpenColorIO.Config, /) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns OCIO's linear scale and offset, alpha passed through."""
-        scale = 2.0**-self.white
-        transform = PyOpenColorIO.MatrixTransform.Scale((scale,) * 3 + (1.0,))
-        transform.setOffset((-self.black * scale,) * 3 + (0.0,))
-        return Ok(Some(transform))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def leveled(shell: Shell[Levels]) -> BlenderResult[Expr]:
+@transform.register
+def _(_record: Levels, values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
+    """Returns OCIO's linear scale and offset, alpha passed through."""
+    match values:
+        case {"black": float(black), "white": float(white)}:
+            operation = PyOpenColorIO.MatrixTransform.Scale((2.0**-white,) * 3 + (1.0,))
+            operation.setOffset((-black * 2.0**-white,) * 3 + (0.0,))
+            return Ok(Some(operation))
+        case _:
+            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Levels.__name__, cause=repr(values)),))
+
+
+def leveled(shell: Shell[Levels]) -> Outcome[Expr]:
     """Subtracts the coverage-weighted black point and lowers by the white span in stops."""
-    black, white = map(shell.input, Levels.__struct_fields__)
     color = shell.color
-    return Ok(Expr(kind=bpy.types.CompositorNodeExposure, inputs=(("Image", color - black * color["Alpha"]), ("Exposure", -white)), socket="Image", shape="RGBA"))
+    return Ok(Expr(kind=bpy.types.CompositorNodeExposure, inputs=(("Image", color - shell.input("black") * color["Alpha"]), ("Exposure", -shell.input("white"))), socket="Image", shape="RGBA"))
+
+
+def auto_levels(call: Call[Named]) -> Outcome[Answer]:
+    """Measure levels from the stage input."""
+
+    def measured(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> Outcome[Option[str]]:
+        return Samples.of(PyOpenColorIO.GetCurrentConfig(), file.pixels).bind(
+            lambda samples: (
+                samples
+                .extent()
+                .filter(lambda extent: extent.white > extent.low)
+                .map(lambda extent: entered(identity, entry, {"black": extent.low, "white": float(np.log2(extent.white - extent.low))}))
+                .default_value(Ok(False))
+                .map(lambda wrote: Some(bpy.path.display_name(auto_levels.__name__)) if wrote else Nothing)
+            )
+        )
+
+    return (
+        call
+        .root(bpy.types.Scene)
+        .bind(lambda scene: levels.named(call.identity, scene, call.properties.name).bind(lambda entry: READ.entering(call.identity, scene, entry, measured)))
+        .map(lambda _: Done())
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-auto_levels = Operator(
-    key="auto_levels",
-    title="Auto Levels",
-    description="Measure levels from the stage input",
-    icon=Some("SEQ_HISTOGRAM"),
-    form=Named,
-    undo=False,
-    condition=Some(Job(kind="RENDER")),
-    run=lambda call: measuring(levels, call),
+levels: Final[CompositorEffect[Levels]] = CompositorEffect(
+    record=Levels,
+    graph=leveled,
+    interface=Interface(
+        inputs=tuple(
+            Socket(key=key, name=bpy.path.display_name(key), kind=bpy.types.NodeSocketFloat, description=description, members=members)
+            for key, description, members in (("black", "Scene-linear value mapping to 0", {}), ("white", "Stops from black point to the value mapping to 1", {"min_value": -32.0, "max_value": 32.0}))
+        )
+    ),
+    parts=(Registers(rows=(Operator(form=Named, run=auto_levels, icon=Some("SEQ_HISTOGRAM"), undo=False, condition=Some(Job(kind="RENDER"))),)),),
 )
-levels: Final[CompositorEffect[Levels]] = CompositorEffect(record=Levels, graph=leveled, parts=(Measures(revise=Levels.measured, command=Some(auto_levels)),))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

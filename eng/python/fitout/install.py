@@ -1,6 +1,7 @@
 """Installs and enables extension archive in matching Blender GUI session, else background process."""
 
 import os
+import subprocess
 import sys
 from typing import Annotated
 from zipfile import ZipFile
@@ -93,13 +94,8 @@ async def install(
         ]
     )
     if not pids:
-        try:
-            process = await anyio.run_process(
-                (blender, "--background", "--python-exit-code", "1", "--python-expr", f"{reconciled()}import sys\nsys.exit(result['returncode'])\n"), stdout=None, stderr=None, check=False
-            )
-        except OSError as error:
-            return Error(error)
-        return Ok(process.returncode)
+        command = (blender, "--background", "--python-exit-code", "1", "--python-expr", f"{reconciled()}import sys\nsys.exit(result['returncode'])\n")
+        return (await anyio.to_thread.run_sync(catch(subprocess.run, exception=OSError), command)).map(lambda process: process.returncode)
 
     def decoded(result: CallToolResult) -> Result[_Completed | RemoteFailure, InstallError]:
         return Error(result) if result.is_error else catch(lambda: msgspec.convert(result.structured_content, type=_Completed | RemoteFailure), exception=msgspec.ValidationError)()

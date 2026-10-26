@@ -14,10 +14,10 @@ import msgspec
 
 from blender.bpy.data.ids import images
 from blender.bpy.data.ids.store import embedded, IdName
-from blender.bpy.data.rna.descriptors import Descriptor, member_path, written
+from blender.bpy.data.rna.descriptors import Descriptor, member_path, Struct, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.records.faults import accumulated, DomainFault, paired
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, RecordReason
 from blender.records.identity import content_hash, ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -41,33 +41,40 @@ GROUP_NODES: Final[Mapping[type[GraphTree], type[GroupNode]]] = MappingProxyType
 
 
 @overload
-def tree_of(holder: bpy.types.Material | bpy.types.World | bpy.types.Light) -> BlenderResult[bpy.types.ShaderNodeTree]: ...
+def tree_of(holder: bpy.types.Material | bpy.types.World | bpy.types.Light) -> Outcome[bpy.types.ShaderNodeTree]: ...
 @overload
-def tree_of(holder: bpy.types.ID) -> BlenderResult[bpy.types.NodeTree]: ...
-def tree_of(holder: bpy.types.ID) -> BlenderResult[bpy.types.NodeTree]:
+def tree_of(holder: bpy.types.ID) -> Outcome[bpy.types.NodeTree]: ...
+def tree_of(holder: bpy.types.ID) -> Outcome[bpy.types.NodeTree]:
     """Returns group itself or embedded tree, `absent` fault for holder without one."""
-    return (Some(holder) if isinstance(holder, bpy.types.NodeTree) else embedded(holder)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(holder), key=bpy.types.NodeTree.__name__),))
+    return (Some(holder) if isinstance(holder, bpy.types.NodeTree) else embedded(holder)).to_result_with(
+        lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(holder), member=bpy.types.NodeTree.__name__),)
+    )
 
 
-def emptied[T: bpy.types.ID](holder: T) -> BlenderResult[T]:
+def emptied[T: bpy.types.ID](holder: T) -> Outcome[T]:
     """Removes every node of holder tree, returning holder."""
     return tree_of(holder).map(lambda tree: tree.nodes.clear()).map(lambda _: holder)
 
 
-def socket_at(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, identifier: str) -> BlenderResult[bpy.types.NodeSocket]:
-    """Finds socket by identifier alone.
+def socket_at(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, identifier: str | int) -> Outcome[bpy.types.NodeSocket]:
+    """Finds socket by identifier, or by position among the sockets the node's mode members enable.
 
     Args:
         sockets: Inputs or outputs of one node.
-        identifier: Socket identifier, stable where names repeat or translate.
+        identifier: Socket identifier, stable where names repeat or translate, or position among enabled sockets.
 
     Returns:
-        `Ok` of socket. `Error` of `absent` for identifier with no socket.
+        `Ok` of socket. `Error` of `absent` for an identifier or position with no socket.
     """
-    return Option.of_optional(next((socket for socket in sockets if socket.identifier == identifier), None)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(sockets), key=identifier),))
+    match identifier:
+        case int(position):
+            found = next(itertools.islice((socket for socket in sockets if socket.enabled), position, None), None)
+        case str():
+            found = next((socket for socket in sockets if socket.identifier == identifier), None)
+    return Option.of_optional(found).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(sockets), member=str(identifier)),))
 
 
-def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> BlenderResult[N]:
+def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outcome[N]:
     """Adds node by `bpy.types` class name.
 
     Returns:
@@ -75,32 +82,32 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Blend
     """
     identifier = kind.__name__
 
-    def narrowed(made: bpy.types.Node) -> BlenderResult[N]:
+    def narrowed(made: bpy.types.Node) -> Outcome[N]:
         match made:
             case kind():
                 return Ok(made)
             case _:
                 replaced = made.bl_idname
                 tree.nodes.remove(made)
-                return Error((DomainFault(subject=repr(tree.nodes), value=replaced, accepted=identifier),))
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject=repr(tree.nodes), member=identifier, cause=replaced),))
 
-    made: BlenderResult[bpy.types.Node] = catch(lambda: tree.nodes.new(identifier), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(tree.nodes), error=error),))
-    return Result[bpy.types.Node, BlenderFaults].bind(made, narrowed)
+    made: Outcome[bpy.types.Node] = catch(lambda: tree.nodes.new(identifier), exception=RuntimeError)().map_error(
+        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.nodes), cause=error),)
+    )
+    return Result[bpy.types.Node, Faults].bind(made, narrowed)
 
 
-def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> BlenderResult[None]:
+def grouped(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
     """Points group node at group, `edit` fault for group containing node's tree."""
     host: bpy.types.NodeTree = node.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     return (
-        Error((BlenderEditFault(request=f"{node!r}.node_tree", error=ValueError(f"{group.name} contains {host.name}")),))
+        Error((Fault(reason=BlenderReason.REFUSED, subject=f"{node!r}.node_tree", cause=ValueError(f"{group.name} contains {host.name}")),))
         if group.contains_tree(host)
         else written(node, "node_tree", group).map(lambda _: None)
     )
 
 
-def joined(
-    tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.types.NodeSocket, *, verify_limits: bool = True, handle_dynamic_sockets: bool = False
-) -> BlenderResult[bpy.types.NodeLink]:
+def joined(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.types.NodeSocket, *, verify_limits: bool = True, handle_dynamic_sockets: bool = False) -> Outcome[bpy.types.NodeLink]:
     """Links output socket to input socket.
 
     Args:
@@ -114,20 +121,20 @@ def joined(
         `Ok` of valid link. `Error` of `edit` for refused link or invalid link the call removes, `absent` when host returns none.
     """
 
-    def answered(link: bpy.types.NodeLink | None) -> BlenderResult[bpy.types.NodeLink]:
+    def answered(link: bpy.types.NodeLink | None) -> Outcome[bpy.types.NodeLink]:
         match link:
             case bpy.types.NodeLink(is_valid=True):
                 return Ok(link)
             case bpy.types.NodeLink():
                 tree.links.remove(link)
-                return Error((BlenderEditFault(request=repr(tree.links), error=ValueError(f"Link from {source!r} to {target!r} is invalid")),))
+                return Error((Fault(reason=BlenderReason.REFUSED, subject=repr(tree.links), cause=ValueError(f"Link from {source!r} to {target!r} is invalid")),))
             case None:
-                return Error((BlenderAbsentFault(owner=repr(tree.links), key=repr((source, target))),))
+                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(tree.links), member=repr((source, target))),))
 
-    linked: BlenderResult[bpy.types.NodeLink | None] = catch(
+    linked: Outcome[bpy.types.NodeLink | None] = catch(
         lambda: tree.links.new(source, target, verify_limits=verify_limits, handle_dynamic_sockets=handle_dynamic_sockets), exception=RuntimeError
-    )().map_error(lambda error: (BlenderEditFault(request=repr(tree.links), error=error),))
-    return Result[bpy.types.NodeLink | None, BlenderFaults].bind(linked, answered)
+    )().map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(tree.links), cause=error),))
+    return Result[bpy.types.NodeLink | None, Faults].bind(linked, answered)
 
 
 def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...]) -> None:
@@ -148,10 +155,10 @@ def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...
 # --- [WALKS]
 
 
-def active_output(tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.NodeGroupOutput]:
+def active_output(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeGroupOutput]:
     """Returns active Group Output node."""
     return Option.of_optional(next((node for node in tree.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
-        lambda: (BlenderAbsentFault(owner=repr(tree.nodes), key=bpy.types.NodeGroupOutput.__name__),)
+        lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=bpy.types.NodeGroupOutput.__name__),)
     )
 
 
@@ -181,7 +188,7 @@ def upstream(node: bpy.types.Node) -> tuple[bpy.types.Node, ...]:
     return tuple(sorted(seen, key=lambda item: item.name))
 
 
-def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[Option[ContentHash]]:
+def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> Outcome[Option[ContentHash]]:
     """Hashes observable content of tree or node upstream graph.
 
     Args:
@@ -195,8 +202,8 @@ def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[O
     nodes = tuple(sorted(owner.nodes, key=lambda item: item.name)) if isinstance(owner, bpy.types.NodeTree) else upstream(owner)
     settings = Descriptor.saved(tree, lambda prop: not isinstance(prop, bpy.types.CollectionProperty))
 
-    def captured(struct: "bpy.types.bpy_struct[object]", selection: Option[tuple[Descriptor, ...]] = Nothing) -> BlenderResult[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
-        def referenced(snapshot: Snapshot) -> BlenderResult[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
+    def captured(struct: Struct, selection: Option[tuple[Descriptor, ...]] = Nothing) -> Outcome[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
+        def referenced(snapshot: Snapshot) -> Outcome[tuple[Snapshot, tuple[Option[ContentHash], ...]]]:
             blocks = dict.fromkeys(
                 block
                 for at, held in snapshot.tree.owners.items()
@@ -209,7 +216,7 @@ def fingerprinted(owner: bpy.types.NodeTree | bpy.types.Node) -> BlenderResult[O
 
         return Snapshot.capture(struct, selection).bind(referenced)
 
-    def linked(link: bpy.types.NodeLink) -> BlenderResult[ContentHash]:
+    def linked(link: bpy.types.NodeLink) -> Outcome[ContentHash]:
         endpoints = msgspec.msgpack.encode((link.from_node.name, link.from_socket.identifier, link.to_node.name, link.to_socket.identifier))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         return Snapshot.capture(link, Some(Descriptor.saved(link, lambda prop: not prop.is_readonly))).map(lambda snapshot: content_hash(bpy.types.NodeLink, endpoints, snapshot))
 

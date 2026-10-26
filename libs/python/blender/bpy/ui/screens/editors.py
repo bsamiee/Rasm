@@ -8,8 +8,7 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at, Value
-from blender.bpy.faults import BlenderResult
-from blender.records.faults import accumulated
+from blender.records.faults import accumulated, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -26,13 +25,13 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(
         cls, root: "type[bpy.types.bpy_struct[object]]", values: "Mapping[str, Value | bytes | bpy.types.bpy_struct[object]]", region: "Option[rna_enums.RegionTypeItems]" = Nothing
-    ) -> BlenderResult[Self]:
+    ) -> Outcome[Self]:
         """Resolves values in declaration order."""
         return accumulated(Descriptor.resolve(root, path, bpy.types.Property).map(lambda setting: (setting, value)) for path, value in values.items()).map(
             lambda pairs: cls(region=region, values=pairs)
         )
 
-    def applied(self, area: bpy.types.Area) -> BlenderResult[Option[Self]]:
+    def applied(self, area: bpy.types.Area) -> Outcome[Option[Self]]:
         """Writes values in order, rolling back on refusal or absent owner.
 
         Returns:
@@ -43,7 +42,7 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
             lambda: Option.of_optional(area.spaces.active)
         )
 
-        def undone() -> BlenderResult[None]:
+        def undone() -> Outcome[None]:
             return accumulated(descriptor.write(held, prior) for held, descriptor, prior in reversed(completed)).map(lambda _: None)
 
         try:

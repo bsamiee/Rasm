@@ -14,8 +14,8 @@ import numpy.typing as npt
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.reports import redrawn
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderResult
 from blender.bpy.ui.resources.theme import Checker, Metrics
+from blender.records.faults import Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -37,11 +37,15 @@ class PreviewKey(msgspec.Struct, frozen=True, kw_only=True):
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Previews(msgspec.Struct, kw_only=True, eq=False):
+class Previews:
     """Preview collection of one extension and the finished request per tile slot, pixelless requests included."""
 
-    collection: bpy.utils.previews.ImagePreviewCollection
-    drawn: dict[str, Hashable] = msgspec.field(default_factory=dict)
+    __slots__ = ("collection", "drawn")
+
+    def __init__(self, collection: bpy.utils.previews.ImagePreviewCollection) -> None:
+        """Holds the collection with no finished request."""
+        self.collection = collection
+        self.drawn: dict[str, Hashable] = {}
 
     # --- [LIFECYCLE]
 
@@ -58,7 +62,7 @@ class Previews(msgspec.Struct, kw_only=True, eq=False):
         """
         collection = bpy.utils.previews.new()
         try:
-            yield cls(collection=collection)
+            yield cls(collection)
         finally:
             bpy.utils.previews.remove(collection)
 
@@ -74,7 +78,7 @@ class Previews(msgspec.Struct, kw_only=True, eq=False):
 
     # --- [WRITING]
 
-    def tile(self, slot: str, key: Hashable, rendered: Callable[[int], BlenderResult[Option[Option[npt.NDArray[np.float32]]]]], scale: float) -> BlenderResult[Option[int]]:
+    def tile(self, slot: str, key: Hashable, rendered: Callable[[int], Outcome[Option[Option[npt.NDArray[np.float32]]]]], scale: float) -> Outcome[Option[int]]:
         """Writes rendered pixels over the checker or records pixelless finish, waiting while render returns Nothing."""
         shown = PreviewKey.read(key, scale)
         return (
@@ -83,20 +87,20 @@ class Previews(msgspec.Struct, kw_only=True, eq=False):
             else rendered(shown.side).bind(lambda outcome: outcome.map(lambda plane: self.finished(slot, shown, plane.map(lambda pixels: checkered(pixels, shown.checker)))).default_value(Ok(Nothing)))
         )
 
-    def picture(self, slot: str, key: Hashable, rendered: Callable[[Metrics], BlenderResult[Option[npt.NDArray[np.float32]]]]) -> BlenderResult[Option[int]]:
+    def picture(self, slot: str, key: Hashable, rendered: Callable[[Metrics], Outcome[Option[npt.NDArray[np.float32]]]]) -> Outcome[Option[int]]:
         """Writes rendered straight RGBA once per key and interface metrics, dropping slot while render returns Nothing."""
         metrics = Metrics.read()
         shown = (key, metrics.scale, metrics.pixel_size)
         return Ok(self.icon_id(slot)) if self.drawn.get(slot) == shown else rendered(metrics).bind(lambda plane: self.finished(slot, shown, plane))
 
-    def finished(self, slot: str, shown: Hashable, plane: Option[npt.NDArray[np.float32]]) -> BlenderResult[Option[int]]:
+    def finished(self, slot: str, shown: Hashable, plane: Option[npt.NDArray[np.float32]]) -> Outcome[Option[int]]:
         """Writes or drops slot pixels, then records the finished request."""
         icon = plane.map(lambda pixels: filled(Option.of_optional(self.collection.get(slot)).default_with(lambda: self.collection.new(slot)), pixels).icon_id)
         redraw = redrawn().map(lambda _: None) if plane.is_some() else self.dropped(slot)
         self.drawn[slot] = shown
         return redraw.map(lambda _: icon)
 
-    def dropped(self, slot: str) -> BlenderResult[None]:
+    def dropped(self, slot: str) -> Outcome[None]:
         """Clears slot, redrawing when a preview was removed."""
         self.drawn.pop(slot, None)
         if slot in self.collection:

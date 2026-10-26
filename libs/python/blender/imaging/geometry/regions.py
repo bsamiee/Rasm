@@ -1,19 +1,12 @@
-"""Frame shares, positions, and rectangles measured from the bottom left of a displayed frame."""
+"""Rectangles in shares of a displayed frame, measured from its bottom left."""
 
-from typing import Annotated, Self
+from typing import Self
 
-from expression import Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.records.fields import Finite, NonNegative, Positive, Presentation, Quantity, Unit
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type FrameLength = Annotated[NonNegative, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
-type FrameExtent = Annotated[Positive, Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
-type Position = Annotated[tuple[Finite, Finite], Presentation(soft=Some((0.0, 1.0)), quantity=Some(Quantity.FRAME))]
+from blender.records.fields import Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -21,10 +14,10 @@ type Position = Annotated[tuple[Finite, Finite], Presentation(soft=Some((0.0, 1.
 class Region(msgspec.Struct, frozen=True, kw_only=True):
     """Frame rectangle in shares from bottom left."""
 
-    left: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 0.0
-    bottom: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 0.0
-    right: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 1.0
-    top: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 1.0
+    left: Unit = 0.0
+    bottom: Unit = 0.0
+    right: Unit = 1.0
+    top: Unit = 1.0
 
     @classmethod
     def bounding(cls, points: npt.NDArray[np.float64]) -> Self:
@@ -40,4 +33,4 @@ class Region(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FrameExtent", "FrameLength", "Position", "Region"]
+__all__ = ["Region"]

@@ -2,7 +2,8 @@
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Annotated, Final
+import functools
+from typing import ClassVar, Final
 
 from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
@@ -11,132 +12,162 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.faults import BlenderResult
+from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.changes import owned
 from blender.bpy.render.color.spaces import NO_LOOK, viewed
-from blender.bpy.settings.attachments import Attachment
-from blender.bpy.settings.properties import Changed, Choices, EnumRows
+from blender.bpy.render.compositor.blending import Entry
+from blender.bpy.render.compositor.stacking import Valued
+from blender.bpy.settings.attachments import Attachment, Changed
 from blender.bpy.ui.layout.rows import Caption, Flow, Member, OperatorButton, Property, Rows
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.templates import IconView
 from blender.bpy.ui.surfaces.panels import Child, Panel
 from blender.imaging.color.processors import DisplayView
-from blender.records.faults import paired
-from blender.records.fields import Gated, heading
+from blender.records.faults import Outcome, paired
 
 from ..catalog import stacks
 from ..chain.previews import Tiles
 from ..effects.formation.display import Formation, formation, looked
 from .films import install
-from .luts import tones
+from .luts import toning
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class FormationLook(msgspec.Struct, frozen=True, kw_only=True):
-    """Look the formation's view applies, one of the OCIO looks Blender offers it."""
+class FormationLook(bpy.types.PropertyGroup):
+    """Look the formation's view applies, one of the OCIO looks Blender offers it, read from the formation and written on each pick."""
 
-    look: Annotated[str, msgspec.Meta(title="Look", description="Look the formation's view applies ahead of its transform")] = NO_LOOK
+    look: bpy.props.EnumProperty(name="Look", description="Look the formation's view applies ahead of its transform", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class StackLook(msgspec.Struct, frozen=True, kw_only=True):
-    """Layer stack preset the head stack takes, its effects moved from their defaults by Strength."""
+class StackLook(bpy.types.PropertyGroup):
+    """Layer stack preset the head stack takes, its effects mixed by Strength."""
 
-    look: Annotated[str, msgspec.Meta(title="Stack Look", description="Layer stack preset the head stack takes")] = ""
-    strength: Annotated[int, msgspec.Meta(ge=0, le=200, title="Strength", description="Share of each preset effect's change from its defaults, in percent")] = 100
+    look: bpy.props.EnumProperty(name="Stack Look", description="Layer stack preset the head stack takes", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    strength: bpy.props.IntProperty(name="Strength", description="Share each preset effect mixes over its input, in percent", subtype="PERCENTAGE", min=0, max=200, default=100)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class LookTiles[S: FormationLook | StackLook](msgspec.Struct, frozen=True, kw_only=True):
-    """Scene look pick drawn as tiles over the render proxy, its further fields beneath."""
+class FormationLooks(msgspec.Struct, frozen=True, kw_only=True):
+    """Scene pick over the looks Blender offers the formation's view, tiled over the render proxy."""
 
-    attachment: Attachment[S]
+    attachment: ClassVar[Attachment[FormationLook]] = Attachment(key="looks", form=FormationLook, owner=bpy.types.Scene)
 
-    @classmethod
-    def formation(cls) -> "LookTiles[FormationLook]":
-        """Binds the scene pick to the looks Blender offers the formation's view, read live from the formation and written after each pick."""
+    @staticmethod
+    @contextmanager
+    def acquisitions(identity: Identity) -> Generator[Outcome[Acquisitions]]:
+        """Binds the pick rows, its live read from the formation, and its deferred write, then acquires the pick."""
 
-        def offered(identity: Identity, owner: "bpy.types.bpy_struct[object]", _context: bpy.types.Context | None) -> EnumRows:
-            config = PyOpenColorIO.GetCurrentConfig()
-            return tuple(
+        def shown(scene: bpy.types.Scene) -> tuple[bpy.types.ColorManagedViewSettings, DisplayView]:
+            holder = next(
                 (
-                    name,
-                    label,
-                    Option.of_optional(config.getLook(name)).map(PyOpenColorIO.Look.getDescription).default_value(""),
-                    Tiles.icon(identity, f"look {name}", Formation(display_view=msgspec.structs.replace(view, look=Gated(enabled=name != NO_LOOK, value=name)))).default_value(0),
-                    index,
+                    node
+                    for entry in formation.entries(identity, scene)
+                    for group in Option.of_optional(entry.node_group).to_list()
+                    for node in Option.of_optional(owned(group, identity).get("display")).to_list()
+                    if isinstance(node, bpy.types.CompositorNodeConvertToDisplay)
+                ),
+                scene,
+            )
+            settings: bpy.types.ColorManagedViewSettings = holder.view_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return settings, viewed(holder)
+
+        def offered(owner: Struct, _context: bpy.types.Context | None) -> tuple[tuple[str, str, str, int, int], ...]:
+            config = PyOpenColorIO.GetCurrentConfig()
+            return _rows(
+                tuple(
+                    (
+                        name,
+                        label,
+                        Option.of_optional(config.getLook(name)).map(PyOpenColorIO.Look.getDescription).default_value(""),
+                        Tiles.icon(
+                            identity, f"look {name}", Valued(structure=Entry(record=Formation(display_view=msgspec.structs.replace(view, looks_override=name, looks_override_enabled=name != NO_LOOK))))
+                        ).default_value(0),
+                        index,
+                    )
+                    for scene in scened(owner).to_list()
+                    for settings, view in (shown(scene),)
+                    for index, name in enumerate((NO_LOOK, *config.getLookNames()))
+                    for label in (bpy.types.UILayout.enum_item_name(settings, "look", name),)
+                    if label
                 )
-                for scene in scened(owner).to_list()
-                for settings, view in shown(identity, scene).to_list()
-                for index, name in enumerate((NO_LOOK, *config.getLookNames()))
-                for label in (bpy.types.UILayout.enum_item_name(settings, "look", name),)
-                if label
             )
 
-        @contextmanager
-        def picked(identity: Identity) -> Generator[Changed]:
-            def write(handle: Handle[bpy.types.Scene], look: str) -> BlenderResult[Option[str]]:
-                return handle.resolve().bind(lambda scene: looked(identity, scene, look)).map(lambda _: Some(f"Look {look}"))
+        def current(owner: Struct) -> int:
+            look = scened(owner).map(lambda scene: shown(scene)[0].look).default_value(NO_LOOK)
+            return next((row[4] for row in offered(owner, None) if row[0] == look), 0)
 
-            with identity.reports.deferred(write) as deferred:
-                yield lambda owner, _context, prop: scened(owner).map(lambda scene: deferred(Handle.of(scene), getattr(owner, prop.identifier))).default_value(None)
+        def write(handle: Handle[bpy.types.Scene], look: str) -> Outcome[Option[str]]:
+            return handle.resolve().bind(lambda scene: looked(identity, scene, look)).map(lambda wrote: Some(f"Look {look}") if wrote else Nothing)
 
-        choices = Choices(offered, current=Some(lambda identity, owner: scened(owner).bind(lambda scene: shown(identity, scene)).map(lambda held: held[0].look).default_value(NO_LOOK)))
-        return LookTiles(attachment=Attachment(key="looks", form=FormationLook, owner=bpy.types.Scene, changed=Some(picked), bindings=Some({vars(FormationLook)["look"]: choices})))
+        with identity.reports.deferred(write) as deferred:
 
-    @classmethod
-    def stacked(cls) -> "LookTiles[StackLook]":
-        """Binds the scene pick to the layer stack presets, each pick or Strength change writing the picked preset over the head stack."""
-        preset = stacks.preset
+            def pick(owner: Struct, value: int) -> None:
+                for scene in scened(owner).to_list():
+                    deferred(Handle.of(scene), next((row[0] for row in offered(owner, None) if row[4] == value), NO_LOOK))
 
-        def tile(identity: Identity, stem: str) -> int:
-            return preset.found(identity, stem).bind(preset.read).to_option().bind(lambda record: Tiles.icon(identity, f"stack look {stem}", record)).default_value(0)
-
-        def offered(identity: Identity, _owner: "bpy.types.bpy_struct[object]", _context: bpy.types.Context | None) -> EnumRows:
-            return ((stem, name, tip, tile(identity, stem), index) for index, (stem, name, tip) in enumerate(preset.entries(identity)))
-
-        @contextmanager
-        def picked(identity: Identity) -> Generator[Changed]:
-            def applied(scene: bpy.types.Scene, pick: StackLook) -> BlenderResult[Option[str]]:
-                match pick:
-                    case StackLook(look=""):
-                        return Ok(Nothing)
-                    case StackLook(look=look, strength=strength):
-                        record = preset.found(identity, look).bind(preset.read)
-                        changed = paired(record, stacks.bound(identity)).bind(lambda parts: parts[1].looked(scene, parts[0], strength, bpy.context))
-                        return changed.map(lambda wrote: Some(f"Look {heading(look)}") if wrote else Nothing)
-
-            def write(handle: Handle[bpy.types.Scene]) -> BlenderResult[Option[str]]:
-                return handle.resolve().bind(lambda scene: attachment.read(identity, scene).bind(lambda pick: applied(scene, pick)))
-
-            with identity.reports.deferred(write) as deferred:
-                yield lambda owner, _context, _prop: scened(owner).map(lambda scene: deferred(Handle.of(scene))).default_value(None)
-
-        attachment = Attachment(key="stack_looks", form=StackLook, owner=bpy.types.Scene, changed=Some(picked), bindings=Some({vars(StackLook)["look"]: Choices(offered)}))
-        return LookTiles(attachment=attachment)
-
-    @property
-    def prerequisites(self) -> tuple[Registrable, ...]:
-        """Scene pick the tiles bind."""
-        return (self.attachment,)
-
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Declares nothing beside the scene pick."""
-        return Ok(())
+            FormationLook.__annotations__["look"].keywords.update(items=offered, get=current, set=pick)
+            yield Ok((FormationLooks.attachment,))
 
     @property
     def row(self) -> Rows:
-        """Tiles over the pick's look, then the pick's further fields as sliders."""
-        look, *rest = self.attachment.form.__struct_fields__
+        """Tiles over the pick's look."""
+        return Rows(rows=lambda identity: self.attachment.bound(identity).map(lambda attached: (IconView(target=Member(root=bpy.types.Scene, path=f"{attached.name}.look"), show_labels=True),)))
+
+
+class StackLooks(msgspec.Struct, frozen=True, kw_only=True):
+    """Scene pick over the layer stack presets, each pick or Strength change writing the picked preset over the head stack."""
+
+    @property
+    def attachment(self) -> Attachment[StackLook]:
+        """Scene pick, a change deferring the preset write."""
+        return Attachment(key="stack_looks", form=StackLook, owner=bpy.types.Scene, changed=Some(self.picked))
+
+    @contextmanager
+    def picked(self, identity: Identity) -> Generator[Changed]:
+        """Holds the deferred preset write a pick or Strength change calls."""
+        preset = stacks.preset
+
+        def applied(scene: bpy.types.Scene, pick: StackLook) -> Outcome[Option[str]]:
+            return (
+                Ok(Nothing)
+                if not pick.look
+                else paired(preset.found(identity, pick.look).bind(preset.read), stacks.bound(identity))
+                .bind(lambda parts: parts[1].looked(scene, parts[0], pick.strength, bpy.context))
+                .map(lambda wrote: Some(f"Look {bpy.path.display_name(pick.look)}") if wrote else Nothing)
+            )
+
+        def write(handle: Handle[bpy.types.Scene]) -> Outcome[Option[str]]:
+            return handle.resolve().bind(lambda scene: self.attachment.read(identity, scene).bind(lambda pick: applied(scene, pick)))
+
+        with identity.reports.deferred(write) as deferred:
+            yield lambda owner, _context: scened(owner).map(lambda scene: deferred(Handle.of(scene))).default_value(None)
+
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+        """Binds the pick rows to the stack presets of the extension, each tiled over the render proxy, then acquires the pick."""
+        preset = stacks.preset
+
+        def offered(_owner: Struct, _context: bpy.types.Context | None) -> tuple[tuple[str, str, str, int, int], ...]:
+            def tile(stem: str) -> int:
+                return preset.found(identity, stem).bind(preset.read).to_option().bind(lambda record: Tiles.icon(identity, f"stack look {stem}", record)).default_value(0)
+
+            return _rows(tuple((stem, name, tip, tile(stem), index) for index, (stem, name, tip) in enumerate(preset.entries(identity))))
+
+        StackLook.__annotations__["look"].keywords["items"] = offered
+        return Ok((self.attachment,))
+
+    @property
+    def row(self) -> Rows:
+        """Tiles over the pick's look, then its Strength slider."""
         return Rows(
             rows=lambda identity: self.attachment.bound(identity).map(
                 lambda attached: (
-                    IconView(target=Member(root=bpy.types.Scene, path=f"{attached.name}.{look}"), show_labels=True),
-                    *(Property(target=Member(root=bpy.types.Scene, path=f"{attached.name}.{field}"), slider=True) for field in rest),
+                    IconView(target=Member(root=bpy.types.Scene, path=f"{attached.name}.look"), show_labels=True),
+                    Property(target=Member(root=bpy.types.Scene, path=f"{attached.name}.strength"), slider=True),
                 )
             )
         )
@@ -145,7 +176,13 @@ class LookTiles[S: FormationLook | StackLook](msgspec.Struct, frozen=True, kw_on
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def scened(owner: "bpy.types.bpy_struct[object]") -> Option[bpy.types.Scene]:
+@functools.cache
+def _rows(rows: tuple[tuple[str, str, str, int, int], ...]) -> tuple[tuple[str, str, str, int, int], ...]:
+    """Holds look tile enum rows so the strings Blender reads stay referenced."""
+    return rows
+
+
+def scened(owner: Struct) -> Option[bpy.types.Scene]:
     """Returns the scene owning a pick."""
     match owner.id_data:
         case bpy.types.Scene() as scene:
@@ -154,33 +191,18 @@ def scened(owner: "bpy.types.bpy_struct[object]") -> Option[bpy.types.Scene]:
             return Nothing
 
 
-def shown(identity: Identity, scene: bpy.types.Scene) -> Option[tuple[bpy.types.ColorManagedViewSettings, DisplayView]]:
-    """Returns the view settings and view of the earliest formation's display node, else of the scene, `Nothing` while the holder has no view settings."""
-    holder = next(
-        (
-            node
-            for entry in formation.entries(identity, scene)
-            for group in Option.of_optional(entry.node_group).to_list()
-            for node in Option.of_optional(owned(group, identity).get("display")).to_list()
-            if isinstance(node, bpy.types.CompositorNodeConvertToDisplay)
-        ),
-        scene,
-    )
-    return Option.of_optional(holder.view_settings).map(lambda settings: (settings, viewed(holder)))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-formation_looks: Final = LookTiles.formation()
-stack_looks: Final = LookTiles.stacked()
+formation_looks: Final = FormationLooks()
+stack_looks: Final = StackLooks()
 rows: Final = (
     formation_looks,
     stack_looks,
     Panel(
         section=Single(
             key="image_formation",
-            title=heading("image_formation"),
-            rows=(formation_looks.row, stack_looks.row, Caption(rows=(OperatorButton(target=install.installing), OperatorButton(target=tones.toning)), flow=Flow.ALIGNED, separator=Nothing)),
+            title=bpy.path.display_name("image_formation"),
+            rows=(formation_looks.row, stack_looks.row, Caption(rows=(OperatorButton(target=install.installing), OperatorButton(target=toning)), flow=Flow.ALIGNED, separator=Nothing)),
         ),
         at=Child(parent=RENDER_PT_color_management),
     ),
@@ -188,4 +210,4 @@ rows: Final = (
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FormationLook", "LookTiles", "StackLook", "rows"]
+__all__ = ["FormationLook", "FormationLooks", "StackLook", "StackLooks", "rows"]

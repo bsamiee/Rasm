@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, nullcontext
+from functools import partial
 from itertools import chain
 from typing import Final, Literal, Protocol, TYPE_CHECKING
 
@@ -17,11 +18,11 @@ from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderFaults, BlenderRegisterFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.drawing.canvas import Canvas, PROGRAMS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.records.faults import accumulated
+from blender.records.faults import accumulated, Fault, Faults, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 class Part[S](Protocol):
     """Scale-dependent read and draw of a part."""
 
-    def read(self, metrics: Metrics, /) -> BlenderResult[Option[S]]:
+    def read(self, metrics: Metrics, /) -> Outcome[Option[S]]:
         """Returns draw state, Nothing while none exists."""
         ...
 
@@ -78,16 +79,16 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
     part: Part[S]
     refreshes: tuple[Refresh, ...] = ()
 
-    def acquired(self, identity: Identity) -> BlenderResult[tuple[Acquisitions, Drew]]:
+    def acquired(self, identity: Identity) -> Outcome[tuple[Acquisitions, Drew]]:
         """Builds refresh acquisitions and the draw callback rereading after each refresh, scale change, and file load."""
         held: Option[DrawState[S]] = Nothing
         read = identity.reports.reported(self.part.read)
 
-        def refreshed() -> BlenderResult[None]:
+        def refreshed() -> Outcome[None]:
             """Invalidates held read and redraws matching areas."""
             nonlocal held
             held = Nothing
-            for located in (located for manager in Option.of_optional(bpy.context.window_manager).to_list() for located in self.area.located(manager.windows)):
+            for located in self.area.located(bpy.context.window_manager.windows):  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                 located.area.tag_redraw()
             return Ok(None)
 
@@ -119,7 +120,7 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
     region: "rna_enums.RegionTypeItems" = "WINDOW"
     draw_type: DrawType = "POST_PIXEL"
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Owns region draw handle, hiding the drawing while the editor's overlays are off."""
         switch = (
             Descriptor
@@ -130,37 +131,28 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
             else Nothing
         )
         shown = AllOf(conditions=(*self.drawing.area.shows.to_list(), *switch.map(lambda descriptor: Setting(descriptor=descriptor)).to_list()))
-
-        def clipped(drew: Drew) -> Callable[[], None]:
-            """Draws under the scissor test, disabling it before returning."""
-
-            def drawn() -> None:
-                gpu.state.scissor_test_set(True)
-                try:
-                    drew(Nothing)
-                finally:
-                    gpu.state.scissor_test_set(False)
-
-            return drawn
-
         return (
             msgspec.structs
             .replace(self.drawing, area=msgspec.structs.replace(self.drawing.area, shows=Some(shown)))
             .acquired(identity)
-            .map(lambda pair: (*pair[0], (Band.DRAW_HANDLERS, hooked(self.space, clipped(pair[1]), self.region, self.draw_type))))
+            .map(lambda pair: (*pair[0], (Band.DRAW_HANDLERS, hooked(self.space, partial(_clipped, pair[1]), self.region, self.draw_type))))
         )
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Signal(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Signal:
     """Main-thread refresh source fired by its state owner."""
 
-    refreshes: list[Callable[[], BlenderResult[None]]] = msgspec.field(default_factory=list)
+    __slots__ = ("refreshes",)
+
+    def __init__(self) -> None:
+        """Follows no drawing."""
+        self.refreshes: list[Callable[[], Outcome[None]]] = []
 
     @contextmanager
-    def followed(self, refresh: Callable[[], BlenderResult[None]]) -> Generator[None]:
+    def followed(self, refresh: Callable[[], Outcome[None]]) -> Generator[None]:
         """Holds drawing refresh until release."""
         self.refreshes.append(refresh)
         try:
@@ -168,7 +160,7 @@ class Signal(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         finally:
             self.refreshes.remove(refresh)
 
-    def fired(self) -> BlenderResult[None]:
+    def fired(self) -> Outcome[None]:
         """Refreshes every following drawing, accumulating failures."""
         return accumulated(refresh() for refresh in self.refreshes).map(lambda _: None)
 
@@ -178,8 +170,17 @@ LOADS: Final = Scoped[int](made=lambda _identity: nullcontext(0), renewed=Some(l
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def _clipped(drew: Drew) -> None:
+    """Draws under the scissor test, disabling it before returning."""
+    gpu.state.scissor_test_set(True)
+    try:
+        drew(Nothing)
+    finally:
+        gpu.state.scissor_test_set(False)
+
+
 @contextmanager
-def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "rna_enums.RegionTypeItems", draw_type: DrawType) -> Generator[BlenderResult[None]]:
+def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "rna_enums.RegionTypeItems", draw_type: DrawType) -> Generator[Outcome[None]]:
     """Holds a draw handle of a space region until scope exit.
 
     Args:
@@ -194,15 +195,15 @@ def hooked(space: type[bpy.types.Space], callback: Callable[[], None], region: "
     try:
         handle = space.draw_handler_add(callback, (), region, draw_type)
     except TypeError as error:
-        yield Result[None, BlenderFaults].Error((BlenderRegisterFault(request=(space.__name__, region, draw_type), error=error),))
+        yield Result[None, Faults].Error((Fault(reason=BlenderReason.UNREGISTERED, subject=f"{space.__name__}, {region}, {draw_type}", cause=error),))
     else:
         try:
-            yield Result[None, BlenderFaults].Ok(None)
+            yield Result[None, Faults].Ok(None)
         finally:
             space.draw_handler_remove(handle, region)
 
 
-def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Callable[[], BlenderResult[None]]) -> BlenderResult[Acquisitions]:
+def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Callable[[], Outcome[None]]) -> Outcome[Acquisitions]:
     """Builds the refresh sources of a drawing, refreshing on the main thread and deferring refreshes handlers request.
 
     Args:
@@ -222,12 +223,12 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
         with identity.reports.deferred(lambda: refreshed().map(lambda _: Nothing)) as later:
             yield None
 
-    def deferring(*_: object) -> BlenderResult[None]:
+    def deferring(*_: object) -> Outcome[None]:
         """Schedules main-thread refresh from a handler."""
         later()
         return Ok(None)
 
-    def followed(refresh: Refresh) -> BlenderResult[Acquisitions]:
+    def followed(refresh: Refresh) -> Outcome[Acquisitions]:
         """Builds the rows of one source."""
         match refresh:
             case Watch(owner=owner, identifier=identifier):

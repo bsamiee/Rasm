@@ -61,8 +61,17 @@ const Root = Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
             tool: Schema.Struct({
-                uv: Schema.Struct({ buildBackend: Schema.Struct({ moduleRoot: Schema.String }).pipe(Schema.encodeKeys({ moduleRoot: 'module-root' })) }).pipe(Schema.encodeKeys({ buildBackend: 'build-backend' })),
+                uv: Schema.Struct({ workspace: Schema.Struct({ members: Schema.Array(Schema.String) }) }),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
+            }),
+        }),
+    ),
+);
+const Member = Toml.pipe(
+    Schema.decodeTo(
+        Schema.Struct({
+            tool: Schema.Struct({
+                hatch: Schema.OptionFromOptionalKey(Schema.Struct({ build: Schema.Struct({ devModeDirs: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ devModeDirs: 'dev-mode-dirs' })) })),
             }),
         }),
     ),
@@ -130,12 +139,19 @@ const readCrates = Effect.fnUntraced(function* (store: Store) {
     const [path, { packages }] = yield* Effect.all([Path.Path, cached(Metadata, store, { inputs: [`**/${CARGO_MANIFEST}`, '**/*.rs'], argv: ['cargo', 'metadata', '--format-version', '1', '--no-deps'] })]);
     return packages.map((crate) => ({ ...crate, manifest: path.relative(store.root, crate.manifest) }));
 });
+const readPyproject = Effect.fnUntraced(function* (root: string) {
+    const [path, { tool }] = yield* Effect.all([Path.Path, decode(Root, root, PYPROJECT)]);
+    const members = tool.uv.workspace.members;
+    const manifests = yield* Effect.forEach(members, (member) => decode(Member, root, path.join(member, PYPROJECT)));
+    const moduleRoots = Array.zip(members, manifests).flatMap(([member, { tool: held }]) => Option.match(held.hatch, { onNone: () => [], onSome: ({ build }) => build.devModeDirs.map((folder) => path.join(member, folder)) }));
+    return { moduleRoots, ...tool.pytest };
+});
 const openWorkspace = Effect.fnUntraced(function* (root: string) {
     const [fs, path, store] = yield* Effect.all([FileSystem.FileSystem, Path.Path, openStore(root)]);
     return {
         ...store,
         ...(yield* Effect.all({
-            pyproject: Effect.cached(Effect.map(decode(Root, root, PYPROJECT), ({ tool }) => ({ moduleRoot: tool.uv.buildBackend.moduleRoot, ...tool.pytest }))),
+            pyproject: Effect.cached(readPyproject(root)),
             mise: Effect.cached(decode(Mise, root, 'mise.toml')),
             hosts: Effect.cached(fs.readDirectory(path.join(root, 'apps'))),
             crates: Effect.cached(readCrates(store)),
@@ -237,12 +253,12 @@ const markers = {
         };
     }),
     'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [{ moduleRoot }, { id }, targets] = yield* Effect.all([workspace.pyproject, decode(Manifest, workspace.root, workspace.file), pythonTargets(dir, workspace)], { concurrency: 'unbounded' });
+        const [{ moduleRoots }, { id }, targets] = yield* Effect.all([workspace.pyproject, decode(Manifest, workspace.root, workspace.file), pythonTargets(dir, workspace)], { concurrency: 'unbounded' });
         return {
             name: id,
             tags: ['language:python', 'output:extension'],
             targets: {
-                pack: { inputs: [`{workspaceRoot}/${moduleRoot}/**/*`] },
+                pack: { inputs: moduleRoots.map((moduleRoot) => `{workspaceRoot}/${moduleRoot}/**/*`) },
                 install: {},
                 publish: {},
                 ...targets,
@@ -263,7 +279,11 @@ const markers = {
         const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
         return { root, name: path.parse(dir).name, ...xcode, targets: Record.map(xcode.targets, (target, name) => (['build', 'pack'].includes(name) ? { ...target, dependsOn: bundled } : target)) };
     }),
-    'py.typed': ({ dir }, workspace) => Effect.map(Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
+    'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
+        const [path, { moduleRoots }, targets] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
+        const moduleRoot = yield* Effect.fromOption(Array.findFirst(moduleRoots, (held) => !path.relative(held, dir).startsWith('..')));
+        return { name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets };
+    }),
     'tsconfig.json': ({ dir }, { root }) => Effect.map(suiteInputs('typescript', dir, root), (suite) => ({ ...suite, tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } })),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG))).pipe(Effect.map((hosted) => ({ tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {}, ...(hosted ? { hosting: {} } : {}) } }))),
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),

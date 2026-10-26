@@ -3,24 +3,24 @@
 from collections.abc import Callable, Generator, Hashable, Iterable, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import Enum
+from functools import partial
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 
 from blender.bpy.commands.calls import MenuPopup, Stock
-from blender.bpy.commands.operators import answered, Outcome, Unchanged
+from blender.bpy.commands.operators import Answer, answered, Unchanged
 from blender.bpy.data.rna.conditions import Condition, polled
-from blender.bpy.data.rna.descriptors import Descriptor, rooted
+from blender.bpy.data.rna.descriptors import Descriptor, rooted, Struct
 from blender.bpy.data.rna.snapshots import Applied, Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band, entered
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import acquired, OperatorButton, painted, placed, Property, Pulldown, realized, RowContent, RowDraw, SurfaceDraw
 from blender.bpy.ui.layout.values import Listing, Store
-from blender.records.faults import accumulated
-from blender.records.fields import heading
+from blender.records.faults import accumulated, Fault, Faults, Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -78,36 +78,33 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [ACQUISITION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns submenus, row acquisitions, then menu class."""
         match self.body:
             case Dropdown(entries=rows, search=search):
                 submenus: tuple[Menu, ...] = ()
 
-                def drawing() -> BlenderResult[SurfaceDraw]:
+                def drawing() -> Outcome[SurfaceDraw]:
                     return placed(rows, identity).map(painted)
 
             case Keyed(entries=entries, keys=keys, search=search):
                 offered, submenus = tuple(entries.items()), ()
                 rows = tuple(row for _, row in offered)
 
-                def keyed(draws: Mapping[K, RowDraw]) -> SurfaceDraw:
-                    def shown(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
-                        for key in keys(context):
-                            draws[key](layout, context, context)
+                def keyed(draws: Mapping[K, RowDraw], layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
+                    for key in keys(context):
+                        draws[key](layout, context, context)
 
-                    return shown
-
-                def drawing() -> BlenderResult[SurfaceDraw]:
-                    return accumulated(realized(row, identity).map(lambda draw: (key, draw)) for key, row in offered).map(dict).map(keyed)
+                def drawing() -> Outcome[SurfaceDraw]:
+                    return accumulated(realized(row, identity).map(lambda draw: (key, draw)) for key, row in offered).map(dict).map(lambda draws: partial(keyed, draws))
 
             case Submenus(entries=entries, search=search):
                 present = frozenset(held for held, _ in entries)
                 submenus = tuple(
                     Menu(
                         key=f"{self.key}_{group.name.lower()}",
-                        title=heading(group.name),
-                        description=f"{heading(group.name)}: {self.description}",
+                        title=bpy.path.display_name(group.name.lower()),
+                        description=f"{bpy.path.display_name(group.name.lower())}: {self.description}",
                         body=Dropdown(entries=tuple(row for held, row in entries if held is group)),
                         condition=self.condition,
                     )
@@ -117,31 +114,24 @@ class Menu[K: Hashable = str](msgspec.Struct, frozen=True, kw_only=True):
                 )
                 rows = tuple(Pulldown(menu=group.key) for group in submenus)
 
-                def drawing() -> BlenderResult[SurfaceDraw]:
+                def drawing() -> Outcome[SurfaceDraw]:
                     return placed(rows, identity).map(painted)
 
             case Pie():
                 slots, search, submenus = msgspec.structs.astuple(self.body), False, ()
                 rows = tuple(row for slot in slots for row in slot.to_list())
 
-                def radial(draws: tuple[Option[RowDraw], ...]) -> SurfaceDraw:
-                    def shown(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
-                        pie = layout.menu_pie()
-                        for draw in draws:
-                            match draw:
-                                case Option(tag="some", some=row):
-                                    row(pie.column(), context, context)
-                                case _:
-                                    pie.separator()
+                def radial(draws: tuple[Option[RowDraw], ...], layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
+                    pie = layout.menu_pie()
+                    for draw in draws:
+                        draw.map(lambda row: row(pie.column(), context, context)).default_with(pie.separator)
 
-                    return shown
-
-                def slot(row: OperatorButton | Pulldown | Property | RowDraw) -> BlenderResult[RowDraw]:
+                def slot(row: OperatorButton | Pulldown | Property | RowDraw) -> Outcome[RowDraw]:
                     checked = row.target.resolved().bind(lambda held: held.accepts((bpy.types.BoolProperty, bpy.types.EnumProperty))).map(lambda _: None) if isinstance(row, Property) else Ok(None)
                     return checked.bind(lambda _: realized(row, identity))
 
-                def drawing() -> BlenderResult[SurfaceDraw]:
-                    return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in slots).map(radial)
+                def drawing() -> Outcome[SurfaceDraw]:
+                    return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in slots).map(lambda draws: partial(radial, draws))
 
         return Ok((*submenus, *acquired(rows), (Band.INTERFACE, registered(identity, self.key, self.title, self.description, drawing, search=search, condition=self.condition))))
 
@@ -158,18 +148,18 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
         """Menu key shared with preset listing."""
         return Listing.keyed(self.preset)
 
-    def listing(self) -> BlenderResult[Listing[Snapshot]]:
+    def listing(self) -> Outcome[Listing[Snapshot]]:
         """Resolves selected settings once into listing."""
 
         def listed(selected: tuple[Descriptor, ...]) -> Listing[Snapshot]:
-            def captured(context: bpy.types.Context) -> "BlenderResult[tuple[bpy.types.bpy_struct[object], Snapshot]]":
+            def captured(context: bpy.types.Context) -> Outcome[tuple[Struct, Snapshot]]:
                 return rooted(self.scope.owner_type, context).bind(lambda owner: Snapshot.capture(owner, Some(selected)).map(lambda snapshot: (owner, snapshot)))
 
-            def finished(outcomes: tuple[Applied, ...]) -> BlenderResult[Outcome]:
+            def finished(outcomes: tuple[Applied, ...]) -> Outcome[Answer]:
                 owner = self.scope.owner_type.__name__
                 if not outcomes:
                     return Ok(Unchanged(reason=f"No {owner} in scope"))
-                absent = (Applied(outcome=Error((BlenderAbsentFault(owner=owner, key=path),))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
+                absent = (Applied(outcome=Error((Fault(reason=BlenderReason.ABSENT, subject=owner, member=path),))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
                 return answered(Applied.join((*outcomes, *absent)), "Settings already hold preset")
 
             return Listing(
@@ -185,28 +175,28 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_only=True):
     """Searchable preset listing with trailing rows."""
 
-    source: Store[T] | Listing[T] | Captured
+    source: Store[bpy.types.PropertyGroup] | Listing[T] | Captured
     entries: tuple[RowContent, ...] = ()
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns source acquisitions, then preset menu."""
 
-        def menu[S: msgspec.Struct](listing: Listing[S]) -> AbstractContextManager[BlenderResult[None]]:
+        def menu[S: msgspec.Struct](listing: Listing[S]) -> AbstractContextManager[Outcome[None]]:
             name = bpy.path.display_name(listing.preset.key)
             owned = (listing, *self.entries)
             return registered(identity, listing.key, f"{name} Presets", f"Apply, add, or import {name.lower()} presets", lambda: placed(owned, identity).map(painted), search=True)
 
-        def listed[S: msgspec.Struct](listing: Listing[S]) -> BlenderResult[Acquisitions]:
+        def listed[S: msgspec.Struct](listing: Listing[S]) -> Outcome[Acquisitions]:
             return Ok((*acquired((listing, *self.entries)), (Band.INTERFACE, menu(listing))))
 
         match self.source:
             case Store() as store:
 
                 @contextmanager
-                def registered_store() -> Generator[BlenderResult[None]]:
+                def registered_store() -> Generator[Outcome[None]]:
                     with ExitStack() as stack:
-                        result: BlenderResult[None] = store.bound(identity).bind(
-                            lambda slots: slots.listing.map(lambda listing: stack.enter_context(menu(listing))).default_value(Result[None, BlenderFaults](ok=None))
+                        result: Outcome[None] = store.bound(identity).bind(
+                            lambda slots: slots.listing.map(lambda listing: stack.enter_context(menu(listing))).default_value(Result[None, Faults](ok=None))
                         )
                         yield result
 
@@ -222,8 +212,8 @@ class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_o
 
 @contextmanager
 def registered(
-    identity: Identity, key: Key, title: str, description: str, drawing: Callable[[], BlenderResult[SurfaceDraw]], *, search: bool, condition: Option[Condition] = Nothing
-) -> Generator[BlenderResult[None]]:
+    identity: Identity, key: Key, title: str, description: str, drawing: Callable[[], Outcome[SurfaceDraw]], *, search: bool, condition: Option[Condition] = Nothing
+) -> Generator[Outcome[None]]:
     """Registers menu class after nested rows, a searchable menu opened from code or a key leading with its search entry."""
 
     def built(draw: SurfaceDraw, name: str, heading: Option[RowDraw]) -> type[bpy.types.Menu]:

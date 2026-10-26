@@ -1,6 +1,5 @@
 """Image editor views: the displayed image's kind, the frame it draws in, and the render view opened at a Sidebar tab."""
 
-import re
 from typing import Final
 
 import bpy
@@ -9,15 +8,15 @@ import msgspec
 import numpy as np
 
 from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderResult
 from blender.bpy.ui.drawing.canvas import Rect
 from blender.bpy.ui.screens.areas import AreaQuery, Arrangement, Located, SETTLING
 from blender.bpy.ui.screens.editors import EditorState
+from blender.records.faults import Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -29,17 +28,10 @@ class ImageWindow(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def command(self) -> Operator[Empty]:
-        """Command opening the view at `tab`, named for the tab, equal across reads."""
-        return Operator(
-            key="_".join(("show", *re.findall(r"[a-z0-9]+", self.tab.lower()), "view")),
-            title=f"{self.tab} View",
-            description=f"Open the render view at its {self.tab} Sidebar tab",
-            undo=False,
-            form=Empty,
-            run=self.opened,
-        )
+        """Command opening the view at `tab`, one per extension, equal across reads."""
+        return Operator(undo=False, form=Empty, run=self.show_render_view)
 
-    def opened(self, call: Call[Empty]) -> BlenderResult[Outcome]:
+    def show_render_view(self, call: Call[Empty]) -> Outcome[Answer]:
         """Opens the render view unless the window is temporary or shows one, keeping a view the host toggle would hide, then settles its Sidebar."""
         sidebar = EditorState(values=((Descriptor.declared(bpy.types.SpaceImageEditor, "show_region_ui", bpy.types.BoolProperty), True),))
         tabbed = EditorState(region=Some("UI"), values=((Descriptor.declared(bpy.types.Region, "active_panel_category", bpy.types.EnumProperty), self.tab),))
@@ -52,7 +44,7 @@ class ImageWindow(msgspec.Struct, frozen=True, kw_only=True):
             .map(lambda _: Done())
         )
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns the command and the settling driver its Sidebar tab waits on."""
         return Ok((self.command, SETTLING))
 
@@ -73,12 +65,12 @@ def framed(region: bpy.types.Region) -> Rect:
     return Rect(x=float(-left) / across, y=float(-bottom) / up, width=1.0 / across, height=1.0 / up)
 
 
-def viewing(context: bpy.types.Context) -> BlenderResult[Located]:
+def viewing(context: bpy.types.Context) -> Outcome[Located]:
     """Returns the largest editor showing Render Result in a window of the context scene."""
     return rooted(bpy.types.WindowManager, context).bind(lambda manager: RENDERED.first(window for window in manager.windows if window.scene == context.scene))
 
 
-def revealed(context: bpy.types.Context) -> BlenderResult[Option[Located]]:
+def revealed(context: bpy.types.Context) -> Outcome[Option[Located]]:
     """Returns the editor `viewing` finds, `Nothing` after opening the render view when none shows Render Result."""
     return viewing(context).map(Some).or_else_with(lambda _: called(bpy.ops.render.view_show, {}, context="INVOKE_DEFAULT").map(lambda _: Nothing))
 

@@ -1,6 +1,6 @@
 """Output name grammars, root containment, and versioned paths."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import auto, StrEnum
 from itertools import chain, starmap
 from pathlib import Path
@@ -12,9 +12,9 @@ from expression import Error, Nothing, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import accumulated, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.fields import Case
-from blender.rendering.faults import RenderingFaults, RenderingNameFault, RenderingResult, RenderingRootFault
+from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -87,8 +87,8 @@ class Number(Case, frozen=True, kw_only=True):
 class Fields(msgspec.Struct, frozen=True, kw_only=True):
     """Output name field values."""
 
-    words: dict[Word, str] = msgspec.field(default_factory=dict)
-    counts: dict[Count, Annotated[int, msgspec.Meta(ge=0)]] = msgspec.field(default_factory=dict)
+    words: Mapping[Word, str] = msgspec.field(default_factory=dict)
+    counts: Mapping[Count, Annotated[int, msgspec.Meta(ge=0)]] = msgspec.field(default_factory=dict)
 
 
 class OutputName(msgspec.Struct, frozen=True, kw_only=True):
@@ -97,16 +97,16 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     parts: tuple[Parts, ...]
 
     @classmethod
-    def of(cls, template: str) -> RenderingResult[Self]:
+    def of(cls, template: str) -> Outcome[Self]:
         """Parses `{word}` and `{count:width}` fields, refusing braces in text, unknown fields, unseparated fields, and one count at two widths."""
 
-        def refused(reason: str) -> RenderingFaults:
-            return (RenderingNameFault(request=template, error=ValueError(reason)),)
+        def refused(reason: str | ValueError) -> Faults:
+            return (Fault(reason=RenderingReason.TEMPLATE, subject=template, cause=reason),)
 
         def width(spec: str) -> Option[int]:
             return catch(lambda: msgspec.json.decode(spec, type=Width), exception=msgspec.DecodeError)().to_option() if spec.isdigit() else Nothing
 
-        def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> RenderingResult[tuple[Parts, ...]]:
+        def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> Outcome[tuple[Parts, ...]]:
             literal: tuple[Parts, ...] = (Text(text=text),) if text else ()
             match name, spec, conversion:
                 case _ if _UNLITERAL.search(text):
@@ -120,19 +120,18 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return Error(refused(f"Field {name!r} with conversion {conversion!r} and width {spec!r} names no output field"))
 
-        def checked(reason: str, *, holds: bool) -> RenderingResult[None]:
+        def checked(reason: str, *, holds: bool) -> Outcome[None]:
             return Ok(None) if holds else Error(refused(reason))
 
-        try:
-            pieces = tuple(string.Formatter().parse(template))
-        except ValueError as error:
-            return Error((RenderingNameFault(request=template, error=error),))
-        counts = {(name, spec) for _, name, spec, _ in pieces if name is not None and name in Count}
-        return paired(
-            accumulated(starmap(parted, pieces)),
-            checked("Adjacent fields need a non-word or underscore separator", holds=all(_SEPARATOR.search(text) for text, name, _, _ in pieces[1:] if name is not None)),
-            checked("A count field repeats at another width", holds=len(counts) == len({name for name, _ in counts})),
-        ).map(lambda found: cls(parts=tuple(chain.from_iterable(found[0]))))
+        def parsed(pieces: tuple[tuple[str, str | None, str | None, str | None], ...]) -> Outcome[Self]:
+            counts = {(name, spec) for _, name, spec, _ in pieces if name is not None and name in Count}
+            return paired(
+                accumulated(starmap(parted, pieces)),
+                checked("Adjacent fields need a non-word or underscore separator", holds=all(_SEPARATOR.search(text) for text, name, _, _ in pieces[1:] if name is not None)),
+                checked("A count field repeats at another width", holds=len(counts) == len({name for name, _ in counts})),
+            ).map(lambda found: cls(parts=tuple(chain.from_iterable(found[0]))))
+
+        return catch(lambda: tuple(string.Formatter().parse(template)), exception=ValueError)().map_error(refused).bind(parsed)
 
     @property
     def slots(self) -> frozenset[Field]:
@@ -156,11 +155,11 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
         return {part: pattern(part) for part in self.parts if not isinstance(part, Text)}
 
-    def compose(self, fields: Fields, written: Callable[[Field], Option[str]] = lambda _: Nothing) -> RenderingResult[str]:
+    def compose(self, fields: Fields, written: Callable[[Field], Option[str]] = lambda _: Nothing) -> Outcome[str]:
         """Composes name, accumulating field refusals."""
         patterns = self.patterns()
 
-        def spelled(part: Parts) -> RenderingResult[str]:
+        def spelled(part: Parts) -> Outcome[str]:
             match part:
                 case Text(text=text):
                     return Ok(text)
@@ -169,11 +168,11 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Number(key=key, width=width):
                     value = Option.of_optional(fields.counts.get(key)).map(lambda count: f"{count:0{width}d}").default_value("")
             pattern = patterns[part]
-            return written(part).map(Ok).default_with(lambda: Ok(value) if pattern.fullmatch(value) else Error((RenderingNameFault(request=value, error=pattern),)))
+            return written(part).map(Ok).default_with(lambda: Ok(value) if pattern.fullmatch(value) else Error((Fault(reason=RenderingReason.UNMATCHED, subject=value, member=pattern.pattern),)))
 
         return accumulated(map(spelled, self.parts)).map("".join)
 
-    def parse(self, text: str) -> RenderingResult[Fields]:
+    def parse(self, text: str) -> Outcome[Fields]:
         """Parses relative extensionless name, requiring repeated fields to agree."""
         patterns = self.patterns()
         names = {part: f"{type(part).__name__}_{part.key.name}" for part in patterns}
@@ -192,13 +191,15 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     words={part.key: found[names[part]] for part in patterns if isinstance(part, Slot)}, counts={part.key: int(found[names[part]]) for part in patterns if isinstance(part, Number)}
                 )
             )
-            .to_result_with(lambda: (RenderingNameFault(request=text, error=grammar),))
+            .to_result_with(lambda: (Fault(reason=RenderingReason.UNMATCHED, subject=text, member=grammar.pattern),))
         )
 
-    def path(self, root: Path, fields: Fields) -> RenderingResult[Path]:
+    def path(self, root: Path, fields: Fields) -> Outcome[Path]:
         """Composes path, refusing one resolving outside root."""
         return self.compose(fields).bind(
-            lambda text: Ok(root / text) if (path := (root / text).resolve()).is_relative_to(base := root.resolve()) else Error((RenderingRootFault(request=path, error=base),))
+            lambda text: (
+                Ok(root / text) if (path := (root / text).resolve()).is_relative_to(base := root.resolve()) else Error((Fault(reason=RenderingReason.ROOT, subject=str(path), member=str(base)),))
+            )
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:

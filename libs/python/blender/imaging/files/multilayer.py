@@ -1,6 +1,7 @@
 """Multipart OpenEXR files holding passes under "<layer>.<channel>" names."""
 
 from collections.abc import Callable, Mapping
+from enum import IntEnum
 import itertools
 from typing import Self
 
@@ -10,25 +11,23 @@ import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import Compressions, Deflate, emitted, opened, Storage, Subimage
-from blender.records.faults import accumulated, FileFault
-from blender.records.fields import Choice
+from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Role(Choice):
+class Role(IntEnum):
     """Pass content deciding stored type."""
 
     COLOR = 1
     DATA = 2
 
 
-class Layout(Choice):
+class Layout(IntEnum):
     """Pass arrangement in file."""
 
-    PARTS = 1, "Multipart"
+    PARTS = 1
     INTERLEAVED = 2
 
 
@@ -65,7 +64,7 @@ class Part(msgspec.Struct, frozen=True, kw_only=True):
     width: int
     height: int
     channels: tuple[str, ...]
-    header: dict[str, str]
+    header: Mapping[str, str]
 
 
 class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
@@ -86,7 +85,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     @classmethod
-    def read(cls, path: str) -> ImagingResult[Self]:
+    def read(cls, path: str) -> Outcome[Self]:
         """Indexes a file's parts.
 
         Args:
@@ -96,7 +95,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             Indexed file, or `read` fault.
         """
 
-        def indexed(image: OpenImageIO.ImageInput) -> ImagingResult[Self]:
+        def indexed(image: OpenImageIO.ImageInput) -> Outcome[Self]:
             specs = ((index, image.spec()) for index in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
             return Ok(
                 cls(
@@ -112,7 +111,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
 
         return opened(path, indexed)
 
-    def plane(self, layer: Layer, channels: tuple[Channel, ...]) -> ImagingResult[npt.NDArray[np.float32]]:
+    def plane(self, layer: Layer, channels: tuple[Channel, ...]) -> Outcome[npt.NDArray[np.float32]]:
         """Reads layer channels as float32 plane.
 
         Args:
@@ -124,20 +123,20 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         """
         first, last = min(channel.index for channel in channels), max(channel.index for channel in channels) + 1
 
-        def pixels(image: OpenImageIO.ImageInput) -> ImagingResult[npt.NDArray[np.float32]]:
+        def pixels(image: OpenImageIO.ImageInput) -> Outcome[npt.NDArray[np.float32]]:
             return (
                 Option
                 .of_optional(image.read_image(layer.part, 0, first, last, OpenImageIO.FLOAT))
                 .map(lambda span: np.ascontiguousarray(span[..., [channel.index - first for channel in channels]]))
-                .to_result_with(lambda: (FileFault(access="read", request=self.path, error=image.geterror()),))
+                .to_result_with(lambda: (Fault(reason=RecordReason.UNREADABLE, subject=self.path, cause=image.geterror()),))
             )
 
         return opened(self.path, pixels)
 
     @staticmethod
     def written(
-        path: str, passes: tuple[Pass, ...], layout: Layout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], ImagingResult[npt.NDArray[np.float32]]]
-    ) -> ImagingResult[str]:
+        path: str, passes: tuple[Pass, ...], layout: Layout, storage: Storage, size: tuple[int, int], fields: Mapping[str, str], plane: Callable[[Pass], Outcome[npt.NDArray[np.float32]]]
+    ) -> Outcome[str]:
         """Writes passes to one file, reading each plane when its part writes.
 
         Args:
@@ -177,7 +176,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         return emitted(path, lambda _: tuple(subimage(group) for group in groups))
 
     @staticmethod
-    def rewritten(path: str, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compressions]) -> ImagingResult[str]:
+    def rewritten(path: str, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compressions]) -> Outcome[str]:
         """Rewrites windows and channel names after closing file, skipping unchanged files.
 
         Args:
@@ -190,14 +189,16 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             Path, or `read` or `write` fault.
         """
 
-        def parts(image: OpenImageIO.ImageInput) -> ImagingResult[Option[tuple[Subimage[np.float32], ...]]]:
+        def parts(image: OpenImageIO.ImageInput) -> Outcome[Option[tuple[Subimage[np.float32], ...]]]:
             specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
             renamed = tuple(channels(spec.channelnames) for spec in specs)
             return (
                 Ok(Nothing)
                 if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
                 else accumulated(
-                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (FileFault(access="read", request=path, error=image.geterror()),))
+                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(
+                        lambda: (Fault(reason=RecordReason.UNREADABLE, subject=path, cause=image.geterror()),)
+                    )
                     for index, spec in enumerate(specs)
                 ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
             )

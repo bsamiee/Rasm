@@ -376,7 +376,7 @@
             },
             "lint:ruff": { "executor": "nx:run-commands", "options": { "commands": [ "ruff check", "ruff format --check" ] }, "inputs": [ "python", "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml" ] },
             "lint:refurb": { "inputs": [ "python", "pythonFiles" ] },
-            "lint:deptry": { "command": "deptry libs/python apps", "inputs": [ "python", "pythonFiles" ] },
+            "lint:deptry": { "command": "deptry --config libs/python/blender/pyproject.toml libs/python apps", "inputs": [ "python", "pythonFiles" ] },
             "lint:biome": {
                 "command": "biome check --error-on-warnings",
                 "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [ "@biomejs/biome" ] } ]

@@ -8,20 +8,20 @@ from typing import Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids.images import generated, loaded
 from blender.bpy.data.ids.ownership import Mark
-from blender.bpy.data.ids.store import vacant
-from blender.bpy.data.rna.descriptors import assigned, Descriptor, differing, struct_at, Value, written
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, differing, Native, struct_at, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import Content, CurvePoints, End, FileItems, Generated, Graph, Link, Loaded, Nested, Node, NodeGroup
 from blender.bpy.nodes.interface import Addressed, addresses, Declared, Interface, interfaced, MenuItems, Restated, revised, slot, Withdrawn
 from blender.bpy.nodes.ramps import Ramp
 from blender.bpy.nodes.trees import created, grouped, joined, ordered, socket_at
-from blender.records.faults import accumulated, paired
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 from blender.records.trees import Owner, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -36,7 +36,7 @@ type _TreeChange = _Structural | _Alteration | Connected | Reordered | Valued | 
 class Configured(msgspec.Struct, frozen=True, kw_only=True):
     """Graph members tree lacks."""
 
-    members: dict[Descriptor, Value]
+    members: Mapping[Descriptor, Value]
 
 
 class Removed(msgspec.Struct, frozen=True, kw_only=True):
@@ -56,7 +56,7 @@ class Altered(msgspec.Struct, frozen=True, kw_only=True):
     """Node parts live node lacks."""
 
     key: Key
-    members: dict[Descriptor, Value] = msgspec.field(default_factory=dict)
+    members: Mapping[Descriptor, Value] = msgspec.field(default_factory=dict)
     content: Option[Content] = Nothing
     parent: Option[Option[Key]] = Nothing
 
@@ -65,8 +65,8 @@ class Valued(msgspec.Struct, frozen=True, kw_only=True):
     """Socket values live node lacks, by address."""
 
     key: Key
-    inputs: dict[str, Value] = msgspec.field(default_factory=dict)
-    outputs: dict[str, Value] = msgspec.field(default_factory=dict)
+    inputs: Mapping[str | int, Value] = msgspec.field(default_factory=dict)
+    outputs: Mapping[str | int, Value] = msgspec.field(default_factory=dict)
 
 
 class Disconnected(msgspec.Struct, frozen=True, kw_only=True):
@@ -103,8 +103,8 @@ class Keyed(msgspec.Struct, frozen=True, kw_only=True):
 
     tree: bpy.types.NodeTree
     slot: str
-    nodes: dict[Key, bpy.types.Node]
-    sockets: dict[Key, dict[str, str]]
+    nodes: Mapping[Key, bpy.types.Node]
+    sockets: Mapping[Key, Mapping[str, str]]
 
     @classmethod
     def of(cls, tree: bpy.types.NodeTree, identity: Identity, slot: str) -> Self:
@@ -127,19 +127,20 @@ class Keyed(msgspec.Struct, frozen=True, kw_only=True):
 
         return cls(tree=tree, slot=slot, nodes=nodes, sockets={key: addressed(node) for key, node in nodes.items()})
 
-    def node(self, key: Key) -> BlenderResult[bpy.types.Node]:
+    def node(self, key: Key) -> Outcome[bpy.types.Node]:
         """Owned node at key, `absent` fault naming key when no node holds it."""
-        return Option.of_optional(self.nodes.get(key)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.tree.nodes), key=key),))
+        return Option.of_optional(self.nodes.get(key)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(self.tree.nodes), member=key),))
 
-    def socket(self, end: End, *, output: bool) -> BlenderResult[bpy.types.NodeSocket]:
-        """Live socket at end, addressed by item key, item name, or identifier."""
-        return self.node(end.node).bind(lambda live: socket_at(live.outputs if output else live.inputs, self.sockets[end.node].get(end.socket, end.socket)))
+    def socket(self, end: End, *, output: bool) -> Outcome[bpy.types.NodeSocket]:
+        """Live socket at end, addressed by item key, item name, identifier, or enabled position."""
+        address = end.socket if isinstance(end.socket, int) else self.sockets[end.node].get(end.socket, end.socket)
+        return self.node(end.node).bind(lambda live: socket_at(live.outputs if output else live.inputs, address))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> BlenderResult[Changes]:
+def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> Outcome[Changes]:
     """Reads tree against desired graph, writing nothing.
 
     Args:
@@ -153,7 +154,7 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
     return slot(identity).bind(lambda name: _read(desired, Keyed.of(tree, identity, name), identity))
 
 
-def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> BlenderResult[Changes]:
+def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Identity) -> Outcome[Changes]:
     """Writes `changes` rows phase by phase.
 
     Args:
@@ -165,8 +166,8 @@ def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: I
         `Ok` of rows written. `Error` of `changes` faults, or every `edit`, `absent`, or `choice` fault from phase writes.
     """
 
-    def phased(name: str, rows: Changes) -> BlenderResult[Changes]:
-        def wrote(phase: tuple[_TreeChange, ...]) -> BlenderResult[None]:
+    def phased(name: str, rows: Changes) -> Outcome[Changes]:
+        def wrote(phase: tuple[_TreeChange, ...]) -> Outcome[None]:
             keyed = Keyed.of(tree, identity, name)
             return accumulated(applied(row, identity, keyed) for row in phase).map(lambda _: None)
 
@@ -180,7 +181,7 @@ def reconciled(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: I
             rows.values,
             tuple(msgspec.structs.replace(row, kind=Nothing, place=Nothing) for row in rows.restatements),
         )
-        return functools.reduce(lambda done, phase: done.bind(lambda _: wrote(phase)), phases, Result[None, BlenderFaults].Ok(None)).map(lambda _: rows)
+        return functools.reduce(lambda done, phase: done.bind(lambda _: wrote(phase)), phases, Result[None, Faults].Ok(None)).map(lambda _: rows)
 
     return slot(identity).bind(lambda name: changes(desired, tree, identity).bind(lambda rows: phased(name, rows)))
 
@@ -190,7 +191,7 @@ def owned(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, bpy.types.N
     return dict(reversed(tuple((mark.key, node) for node in tree.nodes for mark in Mark.read(identity, node).to_list())))
 
 
-def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> BlenderResult[None]:
+def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> Outcome[None]:
     """Writes one change row onto a tree.
 
     Args:
@@ -203,7 +204,7 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> BlenderResult
     """
     tree = keyed.tree
 
-    def altered(change: Altered) -> BlenderResult[None]:
+    def altered(change: Altered) -> Outcome[None]:
         def parented(live: bpy.types.Node, found: Option[bpy.types.Node]) -> None:
             live.parent = found.to_optional()
 
@@ -221,11 +222,11 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> BlenderResult
             )
         )
 
-    def reordered(target: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, ...]) -> BlenderResult[None]:
+    def reordered(target: bpy.types.NodeSocket, sources: tuple[bpy.types.NodeSocket, ...]) -> Outcome[None]:
         marked = tuple(link for link in target.links if Mark.read(identity, link.from_node).is_some())  # type: ignore[union-attr, arg-type]  # ty: ignore[not-iterable, invalid-argument-type]
         return accumulated(
             Option.of_optional(next(itertools.islice((link for link in marked if link.from_socket == source), sources[:index].count(source), None), None)).to_result_with(
-                lambda: (BlenderAbsentFault(owner=repr(target), key=repr(source)),)
+                lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(target), member=repr(source)),)
             )
             for index, source in enumerate(sources)
         ).map(lambda desired: ordered(target, desired))
@@ -236,7 +237,7 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> BlenderResult
         case Withdrawn() | Declared() | Restated():
             return revised(row, tree, keyed.slot)
         case Removed(name=name):
-            return Option.of_optional(tree.nodes.get(name)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(tree.nodes), key=name),)).map(tree.nodes.remove)
+            return Option.of_optional(tree.nodes.get(name)).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(tree.nodes), member=name),)).map(tree.nodes.remove)
         case Added(key=key, kind=kind):
             return created(tree, kind).bind(lambda made: Mark(key=key).write(identity, made))
         case Altered():
@@ -252,7 +253,7 @@ def applied(row: _TreeChange, identity: Identity, keyed: Keyed) -> BlenderResult
             return keyed.node(key).bind(lambda live: paired(valued(live.inputs, inputs, keyed.sockets[key]), valued(live.outputs, outputs, keyed.sockets[key]))).map(lambda _: None)
 
 
-def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Nothing) -> BlenderResult[bpy.types.NodeTree]:
+def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Nothing) -> Outcome[bpy.types.NodeTree]:
     """Reconciles reused or built group tree.
 
     Args:
@@ -265,16 +266,17 @@ def made(group: NodeGroup, identity: Identity, *, of: Option[bpy.types.ID] = Not
     """
     return group.ownership.made(
         identity,
-        lambda: BlenderEditFault.attempted(
-            repr(bpy.data.node_groups),
-            lambda: bpy.data.node_groups.new(vacant(group.name, bpy.data.node_groups.keys()), group.graph.kind.__name__),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        ).bind(lambda tree: Option.of_optional(tree).to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.data.node_groups), key=group.name),))),
+        lambda: (
+            catch(bpy.data.node_groups.new, exception=RuntimeError)(group.name, group.graph.kind.__name__)
+            .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(bpy.data.node_groups), cause=error),))
+            .bind(lambda tree: Option.of_optional(tree).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.data.node_groups), member=group.name),)))
+        ),
         of=of,
         filled=lambda tree: reconciled(group, tree, identity).map(lambda _: tree),
     )
 
 
-def stored(content: Content, live: bpy.types.Node, identity: Identity) -> BlenderResult[None]:
+def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Outcome[None]:
     """Writes declared content onto a node.
 
     Args:
@@ -297,7 +299,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
             items.move(tuple(items).index(items[name]), index)
         return tuple(items)
 
-    def refreshed(mapping: Option["bpy.types.bpy_struct[object] | bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]"]) -> None:
+    def refreshed(mapping: Option[Native]) -> None:
         for curves in mapping.to_list():
             if isinstance(curves, bpy.types.CurveMapping):
                 curves.reset_view()
@@ -315,7 +317,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
                         Mark
                         .read(identity, live)
                         .map(lambda mark: msgspec.structs.replace(mark, content=Some(hashed) if image.is_none() else Nothing).write(identity, live))
-                        .default_value(Error((BlenderAbsentFault(owner=repr(live), key=identity.manifest.id),)))
+                        .default_value(Error((Fault(reason=BlenderReason.ABSENT, subject=repr(live), member=identity.manifest.id),)))
                     )
                 )
             )
@@ -345,12 +347,14 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
             )
 
 
-def valued(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: Mapping[str, Value], keyed: Mapping[str, str]) -> BlenderResult[None]:
-    """Writes socket defaults by identifier, or by interface item key or item name through `keyed` socket identifiers."""
-    return accumulated(socket_at(sockets, keyed.get(address, address)).bind(lambda socket: written(socket, "default_value", value)) for address, value in values.items()).map(lambda _: None)
+def valued(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: Mapping[str, Value] | Mapping[str | int, Value], keyed: Mapping[str, str]) -> Outcome[None]:
+    """Writes socket defaults by identifier or enabled position, or by interface item key or item name through `keyed` socket identifiers."""
+    return accumulated(
+        socket_at(sockets, address if isinstance(address, int) else keyed.get(address, address)).bind(lambda socket: written(socket, "default_value", value)) for address, value in values.items()
+    ).map(lambda _: None)
 
 
-def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> BlenderResult[Changes]:
+def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Outcome[Changes]:
     tree, name, first = keyed.tree, keyed.slot, keyed.nodes
 
     def referenced[T: bpy.types.ID](live: bpy.types.Node, identifier: str, kind: type[T]) -> Option[T]:
@@ -369,7 +373,7 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
     }
     current = {pair: changes(group, pair[0], identity).map(lambda rows: rows == Changes()) for pair, group in pointed.items()}
 
-    def holding(content: Content, live: bpy.types.Node) -> BlenderResult[bool]:
+    def holding(content: Content, live: bpy.types.Node) -> Outcome[bool]:
         match content:
             case Ramp() as ramp:
                 return _ramp(live).map(ramp.holds)
@@ -420,8 +424,8 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
                 )
 
     def stale(
-        sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: dict[str, Value], keyed: Mapping[str, str], interface: Option[dict[str, tuple[str, type[bpy.types.NodeSocket]]]]
-    ) -> dict[str, Value]:
+        sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: Mapping[str | int, Value], keyed: Mapping[str, str], interface: Option[dict[str, tuple[str, type[bpy.types.NodeSocket]]]]
+    ) -> dict[str | int, Value]:
         return {
             address: value
             for address, value in values.items()
@@ -430,12 +434,12 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
                 and interface.map(
                     lambda future: any(identifier == socket.identifier and address in {key, identifier} and isinstance(socket, kind) for key, (identifier, kind) in future.items())
                 ).default_value(True)
-                for socket in socket_at(sockets, keyed.get(address, address)).to_option().to_list()
+                for socket in socket_at(sockets, address if isinstance(address, int) else keyed.get(address, address)).to_option().to_list()
             )
         }
 
-    def altered(key: Key, node: Node, parent: Option[Key]) -> BlenderResult[Option[Altered]]:
-        def drawn(live: bpy.types.Node) -> BlenderResult[Altered]:
+    def altered(key: Key, node: Node, parent: Option[Key]) -> Outcome[Option[Altered]]:
+        def drawn(live: bpy.types.Node) -> Outcome[Altered]:
             framed = parent.bind(lambda frame: Option.of_optional(held.get(frame))).to_optional() == live.parent
             return (
                 node.content
@@ -450,8 +454,18 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
     sockets = {key: keyed.sockets[key] for key in held}
 
     def linked(rows: tuple[Option[Altered], ...]) -> tuple[tuple[Disconnected, ...], tuple[Connected | Reordered, ...], dict[Key, dict[str, tuple[str, type[bpy.types.NodeSocket]]]]]:
-        def addressed(endpoint: End) -> End:
-            return msgspec.structs.replace(endpoint, socket=sockets[endpoint.node].get(endpoint.socket, endpoint.socket)) if endpoint.node in sockets else endpoint
+        altered = tuple(row for option in rows for row in option.to_list())
+        remoded = frozenset(row.key for row in altered if row.members)
+
+        def addressed(endpoint: End, *, output: bool) -> End:
+            match endpoint.socket:
+                case int(position) if endpoint.node in held and endpoint.node not in remoded:
+                    live = held[endpoint.node]
+                    return socket_at(live.outputs if output else live.inputs, position).map(lambda socket: msgspec.structs.replace(endpoint, socket=socket.identifier)).default_value(endpoint)
+                case str(address) if endpoint.node in sockets:
+                    return msgspec.structs.replace(endpoint, socket=sockets[endpoint.node].get(address, address))
+                case _:
+                    return endpoint
 
         def surviving(group: bpy.types.NodeTree, face: Interface) -> dict[str, tuple[str, type[bpy.types.NodeSocket]]]:
             live, entries = Addressed.of(group, name), {key: entry for key, entry, _, _ in face.walked()}
@@ -460,7 +474,7 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
 
         nested = {
             key: group.ownership.found(identity).map(lambda found: surviving(found, group.interface)).default_value({}) if group.single else {}
-            for change in (change for option in rows for change in option.to_list())
+            for change in altered
             if change.key in held
             for content in change.content.to_list()
             if isinstance(content, Nested)
@@ -469,8 +483,12 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
         interfaces = {**{key: surviving(tree, interface) for key, live in held.items() if isinstance(live, (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput))}, **nested}
 
         def retained(end: End) -> bool:
-            address = {identifier: key for key, identifier in sockets[end.node].items()}.get(end.socket, end.socket) if end.node in interfaces else end.socket
-            return end.node not in interfaces or any(identifier == end.socket and address in {key, identifier} for key, (identifier, _) in interfaces[end.node].items())
+            match end.socket:
+                case str(socket) if end.node in interfaces:
+                    address = {identifier: key for key, identifier in sockets[end.node].items()}.get(socket, socket)
+                    return any(identifier == socket and address in {key, identifier} for key, (identifier, _) in interfaces[end.node].items())
+                case _:
+                    return end.node not in interfaces
 
         ends = {socket: End(node=key, socket=socket.identifier) for key, live in held.items() for socket in (*live.inputs, *live.outputs)}
         endpoints = {
@@ -486,7 +504,10 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
             present[target] = (*present.get(target, ()), source)
             if retained(source) and retained(target):
                 available.setdefault((source, target), deque()).append(link)
-        matched = tuple((link, Option.of_optional(available.get((addressed(link.source), addressed(link.target)))).filter(bool).map(lambda candidates: candidates.popleft())) for link in graph.links)
+        matched = tuple(
+            (link, Option.of_optional(available.get((addressed(link.source, output=True), addressed(link.target, output=False)))).filter(bool).map(lambda candidates: candidates.popleft()))
+            for link in graph.links
+        )
         kept_links = frozenset(found for _, held_link in matched for found in held_link.to_list())
         desired_links: dict[End, tuple[End, ...]] = {}
         for declared in graph.links:
@@ -495,20 +516,26 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
             tuple(Disconnected(link=link) for link in existing if link not in kept_links),
             (
                 *(Connected(link=link) for link, found in reversed(matched) if found.is_none()),
-                *(Reordered(target=target, sources=sources) for target, sources in desired_links.items() if len(sources) > 1 and present.get(addressed(target), ()) != tuple(map(addressed, sources))),
+                *(
+                    Reordered(target=target, sources=sources)
+                    for target, sources in desired_links.items()
+                    if len(sources) > 1 and present.get(addressed(target, output=False), ()) != tuple(addressed(source, output=True) for source in sources)
+                ),
             ),
             interfaces,
         )
 
     def assembled(rows: tuple[Option[Altered], ...]) -> Changes:
         (withdrawn, declared, restated), (disconnected, connected, interfaces) = interfaced(tree, interface, name), linked(rows)
+        altered = tuple(row for option in rows for row in option.to_list())
+        remoded = frozenset(row.key for row in altered if row.members)
         values = tuple(
             Valued(
                 key=key,
                 inputs=stale(held[key].inputs, node.inputs, sockets[key], future := Option.of_optional(interfaces.get(key))),
                 outputs=stale(held[key].outputs, node.outputs, sockets[key], future),
             )
-            if key in held
+            if key in held and key not in remoded
             else Valued(key=key, inputs=node.inputs, outputs=node.outputs)
             for key, (node, _) in placed.items()
         )
@@ -520,7 +547,7 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
                 *(Removed(name=node.name) for node in first.values() if node not in owners),
                 *(Added(key=key, kind=node.kind) for key, (node, _) in placed.items() if key not in held),
             ),
-            alterations=(*(row for option in rows for row in option.to_list()), *disconnected),
+            alterations=(*altered, *disconnected),
             links=connected,
             values=tuple(row for row in values if row.inputs or row.outputs),
             restatements=restated,
@@ -546,16 +573,16 @@ def _tree(content: CurvePoints) -> Tree[Value]:
     )
 
 
-def _ramp(live: bpy.types.Node) -> BlenderResult[bpy.types.ColorRamp]:
+def _ramp(live: bpy.types.Node) -> Outcome[bpy.types.ColorRamp]:
     """Node's `color_ramp`, else `absent` fault naming it."""
     return (
         struct_at(live, "color_ramp")
         .bind(lambda held: Some(held) if isinstance(held, bpy.types.ColorRamp) else Nothing)
-        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(live), key="color_ramp"),))
+        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(live), member="color_ramp"),))
     )
 
 
-def _framed(live: bpy.types.Node) -> BlenderResult[bpy.types.ImageUser | bpy.types.CompositorNodeImage]:
+def _framed(live: bpy.types.Node) -> Outcome[bpy.types.ImageUser | bpy.types.CompositorNodeImage]:
     """Frame window holder, compositor image node itself or shader image node `image_user`."""
     match live:
         case bpy.types.CompositorNodeImage():
@@ -563,12 +590,12 @@ def _framed(live: bpy.types.Node) -> BlenderResult[bpy.types.ImageUser | bpy.typ
         case bpy.types.ShaderNodeTexImage() | bpy.types.ShaderNodeTexEnvironment():
             return Ok(live.image_user)
         case _:
-            return Error((BlenderAbsentFault(owner=repr(live), key="image_user"),))
+            return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(live), member="image_user"),))
 
 
-def _narrowed[N: bpy.types.Node](live: bpy.types.Node, kind: type[N], member: str) -> BlenderResult[N]:
+def _narrowed[N: bpy.types.Node](live: bpy.types.Node, kind: type[N], member: str) -> Outcome[N]:
     """Node as class declaring member, else `absent` fault naming member."""
-    return Ok(live) if isinstance(live, kind) else Error((BlenderAbsentFault(owner=repr(live), key=member),))
+    return Ok(live) if isinstance(live, kind) else Error((Fault(reason=BlenderReason.ABSENT, subject=repr(live), member=member),))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

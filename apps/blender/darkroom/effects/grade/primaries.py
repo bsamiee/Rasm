@@ -1,99 +1,116 @@
 """Primaries remap before gamut compression: unclamped channel mixing or colorspace interpretation through OCIO."""
 
-from typing import Annotated, override
+from collections.abc import Mapping
 
 import bpy
-from expression import Ok, Option, Some
-import msgspec
+from expression import Error, Ok, Option, Some
 import numpy as np
 import PyOpenColorIO
 
-from blender.bpy.faults import BlenderResult
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.graphs import Expr, xyz
+from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor.colors import space_item
 from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Shell
 from blender.bpy.render.compositor.grades import matrixed
-from blender.bpy.settings.shapes import GraphForm
 from blender.imaging.color.processors import ColorSpace, matrix
-from blender.imaging.faults import ImagingResult
-from blender.records.faults import paired
-from blender.records.fields import Case, Finite, Presentation
+from blender.records.faults import Fault, Outcome, paired, RecordReason
 
-from ...chain.stages import Effect, Stage
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Weight = Annotated[Finite, Presentation(soft=Some((-2.0, 2.0)), precision=Some(3))]
-type Weights = Annotated[tuple[Weight, Weight, Weight], msgspec.Meta(description="Red, green, and blue input weights summed by one output channel")]
-type Remap = Mixer | Conversion
+from ...chain.stages import Effect, Stage, transform
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Mixer(Case, frozen=True, kw_only=True):
-    """Linear channel mixing with signed weights and unclamped output."""
-
-    red: Annotated[Weights, msgspec.Meta(title="Red")] = (1.0, 0.0, 0.0)
-    green: Annotated[Weights, msgspec.Meta(title="Green")] = (0.0, 1.0, 0.0)
-    blue: Annotated[Weights, msgspec.Meta(title="Blue")] = (0.0, 0.0, 1.0)
-
-    @property
-    def transform(self) -> PyOpenColorIO.MatrixTransform:
-        """Fresh matrix operation of the weight rows, alpha passed through."""
-        return matrix(np.array(msgspec.structs.astuple(self), dtype=np.float64))
-
-
-class Conversion(Case, frozen=True, kw_only=True):
-    """Colorspace interpretation and conversion through the OCIO config."""
-
-    source: Annotated[ColorSpace, GraphForm.COLOR_SPACE, msgspec.Meta(description="Colorspace values read as")] = PyOpenColorIO.ROLE_SCENE_LINEAR
-    target: Annotated[ColorSpace, GraphForm.COLOR_SPACE, msgspec.Meta(description="Colorspace values convert to")] = PyOpenColorIO.ROLE_SCENE_LINEAR
-
-    @property
-    def transform(self) -> PyOpenColorIO.ColorSpaceTransform:
-        """Fresh conversion from source to target."""
-        return PyOpenColorIO.ColorSpaceTransform(src=self.source, dst=self.target)
-
-
 class Primaries(Effect, frozen=True, kw_only=True):
-    """Remaps scene-linear channels before gamut compression."""
+    """Remaps scene-linear channels before gamut compression, the conversion between the colorspaces values read as and convert to."""
 
     stage = Stage.PRIMARIES
     pointwise = True
-    remap: Annotated[Remap, msgspec.Meta(description="Channel mixing or colorspace interpretation")] = Mixer()
-
-    @override
-    def transform(self, _config: PyOpenColorIO.Config, /) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the remap's OCIO operation."""
-        return Ok(Some(self.remap.transform))
+    source: ColorSpace = PyOpenColorIO.ROLE_SCENE_LINEAR
+    target: ColorSpace = PyOpenColorIO.ROLE_SCENE_LINEAR
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def remapped(shell: Shell[Primaries]) -> BlenderResult[Expr]:
-    """Switches at the remap menu between the matrix form of the mixer weights and a colorspace conversion of the held conversion's spaces."""
-    (remap,) = Primaries.__struct_fields__
-    red, green, blue = (shell.input(remap, Mixer, output) for output in Mixer.__struct_fields__)
-    mixer = matrixed(shell.color, (red, green, blue), xyz())
+@transform.register
+def _(record: Primaries, values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
+    """Returns the matrix operation of the mixer weight rows, alpha passed through, or the conversion from source to target."""
+    match values:
+        case {"remap": "Conversion"}:
+            return Ok(Some(PyOpenColorIO.ColorSpaceTransform(src=record.source, dst=record.target)))
+        case {"remap": "Mixer", "mixer_red": tuple(red), "mixer_green": tuple(green), "mixer_blue": tuple(blue)}:
+            return Ok(Some(matrix(np.array((red, green, blue), dtype=np.float64))))
+        case _:
+            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Primaries.__name__, cause=repr(values)),))
 
-    def converted(spaces: tuple[tuple[str, str], ...]) -> Expr:
-        conversion = Expr(kind=bpy.types.CompositorNodeConvertColorSpace, inputs=(("Image", shell.color),), members=spaces, socket="Image", shape="RGBA")
-        return shell.menu(remap, cases={Mixer.title: mixer, Conversion.title: conversion}, kind="RGBA")
 
-    spaces: BlenderResult[tuple[tuple[str, str], ...]] = (
-        shell
-        .case(Conversion, remap)
-        .map(lambda kept: paired(space_item(shell.config, kept.source), space_item(shell.config, kept.target)).map(lambda named: (("from_color_space", named[0]), ("to_color_space", named[1]))))
-        .default_value(Ok(()))
+def remapped(shell: Shell[Primaries]) -> Outcome[Expr]:
+    """Switches at the remap menu between the matrix form of the mixer weights and a colorspace conversion of the record's spaces."""
+    mixer = matrixed(shell.color, (shell.input("mixer_red"), shell.input("mixer_green"), shell.input("mixer_blue")), xyz())
+    return paired(space_item(shell.config, shell.record.source), space_item(shell.config, shell.record.target)).bind(
+        lambda named: shell.menu(
+            "remap",
+            cases={
+                "Mixer": mixer,
+                "Conversion": Expr(
+                    kind=bpy.types.CompositorNodeConvertColorSpace,
+                    inputs=(("Image", shell.color),),
+                    members=(("from_color_space", named[0]), ("to_color_space", named[1])),
+                    socket="Image",
+                    shape="RGBA",
+                ),
+            },
+            kind="RGBA",
+        )
     )
-    return spaces.map(converted)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-primaries = CompositorEffect(record=Primaries, graph=remapped, alpha=Alpha.STRAIGHT)
+primaries = CompositorEffect(
+    record=Primaries,
+    graph=remapped,
+    alpha=Alpha.STRAIGHT,
+    interface=Interface(
+        inputs=(
+            Socket(
+                key="remap",
+                name="Remap",
+                kind=bpy.types.NodeSocketMenu,
+                description="Channel mixing or colorspace interpretation",
+                members={"default_value": "Mixer"},
+                items=Some(
+                    MenuItems(
+                        items=(
+                            MenuItem(name="Mixer", description="Linear channel mixing with signed weights and unclamped output"),
+                            MenuItem(name="Conversion", description="Colorspace interpretation and conversion through the OCIO config"),
+                        )
+                    )
+                ),
+            ),
+        ),
+        panels=(
+            InterfacePanel(
+                key="mixer",
+                name="Mixer",
+                description="Red, green, and blue input weights summed by each output channel",
+                inputs=tuple(
+                    Socket(
+                        key=item_key("mixer", channel),
+                        name=bpy.path.display_name(channel),
+                        kind=bpy.types.NodeSocketVector,
+                        description=f"Red, green, and blue input weights summed by the {channel} output",
+                        members={"dimensions": 3, "default_value": weights},
+                    )
+                    for channel, weights in (("red", (1.0, 0.0, 0.0)), ("green", (0.0, 1.0, 0.0)), ("blue", (0.0, 0.0, 1.0)))
+                ),
+            ),
+        ),
+    ),
+)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Conversion", "Mixer", "Primaries", "primaries"]
+__all__ = ["Primaries", "primaries"]

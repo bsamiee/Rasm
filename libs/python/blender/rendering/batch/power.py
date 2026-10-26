@@ -13,11 +13,11 @@ from expression import Error, Ok
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import paired, scoped
+from blender.records.faults import Fault, Faults, Outcome, paired
 from blender.rendering.batch.processes import ran, refused, spawned
 from blender.rendering.batch.progress import Progress
 from blender.rendering.batch.supervision import stop
-from blender.rendering.faults import RenderingResult, RenderingSystemFault
+from blender.rendering.faults import RenderingReason
 
 if sys.platform == "win32":
     from ctypes import get_last_error, WinDLL, WinError, wintypes  # ty: ignore[possibly-missing-import]
@@ -31,29 +31,28 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
     awake: Annotated[bool, msgspec.Meta(title="Keep Awake", description="Prevent sleep while queue renders")] = True
     shutdown: Annotated[bool, msgspec.Meta(title="Shut Down", description="Shut down one minute after queue finishes")] = False
 
-    def held[T](self, operation: Callable[[], RenderingResult[T]]) -> RenderingResult[T]:
+    def held[T](self, operation: Callable[[], Outcome[T]]) -> Outcome[T]:
         """Runs operation with sleep inhibited."""
         if not self.awake:
             return operation()
         if sys.platform == "win32":
             continuous, system = 0x80000000, 0x00000001
 
-            def inhibited(library: ctypes.CDLL) -> RenderingResult[T]:
+            def inhibited(library: ctypes.CDLL) -> Outcome[T]:
                 state = library.SetThreadExecutionState
                 state.argtypes = (wintypes.DWORD,)
                 state.restype = wintypes.DWORD
 
-                def changed(flags: int) -> RenderingResult[int]:
+                def changed(flags: int) -> Outcome[int]:
                     previous: int = state(flags)
-                    return Ok(previous) if previous else Error((RenderingSystemFault(request=(state.__name__, flags), error=WinError(get_last_error())),))
+                    return Ok(previous) if previous else Error((Fault(reason=RenderingReason.SYSTEM, subject=f"{state.__name__}({flags})", cause=WinError(get_last_error())),))
 
-                return scoped(changed(continuous | system), lambda _: operation(), changed)
+                return changed(continuous | system).bind(lambda previous: paired(operation(), changed(previous)).map(lambda pair: pair[0]))
 
-            try:
-                library = WinDLL("kernel32", use_last_error=True)
-            except OSError as error:
-                return Error((RenderingSystemFault(request=(WinDLL.__name__, continuous | system), error=error),))
-            return inhibited(library)
+            def unloaded(error: OSError) -> Faults:
+                return (Fault(reason=RenderingReason.SYSTEM, subject=f"{WinDLL.__name__}(kernel32)", cause=error),)
+
+            return catch(WinDLL, exception=OSError)("kernel32", use_last_error=True).map_error(unloaded).bind(inhibited)
 
         pid = str(os.getpid())
         argv = (
@@ -62,18 +61,20 @@ class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
             else ("systemd-inhibit", "--what=idle:sleep", "--mode=block", f"--who={Path(sys.executable).name}", "--why=Render queue", "tail", f"--pid={pid}", "-f", "/dev/null")
         )
 
-        def released(holder: subprocess.Popen[bytes]) -> RenderingResult[None]:
-            terminated: RenderingResult[None] = catch(holder.terminate, exception=OSError)().map_error(refused(argv))
-            waited: RenderingResult[int] = catch(holder.wait, exception=OSError)().map_error(refused(argv))
-            return paired(terminated, waited).bind(lambda pair: Ok(None) if pair[1] in {0, -signal.SIGTERM} else Error(refused(argv)(pair[1])))
+        def released(holder: subprocess.Popen[bytes]) -> Outcome[None]:
+            terminated: Outcome[None] = catch(holder.terminate, exception=OSError)().map_error(refused(argv))
+            waited: Outcome[int] = catch(holder.wait, exception=OSError)().map_error(refused(argv))
+            return paired(terminated, waited).bind(
+                lambda pair: Ok(None) if pair[1] in {0, -signal.SIGTERM} else Error((Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(pair[1])),))
+            )
 
-        return scoped(spawned(argv, subprocess.DEVNULL), lambda _: operation(), released)
+        return spawned(argv, subprocess.DEVNULL).bind(lambda holder: paired(operation(), released(holder)).map(lambda pair: pair[0]))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def shut() -> RenderingResult[None]:
+def shut() -> Outcome[None]:
     """Schedules machine shutdown in one minute."""
     return ran(
         ("shutdown", "/s", "/t", "60")
@@ -84,7 +85,7 @@ def shut() -> RenderingResult[None]:
     )
 
 
-def cancelled(progress: Progress) -> RenderingResult[None]:
+def cancelled(progress: Progress) -> Outcome[None]:
     """Cancels scheduled shutdown."""
     return ran(("shutdown", "/a")) if sys.platform == "win32" else stop(progress) if sys.platform == "darwin" else ran(("shutdown", "-c"))
 

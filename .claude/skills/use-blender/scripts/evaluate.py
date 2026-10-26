@@ -1,5 +1,6 @@
 """Runs Blender in fresh `.artifacts/blender/evaluate/<name>/` tree of relocated user folders."""
 
+import importlib
 from itertools import takewhile
 import os
 from pathlib import Path
@@ -12,7 +13,6 @@ from cyclopts import App, Parameter
 from cyclopts.types import ResolvedExistingFile
 from expression import Result
 from expression.extra.result import catch
-import msgspec
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -22,6 +22,7 @@ type Failure = OSError | subprocess.CalledProcessError
 
 ROOT = Path(__file__).resolve().parents[4]
 SCRIPTS = ROOT / ".cache" / "blender" / "scripts"
+MODULE_ROOT = Path(next(iter(importlib.import_module("blender").__path__))).parent
 FOLDERS = {
     "BLENDER_USER_RESOURCES": ".",
     "BLENDER_USER_CONFIG": "config",
@@ -30,25 +31,6 @@ FOLDERS = {
     "BLENDER_USER_DATAFILES": "datafiles",
     "TMPDIR": ".",
 }
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-class _Backend(msgspec.Struct, frozen=True, rename="kebab"):
-    module_root: str
-
-
-class _Uv(msgspec.Struct, frozen=True, rename="kebab"):
-    build_backend: _Backend
-
-
-class _Tool(msgspec.Struct, frozen=True):
-    uv: _Uv
-
-
-class _Project(msgspec.Struct, frozen=True):
-    tool: _Tool
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -105,12 +87,11 @@ def opened(folder: Path, environment: dict[str, str], blender: Path, arguments: 
 
 
 def provisioned(folder: Path, environment: dict[str, str], blender: Path) -> Result[dict[str, str], Failure]:
-    """Environment with `PYTHONPATH` at checkout module root and `BLENDER_SYSTEM_SCRIPTS` at shared folder, `fitout site` syncing its `modules` to `fitout pack` distributions."""
+    """Environment with `PYTHONPATH` at the folder the `blender` library imports from and `BLENDER_SYSTEM_SCRIPTS` at shared folder, `fitout site` syncing its `modules` to `fitout pack` distributions."""
     return (
         launched(folder, environment, (sys.executable, "-m", "eng.python.fitout", "site", "--blender", blender, SCRIPTS / "modules"))
         .bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)())
-        .bind(lambda _: catch((ROOT / "pyproject.toml").read_bytes, exception=OSError)())
-        .map(lambda project: environment | {"BLENDER_SYSTEM_SCRIPTS": str(SCRIPTS), "PYTHONPATH": str(ROOT / msgspec.toml.decode(project, type=_Project).tool.uv.build_backend.module_root)})
+        .map(lambda _: environment | {"BLENDER_SYSTEM_SCRIPTS": str(SCRIPTS), "PYTHONPATH": str(MODULE_ROOT)})
     )
 
 
@@ -160,7 +141,3 @@ app.command(run)
 
 if __name__ == "__main__":
     app()
-
-# --- [EXPORTS] --------------------------------------------------------------------------
-
-__all__ = ["app"]

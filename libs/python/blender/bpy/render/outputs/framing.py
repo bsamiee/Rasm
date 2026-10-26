@@ -1,5 +1,6 @@
 """Frame size, render regions, overscan restoration, and safe areas with their native rows."""
 
+from enum import auto, Enum
 from fractions import Fraction
 from typing import Annotated, ClassVar, Final, Self
 
@@ -11,14 +12,14 @@ from mathutils import Vector
 import msgspec
 import numpy as np
 
-from blender.bpy.commands.operators import answered, Call, Empty, Operator, Outcome
+from blender.bpy.commands.operators import Answer, answered, Call, Empty, Operator
 from blender.bpy.data.rna.conditions import AllOf, Count, Setting
-from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.data.rna.descriptors import assigned, Descriptor
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.faults import BlenderFaults, BlenderResult, BlenderUnmetFault
+from blender.bpy.faults import BlenderReason
 from blender.bpy.render.outputs.formats import struct_listing
 from blender.bpy.scene.cameras import render_cameras, widened
 from blender.bpy.settings.attachments import Attached, Attachment, Recovery, Stored
@@ -26,21 +27,21 @@ from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import Label
 from blender.bpy.ui.surfaces.appends import Append
 from blender.imaging.geometry.regions import Region
-from blender.records.faults import accumulated, guarded, NumericFault, paired
-from blender.records.fields import Case, Choice, NonNegative, Positive, Presentation, Side
-from blender.rendering.faults import RenderingSizeFault
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
+from blender.records.fields import Case, NonNegative, Positive, Side
+from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Extents = Whole | Border
 
 
-class Broadcast(Choice):
+class Broadcast(Enum):
     """Broadcast standard of safe area preset."""
 
-    WIDE = 1, "16:9", "Clear center-cut safe areas for a full 16:9 frame"
-    PROTECTED = 2, "14:9 in 16:9", "Set center-cut safe areas for a 14:9 frame inside 16:9"
-    CENTER_CUT = 3, "4:3 in 16:9", "Set center-cut safe areas for a 4:3 frame inside 16:9"
+    WIDE = auto()
+    PROTECTED = auto()
+    CENTER_CUT = auto()
 
     @property
     def safe(self) -> dict[str, tuple[float, ...]]:
@@ -64,6 +65,11 @@ ASPECT_X: Final = Descriptor.declared(bpy.types.RenderSettings, "pixel_aspect_x"
 ASPECT_Y: Final = Descriptor.declared(bpy.types.RenderSettings, "pixel_aspect_y", bpy.types.FloatProperty)
 SAFE_AREAS: Final = {name: Descriptor.declared(bpy.types.DisplaySafeAreas, name, bpy.types.FloatProperty) for name in ("title", "action", "title_center", "action_center")}
 EDGES: Final = (("left", "border_min_x"), ("bottom", "border_min_y"), ("right", "border_max_x"), ("top", "border_max_y"))
+STANDARDS: Final = (
+    (Broadcast.WIDE.name, "16:9", "Clear center-cut safe areas for a full 16:9 frame"),
+    (Broadcast.PROTECTED.name, "14:9 in 16:9", "Set center-cut safe areas for a 14:9 frame inside 16:9"),
+    (Broadcast.CENTER_CUT.name, "4:3 in 16:9", "Set center-cut safe areas for a 4:3 frame inside 16:9"),
+)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -71,14 +77,12 @@ EDGES: Final = (("left", "border_min_x"), ("bottom", "border_min_y"), ("right", 
 class Whole(Case, frozen=True, kw_only=True):
     """Whole frame grown on each side by overscan."""
 
-    title = "Whole Frame"
-    overscan: Annotated[NonNegative, msgspec.Meta(description="Share of frame side added past each edge, camera widened to keep view"), Presentation(soft=Some((0.0, 0.25)), precision=Some(3))] = 0.0
+    overscan: Annotated[NonNegative, msgspec.Meta(description="Share of frame side added past each edge, camera widened to keep view")] = 0.0
 
 
 class Border(Case, frozen=True, kw_only=True):
     """Render border rectangle, rendered alone."""
 
-    title = "Region"
     region: Annotated[Region, msgspec.Meta(description="Frame rectangle from bottom-left")] = Region()
     crop: Annotated[bool, msgspec.Meta(description="Write region pixels alone")] = False
 
@@ -87,11 +91,11 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
     """Frame size, aspect, density, and render extent."""
 
     native: ClassVar[tuple[str, ...]] = tuple(descriptor.prop.identifier for descriptor in (RESOLUTION_X, RESOLUTION_Y, SCALE, ASPECT_X, ASPECT_Y))
-    resolution_x: Annotated[int, RESOLUTION_X.meta, RESOLUTION_X.presentation] = RESOLUTION_X.prop.default
-    resolution_y: Annotated[int, RESOLUTION_Y.meta, RESOLUTION_Y.presentation] = RESOLUTION_Y.prop.default
-    resolution_percentage: Annotated[int, SCALE.meta, SCALE.presentation] = SCALE.prop.default
-    pixel_aspect_x: Annotated[float, ASPECT_X.meta, ASPECT_X.presentation] = ASPECT_X.prop.default
-    pixel_aspect_y: Annotated[float, ASPECT_Y.meta, ASPECT_Y.presentation] = ASPECT_Y.prop.default
+    resolution_x: Annotated[int, RESOLUTION_X.meta] = RESOLUTION_X.prop.default
+    resolution_y: Annotated[int, RESOLUTION_Y.meta] = RESOLUTION_Y.prop.default
+    resolution_percentage: Annotated[int, SCALE.meta] = SCALE.prop.default
+    pixel_aspect_x: Annotated[float, ASPECT_X.meta] = ASPECT_X.prop.default
+    pixel_aspect_y: Annotated[float, ASPECT_Y.meta] = ASPECT_Y.prop.default
     density: Annotated[Positive, msgspec.Meta(title="Pixel Density", description="Pixels per meter in file metadata")] = 72 / 0.0254
     extent: Annotated[Extents, msgspec.Meta(description="Whole frame with overscan, or region rendered alone")] = Whole()
 
@@ -111,26 +115,22 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
             case Border():
                 return 0, 0
 
-    def pixels(self) -> BlenderResult[tuple[int, int]]:
-        """Returns covered pixels, or arithmetic fault of float32 region bounds."""
+    def pixels(self) -> tuple[int, int]:
+        """Returns covered pixels in Blender's float32 region arithmetic."""
         (width, height), (pad_x, pad_y) = self.size, self.padding
         match self.extent:
             case Whole():
-                return Ok((width + 2 * pad_x, height + 2 * pad_y))
+                return width + 2 * pad_x, height + 2 * pad_y
             case Border(region=Region(left=left, bottom=bottom, right=right, top=top)):
+                across, up = np.float32(width), np.float32(height)
+                return int(np.float32(right) * across) - int(np.float32(left) * across), int(np.float32(top) * up) - int(np.float32(bottom) * up)
 
-                def counted() -> BlenderResult[tuple[int, int]]:
-                    across, up = np.float32(width), np.float32(height)
-                    return Ok((int(np.float32(right) * across) - int(np.float32(left) * across), int(np.float32(top) * up) - int(np.float32(bottom) * up)))
-
-                return guarded(NumericFault, (width, height), counted)
-
-    def rendered(self, bounds: tuple[int, int]) -> BlenderResult[tuple[Self, tuple[Side, Side]]]:
+    def rendered(self, bounds: tuple[int, int]) -> Outcome[tuple[Self, tuple[Side, Side]]]:
         """Validates pixels, folding overscan into resolution within renderer bounds."""
 
-        def validated(pixels: tuple[int, int]) -> BlenderResult[tuple[Self, tuple[Side, Side]]]:
+        def validated(pixels: tuple[int, int]) -> Outcome[tuple[Self, tuple[Side, Side]]]:
             if any(side < 1 for side in pixels):
-                return Error((RenderingSizeFault(request=pixels, error=Nothing),))
+                return Error((Fault(reason=RenderingReason.EMPTY, subject=str(pixels)),))
             if not any(self.padding):
                 return Ok((self, pixels))
             grown_x, grown_y = pixels
@@ -138,10 +138,10 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 Ok((msgspec.structs.replace(self, resolution_x=grown_x, resolution_y=grown_y, resolution_percentage=100, extent=Whole()), pixels))
                 if low <= grown_x <= high and low <= grown_y <= high
-                else Error((RenderingSizeFault(request=pixels, error=Some(bounds)),))
+                else Error((Fault(reason=RenderingReason.OVERSCAN, subject=str(pixels), member=str(bounds)),))
             )
 
-        return self.pixels().bind(validated)
+        return validated(self.pixels())
 
     def growth(self, camera: bpy.types.Camera) -> Option[Fraction]:
         """Returns exact growth of the camera's fit axis, Nothing for zero-pixel axis."""
@@ -189,45 +189,56 @@ class Unseen(msgspec.Struct, frozen=True, kw_only=True):
         return "Requires selection in front of scene camera"
 
 
-class Standard(msgspec.Struct, frozen=True, kw_only=True):
+class Overscan(bpy.types.PropertyGroup):
+    """Overscan a whole-frame render grows by."""
+
+    overscan: bpy.props.FloatProperty(name="Overscan", description="Share of frame side added past each edge, camera widened to keep view", min=0.0, soft_max=0.25, precision=3)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+
+
+class Standard(bpy.types.PropertyGroup):
     """Safe-area action's broadcast standard."""
 
-    standard: Annotated[Broadcast, msgspec.Meta(description="Standard setting safe areas")] = Broadcast.WIDE
+    standard: bpy.props.EnumProperty(name="Standard", description="Standard setting safe areas", items=STANDARDS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class Framed(msgspec.Struct, frozen=True, kw_only=True):
     """Overscan attachment and stored pre-render state."""
 
-    attached: Attached[Whole]
+    attached: Attached[Overscan]
     recovery: Recovery[Grown]
 
     # --- [VALUES]
 
-    def read(self, scene: bpy.types.Scene, extent: Option[Extents] = Nothing) -> BlenderResult[Framing]:
+    def read(self, scene: bpy.types.Scene, extent: Option[Extents] = Nothing) -> Outcome[Framing]:
         """Reads native framing and attached overscan."""
         render = scene.render
-        area: BlenderResult[Extents] = extent.map(Ok).default_with(
-            lambda: Ok(Border(region=Region(**{field: getattr(render, member) for field, member in EDGES}), crop=render.use_crop_to_border)) if render.use_border else self.attached.read(scene)
+        area: Outcome[Extents] = extent.map(Ok).default_with(
+            lambda: (
+                Ok(Border(region=Region(**{field: getattr(render, member) for field, member in EDGES}), crop=render.use_crop_to_border))
+                if render.use_border
+                else Ok(Whole(overscan=self.attached.struct(scene).overscan))
+            )
         )
         return area.map(lambda held: Framing(**{member: getattr(render, member) for member in Framing.native}, density=render.ppm_factor / render.ppm_base, extent=held))
 
-    def written(self, scene: bpy.types.Scene, framing: Framing) -> BlenderResult[None]:
+    def written(self, scene: bpy.types.Scene, framing: Framing) -> Outcome[None]:
         """Writes native and attached framing, keeping density unit."""
-        return paired(framing.snapshot(scene.render.ppm_base).apply(scene.render).outcome, self.attached.write(scene, framing.extent) if isinstance(framing.extent, Whole) else Ok(None)).map(
-            lambda _: None
-        )
+        return paired(
+            framing.snapshot(scene.render.ppm_base).apply(scene.render).outcome,
+            assigned(self.attached.struct(scene), {"overscan": framing.extent.overscan}) if isinstance(framing.extent, Whole) else Ok(None),
+        ).map(lambda _: None)
 
     # --- [RENDER_SCOPE]
 
-    def base(self, scene: bpy.types.Scene) -> BlenderResult[Option[Framing]]:
+    def base(self, scene: bpy.types.Scene) -> Outcome[Option[Framing]]:
         """Returns original camera framing, Nothing outside a grown render."""
         return self.recovery.stored.read(scene).map(lambda held: held.map(lambda grown: grown.base))
 
-    def grown(self, scene: bpy.types.Scene) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
+    def grown(self, scene: bpy.types.Scene) -> Outcome[tuple[Framing, tuple[Side, Side]]]:
         """Grows overscan within capacity, recording the render and camera values it writes."""
 
-        def grow(base: Framing, held: Option[Grown]) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
-            def wrote(formed: tuple[Framing, tuple[Side, Side]]) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
+        def grow(base: Framing, held: Option[Grown]) -> Outcome[tuple[Framing, tuple[Side, Side]]]:
+            def wrote(formed: tuple[Framing, tuple[Side, Side]]) -> Outcome[tuple[Framing, tuple[Side, Side]]]:
                 bigger, covered = formed
                 result = (bigger, bigger.size if isinstance(bigger.extent, Border) and not bigger.extent.crop else covered)
                 if held.is_some() or not any(base.padding):
@@ -243,18 +254,18 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
                 )
                 return self.recovery.recorded(scene, writes, lambda ends: Grown(base=base, ends=ends)).map(lambda _: result)
 
-            bounded: BlenderResult[tuple[Framing, tuple[Side, Side]]] = base.rendered((RESOLUTION_X.prop.hard_min, RESOLUTION_X.prop.hard_max))
-            return Result[tuple[Framing, tuple[Side, Side]], BlenderFaults].bind(bounded, lambda formed: capacity(scene, formed[1]).bind(lambda _: wrote(formed)))
+            bounded: Outcome[tuple[Framing, tuple[Side, Side]]] = base.rendered((RESOLUTION_X.prop.hard_min, RESOLUTION_X.prop.hard_max))
+            return Result[tuple[Framing, tuple[Side, Side]], Faults].bind(bounded, lambda formed: capacity(scene, formed[1]).bind(lambda _: wrote(formed)))
 
         return self.recovery.stored.read(scene).bind(lambda held: self.read(scene, Some(Whole()) if held.is_some() else Nothing).bind(lambda base: grow(base, held)))
 
-    def restored(self, scene: bpy.types.Scene) -> BlenderResult[None]:
+    def restored(self, scene: bpy.types.Scene) -> Outcome[None]:
         """Restores values still equal to written ones, keeping later edits."""
         return self.recovery.reverted(scene).map(lambda _: None)
 
     # --- [REGIONS_AND_READINGS]
 
-    def bordered(self, scene: bpy.types.Scene, region: Region) -> BlenderResult[Outcome]:
+    def bordered(self, scene: bpy.types.Scene, region: Region) -> Outcome[Answer]:
         """Writes region with scene's existing crop preference."""
         extent = Border(region=region, crop=scene.render.use_crop_to_border)
         return self.read(scene).bind(
@@ -263,7 +274,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
             )
         )
 
-    def selected(self, call: Call[Empty]) -> BlenderResult[Outcome]:
+    def selected(self, call: Call[Empty]) -> Outcome[Answer]:
         """Projects selected bounds into camera frame."""
 
         def projected(camera: bpy.types.Object, scene: bpy.types.Scene) -> Option[Region]:
@@ -277,8 +288,8 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
             return Some(Region.bounding(np.clip(np.asarray(points), 0.0, 1.0))) if points else Nothing
 
         return call.root(bpy.types.Scene).bind(
-            lambda scene: Result[Region, BlenderFaults].bind(
-                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(lambda: (BlenderUnmetFault(requirement=Unseen()),)),
+            lambda scene: Result[Region, Faults].bind(
+                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(lambda: (Fault(reason=BlenderReason.UNMET, subject=Unseen().message),)),
                 lambda region: self.bordered(scene, region),
             )
         )
@@ -297,50 +308,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
                 *(("cropped",) if isinstance(framing.extent, Border) and framing.extent.crop else ()),
             ))
 
-        return Option.of_optional(context.scene).bind(lambda scene: self.read(scene).bind(lambda framing: framing.pixels().map(lambda shown: text(framing, shown))).map(Some).default_with(summarized))
-
-
-class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
-    """Framing attachment, border actions, native-panel readings, and load restoration."""
-
-    key: ClassVar[Key] = "framing"
-    attachment: ClassVar[Attachment[Whole]] = Attachment(key=key, form=Whole, owner=bpy.types.Scene)
-    prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
-    camera: ClassVar[Setting] = Setting(descriptor=Descriptor.declared(bpy.types.RegionView3D, "view_perspective", bpy.types.EnumProperty), accepted=("CAMERA",))
-    camera_bordering: ClassVar[Operator[Empty]] = Operator(
-        key="camera_border",
-        title="Render Region from Camera",
-        description="Set render region to camera frame",
-        form=Empty,
-        run=lambda call: Result[bpy.types.Scene, BlenderFaults].bind(call.root(bpy.types.Scene), lambda scene: FrameSize().bound(call.identity).bind(lambda framed: framed.bordered(scene, Region()))),
-        condition=Some(camera),
-    )
-    selection_bordering: ClassVar[Operator[Empty]] = Operator(
-        key="selection_border",
-        title="Render Region from Selection",
-        description="Set render region to selection bounds in camera view",
-        form=Empty,
-        run=lambda call: FrameSize().bound(call.identity).bind(lambda framed: framed.selected(call)),
-        condition=Some(AllOf(conditions=(camera, Count(collection=Descriptor.declared(bpy.types.ViewLayer, "objects.selected", bpy.types.CollectionProperty))))),
-    )
-
-    def bound(self, identity: Identity) -> BlenderResult[Framed]:
-        """Binds registered overscan and its recovery."""
-        return paired(
-            self.attachment.bound(identity),
-            identity.name(Name.ATTACHMENT, f"{self.key}_recovery").map(lambda name: Recovery(stored=Stored(name=name, decoder=msgspec.msgpack.Decoder(Grown)), ends=lambda grown: grown.ends)),
-        ).map(lambda pair: Framed(attached=pair[0], recovery=pair[1]))
-
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns declarations with callbacks binding after registration."""
-        return Ok((
-            self.camera_bordering,
-            self.selection_bordering,
-            safe_broadcast,
-            Append(target=RENDER_PT_format, rows=(Label(text=lambda context: self.bound(identity).map(lambda framed: framed.caption(context)).default_with(summarized)),)),
-            Append(target=RENDER_PT_frame_range, rows=(Label(text=duration),)),
-            PathHandler(handlers=LOAD_POST, body=lambda _: self.bound(identity).bind(lambda framed: accumulated(framed.restored(scene) for scene in bpy.data.scenes).map(lambda _: None))),
-        ))
+        return Option.of_optional(context.scene).bind(lambda scene: self.read(scene).map(lambda framing: text(framing, framing.pixels())).map(Some).default_with(summarized))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -353,24 +321,33 @@ def defaulted(descriptor: Descriptor[bpy.types.FloatProperty]) -> tuple[float, .
     return tuple(held)
 
 
-def capacity(scene: bpy.types.Scene, size: tuple[Side, Side]) -> BlenderResult[None]:
+def capacity(scene: bpy.types.Scene, size: tuple[Side, Side]) -> Outcome[None]:
     """Accepts canvas sizes within native GPU or CPU compositor limit."""
     width, height = size
     bound = 8192 if scene.render.compositor_device == "GPU" else 32768
-    return Error((BlenderUnmetFault(requirement=Oversize(width=width, height=height, bound=bound)),)) if max(size) > bound else Ok(None)
+    return Error((Fault(reason=BlenderReason.UNMET, subject=Oversize(width=width, height=height, bound=bound).message),)) if max(size) > bound else Ok(None)
 
 
-def broadcasted(call: Call[Standard]) -> BlenderResult[Outcome]:
-    """Writes selected broadcast margins."""
-    label = call.record.standard.label
+def camera_border(call: Call[Empty]) -> Outcome[Answer]:
+    """Set render region to camera frame."""
+    return paired(call.root(bpy.types.Scene), FrameSize().bound(call.identity)).bind(lambda pair: pair[1].bordered(pair[0], Region()))
+
+
+def selection_border(call: Call[Empty]) -> Outcome[Answer]:
+    """Set render region to selection bounds in camera view."""
+    return FrameSize().bound(call.identity).bind(lambda framed: framed.selected(call))
+
+
+def broadcast_safe_areas(call: Call[Standard]) -> Outcome[Answer]:
+    """Set safe areas for a broadcast standard."""
+    standard = Broadcast[call.properties.standard]
+    label = bpy.types.UILayout.enum_item_name(call.properties, "standard", standard.name)
     return call.root(bpy.types.Scene).bind(
-        lambda scene: answered(
-            Snapshot.of(bpy.types.DisplaySafeAreas, call.record.standard.safe).apply(scene.safe_areas), f"Safe areas already hold {label}", (("INFO", f"Safe areas set for {label}"),)
-        )
+        lambda scene: answered(Snapshot.of(bpy.types.DisplaySafeAreas, standard.safe).apply(scene.safe_areas), f"Safe areas already hold {label}", (("INFO", f"Safe areas set for {label}"),))
     )
 
 
-def summarized(faults: BlenderFaults) -> Option[str]:
+def summarized(faults: Faults) -> Option[str]:
     """Joins rendered fault reports for a label."""
     return Some(". ".join(fault.message for fault in faults))
 
@@ -389,7 +366,38 @@ def duration(context: bpy.types.Context) -> Option[str]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-safe_broadcast = Operator(key="safe_broadcast", title="Broadcast Safe Areas", description="Set safe areas for a broadcast standard", form=Standard, run=broadcasted)
+class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
+    """Framing attachment, border actions, native-panel readings, and load restoration."""
+
+    key: ClassVar[Key] = "framing"
+    attachment: ClassVar[Attachment[Overscan]] = Attachment(key=key, form=Overscan, owner=bpy.types.Scene)
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
+    camera: ClassVar[Setting] = Setting(descriptor=Descriptor.declared(bpy.types.RegionView3D, "view_perspective", bpy.types.EnumProperty), accepted=("CAMERA",))
+    camera_bordering: ClassVar[Operator[Empty]] = Operator(form=Empty, run=camera_border, condition=Some(camera))
+    selection_bordering: ClassVar[Operator[Empty]] = Operator(
+        form=Empty, run=selection_border, condition=Some(AllOf(conditions=(camera, Count(collection=Descriptor.declared(bpy.types.ViewLayer, "objects.selected", bpy.types.CollectionProperty)))))
+    )
+
+    def bound(self, identity: Identity) -> Outcome[Framed]:
+        """Binds registered overscan and its recovery."""
+        return paired(
+            self.attachment.bound(identity),
+            identity.name(Name.ATTACHMENT, f"{self.key}_recovery").map(lambda name: Recovery(stored=Stored(name=name, decoder=msgspec.msgpack.Decoder(Grown)), ends=lambda grown: grown.ends)),
+        ).map(lambda pair: Framed(attached=pair[0], recovery=pair[1]))
+
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+        """Returns declarations with callbacks binding after registration."""
+        return Ok((
+            self.camera_bordering,
+            self.selection_bordering,
+            safe_broadcast,
+            Append(target=RENDER_PT_format, rows=(Label(text=lambda context: self.bound(identity).map(lambda framed: framed.caption(context)).default_with(summarized)),)),
+            Append(target=RENDER_PT_frame_range, rows=(Label(text=duration),)),
+            PathHandler(handlers=LOAD_POST, body=lambda _: self.bound(identity).bind(lambda framed: accumulated(framed.restored(scene) for scene in bpy.data.scenes).map(lambda _: None))),
+        ))
+
+
+safe_broadcast = Operator(form=Standard, run=broadcast_safe_areas)
 safe_presets = Preset(key="safe_areas", form=Snapshot)
 safe_listing = struct_listing(safe_presets, lambda scene: scene.safe_areas, "Safe areas already hold preset")
 
@@ -403,6 +411,7 @@ __all__ = [
     "RESOLUTION_Y",
     "SAFE_AREAS",
     "SCALE",
+    "STANDARDS",
     "Border",
     "Broadcast",
     "Extents",
@@ -410,16 +419,19 @@ __all__ = [
     "Framed",
     "Framing",
     "Grown",
+    "Overscan",
     "Oversize",
     "Standard",
     "Unseen",
     "Whole",
-    "broadcasted",
+    "broadcast_safe_areas",
+    "camera_border",
     "capacity",
     "defaulted",
     "duration",
     "safe_broadcast",
     "safe_listing",
     "safe_presets",
+    "selection_border",
     "summarized",
 ]

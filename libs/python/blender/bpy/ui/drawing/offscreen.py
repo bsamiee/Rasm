@@ -5,18 +5,19 @@ from typing import Literal
 
 import bpy
 from expression import Error, Nothing, Ok
+from expression.extra.result import catch
 import gpu
 from mathutils import Matrix
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.drawing.canvas import Canvas, Rect
 from blender.bpy.ui.resources.theme import Metrics, Theme
 from blender.bpy.ui.screens.areas import Located
 from blender.bpy.ui.screens.editors import EditorState
-from blender.records.faults import paired
+from blender.records.faults import Fault, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -28,28 +29,28 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
     height: int
     format: Literal["RGBA8", "RGBA16", "RGBA16F", "RGBA32F"] = "RGBA8"
 
-    def read(self, draw: Callable[[gpu.types.GPUOffScreen], BlenderResult[None]]) -> BlenderResult[npt.NDArray[np.float32]]:
+    def read(self, draw: Callable[[gpu.types.GPUOffScreen], Outcome[None]]) -> Outcome[npt.NDArray[np.float32]]:
         """Draws into a buffer it owns for the call, returning top-first RGBA, refusing sizes past the texture limit."""
         try:
             gpu.init()
             limit = gpu.capabilities.max_texture_size_get()
         except (RuntimeError, SystemError) as error:
-            return Error((BlenderEditFault(request="gpu.init", error=error),))
+            return Error((Fault(reason=BlenderReason.REFUSED, subject="gpu.init", cause=error),))
         if max(self.width, self.height) > limit:
-            return Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=ValueError(f"{self.width}x{self.height} exceeds {limit}px texture limit")),))
+            return Error((Fault(reason=BlenderReason.REFUSED, subject="gpu.types.GPUOffScreen", cause=ValueError(f"{self.width}x{self.height} exceeds {limit}px texture limit")),))
         try:
             buffer = gpu.types.GPUOffScreen(self.width, self.height, format=self.format)
         except (RuntimeError, SystemError) as error:
-            return Error((BlenderEditFault(request="gpu.types.GPUOffScreen", error=error),))
+            return Error((Fault(reason=BlenderReason.REFUSED, subject="gpu.types.GPUOffScreen", cause=error),))
         try:
             return draw(buffer).map(lambda _: unpacked(buffer.texture_color.read()))
         finally:
             buffer.free()
 
-    def drawn(self, theme: Theme, metrics: Metrics, draw: Callable[[Canvas], None]) -> BlenderResult[npt.NDArray[np.float32]]:
+    def drawn(self, theme: Theme, metrics: Metrics, draw: Callable[[Canvas], None]) -> Outcome[npt.NDArray[np.float32]]:
         """Draws on pixel canvas, returning top-first RGBA."""
 
-        def painted(buffer: gpu.types.GPUOffScreen) -> BlenderResult[None]:
+        def painted(buffer: gpu.types.GPUOffScreen) -> Outcome[None]:
             """Draws callback under pixel projection with depth test off."""
             canvas = Canvas(theme=theme, metrics=metrics, extent=Rect(x=0.0, y=0.0, width=float(self.width), height=float(self.height)))
             depth = gpu.state.depth_test_get()
@@ -70,13 +71,13 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 
     def viewed(
         self, located: Located, camera: bpy.types.Object, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, *, do_color_management: bool = True, draw_background: bool = True
-    ) -> BlenderResult[npt.NDArray[np.float32]]:
+    ) -> Outcome[npt.NDArray[np.float32]]:
         """Draws camera view with overlays and gizmos off, restoring the editor values after."""
         space = located.area.spaces.active
         if not isinstance(space, bpy.types.SpaceView3D):
-            return Error((BlenderAbsentFault(owner=repr(located.area), key=bpy.types.SpaceView3D.__name__),))
+            return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(located.area), member=bpy.types.SpaceView3D.__name__),))
 
-        def painted(region: bpy.types.Region, buffer: gpu.types.GPUOffScreen) -> BlenderResult[None]:
+        def painted(region: bpy.types.Region, buffer: gpu.types.GPUOffScreen) -> Outcome[None]:
             """Draws camera view into buffer."""
             try:
                 buffer.draw_view3d(
@@ -90,10 +91,10 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
                     draw_background=draw_background,
                 )
             except (RuntimeError, ValueError) as error:
-                return Error((BlenderEditFault(request="gpu.types.GPUOffScreen.draw_view3d", error=error),))
+                return Error((Fault(reason=BlenderReason.REFUSED, subject="gpu.types.GPUOffScreen.draw_view3d", cause=error),))
             return Ok(None)
 
-        def restored(region: bpy.types.Region, state: EditorState) -> BlenderResult[npt.NDArray[np.float32]]:
+        def restored(region: bpy.types.Region, state: EditorState) -> Outcome[npt.NDArray[np.float32]]:
             """Reads view pixels between the editor write and its restore."""
             return state.applied(located.area).bind(
                 lambda prior: paired(self.read(lambda buffer: painted(region, buffer)), prior.map(lambda held: held.applied(located.area)).default_value(Ok(Nothing))).map(lambda pair: pair[0])
@@ -112,13 +113,13 @@ def unpacked(read: gpu.types.Buffer) -> npt.NDArray[np.float32]:
     return np.ascontiguousarray(scaled[::-1], dtype=np.float32)
 
 
-def captured(rect: Rect) -> BlenderResult[npt.NDArray[np.float32]]:
+def captured(rect: Rect) -> Outcome[npt.NDArray[np.float32]]:
     """Reads float RGBA from active framebuffer inside a draw callback."""
-    try:
-        read = gpu.state.active_framebuffer_get().read_color(round(rect.x), round(rect.y), round(rect.width), round(rect.height), 4, 0, "FLOAT")
-    except ValueError as error:
-        return Error((BlenderEditFault(request="gpu.types.GPUFrameBuffer.read_color", error=error),))
-    return Ok(unpacked(read))
+    return (
+        catch(gpu.state.active_framebuffer_get().read_color, exception=ValueError)(round(rect.x), round(rect.y), round(rect.width), round(rect.height), 4, 0, "FLOAT")
+        .map(unpacked)
+        .map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject="gpu.types.GPUFrameBuffer.read_color", cause=error),))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -17,12 +17,10 @@ rule:
     kind: class_definition
     all:
         - has: {field: name, pattern: $NAME}
-        - not: {has: {field: type_parameters, kind: type_parameter}}
-        - not: {has: {field: superclasses, has: {kind: subscript, has: {field: value, regex: '^(typing\.)?Generic$'}}}}
         - has:
             field: body
             any:
                 - all: [{has: {matches: red}}, {has: {matches: green}}, {has: {matches: blue}}]
                 - all: [{has: {matches: top-left}}, {has: {matches: top-right}}, {has: {matches: bottom-right}}, {has: {matches: bottom-left}}]
 message: '`$NAME` declares one field per channel or corner'
-note: 'Declare channels as one `Rgb[<T>]` field and corners as one `Corners[<T>]` field'
+note: 'Declare one field in the shape the consuming API takes whole, `tuple[float, float, float]` for OCIO, an `ndarray` of shape `(3,)` for numpy'

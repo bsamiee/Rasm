@@ -1,107 +1,60 @@
 """Uniform medium along camera rays: SI depth transmittance, seeded opacity variation, and the light it scatters toward camera."""
 
-from typing import Annotated
-
 import bpy
 import colour
 from expression import Some
-import msgspec
 
-from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes import textures
-from blender.bpy.nodes.graphs import End, Expr, math, mixed, switched, vector, where
+from blender.bpy.nodes.graphs import Expr, math, mixed, switched, vector, where
+from blender.bpy.nodes.interface import Interface, InterfacePanel, MenuItem, MenuItems, Socket
 from blender.bpy.render.compositor import lenses
-from blender.bpy.render.compositor.coordinates import Clock, clocked, pixels
-from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, Conditions, depth_precise, Inspects, Requests, Shell
+from blender.bpy.render.compositor.coordinates import clocked, pixels
+from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, Conditions, depth_precise, Requests, Shell
 from blender.bpy.scene import cameras
 from blender.imaging.color.processors import GREY
-from blender.imaging.geometry.regions import FrameLength
-from blender.records.fields import Case, Gated, Presentation, Quantity, Rgb, Seed, Unit
+from blender.records.faults import Outcome
 
 from ...chain.stages import Effect, Stage
-from .procedural import Basis, Perlin, textured
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Inscattering = Ambient | Diffused
+from .procedural import bases, Basis, clock, FACTOR, Perlin, textured
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Ambient(Case, frozen=True, kw_only=True):
-    """Uniformly lit medium scattering one color toward camera."""
-
-    color: Annotated[Rgb, msgspec.Meta(description="Scene-linear scattered light")] = Rgb(**dict.fromkeys(Rgb.__struct_fields__, float(colour.cctf_decoding(217 / 255, function="sRGB"))))
-
-
-class Diffused(Case, frozen=True, kw_only=True):
-    """Frame light spread through medium and tinted."""
-
-    tint: Annotated[Rgb, msgspec.Meta(description="Scene-linear spread light factor")] = Rgb(**dict.fromkeys(Rgb.__struct_fields__, GREY))
-    radius: Annotated[FrameLength, msgspec.Meta(description="Gaussian spread size")] = 0.75
-
-
-class Fluctuation(msgspec.Struct, frozen=True, kw_only=True):
-    """Seeded medium opacity variation."""
-
-    variation: Annotated[Unit, msgspec.Meta(description="Largest opacity share field removes")] = 1.0
-    basis: Annotated[Basis, msgspec.Meta(description="Procedural opacity field")] = Perlin()
-    clock: Annotated[Clock, msgspec.Meta(description="Field clock in feature lengths")] = Clock(speed=0.0)
-    seed: Annotated[Seed, msgspec.Meta(description="Number selecting pattern")] = 0
-
-
 class Atmosphere(Effect, frozen=True, kw_only=True):
-    """Uniform medium absorbing and scattering light along camera rays."""
+    """Uniform medium absorbing and scattering light along camera rays, its opacity field basis holding the node settings."""
 
     stage = Stage.ATMOSPHERE
     pointwise = False
-    inscatter: Annotated[Inscattering, msgspec.Meta(title="Inscattering", description="Scattered light source")] = Ambient()
-    noise: Annotated[Gated[Fluctuation], msgspec.Meta(description="Seeded opacity reduction")] = Gated(enabled=False, value=Fluctuation())
-    attenuation: Annotated[float, msgspec.Meta(gt=0.0, title="Attenuation Length", description="Medium depth passing 1/e of light"), Presentation(quantity=Some(Quantity.LENGTH))] = 30.48
-    start: Annotated[float, msgspec.Meta(ge=0.0, description="Camera distance where medium starts"), Presentation(quantity=Some(Quantity.LENGTH))] = 0.0
-    cutoff: Annotated[Gated[Annotated[float, msgspec.Meta(ge=0.0)]], msgspec.Meta(description="Ray distance past which samples keep light"), Presentation(quantity=Some(Quantity.LENGTH))] = Gated(
-        enabled=False, value=914.4
-    )
+    basis: Basis = Perlin()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def attenuated(shell: Shell[Atmosphere]) -> BlenderResult[Expr]:
+def attenuated(shell: Shell[Atmosphere]) -> Outcome[Expr]:
     """Mixes inscattered light over the stage input by medium coverage along each camera ray, coverage joining alpha."""
-    inscatter, noise, attenuation, start, cutoff = Atmosphere.__struct_fields__
-    (color,) = Ambient.__struct_fields__
-    tint, radius = Diffused.__struct_fields__
-    variation, basis, clock, seed = Fluctuation.__struct_fields__
-    speed, hold = Clock.__struct_fields__
-    _, _, meters = CameraFrame.__struct_fields__
-    _, value = Gated.__struct_fields__
     inlet, source, frame = shell.input, shell.color, shell.space
 
-    def scattered(cosine: Expr) -> Expr:
-        distance = math("MULTIPLY", shell.layer("Depth"), inlet(Shell.frame, meters)) / cosine
-        transmittance = math("EXPONENT", math("MINIMUM", inlet(start) - distance, 0.0) / inlet(attenuation))
-        kept = Expr(kind=bpy.types.CompositorNodeAntiAliasing, inputs=(("Image", where(shell.gate(cutoff) * (distance > inlet(cutoff)), 1.0, transmittance)),), socket="Image")
-        blurred = Expr(
-            kind=bpy.types.CompositorNodeBlur,
-            inputs=(("Image", source), ("Size", pixels(frame, inlet(inscatter, Diffused, radius), "VECTOR")), ("Type", "Fast Gaussian")),
-            socket="Image",
-            shape="RGBA",
-        )
-        light = shell.menu(inscatter, cases={Ambient.title: inlet(inscatter, Ambient, color), Diffused.title: vector("MULTIPLY", blurred, inlet(inscatter, Diffused, tint))}, kind="RGBA")
+    def scattered(parts: tuple[Expr, Expr]) -> Expr:
+        cosine, light = parts
+        distance = math("MULTIPLY", shell.layer("Depth"), inlet(Shell.frame, "meters")) / cosine
+        transmittance = math("EXPONENT", math("MINIMUM", inlet("start") - distance, 0.0) / inlet("attenuation_length"))
+        kept = Expr(kind=bpy.types.CompositorNodeAntiAliasing, inputs=(("Image", where(inlet("cutoff") * (distance > inlet("cutoff_distance")), 1.0, transmittance)),), socket="Image")
         ((field, _),) = textured(
-            shell,
-            (noise, value, basis),
-            frame.point,
-            clocked(inlet(noise, value, clock, speed), inlet(noise, value, clock, hold)),
-            inlet(noise, value, seed),
-            streams=(textures.stream(Fluctuation, basis),),
+            shell, "noise_basis", shell.record.basis, frame.point, clocked(inlet("noise_clock_speed"), inlet("noise_clock_hold")), inlet("noise_seed"), streams=(textures.stream(Atmosphere, "basis"),)
         )
-        coverage = (1.0 - kept) * (1.0 - switched(shell.gate(noise), 0.0, field * inlet(noise, value, variation)))
+        coverage = (1.0 - kept) * (1.0 - switched(inlet("noise"), 0.0, field * inlet("noise_variation")))
         alpha = math("MULTIPLY_ADD", source["Alpha"], (1.0 - coverage).named("transmitted"), coverage)
         return Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", mixed(coverage, source, light)), ("Alpha", alpha), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
 
-    return lenses.chief_ray(source).map(scattered)
+    blurred = Expr(
+        kind=bpy.types.CompositorNodeBlur,
+        inputs=(("Image", source), ("Size", pixels(frame, inlet("inscatter", "diffused", "radius"), "VECTOR")), ("Type", "Fast Gaussian")),
+        socket="Image",
+        shape="RGBA",
+    )
+    lit = shell.menu("inscatter", "kind", cases={"Ambient": inlet("inscatter", "ambient", "color"), "Diffused": vector("MULTIPLY", blurred, inlet("inscatter", "diffused", "tint"))}, kind="RGBA")
+    return lenses.chief_ray(source).bind(lambda cosine: lit.map(lambda light: scattered((cosine, light))))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -109,14 +62,105 @@ def attenuated(shell: Shell[Atmosphere]) -> BlenderResult[Expr]:
 atmosphere = CompositorEffect(
     record=Atmosphere,
     graph=attenuated,
-    alpha=Alpha.RESULT,
-    parts=(
-        Requests[Atmosphere](request=depth_precise),
-        Conditions[Atmosphere](condition=lambda _record: cameras.camera_type("PERSP", "ORTHO")),
-        Inspects(key="transmittance_view", end=End(node="transmitted"), description="Light share transmitted through medium"),
+    interface=Interface(
+        inputs=(
+            Socket(
+                key="attenuation_length",
+                name="Attenuation Length",
+                kind=bpy.types.NodeSocketFloat,
+                description="Medium depth passing 1/e of light",
+                members={"subtype": "DISTANCE", "min_value": 0.0, "default_value": 30.48},
+            ),
+            Socket(key="start", name="Start", kind=bpy.types.NodeSocketFloat, description="Camera distance where medium starts", members={"subtype": "DISTANCE", "min_value": 0.0}),
+        ),
+        panels=(
+            InterfacePanel(
+                key="inscatter",
+                name="Inscattering",
+                description="Scattered light source",
+                inputs=(
+                    Socket(
+                        key="inscatter_kind",
+                        name="Source",
+                        kind=bpy.types.NodeSocketMenu,
+                        description="Scattered light source",
+                        members={"default_value": "Ambient"},
+                        items=Some(
+                            MenuItems(
+                                items=(
+                                    MenuItem(name="Ambient", description="Uniformly lit medium scattering one color toward camera"),
+                                    MenuItem(name="Diffused", description="Frame light spread through medium and tinted"),
+                                )
+                            )
+                        ),
+                    ),
+                ),
+                panels=(
+                    InterfacePanel(
+                        key="inscatter_ambient",
+                        name="Ambient",
+                        description="Uniformly lit medium scattering one color toward camera",
+                        inputs=(
+                            Socket(
+                                key="inscatter_ambient_color",
+                                name="Color",
+                                kind=bpy.types.NodeSocketColor,
+                                description="Scene-linear scattered light",
+                                members={"default_value": (*(float(colour.cctf_decoding(217 / 255, function="sRGB")),) * 3, 1.0)},
+                            ),
+                        ),
+                    ),
+                    InterfacePanel(
+                        key="inscatter_diffused",
+                        name="Diffused",
+                        description="Frame light spread through medium and tinted",
+                        inputs=(
+                            Socket(
+                                key="inscatter_diffused_tint",
+                                name="Tint",
+                                kind=bpy.types.NodeSocketColor,
+                                description="Scene-linear spread light factor",
+                                members={"default_value": (GREY, GREY, GREY, 1.0)},
+                            ),
+                            Socket(
+                                key="inscatter_diffused_radius", name="Radius", kind=bpy.types.NodeSocketFloat, description="Gaussian spread size", members={"min_value": 0.0, "default_value": 0.75}
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            InterfacePanel(
+                key="noise",
+                name="Noise",
+                description="Seeded opacity reduction",
+                toggle=Some(False),
+                inputs=(
+                    Socket(key="noise_variation", name="Variation", kind=bpy.types.NodeSocketFloat, description="Largest opacity share field removes", members={**FACTOR, "default_value": 1.0}),
+                    Socket(key="noise_seed", name="Seed", kind=bpy.types.NodeSocketInt, description="Number selecting pattern", members={"min_value": 0, "max_value": 2**24}),
+                ),
+                panels=(bases("noise_basis", Atmosphere().basis, "Procedural opacity field"), clock("noise_clock", speed=0.0)),
+            ),
+            InterfacePanel(
+                key="cutoff",
+                name="Cutoff",
+                description="Ray distance past which samples keep light",
+                toggle=Some(False),
+                inputs=(
+                    Socket(
+                        key="cutoff_distance",
+                        name="Distance",
+                        kind=bpy.types.NodeSocketFloat,
+                        description="Ray distance past which samples keep light",
+                        members={"subtype": "DISTANCE", "min_value": 0.0, "default_value": 914.4},
+                    ),
+                ),
+            ),
+        ),
     ),
+    alpha=Alpha.RESULT,
+    parts=(Requests[Atmosphere](request=depth_precise), Conditions[Atmosphere](condition=lambda _record: cameras.camera_type("PERSP", "ORTHO"))),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ambient", "Atmosphere", "Diffused", "Fluctuation", "Inscattering", "atmosphere"]
+__all__ = ["Atmosphere", "atmosphere"]

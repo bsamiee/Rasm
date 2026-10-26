@@ -11,14 +11,17 @@ import numpy.typing as npt
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.faults import BlenderResult
-from blender.records.faults import accumulated
+from blender.records.faults import accumulated, Outcome
 from blender.records.identity import content_hash, ContentHash
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Elements[T] = bpy.types.bpy_prop_collection[T]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def fingerprinted(block: bpy.types.ID, *, weighted: bool) -> BlenderResult[ContentHash]:
+def fingerprinted(block: bpy.types.ID, *, weighted: bool) -> Outcome[ContentHash]:
     """Hashes a data-block's saved members, its shape keys and element buffers, its attribute columns, and the names elements carry.
 
     Args:
@@ -98,7 +101,7 @@ def fingerprinted(block: bpy.types.ID, *, weighted: bool) -> BlenderResult[Conte
     )
 
 
-def buffers[T](values: "bpy.types.bpy_prop_collection[T]", members: Iterable[bpy.types.Property]) -> tuple[npt.NDArray[np.bool | np.int32 | np.float32], ...]:
+def buffers[T](values: Elements[T], members: Iterable[bpy.types.Property]) -> tuple[npt.NDArray[np.bool | np.int32 | np.float32], ...]:
     """Reads each boolean, integer, enum, and float member of every element through one `foreach_get` per member.
 
     Args:

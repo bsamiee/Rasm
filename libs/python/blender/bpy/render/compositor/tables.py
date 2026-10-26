@@ -12,12 +12,12 @@ import PyOpenColorIO
 from blender.bpy.data.ids.images import Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.extension.identity import Key
-from blender.bpy.faults import BlenderFaults, BlenderResult
 from blender.bpy.nodes.graphs import Expr, Generated, grouped, math, Points, vector, xyz
 from blender.bpy.render.compositor.colors import space_item
 from blender.imaging.color.luts import Lattice, Logarithmic, Rational, split, Uniform
 from blender.imaging.color.processors import converted, processor
 from blender.imaging.files.images import applied
+from blender.records.faults import Faults, Outcome
 from blender.records.identity import content_hash
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -29,7 +29,7 @@ TILES: Final = Ownership(kind=bpy.types.Image, key="table", saved=Saved.USED)
 # --- [LATTICES]
 
 
-@grouped("tetrahedral", "Tetrahedral Lookup")
+@grouped("tetrahedral", "Tetrahedral Lookup", bpy.types.CompositorNodeTree)
 def tetrahedral(encoded: Annotated[Expr, bpy.types.NodeSocketVector], tile: Annotated[Expr, bpy.types.NodeSocketColor], size: Expr | float) -> Mapping[Key, Expr]:
     """Tetrahedral interpolation of a packed table tile at encoded coordinates over the table's cube size."""
     limit = size - 1.0
@@ -82,7 +82,7 @@ def tetrahedral(encoded: Annotated[Expr, bpy.types.NodeSocketVector], tile: Anno
     return {"color": sum(terms[1:], terms[0])}
 
 
-def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32], source: Expr, config: PyOpenColorIO.Config) -> BlenderResult[Expr]:
+def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32], source: Expr, config: PyOpenColorIO.Config) -> Outcome[Expr]:
     """Samples packed outputs at lattice-encoded coordinates.
 
     Args:
@@ -114,16 +114,14 @@ def tabled(key: Key, name: str, lattice: Lattice, plane: npt.NDArray[np.float32]
     return space_item(config, PyOpenColorIO.ROLE_DATA).map(sampled)
 
 
-def latticed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, lattice: Lattice, source: Expr) -> BlenderResult[Expr]:
+def latticed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, lattice: Lattice, source: Expr) -> Outcome[Expr]:
     """Samples a transform with no node form at the lattice's nodes into a tetrahedral table of the straight RGB source."""
-    return Result[npt.NDArray[np.float32], BlenderFaults].bind(
-        lattice.samples().bind(lambda samples: converted(config, transform, samples)), lambda plane: tabled(key, name, lattice, plane, source, config)
-    )
+    return Result[npt.NDArray[np.float32], Faults].bind(lattice.samples().bind(lambda samples: converted(config, transform, samples)), lambda plane: tabled(key, name, lattice, plane, source, config))
 
 
-def suffixed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, source: Expr) -> BlenderResult[tuple[PyOpenColorIO.GroupTransform, Expr]]:
+def suffixed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, source: Expr) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Expr]]:
     """Tables a transform from its first 3D table on at that table's own lattice, answering the operations before it and the table output, the source where it holds none."""
-    return Result[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]], BlenderFaults].bind(
+    return Result[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]], Faults].bind(
         split(config, transform), lambda parts: parts[1].map(lambda found: tabled(key, name, *found, source, config)).default_value(Ok(source)).map(lambda table: (parts[0], table))
     )
 
@@ -131,7 +129,7 @@ def suffixed(key: Key, name: str, config: PyOpenColorIO.Config, transform: PyOpe
 # --- [CURVES]
 
 
-def curved(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, domain: tuple[float, float], count: int = 257) -> BlenderResult[tuple[Points, Points, Points]]:
+def curved(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, domain: tuple[float, float], count: int = 257) -> Outcome[tuple[Points, Points, Points]]:
     """Samples a channel-separable transform's unoptimized processor on a grey ramp over `domain` into one curve table per RGB channel, a drawn-only grade the optimizer reads as identity kept.
 
     Args:

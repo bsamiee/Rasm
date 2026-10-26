@@ -1,76 +1,38 @@
-"""Camera framing, requirements, display rows, and render views."""
+"""Camera framing, requirements, display rows, and multi-view rows."""
 
-from collections import Counter
-from collections.abc import Callable
-from contextlib import ExitStack
 from itertools import chain
-from typing import Annotated, ClassVar, Final
+from typing import Annotated, Final
 
 from bl_ui.properties_data_camera import CAMERA_PT_presets
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.extra.result import catch
 from mathutils import Vector
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.data.ids.ownership import committed
-from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Endpoints, Snapshot
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderResult
-from blender.bpy.settings.attachments import Attachment, reconciling, Recovery
-from blender.bpy.settings.history import Retention
+from blender.bpy.faults import BlenderReason
+from blender.bpy.settings.attachments import Recovery
 from blender.bpy.ui.layout.rows import Caption, Member, Popover, Property
 from blender.bpy.ui.layout.sections import Section, Single
-from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.surfaces.appends import Append
-from blender.records.faults import accumulated, DomainFault, paired
-from blender.records.fields import Case, Finite, Gated
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type ViewSet = Stereo | Multiview
+from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+from blender.records.fields import Finite
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _SCENE_CAMERA: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "camera.type", bpy.types.EnumProperty), accepted=("CAMERA",))
 _CAMERA_VIEW: Final = Setting(descriptor=Descriptor.declared(bpy.types.RegionView3D, "view_perspective", bpy.types.EnumProperty), accepted=("CAMERA",))
 _MULTIVIEW: Final = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "render.use_multiview", bpy.types.BoolProperty))
-_VIEW_NAME: Final = Descriptor.declared(bpy.types.SceneRenderView, "name", bpy.types.StringProperty)
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class View(msgspec.Struct, frozen=True, kw_only=True):
-    """Render view with camera and image file suffix."""
-
-    name: Annotated[str, msgspec.Meta(min_length=1, title="View", description="Render view name")]
-    suffix: Annotated[str, msgspec.Meta(description="Camera name and image file suffix")]
-    use: Annotated[bool, msgspec.Meta(title="Render", description="Render view")] = True
-
-
-class Stereo(Case, frozen=True, kw_only=True):
-    """Left and right camera stereo views."""
-
-    title = "Stereo 3D"
-
-
-class Multiview(Case, frozen=True, kw_only=True):
-    """Named views reading cameras by suffix."""
-
-    title = "Multi-View"
-    views: Annotated[tuple[View, ...], msgspec.Meta(description="Views rendered beside left and right")] = ()
-
-
-class RenderViews(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene render views, one view rendering while disabled."""
-
-    views: Annotated[Gated[ViewSet], msgspec.Meta(description="Views each frame renders")] = Gated(enabled=False, value=Stereo())
 
 
 class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
@@ -81,7 +43,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
         """Passepartout switch gating alpha row."""
         return _camera_row("show_passepartout"), _camera_row("passepartout_alpha", Some("show_passepartout"))
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Returns passepartout rows on object context menu in camera view."""
         return Ok((Append(target=VIEW3D_MT_object_context_menu, rows=self.passepartout, condition=Some(AllOf(conditions=(_CAMERA_VIEW, _SCENE_CAMERA)))),))
 
@@ -99,35 +61,8 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
                 Caption(rows=tuple(map(_camera_row, (*guides, "composition_guide_color"))), heading=Some("Composition Guides"), separator=Nothing),
                 *map(_camera_row, ("show_name", "show_sensor", "show_limits", "show_mist")),
             ),
-            header=(Popover(panel=CAMERA_PT_presets),),
+            header=(Popover(panel=CAMERA_PT_presets),),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             condition=Some(_SCENE_CAMERA),
-        )
-
-
-class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
-    """Render view attachment and stereo rows of current scene."""
-
-    retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing
-
-    @staticmethod
-    def synced(scene: Handle[bpy.types.Scene], identity: Identity) -> BlenderResult[Option[str]]:
-        """Reconciles scene render views to stored views, naming no undo step."""
-        return scene.resolve().bind(lambda held: CameraViews.attachment.read(identity, held).bind(lambda views: reconciled(views, held))).map(lambda _: Nothing)
-
-    attachment: ClassVar[Attachment[RenderViews]] = Attachment(key="render_views", form=RenderViews, owner=bpy.types.Scene, changed=Some(reconciling(bpy.types.Scene, synced)))
-
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns unbound attachment for registration scope."""
-        return Ok((self.attachment,))
-
-    def section(self) -> Section:
-        """Returns attached views and camera stereo rows."""
-        stereo = tuple(f"stereo.{prop.identifier}" for prop in bpy.types.CameraStereoData.bl_rna.properties if not prop.is_hidden)
-        return Single(
-            key="render_views",
-            title="Render Views",
-            rows=(Caption(rows=tuple(map(_camera_row, stereo)), heading=Some("Stereo"), separator=Nothing, condition=Some(_MULTIVIEW)),),
-            store=Some(Hosted(store=Store(attachment=self.attachment, retention=self.retention))),
         )
 
 
@@ -157,28 +92,33 @@ def widened(camera: bpy.types.Camera, factor: float) -> Option[Snapshot]:
             return Nothing
 
 
-def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgraph: bpy.types.Depsgraph) -> BlenderResult[None]:
+def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgraph: bpy.types.Depsgraph) -> Outcome[None]:
     """Fits camera object to two or more finite world coordinates."""
     match item.data:
         case bpy.types.Camera() as camera:
-            try:
-                points = msgspec.convert(coordinates.tolist(), Annotated[tuple[tuple[Finite, Finite, Finite], ...], msgspec.Meta(min_length=2)])
-            except msgspec.ValidationError as error:
-                return Error((DomainFault(subject=f"{item!r} framing", value=coordinates, accepted=str(error)),))
+            points: Outcome[tuple[tuple[float, float, float], ...]] = catch(msgspec.convert, exception=msgspec.ValidationError)(
+                coordinates.tolist(), Annotated[tuple[tuple[Finite, Finite, Finite], ...], msgspec.Meta(min_length=2)]
+            ).map_error(lambda error: (Fault(reason=RecordReason.OUTSIDE, subject=f"{item!r} framing", member=str(error), cause=str(coordinates)),))
 
-            def fitted(fit: tuple[Vector, float]) -> BlenderResult[None]:
+            def fitted(fit: tuple[Vector, float]) -> Outcome[None]:
                 location, scale = fit
 
-                def placed() -> None:
-                    matrix = item.matrix_world.copy()
-                    matrix.translation = location
-                    item.matrix_world = matrix
+                matrix = item.matrix_world.copy()
+                matrix.translation = location
+                item.matrix_world = matrix
+                return written(camera, "ortho_scale", scale).map(lambda _: None) if camera.type == "ORTHO" else Ok(None)
 
-                return paired(BlenderEditFault.attempted(f"{item!r}.matrix_world", placed), written(camera, "ortho_scale", scale) if camera.type == "ORTHO" else Ok(None)).map(lambda _: None)
-
-            return BlenderEditFault.attempted(repr(item), lambda: item.camera_fit_coords(depsgraph, tuple(chain.from_iterable(points)))).bind(fitted)
+            return Result[tuple[tuple[float, float, float], ...], Faults].bind(
+                points,
+                lambda held: Result[tuple[Vector, float], Faults].bind(
+                    catch(item.camera_fit_coords, exception=RuntimeError)(depsgraph, tuple(chain.from_iterable(held))).map_error(
+                        lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(item), cause=error),)
+                    ),
+                    fitted,
+                ),
+            )
         case _:
-            return Error((BlenderAbsentFault(owner=repr(item), key=bpy.types.Camera.__name__),))
+            return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(item), member=bpy.types.Camera.__name__),))
 
 
 # --- [REQUIREMENTS]
@@ -189,65 +129,21 @@ def camera_type(*accepted: str) -> Setting:
     return Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="camera.data", prop=bpy.types.Camera.bl_rna.properties["type"]), accepted=accepted)
 
 
-def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> BlenderResult[None]:
+def required(values: Snapshot, scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
     """Applies requirements to render cameras, recording earliest prior and final values."""
     return _priors(identity).bind(
         lambda recovery: accumulated(recovery.recorded(camera, ((camera, values),), lambda ends: ends) for camera in dict.fromkeys(render_cameras(scene).values())).map(lambda _: None)
     )
 
 
-def released(identity: Identity) -> BlenderResult[None]:
+def released(identity: Identity) -> Outcome[None]:
     """Restores prior camera values unless later edits changed them."""
     return _priors(identity).bind(lambda recovery: accumulated(map(recovery.reverted, bpy.data.cameras)).map(lambda _: None))
 
 
-def _priors(identity: Identity) -> BlenderResult[Recovery[Endpoints]]:
+def _priors(identity: Identity) -> Outcome[Recovery[Endpoints]]:
     """Returns camera recovery of requirement endpoints."""
     return identity.name(Name.ATTACHMENT, "camera_prior").map(Recovery.endpoints)
-
-
-# --- [VIEWS]
-
-
-def reconciled(views: RenderViews, scene: bpy.types.Scene) -> BlenderResult[None]:
-    """Writes view settings and named views, accumulating independent faults."""
-    render = scene.render
-    match views.views.value:
-        case Multiview(views=named):
-            form = "MULTIVIEW"
-        case Stereo():
-            form, named = "STEREO_3D", ()
-    stock = View(name="left", suffix="_L"), View(name="right", suffix="_R")
-    kept = frozenset(view.name for view in (*stock, *named))
-    collisions = tuple(BlenderCollisionFault(request=repr(render.views), error=name) for name, count in Counter(view.name for view in named).items() if count > 1)
-
-    def placed(view: View) -> BlenderResult[None]:
-        def made() -> bpy.types.SceneRenderView:
-            item = render.views.new(view.name)
-            rollback.callback(render.views.remove, item)
-            return item
-
-        return (
-            Option
-            .of_optional(render.views.get(view.name))
-            .map(Ok)
-            .default_with(lambda: BlenderEditFault.attempted(repr(render.views), made))
-            .bind(lambda item: paired(written(item, "file_suffix", view.suffix), written(item, "use", view.use)))
-            .map(lambda _: None)
-        )
-
-    def removed(view: bpy.types.SceneRenderView) -> BlenderResult[None]:
-        return BlenderEditFault.attempted(repr(render.views), lambda: render.views.remove(view))
-
-    missing = tuple(view for view in stock if render.views.get(view.name) is None)
-    with ExitStack() as rollback:
-        return committed(
-            paired(accumulated(Error((fault,)) for fault in collisions), accumulated(Descriptor.validated(_VIEW_NAME.prop, view.name) for view in (*missing, *named)))
-            .bind(lambda _: paired(written(render, "use_multiview", views.views.enabled), written(render, "views_format", form)))
-            .bind(lambda _: accumulated(map(placed, (*missing, *named))))
-            .bind(lambda _: accumulated(map(removed, tuple(view for view in render.views if view.name not in kept)))),
-            rollback,
-        ).map(lambda _: None)
 
 
 # --- [DISPLAY]
@@ -268,6 +164,24 @@ def _camera_row(path: str, switch: Option[str] = Nothing) -> Property:
     )
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+camera_views: Final = Single(
+    key="render_views",
+    title="Render Views",
+    rows=(
+        Property(target=Member(root=bpy.types.Scene, path="render.use_multiview")),
+        Property(target=Member(root=bpy.types.Scene, path="render.views_format"), condition=Some(_MULTIVIEW)),
+        Caption(
+            rows=tuple(_camera_row(f"stereo.{prop.identifier}") for prop in bpy.types.CameraStereoData.bl_rna.properties if not prop.is_hidden),
+            heading=Some("Stereo"),
+            separator=Nothing,
+            condition=Some(_MULTIVIEW),
+        ),
+    ),
+)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CameraDisplay", "CameraViews", "Multiview", "RenderViews", "Stereo", "View", "ViewSet", "camera_type", "framed", "reconciled", "released", "render_cameras", "required", "widened"]
+__all__ = ["CameraDisplay", "camera_type", "camera_views", "framed", "released", "render_cameras", "required", "widened"]

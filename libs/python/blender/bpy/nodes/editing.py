@@ -12,15 +12,13 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.changes import made, valued
 from blender.bpy.nodes.graphs import NodeGroup
 from blender.bpy.nodes.interface import addresses, slot
 from blender.bpy.nodes.placement import NodeSize, NodeSpacing
 from blender.bpy.nodes.trees import created, GraphTree, GROUP_NODES, grouped, joined, ordered
-from blender.bpy.ui.screens.areas import Located
-from blender.bpy.ui.screens.regions import RegionView
-from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -30,48 +28,48 @@ type Incoming = bpy.types.NodeLink | tuple[bpy.types.NodeSocket, bool]
 
 
 class Chosen(msgspec.Struct, frozen=True, kw_only=True):
-    """Node editor region, supported tree, and selected active node."""
+    """Node editor cursor, supported tree, and selected active node."""
 
-    view: RegionView
+    cursor: tuple[float, float]
     tree: GraphTree
     active: Option[bpy.types.Node]
 
     @classmethod
-    def of(cls, context: bpy.types.Context) -> BlenderResult[Self]:
+    def of(cls, context: bpy.types.Context) -> Outcome[Self]:
         """Returns editor state, or fault for missing editor or unsupported tree."""
         accepted: tuple[type[GraphTree], ...] = typing.get_args(GraphTree.__value__)
-        match context.space_data, context.window, context.area:
-            case bpy.types.SpaceNodeEditor() as space, bpy.types.Window() as window, bpy.types.Area() as area:
+        match context.space_data:
+            case bpy.types.SpaceNodeEditor(cursor_location=cursor) as space:
                 match space.edit_tree:
                     case tree if isinstance(tree, accepted):
-                        return RegionView.of(Located(window=window, area=area)).map(
-                            lambda view: cls(view=view, tree=tree, active=Option.of_optional(tree.nodes.active).filter(lambda node: node.select))
-                        )
+                        return Ok(cls(cursor=(cursor.x, cursor.y), tree=tree, active=Option.of_optional(tree.nodes.active).filter(lambda node: node.select)))
                     case None:
-                        return Error((BlenderAbsentFault(owner=repr(space), key="edit_tree"),))
+                        return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(space), member="edit_tree"),))
                     case other:
-                        return Error((DomainFault(subject="edit_tree", value=type(other).__name__, accepted=", ".join(kind.__name__ for kind in accepted)),))
+                        return Error((Fault(reason=RecordReason.OUTSIDE, subject="edit_tree", member=", ".join(kind.__name__ for kind in accepted), cause=type(other).__name__),))
             case _:
-                return Error((BlenderAbsentFault(owner=repr(context), key="SpaceNodeEditor.WINDOW"),))
+                return Error((Fault(reason=BlenderReason.ABSENT, subject=repr(context), member="SpaceNodeEditor.WINDOW"),))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class _Edit(msgspec.Struct, frozen=True, kw_only=True):
-    tree: GraphTree
-    resources: ExitStack
-    saved: set[bpy.types.NodeSocket] = msgspec.field(default_factory=set)
-    hidden: set[bpy.types.NodeSocket] = msgspec.field(default_factory=set)
+class _Edit:
+    __slots__ = ("hidden", "resources", "saved", "tree")
 
-    def added(self, kind: type[bpy.types.Node]) -> BlenderResult[bpy.types.Node]:
+    def __init__(self, tree: GraphTree, resources: ExitStack) -> None:
+        self.tree, self.resources = tree, resources
+        self.saved: set[bpy.types.NodeSocket] = set()
+        self.hidden: set[bpy.types.NodeSocket] = set()
+
+    def added(self, kind: type[bpy.types.Node]) -> Outcome[bpy.types.Node]:
         def retained(node: bpy.types.Node) -> bpy.types.Node:
             self.resources.callback(self.tree.nodes.remove, node)
             return node
 
         return created(self.tree, kind).map(retained)
 
-    def rewired(self, target: bpy.types.NodeSocket, incoming: tuple[Incoming, ...]) -> BlenderResult[tuple[bpy.types.NodeLink, ...]]:
+    def rewired(self, target: bpy.types.NodeSocket, incoming: tuple[Incoming, ...]) -> Outcome[tuple[bpy.types.NodeLink, ...]]:
         current = tuple(target.links)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         sockets: tuple[bpy.types.NodeSocket, ...] = tuple(
             dict.fromkeys((target, *(link.from_socket for link in current), *(each.from_socket if isinstance(each, bpy.types.NodeLink) else each[0] for each in incoming)))  # type: ignore[arg-type]
@@ -99,8 +97,8 @@ class _Edit(msgspec.Struct, frozen=True, kw_only=True):
                 self.tree.links.remove(link)
 
         def added(
-            done: BlenderResult[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]], request: tuple[int, bpy.types.NodeSocket, bool]
-        ) -> BlenderResult[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]]:
+            done: Outcome[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]], request: tuple[int, bpy.types.NodeSocket, bool]
+        ) -> Outcome[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]]:
             index, source, muted = request
 
             def linked(held: tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]], link: bpy.types.NodeLink) -> tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]:
@@ -116,14 +114,14 @@ class _Edit(msgspec.Struct, frozen=True, kw_only=True):
             return desired
 
         requests = tuple((index, *each) for index, each in enumerate(incoming) if not isinstance(each, bpy.types.NodeLink))
-        start: BlenderResult[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]] = Ok((target, {}))
+        start: Outcome[tuple[bpy.types.NodeSocket, dict[int, bpy.types.NodeLink]]] = Ok((target, {}))
         return reduce(added, reversed(requests), start).map(finished)
 
     def committed[T](self, value: T) -> T:
         self.resources.pop_all()
         return value
 
-    def replaced(self, replacements: Mapping[bpy.types.NodeLink, tuple[Incoming, ...]]) -> BlenderResult[None]:
+    def replaced(self, replacements: Mapping[bpy.types.NodeLink, tuple[Incoming, ...]]) -> Outcome[None]:
         targets: tuple[bpy.types.NodeSocket, ...] = tuple(dict.fromkeys(link.to_socket for link in replacements))  # type: ignore[misc]  # ty: ignore[invalid-assignment]
         return accumulated(self.rewired(target, tuple(replacement for link in target.links for replacement in replacements.get(link, (link,)))) for target in targets).map(lambda _: None)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
 
@@ -131,19 +129,17 @@ class _Edit(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, spacing: NodeSpacing, *, inputs: Mapping[Key, Value] = {}) -> BlenderResult[bpy.types.Node]:
+def inserted(chosen: Chosen, group: NodeGroup, identity: Identity, spacing: NodeSpacing, *, inputs: Mapping[Key, Value] = {}) -> Outcome[bpy.types.Node]:
     """Splices group after active node's first enabled output, routing each consumer link through group."""
 
-    def spliced(node: bpy.types.Node, tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.Node]:
+    def spliced(node: bpy.types.Node, tree: bpy.types.NodeTree) -> Outcome[bpy.types.Node]:
         sources = tuple(socket for active in chosen.active.to_list() for socket in tuple(each for each in active.outputs if each.enabled)[:1])
-        at = chosen.active.map(lambda active: (active.location_absolute.x + NodeSize.of(active, chosen.view).width + spacing.across, active.location_absolute.y)).default_with(
-            lambda: chosen.view.to_view(chosen.view.region.width / 2.0, chosen.view.region.height / 2.0)
-        )
+        at = chosen.active.map(lambda active: (active.location_absolute.x + NodeSize.of(active).width + spacing.across, active.location_absolute.y)).default_value(chosen.cursor)
 
-        def linked(source: bpy.types.NodeSocket) -> BlenderResult[None]:
-            def socket(sockets: Iterable[bpy.types.NodeSocket]) -> BlenderResult[bpy.types.NodeSocket]:
+        def linked(source: bpy.types.NodeSocket) -> Outcome[None]:
+            def socket(sockets: Iterable[bpy.types.NodeSocket]) -> Outcome[bpy.types.NodeSocket]:
                 return Option.of_optional(next((each for each in sockets if each.enabled and each.type == source.type), None)).to_result_with(
-                    lambda: (BlenderAbsentFault(owner=repr(sockets), key=source.type),)
+                    lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(sockets), member=source.type),)
                 )
 
             links = tuple(link for link in source.links if link.is_valid)  # type: ignore[union-attr]  # ty: ignore[not-iterable]
@@ -180,7 +176,7 @@ def _editing(chosen: Chosen) -> Generator[_Edit]:
 
     with ExitStack() as resources:
         resources.callback(restored)
-        yield _Edit(tree=tree, resources=resources)
+        yield _Edit(tree, resources)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

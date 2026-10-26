@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator, Iterable, Iterator
 from contextlib import contextmanager, ExitStack
 import re
-from typing import Annotated, ClassVar, Final, Literal, Self, TYPE_CHECKING
+from typing import Final, Literal, Self, TYPE_CHECKING
 
 import _bpy_types
 from bl_ui.space_properties import PropertiesAnimationMixin
@@ -16,14 +16,12 @@ from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Descriptor, subclass
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisitions, Band, entered, Registrable
-from blender.bpy.faults import BlenderResult
-from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.drawing.handlers import Signal
 from blender.bpy.ui.layout.rows import acquired, Caption, painted, placed, RowContent, RowDraw
 from blender.bpy.ui.layout.sections import Each, Section, SectionDraws, Single
 from blender.bpy.ui.resources.icons import Icons
-from blender.records.faults import accumulated, DomainFault, paired
-from blender.records.fields import Case, heading, markers
+from blender.records.faults import accumulated, Fault, Outcome, paired, RecordReason
+from blender.records.fields import Case
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -39,14 +37,6 @@ type PanelPlacement = Placed | Docked
 
 SPACES: Final = Descriptor.declared(bpy.types.Space, "type", bpy.types.EnumProperty).prop
 
-# --- [CHOICES] --------------------------------------------------------------------------
-
-tabs = Choices(lambda *_: ((context, heading(context), "") for context in contexts()))
-editors = Choices(lambda identity, owner, context: Choices.mirrored(SPACES, sidebars().__contains__).source(identity, owner, context))
-categories = Choices(
-    lambda _, owner, __: ((name, name, "") for field in msgspec.structs.fields(Joined) if editors in markers(field.type, Choices) for name in sidebars().get(getattr(owner, field.name), ()))
-)
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -54,8 +44,7 @@ categories = Choices(
 class Tab(Case, frozen=True, kw_only=True):
     """Stock Properties tab panels join."""
 
-    title: ClassVar[str] = "Properties Tab"
-    context: Annotated[str, msgspec.Meta(title="Tab", description="Properties tab for extension panels"), tabs]
+    context: str
 
     @classmethod
     def beside(cls, panel: type[_bpy_types.Panel]) -> Self:
@@ -66,17 +55,15 @@ class Tab(Case, frozen=True, kw_only=True):
 class Sidebar(Case, frozen=True, kw_only=True):
     """Extension Sidebar tab with product mark icon."""
 
-    title: ClassVar[str] = "Sidebar Tab"
-    space: Annotated[str, msgspec.Meta(title="Editor", description="Editor showing extension Sidebar tab"), editors]
+    space: str
     category: str
 
 
 class Joined(Case, frozen=True, kw_only=True):
     """Stock Sidebar tab panels join."""
 
-    title: ClassVar[str] = "Shared Sidebar Tab"
-    space: Annotated[str, msgspec.Meta(title="Editor", description="Editor holding Sidebar tab"), editors]
-    category: Annotated[str, msgspec.Meta(title="Tab", description="Sidebar tab for extension panels"), categories]
+    space: str
+    category: str
 
     @classmethod
     def beside(cls, panel: type[_bpy_types.Panel]) -> Self:
@@ -106,7 +93,7 @@ class PopoverPanel(msgspec.Struct, frozen=True, kw_only=True):
 class Docked(msgspec.Struct, frozen=True, kw_only=True):
     """Placement read at registration and again after each `changed` firing."""
 
-    read: Callable[[Identity], BlenderResult[Tab | Sidebar | Joined]]
+    read: Callable[[Identity], Outcome[Tab | Sidebar | Joined]]
     changed: Signal
 
 
@@ -128,8 +115,11 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
     options: frozenset[Literal["HIDE_HEADER", "INSTANCED", "HEADER_LAYOUT_EXPAND"]] = frozenset()
     header: tuple[RowContent, ...] = ()
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns section acquisitions, value popover panels, and one scope registering every placement."""
+
+        def stated[P: type, T](panel: P, member: Callable[[P], T]) -> Option[T]:
+            return catch(lambda: member(panel), exception=AttributeError)().to_option()
 
         def members(at: Placed, mark: int) -> dict[str, object]:
             match at:
@@ -163,12 +153,18 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
                     text = f"{space} {region}"
             return "_".join(re.findall(r"[a-z0-9]+", text.lower()))
 
-        def accepted(at: PanelPlacement) -> BlenderResult[PanelPlacement]:
+        def tabs(space: str) -> tuple[str, ...]:
+            return tuple(sorted({tab for panel in registered() if (panel.bl_region_type, panel.bl_space_type) == ("UI", space) for tab in stated(panel, lambda held: held.bl_category).to_list()}))
+
+        def contexts() -> tuple[str, ...]:
+            return tuple(sorted({context for panel in registered() if panel.bl_space_type == "PROPERTIES" for context in stated(panel, lambda held: held.bl_context).to_list()}))
+
+        def accepted(at: PanelPlacement) -> Outcome[PanelPlacement]:
             match at:
-                case Joined(space=space, category=tab) if tab not in (listed := sidebars().get(space, ())):
-                    return Error((DomainFault(subject=space, value=tab, accepted=", ".join(listed)),))
+                case Joined(space=space, category=tab) if tab not in (listed := tabs(space)):
+                    return Error((Fault(reason=RecordReason.OUTSIDE, subject=space, member=", ".join(listed), cause=tab),))
                 case Tab(context=context) if context not in (offered := contexts()):
-                    return Error((DomainFault(subject="PROPERTIES", value=context, accepted=", ".join(offered)),))
+                    return Error((Fault(reason=RecordReason.OUTSIDE, subject="PROPERTIES", member=", ".join(offered), cause=context),))
             return Ok(at)
 
         def preceding(placing: dict[str, object]) -> int:
@@ -176,10 +172,10 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
             beside = (placing["bl_space_type"], placing["bl_region_type"], Option.of_optional(placing.get("bl_parent_id")))
             return max((0, *(order for at, held in rows if at == beside for order in held.filter(lambda order: order < PropertiesAnimationMixin.bl_order).to_list())))
 
-        def sited(drawn: tuple[tuple[SectionDraws, tuple[tuple[Section, SectionDraws], ...]], tuple[RowDraw, ...]]) -> BlenderResult[tuple[PanelSite, ...]]:
+        def sited(drawn: tuple[tuple[SectionDraws, tuple[tuple[Section, SectionDraws], ...]], tuple[RowDraw, ...]]) -> Outcome[tuple[PanelSite, ...]]:
             (top, children), header = drawn
 
-            def site(stem: str, at: PanelPlacement, condition: Option[Condition]) -> BlenderResult[PanelSite]:
+            def site(stem: str, at: PanelPlacement, condition: Option[Condition]) -> Outcome[PanelSite]:
                 nested = accumulated(identity.name(Name.PANEL, f"{stem}_{child.key}").map(lambda name: Drawing(name=name, section=child, drawn=each)) for child, each in children)
                 return paired(paired(identity.name(Name.PANEL, stem), nested), accepted(at)).map(
                     lambda parts: PanelSite(at=at, condition=condition, top=Drawing(name=parts[0][0], section=self.section, drawn=top), children=parts[0][1], header=header)
@@ -228,14 +224,14 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         @contextmanager
-        def displayed(sites: tuple[PanelSite, ...]) -> Generator[BlenderResult[None]]:
+        def displayed(sites: tuple[PanelSite, ...]) -> Generator[Outcome[None]]:
             held: Option[tuple[Placed, ...]] = Nothing
             classes = ExitStack()
 
-            def resolved() -> BlenderResult[tuple[Placed, ...]]:
+            def resolved() -> Outcome[tuple[Placed, ...]]:
                 return accumulated(site.at.read(identity) if isinstance(site.at, Docked) else Ok(site.at) for site in sites)
 
-            def registered(now: tuple[Placed, ...]) -> BlenderResult[None]:
+            def registered(now: tuple[Placed, ...]) -> Outcome[None]:
                 nonlocal held
                 mark = Icons.mark(identity).default_value(0)
                 acquisitions = tuple(cls for site, at in zip(sites, now) for cls in built(site, at, mark))
@@ -245,8 +241,8 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
                         held = Some(now)
                     return answer
 
-            def rebuilt() -> BlenderResult[Option[str]]:
-                def replaced(now: tuple[Placed, ...]) -> BlenderResult[None]:
+            def rebuilt() -> Outcome[Option[str]]:
+                def replaced(now: tuple[Placed, ...]) -> Outcome[None]:
                     nonlocal held
                     if held == Some(now):
                         return Ok(None)
@@ -261,7 +257,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
                 scope.enter_context(classes)
                 pending = scope.enter_context(identity.reports.deferred(rebuilt))
 
-                def requested() -> BlenderResult[None]:
+                def requested() -> Outcome[None]:
                     pending()
                     return Ok(None)
 
@@ -270,7 +266,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
                 yield resolved().bind(registered)
 
         @contextmanager
-        def prepared() -> Generator[BlenderResult[None]]:
+        def prepared() -> Generator[Outcome[None]]:
             children = accumulated(child.realized(identity) for child in self.children).map(lambda drawn: tuple(zip(self.children, drawn)))
             with ExitStack() as stack:
                 yield paired(paired(self.section.realized(identity), children), placed(self.header, identity)).bind(sited).bind(lambda sites: stack.enter_context(displayed(sites)))
@@ -318,28 +314,9 @@ def reached(rows: Iterable[RowContent | Registrable]) -> Iterator[Section]:
                 pass
 
 
-def stated[P: type, T](panel: P, member: Callable[[P], T]) -> Option[T]:
-    """Returns registration member a panel class or mixin states."""
-    return catch(lambda: member(panel), exception=AttributeError)().to_option()
-
-
 def registered() -> tuple[type[bpy.types.Panel], ...]:
     """Returns every registered Python panel class, subclasses included."""
     return tuple(panel for name in dir(bpy.types) for panel in subclass(bpy.types.Panel, name).to_option().to_list())
-
-
-def sidebars() -> dict[str, tuple[str, ...]]:
-    """Returns registered Sidebar tabs per editor."""
-    panels = tuple(panel for panel in registered() if panel.bl_region_type == "UI")
-    return {
-        space: tuple(sorted({tab for panel in panels if panel.bl_space_type == space for tab in stated(panel, lambda held: held.bl_category).to_list()}))
-        for space in {panel.bl_space_type for panel in panels}
-    }
-
-
-def contexts() -> tuple[str, ...]:
-    """Returns Properties tab contexts registered panels name."""
-    return tuple(sorted({context for panel in registered() if panel.bl_space_type == "PROPERTIES" for context in stated(panel, lambda held: held.bl_context).to_list()}))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

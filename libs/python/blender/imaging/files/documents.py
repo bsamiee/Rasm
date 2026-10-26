@@ -13,9 +13,8 @@ import psdtags
 import PyOpenColorIO
 import tifffile
 
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import profile, written
-from blender.records.faults import FileFault, paired
+from blender.records.faults import Fault, Outcome, paired, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -64,7 +63,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
     colorspace: str
     density: float
 
-    def written(self, path: str, config: PyOpenColorIO.Config) -> ImagingResult[str]:
+    def written(self, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
         """Writes layered TIFF with colorspace ICC profile.
 
         Args:
@@ -150,7 +149,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             )
 
         tagged = catch(lambda: source.tifftag(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS), exception=struct.error)().map_error(
-            lambda error: (FileFault(access="write", request=path, error=error),)
+            lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=path, cause=error),)
         )
         return paired(tagged, profile(config, self.colorspace)).bind(lambda pair: written(path, functools.partial(tiff, *pair)))
 

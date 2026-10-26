@@ -2,7 +2,7 @@
 
 from graphlib import TopologicalSorter
 from heapq import heappop, heappush
-from itertools import groupby
+from itertools import count, groupby
 import os
 from pathlib import Path
 import signal
@@ -10,18 +10,18 @@ import subprocess
 import sys
 from typing import Annotated
 
-from expression import Error, Ok, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 from tenacity import retry_if_result, Retrying, stop_after_attempt
 
-from blender.records.faults import accumulated, FileFault, scoped
-from blender.records.fields import Case, Presentation
+from blender.records.faults import accumulated, Fault, Faults, Outcome, RecordReason
+from blender.records.fields import Case
 from blender.records.stores import RecordFile
-from blender.rendering.batch.processes import Host, ran, refused, RunCommand, RunFile, spawned
+from blender.rendering.batch.processes import Host, ran, RunCommand, RunFile, spawned
 from blender.rendering.batch.progress import Ending, Heartbeat, observed, Progress
 from blender.rendering.batch.queue import RenderQueue
-from blender.rendering.faults import RenderingFaults, RenderingResult, RenderingSystemFault
+from blender.rendering.faults import RenderingReason
 
 if sys.platform != "win32":
     from os import killpg  # ty: ignore[possibly-missing-import]
@@ -33,8 +33,8 @@ class LocalMachine(Case, frozen=True, kw_only=True):
     """Background Blender process per run of job frames."""
 
     title = "This Machine"
-    retries: Annotated[int, msgspec.Meta(ge=0, description="Restarts of crashed render from remaining frames"), Presentation(soft=Some((0.0, 20.0)))] = 3
-    sampled: Annotated[bool, msgspec.Meta(title="Sample First Frames", description="Render first two frames of each ready job before others")] = True
+    retries: Annotated[int, msgspec.Meta(ge=0, description="Restarts of crashed render from remaining frames")] = 3
+    sampled: Annotated[bool, msgspec.Meta(description="Render first two frames of each ready job before others")] = True
 
     def schedule(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
         """Orders frames by prerequisites, sampled frames, job, then frame."""
@@ -70,7 +70,7 @@ class Run(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: Heartbeat) -> RenderingResult[Progress]:
+def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: Heartbeat) -> Outcome[Progress]:
     """Renders remaining frames one job group per process, restarting crashed renders."""
     records = RecordFile(path=host.path(queue, RunFile.PROGRESS), form=Progress)
     run = Run(queue=str(host.path(queue, RunFile.QUEUE)), target=target)
@@ -81,61 +81,63 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
         retry_error_callback=lambda state: state.outcome.result(),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
     )
 
-    def launched(argv: tuple[str, ...]) -> RenderingResult[int]:
-        def waited(child: subprocess.Popen[bytes]) -> RenderingResult[int]:
-            while True:
-                try:
-                    return Ok(child.wait(timeout=heartbeat.interval))
-                except subprocess.TimeoutExpired:
-                    try:
-                        records.path.touch()
-                    except OSError as error:
-                        return Error((FileFault(access="write", request=records.path, error=error),))
-                except OSError as error:
-                    return Error(refused(argv)(error))
+    def polled(child: subprocess.Popen[bytes]) -> Option[Outcome[int]]:
+        match catch(child.wait, exception=subprocess.TimeoutExpired)(timeout=heartbeat.interval):
+            case Result(tag="ok", ok=code):
+                return Some(Ok(code))
+            case _:
+                return (
+                    catch(records.path.touch, exception=OSError)()
+                    .map(lambda _: Nothing)
+                    .default_with(lambda error: Some(Error((Fault(reason=RecordReason.UNWRITABLE, subject=str(records.path), cause=error),))))
+                )
 
-        return scoped(spawned(argv), waited, lambda child: catch(child.wait, exception=OSError)().map_error(refused(argv)))
+    def waited(child: subprocess.Popen[bytes]) -> Outcome[int]:
+        with child:
+            return next(answer for _ in count() for answer in polled(child).to_list())
 
-    def rendered(progress: Progress) -> RenderingResult[Progress]:
+    def launched(argv: tuple[str, ...]) -> Outcome[int]:
+        return spawned(argv).bind(waited)
+
+    def rendered(progress: Progress) -> Outcome[Progress]:
         remaining = frozenset(progress.remaining(queue))
         if not (pending := (progress.pending or next((tuple(group) for _, group in groupby((step for step in schedule if step in remaining), lambda step: step[0])), ()))):
             return Ok(progress)
         argv = host.argv(RunCommand.RENDER, run, Some(queue.jobs[pending[0][0]].file))
         return (
-            Result[Path, RenderingFaults]
-            .bind(records.written(msgspec.structs.replace(progress, pending=pending)), lambda _: restarted(launched, argv))
-            .bind(lambda code: confirmed(argv, code))
-            .bind(rendered)
+            Result[Path, Faults].bind(records.written(msgspec.structs.replace(progress, pending=pending)), lambda _: restarted(launched, argv)).bind(lambda code: confirmed(argv, code)).bind(rendered)
         )
 
-    def confirmed(argv: tuple[str, ...], code: int) -> RenderingResult[Progress]:
-        return records.revised(lambda held: msgspec.structs.replace(held, pending=())) if code == 0 else Error(refused(argv)(code))
+    def confirmed(argv: tuple[str, ...], code: int) -> Outcome[Progress]:
+        return records.revised(lambda held: msgspec.structs.replace(held, pending=())) if code == 0 else Error((Fault(reason=RenderingReason.EXITED, subject=" ".join(argv), member=str(code)),))
 
-    def ended(ending: Ending) -> RenderingResult[Progress]:
+    def ended(ending: Ending) -> Outcome[Progress]:
         return records.revised(lambda held: msgspec.structs.replace(held, ending=ending))
 
-    def failed(faults: RenderingFaults) -> RenderingResult[Progress]:
+    def failed(faults: Faults) -> Outcome[Progress]:
         return Error((faults[0], *faults[1:], *ended(Ending.FAILED).swap().default_value(())))
 
-    def completed(progress: Progress) -> RenderingResult[Progress]:
-        return Result[Path, RenderingFaults].bind(records.written(progress), lambda _: rendered(progress).bind(lambda _: ended(Ending.SUCCEEDED)).or_else_with(failed))
+    def completed(progress: Progress) -> Outcome[Progress]:
+        return Result[Path, Faults].bind(records.written(progress), lambda _: rendered(progress).bind(lambda _: ended(Ending.SUCCEEDED)).or_else_with(failed))
 
     return observed(records.path).map(lambda found: Progress.resumed(found, queue, os.getpid())).bind(completed)
 
 
-def stop(progress: Progress) -> RenderingResult[None]:
+def stop(progress: Progress) -> Outcome[None]:
     """Stops supervisor and its renders."""
     if sys.platform == "win32":
         return ran(("taskkill", "/T", "/F", "/PID", str(progress.process)))
-    return catch(lambda: killpg(progress.process, signal.SIGTERM), exception=OSError)().map_error(lambda error: (RenderingSystemFault(request=(killpg.__name__, progress.process), error=error),))
+    return catch(lambda: killpg(progress.process, signal.SIGTERM), exception=OSError)().map_error(
+        lambda error: (Fault(reason=RenderingReason.SYSTEM, subject=f"{killpg.__name__}({progress.process})", cause=error),)
+    )
 
 
-def cleared(queue: RenderQueue, host: Host) -> RenderingResult[None]:
+def cleared(queue: RenderQueue, host: Host) -> Outcome[None]:
     """Deletes queue, progress, and log files of finished run."""
 
-    def removed(file: RunFile) -> RenderingResult[None]:
+    def removed(file: RunFile) -> Outcome[None]:
         path = host.path(queue, file)
-        return catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (FileFault(access="write", request=path, error=error),))
+        return catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),))
 
     return accumulated(map(removed, (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG))).map(lambda _: None)
 

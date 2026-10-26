@@ -2,33 +2,30 @@
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, override
 
 import bpy
-from expression import Ok, Option, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Call, Done, Operator, Outcome, Unchanged
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderResult
+from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
+from blender.bpy.data.ids.store import IdName
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.render.color.luts import current
-from blender.bpy.render.color.spaces import config_of
-from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, Named, Opens, Prepares, Registers, revised, Shell, Spaces
+from blender.bpy.render.compositor.effects import Alpha, CameraFrame, CompositorEffect, Named, Opens, Registers, revised, Shell, Spaces
 from blender.bpy.render.compositor.tables import latticed, tabled, TILES
-from blender.bpy.settings.shapes import GraphForm
 from blender.imaging.color.luts import Lattice, LutFormat, split
 from blender.imaging.color.processors import bracketed, ColorSpace, converted
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import located, pixels
 from blender.imaging.sampling.integration import Estimate, Precision
-from blender.records.fields import Gated
+from blender.records.faults import Outcome
 
-from ...chain.stages import Effect, Stage
+from ...chain.stages import Effect, prepared, Stage, transform
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -38,95 +35,84 @@ type Parts = tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArr
 
 
 class Lookup(Effect, frozen=True, kw_only=True):
-    """LUT file applied in its declared colorspace."""
+    """LUT file applied in its declared colorspace, the lattice sampling the operations before its first 3D table in place of the CPU, and the image the CPU render prepared in place of the entering color, absent outside one."""
 
     stage = Stage.LOOKUP
-    title = "LUT"
     pointwise = True
-    source: Annotated[str, msgspec.Meta(min_length=1, title="File", description="LUT file in a format OpenColorIO reads"), GraphForm.IMAGE]
-    space: Annotated[ColorSpace, GraphForm.COLOR_SPACE, msgspec.Meta(title="Color Space", description="Colorspace the LUT reads and writes")] = PyOpenColorIO.ROLE_COLOR_PICKING
-    prefix: Annotated[Gated[Lattice], msgspec.Meta(title="Prefix Sampling", description="Lattice sampling the operations before the first 3D table in place of the CPU")] = Gated(
-        enabled=False, value=Lattice()
-    )
+    source: str
+    space: ColorSpace = PyOpenColorIO.ROLE_COLOR_PICKING
+    prefix: Lattice | None = None
+    staged: IdName | None = None
 
     @property
     def file(self) -> PyOpenColorIO.FileTransform:
         """Fresh file operation at its best supported interpolation."""
         return PyOpenColorIO.FileTransform(src=self.source, interpolation=PyOpenColorIO.INTERP_BEST)
 
-    @override
-    def transform(self, _config: PyOpenColorIO.Config, /) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the file operation."""
-        return Ok(Some(self.file))
-
-    def parts(self, config: PyOpenColorIO.Config) -> BlenderResult[Parts]:
-        """Splits the current file into the operations before its first 3D table and that table sampled on its own lattice."""
-        return current(self.source, config).bind(lambda path: split(config, msgspec.structs.replace(self, source=path).file))
-
-    def staged(self) -> bool:
-        """Whether the CPU applies the file's operations before its first 3D table, the prefix unsampled and the file holding such operations."""
-        return not self.prefix.enabled and config_of().bind(self.parts).map(lambda found: len(found[0]) > 0).default_value(False)
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def looked_up(shell: Shell[Lookup]) -> BlenderResult[Expr]:
-    """Samples the prefix on its authored lattice where enabled, then the file's first 3D table and the rest, the CPU-applied prefix entering otherwise."""
-    record = shell.record
-    name = Path(record.source).name
-    source, _, prefix = Lookup.__struct_fields__
-
-    def built(parts: Parts) -> BlenderResult[Expr]:
-        head, suffix = parts
-        entering = latticed(prefix, f"{name} Prefix", shell.config, head, record.prefix.value, shell.color) if len(head) and record.prefix.enabled else Ok(shell.color)
-        return entering.bind(lambda held: suffix.map(lambda table: tabled(source, name, *table, held, shell.config)).default_value(Ok(held)))
-
-    return record.parts(shell.config).bind(built)
+@transform.register
+def _(record: Lookup, _values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
+    """Returns the file operation."""
+    return Ok(Some(record.file))
 
 
-def prepared(
-    _identity: Identity,
-    _scene: bpy.types.Scene,
-    record: Lookup,
-    config: PyOpenColorIO.Config,
-    image: OpenImageIO.ImageBuf,
-    _precision: Precision,
-    _frame: CameraFrame,
-    _entry: bpy.types.SceneCompositorEffect,
-) -> BlenderResult[tuple[Lookup, Mapping[Key, OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]]]]:
-    """Applies the file's unbounded operations before its first 3D table to the entering pixels in the LUT's colorspace."""
-    return (
-        record
-        .parts(config)
-        .bind(lambda parts: pixels(image).bind(lambda values: converted(config, bracketed(record.space, parts[0]), values)))
-        .bind(lambda values: located(values, image))
-        .map(lambda staged: (record, {Shell.image: staged}))
+@prepared.register
+def _(
+    record: Lookup, _values: Mapping[Key, Value], config: PyOpenColorIO.Config, image: OpenImageIO.ImageBuf, _precision: Precision, _frame: CameraFrame, _scene: bpy.types.Scene, /
+) -> Outcome[Option[OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf] | Mapping[Key, Value]]]:
+    """Applies the file's unbounded operations before its first 3D table to the entering pixels in the LUT's colorspace, Nothing while a lattice samples them or the file holds none."""
+    file = msgspec.structs.replace(record, source=str(Path(bpy.path.abspath(record.source)).resolve())).file
+    return split(config, file).bind(
+        lambda parts: (
+            Ok(Nothing)
+            if record.prefix is not None or not len(parts[0])
+            else pixels(image).bind(lambda values: converted(config, bracketed(record.space, parts[0]), values)).bind(lambda values: located(values, image)).map(Some)
+        )
     )
 
 
-def reloaded(call: Call[Named]) -> BlenderResult[Outcome]:
-    """Rebuilds the named LUT entry from its current file."""
+def looked_up(shell: Shell[Lookup]) -> Outcome[Expr]:
+    """Samples the prefix on its authored lattice where set, then the file's first 3D table and the rest, the CPU-prepared image entering while staged."""
+    record = shell.record
+    name = Path(record.source).name
+
+    def built(parts: Parts) -> Outcome[Expr]:
+        head, suffix = parts
+        entering = (
+            Ok(Expr(kind=bpy.types.CompositorNodeImage, members=(("image", record.staged),), socket="Image", shape="RGBA"))
+            if record.staged is not None
+            else latticed("prefix", f"{name} Prefix", shell.config, head, record.prefix, shell.color)
+            if len(head) and record.prefix is not None
+            else Ok(shell.color)
+        )
+        return entering.bind(lambda held: suffix.map(lambda table: tabled("source", name, *table, held, shell.config)).default_value(Ok(held)))
+
+    return current(shell.identity, record.source, shell.config).bind(lambda path: split(shell.config, msgspec.structs.replace(record, source=path).file)).bind(built)
+
+
+def lookup_reload(call: Call[Named]) -> Outcome[Answer]:
+    """Rebuild the entry from its LUT file."""
     return (
         call
         .root(bpy.types.Scene)
-        .bind(lambda scene: lookup.named(call.identity, scene, call.record.name).bind(lambda entry: revised(lookup, call.identity, scene, entry, Ok)))
-        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.record.name} matches its current file"))
+        .bind(lambda scene: lookup.named(call.identity, scene, call.properties.name).bind(lambda entry: revised(lookup, call.identity, scene, entry, Ok)))
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{call.properties.name} matches its current file"))
     )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-reloading = Operator(key="lookup_reload", title="Reload LUT", description="Rebuild the entry from its LUT file", form=Named, run=reloaded)
 lookup = CompositorEffect(
     record=Lookup,
     graph=looked_up,
     alpha=Alpha.STRAIGHT,
     parts=(
         Spaces(space=lambda record: record.space),
-        Prepares(prepare=prepared, when=Lookup.staged),
         Opens(extensions=lambda: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())), of=lambda path: Lookup(source=path)),
-        Registers(rows=(TILES, reloading)),
+        Registers(rows=(TILES, Operator(form=Named, run=lookup_reload))),
     ),
 )
 

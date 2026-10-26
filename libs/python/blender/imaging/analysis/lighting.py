@@ -18,11 +18,9 @@ from scipy.stats import binned_statistic
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import basis, GREY
 from blender.imaging.color.white import White
-from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import checked, pixels
-from blender.imaging.geometry.regions import Position
-from blender.records.faults import paired
-from blender.records.fields import Rgb
+from blender.records.faults import Outcome, paired
+from blender.records.fields import Frozen
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -38,28 +36,27 @@ class LightingMood(Enum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class PaletteEntry(msgspec.Struct, frozen=True, kw_only=True):
-    """Cluster mean color, bottom-left position, and subject share."""
+class PaletteEntry(Frozen, frozen=True, kw_only=True, eq=False):
+    """Cluster mean color of shape `(3,)`, bottom-left position, and subject share."""
 
-    color: Rgb
-    position: Position
+    color: npt.NDArray[np.float64]
+    position: tuple[float, float]
     share: float
 
     @property
     def chroma(self) -> float:
         """Channel spread over peak channel, zero for nonpositive peak."""
-        channels = msgspec.structs.astuple(self.color)
-        peak = max(channels)
-        return (peak - min(channels)) / peak if peak > 0.0 else 0.0
+        peak = float(self.color.max())
+        return (peak - float(self.color.min())) / peak if peak > 0.0 else 0.0
 
 
-class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
-    """Reference light colors, contrast, spatial cues, and palette."""
+class LightingReading(Frozen, frozen=True, kw_only=True, eq=False):
+    """Reference light colors of shape `(3,)`, contrast, spatial cues, and palette."""
 
-    key: Rgb
-    fill: Rgb
-    ambient: Rgb
-    rim: Option[Rgb]
+    key: npt.NDArray[np.float64]
+    fill: npt.NDArray[np.float64]
+    ambient: npt.NDArray[np.float64]
+    rim: Option[npt.NDArray[np.float64]]
     contrast: float
     range: float
     metered_exposure: float
@@ -104,10 +101,10 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
             case _:
                 return Nothing
 
-    def read(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Option[LightingReading]]:
+    def read(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Outcome[Option[LightingReading]]:
         """Reads lighting of plane fitted within `grid` pixels, or absence without covered subject."""
 
-        def measured(pair: tuple[Samples, npt.NDArray[np.float64]]) -> ImagingResult[Option[LightingReading]]:
+        def measured(pair: tuple[Samples, npt.NDArray[np.float64]]) -> Outcome[Option[LightingReading]]:
             samples, matrix = pair
             covered = samples.finite
             height, width = covered.shape
@@ -130,7 +127,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 for low, high in ((0.85, 1.0), (0.35, 0.60), (0.0, 0.15), (0.78, 1.0), (0.0, 0.22), (0.55, 1.0), *((index / count, (index + 1) / count) for index in range(count)))
                 for start in (math.floor(found.size * low),)
             )
-            key, fill, ambient = (msgspec.convert(mean.tolist(), Rgb) for band in bands[:3] for mean in (colors[band].mean(axis=0, dtype=np.float64),))
+            key, fill, ambient = (colors[band].mean(axis=0, dtype=np.float64) for band in bands[:3])
             darkest, brightest, lower, upper = np.percentile(found, (5.0, 95.0, 10.0, 90.0), method="inverted_cdf")
             spread = math.log2(float(brightest / darkest))
             halves = tuple(found[mask] for mask in (coordinates[:, 0] > 0.0, coordinates[:, 0] < 0.0, coordinates[:, 1] > 0.0, coordinates[:, 1] < 0.0))
@@ -158,7 +155,6 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 Some(levels[border])
                 .filter(lambda held: held.size > 0)
                 .map(lambda held: samples.color[border & (levels >= np.percentile(held, self.highlights, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
-                .map(lambda mean: msgspec.convert(mean.tolist(), Rgb))
             )
             center_levels, border_levels, ring_levels = levels[central], levels[border], levels[subject & ~core]
             frame_mean, subject_mean = float(levels[covered].mean(dtype=np.float64)), float(found.mean(dtype=np.float64))
@@ -189,11 +185,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                     shares[nearest] += shares[index]
                 else:
                     kept.append(index)
-            palette = tuple(
-                PaletteEntry(color=msgspec.convert(mean[:3].tolist(), Rgb), position=(float(mean[3]), float(mean[4])), share=float(shares[index]))
-                for index in kept
-                for mean in (means[ordered_clusters[index]],)
-            )
+            palette = tuple(PaletteEntry(color=mean[:3], position=(float(mean[3]), float(mean[4])), share=float(shares[index])) for index in kept for mean in (means[ordered_clusters[index]],))
             return White.of(config, key).map(
                 lambda white: Some(
                     LightingReading(

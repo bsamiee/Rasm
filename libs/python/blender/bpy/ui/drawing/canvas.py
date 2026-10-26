@@ -14,7 +14,7 @@ from gpu_extras.batch import batch_for_shader
 import msgspec
 
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.ui.resources.theme import Color, Look, Metrics, rgba, Theme
+from blender.bpy.ui.resources.theme import Color, Metrics, Theme
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -64,11 +64,6 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
         """Reads theme font style shadow."""
         gray = style.shadow_value
         return cls(level=style.shadow, color=(gray, gray, gray, style.shadow_alpha), offset=(style.shadow_offset_x, style.shadow_offset_y))
-
-    @classmethod
-    def cast(cls, look: Look, metrics: Metrics) -> Option[Self]:
-        """Reads a look's hard shadow at interface scale, y flipped from Skia's downward axis."""
-        return look.shadow.map(lambda shade: cls(color=rgba(shade.ink), offset=(float(metrics.scaled(shade.x)), -float(metrics.scaled(shade.y)))))
 
 
 class Canvas(msgspec.Struct, frozen=True, kw_only=True):

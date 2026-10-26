@@ -13,11 +13,11 @@ from scipy.spatial.transform import RigidTransform, Rotation
 
 from blender.imaging.geometry.arithmetic import Field, Namespace
 from blender.imaging.geometry.homography import Quad
-from blender.records.fields import Case, Elevation, Finite, NonNegative, Positive, Presentation, Quantity, Turn, Unit
+from blender.records.fields import Case, Finite, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type FieldOfView = Annotated[float, msgspec.Meta(gt=0.0, lt=math.pi), Presentation(quantity=Some(Quantity.ANGLE))]
+type FieldOfView = Annotated[float, msgspec.Meta(gt=0.0, lt=math.pi)]
 type SensorDimension = Annotated[float, msgspec.Meta(ge=0.001, le=sys.float_info.max)]
 type Ray[V] = tuple[V, V, V, V]
 type Point[V] = tuple[V, V, V]
@@ -36,17 +36,15 @@ class Panorama(Case, frozen=True, kw_only=True):
 class Fisheye(Panorama, frozen=True, kw_only=True):
     """Projection onto centered image circle."""
 
-    field_of_view: Annotated[float, msgspec.Meta(ge=0.1745, le=10.0 * math.pi, title="Field of View", description="Angle the image circle spans"), Presentation(quantity=Some(Quantity.ANGLE))] = (
-        math.pi
-    )
+    field_of_view: Annotated[float, msgspec.Meta(ge=0.1745, le=10.0 * math.pi, description="Angle the image circle spans")] = math.pi
 
 
 class Rectilinear(Panorama, frozen=True, kw_only=True):
     """Pinhole projection of a perspective camera."""
 
     aspect: Annotated[Positive, msgspec.Meta(description="Frame width over height")] = 4.0 / 3.0
-    field_of_view: Annotated[FieldOfView, msgspec.Meta(title="Field of View", description="Horizontal angle the frame spans")] = math.radians(60.0)
-    shift: Annotated[tuple[Finite, Finite], Presentation(quantity=Some(Quantity.FRAME))] = (0.0, 0.0)
+    field_of_view: Annotated[FieldOfView, msgspec.Meta(description="Horizontal angle the frame spans")] = math.radians(60.0)
+    shift: tuple[Finite, Finite] = (0.0, 0.0)
 
     @property
     def sides(self) -> tuple[float, float]:
@@ -100,8 +98,8 @@ class CentralCylindrical(Panorama, frozen=True, kw_only=True):
     title = "Cylindrical"
     extension = (OpenImageIO.Wrap.Periodic, OpenImageIO.Wrap.Black)
     upright = True
-    height_min: Annotated[float, msgspec.Meta(ge=-10.0, le=10.0, title="Height Minimum", description="Lowest height over radius")] = -1.0
-    height_max: Annotated[float, msgspec.Meta(ge=-10.0, le=10.0, title="Height Maximum", description="Highest height over radius")] = 1.0
+    height_min: Annotated[float, msgspec.Meta(ge=-10.0, le=10.0, description="Lowest height over radius")] = -1.0
+    height_max: Annotated[float, msgspec.Meta(ge=-10.0, le=10.0, description="Highest height over radius")] = 1.0
 
     def to_image[V: Field, B](self, ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Projects rays, zero coverage on axis or for zero-height cylinder."""
@@ -163,8 +161,8 @@ class FisheyeEquidistant(Fisheye, frozen=True, kw_only=True):
 class FisheyeEquisolid(Fisheye, frozen=True, kw_only=True):
     """Fisheye with equisolid image radius on physical sensor."""
 
-    lens: Annotated[float, msgspec.Meta(ge=0.00001, le=0.1, description="Focal length"), Presentation(quantity=Some(Quantity.FOCAL_LENGTH))] = 0.0105
-    sensor: Annotated[tuple[SensorDimension, SensorDimension], Presentation(quantity=Some(Quantity.FOCAL_LENGTH))] = (0.036, 0.024)
+    lens: Annotated[float, msgspec.Meta(ge=0.00001, le=0.1, description="Focal length")] = 0.0105
+    sensor: tuple[SensorDimension, SensorDimension] = (0.036, 0.024)
 
     @property
     def radius(self) -> float:
@@ -195,9 +193,7 @@ class Stereographic(Panorama, frozen=True, kw_only=True):
     """Conformal projection of sphere from point behind viewer."""
 
     centered = True
-    field_of_view: Annotated[float, msgspec.Meta(gt=0.0, lt=2.0 * math.pi, title="Field of View", description="Angle the frame's greater side spans"), Presentation(quantity=Some(Quantity.ANGLE))] = (
-        math.pi
-    )
+    field_of_view: Annotated[float, msgspec.Meta(gt=0.0, lt=2.0 * math.pi, description="Angle the frame's greater side spans")] = math.pi
 
     @property
     def scale(self) -> float:
@@ -224,9 +220,9 @@ class Panini(Panorama, frozen=True, kw_only=True):
 
     upright = True
     centered = True
-    field_of_view: Annotated[FieldOfView, msgspec.Meta(title="Field of View", description="Angle the frame's greater side spans")] = math.radians(60.0)
-    distance: Annotated[NonNegative, msgspec.Meta(description="Projection center behind sphere center, rectilinear at 0"), Presentation(soft=Some((0.0, 1.0)))] = 1.0
-    compression: Annotated[Unit, msgspec.Meta(title="Vertical Compression", description="Blend from rectilinear to compressed heights")] = 0.0
+    field_of_view: Annotated[FieldOfView, msgspec.Meta(description="Angle the frame's greater side spans")] = math.radians(60.0)
+    distance: Annotated[NonNegative, msgspec.Meta(description="Projection center behind sphere center, rectilinear at 0")] = 1.0
+    compression: Annotated[Unit, msgspec.Meta(description="Blend from rectilinear to compressed heights")] = 0.0
 
     @property
     def weights(self) -> tuple[float, float]:
@@ -295,9 +291,9 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
 
     source: Panoramas = Equirectangular()
     view: Rectilinear = Rectilinear()
-    heading: Annotated[Turn, msgspec.Meta(description="Rightward turn from panorama center")] = 0.0
-    elevation: Annotated[Elevation, msgspec.Meta(description="Upward tilt from horizon")] = 0.0
-    roll: Annotated[Turn, msgspec.Meta(description="Counterclockwise turn about view axis")] = 0.0
+    heading: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Rightward turn from panorama center")] = 0.0
+    elevation: Annotated[float, msgspec.Meta(ge=-math.pi / 2.0, le=math.pi / 2.0, description="Upward tilt from horizon")] = 0.0
+    roll: Annotated[float, msgspec.Meta(ge=-math.pi, le=math.pi, description="Counterclockwise turn about view axis")] = 0.0
 
     @property
     def rotation(self) -> Rotation[tuple[()]]:
@@ -319,7 +315,9 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
 
     def to_view(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps source positions into view, zero coverage behind view."""
-        return np.stack(self.view.to_image(self._rays(samples), np), axis=-1)
+        *ray, coverage = self.source.to_ray(self._source(samples), np)
+        local = self.rotation.apply(np.stack(ray, axis=-1), inverse=True)
+        return np.stack(self.view.to_image((local[..., 0], local[..., 1], local[..., 2], coverage), np), axis=-1)
 
     def framing(self, quad: Quad, share: Annotated[float, msgspec.Meta(gt=0.0)]) -> Option[Self]:
         """Aims view at quad filling `share` of frame, `Nothing` for undefined, rearward, or zero-span corner rays."""
@@ -343,11 +341,6 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
     def _source(self, samples: npt.NDArray[np.float64]) -> Point[npt.NDArray[np.float64]]:
         origin, scale = self.frame
         return (samples[..., 0] - origin) * scale[0], (samples[..., 1] - origin) * scale[1], samples[..., 2]
-
-    def _rays(self, samples: npt.NDArray[np.float64]) -> Ray[npt.NDArray[np.float64]]:
-        *ray, coverage = self.source.to_ray(self._source(samples), np)
-        local = self.rotation.apply(np.stack(ray, axis=-1), inverse=True)
-        return local[..., 0], local[..., 1], local[..., 2], coverage
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -15,7 +15,7 @@ import msgspec
 
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Band
-from blender.bpy.faults import BlenderResult
+from blender.records.faults import Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ class Handler[E](msgspec.Struct, frozen=True, kw_only=True):
             identity: Extension holding reports and runtime scene mark.
         """
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+    def acquisitions(self, identity: Identity, /) -> Outcome[tuple[tuple[Band, Acquisition], ...]]:
         """Builds the app-handler acquisition.
 
         Args:
@@ -82,7 +82,7 @@ class Handler[E](msgspec.Struct, frozen=True, kw_only=True):
 class SceneHandler(Handler[Callable[[bpy.types.Scene], None]], frozen=True, kw_only=True):
     """Scene callback skipping extension's runtime scenes."""
 
-    body: Callable[[bpy.types.Scene], BlenderResult[None]]
+    body: Callable[[bpy.types.Scene], Outcome[None]]
 
     @override
     def entry(self, identity: Identity, /) -> Callable[[bpy.types.Scene], None]:
@@ -93,7 +93,7 @@ class SceneHandler(Handler[Callable[[bpy.types.Scene], None]], frozen=True, kw_o
 class FrameHandler(Handler[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]], frozen=True, kw_only=True):
     """Frame callback receiving evaluated depsgraph with no update filter, skipping extension's runtime scenes."""
 
-    body: Callable[[bpy.types.Scene, bpy.types.Depsgraph], BlenderResult[None]]
+    body: Callable[[bpy.types.Scene, bpy.types.Depsgraph], Outcome[None]]
 
     @override
     def entry(self, identity: Identity, /) -> Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]:
@@ -104,7 +104,7 @@ class FrameHandler(Handler[Callable[[bpy.types.Scene, bpy.types.Depsgraph], None
 class PathHandler(Handler[Callable[[str, None], None]], frozen=True, kw_only=True):
     """Load or save callback receiving Nothing for startup file."""
 
-    body: Callable[[Option[Path]], BlenderResult[None]]
+    body: Callable[[Option[Path]], Outcome[None]]
 
     @override
     def entry(self, identity: Identity, /) -> Callable[[str, None], None]:
@@ -116,14 +116,14 @@ class UpdateHandler(Handler[Callable[[bpy.types.Scene, bpy.types.Depsgraph], Non
     """Scene callback receiving updates of its ID types and optional change kinds."""
 
     ids: tuple[type[bpy.types.ID], ...]
-    body: Callable[[bpy.types.Scene, tuple[bpy.types.DepsgraphUpdate, ...]], BlenderResult[None]]
+    body: Callable[[bpy.types.Scene, tuple[bpy.types.DepsgraphUpdate, ...]], Outcome[None]]
     changes: Option[Change] = Nothing
 
     @override
     def entry(self, identity: Identity, /) -> Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]:
         return FrameHandler(handlers=self.handlers, body=self.matched).entry(identity)
 
-    def matched(self, scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph) -> BlenderResult[None]:
+    def matched(self, scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph) -> Outcome[None]:
         """Passes matching updates to body during handler call.
 
         Args:
@@ -140,7 +140,7 @@ class UpdateHandler(Handler[Callable[[bpy.types.Scene, bpy.types.Depsgraph], Non
 class ImportHandler(Handler[Callable[[bpy.types.BlendImportContext], None]], frozen=True, kw_only=True):
     """Append or link callback receiving read-only import context."""
 
-    body: Callable[[bpy.types.BlendImportContext], BlenderResult[None]]
+    body: Callable[[bpy.types.BlendImportContext], Outcome[None]]
 
     @override
     def entry(self, identity: Identity, /) -> Callable[[bpy.types.BlendImportContext], None]:
@@ -151,18 +151,22 @@ class ImportHandler(Handler[Callable[[bpy.types.BlendImportContext], None]], fro
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
+class Dispatcher:
     """One persistent callback an extension keeps on a handler list, running each held callback with the arguments it reads."""
 
-    package: str
-    entries: list[tuple[Callback, int]]
+    __slots__ = ("entries", "package")
+
+    def __init__(self, package: str) -> None:
+        """Holds no callback of `package`."""
+        self.package = package
+        self.entries: list[tuple[Callback, int]] = []
 
     @classmethod
     def held[E](cls, handlers: Handlers[E], package: str) -> "Dispatcher":
         """Returns the dispatcher of `package` on handler list, appending a new one when absent."""
 
         def opened() -> Dispatcher:
-            dispatcher = cls(package=package, entries=[])
+            dispatcher = cls(package)
             handlers.append(dispatcher.dispatched)
             return dispatcher
 

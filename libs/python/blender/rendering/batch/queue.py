@@ -1,5 +1,6 @@
 """Render queue jobs, cameras, and frame ranges."""
 
+from collections.abc import Mapping
 from graphlib import TopologicalSorter
 from typing import Annotated
 
@@ -47,7 +48,6 @@ class Marker(msgspec.Struct, frozen=True, kw_only=True):
 class Bound(Case, frozen=True, kw_only=True):
     """Scene camera switched at camera markers."""
 
-    title = "Scene Camera"
     camera: str | None = None
     markers: tuple[Marker, ...] = ()
 
@@ -61,7 +61,6 @@ class Bound(Case, frozen=True, kw_only=True):
 class Fixed(Case, frozen=True, kw_only=True):
     """One camera for every job frame."""
 
-    title = "Fixed Camera"
     camera: str
 
 
@@ -85,7 +84,7 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
     pixels: tuple[Side, Side]
     samples: Annotated[int, msgspec.Meta(ge=1)]
     output_root: str
-    outputs: dict[Output, str]
+    outputs: Mapping[Output, str]
     passes: tuple[str, ...]
     prerequisites: tuple[Frame, ...] = ()
 

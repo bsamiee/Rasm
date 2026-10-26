@@ -1,6 +1,6 @@
 """Workspace tools with toolbar placement, settings, and keymaps."""
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
 from pathlib import Path
 from typing import ClassVar, Literal, TYPE_CHECKING
@@ -14,16 +14,15 @@ import msgspec
 from blender.bpy.commands.calls import Operation, Placed, Writer
 from blender.bpy.commands.keymaps import Chord
 from blender.bpy.commands.operators import Command, Operator, Pick
-from blender.bpy.data.rna.descriptors import rooted
+from blender.bpy.data.rna.descriptors import rooted, Struct
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.drawing.handlers import Drawing, Drew
 from blender.bpy.ui.layout.rows import acquired, placed, RowContent, RowDraw
 from blender.bpy.ui.resources.icons import Icons
 from blender.bpy.ui.surfaces.gizmos import Linked
-from blender.records.faults import accumulated, paired
-from blender.records.fields import heading
+from blender.records.faults import accumulated, Fault, Faults, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -91,7 +90,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     title: str
     operator: Command | Operation
     icon: Path
-    bindings: dict[Chord, Placed] = msgspec.field(default_factory=dict)
+    bindings: Mapping[Chord, Placed] = msgspec.field(default_factory=dict)
     description: Option[str | Callable[[bpy.types.Context, ToolDef, bpy.types.KeyMap | None], str]] = Nothing
     cursor: "Option[rna_enums.WindowCursorItems]" = Nothing
     gizmo: Option[Linked] = Nothing
@@ -101,7 +100,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     data_block: Option[str] = Nothing
     settings: tuple[RowContent, ...] = ()
 
-    def drafted(self, identity: Identity, toolbar: Toolbar) -> BlenderResult[Draft]:
+    def drafted(self, identity: Identity, toolbar: Toolbar) -> Outcome[Draft]:
         """Builds tool class once names, bindings, gizmo, and cursor drawing resolve."""
         panel, mode = toolbar.panel, toolbar.mode
         match self.operator:
@@ -118,7 +117,7 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
             """Returns tool draft."""
             ((name, operator), settings), ((gizmo, pointer), items) = parts
 
-            def every(layout: bpy.types.UILayout, properties: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
+            def every(layout: bpy.types.UILayout, properties: Struct, _context: bpy.types.Context) -> None:
                 """Draws every visible tool operator property."""
                 for prop in (held for held in properties.bl_rna.properties if not held.is_hidden):
                     layout.prop(properties, prop.identifier)
@@ -166,7 +165,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [ACTIVATION]
 
-    def invocation(self, identity: Identity, tool: Tool[S], *, cycle: bool = False, as_fallback: bool = False) -> BlenderResult[tuple[Operation, dict[str, object]]]:
+    def invocation(self, identity: Identity, tool: Tool[S], *, cycle: bool = False, as_fallback: bool = False) -> Outcome[tuple[Operation, dict[str, object]]]:
         """Returns `wm.tool_set_by_id` call activating tool."""
         return identity.name(Name.OPERATOR, tool.key).map(
             lambda name: (bpy.ops.wm.tool_set_by_id, {"name": name, "space_type": self.toolbar.panel.bl_space_type, "cycle": cycle, "as_fallback": as_fallback})
@@ -174,54 +173,54 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Builds tool registration once every tool resolves."""
         return accumulated(tool.drafted(identity, self.toolbar) for tool in self.tools).map(
             lambda drafts: (*(row for draft in drafts for row in draft.rows), (Band.INTERFACE, self.registered(drafts)))
         )
 
     @contextmanager
-    def registered(self, drafts: tuple[Draft, ...]) -> Generator[BlenderResult[None]]:
+    def registered(self, drafts: tuple[Draft, ...]) -> Generator[Outcome[None]]:
         """Registers tools and keymap items for the scope."""
         panel, mode = self.toolbar.panel, self.toolbar.mode
         owner = f"{panel.__name__}._tools[{mode!r}]"
-        context = "All" if mode is None else heading(mode)
+        context = "All" if mode is None else mode.replace("_", " ").title()
         bindings = tuple((draft, f"{panel.keymap_prefix} {context}, {tool.title}") for tool, draft in zip(self.tools, drafts))
 
-        def planned(tools: list[object]) -> BlenderResult[Callable[[type[bpy.types.WorkSpaceTool]], None]]:
+        def planned(tools: list[object]) -> Outcome[Callable[[type[bpy.types.WorkSpaceTool]], None]]:
             """Checks anchor presence and tool ID collisions."""
             grouped = frozenset(member.idname for item in tools if isinstance(item, tuple) and not isinstance(item, ToolDef) for member in item if isinstance(member, ToolDef))
             match self.placement:
                 case Appended(separator=separator):
-                    lead = Result[Callable[[type[bpy.types.WorkSpaceTool]], None], BlenderFaults](ok=lambda tool: bpy.utils.register_tool(tool, separator=separator, group=len(drafts) > 1))
+                    lead = Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](ok=lambda tool: bpy.utils.register_tool(tool, separator=separator, group=len(drafts) > 1))
                 case Grouped(anchor=anchor):
                     lead = (
-                        Result[Callable[[type[bpy.types.WorkSpaceTool]], None], BlenderFaults](ok=lambda tool: bpy.utils.register_tool(tool, after={anchor}))
+                        Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](ok=lambda tool: bpy.utils.register_tool(tool, after={anchor}))
                         if anchor in grouped
-                        else Result[Callable[[type[bpy.types.WorkSpaceTool]], None], BlenderFaults](error=(BlenderAbsentFault(owner=owner, key=anchor),))
+                        else Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](error=(Fault(reason=BlenderReason.ABSENT, subject=owner, member=anchor),))
                     )
             ids = grouped | frozenset(item.idname for item in tools if isinstance(item, ToolDef))
             return paired(
-                lead, accumulated(Result[None, BlenderFaults](error=(BlenderCollisionFault(request=draft.tool.__name__, error=owner),)) for draft in drafts if draft.tool.__name__ in ids)
+                lead, accumulated(Result[None, Faults](error=(Fault(reason=BlenderReason.TAKEN, subject=draft.tool.__name__, member=owner),)) for draft in drafts if draft.tool.__name__ in ids)
             ).map(lambda pair: pair[0])
 
-        def configured(manager: bpy.types.WindowManager) -> BlenderResult[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]:
+        def configured(manager: bpy.types.WindowManager) -> Outcome[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]:
             """Resolves keyconfigs, refusing taken keymap names."""
             configs = manager.keyconfigs
             addon, default = Option.of_optional(configs.addon), Option.of_optional(configs.default)
             maps = tuple(pair for present in (addon, default) for config in present.to_list() for pair in config.keymaps.items())
             occupied = accumulated(
-                Result[None, BlenderFaults](error=(BlenderCollisionFault(request=keymap_name, error=repr(keymap)),))
+                Result[None, Faults](error=(Fault(reason=BlenderReason.TAKEN, subject=keymap_name, member=repr(keymap)),))
                 for draft, keymap_name in bindings
                 if draft.items
                 for name, keymap in maps
                 if name == keymap_name
             )
-            available: BlenderResult[bpy.types.KeyConfig] = addon.to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.keyconfigs", key="addon"),))
-            native: BlenderResult[bpy.types.KeyConfig] = default.to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.keyconfigs", key="default"),))
+            available: Outcome[bpy.types.KeyConfig] = addon.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="WindowManager.keyconfigs", member="addon"),))
+            native: Outcome[bpy.types.KeyConfig] = default.to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject="WindowManager.keyconfigs", member="default"),))
             return paired(occupied, paired(available, native)).map(lambda values: (manager, values[1][0]))
 
-        binding: BlenderResult[Option[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]] = (
+        binding: Outcome[Option[tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]] = (
             rooted(bpy.types.WindowManager, bpy.context).bind(configured).map(Some) if any(draft.items for draft in drafts) else Ok(Nothing)
         )
         tools = dict(panel.tools_all())  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]
@@ -229,7 +228,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
             Option
             .of_optional(tools.get(mode))
             .map(planned)
-            .default_with(lambda: Result[Callable[[type[bpy.types.WorkSpaceTool]], None], BlenderFaults](error=(BlenderAbsentFault(owner=f"{panel.__name__}._tools", key=str(mode)),))),
+            .default_with(lambda: Result[Callable[[type[bpy.types.WorkSpaceTool]], None], Faults](error=(Fault(reason=BlenderReason.ABSENT, subject=f"{panel.__name__}._tools", member=str(mode)),))),
             binding,
         )
         with ExitStack() as resources:
@@ -242,7 +241,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                     resources.callback(bpy.utils.unregister_tool, draft.tool)
             yield leading.bind(
                 lambda acquired: accumulated(
-                    Option.of_optional(item.properties).map(write).default_with(lambda: Error((BlenderAbsentFault(owner=repr(item), key="properties"),)))
+                    Option.of_optional(item.properties).map(write).default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject=repr(item), member="properties"),)))
                     for manager, config in acquired[1].to_list()
                     for draft, keymap_name in bindings
                     for chord, (operator, write) in draft.items

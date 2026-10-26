@@ -7,11 +7,8 @@ files:
     - apps/blender/**
 utils:
     members:
-        any:
-            - kind: attribute
-              has: {field: attribute, regex: '^(properties|parameters|functions)$'}
-            - kind: call
-              has: {field: function, matches: {python-member-use: {module: {regex: '^(msgspec\.structs|dataclasses)$'}, name: {regex: '^fields$'}}}}
+        kind: attribute
+        has: {field: attribute, regex: '^(properties|parameters|functions)$'}
     scanned:
         kind: for_in_clause
         all: [{has: {field: left, kind: identifier, pattern: $F}}, {has: {field: right, matches: members}}]
@@ -44,4 +41,4 @@ rule:
                     - has: {matches: scanned}
                     - inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^any$'}}}}}
 message: '`$TEST` scans members for the one a literal names'
-note: 'Index `<collection>["<name>"]` tested by `in`, declare `Descriptor.declared(<root>, "<name>", <kind>)`, or reach the field through `<Record>.<field>`'
+note: 'Read `<collection>["<name>"]`, `<collection>.get("<name>")` for a lookup that can miss, or `bl_rna.properties["<name>"]`'

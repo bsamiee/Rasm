@@ -17,10 +17,8 @@ from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderResult
 from blender.bpy.render.outputs.results import built
-from blender.records.faults import accumulated
-from blender.records.fields import Presentation, Quantity
+from blender.records.faults import accumulated, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -40,7 +38,7 @@ class Phase(Enum):
     RUNNING = auto()
 
 
-type Feed = Callable[[Identity, bpy.types.Context], BlenderResult[tuple[Job, ...]]]
+type Feed = Callable[[Identity, bpy.types.Context], Outcome[tuple[Job, ...]]]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -50,7 +48,7 @@ class Budget(msgspec.Struct, frozen=True, kw_only=True):
     """Per-step render count and time limits."""
 
     count: Annotated[int, msgspec.Meta(ge=1, le=8, title="Previews per Step", description="Most previews one step renders")] = 2
-    time: Annotated[float, msgspec.Meta(ge=0.02, le=2.0, title="Time Budget", description="Time each step starts renders within"), Presentation(quantity=Some(Quantity.DURATION))] = 0.25
+    time: Annotated[float, msgspec.Meta(ge=0.02, le=2.0, title="Time Budget", description="Time each step starts renders within")] = 0.25
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -59,32 +57,40 @@ class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     place: Hashable
     key: Hashable
     rank: Rank
-    run: Callable[[], BlenderResult[None]]
+    run: Callable[[], Outcome[None]]
     playback: bool = False
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Request(msgspec.Struct, kw_only=True, eq=False):
+class Request:
     """Render request with state its run writes."""
 
-    job: Job
-    state: Phase | BlenderResult[None] = Phase.PENDING
+    __slots__ = ("job", "state")
 
-    def executed(self) -> BlenderResult[None]:
+    def __init__(self, *, job: Job, state: Phase | Outcome[None] = Phase.PENDING) -> None:
+        """Holds the job and its state."""
+        self.job = job
+        self.state: Phase | Outcome[None] = state
+
+    def executed(self) -> Outcome[None]:
         """Marks request running, runs its job, and stores result."""
         self.state = Phase.RUNNING
         self.state = result = self.job.run()
         return result
 
 
-class Backlog(msgspec.Struct, kw_only=True):
+class Backlog:
     """Registered feeds, requests in arrival order, and last user render slot."""
 
-    feeds: list[Feed] = msgspec.field(default_factory=list)
-    requests: dict[tuple[Option[Feed], Hashable], Request] = msgspec.field(default_factory=dict)
-    slot: Option[int] = Nothing
+    __slots__ = ("feeds", "requests", "slot")
+
+    def __init__(self, *, feeds: Iterable[Feed] = ()) -> None:
+        """Holds feeds with no request and no render slot."""
+        self.feeds: list[Feed] = list(feeds)
+        self.requests: dict[tuple[Option[Feed], Hashable], Request] = {}
+        self.slot: Option[int] = Nothing
 
     @property
     def jobs(self) -> tuple[tuple[Feed, Job], ...]:
@@ -128,13 +134,13 @@ BACKLOG: Final = Scoped[Backlog](made=lambda _identity: nullcontext(Backlog()), 
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     """Registration row owning preview runs and timer steps."""
 
-    budget: Callable[[Identity], BlenderResult[Budget]] = lambda _identity: Ok(Budget())
+    budget: Callable[[Identity], Outcome[Budget]] = lambda _identity: Ok(Budget())
     interval: ClassVar[float] = 0.15
 
     # --- [EXECUTION]
 
     @staticmethod
-    def executed(identity: Identity, job: Job, *, feed: Option[Feed] = Nothing) -> BlenderResult[None]:
+    def executed(identity: Identity, job: Job, *, feed: Option[Feed] = Nothing) -> Outcome[None]:
         """Runs a request and stores its result, skipping a key failed at its place.
 
         Args:
@@ -162,7 +168,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         backlog, dropped = BACKLOG.of(identity), frozenset(places)
         backlog.requests = {place: request for place, request in backlog.requests.items() if place[1] not in dropped or request.state is Phase.PENDING}
 
-    def ticked(self, identity: Identity) -> BlenderResult[Option[float]]:
+    def ticked(self, identity: Identity) -> Outcome[Option[float]]:
         """Merges feed requests and runs pending ones within budget, holding faults in reports.
 
         Args:
@@ -173,7 +179,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         """
         context, backlog = bpy.context, BACKLOG.of(identity)
 
-        def stepped(manager: bpy.types.WindowManager) -> BlenderResult[None]:
+        def stepped(manager: bpy.types.WindowManager) -> Outcome[None]:
             budget = self.budget(identity)
             reads = tuple((feed, feed(identity, context)) for feed in tuple(backlog.feeds))
             backlog.merged(tuple((feed, jobs) for feed, read in reads if feed in backlog.feeds for jobs in read.to_option().to_list()))
@@ -223,7 +229,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     # --- [LIFECYCLE]
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Builds the backlog cell, timer, and the deferred record of each finished user render's shown slot.
 
         Args:

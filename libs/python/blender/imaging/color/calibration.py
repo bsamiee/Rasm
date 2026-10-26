@@ -1,6 +1,7 @@
 """Chart references, perspective chart sampling, and color correction fits."""
 
 from collections.abc import Callable
+from enum import IntEnum
 import functools
 import math
 from typing import Annotated, Self
@@ -8,7 +9,8 @@ from typing import Annotated, Self
 import colour
 from colour.characterisation import ColourChecker
 from colour.characterisation.datasets.colour_checkers.chromaticity_coordinates import CCS_COLORCHECKER24_AFTER_NOV2014
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -17,21 +19,19 @@ import PyOpenColorIO
 
 from blender.imaging.color.processors import basis, converted, matrix, xyz
 from blender.imaging.color.white import adaptation
-from blender.imaging.faults import ImagingResult
 from blender.imaging.geometry.homography import Homography, Quad
 from blender.imaging.geometry.panoramas import PanoramaView
 from blender.imaging.geometry.stmaps import StMap
-from blender.records.faults import DomainFault, NumericFault, paired
-from blender.records.fields import Choice, Gated, Rgb
+from blender.records.faults import Fault, Faults, Outcome, paired, RecordReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Chart(Choice):
+class Chart(IntEnum):
     """Published color charts."""
 
-    COLORCHECKER_CLASSIC = 1, "ColorChecker Classic"
-    SPYDERCHECKR_24 = 2, "SpyderCheckr 24"
+    COLORCHECKER_CLASSIC = 1
+    SPYDERCHECKR_24 = 2
 
 
 type Finding = Mirrored | Skewed | Wide | Clipped
@@ -84,7 +84,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 values = np.array(tuple(patches.values()), dtype=np.float64)
                 return cls(
                     checker=ColourChecker(
-                        chart.label,
+                        "SpyderCheckr 24",
                         dict(zip(patches, np.unstack(np.column_stack((values[:, :2] / values.sum(axis=-1, keepdims=True), values[:, 1]))))),
                         np.array((0.3457, 0.3585), dtype=np.float64),
                         4,
@@ -98,7 +98,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Patch columns and rows of chart grid."""
         return np.array((self.checker.columns, self.checker.rows), dtype=np.int64)
 
-    def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> ImagingResult[tuple[Rgb[float], ...]]:
+    def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[tuple[tuple[float, float, float], ...]]:
         """Returns white-adapted patch RGB in `colorspace`, or color faults."""
         coordinates = np.array(tuple(self.checker.data.values()), dtype=np.float64)
         illuminant = np.asarray(self.checker.illuminant, dtype=np.float64)
@@ -116,7 +116,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                     patches.astype(np.float32),
                 )
             )
-            .map(lambda rgb: msgspec.convert(rgb.tolist(), tuple[Rgb, ...]))
+            .map(lambda rgb: msgspec.convert(rgb.tolist(), tuple[tuple[float, float, float], ...]))
         )
 
 
@@ -157,12 +157,12 @@ class Limits(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
-    """Chart corners, patch size, and panorama alignment view."""
+    """Chart corners, patch size, and panorama alignment view, direct sampling while absent."""
 
     chart: Chart = Chart.COLORCHECKER_CLASSIC
-    quad: Annotated[Quad, msgspec.Meta(title="Corners")] = Quad()
-    footprint: Annotated[float, msgspec.Meta(gt=0.0, le=1.0, title="Patch Size")] = 0.8
-    panorama: Annotated[Gated[PanoramaView], msgspec.Meta(title="Panorama View")] = Gated(enabled=False, value=PanoramaView())
+    quad: Quad = Quad()
+    footprint: Annotated[float, msgspec.Meta(gt=0.0, le=1.0)] = 0.8
+    panorama: PanoramaView | None = None
 
     @property
     def footprints(self) -> npt.NDArray[np.float64]:
@@ -176,28 +176,33 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def extension(self) -> tuple[OpenImageIO.Wrap, OpenImageIO.Wrap]:
         """Source edge wraps for direct or panorama sampling."""
-        return self.panorama.value.source.extension if self.panorama.enabled else (OpenImageIO.Wrap.Black, OpenImageIO.Wrap.Black)
+        return Option.of_optional(self.panorama).map(lambda panorama: panorama.source.extension).default_value((OpenImageIO.Wrap.Black, OpenImageIO.Wrap.Black))
 
     @property
-    def aligned(self) -> ImagingResult[Option[Homography]]:
+    def aligned(self) -> Outcome[Option[Homography]]:
         """Convex chart map in alignment frame, absent for undefined or nonconvex corners."""
         return (
-            Some(self.panorama.value.to_view(self.quad.samples)).filter(lambda viewed: bool(np.all(viewed[:, 2] > 0.0))).map(lambda viewed: Homography.of(Quad.of(viewed))).default_value(Ok(Nothing))
-            if self.panorama.enabled
-            else Homography.of(self.quad)
+            Option
+            .of_optional(self.panorama)
+            .map(
+                lambda panorama: (
+                    Some(panorama.to_view(self.quad.samples)).filter(lambda viewed: bool(np.all(viewed[:, 2] > 0.0))).map(lambda viewed: Homography.of(Quad.of(viewed))).default_value(Ok(Nothing))
+                )
+            )
+            .default_with(lambda: Homography.of(self.quad))
         )
 
     def mapping(self, homography: Homography) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
         """Returns chart-to-source map for aligned homography."""
-        return (lambda samples: self.panorama.value.to_panorama(homography.to_image(samples))) if self.panorama.enabled else homography.to_image
+        return Option.of_optional(self.panorama).map(lambda panorama: lambda samples: panorama.to_panorama(homography.to_image(samples))).default_value(homography.to_image)
 
-    def findings(self, aspect: float, limits: Limits) -> ImagingResult[Option[tuple[Finding, ...]]]:
+    def findings(self, aspect: float, limits: Limits) -> Outcome[Option[tuple[Finding, ...]]]:
         """Returns placement findings, or absence when chart cannot align."""
-        view = self.panorama.value.view
+        view = Option.of_optional(self.panorama).map(lambda panorama: panorama.view)
         clip = np.array([axis == OpenImageIO.Wrap.Black for axis in self.extension])
 
         def listed(homography: Homography) -> tuple[Finding, ...]:
-            corners = homography.quad.samples[:, :2] * (view.aspect if self.panorama.enabled else aspect, 1.0)
+            corners = homography.quad.samples[:, :2] * (view.map(lambda held: held.aspect).default_value(aspect), 1.0)
             following = np.roll(corners, -1, axis=0)
             before, after = np.roll(corners, 1, axis=0) - corners, following - corners
             angles = np.arctan2(np.abs(before[:, 0] * after[:, 1] - before[:, 1] * after[:, 0]), np.vecdot(before, after))
@@ -208,13 +213,13 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 *((Mirrored(area=area),) if area > 0.0 else ()),
                 *((Skewed(narrowest=narrowest, widest=widest),) if narrowest < limits.narrowest or widest > limits.widest else ()),
-                *((Wide(field_of_view=view.field_of_view),) if self.panorama.enabled and view.field_of_view > limits.field_of_view else ()),
+                *(Wide(field_of_view=held.field_of_view) for held in view.to_list() if held.field_of_view > limits.field_of_view),
                 *((Clipped(patches=clipped),) if clipped else ()),
             )
 
         return self.aligned.map(lambda aligned: aligned.map(listed))
 
-    def means(self, plane: npt.NDArray[np.float32]) -> ImagingResult[Option[tuple[Rgb[float], ...]]]:
+    def means(self, plane: npt.NDArray[np.float32]) -> Outcome[Option[tuple[tuple[float, float, float], ...]]]:
         """Returns alpha-weighted patch means, or absence when chart cannot align."""
         shape, channels = ChartReference.of(self.chart).shape, plane.shape[2]
         repeat = np.array([axis == OpenImageIO.Wrap.Periodic for axis in self.extension])
@@ -223,7 +228,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
             grid = samples[..., :2] * shape
             return np.concatenate(((np.floor(grid) + 0.5 + (grid % 1.0 - 0.5) * self.footprint) / shape, samples[..., 2:]), axis=-1)
 
-        def sampled(homography: Homography) -> ImagingResult[tuple[Rgb[float], ...]]:
+        def sampled(homography: Homography) -> Outcome[tuple[tuple[float, float, float], ...]]:
             mapping = self.mapping(homography)
             corners = mapping(Quad().samples)[:, :2]
             edges = np.roll(corners, -1, axis=0) - corners
@@ -237,18 +242,18 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
                 .warp(plane)
                 .map(lambda warped: warped.reshape(shape[1], side, shape[0], side, channels).sum(axis=(1, 3), dtype=np.float64).reshape(-1, channels))
                 .map(lambda sums: np.divide(sums[:, :3], sums[:, 3:], out=np.zeros_like(sums[:, :3]), where=sums[:, 3:] > 0.0))
-                .map(lambda means: msgspec.convert(means.tolist(), tuple[Rgb, ...]))
+                .map(lambda means: msgspec.convert(means.tolist(), tuple[tuple[float, float, float], ...]))
             )
 
         return self.aligned.bind(lambda aligned: aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(Nothing)))
 
     def framed(self, share: float) -> Option[Self]:
         """Returns placement with view framing its corners, or absence for undefined view."""
-        return self.panorama.value.framing(self.quad, share).map(lambda view: msgspec.structs.replace(self, panorama=Gated(enabled=True, value=view)))
+        return Option.of_optional(self.panorama).default_with(PanoramaView).framing(self.quad, share).map(lambda view: msgspec.structs.replace(self, panorama=view))
 
     def realigned(self, quad: Quad) -> Self:
         """Stores edited alignment-frame corners back in source coordinates."""
-        return msgspec.structs.replace(self, quad=Quad.of(self.panorama.value.to_panorama(quad.samples)) if self.panorama.enabled else quad)
+        return msgspec.structs.replace(self, quad=Option.of_optional(self.panorama).map(lambda panorama: Quad.of(panorama.to_panorama(quad.samples))).default_value(quad))
 
 
 # --- [FITS]
@@ -257,26 +262,39 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 class Calibration(msgspec.Struct, frozen=True, kw_only=True):
     """Output-channel RGB rows with factored exposure in stops."""
 
-    gained: tuple[Rgb[float], Rgb[float], Rgb[float]] = (Rgb(red=1.0, green=0.0, blue=0.0), Rgb(red=0.0, green=1.0, blue=0.0), Rgb(red=0.0, green=0.0, blue=1.0))
+    gained: tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
     exposure: float = 0.0
 
     @classmethod
-    def fit(cls, samples: tuple[tuple[Rgb[float], Rgb[float]], ...]) -> ImagingResult["CalibrationFit"]:
+    def fit(cls, samples: tuple[tuple[tuple[float, float, float], tuple[float, float, float]], ...]) -> Outcome["CalibrationFit"]:
         """Returns the Cheung 2004 linear fit of measured onto reference colors with its inverse, or numeric and ill-conditioned fit faults."""
         source, target = np.unstack(np.array(samples, dtype=np.float64).reshape(-1, 2, 3), axis=1)
-        try:
-            fitted = np.asarray(colour.matrix_colour_correction(source, target, method="Cheung 2004"), dtype=np.float64)
-        except np.linalg.LinAlgError as error:
-            return Error((NumericFault(request=source, error=error),))
-        condition, ceiling = float(np.linalg.cond(fitted)), 1.0 / (len(fitted) * float(np.finfo(np.float64).eps))
-        if not condition < ceiling:
-            return Error((DomainFault(subject="Calibration fit", value=condition, accepted=f"matrix condition below {ceiling:.3g}"),))
-        forward, inverse = (msgspec.convert({"gained": rows.tolist()}, cls) for rows in (fitted, np.linalg.inv(fitted)))
-        return Ok(CalibrationFit(forward=forward, inverse=inverse, condition=condition))
+        ceiling = 1.0 / (3 * float(np.finfo(np.float64).eps))
+
+        def conditioned(fitted: npt.NDArray[np.float64]) -> Outcome[CalibrationFit]:
+            if not (condition := float(np.linalg.cond(fitted))) < ceiling:
+                return Error((Fault(reason=RecordReason.OUTSIDE, subject="Calibration fit", member=f"matrix condition below {ceiling:.3g}", cause=str(condition)),))
+            forward, inverse = (
+                cls(gained=msgspec.convert(rows.tolist(), tuple[tuple[float, float, float], tuple[float, float, float], tuple[float, float, float]])) for rows in (fitted, np.linalg.inv(fitted))
+            )
+            return Ok(CalibrationFit(forward=forward, inverse=inverse, condition=condition))
+
+        return Result[npt.NDArray[np.float64], Faults].bind(
+            catch(colour.matrix_colour_correction, exception=np.linalg.LinAlgError)(source, target, method="Cheung 2004")
+            .map(lambda found: np.asarray(found, dtype=np.float64))
+            .map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=str(source), cause=error),)),
+            conditioned,
+        )
 
     def normalized(
-        self, source: Rgb[float], target: Rgb[float], config: PyOpenColorIO.Config, *, source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR, target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR
-    ) -> ImagingResult[Option[Self]]:
+        self,
+        source: tuple[float, float, float],
+        target: tuple[float, float, float],
+        config: PyOpenColorIO.Config,
+        *,
+        source_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR,
+        target_space: str = PyOpenColorIO.ROLE_SCENE_LINEAR,
+    ) -> Outcome[Option[Self]]:
         """Returns calibration with neutral luminance ratio as exposure, or absence for nonpositive luminance."""
 
         def factored(matrices: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]) -> Option[Self]:
@@ -286,11 +304,9 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         return paired(basis(config, source_space), basis(config, target_space)).map(factored)
 
     @property
-    def matrix(self) -> tuple[Rgb[float], Rgb[float], Rgb[float]]:
+    def matrix(self) -> npt.NDArray[np.float64]:
         """RGB rows without factored exposure."""
-        gain = math.exp2(-self.exposure)
-        rows = tuple(Rgb(red=row.red * gain, green=row.green * gain, blue=row.blue * gain) for row in self.gained)
-        return rows[0], rows[1], rows[2]
+        return np.array(self.gained, dtype=np.float64) * math.exp2(-self.exposure)
 
     @property
     def transform(self) -> PyOpenColorIO.MatrixTransform:

@@ -1,26 +1,24 @@
 """Light and shadow linking sets of emitters, set members, and member link states."""
 
-from functools import partial
+from collections.abc import Mapping
 from types import MappingProxyType
-from typing import Annotated, Final
+from typing import Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some
 import msgspec
 
-from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor, root_in
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderResult
 from blender.bpy.scene.collections import entry, founded, joined, Member as Linkable, parted
 from blender.bpy.scene.objects import focused
-from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout import rows
 from blender.bpy.ui.layout.rows import Member, OperatorButton
 from blender.bpy.ui.layout.templates import LightLinking
-from blender.records.faults import accumulated, paired
+from blender.records.faults import accumulated, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -32,27 +30,30 @@ _SETS: Final = MappingProxyType({
 })
 RECEIVERS: Final = Descriptor.declared(bpy.types.ObjectLightLinking, "receiver_collection", bpy.types.PointerProperty)
 
-# --- [CHOICES] --------------------------------------------------------------------------
-
-states = Choices.mirrored(LINK_STATE.prop)
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Linking(msgspec.Struct, frozen=True, kw_only=True):
+class Linking(bpy.types.PropertyGroup):
     """Link state of each joining member."""
 
-    state: Annotated[str, msgspec.Meta(description="Include or exclude each member"), states] = LINK_STATE.prop.default
+    state: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+        name=LINK_STATE.prop.name,
+        description="Include or exclude each member",
+        items=tuple((item.identifier, item.name, item.description) for item in LINK_STATE.prop.enum_items),
+        default=LINK_STATE.prop.default,
+    )
 
 
 class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
     """Receiver and blocker sets with link and unlink operators."""
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns set ownerships and link and unlink operators in RNA order."""
-        return Ok((*_SETS.values(), *(command for pair in commands.values() for command in pair)))
+    sets: Mapping[Descriptor[bpy.types.PointerProperty], Ownership[bpy.types.Collection]] = _SETS
 
-    def drawn(self, identity: Identity, /) -> BlenderResult[rows.RowDraw]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+        """Returns set ownerships and link and unlink operators in RNA order."""
+        return Ok((*self.sets.values(), *(command for link in self.sets for command in commands[link])))
+
+    def drawn(self, identity: Identity, /) -> Outcome[rows.RowDraw]:
         """Returns linking templates with link and unlink buttons."""
         reach = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).map(lambda item: item.light_linking))
         return accumulated(
@@ -60,22 +61,23 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
                 LightLinking(target=Member(root=bpy.types.ObjectLightLinking, path=descriptor.prop.identifier, reach=reach)).drawn(identity),
                 rows.placed((OperatorButton(target=link), OperatorButton(target=unlink)), identity),
             ).map(lambda pair: rows.joined((pair[0], *pair[1])))
-            for descriptor, (link, unlink) in commands.items()
+            for descriptor in self.sets
+            for link, unlink in (commands[descriptor],)
         ).map(rows.joined)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def edited[T: Linking | Empty](link: Descriptor[bpy.types.PointerProperty], call: Call[T]) -> BlenderResult[Outcome]:
-    """Links or unlinks selected objects other than the active emitter in its set, `Unchanged` when set stays."""
+def edited[T: bpy.types.PropertyGroup](link: Descriptor[bpy.types.PointerProperty], state: Option[str], call: Call[T]) -> Outcome[Answer]:
+    """Links selected objects other than the active emitter into its set at a state, else unlinks them, `Unchanged` when set stays."""
 
-    def applied(layer: bpy.types.ViewLayer, emitter: bpy.types.Object) -> BlenderResult[Outcome]:
+    def applied(layer: bpy.types.ViewLayer, emitter: bpy.types.Object) -> Outcome[Answer]:
         members = tuple(item for item in layer.objects.selected if item != emitter)
         held = Option.of_optional(getattr(emitter.light_linking, link.prop.identifier))
-        match call.record:
-            case Linking(state=state) if members or held.is_none():
-                return linked(emitter, link, members, state, emitter, call.identity).map(lambda made: Done(notes=(("INFO", f"Linked into {made.name}"),)))
+        match state:
+            case Option(tag="some", some=chosen) if members or held.is_none():
+                return linked(emitter, link, members, chosen, emitter, call.identity).map(lambda made: Done(notes=(("INFO", f"Linked into {made.name}"),)))
             case _ if not members:
                 return Ok(Unchanged(reason="No object besides emitter is selected"))
             case _:
@@ -86,7 +88,7 @@ def edited[T: Linking | Empty](link: Descriptor[bpy.types.PointerProperty], call
     return call.root(bpy.types.ViewLayer).bind(lambda layer: focused(layer).bind(lambda emitter: applied(layer, emitter)))
 
 
-def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], owner: bpy.types.Object, identity: Identity) -> BlenderResult[bpy.types.Collection]:
+def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], owner: bpy.types.Object, identity: Identity) -> Outcome[bpy.types.Collection]:
     """Returns collection in emitter link slot, creating an owned one for an empty slot.
 
     Args:
@@ -112,7 +114,7 @@ def link_set(emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProper
 
 def linked(
     emitter: bpy.types.Object, link: Descriptor[bpy.types.PointerProperty], members: tuple[Linkable, ...], state: str, owner: bpy.types.Object, identity: Identity
-) -> BlenderResult[bpy.types.Collection]:
+) -> Outcome[bpy.types.Collection]:
     """Links members into emitter set at state.
 
     Args:
@@ -135,22 +137,25 @@ def linked(
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-commands: Final = MappingProxyType({
-    link: (
-        Operator(
-            key=f"link_{link.prop.identifier}", title=f"Link to {link.prop.name}", description=f"Link selected objects into {link.prop.name} of active emitter", form=Linking, run=partial(edited, link)
-        ),
-        Operator(
-            key=f"unlink_{link.prop.identifier}",
-            title=f"Unlink from {link.prop.name}",
-            description=f"Unlink selected objects from {link.prop.name} of active emitter",
-            form=Empty,
-            run=partial(edited, link),
-        ),
-    )
-    for link in _SETS
-})
+
+def link_commands(link: Descriptor[bpy.types.PointerProperty]) -> tuple[Operator[Linking], Operator[Empty]]:
+    """Returns the link and unlink operators of one set, each body named `<verb>_<set member>`."""
+
+    def linked_into(call: Call[Linking]) -> Outcome[Answer]:
+        """Links selected objects other than the active emitter into its set at the chosen state."""
+        return edited(link, Some(call.properties.state), call)
+
+    def unlinked_from(call: Call[Empty]) -> Outcome[Answer]:
+        """Unlinks selected objects other than the active emitter from its set."""
+        return edited(link, Nothing, call)
+
+    linked_into.__name__ = linked_into.__qualname__ = f"link_{link.prop.identifier}"
+    unlinked_from.__name__ = unlinked_from.__qualname__ = f"unlink_{link.prop.identifier}"
+    return Operator(form=Linking, run=linked_into), Operator(form=Empty, run=unlinked_from)
+
+
+commands: Final = MappingProxyType({link: link_commands(link) for link in _SETS})
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LINK_STATE", "RECEIVERS", "LightLinks", "Linking", "commands", "edited", "link_set", "linked", "states"]
+__all__ = ["LINK_STATE", "RECEIVERS", "LightLinks", "Linking", "commands", "edited", "link_commands", "link_set", "linked"]

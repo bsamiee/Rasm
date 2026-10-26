@@ -4,16 +4,14 @@ from collections.abc import Callable
 import math
 from typing import Annotated
 
-from expression import Ok, Some
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.imaging.faults import ImagingResult
-from blender.imaging.geometry.regions import FrameExtent
 from blender.imaging.sampling.integration import Estimate, Precision, Raster, smoothstep
-from blender.records.faults import guarded, NumericFault
-from blender.records.fields import NonNegative, Presentation, Unit
+from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.fields import NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -35,11 +33,11 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
 class Population(msgspec.Struct, frozen=True, kw_only=True):
     """Soft discs in square cells with presence, size, fade, and edge, each cell drawing stable uniforms from caller `Draws` of (keys, stream, count)."""
 
-    spacing: Annotated[FrameExtent, msgspec.Meta(description="Cell width at nearest layer over greater frame side"), Presentation(soft=Some((0.002, 0.1)), precision=Some(4))] = 0.01
+    spacing: Annotated[Positive, msgspec.Meta(description="Cell width at nearest layer over greater frame side")] = 0.01
     density: Annotated[Unit, msgspec.Meta(description="Share of cells holding a particle")] = 0.5
     size: Annotated[float, msgspec.Meta(gt=0.0, le=0.5, description="Particle diameter over cell width")] = 0.2
     variation: Annotated[Unit, msgspec.Meta(description="Diameter shrink share below size")] = 0.5
-    spread: Annotated[NonNegative, msgspec.Meta(description="Per-particle coverage drop in stops"), Presentation(soft=Some((0.0, 10.0)), step=Some(0.01), precision=Some(3))] = 1.0
+    spread: Annotated[NonNegative, msgspec.Meta(description="Per-particle coverage drop in stops")] = 1.0
     softness: Annotated[Unit, msgspec.Meta(description="Edge fade over radius before pixel filtering")] = 0.5
 
     def covering(self, bounds: tuple[float, float, float, float]) -> npt.NDArray[np.int64]:
@@ -71,7 +69,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
             for cell, center, radius, gain, tone in zip(cells.tolist(), centers.tolist(), radii.tolist(), gains.tolist(), values[:, 3].tolist())
         )
 
-    def integrated(self, raster: Raster, draws: Draws, *, precision: Precision, stream: int = 0, paint: Callable[[float], float] = float) -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
+    def integrated(self, raster: Raster, draws: Draws, *, precision: Precision, stream: int = 0, paint: Callable[[float], float] = float) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
         """Estimates mean disc coverage and covered tone over each pixel of `raster`.
 
         Args:
@@ -85,7 +83,8 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
             `(rows, columns, 2)` coverage and covered paint, or numeric refusal.
         """
 
-        def computed() -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
+        @np.errstate(over="raise", divide="raise", invalid="raise")
+        def computed() -> Estimate[npt.NDArray[np.float64]]:
             cells, values = self.occupied(self.covering(raster.bounds), draws, stream)
             centers, radii, gains = self.placed(cells, values, self.spacing)
             paints = np.column_stack((np.ones(len(values)), np.array([paint(tone) for tone in values[:, 3].tolist()], dtype=np.float64).reshape(-1)))
@@ -100,9 +99,9 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
                 mass = profile * (math.pi * radii**2 * gains / (area * net.shape[1]))[:, None]
                 return deposited(raster, points.reshape(-1, 2), (mass[..., None] * paints[:, None]).reshape(-1, 2))
 
-            return Ok(Estimate.of(np.stack([replicated(replicate) for replicate in range(precision.replicates)]), precision))
+            return Estimate.of(np.stack([replicated(replicate) for replicate in range(precision.replicates)]), precision)
 
-        return guarded(NumericFault, self, computed)
+        return catch(computed, exception=FloatingPointError)().map_error(lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(self), cause=error),))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

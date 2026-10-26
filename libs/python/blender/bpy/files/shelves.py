@@ -1,19 +1,20 @@
 """Asset shelves with actions, active asset, and context menu rows."""
 
 from collections.abc import Callable
+from functools import wraps
 from typing import TYPE_CHECKING
 
 import bpy
 from expression import Error, Nothing, Option, Some
 import msgspec
 
-from blender.bpy.commands.operators import Call, Empty, Operator, Outcome
+from blender.bpy.commands.operators import Answer, Call, Empty, Operator
 from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.ui.layout.rows import acquired, painted, placed, Row, RowDraw, SurfaceDraw
-from blender.records.faults import accumulated, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -22,22 +23,24 @@ if TYPE_CHECKING:
 
 
 class Action(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator body over tile's asset."""
+    """Operator body over tile's asset, its docstring the operator description."""
 
-    title: str
-    description: str
-    use: Callable[[Call[Empty], bpy.types.AssetRepresentation], BlenderResult[Outcome]]
+    use: Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]]
 
     def row(self, key: Key) -> Operator[Empty]:
-        """Returns internal operator over context asset."""
-        return Operator(
-            key=key,
-            title=self.title,
-            description=self.description,
-            form=Empty,
-            internal=True,
-            run=lambda call: Option.of_optional(call.context.asset).map(lambda asset: self.use(call, asset)).default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key="asset"),))),
-        )
+        """Returns internal operator over context asset, described by the body docstring."""
+
+        @wraps(self.use)
+        def used(call: Call[Empty]) -> Outcome[Answer]:
+            return (
+                Option
+                .of_optional(call.context.asset)
+                .map(lambda asset: self.use(call, asset))
+                .default_with(lambda: Error((Fault(reason=BlenderReason.ABSENT, subject="bpy.context", member="asset"),)))
+            )
+
+        used.__name__ = used.__qualname__ = key
+        return Operator(form=Empty, internal=True, run=used)
 
 
 class Shelf(msgspec.Struct, frozen=True, kw_only=True):
@@ -55,7 +58,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
     visible: bool = False
     condition: Option[Condition] = Nothing
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Returns shelf class with its action operators and menu rows.
 
         Args:
@@ -76,7 +79,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
             .of_optional(struct.properties.get(key))
             .filter(lambda prop: isinstance(prop, bpy.types.BoolProperty) and prop.is_registered_optional)
             .map(lambda _: key)
-            .to_result_with(lambda: (BlenderAbsentFault(owner=repr(bpy.types.AssetShelf), key=key),))
+            .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=repr(bpy.types.AssetShelf), member=key),))
             for key in sorted(self.filters)
         )
 

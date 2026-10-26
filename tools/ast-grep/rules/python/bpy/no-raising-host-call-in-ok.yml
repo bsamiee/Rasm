@@ -18,15 +18,9 @@ utils:
                     - has: {field: object, kind: attribute, has: {field: object, matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^data$'}}}}}
                 - matches: {python-member-use: {module: {regex: '^gpu\.types$'}, name: {regex: '^(Buffer|GPUBatch|GPUFrameBuffer|GPUIndexBuf|GPUOffScreen|GPUStorageBuf|GPUTexture|GPUUniformBuf|GPUVertBuf|GPUVertFormat)$'}}}
 rule:
-    any:
-        - kind: call
-          all:
-            - has: {field: function, kind: identifier, regex: '^Ok$', matches: {python-imported-name: {module: {regex: '^expression$'}, name: {regex: '^Ok$'}}}}
-            - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: refusing}}
-        - kind: lambda
-          all:
-            - not: {has: {field: parameters, kind: lambda_parameters}}
-            - has: {field: body, matches: refusing}
-            - inside: {kind: argument_list}
-message: '`$CALL` lets a host refusal raise'
-note: 'Call `host(<callee>, <arguments>)`, subject and member read from bound callee, caught error kept as cause'
+    kind: call
+    all:
+        - has: {field: function, kind: identifier, regex: '^Ok$', matches: {python-imported-name: {module: {regex: '^expression$'}, name: {regex: '^Ok$'}}}}
+        - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: refusing}}
+message: '`Ok($CALL)` lets a host refusal raise'
+note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)`'

@@ -10,8 +10,8 @@ import bpy
 from expression import identity, Nothing, Ok, Option
 from structlog.typing import FilteringBoundLogger
 
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFault, BlenderFaults, BlenderResult, BlenderUnmetFault
-from blender.records.faults import DomainFault
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import Fault, Faults, Outcome, RecordReason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -52,7 +52,7 @@ class Reports(AbstractContextManager["Reports"]):
         """Report type and text per distinct held fault, in hold order."""
         return tuple(self.held)
 
-    def hold(self, faults: BlenderFaults) -> None:
+    def hold(self, faults: Faults) -> None:
         """Holds each distinct fault entry once, logging and redrawing new ones.
 
         Args:
@@ -66,11 +66,11 @@ class Reports(AbstractContextManager["Reports"]):
         if fresh:
             self.redraw()
 
-    def reported[**P, T](self, callback: Callable[P, BlenderResult[T]]) -> Callable[P, Option[T]]:
+    def reported[**P, T](self, callback: Callable[P, Outcome[T]]) -> Callable[P, Option[T]]:
         """Wraps callback to return Option, holding its faults.
 
         Args:
-            callback: Callback returning BlenderResult.
+            callback: Callback returning Outcome.
 
         Returns:
             Callback returning Some(value) on success or Nothing after holding faults.
@@ -98,7 +98,7 @@ class Reports(AbstractContextManager["Reports"]):
                     bpy.app.timers.unregister(ticked)
 
     @contextmanager
-    def deferred[**P](self, write: Callable[P, BlenderResult[Option[str]]]) -> Generator[Callable[P, None]]:
+    def deferred[**P](self, write: Callable[P, Outcome[Option[str]]]) -> Generator[Callable[P, None]]:
         """Accepts write calls until scope exit, then cancels queued ones.
 
         Args:
@@ -126,7 +126,7 @@ class Reports(AbstractContextManager["Reports"]):
                 with self.lock:
                     if not active or self.pending.get(key) is not ticked:
                         return None
-                    if Option.of_optional(bpy.context.window_manager).map(lambda manager: manager.is_interface_locked).default_value(False):
+                    if bpy.context.window_manager.is_interface_locked:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                         return 0.0
                     del self.pending[key]
                     for step in applied(*args, **kwargs).bind(identity).to_list():
@@ -150,29 +150,29 @@ class Reports(AbstractContextManager["Reports"]):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def level(fault: BlenderFault) -> "rna_enums.WmReportItems":
+def level(fault: Fault) -> "rna_enums.WmReportItems":
     """Returns the report type a fault raises.
 
     Args:
-        fault: Blender, rendering, or imaging fault.
+        fault: Fault of any package reason.
 
     Returns:
         `ERROR_INVALID_INPUT` for values outside their domain, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`.
     """
-    match fault:
-        case DomainFault() | BlenderAbsentFault() | BlenderCollisionFault():
+    match fault.reason:
+        case RecordReason.OUTSIDE | BlenderReason.ABSENT | BlenderReason.TAKEN:
             return "ERROR_INVALID_INPUT"
-        case BlenderUnmetFault():
+        case BlenderReason.UNMET:
             return "ERROR_INVALID_CONTEXT"
         case _:
             return "ERROR"
 
 
-def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
+def rendered(faults: Faults) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
     """Returns one report entry per fault in input order.
 
     Args:
-        faults: Blender faults.
+        faults: Faults in report order.
 
     Returns:
         Report type and message per fault.
@@ -180,13 +180,13 @@ def rendered(faults: BlenderFaults) -> tuple[tuple["rna_enums.WmReportItems", st
     return tuple((level(fault), fault.message) for fault in faults)
 
 
-def redrawn() -> BlenderResult[Option[str]]:
+def redrawn() -> Outcome[Option[str]]:
     """Tags every area of every window for redraw.
 
     Returns:
         Ok(Nothing), redraw pushing no undo step.
     """
-    for area in (area for manager in Option.of_optional(bpy.context.window_manager).to_list() for window in manager.windows for area in window.screen.areas):
+    for area in (area for window in bpy.context.window_manager.windows for area in window.screen.areas):  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         area.tag_redraw()
     return Ok(Nothing)
 

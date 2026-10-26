@@ -2,24 +2,18 @@
 
 [project]
 name            = "darkroom"
-dynamic         = ["version"]
+version         = "1.0.0"
 requires-python = ">=3.13"
 
-dependencies = [
-    "colour-science",
-    "expression",
-    "msgspec",
-    "numpy",
-    "opencolorio",
-    "openimageio",
-    "scipy",
-    "typing-extensions",
-]
+dependencies = ["blender"]
 
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-managed = false
+package = false
+
+[tool.uv.sources]
+blender = { workspace = true }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 

@@ -5,20 +5,20 @@ import math
 from typing import Annotated
 
 from expression import Nothing, Option
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 from scipy.stats import qmc
 
-from blender.imaging.faults import ImagingResult
 from blender.imaging.geometry.arithmetic import Field
-from blender.records.faults import accumulated, guarded, NumericFault
+from blender.records.faults import accumulated, Fault, Outcome, RecordReason
 from blender.records.fields import NonNegative, Seed, Side
 from blender.records.identity import content_hash, rng
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Integrand = Callable[[npt.NDArray[np.float64]], ImagingResult[npt.NDArray[np.float64]]]
+type Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -86,22 +86,24 @@ class Raster(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def integrated(request: msgspec.Struct, field: Integrand, bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision) -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
+def integrated(request: msgspec.Struct, field: Integrand, bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
     """Estimates a positive rectangular field integral with replicate standard error."""
+    lower, upper = np.asarray(bounds, dtype=np.float64)
+    width = upper - lower
+    volume = np.prod(width)
 
-    def computed() -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
-        lower, upper = np.asarray(bounds, dtype=np.float64)
-        width = upper - lower
-        volume = np.prod(width)
-        results = accumulated(
-            field(lower + width * precision.points(len(lower), replicate)).map(lambda values: np.asarray(np.mean(values, axis=0) * volume)) for replicate in range(precision.replicates)
-        )
-        return results.map(lambda values: Estimate.of(np.stack(values), precision))
+    def averaged(values: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
+        with np.errstate(over="raise", divide="raise", invalid="raise"):
+            return catch(lambda: np.asarray(np.mean(values, axis=0) * volume), exception=FloatingPointError)().map_error(
+                lambda error: (Fault(reason=RecordReason.NUMERIC, subject=repr(request), cause=error),)
+            )
 
-    return guarded(NumericFault, request, computed)
+    return accumulated(field(lower + width * precision.points(len(lower), replicate)).bind(averaged) for replicate in range(precision.replicates)).map(
+        lambda values: Estimate.of(np.stack(values), precision)
+    )
 
 
-def footprint(field: Integrand, raster: Raster, precision: Precision) -> ImagingResult[Estimate[npt.NDArray[np.float64]]]:
+def footprint(field: Integrand, raster: Raster, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
     """Estimates the mean of `field`, read at `(points, 2)` global positions as `(points, channels)`, over each pixel's square footprint.
 
     Returns:
@@ -110,7 +112,7 @@ def footprint(field: Integrand, raster: Raster, precision: Precision) -> Imaging
     corners, step = raster.corners, raster.step
     _, columns = raster.shape
 
-    def replicated(net: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
+    def replicated(net: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
         return accumulated(field((row[:, None] + net * step).reshape(-1, 2)).map(lambda values: values.reshape(columns, len(net), -1).mean(axis=1)) for row in corners).map(
             lambda rows: np.stack(rows, dtype=np.float64)
         )

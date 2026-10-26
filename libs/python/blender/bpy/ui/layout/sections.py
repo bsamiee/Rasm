@@ -1,10 +1,10 @@
-"""Header sections over one holder or each collection item, with record fields and store values popovers."""
+"""Header sections over one holder or each collection item, with form group fields and store values popovers."""
 
 from collections.abc import Callable, Mapping
+from functools import partial
 from itertools import product, starmap
-from types import MappingProxyType, MemberDescriptorType
-import typing
-from typing import Protocol, runtime_checkable, Self, TypeIs
+from types import MappingProxyType
+from typing import Protocol, runtime_checkable, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
@@ -12,22 +12,19 @@ import msgspec
 
 from blender.bpy.commands import operators
 from blender.bpy.data.rna.conditions import Condition, holds
-from blender.bpy.data.rna.descriptors import root_in
+from blender.bpy.data.rna.descriptors import root_in, Struct
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.faults import BlenderReason
 from blender.bpy.settings.attachments import Host
-from blender.bpy.settings.properties import RecordGroup
-from blender.bpy.settings.shapes import ENABLED, Entries, EXPANDED, field_shapes, Gate, Nested, Records, Shape, Tagged
 from blender.bpy.ui.layout.lists import ItemList, keyed
 from blender.bpy.ui.layout.rows import acquired, At, Member, placed, Property, realized, refused, ResolvedMember, Row, RowContent, RowDraw, SurfaceDraw
 from blender.bpy.ui.layout.values import Hosted, Replacement, Slots, Store, Values
-from blender.records.faults import accumulated, paired
+from blender.records.faults import accumulated, Fault, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Nest = Callable[[bpy.types.UILayout, bpy.types.bpy_struct[object], bpy.types.Context, str], None]
-type Nesting = Gate | Nested | Entries | Tagged | Records
 type Holding = Callable[[bpy.types.bpy_struct[object], bpy.types.Context], Option[bpy.types.bpy_struct[object]]]
 type Hosting = Callable[[bpy.types.bpy_struct[object], bpy.types.Context], Option[Host]]
 
@@ -56,7 +53,7 @@ class Section(Row, Registrable, Protocol):
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
         """Values popovers of section store."""
 
-    def realized(self, identity: Identity) -> BlenderResult["SectionDraws"]:
+    def realized(self, identity: Identity) -> Outcome["SectionDraws"]:
         """Realizes section into panel and layout panel draws."""
 
 
@@ -73,7 +70,7 @@ class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
     present: Callable[[bpy.types.Context], bool] = lambda _context: True
 
 
-class _Frame[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
+class _Frame[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """Realized section parts."""
 
     name: str
@@ -85,14 +82,14 @@ class _Frame[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     slots: Option[Slots[T]]
 
     @classmethod
-    def of(cls, identity: Identity, key: Key, rows: tuple[RowContent, ...], header: tuple[RowContent, ...], enable: Option[Member], slots: Option[Slots[T]]) -> BlenderResult[Self]:
+    def of(cls, identity: Identity, key: Key, rows: tuple[RowContent, ...], header: tuple[RowContent, ...], enable: Option[Member], slots: Option[Slots[T]]) -> Outcome[Self]:
         """Realizes section parts at acquisition, rows and store scalars on one grid."""
-        walk = slots.map(lambda held: fields(held.attached.group, identity, held.fields).map(Some)).default_value(Ok(Nothing))
+        walk = slots.map(lambda held: fields(held.attached.form, identity, held.fields).map(Some)).default_value(Ok(Nothing))
         gate = enable.map(
             lambda member: member.resolved(bpy.types.BoolProperty).bind(lambda held: realized(Property(target=member, text=""), identity).map(lambda draw: Some((held, draw))))
         ).default_value(Ok(Nothing))
 
-        def built(parts: tuple[tuple[str, Option[tuple[ResolvedMember, RowDraw]]], tuple[tuple[RowDraw, ...], Option[tuple[tuple[RowContent, ...], Nest]]]]) -> BlenderResult[Self]:
+        def built(parts: tuple[tuple[str, Option[tuple[ResolvedMember, RowDraw]]], tuple[tuple[RowDraw, ...], Option[tuple[tuple[RowContent, ...], Nest]]]]) -> Outcome[Self]:
             (name, gated), (heads, walked) = parts
             scalars = walked.map(lambda nested: nested[0]).default_value(())
             return placed((*rows, *scalars), identity).map(
@@ -101,12 +98,12 @@ class _Frame[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         return paired(paired(identity.name(Name.ATTACHMENT, key), gate), paired(accumulated(realized(row, identity) for row in header), walk)).bind(built)
 
-    def head(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+    def head(self, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws textless header enable."""
         for _, draw in self.gate.to_list():
             draw(layout, holder, context)
 
-    def tail(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context) -> None:
+    def tail(self, layout: bpy.types.UILayout, holder: Struct, host: Option[Host], context: bpy.types.Context) -> None:
         """Draws header rows, then flat store slots with host as context pointer."""
         line = layout.row(align=True)
         for draw in self.header:
@@ -117,7 +114,7 @@ class _Frame[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             for draw in slots.tail:
                 draw(line, holder, context)
 
-    def body(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context, prefix: str) -> None:
+    def body(self, layout: bpy.types.UILayout, holder: Struct, host: Option[Host], context: bpy.types.Context, prefix: str) -> None:
         """Draws rows and store fields, inactive while enable is off."""
         layout.use_property_split, layout.use_property_decorate = True, True
         layout.active = layout.active and all(starmap(getattr, self.gate.bind(lambda pair: pair[0].at(holder, context)).to_list()))
@@ -131,7 +128,7 @@ class _Frame[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 nest(layout, group, context, prefix)
 
     def framed(
-        self, layout: bpy.types.UILayout, idname: str, title: str, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context, *, opened: At | bool, active: bool = True
+        self, layout: bpy.types.UILayout, idname: str, title: str, holder: Struct, host: Option[Host], context: bpy.types.Context, *, opened: At | bool, active: bool = True
     ) -> Option[bpy.types.UILayout]:
         """Draws layout panel header open by stored property or by default, returning body while open."""
         header, body = layout.panel(idname, default_closed=not opened) if isinstance(opened, bool) else layout.panel_prop(*opened)
@@ -149,7 +146,7 @@ class _Frame[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return opened_body
 
 
-class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
+class Single[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
     """Rows under header over one holder, a member of the drawing holder, the active item of a list, or the drawing holder while `holder` is unset."""
 
     key: Key
@@ -168,22 +165,22 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
         """Values popover of store."""
         return tuple(popover(hosted.store) for hosted in self.store.to_list())
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Acquires registrable rows, holding list, and store rows."""
         return Ok((
             *acquired((*self.rows, *self.header, *(held for held in self.holder.to_list() if isinstance(held, ItemList)))),
             *(row for hosted in self.store.to_list() for row in (hosted.store.attachment, hosted.store)),
         ))
 
-    def realized(self, identity: Identity) -> BlenderResult[SectionDraws]:
+    def realized(self, identity: Identity) -> Outcome[SectionDraws]:
         """Realizes section into panel and layout panel draws, the store host read from its member or the context root of the store's owner."""
 
-        def reading(bound: ResolvedMember) -> Holding:
-            return lambda holder, context: bound.at(holder, context).bind(lambda pair: Option.of_optional(getattr(*pair)))
+        def followed(bound: ResolvedMember, holder: Struct, context: bpy.types.Context) -> Option[Struct]:
+            return bound.at(holder, context).bind(lambda pair: Option.of_optional(getattr(*pair)))
 
-        def hosting(hosted: Hosted[T]) -> BlenderResult[tuple[Hosting, Slots[T]]]:
+        def hosting(hosted: Hosted[T]) -> Outcome[tuple[Hosting, Slots[T]]]:
             owner = hosted.store.attachment.owner
-            host: BlenderResult[Hosting] = hosted.host.map(
+            host: Outcome[Hosting] = hosted.host.map(
                 lambda member: (
                     member
                     .resolved()
@@ -193,10 +190,10 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
             ).default_value(Ok(lambda _holder, context: root_in(owner, context)))
             return paired(host, hosted.store.bound(identity))
 
-        def reached(source: Member | ItemList) -> BlenderResult[Holding]:
+        def reached(source: Member | ItemList) -> Outcome[Holding]:
             match source:
                 case Member():
-                    return source.resolved().map(reading)
+                    return source.resolved().map(lambda bound: partial(followed, bound))
                 case ItemList():
                     return source.picked(identity).map(lambda reach: lambda _holder, context: reach(context))
 
@@ -205,7 +202,7 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
         def drawn(parts: tuple[tuple[_Frame[T], Option[Hosting]], Holding]) -> SectionDraws:
             (frame, host), held = parts
 
-            def found(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[Host]:
+            def found(holder: Struct, context: bpy.types.Context) -> Option[Host]:
                 return host.bind(lambda read: read(holder, context))
 
             def head(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
@@ -221,7 +218,7 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
                     layout.active = layout.active and all(holds(required, context, Some(holder)) for required in self.condition.to_list())
                     frame.body(layout, holder, found(holder, context), context, frame.name)
 
-            def inline(layout: bpy.types.UILayout, outer: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+            def inline(layout: bpy.types.UILayout, outer: Struct, context: bpy.types.Context) -> None:
                 for holder in held(outer, context).to_list():
                     active = all(holds(required, context, Some(holder)) for required in self.condition.to_list())
                     host = found(holder, context)
@@ -244,12 +241,12 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
             holding,
         ).map(drawn)
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Returns section as layout panel row."""
         return self.realized(identity).map(lambda drawn: drawn.inline)
 
 
-class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
+class Each[T: bpy.types.PropertyGroup = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
     """Section per collection item, item as holder and store host, each item storing its open state in its `open` property."""
 
     key: Key
@@ -270,19 +267,17 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
         """Values popover of store."""
         return tuple(popover(store) for store in self.store.to_list())
 
-    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
         """Acquires registrable rows and store rows."""
         return Ok((*acquired((*self.rows, *self.header, *self.empty)), *(row for store in self.store.to_list() for row in (store.attachment, store))))
 
-    def realized(self, identity: Identity) -> BlenderResult[SectionDraws]:
+    def realized(self, identity: Identity) -> Outcome[SectionDraws]:
         """Realizes layout panel per item, store bound to item type."""
 
-        def items(
-            bound: ResolvedMember[bpy.types.CollectionProperty],
-        ) -> BlenderResult[tuple[ResolvedMember[bpy.types.CollectionProperty], bpy.types.StringProperty, ResolvedMember, Option[Slots[T]]]]:
+        def items(bound: ResolvedMember[bpy.types.CollectionProperty]) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], bpy.types.StringProperty, ResolvedMember, Option[Slots[T]]]]:
             match bound.descriptor.prop.fixed_type:
                 case None:
-                    return Error((BlenderAbsentFault(owner=bound.descriptor.path, key="fixed_type"),))
+                    return Error((Fault(reason=BlenderReason.ABSENT, subject=bound.descriptor.path, member="fixed_type"),))
                 case item:
                     opened = Member(root=type(item), path=self.open).resolved(bpy.types.BoolProperty)
                     stored = self.store.map(
@@ -291,7 +286,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
                         ).map(Some)
                     ).default_value(Ok(Nothing))
                     return paired(
-                        Option.of_optional(item.bl_rna.name_property).to_result_with(lambda: (BlenderAbsentFault(owner=bound.descriptor.path, key="name_property"),)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        Option.of_optional(item.bl_rna.name_property).to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=bound.descriptor.path, member="name_property"),)),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                         paired(opened, stored),
                     ).map(lambda pair: (bound, pair[0], *pair[1]))
 
@@ -305,7 +300,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
                     for shown in frame.framed(layout, idname, getattr(item, named.identifier), item, Some(item), context, opened=place, active=active).to_list():
                         frame.body(shown, item, Some(item), context, idname)
 
-            def listed(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+            def listed(layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
                 for owner, key in collection.at(holder, context).to_list():
                     members = getattr(owner, key)
                     for draw in () if members else empties:
@@ -323,7 +318,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
             .map(drawn)
         )
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Returns item sections as one row."""
         return self.realized(identity).map(lambda drawn: drawn.inline)
 
@@ -331,7 +326,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def popover[T: msgspec.Struct](store: Store[T]) -> Single[operators.Empty]:
+def popover[T: bpy.types.PropertyGroup](store: Store[T]) -> Single[operators.Empty]:
     """Values popover section of store that `surfaces.panels` registers."""
     return Single(
         key=store.panel,
@@ -341,125 +336,54 @@ def popover[T: msgspec.Struct](store: Store[T]) -> Single[operators.Empty]:
     )
 
 
-def nesting(shape: Shape) -> TypeIs[Nesting]:
-    """Whether a field shape draws as nested panels."""
-    return isinstance(shape, Gate | Nested | Entries | Tagged | Records)
+def fields(struct: type[Struct], identity: Identity, replacements: Mapping[str, Replacement] = MappingProxyType({})) -> Outcome[tuple[tuple[RowContent, ...], Nest]]:
+    """Realizes a registered group's properties as scalar rows, its group pointers as panels, and its group collections as a panel per item."""
+    inherited = bpy.types.PropertyGroup.bl_rna.properties
 
+    def drawn(drawn: tuple[RowDraw, ...], nest: Nest, layout: bpy.types.UILayout, held: Struct, context: bpy.types.Context, prefix: str) -> None:
+        for each in drawn:
+            each(layout, held, context)
+        nest(layout, held, context, prefix)
 
-def grouped(struct: "type[bpy.types.bpy_struct[object]]", name: str) -> type[bpy.types.PropertyGroup]:
-    """Property group class a pointer or collection member of a registered group holds."""
-    kind: type[bpy.types.PropertyGroup] = type(struct.bl_rna.properties[name].fixed_type)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-    return kind
-
-
-def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
-    group: RecordGroup[T, S], identity: Identity, replacements: Mapping[MemberDescriptorType, Replacement] = MappingProxyType({})
-) -> BlenderResult[tuple[tuple[RowContent, ...], Nest]]:
-    """Realizes fields as scalar rows and nested record, union, or collection panels, nested group types read from RNA."""
-    supplied = {slot.__name__: row for slot, row in replacements.items() if issubclass(typing.get_origin(group.record) or group.record, slot.__objclass__)}
-
-    def stacked(found: tuple[tuple[RowContent, ...], Nest]) -> BlenderResult[Nest]:
+    def stacked(found: tuple[tuple[RowContent, ...], Nest]) -> Outcome[Nest]:
         rows, nest = found
+        return placed(rows, identity).map(lambda draws: partial(drawn, draws, nest))
 
-        def draws(drawn: tuple[RowDraw, ...]) -> Nest:
-            def draw(layout: bpy.types.UILayout, held: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
-                for each in drawn:
-                    each(layout, held, context)
-                nest(layout, held, context, prefix)
+    def paneled(prop: bpy.types.Property, nest: Nest, layout: bpy.types.UILayout, owner: Struct, context: bpy.types.Context, prefix: str, *, items: bool) -> None:
+        idname, held = f"{prefix}_{prop.identifier}", getattr(owner, prop.identifier)
+        header, body = layout.panel(idname, default_closed=True)
+        header.label(text=prop.name)
+        for shown in Option.of_optional(body).to_list():
+            if not items:
+                nest(shown, held, context, idname)
+            for item in held if items else ():
+                inner, opened = shown.panel(f"{idname}_{keyed(item)}", default_closed=True)
+                inner.label(text=item.name)
+                for content in Option.of_optional(opened).to_list():
+                    nest(content, item, context, f"{idname}_{keyed(item)}")
 
-            return draw
+    def split(prop: bpy.types.Property) -> Outcome[tuple[tuple[RowContent, ...], tuple[Nest, ...]]]:
+        match prop:
+            case bpy.types.PointerProperty(fixed_type=bpy.types.PropertyGroup() as group):
+                return fields(type(group), identity, replacements).bind(stacked).map(lambda nest: ((), (partial(paneled, prop, nest, items=False),)))  # type: ignore[unreachable]
+            case bpy.types.CollectionProperty(fixed_type=bpy.types.PropertyGroup() as item):
+                return fields(type(item), identity, replacements).bind(stacked).map(lambda nest: ((), (partial(paneled, prop, nest, items=True),)))  # type: ignore[unreachable]
+            case _:
+                member = Member(root=struct, path=prop.identifier)
+                return Ok(((replacements[prop.identifier](member) if prop.identifier in replacements else Property(target=member),), ()))
 
-        return placed(rows, identity).map(draws)
+    def joined(parts: tuple[tuple[tuple[RowContent, ...], tuple[Nest, ...]], ...]) -> tuple[tuple[RowContent, ...], Nest]:
+        nests = tuple(nest for _, held in parts for nest in held)
 
-    def nested(record: type[msgspec.Struct], native: type[bpy.types.PropertyGroup]) -> BlenderResult[Nest]:
-        return fields(RecordGroup(record=record, struct=native), identity, replacements).bind(stacked)
-
-    def paneled(name: str, nest: Nest, *, gated: bool) -> Nest:
-        def draw(layout: bpy.types.UILayout, group: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
-            held, idname = getattr(group, name), f"{prefix}_{name}"
-            header, body = layout.panel(idname, default_closed=True)
-            header.use_property_split = False
-            if gated:
-                header.prop(held, ENABLED, text="")
-            header.label(text=group.bl_rna.properties[name].name)
-            for shown in Option.of_optional(body).to_list():
-                shown.active = bool(getattr(held, ENABLED)) if gated else True
-                nest(shown, held if gated else group, context, idname)
-
-        return draw
-
-    def reached(name: str, nest: Nest) -> Nest:
-        return lambda layout, owner, context, prefix: nest(layout, getattr(owner, name), context, prefix)
-
-    def chosen(name: str, cases: tuple[tuple[str, Nest], ...], tag: str) -> Nest:
-        by = dict(cases)
-
-        def draw(layout: bpy.types.UILayout, owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
-            group = getattr(owner, name)
-            layout.prop(group, tag)
-            picked = getattr(group, tag)
-            by[picked](layout, getattr(group, picked), context, f"{prefix}_{picked}")
-
-        return draw
-
-    def each(name: str, nest: Nest) -> Nest:
-        def draw(layout: bpy.types.UILayout, owner: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
-            for item in getattr(owner, name):
-                header, body = layout.panel_prop(item, EXPANDED)
-                header.label(text=item.name)
-                for shown in Option.of_optional(body).to_list():
-                    nest(shown, item, context, f"{prefix}_{keyed(item)}")
-
-        return draw
-
-    def split(row: msgspec.structs.FieldInfo, shape: Shape, struct: "type[bpy.types.bpy_struct[object]]", *, panel: bool = True) -> BlenderResult[Property | Nest]:
-        member = Member(root=struct, path=row.name, shape=Some(shape))
-        if not nesting(shape):
-            return Ok(Property(target=member))
-        native = grouped(struct, row.name)
-        match shape:
-            case Gate(value=Option(tag="some", some=(field, inner))) if nesting(inner.shape):
-                return split(field, inner.shape, native, panel=False).bind(
-                    lambda child: (
-                        realized(child, identity).map(lambda draw: paneled(row.name, lambda layout, held, context, _prefix: draw(layout, held, context), gated=True))
-                        if isinstance(child, Property)
-                        else Ok(paneled(row.name, child, gated=True))
-                    )
-                )
-            case Gate():
-                return Ok(Property(target=member))
-            case Nested(record=record):
-                found = nested(record, native).map(lambda nest: reached(row.name, nest))
-            case Entries(gate=gate):
-                found = (
-                    accumulated(split(entry, gate, native).map(lambda part: (entry, part)) for entry in RecordGroup.entries(row, shape))
-                    .map(lambda parts: joined(parts, {}))
-                    .bind(stacked)
-                    .map(lambda nest: reached(row.name, nest))
-                )
-            case Tagged(tag_field=tag, cases=cases):
-                found = accumulated(nested(case, grouped(native, case.__name__)).map(lambda nest: (case.__name__, nest)) for case in cases).map(lambda parts: chosen(row.name, parts, tag))
-            case Records(record=record):
-                found = nested(record, native).map(lambda nest: each(row.name, nest))
-        return found.map(lambda nest: paneled(row.name, nest, gated=False) if panel else nest)
-
-    def joined(parts: tuple[tuple[msgspec.structs.FieldInfo, Property | Nest], ...], supplied: Mapping[str, Replacement]) -> tuple[tuple[RowContent, ...], Nest]:
-        nests = tuple(part for _, part in parts if not isinstance(part, Property))
-
-        def draw(layout: bpy.types.UILayout, held: "bpy.types.bpy_struct[object]", context: bpy.types.Context, prefix: str) -> None:
+        def draw(layout: bpy.types.UILayout, held: Struct, context: bpy.types.Context, prefix: str) -> None:
             for nest in nests:
                 nest(layout, held, context, prefix)
 
-        rows = tuple(supplied[row.name](part.target) if row.name in supplied and isinstance(part.target, Member) else part for row, part in parts if isinstance(part, Property))
-        return rows, draw
+        return tuple(row for rows, _ in parts for row in rows), draw
 
-    return field_shapes(group.record).bind(
-        lambda rows: accumulated(split(row, shape.shape, group.struct).map(lambda part: (row, part)) for row, shape in rows if row.name in group.struct.bl_rna.properties).map(
-            lambda parts: joined(parts, supplied)
-        )
-    )
+    return accumulated(split(prop) for prop in struct.bl_rna.properties if prop.identifier not in inherited and not prop.is_hidden).map(joined)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Each", "Nest", "Nesting", "Section", "SectionDraws", "Single", "fields", "grouped", "nesting", "popover"]
+__all__ = ["Each", "Nest", "Section", "SectionDraws", "Single", "fields", "popover"]

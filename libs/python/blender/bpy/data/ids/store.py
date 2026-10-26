@@ -1,16 +1,16 @@
-"""Session handles, BlendData collections, collision-checked renames, and vacant labels."""
+"""Session handles, BlendData collections, and collision-checked renames."""
 
 from collections.abc import Iterable, Mapping
-import itertools
 from types import MappingProxyType
 from typing import Final, Self
 
 import bpy
 from expression import Option, Result, Some
+from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.records.faults import accumulated
+from blender.bpy.faults import BlenderReason
+from blender.records.faults import accumulated, Fault, Faults, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         """Returns handle of block's original."""
         return cls(kind=type(block), uid=block.original.session_uid)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
-    def resolve(self) -> BlenderResult[T]:
+    def resolve(self) -> Outcome[T]:
         """Returns live original, absent fault once expired."""
         return resolved((self,)).map(lambda found: found[0])
 
@@ -79,12 +79,15 @@ def blocks[T: bpy.types.ID](data: bpy.types.BlendData, kind: type[T]) -> tuple[T
     return tuple(block for block in getattr(data, member(kind)) if isinstance(block, kind))
 
 
-def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> BlenderResult[tuple[T, ...]]:
+def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> Outcome[tuple[T, ...]]:
     """Returns live originals in order, accumulating expired-handle faults."""
     held = tuple(handles)
     live = {block.session_uid: block for store in dict.fromkeys(member(handle.kind) for handle in held) for block in getattr(bpy.data, store)}
     return accumulated(
-        Option.of_optional(live.get(handle.uid)).filter(lambda block: isinstance(block, handle.kind)).to_result_with(lambda: (BlenderAbsentFault(owner=handle.kind.__name__, key=handle.uid),))
+        Option
+        .of_optional(live.get(handle.uid))
+        .filter(lambda block: isinstance(block, handle.kind))
+        .to_result_with(lambda: (Fault(reason=BlenderReason.ABSENT, subject=handle.kind.__name__, member=str(handle.uid)),))
         for handle in held
     )
 
@@ -101,23 +104,21 @@ def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
     )
 
 
-def named[T: bpy.types.ID](block: T, name: str) -> BlenderResult[T]:
+def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
     """Renames block, collision fault when another block holds name."""
     return (
         IdName(name=name, library=IdName.of(block).library)
         .resolve(type(block))
         .filter(lambda holding: holding != block)
-        .map(lambda holding: Result[T, BlenderFaults].Error((BlenderCollisionFault(request=name, error=repr(holding)),)))
-        .default_with(lambda: BlenderEditFault.attempted(repr(block), lambda: block.rename(name, mode="NEVER")).map(lambda _: block))
+        .map(lambda holding: Result[T, Faults].Error((Fault(reason=BlenderReason.TAKEN, subject=name, member=repr(holding)),)))
+        .default_with(
+            lambda: (
+                catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map(lambda _: block).map_error(lambda error: (Fault(reason=BlenderReason.REFUSED, subject=repr(block), cause=error),))
+            )
+        )
     )
-
-
-def vacant(title: str, taken: Iterable[str]) -> str:
-    """Returns title, else its first numbered label no name in `taken` holds, so the host never suffixes a name it dedups."""
-    held = frozenset(taken)
-    return next(label for label in itertools.chain((title,), (f"{title} {ordinal}" for ordinal in itertools.count(2))) if label not in held)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["STORES", "TREE_STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved", "vacant"]
+__all__ = ["STORES", "TREE_STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved"]

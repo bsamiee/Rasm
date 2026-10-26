@@ -3,18 +3,18 @@
 from pathlib import Path, PurePath
 from typing import Annotated, Final
 
-from expression import Error, Ok
+from expression import Error, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import FileFault
-from blender.records.fields import Case, Gated
+from blender.records.faults import Fault, Outcome, RecordReason
+from blender.records.fields import Case
 from blender.records.stores import committed, RecordFile
 from blender.rendering.batch.flamenco import Flamenco
 from blender.rendering.batch.processes import detached, Host, ran, RunCommand, RunFile
 from blender.rendering.batch.queue import RenderQueue
 from blender.rendering.batch.supervision import LocalMachine, Run
-from blender.rendering.faults import RenderingDependencyFault, RenderingResult
+from blender.rendering.faults import RenderingReason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -30,16 +30,15 @@ _LINES: Final = msgspec.json.Encoder()
 class Renderon(Case, frozen=True, kw_only=True):
     """Jobs written as B-Renderon queue."""
 
-    title = "B-Renderon"
-    executable: Annotated[Gated[str], msgspec.Meta(description="B-Renderon program, queue file alone when off")] = Gated(enabled=False, value="")
-    blender: Annotated[str, msgspec.Meta(title="Blender Tag", description="B-Renderon name of rendering Blender")] = "Default"
+    executable: Annotated[str | None, msgspec.Meta(description="B-Renderon program, queue file alone when absent")] = None
+    blender: Annotated[str, msgspec.Meta(description="B-Renderon name of rendering Blender")] = "Default"
 
 
 class JobFile(Case, frozen=True, kw_only=True):
     """Queue job file passed to submission command."""
 
-    folder: Annotated[Gated[str], msgspec.Meta(description="Job file folder, extension folder when off")] = Gated(enabled=False, value="")
-    command: Annotated[Gated[str], msgspec.Meta(description="Program taking job file path, job file alone when off")] = Gated(enabled=False, value="")
+    folder: Annotated[str | None, msgspec.Meta(description="Job file folder, extension folder when absent")] = None
+    command: Annotated[str | None, msgspec.Meta(description="Program taking job file path, job file alone when absent")] = None
 
 
 class QueueItem(msgspec.Struct, frozen=True, kw_only=True):
@@ -64,18 +63,18 @@ class QueueItem(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def send(target: Target, queue: RenderQueue, host: Host) -> RenderingResult[tuple[RenderingResult[str], ...]]:
+def send(target: Target, queue: RenderQueue, host: Host) -> Outcome[tuple[Outcome[str], ...]]:
     """Sends queue, returning each path or farm job ID."""
 
-    def acknowledged(found: RenderingResult[Path]) -> RenderingResult[tuple[RenderingResult[str], ...]]:
+    def acknowledged(found: Outcome[Path]) -> Outcome[tuple[Outcome[str], ...]]:
         return found.map(lambda path: (Ok(str(path)),))
 
-    def queued(path: Path) -> RenderingResult[Path]:
+    def queued(path: Path) -> Outcome[Path]:
         return RecordFile(path=path, form=RenderQueue).written(queue)
 
-    def lined(path: Path, items: tuple[QueueItem, ...]) -> RenderingResult[Path]:
+    def lined(path: Path, items: tuple[QueueItem, ...]) -> Outcome[Path]:
         lines = _LINES.encode_lines(items)
-        return committed(path, lambda stage: catch(stage.write_bytes, exception=OSError)(lines).map_error(lambda error: (FileFault(access="write", request=path, error=error),)))
+        return committed(path, lambda stage: catch(stage.write_bytes, exception=OSError)(lines).map_error(lambda error: (Fault(reason=RecordReason.UNWRITABLE, subject=str(path), cause=error),)))
 
     match target:
         case LocalMachine():
@@ -86,7 +85,7 @@ def send(target: Target, queue: RenderQueue, host: Host) -> RenderingResult[tupl
             return server.opened(lambda client: target.submitted(client, queue, host.commands[RunCommand.RENDER]))
         case Renderon(executable=executable, blender=blender):
             if dependent := tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites):
-                return Error((RenderingDependencyFault(request=type(target), error=dependent),))
+                return Error((Fault(reason=RenderingReason.PREREQUISITE, subject=type(target).__name__, member=", ".join(map(str, dependent))),))
             items = tuple(
                 QueueItem(folder=str(file.parent), file=file.name, blender=blender, scene=job.scene, start=str(start), end=str(end))
                 for job in queue.jobs
@@ -95,12 +94,12 @@ def send(target: Target, queue: RenderQueue, host: Host) -> RenderingResult[tupl
             )
             return acknowledged(
                 lined(host.path(queue, RunFile.RENDERON), items).bind(
-                    lambda path: detached((executable.value, "-sq", str(path)), host.path(queue, RunFile.RENDERON_LOG)) if executable.enabled else Ok(path)
+                    lambda path: Option.of_optional(executable).map(lambda program: detached((program, "-sq", str(path)), host.path(queue, RunFile.RENDERON_LOG))).default_value(Ok(path))
                 )
             )
         case JobFile(folder=folder, command=command):
-            path = (msgspec.structs.replace(host, folder=folder.value) if folder.enabled else host).path(queue, RunFile.QUEUE)
-            return acknowledged(queued(path).bind(lambda written: ran((command.value, str(written))).map(lambda _: written) if command.enabled else Ok(written)))
+            path = Option.of_optional(folder).map(lambda held: msgspec.structs.replace(host, folder=held)).default_value(host).path(queue, RunFile.QUEUE)
+            return acknowledged(queued(path).bind(lambda written: Option.of_optional(command).map(lambda program: ran((program, str(written))).map(lambda _: written)).default_value(Ok(written))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

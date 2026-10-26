@@ -2,35 +2,30 @@
 
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
+from functools import partial
 from types import MappingProxyType
-import typing
 from typing import ClassVar, Final, override, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 from msgspec import UNSET, UnsetType
-import msgspec.inspect
-from msgspec.structs import fields
 import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.commands.keymaps import Keymap
+from blender.bpy.data.rna.descriptors import Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import redrawn
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
-from blender.bpy.nodes.ramps import Ramp
-from blender.bpy.settings import shapes
 from blender.bpy.ui.drawing.canvas import PROGRAMS
 from blender.bpy.ui.drawing.handlers import Part, Refresh, refreshing
 from blender.bpy.ui.drawing.offscreen import Offscreen
 from blender.bpy.ui.layout.rows import alerted, At, Binding, Bound, bound, FUNCTIONS, gridded, Line, Member, realized, refused, ResolvedMember, RowContent, RowDraw
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics, Theme
-from blender.records.faults import accumulated, paired
-from blender.records.fields import heading, Knot, Rgb
+from blender.records.faults import accumulated, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -41,40 +36,29 @@ class Wheel(Line, frozen=True, kw_only=True):
     color: Binding
     luma: Option[Binding] = Nothing
 
-    def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, _identity: Identity) -> Outcome[RowDraw]:
         """Binds color and luma, skipping absent luma source."""
 
-        def colored(held: ResolvedMember) -> BlenderResult[ResolvedMember]:
-            match held.descriptor.prop, held.shape.to_optional():
-                case (bpy.types.FloatProperty(is_array=True, subtype="COLOR" | "COLOR_GAMMA"), _) | (_, shapes.Color()):
+        def chromatic(held: ResolvedMember) -> Outcome[ResolvedMember]:
+            match held.descriptor.prop:
+                case bpy.types.FloatProperty(is_array=True, subtype="COLOR" | "COLOR_GAMMA"):
                     return Ok(held)
-                case prop, _:
+                case prop:
                     return Error(refused(held.descriptor.path, prop.subtype, ("COLOR", "COLOR_GAMMA")))
 
-        def slider(parts: tuple[ResolvedMember, ...]) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for source, member in parts[0].at(holder, context).to_list():
-                    layout.prop(source, member, slider=True)
+        def slid(parts: tuple[ResolvedMember, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+            for source, member in parts[0].at(holder, context).to_list():
+                layout.prop(source, member, slider=True)
 
-            return shown
+        def picked(sliders: tuple[RowDraw, ...], parts: tuple[ResolvedMember, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+            for owner, key in parts[0].at(holder, context).to_list():
+                gridded(layout, Some("")).template_color_picker(owner, key, value_slider=True, lock_luminosity=True, cubic=True)
+                for each in sliders:
+                    each(layout, holder, context)
+                layout.column(align=True).prop(owner, key, expand=True)
 
-        def draw(sliders: tuple[RowDraw, ...]) -> Callable[[tuple[ResolvedMember, ...]], RowDraw]:
-            def place(parts: tuple[ResolvedMember, ...]) -> RowDraw:
-                def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                    for owner, key in parts[0].at(holder, context).to_list():
-                        gridded(layout, Some("")).template_color_picker(owner, key, value_slider=True, lock_luminosity=True, cubic=True)
-                        for each in sliders:
-                            each(layout, holder, context)
-                        components = layout.column(align=True)
-                        for index, field in enumerate(fields(Rgb)):
-                            components.prop(owner, key, index=index, text=heading(field.name))
-
-                return shown
-
-            return place
-
-        return accumulated(bound(((binding, lambda held: held.accepts((bpy.types.FloatProperty,))),), slider) for binding in self.luma.to_list()).bind(
-            lambda sliders: bound(((self.color, colored),), draw(sliders))
+        return accumulated(bound(((binding, lambda held: held.accepts((bpy.types.FloatProperty,))),), lambda parts: partial(slid, parts)) for binding in self.luma.to_list()).bind(
+            lambda sliders: bound(((self.color, chromatic),), lambda parts: partial(picked, sliders, parts))
         )
 
 
@@ -85,28 +69,25 @@ class Pages(Line, frozen=True, kw_only=True):
     pages: Mapping[str, RowContent]
     tabs: bool = False
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Realizes every page once, refusing a choice the pages miss or a page no choice names."""
 
-        def draw(held: ResolvedMember, draws: Mapping[str, RowDraw]) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                for owner, key in held.at(holder, context).to_list():
-                    row = layout.row()
-                    row.use_property_split = False
-                    if self.tabs:
-                        row.prop_tabs_enum(owner, key, expand_as="ROW")
-                    else:
-                        row.prop(owner, key, expand=True)
-                    draws[getattr(owner, key)](layout, holder, context)
+        def shown(held: ResolvedMember, draws: Mapping[str, RowDraw], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+            for owner, key in held.at(holder, context).to_list():
+                row = layout.row()
+                row.use_property_split = False
+                if self.tabs:
+                    row.prop_tabs_enum(owner, key, expand_as="ROW")
+                else:
+                    row.prop(owner, key, expand=True)
+                draws[getattr(owner, key)](layout, holder, context)
 
-            return shown
-
-        def paged(held: ResolvedMember[bpy.types.EnumProperty]) -> BlenderResult[RowDraw]:
+        def paged(held: ResolvedMember[bpy.types.EnumProperty]) -> Outcome[RowDraw]:
             path, names = held.descriptor.path, tuple(item.identifier for item in held.descriptor.prop.enum_items)
             return accumulated((
                 *(realized(self.pages[choice], identity).map(lambda each: (choice, each)) if choice in self.pages else Error(refused(path, choice, tuple(self.pages))) for choice in names),
                 *(Error(refused(path, page, names)) for page in self.pages if page not in names),
-            )).map(lambda pairs: draw(held, dict(pairs)))
+            )).map(lambda pairs: partial(shown, held, dict(pairs)))
 
         return self.chooser.resolved(bpy.types.EnumProperty).bind(paged)
 
@@ -192,9 +173,9 @@ class Preview(Bound, frozen=True, kw_only=True):
     slot: Option[bpy.types.TextureSlot] = Nothing
 
     @override
-    def values(self, _identity: Identity, /) -> BlenderResult[dict[str, object]]:
+    def values(self, _identity: Identity, /) -> Outcome[dict[str, object]]:
         """Passes declared parent and texture slot."""
-        return Ok({key: held for key, value in (("parent", self.parent), ("slot", self.slot)) for held in value.to_list()})
+        return Ok(self.options | {key: held for key, value in (("parent", self.parent), ("slot", self.slot)) for held in value.to_list()})
 
     @override
     def placed(self, layout: bpy.types.UILayout, at: At, _context: bpy.types.Context, options: dict[str, object], /) -> None:
@@ -224,16 +205,8 @@ class ImageFormat(Bound, frozen=True, kw_only=True):
             layout.template_image_views(settings)
 
 
-class NodeField(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned node editing one record field under its heading, the field's msgspec type choosing the editor."""
-
-    node: Key
-    heading: str
-    shape: msgspec.inspect.Type
-
-
 class NodeEditors(msgspec.Struct, frozen=True, kw_only=True):
-    """Native editors of node fields: a knot field's curve editor per curve node kind at its channel tab, a ramp field's color ramp editor, else the node's inputs."""
+    """Native editors of owned nodes: a curve node's curve editor at its channel tab, a color ramp node's ramp editor, else the node's inputs."""
 
     curves: Mapping[type[bpy.types.Node], RowDraw]
     ramp: RowDraw
@@ -246,29 +219,25 @@ class NodeEditors(msgspec.Struct, frozen=True, kw_only=True):
     })
 
     @classmethod
-    def realized(cls, identity: Identity) -> BlenderResult[Self]:
+    def realized(cls, identity: Identity) -> Outcome[Self]:
         """Realizes every curve editor and the ramp editor once."""
         return paired(
             accumulated(realized(Curve(target=Member(root=kind, path="mapping"), type=tab), identity).map(lambda draw: (kind, draw)) for kind, tab in cls.tabs.items()).map(dict),
             realized(ColorRamp(target=Member(root=bpy.types.ShaderNodeValToRGB, path="color_ramp")), identity),
         ).map(lambda parts: cls(curves=parts[0], ramp=parts[1]))
 
-    def drawn(self, layout: bpy.types.UILayout, node: bpy.types.Node, field: NodeField, context: bpy.types.Context) -> BlenderResult[None]:
-        """Draws the field's heading over its node's native editor, no editor for a tuple of other items."""
+    def drawn(self, layout: bpy.types.UILayout, node: bpy.types.Node, context: bpy.types.Context) -> None:
+        """Draws the node's label over its native editor."""
         inner = layout.column()
         inner.use_property_split = False
-        inner.label(text=field.heading)
-        match field.shape:
-            case msgspec.inspect.VarTupleType(item_type=msgspec.inspect.StructType(cls=kind)) if (typing.get_origin(kind) or kind) is Knot:
-                return Option.of_optional(self.curves.get(type(node))).map(lambda draw: draw(inner, node, context)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(node), key="mapping"),))
-            case msgspec.inspect.StructType(cls=kind) if kind is Ramp:
+        inner.label(text=node.label or node.bl_label)
+        match node:
+            case bpy.types.ShaderNodeValToRGB():
                 self.ramp(inner, node, context)
-                return Ok(None)
-            case msgspec.inspect.VarTupleType():
-                return Ok(None)
+            case _ if type(node) in self.curves:
+                self.curves[type(node)](inner, node, context)
             case _:
                 inner.template_node_inputs(node)
-                return Ok(None)
 
 
 class Picture[S](Line, frozen=True, kw_only=True):
@@ -280,26 +249,26 @@ class Picture[S](Line, frozen=True, kw_only=True):
     scale: float
     refreshes: tuple[Refresh, ...] = ()
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Owns the preview collection, generation counts, and refresh sources, each refresh renewing the drawing."""
 
-        def refreshed() -> BlenderResult[None]:
+        def refreshed() -> Outcome[None]:
             generations = GENERATIONS.of(identity)
             generations[self.slot] = generations.get(self.slot, 0) + 1
             return redrawn().map(lambda _: None)
 
         return refreshing(identity, self.refreshes, refreshed).map(lambda rows: (PREVIEWS, GENERATIONS, PROGRAMS, *rows))
 
-    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Returns draw rendering the part once per refresh and interface scale."""
 
-        def rendered(theme: Theme, metrics: Metrics) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
+        def rendered(theme: Theme, metrics: Metrics) -> Outcome[Option[npt.NDArray[np.float32]]]:
             width, height = self.size(metrics)
             return self.part.read(metrics).bind(
                 lambda found: found.map(lambda state: Offscreen(width=width, height=height).drawn(theme, metrics, lambda canvas: self.part.drawn(canvas, state)).map(Some)).default_value(Ok(Nothing))
             )
 
-        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
             for area, region in ((area, region) for area in Option.of_optional(context.area).to_list() for region in Option.of_optional(context.region).to_list()):
                 theme = Theme(space=area.type, region=region.type, preferences=Metrics.read().preferences)
                 key = GENERATIONS.of(identity).get(self.slot, 0)
@@ -316,10 +285,10 @@ class Shortcut(Line, frozen=True, kw_only=True):
 
     keymap: Keymap
 
-    def drawn(self, _identity: Identity) -> BlenderResult[RowDraw]:
+    def drawn(self, _identity: Identity) -> Outcome[RowDraw]:
         """Returns key caps reading user keymap items each draw."""
 
-        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+        def shown(layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
             for _, item in self.keymap.counterparts(context):
                 layout.template_event_from_keymap_item(item, text=item.name)
 
@@ -332,21 +301,4 @@ GENERATIONS: Final = Scoped[dict[Key, int]](made=lambda _identity: nullcontext({
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "GENERATIONS",
-    "ColorRamp",
-    "Curve",
-    "Histogram",
-    "IconView",
-    "ImageFormat",
-    "LightLinking",
-    "NodeEditors",
-    "NodeField",
-    "Pages",
-    "Picture",
-    "Preview",
-    "Shortcut",
-    "Vectorscope",
-    "Waveform",
-    "Wheel",
-]
+__all__ = ["GENERATIONS", "ColorRamp", "Curve", "Histogram", "IconView", "ImageFormat", "LightLinking", "NodeEditors", "Pages", "Picture", "Preview", "Shortcut", "Vectorscope", "Waveform", "Wheel"]

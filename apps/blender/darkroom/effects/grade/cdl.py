@@ -1,37 +1,28 @@
 """ASC CDL grade in the config's color timing space, with corrections read from and written to ASC and transform files."""
 
-from typing import Annotated, ClassVar, override, Self
+from collections.abc import Mapping
+import functools
+from typing import ClassVar
 
 import bpy
 from expression import Error, Ok, Option, Some
-import msgspec
 import PyOpenColorIO
 
-from blender.bpy.commands.operators import Call, Done, Open, Operator, Outcome, Save, Unchanged
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.commands.operators import Answer, Call, Done, Open, Operator, Save, Unchanged
+from blender.bpy.data.rna.descriptors import Value
+from blender.bpy.extension.identity import Key
+from blender.bpy.faults import BlenderReason
 from blender.bpy.nodes.graphs import Expr
-from blender.bpy.render.color.luts import current, Formatted, writable
-from blender.bpy.render.color.spaces import config_of
+from blender.bpy.nodes.interface import Interface, Socket
+from blender.bpy.render.color.luts import current, FORMATS
 from blender.bpy.render.compositor import grades
-from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, EffectName, Named, Registers, revised, Shell, Spaces
-from blender.bpy.settings.properties import Choices
-from blender.imaging.color.luts import corrections, LutFormat
+from blender.bpy.render.compositor.effects import Alpha, CompositorEffect, entered, Named, Registers, Shell, Spaces
+from blender.bpy.render.compositor.inputs import captured
+from blender.imaging.color.luts import corrections, LutFormat, LutOutput
 from blender.imaging.color.processors import bracketed, processor
-from blender.imaging.faults import ImagingResult
-from blender.records.faults import accumulated, FileFault, paired
-from blender.records.fields import Choice, Finite, NonNegative, Positive
+from blender.records.faults import Fault, Outcome, paired, RecordReason
 
-from ...chain.stages import Effect, Stage
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Source(Choice):
-    """Input space of an exported correction."""
-
-    CORRECTION = 1
-    SCENE_LINEAR = 2
-
+from ...chain.stages import Effect, Stage, transform
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -40,135 +31,130 @@ class Cdl(Effect, frozen=True, kw_only=True):
     """ASC slope, offset, power, and saturation in the config's color timing space."""
 
     stage = Stage.CDL
-    title = "ASC CDL"
     pointwise = True
     space: ClassVar[str] = PyOpenColorIO.ROLE_COLOR_TIMING
-    slope: Annotated[tuple[NonNegative, NonNegative, NonNegative], msgspec.Meta(description="Channel multipliers before offset")] = (1.0, 1.0, 1.0)
-    offset: Annotated[tuple[Finite, Finite, Finite], msgspec.Meta(description="Channel values added after slope")] = (0.0, 0.0, 0.0)
-    power: Annotated[tuple[Positive, Positive, Positive], msgspec.Meta(description="Channel exponents on nonnegative values")] = (1.0, 1.0, 1.0)
-    saturation: Annotated[NonNegative, msgspec.Meta(description="Mix from CDL luma to graded color")] = 1.0
-
-    @classmethod
-    def of(cls, path: str, correction: PyOpenColorIO.CDLTransform) -> ImagingResult[Self]:
-        """Reads a file's correction into a grade, refusing values outside the grade's domains."""
-        try:
-            return Ok(msgspec.convert({"slope": correction.getSlope(), "offset": correction.getOffset(), "power": correction.getPower(), "saturation": correction.getSat()}, type=cls))
-        except msgspec.ValidationError as error:
-            return Error((FileFault(access="read", request=path, error=error),))
-
-    @property
-    def correction(self) -> PyOpenColorIO.CDLTransform:
-        """Fresh OCIO CDL operation of the grade."""
-        return PyOpenColorIO.CDLTransform(slope=list(self.slope), offset=list(self.offset), power=list(self.power), sat=self.saturation)
-
-    @override
-    def transform(self, _config: PyOpenColorIO.Config, /) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
-        """Returns the CDL operation."""
-        return Ok(Some(self.correction))
 
 
-class Imported(Named, frozen=True, kw_only=True):
+class Imported(Named):
     """ASC correction chosen in the file browser."""
 
-    correction: Annotated[
-        str,
-        msgspec.Meta(title="Correction"),
-        Choices(
-            lambda _identity, owner, _context: (
-                (str(position), name.default_value(str(position + 1)), "")
-                for path in (owner.path_resolve("filepath"),)
-                if isinstance(path, str)
-                for rows in loaded(path).to_option().to_list()
-                for position, (name, _grade) in enumerate(rows)
-            )
-        ),
-    ] = "0"
+    correction: bpy.props.EnumProperty(name="Correction", items=lambda operator, _context: _named(bpy.path.abspath(operator.filepath)))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Exported(Formatted, frozen=True, kw_only=True):
-    """Correction written in an exact transform format."""
+class Exported(Named):
+    """Correction written in an exact transform format, alone or resolved between scene-linear conversions."""
 
-    formats = staticmethod(LutFormat.writable)
-    name: EffectName
-    format: Annotated[str, msgspec.Meta(title="Format"), writable]
-    source: Source = Source.CORRECTION
+    format: bpy.props.EnumProperty(name="Format", items=tuple((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    source: bpy.props.EnumProperty(name="Source", items=(("CORRECTION", "Correction", "Correction alone"), ("SCENE_LINEAR", "Scene Linear", "Correction between scene-linear conversions")))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [GRAPH]
+# --- [GRADE]
 
 
-def corrected(shell: Shell[Cdl]) -> BlenderResult[Expr]:
+def correction(values: Mapping[Key, Value]) -> Outcome[PyOpenColorIO.CDLTransform]:
+    """Fresh OCIO CDL operation of the entry's slope, offset, power, and saturation."""
+    match values:
+        case {"slope": tuple(slope), "offset": tuple(offset), "power": tuple(power), "saturation": float(saturation)}:
+            return Ok(PyOpenColorIO.CDLTransform(slope=list(map(float, slope)), offset=list(map(float, offset)), power=list(map(float, power)), sat=saturation))
+        case _:
+            return Error((Fault(reason=RecordReason.UNREADABLE, subject=Cdl.__name__, cause=repr(values)),))
+
+
+@transform.register
+def _(_record: Cdl, values: Mapping[Key, Value], _config: PyOpenColorIO.Config, /) -> Outcome[Option[PyOpenColorIO.Transform]]:
+    """Returns the CDL operation."""
+    return correction(values).map(Some)
+
+
+def corrected(shell: Shell[Cdl]) -> Outcome[Expr]:
     """Binds the grade's inputs to the node form of OCIO's CDL."""
-    slope, offset, power, saturation = map(shell.input, Cdl.__struct_fields__)
-    return Ok(grades.cdl(shell.color, slope, offset, power, saturation))
+    return Ok(grades.cdl(shell.color, shell.input("slope"), shell.input("offset"), shell.input("power"), shell.input("saturation")))
 
 
 # --- [EXCHANGE]
 
 
-def loaded(path: str) -> BlenderResult[tuple[tuple[Option[str], Cdl], ...]]:
-    """Reads every correction of an ASC file in file order, each with its ID when named, after refreshing changed-file caches."""
-    return current(path, PyOpenColorIO.GetCurrentConfig()).bind(corrections).bind(lambda found: accumulated(Cdl.of(path, correction).map(lambda grade: (name, grade)) for name, correction in found))
+@functools.cache
+def _named(path: str) -> tuple[tuple[str, str, str], ...]:
+    """Correction rows of an ASC file in file order, each named by its ID or position, held for the enum the file browser draws."""
+    return tuple((str(position), name.default_value(str(position + 1)), "") for found in corrections(path).to_option().to_list() for position, (name, _) in enumerate(found))
 
 
-def imported(call: Call[Imported]) -> BlenderResult[Outcome]:
-    """Writes the chosen correction into the named entry, keeping its blend and masks."""
-    path, record = str(call.paths[0]), call.record
+def import_cdl(call: Call[Imported]) -> Outcome[Answer]:
+    """Read an ASC correction into the entry, keeping its blend and masks."""
+    path, properties = str(call.paths[0]), call.properties
 
-    def chosen(rows: tuple[tuple[Option[str], Cdl], ...]) -> BlenderResult[Cdl]:
-        return Option.of_optional(next((grade for position, (_name, grade) in enumerate(rows) if str(position) == record.correction), None)).to_result_with(
-            lambda: (BlenderAbsentFault(owner=path, key=record.correction),)
+    def chosen(found: tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]) -> Outcome[PyOpenColorIO.CDLTransform]:
+        return Option.of_optional(next((held for position, (_, held) in enumerate(found) if str(position) == properties.correction), None)).to_result_with(
+            lambda: (Fault(reason=BlenderReason.ABSENT, subject=path, member=properties.correction),)
         )
 
-    entry = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, record.name).map(lambda held: (scene, held)))
+    entry = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, properties.name))
     return (
-        paired(loaded(path).bind(chosen), entry)
-        .bind(lambda pair: revised(cdl, call.identity, *pair[1], lambda _: Ok(pair[0])))
-        .map(lambda changed: Done() if changed else Unchanged(reason=f"{record.name} holds the chosen correction"))
+        paired(current(call.identity, path, PyOpenColorIO.GetCurrentConfig()).bind(corrections).bind(chosen), entry)
+        .bind(
+            lambda pair: entered(call.identity, pair[1], {"slope": tuple(pair[0].getSlope()), "offset": tuple(pair[0].getOffset()), "power": tuple(pair[0].getPower()), "saturation": pair[0].getSat()})
+        )
+        .map(lambda changed: Done() if changed else Unchanged(reason=f"{properties.name} holds the chosen correction"))
     )
 
 
-def exported(call: Call[Exported]) -> BlenderResult[Done]:
-    """Writes the entry's correction alone under its entry name, or resolved between scene-linear conversions through the live config."""
-    record = call.record
+def export_cdl(call: Call[Exported]) -> Outcome[Answer]:
+    """Write the entry's correction in the chosen format under its entry name."""
+    properties = call.properties
 
-    def operations(grade: Cdl) -> BlenderResult[PyOpenColorIO.GroupTransform]:
-        correction = grade.correction
-        match record.source:
-            case Source.CORRECTION:
-                correction.getFormatMetadata().setID(record.name)
-                return Ok(PyOpenColorIO.GroupTransform([correction]))
-            case Source.SCENE_LINEAR:
-                return config_of((Cdl.space,)).bind(lambda config: processor(config, bracketed(Cdl.space, correction))).map(PyOpenColorIO.Processor.createGroupTransform)
+    def operations(held: PyOpenColorIO.CDLTransform) -> Outcome[PyOpenColorIO.GroupTransform]:
+        match properties.source:
+            case "SCENE_LINEAR":
+                return processor(PyOpenColorIO.GetCurrentConfig(), bracketed(Cdl.space, held)).map(PyOpenColorIO.Processor.createGroupTransform)
+            case _:
+                held.getFormatMetadata().setID(properties.name)
+                return Ok(PyOpenColorIO.GroupTransform([held]))
 
-    held = call.root(bpy.types.Scene).bind(lambda scene: cdl.named(call.identity, scene, record.name)).bind(lambda entry: cdl.read(call.identity, entry))
-    return paired(held, record.output()).bind(lambda pair: operations(pair[0].record).bind(lambda built: pair[1].written({str(call.paths[0]): built}))).map(Done.wrote)
+    return (
+        call
+        .root(bpy.types.Scene)
+        .bind(lambda scene: cdl.named(call.identity, scene, properties.name))
+        .bind(lambda entry: captured(call.identity, entry))
+        .bind(lambda values: correction({key: owner.values.get("value") for key, owner in values.tree.owners.items() if key}))
+        .bind(operations)
+        .bind(lambda built: LutOutput(format=FORMATS[properties.format]).written({str(call.paths[0]): built}))
+        .map(Done.wrote)
+    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-importer = Operator(
-    key="import_cdl",
-    title="Import ASC CDL",
-    description="Read an ASC correction into the entry",
-    form=Imported,
-    run=imported,
-    invoke=Some(Open(extensions=lambda _record: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable())))),
+cdl = CompositorEffect(
+    record=Cdl,
+    graph=corrected,
+    alpha=Alpha.STRAIGHT,
+    interface=Interface(
+        inputs=(
+            *(
+                Socket(key=key, name=bpy.path.display_name(key), kind=bpy.types.NodeSocketVector, description=description, members={"dimensions": 3, "default_value": default, **bounds})
+                for key, description, default, bounds in (
+                    ("slope", "Channel multipliers before offset", (1.0, 1.0, 1.0), {"min_value": 0.0}),
+                    ("offset", "Channel values added after slope", (0.0, 0.0, 0.0), {}),
+                    ("power", "Channel exponents on nonnegative values", (1.0, 1.0, 1.0), {"min_value": 0.0}),
+                )
+            ),
+            Socket(key="saturation", name="Saturation", kind=bpy.types.NodeSocketFloat, description="Mix from CDL luma to graded color", members={"min_value": 0.0, "default_value": 1.0}),
+        )
+    ),
+    parts=(
+        Spaces(space=lambda _record: Cdl.space),
+        Registers(
+            rows=(
+                Operator(form=Imported, run=import_cdl, invoke=Some(Open[Imported](extensions=lambda _properties: tuple(dict.fromkeys(f".{row.extension}" for row in LutFormat.readable()))))),
+                Operator(form=Exported, run=export_cdl, invoke=Some(Save[Exported](extensions=lambda properties: (f".{FORMATS[properties.format].extension}",))), undo=False),
+            )
+        ),
+    ),
 )
-exporter = Operator(
-    key="export_cdl",
-    title="Export ASC CDL",
-    description="Write the entry's correction in the chosen format",
-    form=Exported,
-    run=exported,
-    invoke=Some(Save[Exported](extensions=Exported.extensions)),
-    seed=Some(Exported.seeded),
-    undo=False,
-)
-cdl = CompositorEffect(record=Cdl, graph=corrected, alpha=Alpha.STRAIGHT, parts=(Spaces(space=lambda _record: Cdl.space), Registers(rows=(importer, exporter))))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Cdl", "cdl"]
+__all__ = ["Cdl", "Exported", "Imported", "cdl"]

@@ -6,9 +6,12 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
 - Host folders with code a host runs or imports state its interpreter floor once in a nested `requires-python`
-- Host `pyproject.toml` files hold `name`, `dynamic = ["version"]`, the floor, `[tool.uv] managed = false`, and Ruff `extend`, and create no Nx project
-- Blender extension `pyproject.toml` files add `[project] dependencies` rows naming root `[project] dependencies`, fitout compiles their wheels under root lock pins, a new extension row joins the root list and `uv.lock` first
-- `managed = false` makes `uv sync` refuse a host folder and `uv run` there use the root environment
+- Host `pyproject.toml` files are virtual uv workspace members (`[tool.uv] package = false`) holding `name`, a static `version`, the floor, `[project] dependencies`, and Ruff `extend`, and create no Nx project
+- The `blender` library is a packaged workspace member, its hatchling wheel mapping its own folder onto the `blender` import root, its `[project] dependencies` naming every package its modules import
+- Root `rasm` is a virtual workspace root packaging no module and depending on `blender` through a workspace source, no package depending on `rasm`
+- Extension rows name `blender` alone, a new extension joining root `[tool.uv.workspace] members` and `uv.lock` first, ty's `missing-direct-dependency` off under `apps/blender/` where extensions import the library's closure
+- Fitout bundles the closure `uv export --project <extension> --no-editable` reads from `uv.lock`, building workspace members as wheels it copies in as submodules
+- Virtual members install no distribution, `uv sync` installs their dependencies into the root environment
 - Host runtime compatibility covers code a host executes or imports, shared libraries included, wheel membership alone imposes none
 - Use newest syntax, APIs, and typing supported by each execution runtime
 
@@ -38,7 +41,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 ## [04]-[ENVIRONMENT]
 
-- `uv sync` installs root editable, exposing backend `module-root` through `.pth` without a `PYTHONPATH` row
+- `uv sync` installs the `blender` library editable, its hatch `dev-mode-dirs` exposing the folder holding its import root through `.pth` without a `PYTHONPATH` row
 - Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, `uv run` syncs before every run
 - Builds reuse objects or a CMake cache an earlier build left in the cached sdist tree
 - Modules in `sys.stdlib_module_names` shadow standard libraries when earlier on `sys.path` or `mypy_path`
@@ -63,21 +66,21 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `[tool.refurb] enable_all` loads every check a release adds
 - `[tool.refurb] load` imports every `tools/refurb/` module, `__main__` guards its run
 - Check modules hold one `RASM` `Error` subclass and one `check`
-- `deptry` reads every dependency group as development, `lint:deptry` scans the host and wheel roots that import `[project] dependencies` alone
+- `deptry` reads every dependency group as development, `lint:deptry` reads the `blender` library's manifest and `[tool.deptry]` table and scans the host and wheel roots importing its dependencies
 - Imports there fail on a group-only, transitive, or undeclared package, type checks over a fully synced environment pass them
 - Host-supplied modules take a `per_rule_ignores` `DEP001` row, their typings package names `-stubs` folders deptry maps to no module
 - Requirements no repository file imports (data packages, modules a dependency imports undeclared) take a `per_rule_ignores` `DEP002` row
 
 ## [06]-[PROJECTS]
 
-- Concern project names derive from `py.typed` directories relative to root backend `module-root`
+- Concern project names derive from `py.typed` directories relative to the folders packaged members' hatch `dev-mode-dirs` name
 - `blender_manifest.toml` defines an extension project by manifest `id`
 - Project dependencies include runtime and type-only static imports between source owners
 
 ## [07]-[HOST_PACKAGING]
 
 - Use `eng/python/fitout/` for host extension assembly and installation
-- Root backend `module-name` lists each import root holding code, runtime declarations stay out of the wheel
+- Each packaged member's wheel maps its folder onto its import root through hatch `sources`, `only-include` keeping its manifest out
 - Extension assembly copies first-party wheel packages in as submodules with relative imports and bundles every other distribution as a wheel
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
 - Fitout omits Blender-provided distributions from locked export
