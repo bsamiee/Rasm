@@ -69,9 +69,16 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         "`Option` value `{0}` converted to nullable by hand, write `{1}`",
         "`Option` converted to nullable through `Match`, `Case` cast, or `IsSome` or `IsNone` conditional.");
 
+    public static readonly DiagnosticDescriptor Focused = Rule(
+        "RASM1010",
+        Category,
+        "Record property lens written by hand",
+        "`{0}` restates {1} `{2}` of `{3}`, {4}",
+        "`Lens<A, B>.New` whose getter reads a positional property path of a source record and whose setter rewrites the same path through `with`.");
+
     private static readonly SymbolDisplayFormat Shown = SymbolDisplayFormat.MinimallyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, LiftedApply, Narrowed, Passed, Nullable];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, LiftedApply, Narrowed, Passed, Nullable, Focused];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         LanguageExtSymbols symbols = new(context.Compilation);
@@ -83,6 +90,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         LiftedApplies(context, io, fin);
         Narrowings(context, kind);
         Matches(context, symbols, fin, option);
+        if (symbols.Lens is { } lens) Lenses(context, lens);
     }
 
     // --- [LIFTS]
@@ -342,5 +350,48 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                     [Diagnostic.Create(Nullable, conditional.Syntax.GetLocation(), Read(tested, owner.TypeArguments[0]))],
                 _ => [],
             });
+    }
+
+    // --- [LENSES]
+    private static void Lenses(CompilationStartAnalysisContext context, INamedTypeSymbol lens) {
+        static IAnonymousFunctionOperation? Function(IOperation value) => Stripped(value) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation function } ? function : null;
+        static IOperation? Returned(IAnonymousFunctionOperation function) =>
+            function.Body.Operations is { Length: 1 } steps && steps[0] is IReturnOperation { ReturnedValue: { } returned } ? Stripped(returned) : null;
+        static IParameterSymbol? Parameter(IAnonymousFunctionOperation? function) => function?.Symbol.Parameters is { Length: 1 } parameters ? parameters[0] : null;
+        static bool Equal(ImmutableArray<IPropertySymbol> left, ImmutableArray<IPropertySymbol> right) => left.Length == right.Length && left.Zip(right, Same).All(static same => same);
+        static ImmutableArray<IPropertySymbol>? Read(IOperation value, IParameterSymbol root) =>
+            Stripped(value) switch {
+                IParameterReferenceOperation reference when Same(reference.Parameter, root) => ImmutableArray<IPropertySymbol>.Empty,
+                IPropertyReferenceOperation { Instance: { } instance } reference => Read(instance, root) is { } head ? head.Add(reference.Property) : null,
+                _ => null,
+            };
+        static ImmutableArray<IPropertySymbol>? Written(IOperation value, IParameterSymbol root, IParameterSymbol held, ImmutableArray<IPropertySymbol> prefix) =>
+            Stripped(value) switch {
+                IParameterReferenceOperation reference when Same(reference.Parameter, held) => prefix,
+                IWithOperation { Operand: var operand, Initializer.Initializers: { Length: 1 } sets }
+                    when sets[0] is ISimpleAssignmentOperation { Target: IPropertyReferenceOperation target, Value: var next } && Read(operand, root) is { } read && Equal(read, prefix) =>
+                    Written(next, root, held, prefix.Add(target.Property)),
+                _ => null,
+            };
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (call, analysis) => {
+            bool Positional(IPropertySymbol property) =>
+                property.ContainingType is { IsRecord: true } owner && Sourced(owner) && property.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax(analysis.CancellationToken) is ParameterSyntax);
+            if (call.TargetMethod is not { Name: "New", IsStatic: true, ContainingType: { } owner } || !Same(owner, lens) || call.Arguments.Length is not 2
+                || Function(call.Arguments[0].Value) is not { } getter || Parameter(getter) is not { } root || Returned(getter) is not { } got || Read(got, root) is not { IsEmpty: false } path
+                || Function(call.Arguments[1].Value) is not { } setter || Parameter(setter) is not { } held || Returned(setter) is not { } inner || Function(inner) is not { } writer
+                || Parameter(writer) is not { } target || Returned(writer) is not { } written || Written(written, target, held, []) is not { } wrote || !Equal(wrote, path) || !path.All(Positional))
+                return [];
+            string joined = string.Join(".", path.Select(static property => property.Name));
+            return [
+                Diagnostic.Create(
+                    Focused,
+                    call.Syntax.GetLocation(),
+                    $"{owner.ToDisplayString(Shown)}.New",
+                    path.Length is 1 ? "property" : "path",
+                    joined,
+                    root.Type.ToDisplayString(Shown),
+                    path.Length is 1 ? "annotate the parameter with `[Field]` under `[StateRecord]` and read its generated lens" : "compose the generated leaf lenses through `lens(…)`"),
+            ];
+        });
     }
 }

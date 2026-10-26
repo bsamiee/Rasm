@@ -106,7 +106,7 @@ internal static class Backpressure {
 }
 ```
 
-`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `FoldReduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and `Zip` against `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative:
+`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `FoldReduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and SuperLinq `Window(2)` reads each balance beside its predecessor, the filter sees only a crossing from nonnegative to negative:
 
 ```csharp
 internal sealed record Entry(Guid Key, decimal Amount);
@@ -119,7 +119,7 @@ internal static class Ledger {
             .Map(static ledger => toSeq(ledger.Filter(WentNegative).Keys));
     private static bool WentNegative(Seq<decimal> amounts) {
         Seq<decimal> balances = amounts.Scan(0m, static (balance, amount) => balance + amount);
-        return balances.Zip(balances.Tail).Exists(static step => step.First >= 0m && step.Second < 0m);
+        return toSeq(SuperEnumerable.Window(balances.AsIterable(), 2, static step => step[0] >= 0m && step[1] < 0m)).Exists(identity);
     }
 }
 ```

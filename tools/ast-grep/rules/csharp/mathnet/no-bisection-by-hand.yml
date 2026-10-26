@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bisection-by-hand
+language: csharp
+severity: error
+utils:
+    lower-half:
+        kind: 'argument_list, tuple_expression'
+        has:
+            kind: argument
+            has: {pattern: $LOW}
+            precedes: {stopBy: end, kind: argument, has: {kind: identifier, pattern: $MIDDLE}}
+    upper-half:
+        kind: 'argument_list, tuple_expression'
+        has:
+            kind: argument
+            has: {kind: identifier, pattern: $MIDDLE}
+            precedes: {stopBy: end, kind: argument, has: {pattern: $HIGH}}
+    holds-lower: {any: [{matches: lower-half}, {has: {stopBy: end, matches: lower-half}}]}
+    holds-upper: {any: [{matches: upper-half}, {has: {stopBy: end, matches: upper-half}}]}
+    exclusive:
+        any:
+            - kind: conditional_expression
+              any:
+                - all: [{has: {field: consequence, matches: holds-lower}}, {has: {field: alternative, matches: holds-upper}}]
+                - all: [{has: {field: consequence, matches: holds-upper}}, {has: {field: alternative, matches: holds-lower}}]
+            - kind: switch_expression
+              all:
+                - has: {kind: switch_expression_arm, matches: holds-lower, not: {matches: holds-upper}}
+                - has: {kind: switch_expression_arm, matches: holds-upper, not: {matches: holds-lower}}
+rule:
+    kind: switch_expression
+    all:
+        - has:
+            nthChild: 1
+            kind: parenthesized_expression
+            has:
+                kind: binary_expression
+                all:
+                    - has: {field: operator, regex: '^/$'}
+                    - has: {field: right, regex: '^2(\.0)?[dDfFmM]?$'}
+                    - has: {field: left, kind: parenthesized_expression, has: {kind: binary_expression, all: [{has: {field: operator, regex: '^\+$'}}, {has: {field: left, pattern: $LOW}}, {has: {field: right, pattern: $HIGH}}]}}
+        - has: {stopBy: end, kind: declaration_pattern, has: {field: name, pattern: $MIDDLE}}
+        - any:
+            - matches: exclusive
+            - has: {stopBy: end, matches: exclusive}
+message: 'Midpoint `$MIDDLE` of `$LOW` and `$HIGH` halves a bracket by hand'
+note: 'Call `Bisection.TryFindRoot(f, lower, upper, accuracy, iterations, out root)` or `Brent.FindRoot(f, lower, upper, accuracy)` over the signed margin of the test'

@@ -1,0 +1,13 @@
+using Rhino.Geometry;
+
+internal sealed record Color(int Value);
+
+internal static class Palette {
+    internal static {|#0:System.Collections.Immutable.ImmutableArray<int>|} Empty => [];
+
+    internal static System.Drawing.Bitmap Blank => new(1, 1);
+
+    internal static System.Drawing.Point Origin => default;
+
+    internal static Point Placed => new(Point3d.Origin);
+}

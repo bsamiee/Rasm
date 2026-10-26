@@ -94,14 +94,14 @@ internal static class Replacement {
 
 ## [05]-[ADJACENCY]
 
-`source.Zip(source.Tail)` pairs each element with its successor as `(First, Second)`, and a quantifier over the pairs decides the result: `Exists` answers whether one pair matches, `ForAll` answers whether no pair disproves the condition, and fewer than 2 elements produce no pairs, `Exists` returns `false` and `ForAll` returns `true`:
+SuperLinq `SuperEnumerable.Window(source.AsIterable(), 2, selector)` reads each element beside its successor as one span, and a quantifier over the results decides the answer: `Exists` answers whether one window matches, `ForAll` answers whether no window disproves the condition, fewer than 2 elements produce no windows, `Exists` returns `false` and `ForAll` returns `true`:
 
 ```csharp
 internal static class Adjacency {
     public static bool AnyAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
-        source.Zip(source.Tail).Exists(pair => matches(pair.First, pair.Second));
+        toSeq(SuperEnumerable.Window(source.AsIterable(), 2, window => matches(window[0], window[1]))).Exists(identity);
     public static bool AllAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
-        source.Zip(source.Tail).ForAll(pair => matches(pair.First, pair.Second));
+        toSeq(SuperEnumerable.Window(source.AsIterable(), 2, window => matches(window[0], window[1]))).ForAll(identity);
 }
 ```
 

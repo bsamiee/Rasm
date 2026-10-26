@@ -99,8 +99,8 @@ Trailing parameters after the members are declared by value without a default (0
 - Public `Validate` passes `default` for every extra, a hand-written factory delegates to `CreateCore`
 
 ```csharp
-[ValueObject<decimal>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-internal readonly partial struct Amount {
+[ValueObject<decimal>(MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
+internal sealed partial class Amount {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref decimal value, MidpointRounding rounding) {
         if (value < 0) {
             validationError = new ValidationError("amount is negative");
@@ -140,7 +140,7 @@ String keys compare with `StringComparer.OrdinalIgnoreCase` by default and every
 - `AllowDefaultStructs` stays `false` when the key is a reference type (057) or a member disallows default (058)
 - `AllowDefaultStructs` stays `false` when the type implements `IDisallowDefaultValue` by hand (080)
 - `IDisallowDefaultValue` on a class warns (110)
-- Choose a struct for a small value that is always valid, allow the default when it has a meaning (zero, an open end)
+- Value objects are classes, a struct stands where a native call or a package API requires one
 - Represent absence as `Option<T>` in place of a `null` class
 - `SkipKeyMember = true` with `KeyMemberName` lets a nullable backing field map the CLR default to a chosen value
 - Hand-written `ToString()` sets `SkipToString` and `SkipIFormattable` together, the generated `IFormattable` formats the key on its own
@@ -341,7 +341,7 @@ internal static class Matching {
             (weight, culture),
             standard: static state => string.Create(state.culture, $"ground, {state.weight} kg"),
             express: static state => string.Create(state.culture, $"air, {state.weight} kg"));
-    public static string Handling(Kind kind) => kind.MapPartially(@default: "standard", express: "priority");
+    public static string Handling(Kind kind) => kind.Map(standard: "standard", express: "priority");
 }
 ```
 
@@ -403,7 +403,7 @@ internal sealed partial class TextOrCount {
 
 ## [06]-[VALIDATED_RESULTS]
 
-Value objects and smart enums raise the package error type under `[ValidationError<Invalid>]`. One static class in the core project every library references converts `Validate` out-parameter form to `Fin` through C# 14 static extension blocks with an interface receiver:
+Value objects and smart enums raise the package error type under `[ValidationError<Invalid>]`. One static class in the core project every library references converts `Validate` out-parameter form to `Fin` or `Option` through C# 14 static extension blocks with an interface receiver:
 - Every failure is `Invalid`, an `Expected` implementing `IValidationError<Invalid>` that holds validation message and converts to `Fin` as `Error`
 - Range rules sit in one value type per rule implementing `IMinMaxValue<TSelf>`, its hook assigns `OutsideRange(value, MinValue, MaxValue)`
 - Relative changes saturate into `MinValue` and `MaxValue` before `X.Validated`
@@ -415,7 +415,8 @@ Value objects and smart enums raise the package error type under `[ValidationErr
 - Types with an extra `[ObjectFactory<T>]` implement more than one `IObjectFactory` and fail `X.Validated` with `CS0411`
 - `T.Validated` through a type parameter is `CS0704`, generic code and types with an extra factory call `Validations.Validated<T, TKey>(raw)`
 - `Validations.ToFin(T.Validate(..., out T? item), item)` converts a complex value object's `Validate`, declared once per type as its `Validated(members)`
-- Absence as the meaning crosses through `Validated(raw).ToOption()`
+- Absence as the meaning crosses through `X.Present(raw)`, the one `Option<X>` form
+- `Validations.Present(T.Validate(..., out T? item), item)` converts a complex value object's `Validate` to `Option`
 - `Create` takes a literal in a static default alone, a computed value crosses through `Validated`
 
 ```csharp
@@ -429,8 +430,12 @@ public static class Validations {
 
     public static Fin<TValue> ToFin<TValue>(Invalid? error, TValue? value) => error is null ? value! : error;
 
+    public static Option<TValue> Present<TValue>(Invalid? error, TValue? value) => error is null ? Optional(value) : None;
+
     extension<TValue, TKey>(IObjectFactory<TValue, TKey, Invalid>) where TValue : IObjectFactory<TValue, TKey, Invalid> where TKey : notnull {
         public static Fin<TValue> Validated(TKey key) => ToFin(TValue.Validate(key, provider: null, out TValue? value), value);
+
+        public static Option<TValue> Present(TKey key) => Present(TValue.Validate(key, provider: null, out TValue? value), value);
     }
 
     extension<TValue>(ISmartEnum<string, TValue, Invalid>) where TValue : ISmartEnum<string, TValue, Invalid> {
@@ -440,7 +445,7 @@ public static class Validations {
 
 [ValueObject<int>]
 [ValidationError<Invalid>]
-internal readonly partial struct Count : IMinMaxValue<Count> {
+internal sealed partial class Count : IMinMaxValue<Count> {
     public static Count MinValue { get; } = new(0);
     public static Count MaxValue { get; } = new(100);
 
@@ -524,7 +529,7 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |  [09]   | Lambdas without `static` in a `Switch` arm                           | State overload with a `static` lambda                             |
 |  [10]   | `SwitchPartially` where every case matters                           | Exhaustive `Switch`                                               |
 |  [11]   | `default(TUnion)` or `new TUnion()` on a struct union                | Member values, or `MapToFirstMember` with a stateless first case  |
-|  [12]   | Stateless markers as classes                                         | `readonly record struct`                                          |
+|  [12]   | Stateless ad hoc union members as classes                            | `readonly record struct` under `TxIsStateless = true`             |
 |  [13]   | `string` failure case beside a `string` success value                | One distinct type per case                                        |
 |  [14]   | Hand-written serializers for an ad hoc union                         | `[ObjectFactory<string>]` with `ToValue` and `Validate`           |
 |  [15]   | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary   | `Thinktecture.Empty.Collection<T>()`                              |

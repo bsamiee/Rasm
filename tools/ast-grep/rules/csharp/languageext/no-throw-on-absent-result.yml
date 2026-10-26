@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throw-on-absent-result
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+rule:
+    any:
+        - kind: binary_expression
+          pattern: $CALL ?? throw new $EXCEPTION($$$MESSAGE)
+          all:
+            - has: {field: left, kind: invocation_expression}
+            - not: {has: {field: right, has: {field: type, regex: '^UnreachableException$'}}}
+            - not: {inside: {stopBy: end, kind: field_declaration}}
+        - kind: invocation_expression
+          pattern: $CALL.ThrowIfFail()
+          all:
+            - has:
+                field: function
+                has:
+                    field: expression
+                    kind: invocation_expression
+                    has:
+                        field: function
+                        any:
+                            - matches: {csharp-owner-member: {type: {regex: '^Refused$'}, member: {regex: '^UnlessFound$'}}}
+                            - kind: member_access_expression
+                              has: {field: name, regex: '^ToFin$'}
+            - not: {inside: {stopBy: end, matches: languageext-io-lift}}
+message: '`$CALL` throws for an absent result'
+note: 'Lift the absence into the result, `Optional(<call>).ToFin(<error>)` inside the `Fin` or `IO` chain'

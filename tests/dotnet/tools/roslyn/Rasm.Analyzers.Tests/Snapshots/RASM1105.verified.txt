@@ -1,0 +1,2 @@
+#0 Smart enum `Modifier` holds items with no key, data, or behavior, declare it as a plain `enum`
+#1 Smart enum `Glass` keys its items by their member names and nothing reads a key, declare it as a plain `enum` under `JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower)`

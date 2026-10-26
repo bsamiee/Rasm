@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-flat-index-split
+language: csharp
+severity: error
+utils:
+    counter:
+        any:
+            - kind: for_statement
+              has: {field: initializer, has: {kind: variable_declarator, has: {field: name, pattern: $INDEX}}}
+            - kind: lambda_expression
+              has: {field: parameters, any: [{kind: implicit_parameter, pattern: $INDEX}, {has: {kind: parameter, has: {field: name, pattern: $INDEX}}}]}
+    quotient:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^/$'}
+            - has: {field: left, kind: identifier, pattern: $INDEX}
+            - has: {field: right, pattern: $WIDTH}
+rule:
+    any:
+        - kind: invocation_expression
+          pattern: $SPLIT
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^(int|long|Math)$'}}, {has: {field: name, regex: '^DivRem$'}}]}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: identifier, pattern: $INDEX}}}
+            - inside: {stopBy: end, matches: counter}
+        - kind: binary_expression
+          pattern: $SPLIT
+          all:
+            - has: {field: operator, regex: '^%$'}
+            - has: {field: left, kind: identifier, pattern: $INDEX}
+            - has: {field: right, pattern: $WIDTH}
+            - inside: {stopBy: end, matches: counter, has: {stopBy: end, matches: quotient}}
+message: '`$SPLIT` recovers a row and column from flat index `$INDEX`'
+note: 'Address the buffer as `Span2D<T>` rows through `GetRowSpan`, or run the pass through `ParallelHelper.For2D` or `PixelPass.Pointwise((row, column, line) => …)`'

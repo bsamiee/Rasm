@@ -1,7 +1,10 @@
 P:System.TimeProvider.System;Take the clock as a `TimeProvider` argument, app composition root names `TimeProvider.System`
 T:System.Console;Log through an `ILogger` the composition root creates, app composes its console sink
-M:System.Drawing.Bitmap.GetHicon;Build the `Icon` from an ICO stream with `new Icon(Stream)`, `GetHicon` returns a handle no `Icon` releases
-T:Svg.Model.Services.SvgService;Load an SVG through `SKSvg.CreateFromStream` and read `SKSvg.Picture`
+M:System.Drawing.Bitmap.GetHicon;Handle no `Icon` releases, pass the host overload taking the assembly and resource name, or `new Icon(Stream)` over an `.ico` resource
 M:System.Linq.Expressions.Expression`1.Compile;Take the delegate and its call text through `[CallerArgumentExpression]`
 M:System.Linq.Expressions.Expression`1.Compile(System.Boolean);Take the delegate and its call text through `[CallerArgumentExpression]`
 M:System.Linq.Expressions.Expression`1.Compile(System.Runtime.CompilerServices.DebugInfoGenerator);Take the delegate and its call text through `[CallerArgumentExpression]`
+T:System.Threading.SemaphoreSlim;Exclusion runs as one `Conduit` under `Fork`, or `AsyncSemaphore.EnterAsync()` under `use`
+T:System.Threading.Tasks.ConcurrentExclusiveSchedulerPair;Exclusion runs as one `Conduit` under `Fork`
+M:SkiaSharp.SKCanvas.Flush;No-op on a raster canvas, a GPU surface presents through `SKSurface.Flush(submit: true)`
+T:SixLabors.ImageSharp.Processing.ResizeExtensions;Resampling runs through TinyEXR `ImageProcessing.Resize(source, width, height, filter, alphaChannel: 3)` over float spans

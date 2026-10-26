@@ -40,7 +40,7 @@ internal sealed partial class Status {
 }
 
 [ValueObject<decimal>]
-internal readonly partial struct Amount;
+internal sealed partial class Amount;
 
 [ComplexValueObject]
 internal sealed partial class Bounds {
@@ -55,7 +55,7 @@ internal sealed partial class AmountOrText;
 internal sealed partial class BoundsOrNumber;
 
 [Union<Status, string>]
-internal readonly partial struct StatusOrText;
+internal sealed partial class StatusOrText;
 
 [SmartEnum]
 internal sealed partial class Channel {
@@ -155,8 +155,8 @@ Without the policy, the same calls print:
 - Decimal value objects become a string
 - Records collapse into one string (`"Entry { Status = Paid, Total = 99.95 }"`)
 
-Ad hoc union structs never assigned have no active member, and their `Value` throws `InvalidOperationException` (`This struct of type 'StatusOrText' is not initialized. Make sure all fields, properties and variables are initialized with non-default values.`). Serilog catches the exception during property capture, writes `"Capturing the property value threw an exception: InvalidOperationException"` in place of the value, and the log call survives without it:
-- Analyzer reports 047 on `default(StatusOrText)` and `new StatusOrText()`, and 104 on a settable field or property until it is `required`
+Ad hoc union structs never assigned have no active member, and their `Value` throws `InvalidOperationException` (`This struct of type '<union>' is not initialized. Make sure all fields, properties and variables are initialized with non-default values.`). Serilog catches the exception during property capture, writes `"Capturing the property value threw an exception: InvalidOperationException"` in place of the value, and the log call survives without it:
+- Analyzer reports 047 on `default(TUnion)` and `new TUnion()`, and 104 on a settable field or property until it is `required`
 - Array elements and a generic `default` draw no diagnostic, an uninitialized union reaches a logger through those routes
 - `DefaultValueHandling = UnionDefaultValueHandling.MapToFirstMember` with a stateless first member makes `default` valid
 - `Value` of a mapped default returns `default` of the first member type, a reference type logs `null` and a struct its type tag

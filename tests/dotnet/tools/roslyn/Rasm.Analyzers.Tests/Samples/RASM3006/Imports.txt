@@ -1,0 +1,7 @@
+using System.Text;
+
+namespace Rasm.Texts {
+    internal static class Builders {
+        internal static StringBuilder Fresh() => new();
+    }
+}

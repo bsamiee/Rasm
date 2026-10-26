@@ -1,6 +1,8 @@
+using System.Drawing;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Eto.Forms;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -10,6 +12,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
 using Rasm.Analyzers.CodeFixes;
+using Rhino;
 
 namespace Rasm.Analyzers.Tests;
 
@@ -41,9 +44,9 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
         ReferenceAssemblies = ReferenceAssemblies.Net.Net100;
         TestState.AdditionalReferences.Add(typeof(Fin<>).Assembly);
         TestState.AdditionalReferences.Add(typeof(UnionAttribute).Assembly);
-        TestState.AdditionalReferences.Add(typeof(Rhino.RhinoDoc).Assembly);
-        TestState.AdditionalReferences.Add(typeof(System.Drawing.Bitmap).Assembly);
-        TestState.AdditionalReferences.Add(typeof(Eto.Forms.Application).Assembly);
+        TestState.AdditionalReferences.Add(typeof(RhinoDoc).Assembly);
+        TestState.AdditionalReferences.Add(typeof(Bitmap).Assembly);
+        TestState.AdditionalReferences.Add(typeof(Application).Assembly);
         TestState.AdditionalReferences.Add(typeof(ILogger).Assembly);
         TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         ExpectedDiagnostics.AddRange(expected);

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-encoded-raster-handoff
+language: csharp
+severity: error
+utils:
+    format:
+        kind: member_access_expression
+        has: {field: expression, matches: {csharp-type-name: {name: {regex: '^(SKEncodedImageFormat|ImageFormat)$'}}}}
+    encoder:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Encode|ToByteArray|Save)$'}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: format}}}
+    encoded:
+        any:
+            - matches: encoder
+            - has: {stopBy: end, matches: encoder}
+            - all:
+                - kind: invocation_expression
+                - has: {field: function, kind: identifier}
+                - matches: {csharp-file-method-call: {declaration: {has: {field: body, has: {stopBy: end, matches: encoder}}}}}
+    decoder:
+        any:
+            - kind: invocation_expression
+              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(SKImage|SKBitmap)$'}, member: {regex: '^(FromEncodedData|Decode)$'}}}}
+            - kind: object_creation_expression
+              has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Bitmap|Icon|Image)$'}}}}
+    handed:
+        has: {kind: argument_list, has: {kind: argument, has: {matches: encoded}}}
+rule:
+    kind: 'invocation_expression, object_creation_expression'
+    pattern: $DECODE
+    any:
+        - all:
+            - matches: decoder
+            - matches: handed
+        - all:
+            - has: {field: function, kind: identifier}
+            - has: {kind: argument_list, has: {kind: argument, has: {kind: invocation_expression}}}
+            - matches: handed
+            - matches: {csharp-file-method-call: {declaration: {has: {field: body, has: {stopBy: end, matches: decoder}}}}}
+message: '`$DECODE` decodes pixels this code encoded'
+note: 'Copy pixels between the rasters, `SKImage.FromPixelCopy(info, pointer, rowBytes)` and `ReadPixels` over `Bitmap.LockBits` or Eto `Bitmap.Lock()`'

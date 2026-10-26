@@ -31,7 +31,7 @@ internal static class TrustedGrayscale {
 internal static class CheckedGrayscale {
     internal static IO<Bitmap> Refusing(ZBufferCapture capture) => IO.lift(() => Refused.UnlessFound(capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib)));
 
-    internal static Option<Bitmap> Optional(ZBufferCapture capture) => Prelude.Optional(capture.GrayscaleDib());
+    internal static Option<Bitmap> Wrapped(ZBufferCapture capture) => Optional(capture.GrayscaleDib());
 
     internal static IO<Size> Found(ZBufferCapture capture) => DisposalOps.Found(() => capture.GrayscaleDib(), nameof(ZBufferCapture.GrayscaleDib), static gray => IO.pure(gray.Size));
 }

@@ -262,6 +262,8 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
         public INamedTypeSymbol? Prelude { get; } = compilation.GetTypeByMetadataName("LanguageExt.Prelude");
 
+        public INamedTypeSymbol? Lens { get; } = compilation.GetTypeByMetadataName("LanguageExt.Lens`2");
+
         public ISymbol? Namespace { get; } = Declared(compilation, "N:LanguageExt").FirstOrDefault();
 
         public ImmutableArray<IMethodSymbol> Lifts => Members(IO, "lift", "pure");

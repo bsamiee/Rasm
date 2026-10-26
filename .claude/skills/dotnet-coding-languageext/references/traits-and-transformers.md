@@ -7,7 +7,7 @@ Trait encoding, transformer stacks, and the wrappers over them, from higher kind
 Static abstract interface members let a constraint describe operations that belong to a type in place of an instance. The recursive constraint `where A : Monoid<A>` makes the implementing type pass its own concrete type to the trait, and generic code calls `A.Empty` and `+` through the type parameter and receives the concrete value, never a boxed interface. `Semigroup<A>` declares the associative `Combine` and derives `+` from it, and `Monoid<A>` adds the identity `Empty`. Types outside the codebase (`string`, an integer) cannot implement them retroactively, a small owned wrapper implements the trait and converts where monoidal behavior is required:
 
 ```csharp
-internal readonly record struct Total(decimal Value) : Monoid<Total> {
+internal sealed record Total(decimal Value) : Monoid<Total> {
     public static Total Empty => new(0m);
     public Total Combine(Total other) => new(Value + other.Value);
 }

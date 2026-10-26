@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-data-pointer-span
+language: csharp
+severity: error
+utils:
+    data-pointer:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, pattern: $MAT}
+            - has: {field: name, regex: '^DataPointer$'}
+rule:
+    kind: 'object_creation_expression, implicit_object_creation_expression'
+    pattern: $SPAN
+    has:
+        kind: argument_list
+        has:
+            kind: argument
+            nthChild: 1
+            has:
+                any:
+                    - kind: cast_expression
+                      has: {field: value, matches: data-pointer}
+                    - kind: invocation_expression
+                      has:
+                        field: function
+                        kind: member_access_expression
+                        all:
+                            - has: {field: name, regex: '^ToPointer$'}
+                            - has: {field: expression, matches: data-pointer}
+message: '`$SPAN` builds a span over `$MAT.DataPointer` with a hand length'
+note: 'Read `<mat>.GetSpan<T>()`, sized from `Total` and `ElementSize`, `.AsSpan2D(rows, cols)` for two dimensions, and `GetDataPointer(row)` with `Mat.Step` for a borrowed header'

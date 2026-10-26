@@ -295,4 +295,4 @@ rule:
 constraints:
     SRC: {not: {matches: bound-source}}
 message: '`$TARGET` copies the members of `$SRC`'
-note: 'Declare a `partial` Mapperly mapping, a `void` update under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned host value'
+note: 'Declare a `partial` Mapperly mapping for a record a caller stores or compares, a write into a host object is `Seq<Func<<host>, IO<Unit>>>` closures folded in order'

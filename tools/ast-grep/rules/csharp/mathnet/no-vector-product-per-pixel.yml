@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-vector-product-per-pixel
+language: csharp
+severity: error
+rule:
+    kind: invocation_expression
+    pattern: $PRODUCT
+    all:
+        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Multiply|TransposeThisAndMultiply|LeftMultiply)$'}}
+        - has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $VECTOR}}}
+        - inside:
+            stopBy: end
+            kind: foreach_statement
+            has: {field: type, regex: 'Vector4$'}
+        - inside:
+            stopBy: end
+            kind: 'method_declaration, lambda_expression, local_function_statement, anonymous_method_expression'
+            has:
+                stopBy: end
+                kind: variable_declaration
+                all:
+                    - has: {field: type, regex: '^DenseVector$'}
+                    - has: {kind: variable_declarator, has: {field: name, pattern: $VECTOR}}
+message: '`$PRODUCT` multiplies a MathNet matrix once per pixel'
+note: 'Bake the matrix once and run `ImageProcessing.ApplyColorMatrix(samples, samples, 4, baked)` over the row, `Matrix4x4` with `Vector3.Transform` inside a non-linear chain'

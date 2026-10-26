@@ -9,6 +9,9 @@ M:System.Diagnostics.Stopwatch.#ctor;Read `GetTimestamp()` and `GetElapsedTime(s
 M:System.Diagnostics.Stopwatch.StartNew;Read `GetTimestamp()` and `GetElapsedTime(start)` from a `TimeProvider` argument
 M:System.Diagnostics.Stopwatch.GetTimestamp;Read `GetTimestamp()` from a `TimeProvider` argument
 M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64);Read `GetElapsedTime(start)` from a `TimeProvider` argument
+M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64,System.Int64);Read `GetElapsedTime(start, end)` from a `TimeProvider` argument
+F:System.Diagnostics.Stopwatch.Frequency;Read `GetElapsedTime(start)` from a `TimeProvider` argument
+P:System.TimeProvider.TimestampFrequency;Read `GetElapsedTime(start)` from the `TimeProvider`, the timestamp ratio restates it
 P:NodaTime.SystemClock.Instance;Take the clock as a `TimeProvider` argument
 M:System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 M:System.Runtime.Serialization.FormatterServices.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
@@ -157,7 +160,7 @@ M:Foundation.NSObject.BeginInvokeOnMainThread(System.Action);Marshals one call t
 M:Foundation.NSObject.BeginInvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one `IO` run through `OnUiThread()`
 M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(System.EventHandler{Foundation.NSNotificationEventArgs});Registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center, call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`
 M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(Foundation.NSObject,System.EventHandler{Foundation.NSNotificationEventArgs});Registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center, call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`
-P:AppKit.NSWindow.Animator;Throws `RuntimeException` on an Eto `FloatingForm`, write Eto `Window.Bounds` from an `Animated` sampled on `FrameClocks.Paced` ticks
+P:AppKit.NSWindow.Animator;Throws `RuntimeException` on an Eto `FloatingForm`, write Eto `Window.Bounds` from an `Animated` sampled on `FrameLinks.Linked` ticks
 T:System.Diagnostics.Debug;Log through an `ILogger` the composition root creates, replace an assertion with a type excluding asserted state
 T:System.Diagnostics.Trace;Log through an `ILogger` the composition root creates
 M:System.Diagnostics.Debugger.Log(System.Int32,System.String,System.String);Log through an `ILogger` the composition root creates

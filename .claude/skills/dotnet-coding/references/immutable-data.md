@@ -29,10 +29,10 @@ Locks protect one update, and atomicity grows harder to reason about as one busi
 
 ## [03]-[VALUES_AND_ENTITIES]
 
-Values decide identity of a value object, and changing a date, a number, or a geometric shape produces a different value. Framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values, as custom immutable operations do. Value types copy between functions, a mutation of the copy propagates down the call stack and never back up:
+Values decide identity of a value object, and changing a date, a number, or a geometric shape produces a different value. Framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values, as custom immutable operations do:
 
 ```csharp
-internal readonly record struct Point(double X, double Y);
+internal sealed record Point(double X, double Y);
 
 internal sealed record Circle(Point Center, double Radius);
 
@@ -48,15 +48,13 @@ Entity identity persists while state changes, each allowed change is a function 
 Snapshots construct through factories that set initial values and copy a mutable input collection at the boundary out of reach of the caller's later changes:
 
 ```csharp
-internal readonly record struct Code(string Value);
-
-internal enum Status { Requested = 0, Active = 1, Frozen = 2 }
+internal enum Status { Requested, Active, Frozen }
 
 internal sealed record Entry(string Reference, decimal Amount);
 
-internal sealed record Snapshot(Code Code, Status Status, decimal Limit, Seq<Entry> Entries) {
-    public static Snapshot Requested(Code code) => new(code, Status.Requested, 0m, Seq<Entry>());
-    public static Snapshot Opened(Code code, IList<Entry> entries) => new(code, Status.Active, 0m, toSeq(entries));
+internal sealed record Snapshot(string Code, Status Status, decimal Limit, Seq<Entry> Entries) {
+    public static Snapshot Requested(string code) => new(code, Status.Requested, 0m, Seq<Entry>());
+    public static Snapshot Opened(string code, IList<Entry> entries) => new(code, Status.Active, 0m, toSeq(entries));
 
     public Snapshot Add(Entry entry) => this with { Entries = entry.Cons(Entries) };
 }

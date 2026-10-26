@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-edge-record-rectangle
+language: csharp
+severity: error
+utils:
+    edge:
+        kind: 'property_declaration, parameter'
+        has: {field: name, regex: '^(Left|Top|Right|Bottom)$'}
+    edges:
+        regex: '(?s)^\(\s*(\([^()]*\)\s*)?Left\s*,\s*(\([^()]*\)\s*)?Top\s*,\s*(\([^()]*\)\s*)?Right\s*,\s*(\([^()]*\)\s*)?Bottom\s*\)$'
+    rebuilt:
+        any:
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, regex: '^SKRect$'}
+                - has: {kind: argument_list, matches: edges}
+            - kind: implicit_object_creation_expression
+              all:
+                - has: {kind: argument_list, matches: edges}
+                - inside: {kind: arrow_expression_clause, inside: {kind: property_declaration, has: {field: type, regex: '^SKRect$'}}}
+rule:
+    kind: 'class_declaration, record_declaration, struct_declaration'
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {stopBy: end, matches: edge, has: {field: name, regex: '^Left$'}}
+        - has: {stopBy: end, matches: edge, has: {field: name, regex: '^Top$'}}
+        - has: {stopBy: end, matches: edge, has: {field: name, regex: '^Right$'}}
+        - has: {stopBy: end, matches: edge, has: {field: name, regex: '^Bottom$'}}
+        - has: {field: body, has: {stopBy: end, matches: rebuilt}}
+message: '`$NAME` holds four edges and rebuilds an `SKRect` from them'
+note: 'Hold one validated `SKRect` member, its `Create`, `Offset`, `Inflate`, and `Contains` state the edge arithmetic'

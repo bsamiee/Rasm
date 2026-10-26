@@ -20,4 +20,4 @@ rule:
           pattern: $NAME
           has: {field: expression, matches: project-root}
 message: '`$NAME` works around a name clash through a using alias or namespace qualifier'
-note: 'Rename the clashing project declaration and import its namespace with `using`, an external clash takes its namespace qualifier'
+note: 'Rename the clashing project declaration and import its namespace with `using`, a clash between two packages takes its namespace qualifier'

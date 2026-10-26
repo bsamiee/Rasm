@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-subscribed-own-event
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Subscriptions$'}, member: {regex: '^Host$'}}}}
+        - has:
+            field: arguments
+            has:
+                kind: argument
+                has:
+                    kind: lambda_expression
+                    has:
+                        field: body
+                        kind: assignment_expression
+                        all:
+                            - has: {field: left, kind: identifier, pattern: $EVENT}
+                            - has: {field: operator, regex: '^\+=$'}
+        - inside:
+            stopBy: end
+            kind: declaration_list
+            has: {kind: event_field_declaration, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $EVENT}}}}
+message: '`$EVENT` is an event of this type read back through `Subscriptions.Host`'
+note: 'Hold the signal as an `Action<A>` field, raise it by calling the field, and read it through `Event.from(ref field).Subscribe()`'

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-tail-zip-pairwise
+language: csharp
+severity: error
+rule:
+    kind: invocation_expression
+    pattern: $PAIRS
+    any:
+        - pattern: $ITEMS.Zip($ITEMS.Tail)
+        - pattern: $ITEMS.Zip($ITEMS.Tail, $JOIN)
+message: '`$PAIRS` pairs each element of `$ITEMS` with its successor by hand'
+note: 'Call `SuperEnumerable.Window(<items>.AsIterable(), 2, window => …)` with the span selector, one buffer per window'

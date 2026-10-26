@@ -121,7 +121,6 @@ Member and constructor visibility stays at `AllAccessible`:
 Existing-target mappings mutate their target, and an existing collection adds without replacement:
 - Lists add, queues enqueue, stacks push in source order, and a null source collection leaves the target unchanged
 - Null-skipping implements merge behavior and cannot distinguish an omitted member from one cleared to null
-- Explicit optional wrappers fold against `[MappingTargetOriginalValue]` at a mutable boundary
 - Constructor and init-only targets receive `default` as the original value
 
 Reference handling materializes an external graph that requires cycles or shared identity, and one handler serves one mapping call:
@@ -365,12 +364,12 @@ Attributes that configure one enum mapping:
 ```csharp
 [Mapper]
 internal static partial class StateMapper {
-    [MapEnumValue(InternalState.InProgress, ExternalState.Active)]
-    [MapEnumValue(InternalState.Done, ExternalState.Completed)]
-    public static partial ExternalState ToExternal(InternalState state);
+    [MapEnumValue(StoredState.InProgress, ExternalState.Active)]
+    [MapEnumValue(StoredState.Done, ExternalState.Completed)]
+    public static partial ExternalState ToExternal(StoredState state);
 }
 
-internal enum InternalState { Draft, InProgress, Done, Cancelled }
+internal enum StoredState { Draft, InProgress, Done, Cancelled }
 internal enum ExternalState { Active, Completed, Cancelled, Draft }
 ```
 

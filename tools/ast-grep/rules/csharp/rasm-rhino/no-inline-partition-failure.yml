@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-partition-failure
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+rule:
+    any:
+        - pattern: '$PARTS.Fails.IsEmpty ? $SUCCEEDED : IO.fail<$T>(Error.Many($PARTS.Fails))'
+        - pattern: '$FAILS.IsEmpty ? $SUCCEEDED : IO.fail<$T>(Error.Many($FAILS))'
+        - pattern: '$FAILS.IsEmpty ? $SUCCEEDED : Error.Many($FAILS)'
+        - pattern: 'unless($FAILS.IsEmpty, IO.fail<$T>(Error.Many($FAILS)))'
+    all:
+        - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^Callbacks$'}}}
+        - not: {inside: {stopBy: end, kind: 'from_clause, let_clause', follows: {stopBy: end, kind: 'from_clause, let_clause', has: {stopBy: end, kind: member_access_expression, has: {field: name, regex: '^Succs$'}}}}}
+message: 'Failures join through `Error.Many` beside `Callbacks.Each`'
+note: 'Run the effects through `Callbacks.Each(Seq<IO<T>>)`, the one owner of the partition and its joined failure'

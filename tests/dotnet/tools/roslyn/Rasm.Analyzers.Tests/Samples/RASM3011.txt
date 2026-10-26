@@ -1,0 +1,19 @@
+internal sealed record Factor(float Value) {
+    public static Factor Unit { get; } = new(1f);
+
+    public static Factor Create(float value) => new(value);
+}
+
+internal sealed record Grow(Factor Factor) {
+    public static readonly Grow Fill = new(Factor.Unit);
+}
+
+internal static class Sizes {
+    internal static Grow Whole => {|#0:new Grow({|#1:Factor.Create(1f)|})|};
+
+    internal static Factor One => {|#2:Factor.Create(1f)|};
+
+    internal static Factor Half => Factor.Create(0.5f);
+
+    internal static Grow Held => Grow.Fill;
+}

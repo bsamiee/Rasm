@@ -1,0 +1,2 @@
+#0 `System.Drawing.Bitmap` is qualified around project declaration `int Painter.Bitmap(int size)`, rename `int Painter.Bitmap(int size)` and import `System.Drawing`
+#1 `Prelude.unit` is qualified around project declaration `int unit`, rename `int unit` and import `LanguageExt.Prelude`

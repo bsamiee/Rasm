@@ -147,8 +147,8 @@ internal sealed partial class Level {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [ObjectFactory<ReadOnlySpan<char>>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
-internal readonly partial struct Region {
-    public static ValidationError? Validate(ReadOnlySpan<char> value, IFormatProvider? provider, out Region item) =>
+internal sealed partial class Region {
+    public static ValidationError? Validate(ReadOnlySpan<char> value, IFormatProvider? provider, out Region? item) =>
         value switch {
             "eu" => Validate("eu", provider, out item),
             "us" => Validate("us", provider, out item),

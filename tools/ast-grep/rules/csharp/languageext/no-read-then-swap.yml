@@ -31,6 +31,9 @@ utils:
               all:
                 - has: {field: expression, regex: '^this$'}
                 - has: {field: name, pattern: $NAME}
+            - kind: member_access_expression
+              pattern: $NAME
+              not: {has: {field: expression, regex: '^this$'}}
     swap:
         kind: invocation_expression
         pattern: $WRITE
@@ -90,6 +93,10 @@ rule:
                 kind: 'if_statement, conditional_expression, while_statement, do_statement'
                 has: {stopBy: end, matches: swap}
             - inside:
+                stopBy: end
+                kind: from_clause
+                precedes: {stopBy: end, has: {stopBy: end, matches: swap}}
+            - inside:
                 stopBy: {matches: callback}
                 kind: argument
                 inside: {kind: 'tuple_expression, argument_list'}
@@ -97,4 +104,4 @@ rule:
 labels:
     WRITE: {style: secondary, message: 'Writes the atom an earlier read observed'}
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: 'Read the atom inside one `Swap` transition and use the value it returns, `FindOrAdd`, `TryAdd`, or `SwapKey` for an `AtomHashMap`'
+note: 'Read the atom inside one `Swap` transition and use the value it returns, `FindOrAdd`, `TryAdd`, or `SwapKey` for an `AtomHashMap`, and `atomicIO(() => (Before: cell.Value, After: cell.Value = next(cell.Value)))` over a `Ref` for a before-and-after pair'

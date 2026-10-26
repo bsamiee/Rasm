@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-tried-dispose
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+rule:
+    kind: invocation_expression
+    pattern: $RELEASE
+    any:
+        - pattern: Try.lift($X.Dispose).Run()
+        - pattern: Try.lift(() => $X.Dispose()).Run()
+        - pattern: Try.lift(() => { $X.Dispose(); return unit; }).Run()
+message: '`$RELEASE` releases `$X` through `Try`'
+note: 'Acquire the resource through `use` and release it at the owning `Bracket`, `Finally(IO.lift(<release>))` pairs a release that holds no handle'

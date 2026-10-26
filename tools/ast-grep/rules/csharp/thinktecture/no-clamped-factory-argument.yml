@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-clamped-factory-argument
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    limit:
+        any:
+            - kind: member_access_expression
+              has: {field: name, regex: '^(MinValue|MaxValue)$'}
+            - kind: 'integer_literal, real_literal'
+            - kind: prefix_unary_expression
+              has: {kind: 'integer_literal, real_literal'}
+    saturation:
+        kind: invocation_expression
+        has:
+            field: function
+            kind: member_access_expression
+            any:
+                - has: {field: name, regex: '^Clamp$'}
+                - all:
+                    - has: {field: name, regex: '^(Min|Max)$'}
+                    - inside: {kind: invocation_expression, has: {field: arguments, has: {kind: argument, has: {matches: limit}}}}
+rule:
+    kind: invocation_expression
+    pattern: $FACTORY
+    all:
+        - has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^(Validated|Validate|TryCreate)$'}
+                - has: {field: expression, kind: identifier, regex: '^[A-Z]'}
+        - has:
+            field: arguments
+            all:
+                - has: {kind: argument, nthChild: 1, has: {matches: saturation, pattern: $CLAMP}}
+                - not: {has: {kind: argument, nthChild: 2}}
+message: '`$CLAMP` saturates the argument of `$FACTORY` before its validation'
+note: 'Pass the measured value to `Validated`, saturation is a member of the `IMinMaxValue` type itself'

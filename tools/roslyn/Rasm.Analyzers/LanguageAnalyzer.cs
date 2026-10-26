@@ -71,18 +71,43 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         "`{0}` takes its folder's name, name the file for its concept family",
         "Source file named as its parent directory.");
 
+    public static readonly DiagnosticDescriptor Shadowed = Rule(
+        "RASM3009",
+        Category,
+        "Qualified name around a project declaration",
+        "`{0}` is qualified around project declaration `{1}`, rename `{1}` and import `{2}`",
+        "Package namespace or statically imported type qualifying a name that a project type, member, parameter, or local shadows at that position.");
+
+    public static readonly DiagnosticDescriptor Qualified = Rule(
+        "RASM3010",
+        Category,
+        "Qualified name with no clash",
+        "`{0}` clashes with nothing in scope, import `{1}` and write `{2}`",
+        "Package namespace qualifying a type whose simple name resolves to nothing else at that position, with no type of the namespace clashing with a project declaration in scope.");
+
+    public static readonly DiagnosticDescriptor Restated = Rule(
+        "RASM3011",
+        Category,
+        "Static instance restated at a construction site",
+        "`{0}` restates `{1}`, read `{1}`",
+        "Construction or factory call whose constant arguments equal the initializer of a static member of the constructed type.",
+        WellKnownDiagnosticTags.CompilationEnd);
+
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback, Borrowed, Clash, Tested, Folder];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback, Borrowed, Clash, Tested, Folder, Shadowed, Qualified, Restated];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         SystemSymbols symbols = new(context.Compilation);
+        LanguageExtSymbols languageExt = new(context.Compilation);
         Readers(context, symbols.Sets, symbols.Collections);
         if (symbols.Flags is { } flags) Enums(context, flags);
         Awaitables(context);
         Namespaces(context);
         ImmutableArray<IAssemblySymbol> projects = Projects(context.Compilation);
-        Clashes(context, projects);
+        Clashes(context, projects, Imported(context.Compilation, context.CancellationToken), languageExt.K);
+        Qualifications(context);
+        Restatements(context);
         if (symbols.Type is { } type) Tests(context, projects, type);
         Files(context);
     }
@@ -314,20 +339,40 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             SyntaxKind.FileScopedNamespaceDeclaration);
 
     // --- [CLASHES]
-    private static void Clashes(CompilationStartAnalysisContext context, ImmutableArray<IAssemblySymbol> projects) =>
+    private static ImmutableHashSet<INamespaceSymbol> Imported(Compilation compilation, CancellationToken token) {
+        static INamespaceSymbol? Resolve(INamespaceSymbol root, NameSyntax name) =>
+            name switch {
+                IdentifierNameSyntax leaf => root.GetNamespaceMembers().FirstOrDefault(held => string.Equals(held.Name, leaf.Identifier.ValueText, StringComparison.Ordinal)),
+                QualifiedNameSyntax qualified => Resolve(root, qualified.Left) is { } left ? Resolve(left, qualified.Right) : null,
+                AliasQualifiedNameSyntax aliased => Resolve(root, aliased.Name),
+                _ => null,
+            };
+        IEqualityComparer<INamespaceSymbol> comparer = SymbolEqualityComparer.Default;
+        return ImmutableHashSet.CreateRange(
+            comparer,
+            compilation.SyntaxTrees
+                .SelectMany(tree => tree.GetRoot(token).DescendantNodes(static node => node is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax).OfType<UsingDirectiveSyntax>())
+                .Where(static directive => directive.Alias is null && directive.StaticKeyword.IsKind(SyntaxKind.None) && directive.NamespaceOrType is NameSyntax)
+                .Select(directive => Resolve(compilation.GlobalNamespace, (NameSyntax)directive.NamespaceOrType))
+                .OfType<INamespaceSymbol>());
+    }
+
+    private static void Clashes(CompilationStartAnalysisContext context, ImmutableArray<IAssemblySymbol> projects, ImmutableHashSet<INamespaceSymbol> spaces, INamedTypeSymbol? brand) =>
         context.RegisterSyntaxNodeAction(
             node => {
                 if (node.SemanticModel.GetDeclaredSymbol(node.Node, node.CancellationToken) is not INamedTypeSymbol { ContainingType: null, ContainingNamespace: { } space } type
                     || type.DeclaringSyntaxReferences.FirstOrDefault() is not { } first || first.SyntaxTree != node.Node.SyntaxTree || first.Span != node.Node.Span) return;
                 IAssemblySymbol own = node.Compilation.Assembly;
                 bool Exposed(INamedTypeSymbol other) => other.DeclaredAccessibility is Accessibility.Public && !Same(other.ContainingAssembly, own);
+                bool Branded(INamedTypeSymbol generic, INamedTypeSymbol plain) =>
+                    plain.Arity is 0 && generic.AllInterfaces.Any(face => Same(face, brand) && face.TypeArguments.Length > 0 && Same(face.TypeArguments[0], plain));
                 IEnumerable<INamedTypeSymbol> imported = node.SemanticModel.GetImportScopes(node.Node.SpanStart, node.CancellationToken)
-                    .SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType).OfType<INamespaceSymbol>()
+                    .SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType).OfType<INamespaceSymbol>().Concat(spaces)
                     .SelectMany(held => held.GetTypeMembers(type.Name, type.Arity)).Where(Exposed);
                 IEnumerable<INamedTypeSymbol> declared = projects.Where(project => project.TypeNames.Contains(type.Name))
                     .SelectMany(project => project.NamespaceNames.Select(name => project.GetTypeByMetadataName(name.Length is 0 ? type.MetadataName : $"{name}.{type.MetadataName}")))
                     .OfType<INamedTypeSymbol>().Where(Exposed);
-                IEnumerable<INamedTypeSymbol> siblings = space.GetTypeMembers(type.Name).Where(other => other.Arity != type.Arity && Sourced(other));
+                IEnumerable<INamedTypeSymbol> siblings = space.GetTypeMembers(type.Name).Where(other => other.Arity != type.Arity && Sourced(other) && !Branded(type, other) && !Branded(other, type));
                 if (imported.Concat(declared).Concat(siblings).FirstOrDefault() is { } clash)
                     node.ReportDiagnostic(Diagnostic.Create(Clash, node.Node switch {
                         BaseTypeDeclarationSyntax declaration => declaration.Identifier.GetLocation(),
@@ -342,6 +387,89 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             SyntaxKind.InterfaceDeclaration,
             SyntaxKind.EnumDeclaration,
             SyntaxKind.DelegateDeclaration);
+
+    // --- [QUALIFICATIONS]
+    private static void Qualifications(CompilationStartAnalysisContext context) =>
+        context.RegisterSyntaxNodeAction(
+            static node => {
+                (ExpressionSyntax Left, SimpleNameSyntax Right)? parts = node.Node switch {
+                    QualifiedNameSyntax qualified => (qualified.Left, qualified.Right),
+                    MemberAccessExpressionSyntax access => (access.Expression, access.Name),
+                    _ => null,
+                };
+                if (parts is not (var left, var right)
+                    || (node.Node.Parent is QualifiedNameSyntax { Left: var outer } && outer == node.Node)
+                    || (node.Node.Parent is MemberAccessExpressionSyntax { Expression: var receiver } && receiver == node.Node)
+                    || node.Node.Ancestors().Any(static held => held is UsingDirectiveSyntax)
+                    || (node.Node.FirstAncestorOrSelf<BaseNamespaceDeclarationSyntax>() is { Name: var declared } && declared.Span.Contains(node.Node.Span)))
+                    return;
+                CancellationToken token = node.CancellationToken;
+                SemanticModel model = node.SemanticModel;
+                ISymbol? owner = model.GetSymbolInfo(left, token).Symbol;
+                if (owner is not (INamespaceSymbol or INamedTypeSymbol) || Sourced(owner) || model.GetSymbolInfo(right, token).Symbol is not { } target || target is INamespaceSymbol) return;
+                ImmutableArray<ISymbol> scopes = [.. model.GetImportScopes(node.Node.SpanStart, token).SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType)];
+                bool imported = scopes.Any(held => Same(held, owner));
+                if (owner is INamedTypeSymbol ? !imported : imported) return;
+                string name = right.Identifier.ValueText;
+                ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: name).Where(found => !Same(found, target))];
+                if (visible.FirstOrDefault(Sourced) is { } shadowing)
+                    node.ReportDiagnostic(Diagnostic.Create(Shadowed, node.Node.GetLocation(), node.Node, shadowing.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), owner.ToDisplayString()));
+                else if (visible.IsEmpty && owner is INamespaceSymbol space && !space.GetTypeMembers().Any(member => model.LookupSymbols(node.Node.SpanStart, name: member.Name).Any(Sourced)))
+                    node.ReportDiagnostic(Diagnostic.Create(Qualified, node.Node.GetLocation(), node.Node, owner.ToDisplayString(), right));
+            },
+            SyntaxKind.QualifiedName,
+            SyntaxKind.SimpleMemberAccessExpression);
+
+    // --- [RESTATEMENTS]
+    private static void Restatements(CompilationStartAnalysisContext context) {
+        ConcurrentDictionary<ISymbol, IOperation> initializers = new(SymbolEqualityComparer.Default);
+        ConcurrentBag<(IOperation Site, INamedTypeSymbol Type, ISymbol Owner)> sites = [];
+        static INamedTypeSymbol? Made(IOperation operation) =>
+            operation switch {
+                IObjectCreationOperation { Constructor: { } made, Initializer: null } => made.ContainingType,
+                IInvocationOperation { TargetMethod: { IsStatic: true } method } when Same(method.ReturnType, method.ContainingType) => method.ContainingType,
+                _ => null,
+            };
+        context.RegisterOperationAction(
+            analysis => {
+                switch (analysis.Operation) {
+                    case IFieldInitializerOperation { InitializedFields: { Length: 1 } fields, Value: var value } when fields[0] is { IsStatic: true, IsReadOnly: true } field && Same(field.Type, field.ContainingType):
+                        initializers[field] = value;
+                        break;
+                    case IPropertyInitializerOperation { InitializedProperties: { Length: 1 } properties, Value: var value } when properties[0] is { IsStatic: true, SetMethod: null } property && Same(property.Type, property.ContainingType):
+                        initializers[property] = value;
+                        break;
+                    case var operation:
+                        if (Made(operation) is { } type && Sourced(type) && type.TypeArguments.IsEmpty) sites.Add((operation, type, Member(analysis.ContainingSymbol)));
+                        break;
+                }
+            },
+            OperationKind.FieldInitializer,
+            OperationKind.PropertyInitializer,
+            OperationKind.ObjectCreation,
+            OperationKind.Invocation);
+        context.RegisterCompilationEndAction(end => {
+            string? Shape(IOperation held, int depth) =>
+                depth > 8 ? null : Stripped(held) switch {
+                    { ConstantValue: { HasValue: true, Value: var constant }, Type: var type } => $"{type?.ToDisplayString()}={constant ?? "null"}",
+                    IObjectCreationOperation { Constructor: { } made, Initializer: null } creation => Shaped(made.ContainingType, creation.Arguments, depth),
+                    IInvocationOperation { TargetMethod: { IsStatic: true } method } call when Same(method.ReturnType, method.ContainingType) => Shaped(method.ContainingType, call.Arguments, depth),
+                    IMemberReferenceOperation reference when initializers.TryGetValue(reference.Member, out IOperation? initializer) => Shape(initializer, depth + 1),
+                    _ => null,
+                };
+            string? Shaped(INamedTypeSymbol type, ImmutableArray<IArgumentOperation> arguments, int depth) =>
+                !arguments.IsEmpty && arguments.Select(argument => Shape(argument.Value, depth + 1)).ToImmutableArray() is var shapes && shapes.All(static shape => shape is not null)
+                    ? $"{type.ToDisplayString()}({string.Join(",", shapes)})"
+                    : null;
+            IEqualityComparer<INamedTypeSymbol> comparer = SymbolEqualityComparer.Default;
+            ILookup<INamedTypeSymbol, (ISymbol Member, string? Shape)> statics = initializers
+                .Select(pair => (pair.Key.ContainingType, Member: pair.Key, Shape: Shape(pair.Value, 1)))
+                .ToLookup(static held => held.ContainingType, static held => (held.Member, held.Shape), comparer);
+            foreach ((IOperation site, INamedTypeSymbol type, ISymbol owner) in sites)
+                if (Shape(site, 0) is { } shape && statics[type].FirstOrDefault(held => !Same(held.Member, owner) && string.Equals(held.Shape, shape, StringComparison.Ordinal)) is { Member: { } restated })
+                    end.ReportDiagnostic(Diagnostic.Create(Restated, site.Syntax.GetLocation(), site.Syntax, $"{type.Name}.{restated.Name}"));
+        });
+    }
 
     // --- [TESTS]
     private static void Tests(CompilationStartAnalysisContext context, ImmutableArray<IAssemblySymbol> projects, INamedTypeSymbol type) {

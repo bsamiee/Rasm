@@ -56,29 +56,36 @@ rule:
         - inside:
             kind: argument
             inside:
-                kind: argument_list
                 any:
-                    - inside: {kind: invocation_expression}
-                      not: {matches: row}
+                    - kind: argument_list
+                      any:
+                        - inside: {kind: invocation_expression}
+                          not: {matches: row}
+                          has:
+                            matches: sibling
+                            any:
+                                - has: {stopBy: end, matches: call, pattern: $CALL}
+                                - has: {stopBy: {kind: lambda_expression}, matches: read, pattern: $CALL}
+                        - inside: {kind: 'object_creation_expression, implicit_object_creation_expression'}
+                          has: {matches: sibling, has: {stopBy: end, matches: call, pattern: $CALL}}
+                        - inside:
+                            kind: 'object_creation_expression, implicit_object_creation_expression'
+                            any:
+                                - inside:
+                                    kind: argument
+                                    inside:
+                                        kind: argument_list
+                                        inside:
+                                            kind: invocation_expression
+                                            has: {field: function, kind: member_access_expression, has: {field: expression, matches: labelled}}
+                                - inside:
+                                    kind: conditional_expression
+                                    has: {field: condition, matches: labelled}
+                    - kind: tuple_expression
                       has:
                         matches: sibling
                         any:
                             - has: {stopBy: end, matches: call, pattern: $CALL}
                             - has: {stopBy: {kind: lambda_expression}, matches: read, pattern: $CALL}
-                    - inside: {kind: 'object_creation_expression, implicit_object_creation_expression'}
-                      has: {matches: sibling, has: {stopBy: end, matches: call, pattern: $CALL}}
-                    - inside:
-                        kind: 'object_creation_expression, implicit_object_creation_expression'
-                        any:
-                            - inside:
-                                kind: argument
-                                inside:
-                                    kind: argument_list
-                                    inside:
-                                        kind: invocation_expression
-                                        has: {field: function, kind: member_access_expression, has: {field: expression, matches: labelled}}
-                            - inside:
-                                kind: conditional_expression
-                                has: {field: condition, matches: labelled}
 message: '`$LABEL` restates the name of `$CALL` beside it'
 note: 'Take the label through a `[CallerArgumentExpression]` parameter of the callee and drop the `nameof` argument'

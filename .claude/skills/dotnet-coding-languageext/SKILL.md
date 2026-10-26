@@ -48,7 +48,6 @@ Each conversion is a method on the source type named for the target, and convert
 internal static class Conversions {
     public static Fin<int> Required(Option<int> value) => value.ToFin(new NotFound("count"));
     public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(new NotFound("count"));
-    public static Option<Quantity> Present(Fin<Quantity> quantity) => quantity.ToOption();
     public static Either<Error, Quantity> Split(Fin<Quantity> quantity) => quantity.ToEither();
     public static Seq<int> Items(Option<int> value) => value.ToSeq();
     public static Fin<Item> Exit(Validation<Error, Item> form) => form.ToFin();
@@ -228,7 +227,8 @@ internal static class Resources {
 - `Traverse` under `IO` starts every element effect before awaiting any
 - Effects built with `IO.liftAsync` overlap without a bound, effects built with `IO.lift` run in order on the calling thread
 - Bounded parallelism chunks the collection and traverses the chunks with `TraverseM`
-- Exclusive writes to one resource go through a `Conduit` reduced under `Fork`, a `SemaphoreSlim` or `lock` stands where a host API demands a thread
+- Exclusive writes to one resource go through a `Conduit` reduced under `Fork`
+- Host APIs that demand a thread take `AsyncSemaphore.EnterAsync()` under `use`
 
 ```csharp
 internal static class Concurrency {
@@ -428,18 +428,20 @@ Forms the compiler rejects:
 
 ## [07]-[LENSES_AND_SHARED_STATE]
 
-`Lens<A, B>.New` takes a getter and a curried setter for a focus no record property states, a property's lens derives from the property:
+`Lens<A, B>.New` takes a getter and a curried setter for a focus no record property states, a `[Field]` property under `[StateRecord]` reads its lens from the generated `<Record>Lenses.<Property>`:
 - `Get` reads the focus, `Set` writes a value and `Update` applies a function to it, both return a new `A`
 - `lens(outer, inner)` composes lenses into one that focuses on a value in a nested record
 - `Lens.identity<A>()` focuses on the whole value
 
 ```csharp
+[StateRecord]
+internal sealed partial record Item([Field] Detail Detail);
+
+[StateRecord]
+internal sealed partial record Detail([Field] string Code);
+
 internal static class Lenses {
-    public static readonly Lens<Item, Detail> DetailOf =
-        Lens<Item, Detail>.New(static item => item.Detail, static detail => item => item with { Detail = detail });
-    public static readonly Lens<Detail, string> CodeOf =
-        Lens<Detail, string>.New(static detail => detail.Code, static code => detail => detail with { Code = code });
-    public static readonly Lens<Item, string> ItemCode = lens(DetailOf, CodeOf);
+    public static readonly Lens<Item, string> ItemCode = lens(<ItemLenses>.Detail, <DetailLenses>.Code);
 
     public static Item Recoded(Item item, string code) => ItemCode.Set(code, item);
     public static Item Uppercased(Item item) => ItemCode.Update(static code => code.ToUpperInvariant(), item);

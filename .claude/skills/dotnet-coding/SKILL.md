@@ -169,7 +169,6 @@ QuikGraph `DepthFirstSearchAlgorithm` and `BreadthFirstSearchAlgorithm` visit ea
 ## [03]-[IMMUTABILITY]
 
 Immutable values are fixed once created, a needed change derives a new value from existing values, and a state transition is a function that receives the old state and the information the change needs and returns the replacement. Language features constrain reassignment:
-- `readonly struct` prevents reassignment of its fields, a struct is copied when passed
 - `readonly` protects the fields and not the objects reached through them
 - `init` accessors permit object-initializer syntax and prevent reassignment after initialization
 - `required` marks a property that cannot be omitted

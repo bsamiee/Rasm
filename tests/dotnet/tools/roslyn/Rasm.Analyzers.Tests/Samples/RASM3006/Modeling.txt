@@ -1,4 +1,5 @@
 using System.Reflection;
+using LanguageExt.Traits;
 
 namespace Rasm.Modeling {
     internal static class {|#0:Assembly|};
@@ -6,6 +7,12 @@ namespace Rasm.Modeling {
     internal sealed record {|#1:Proximity|}(double Distance);
 
     internal sealed record {|#2:Proximity|}<T>(T Value, double Distance);
+
+    internal sealed record {|#3:Encoder|}(int Width);
+
+    internal abstract class Edit;
+
+    internal sealed record Edit<T>(T Value) : K<Edit, T>;
 
     internal static class Solids;
 }

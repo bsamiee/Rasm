@@ -44,7 +44,7 @@ Event types have different payload shapes, the storage options from most to leas
 State is an immutable snapshot derived for one purpose, and it is not the persisted source of truth. The command side needs only enough state to decide whether a command is allowed (status, code, balance, limit, not the full transaction list), the query side needs read models shaped for each view, and analytics use other projections, each answers an independent question. The snapshot exposes read-only values and transformation methods that return new instances, and business rules belong in command validation rather than in the snapshot methods:
 
 ```csharp
-internal enum Status { Requested = 0, Active = 1, Frozen = 2 }
+internal enum Status { Requested, Active, Frozen }
 
 internal sealed record Snapshot(Status Status, string Code, decimal Balance, decimal Limit) {
     public Snapshot Credit(decimal amount) => this with { Balance = Balance + amount };

@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
@@ -42,6 +44,14 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         "`{0}.Create` throws on `{1}` from the caller, return `Fin<{0}>` through `Validate`",
         "Generated `Create` call on a validating value object or smart enum with an argument reading a parameter, outside `ValidateFactoryArguments`.");
 
+    public static readonly DiagnosticDescriptor Plain = Rule(
+        "RASM1105",
+        Category,
+        "Smart enum with no data",
+        "Smart enum `{0}` {1}",
+        "`[SmartEnum]` type whose items carry no key or data, or `[SmartEnum<string>]` type whose keys are its member names with no read of a key, `Get`, `TryGet`, `Validate`, or `Parse` in the compilation.",
+        WellKnownDiagnosticTags.CompilationEnd);
+
     public static readonly DiagnosticDescriptor Picked = Rule(
         "RASM2013",
         Category,
@@ -50,7 +60,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         "`[Union]` type with every `Switch` or `Map` lambda one referenced-assembly call or construction over case properties and lambda parameters, through `IO.lift`, `use`, or thunk lambdas.",
         WellKnownDiagnosticTags.CompilationEnd);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [CatchAll, Validation, Conversion, Thrown, Picked];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [CatchAll, Validation, Conversion, Thrown, Plain, Picked];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         ThinktectureSymbols symbols = new(context.Compilation);
@@ -60,6 +70,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
             Validations(context, factory, invalid, validate, symbols.SmartEnum, symbols.ValidationResults);
         if (languageExt.Error is { } error && symbols.Message is { } message) Conversions(context, error, message, symbols.ValidationResults);
         if (symbols.Validate is { } validating) Creations(context, validating.Name, symbols.Validated, [.. new[] { symbols.SmartEnumAttribute, symbols.SmartEnumAttribute1 }.OfType<INamedTypeSymbol>()]);
+        if (symbols is { SmartEnumAttribute: { } plain, SmartEnumAttribute1: { } stringKeyed }) Enumerations(context, plain, stringKeyed);
         if (symbols.UnionAttribute is { } union) Pickers(context, union, languageExt);
     }
 
@@ -142,9 +153,75 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
             && Validating(owner);
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>
             Throwing(invocation.TargetMethod) && analysis.ContainingSymbol.Name is not Hook
-            && invocation.Arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf()).OfType<IParameterReferenceOperation>().FirstOrDefault() is { } read
-                ? [Diagnostic.Create(Thrown, invocation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType.Name, read.Parameter.Name)]
+            && invocation.Arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf()).Select(static held => held switch {
+                IParameterReferenceOperation reference => reference.Parameter,
+                ILocalReferenceOperation { Local: { HasConstantValue: false } local } => (ISymbol)local,
+                _ => null,
+            }).OfType<ISymbol>().FirstOrDefault() is { } read
+                ? [Diagnostic.Create(Thrown, invocation.Syntax.GetLocation(), invocation.TargetMethod.ContainingType.Name, read.Name)]
                 : []);
+    }
+
+    // --- [ENUMERATIONS]
+    private static void Enumerations(CompilationStartAnalysisContext context, INamedTypeSymbol plain, INamedTypeSymbol keyed) {
+        ConcurrentDictionary<INamedTypeSymbol, bool> free = new(SymbolEqualityComparer.Default);
+        ConcurrentDictionary<INamedTypeSymbol, byte> read = new(SymbolEqualityComparer.Default);
+        static string Key(AttributeData mark) => mark.NamedArguments.Where(static named => named.Key is "KeyMemberName").Select(static named => named.Value.Value).OfType<string>().FirstOrDefault() ?? "Key";
+        (AttributeData Mark, bool Keyed)? Form(INamedTypeSymbol type) =>
+            type.GetAttributes().Select(data => data.AttributeClass switch {
+                { } held when Same(held, plain) => (data, false),
+                { TypeArguments: { Length: 1 } arguments } held when Same(held, keyed) && arguments[0].SpecialType is SpecialType.System_String => (data, true),
+                _ => ((AttributeData, bool)?)null,
+            }).FirstOrDefault(static form => form is not null);
+        static bool Named(string literal, string member) => string.Equals(literal.Replace("-", ""), member, StringComparison.OrdinalIgnoreCase);
+        static bool Allowed(AttributeSyntax attribute, SemanticModel model, CancellationToken token) =>
+            model.GetSymbolInfo(attribute, token).Symbol?.ContainingType is { ContainingNamespace.Name: "Thinktecture", Name: "SmartEnumAttribute" or "KeyMemberEqualityComparerAttribute" or "KeyMemberComparerAttribute" };
+        static bool Item(FieldDeclarationSyntax field, INamedTypeSymbol owner, bool keyedForm, SemanticModel model, CancellationToken token) =>
+            field.Modifiers.Any(SyntaxKind.StaticKeyword) && field.Declaration.Variables.All(variable =>
+                variable.Initializer?.Value is BaseObjectCreationExpressionSyntax { Initializer: null } creation && Same(model.GetTypeInfo(creation, token).Type, owner)
+                && (creation.ArgumentList?.Arguments ?? default) is var arguments
+                && (keyedForm
+                    ? arguments.Count is 1 && arguments[0].Expression is LiteralExpressionSyntax { Token.Value: string key } && Named(key, variable.Identifier.ValueText)
+                    : arguments.Count is 0));
+        context.RegisterSyntaxNodeAction(
+            node => {
+                ClassDeclarationSyntax declaration = (ClassDeclarationSyntax)node.Node;
+                if (node.IsGeneratedCode || node.SemanticModel.GetDeclaredSymbol(declaration, node.CancellationToken) is not { } type || Form(type) is not (_, var keyedForm)) return;
+                bool held = declaration.Members.Any(static member => member is FieldDeclarationSyntax)
+                    && declaration.Members.All(member => member switch {
+                        FieldDeclarationSyntax field => Item(field, type, keyedForm, node.SemanticModel, node.CancellationToken),
+                        ConstructorDeclarationSyntax { ParameterList.Parameters.Count: <= 1, ExpressionBody: null, Body: null or { Statements.Count: 0 } } => true,
+                        _ => false,
+                    })
+                    && declaration.AttributeLists.SelectMany(static list => list.Attributes).All(attribute => Allowed(attribute, node.SemanticModel, node.CancellationToken));
+                _ = free.AddOrUpdate(type, held, (_, prior) => prior && held);
+            },
+            SyntaxKind.ClassDeclaration);
+        context.RegisterOperationAction(
+            analysis => {
+                (ISymbol? Member, INamedTypeSymbol? Owner) found = analysis.Operation switch {
+                    IInvocationOperation { TargetMethod: { IsExtensionMethod: true, Parameters: { Length: > 0 } parameters } extension } when parameters[0].Type is INamedTypeSymbol receiver => (extension, receiver),
+                    IInvocationOperation { TargetMethod: var method } => (method, method.ContainingType),
+                    IPropertyReferenceOperation { Property: var property } => (property, property.ContainingType),
+                    _ => (null, null),
+                };
+                if (found is not ( { } member, { } owner) || Form(owner) is not ( { } mark, true)) return;
+                bool keyRead = member.Name is "Get" or "TryGet" or "Validate" or "Validated" or "Parse" or "TryParse" || string.Equals(member.Name, Key(mark), StringComparison.Ordinal);
+                if (keyRead) read[owner] = 1;
+            },
+            OperationKind.Invocation,
+            OperationKind.PropertyReference);
+        context.RegisterCompilationEndAction(end => {
+            foreach (KeyValuePair<INamedTypeSymbol, bool> pair in free.Where(static pair => pair.Value))
+                if (Form(pair.Key) is (_, var keyedForm) && (!keyedForm || !read.ContainsKey(pair.Key)))
+                    end.ReportDiagnostic(Diagnostic.Create(
+                        Plain,
+                        pair.Key.Locations[0],
+                        pair.Key.Name,
+                        keyedForm
+                            ? "keys its items by their member names and nothing reads a key, declare it as a plain `enum` under `JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower)`"
+                            : "holds items with no key, data, or behavior, declare it as a plain `enum`"));
+        });
     }
 
     // --- [PICKERS]

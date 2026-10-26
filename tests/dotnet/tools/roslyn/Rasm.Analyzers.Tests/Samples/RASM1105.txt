@@ -1,0 +1,53 @@
+using Thinktecture;
+
+[SmartEnum]
+internal sealed partial class {|#0:Modifier|} {
+    public static readonly Modifier Common = new();
+    public static readonly Modifier Shift = new();
+
+    private Modifier() {
+    }
+}
+
+[SmartEnum<string>]
+internal sealed partial class {|#1:Glass|} {
+    public static readonly Glass Regular = new("regular");
+    public static readonly Glass ClearFrosted = new("clear-frosted");
+
+    private Glass(string key) {
+    }
+}
+
+[SmartEnum<string>]
+internal sealed partial class Discipline {
+    public static readonly Discipline General = new("G");
+    public static readonly Discipline Survey = new("V");
+
+    private Discipline(string key) {
+    }
+}
+
+[SmartEnum<string>]
+internal sealed partial class Channel {
+    public static readonly Channel Red = new("red");
+    public static readonly Channel Green = new("green");
+
+    private Channel(string key) {
+    }
+}
+
+[SmartEnum]
+internal sealed partial class Weight {
+    public static readonly Weight Light = new(300);
+    public static readonly Weight Bold = new(700);
+
+    private Weight(int css) => Css = css;
+
+    public int Css { get; }
+}
+
+internal static class Channels {
+    internal static Channel Validated(this Channel channel) => channel;
+
+    internal static Channel Checked(Channel channel) => channel.Validated();
+}

@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using AppKit;
+using Eto.Drawing;
 using Eto.Forms;
 using Foundation;
 using LanguageExt;
@@ -92,7 +93,7 @@ internal sealed class DirectCallbacks {
 internal sealed class EagerControl : Drawable {
     private CallbackSite Site() => new(nameof(EagerControl));
 
-    private static IO<Unit> Move(Eto.Drawing.SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
+    private static IO<Unit> Move(SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
 
     protected override void OnMouseMove(MouseEventArgs e) {
         {|#5:Callbacks.Run(Move(Size, ParentWindow.LogicalPixelSize, e), Site())|};
@@ -117,7 +118,7 @@ internal sealed class RoutedCallbacks {
 internal sealed class RoutedControl : Drawable {
     private CallbackSite Site() => new(nameof(RoutedControl));
 
-    private static IO<Unit> Move(Eto.Drawing.SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
+    private static IO<Unit> Move(SizeF size, float scale, MouseEventArgs args) => IO.pure(unit);
 
     protected override void OnMouseMove(MouseEventArgs e) {
         Callbacks.Run(IO.lift(() => Move(Size, ParentWindow.LogicalPixelSize, e)).Bind(static moved => moved), Site());

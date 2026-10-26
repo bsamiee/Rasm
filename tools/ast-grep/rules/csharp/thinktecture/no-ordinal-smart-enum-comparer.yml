@@ -9,7 +9,11 @@ utils:
     cased-key:
         kind: argument
         nthChild: 1
-        inside: {kind: argument_list, inside: {kind: 'object_creation_expression, implicit_object_creation_expression'}}
+        inside:
+            kind: argument_list
+            inside:
+                kind: 'object_creation_expression, implicit_object_creation_expression, invocation_expression'
+                inside: {kind: variable_declarator, inside: {kind: variable_declaration, inside: {kind: field_declaration}}}
         has:
             any:
                 - kind: string_literal
@@ -27,6 +31,6 @@ rule:
                 all:
                     - has: {kind: attribute_list, has: {kind: attribute, regex: '^((global::)?Thinktecture\.)?SmartEnum\s*<\s*string\s*>'}}
                     - has: {field: name, pattern: $TYPE}
-                    - not: {has: {field: body, has: {stopBy: end, matches: cased-key}}}
+                    - not: {has: {field: body, has: {kind: field_declaration, has: {stopBy: end, matches: cased-key}}}}
 message: '`$ATTRIBUTE` on smart enum `$TYPE` sets a case-sensitive comparer over lowercase keys'
 note: 'Delete the `KeyMemberEqualityComparer` and `KeyMemberComparer` pair, the case-insensitive default compares lowercase keys'
