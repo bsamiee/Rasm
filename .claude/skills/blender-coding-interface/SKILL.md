@@ -423,11 +423,11 @@ Custom shaders come from `gpu.shader.create_from_info` over a `gpu.types.GPUShad
 - `GPUUniformBuf` values passed to `shader.uniform_block` stay bound to a name through `batch.draw`, an inline buffer freeing before the draw and drawing nothing
 - Sources compile to Metal Shading Language on macOS, MSL keywords (`vertex`, `fragment`, `kernel`) being reserved names
 - Matrix constructors under Metal take one scalar, all scalars, whole columns, or a square matrix, a split column failing to compile
-- Compile errors raise a plain `Exception` that `catch` lifts and log the detail under `gpu.shader`
+- Compile errors raise a plain `Exception` that `host` keeps as cause and log the detail under `gpu.shader`
 
 ```python
-@functools.cache
-def tinted() -> Result[gpu.types.GPUShader, Exception]:
+@contextmanager
+def tinted(_: Identity) -> Generator[BlenderResult[gpu.types.GPUShader]]:
     stage = gpu.types.GPUStageInterfaceInfo("tinted_interface")
     stage.smooth("VEC2", "uv")
     info = gpu.types.GPUShaderCreateInfo()
@@ -444,10 +444,13 @@ def tinted() -> Result[gpu.types.GPUShader, Exception]:
         " fragColor = vec4(srgbTarget ? mix(color.rgb / 12.92, pow((color.rgb + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), color.rgb)) : color.rgb, color.a);"
         " }"
     )
-    return catch(gpu.shader.create_from_info, exception=Exception)(info)
+    yield host(gpu.shader.create_from_info, info)
+
+
+shader = Resource(made=tinted)
 ```
 
-`functools.cache` compiles once per session in the first GPU context that asks, a failed compile answering its cached `Error` with no retry.
+Registration scope realizes `shader` once per session in the first GPU context a dependent asks from, a failed compile answering its `Error` to every dependent with no retry.
 
 Offscreen buffers draw away from the window:
 - `gpu.types.GPUOffScreen(<width>, <height>, format=<format>)` takes `RGBA8`, `RGBA16`, `RGBA16F`, or `RGBA32F`
@@ -458,12 +461,7 @@ Offscreen buffers draw away from the window:
 - Camera views take `camera.calc_matrix_camera(depsgraph, x=<width>, y=<height>)` as projection and `matrix_world.normalized().inverted()` as view
 
 ```python
-class Oversized(msgspec.Struct, frozen=True, kw_only=True):
-    size: int
-    limit: int
-
-
-def captured(draw: Callable[[], None], size: int) -> Result[NDArray[np.float32], Oversized]:
+def captured(draw: Callable[[], None], size: int) -> BlenderResult[NDArray[np.float32]]:
     def read(offscreen: gpu.types.GPUOffScreen) -> NDArray[np.float32]:
         with ExitStack() as scope:
             scope.callback(offscreen.free)
@@ -478,7 +476,7 @@ def captured(draw: Callable[[], None], size: int) -> Result[NDArray[np.float32],
             return np.flipud(np.asarray(framebuffer.read_color(0, 0, size, size, 4, 0, "FLOAT"), np.float32))
 
     limit = gpu.capabilities.max_texture_size_get()
-    return Ok(read(gpu.types.GPUOffScreen(size, size))) if size <= limit else Error(Oversized(size=size, limit=limit))
+    return host(gpu.types.GPUOffScreen, size, size).map(read) if size <= limit else Error(Fault(reason=Reason.OVERSIZED, subject=repr(size), member="max_texture_size"))
 ```
 
 `captured(partial(stroke.drawn, label, preferences), size)` reads a handler's own drawing, the pixel projection placing `POST_PIXEL` coordinates as the region does. Both matrix stacks return to the caller's values, a draw handler included.

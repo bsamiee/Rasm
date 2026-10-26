@@ -24,24 +24,23 @@ Registration runs under host conditions a release stack answers:
 - Property definitions `register_class` refuses print a `TypeError` and leave the class registered without them
 - Pointers or collections naming an unregistered group raise `ValueError` after the print with the class registered, and releases test `is_registered`
 
-`register()` enters every acquisition into one `ExitStack` and moves its releases to a module-level release stack after the last acquisition succeeds:
+`rows` enters every acquisition into one `ExitStack` and yields once the last acquisition succeeds. `scope(__name__, rows)` in the extension `__init__` answers `register` and `unregister` over the rows and owns their release:
 
 ```python
-from contextlib import ExitStack
+from collections.abc import Generator
+from contextlib import ExitStack, contextmanager
 from sys import platform
 
 from bl_keymap_utils.io import keymap_init_from_data
 from bl_keymap_utils.platform_helpers import keyconfig_data_oskey_from_ctrl_for_macos
 import bpy
-from expression import identity
+from expression import Ok, identity
 
 type Keymaps = list[tuple[str, dict[str, str], dict[str, list[tuple[str, dict[str, object], dict[str, list[tuple[str, object]]]]]]]]
 
-held = ExitStack()
-unregister = held.close
 
-
-def register() -> None:
+@contextmanager
+def rows(extension: Identity) -> Generator[BlenderResult[Acquisitions]]:
     def unregistered(cls: type[bpy.types.PropertyGroup | bpy.types.Operator | bpy.types.Panel]) -> None:
         if cls.is_registered:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             bpy.utils.unregister_class(cls)
@@ -64,7 +63,10 @@ def register() -> None:
             keymap_init_from_data(keymap, content["items"])
             for item in keymap.keymap_items[present:]:
                 stack.callback(keymap.keymap_items.remove, item)
-        held.push(stack.pop_all())
+        yield Ok(())
+
+
+register, unregister = scope(__name__, rows)
 ```
 
 Snippet placeholders stand for extension declarations and values:
@@ -259,8 +261,7 @@ Properties keep identifier and type across versions, and a rename or type change
 
 ```python
 import bpy
-from expression import Nothing, Option, Result, Some
-from expression.extra.result import catch
+from expression import Nothing, Option, Some
 import msgspec
 
 
@@ -268,12 +269,12 @@ class Previous(msgspec.Struct, frozen=True, kw_only=True):
     count: int = 1
 
 
-def migrated(preferences: bpy.types.Preferences, package: str) -> Option[Result[Previous, msgspec.ValidationError]]:
+def migrated(preferences: bpy.types.Preferences, package: str) -> Option[BlenderResult[Previous]]:
     held: bpy.types.Addon | None = preferences.addons.get(package)
     match held:
         case bpy.types.Addon(preferences=ItemPreferences() as prefs) if (stored := prefs.bl_system_properties_get()) is not None and any(field.name in stored for field in msgspec.structs.fields(Previous)):  # type: ignore[operator]
-            previous: Result[Previous, msgspec.ValidationError] = catch(msgspec.convert, exception=msgspec.ValidationError)(
-                {field.name: stored.pop(field.name) for field in msgspec.structs.fields(Previous) if field.name in stored}, type=Previous  # type: ignore[operator]
+            previous: BlenderResult[Previous] = host(
+                msgspec.convert, {field.name: stored.pop(field.name) for field in msgspec.structs.fields(Previous) if field.name in stored}, type=Previous  # type: ignore[operator]
             )
             for record in previous.to_option().to_list():
                 prefs.amount = record.count
@@ -302,7 +303,7 @@ User files hold frozen records through typed codecs, a missing file reading as t
 from pathlib import Path
 
 import bpy
-from expression import Error, Ok, Result
+from expression import Error, Ok
 from expression.extra.result import catch
 import msgspec
 
@@ -315,19 +316,22 @@ def placed(package: str) -> Path:
     return Path(bpy.utils.extension_path_user(package, path="state"), "recent.json")
 
 
-def recalled(package: str) -> Result[Recent, OSError | msgspec.DecodeError]:
-    return Result[bytes, OSError | msgspec.DecodeError].bind(
-        catch(placed(package).read_bytes, exception=OSError)(), lambda data: catch(lambda: msgspec.json.decode(data, type=Recent), exception=msgspec.DecodeError)()
-    ).or_else_with(lambda error: Ok(Recent()) if isinstance(error, FileNotFoundError) else Error(error))
+def recalled(package: str) -> BlenderResult[Recent]:
+    return (
+        host(placed(package).read_bytes)
+        .bind(lambda data: host(msgspec.json.decode, data, type=Recent))
+        .or_else_with(lambda fault: Ok(Recent()) if isinstance(fault.cause, FileNotFoundError) else Error(fault))
+    )
 
 
-def kept(package: str, recent: Recent) -> Result[Recent, OSError]:
+def kept(package: str, recent: Recent) -> BlenderResult[Recent]:
+    @catch(exception=OSError)
     def written(path: Path) -> Recent:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(msgspec.json.encode(recent))
         return recent
 
-    return catch(written, exception=OSError)(placed(package))
+    return written(placed(package))
 ```
 
 `bpy.types.FileHandler` classes route file drops and collection exports to operators:

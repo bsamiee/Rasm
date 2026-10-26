@@ -11,7 +11,7 @@ Covers operator classes declared through `blender.bpy.commands.operators.Operato
 - `invoke` gathers event input through `seed` and the invoke form
 - `seed` fills only properties `is_property_set` reports unset, keeping keymap, menu, and script values
 - Script `bpy.ops` calls with `undo` off, the `called` default, neither read nor store last-run values, while `undo=True` calls and interface runs read and store them
-- `undo=True` pushes one step per `FINISHED` call, and `undo="<label>"` declares `UNDO_GROUPED` without `UNDO`, collapsing consecutive calls under that label into one step
+- `undo=True` pushes one step per `FINISHED` call, and `grouped=True` declares `UNDO_GROUPED` without `UNDO`, one step covering consecutive calls under a group name from the operator
 - `primary` names the field a search popup or enum operator edits
 - `internal=True` hides the operator from search
 - Bodies that act (write data, save a file, open a view) return `Done`, with report entries in `notes`
@@ -22,15 +22,14 @@ class Scaled(msgspec.Struct, frozen=True, kw_only=True):
     percentage: Annotated[int, msgspec.Meta(ge=1, le=100)] = 100
 
 
+@command(form=Scaled, undo=True)
 def rescaled(call: Call[Scaled]) -> BlenderResult[Done | Unchanged]:
+    """Set the render resolution scale."""
     return (
         call.root(bpy.types.Scene)
-        .bind(lambda scene: written(scene, "render.resolution_percentage", call.record.percentage))
-        .map(lambda prior: Done() if prior.is_some() else Unchanged(reason="Resolution holds requested scale"))
+        .bind(lambda scene: written(scene, ("render", "resolution_percentage"), call.record.percentage))
+        .map(lambda prior: Done() if prior.is_some() else Unchanged(reason=Reason.HELD))
     )
-
-
-scale = Operator[Scaled](key="scale", title="Scale", description="Set the render resolution scale", form=Scaled, run=rescaled, undo="Scale")
 ```
 
 ## [02]-[CONDITIONS]

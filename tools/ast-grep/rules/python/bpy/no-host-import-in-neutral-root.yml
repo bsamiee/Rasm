@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-host-import-in-neutral-root
+language: python
+severity: error
+files:
+    - libs/python/blender/imaging/**
+    - libs/python/blender/records/**
+    - libs/python/blender/rendering/**
+rule:
+    pattern: $MODULE
+    matches: python-imported-module
+    regex: '^(bpy|bmesh|mathutils|gpu|gpu_extras|blf|idprop|cycles|bl_ui|bl_operators|bl_keymap_utils|bpy_extras|rna_keymap_ui|_bpy_internal|_bpy_types|_blendfile_header|blender\.bpy)(\.|$)'
+message: '`$MODULE` import reaches the host from a host-neutral root'
+note: '`blender.bpy` reads or writes the host and passes values in as arguments'

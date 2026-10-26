@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-module-level-mutable-cell
+language: python
+severity: error
+utils:
+    empty-literal:
+        kind: dictionary, list, set
+        not: {has: {pattern: $_, not: {kind: comment}}}
+    empty-builtin:
+        kind: call
+        all:
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(dict|list|set|bytearray)$'}}}}
+            - has: {field: arguments, kind: argument_list, not: {has: {pattern: $_, not: {kind: comment}}}}
+    factory:
+        kind: call
+        has:
+            field: function
+            any:
+                - matches: {python-member-use: {module: {regex: '^collections$'}, name: {regex: '^(deque|defaultdict|OrderedDict|Counter|ChainMap)$'}}}
+                - matches: {python-member-use: {module: {regex: '^weakref$'}, name: {regex: '^(WeakValueDictionary|WeakKeyDictionary|WeakSet)$'}}}
+rule:
+    kind: assignment
+    pattern: $CELL
+    all:
+        - has: {field: left, kind: identifier, not: {regex: '^__all__$'}}
+        - has: {field: right, any: [{matches: empty-literal}, {matches: empty-builtin}, {matches: factory}]}
+        - inside: {kind: expression_statement, inside: {kind: module}}
+message: '`$CELL` holds process state in a module cell'
+note: 'Scope-owned resources yield state and pass values to reading operations as arguments'

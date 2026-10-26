@@ -104,20 +104,14 @@ Multi-input order resolves every position from one read of `socket.links`, then 
 
 ```python
 import bpy
-from expression import Error, Ok, Option, Result
+from expression import Error, Ok, Result
 from expression.collections import Block
-import msgspec
 
 
-class Unsourced(msgspec.Struct, frozen=True, kw_only=True):
-    source: str
-    position: int
-
-
-def stacked(socket: bpy.types.NodeSocket, sources: Block[bpy.types.NodeSocket]) -> Result[None, Block[Unsourced]]:
+def stacked(socket: bpy.types.NodeSocket, sources: Block[bpy.types.NodeSocket]) -> Result[None, Block[Fault]]:
     links = tuple(socket.links)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     pending = {source: iter([link for link in links if link.from_socket == source]) for source in sources}
-    if faults := (found := sources.mapi(lambda position, source: Option.of_optional(next(pending[source], None)).to_result_with(lambda: Unsourced(source=source.path_from_id(), position=position)))).choose(
+    if faults := (found := sources.mapi(lambda position, source: required(next(pending[source], None), socket, f"links[{position}]"))).choose(
         lambda result: result.swap().to_option()
     ):
         return Error(faults)
@@ -339,22 +333,11 @@ Copies take every writable member, item collections growing through their own `n
 
 ```python
 import bpy
-from expression import Error, Ok, Result
+from expression import Error, Ok
 from expression.collections import Block
-from expression.extra.result import catch
-import msgspec
 
 
-class Refused(msgspec.Struct, frozen=True, kw_only=True):
-    kind: str
-
-
-class Unwritten(msgspec.Struct, frozen=True, kw_only=True):
-    owner: str
-    member: str
-
-
-def mirrored(source: "bpy.types.bpy_struct[object]", target: "bpy.types.bpy_struct[object]", skipped: frozenset[str] = frozenset({"rna_type"})) -> Block[Unwritten]:
+def mirrored(source: Struct, target: Struct, skipped: frozenset[str] = frozenset({"rna_type"})) -> Block[Fault]:
     opaque = (bpy.types.ID, bpy.types.Node, bpy.types.NodeInternalLink)
     sockets: bpy.types.Struct = bpy.types.NodeSocket.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     definition: bpy.types.Struct = source.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -362,44 +345,44 @@ def mirrored(source: "bpy.types.bpy_struct[object]", target: "bpy.types.bpy_stru
     def socketed(prop: bpy.types.Property) -> bool:
         return isinstance(prop, bpy.types.CollectionProperty) and prop.fixed_type == sockets
 
-    def grown(prop: bpy.types.CollectionProperty, held: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]", live: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]") -> Block[Unwritten]:
+    def grown(prop: bpy.types.CollectionProperty, held: bpy.types.bpy_prop_collection[Struct], live: bpy.types.bpy_prop_collection[Struct]) -> Block[Fault]:
         if prop.srna is None or not {"new", "remove"}.issubset(prop.srna.functions.keys()):
             return Block.empty()
         parameters = Block.of_seq(prop.srna.functions["new"].parameters).filter(lambda parameter: not parameter.is_output)
         for item in tuple(live)[len(held) :]:
             live.remove(item)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         return Block.of_seq(tuple(held)[len(live) :]).choose(
-            lambda item: catch(live.new, exception=(RuntimeError, TypeError))(  # type: ignore[attr-defined, call-overload]  # ty: ignore[unresolved-attribute, invalid-argument-type]
-                *parameters.map(lambda parameter: getattr(item, parameter.identifier) if parameter.identifier in item.bl_rna.properties else parameter.enum_items[0].identifier if parameter.type == "ENUM" else parameter.default)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            ).swap().to_option().map(lambda _: Unwritten(owner=definition.identifier, member=prop.identifier))
+            lambda item: host(  # type: ignore[attr-defined, call-overload]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+                live.new, *parameters.map(lambda parameter: getattr(item, parameter.identifier) if parameter.identifier in item.bl_rna.properties else parameter.enum_items[0].identifier if parameter.type == "ENUM" else parameter.default)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            ).swap().to_option()
         )
 
-    def member(prop: bpy.types.Property) -> Block[Unwritten]:
+    def member(prop: bpy.types.Property) -> Block[Fault]:
         name, held, live = prop.identifier, getattr(source, prop.identifier), getattr(target, prop.identifier)
         match held, prop:
             case bpy.types.bpy_prop_collection(), _ if socketed(prop):
                 found = {socket.identifier: socket for socket in live}
-                return Block.of_seq(held).collect(lambda socket: mirrored(socket, found[socket.identifier]) if socket.identifier in found else Block.of(Unwritten(owner=name, member=socket.identifier)))
+                return Block.of_seq(held).collect(lambda socket: mirrored(socket, found[socket.identifier]) if socket.identifier in found else Block.of(Fault(reason=Reason.ABSENT, subject=name, member=socket.identifier)))
             case bpy.types.bpy_prop_collection(), bpy.types.CollectionProperty() as collection if not isinstance(next(iter(held), None), opaque):
                 return grown(collection, held, live) + Block.of_seq(zip(held, live)).collect(lambda pair: mirrored(*pair))
             case bpy.types.bpy_struct(), _ if prop.is_readonly and not isinstance(held, opaque):
                 return mirrored(held, live)
             case _ if not prop.is_readonly and held != live and (isinstance(held, bpy.types.ID) or not isinstance(held, bpy.types.bpy_struct | bpy.types.bpy_prop_collection)):
-                return Block.of_option(catch(setattr, exception=(TypeError, ValueError, AttributeError))(target, name, held).swap().to_option().map(lambda _: Unwritten(owner=definition.identifier, member=name)))  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
+                return Block.of_option(written(target, (name,), held).swap().to_option())
             case _:
                 return Block.empty()
 
     return Block.of_seq(definition.properties).filter(lambda prop: prop.identifier not in skipped and not prop.is_registered_optional).sort_with(lambda prop: (prop.is_readonly, socketed(prop))).collect(member)
 
 
-def copied(source: bpy.types.Node, tree: bpy.types.NodeTree) -> Result[bpy.types.Node, Block[Refused] | Block[Unwritten]]:
-    def filled(node: bpy.types.Node) -> Result[bpy.types.Node, Block[Refused] | Block[Unwritten]]:
+def copied(source: bpy.types.Node, tree: bpy.types.NodeTree) -> BlenderResult[bpy.types.Node]:
+    def filled(node: bpy.types.Node) -> BlenderResult[bpy.types.Node]:
         if faults := mirrored(source, node, frozenset({"rna_type", "name", "location", "select"})):
             tree.nodes.remove(node)
             return Error(faults)
         return Ok(node)
 
-    return Result[bpy.types.Node, Block[Refused] | Block[Unwritten]].bind(catch(tree.nodes.new, exception=RuntimeError)(source.bl_idname).map_error(lambda _: Block.of(Refused(kind=source.bl_idname))), filled)
+    return host(tree.nodes.new, source.bl_idname).bind(filled)
 ```
 
 - Copies keep `label`, `mute`, `hide`, `width`, custom color, and `location_absolute`, and leave identity and frame membership to the target tree
@@ -415,39 +398,17 @@ Group builds declare interface items, then nodes, a zone pair, menu items, and l
 from contextlib import ExitStack
 
 import bpy
-from expression import Error, Ok, Option, Result
+from expression import Option, Result
 from expression.collections import Block
-from expression.extra.result import catch
-import msgspec
-
-
-class Refused(msgspec.Struct, frozen=True, kw_only=True):
-    kind: str
-
-
-class Unlinked(msgspec.Struct, frozen=True, kw_only=True):
-    source: tuple[str, str]
-    target: tuple[str, str]
-
-
-class Unlisted(msgspec.Struct, frozen=True, kw_only=True):
-    item: str
-
-
-type Fault = Refused | Unlinked | Unlisted
 
 
 def subdivided(name: str, chosen: str) -> Result[bpy.types.GeometryNodeTree, Block[Fault]]:
-    def gathered[T](results: Block[Result[T, Fault]]) -> Result[Block[T], Block[Fault]]:
-        faults = results.choose(lambda result: result.swap().to_option())
-        return Error(faults) if faults else Ok(results.choose(Result.to_option))
-
     with ExitStack() as rollback:
         tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, "GeometryNodeTree")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         rollback.callback(bpy.data.node_groups.remove, tree)
         source, result, steps, shape = (
-            tree.interface.new_socket(label, in_out=side, socket_type=kind)  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
-            for label, side, kind in (("Geometry", "INPUT", "NodeSocketGeometry"), ("Geometry", "OUTPUT", "NodeSocketGeometry"), ("Steps", "INPUT", "NodeSocketInt"), ("Shape", "INPUT", "NodeSocketMenu"))
+            tree.interface.new_socket(label, in_out=side, socket_type=kind.bl_rna.identifier)  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+            for label, side, kind in (("Geometry", "INPUT", bpy.types.NodeSocketGeometry), ("Geometry", "OUTPUT", bpy.types.NodeSocketGeometry), ("Steps", "INPUT", bpy.types.NodeSocketInt), ("Shape", "INPUT", bpy.types.NodeSocketMenu))
         )
         steps.min_value, steps.default_value = 0, 2  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
@@ -464,7 +425,7 @@ def subdivided(name: str, chosen: str) -> Result[bpy.types.GeometryNodeTree, Blo
                     .map2(tree.links.new, Option.of_optional(sockets.get((tail, False, entering))))
                     .bind(Option.of_optional)
                     .filter(lambda link: link.is_valid)
-                    .to_result(Unlinked(source=(head.name, output), target=(tail.name, entering)))
+                    .to_result(Fault(reason=Reason.UNLINKED, subject=repr((head.name, output)), member=repr((tail.name, entering))))
                 )
 
             rows = Block.of(
@@ -477,11 +438,11 @@ def subdivided(name: str, chosen: str) -> Result[bpy.types.GeometryNodeTree, Blo
                 (entry, shape.identifier, choice, "Menu"),
                 (choice, "Output", outlet, result.identifier),
             )
-            return gathered(rows.starmap(linked)).bind(lambda _: catch(setattr, exception=TypeError)(shape, "default_value", chosen).map_error(lambda _: Block.of(Unlisted(item=chosen)))).map(lambda _: tree)
+            return accumulated(rows.starmap(linked)).bind(lambda _: written(shape, ("default_value",), chosen)).map(lambda _: tree)
 
-        outcome = gathered(
-            Block.of("NodeGroupInput", "NodeGroupOutput", "GeometryNodeRepeatInput", "GeometryNodeRepeatOutput", "GeometryNodeSubdivideMesh", "GeometryNodeMenuSwitch").map(
-                lambda kind: catch(tree.nodes.new, exception=RuntimeError)(kind).map_error(lambda _: Refused(kind=kind))
+        outcome = accumulated(
+            Block.of(bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput, bpy.types.GeometryNodeRepeatInput, bpy.types.GeometryNodeRepeatOutput, bpy.types.GeometryNodeSubdivideMesh, bpy.types.GeometryNodeMenuSwitch).map(
+                lambda kind: host(tree.nodes.new, kind.bl_rna.identifier)
             )
         ).bind(wired)
         if outcome.is_ok():

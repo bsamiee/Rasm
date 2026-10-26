@@ -28,7 +28,7 @@ Data, command, and callback needs:
 |  [02]   | Operator call                                 | `commands.calls.called`                                                               |
 |  [03]   | Operator class over a typed record            | `commands.operators.Operator`, its body `Call[T] -> BlenderResult[Done \| Unchanged]` |
 |  [04]   | Modal gesture, timer step, status             | `commands.modal.Modal`                                                                |
-|  [05]   | RNA write checked against its live owner      | `data.rna.descriptors.written`, dotted identifiers included                           |
+|  [05]   | RNA write checked against its live owner      | `data.rna.descriptors.written`, nested paths as step tuples                           |
 |  [06]   | Member writes in host order                   | `data.rna.descriptors.assigned`, `data.rna.snapshots.Snapshot` with a restore         |
 |  [07]   | Struct path inside its ID, struct at a path   | `data.rna.descriptors` `id_path`, `struct_at`                                         |
 |  [08]   | Context root of a type                        | `data.rna.descriptors.root_in`, `Call.root` inside an operator body                   |
@@ -101,24 +101,24 @@ Interface needs, each owner a row `extension.registration.scope` acquires:
 
 Host references go stale after their event, and code holds the form that survives:
 
-| [INDEX] | [REFERENCE]                          | [STALE_AFTER]                                   | [HOLD]                                  |
-| :-----: | :----------------------------------- | :---------------------------------------------- | :-------------------------------------- |
-|  [01]   | ID                                   | `remove()`, an undo step touching it, file load | `Handle`, `IdName` across file loads    |
-|  [02]   | Vertex, bone, point, UV, attribute   | `mode_set`, container growth, ID removal        | Index or name, re-read after the change |
-|  [03]   | `CollectionProperty` item            | `add()` on its collection                       | Index, re-read after each `add()`       |
-|  [04]   | Grease Pencil stroke or point        | `remove_strokes`, `resize_strokes`              | `frame.drawing` read again              |
-|  [05]   | `Keyframe`                           | Next insert on its F-curve                      | `keyframe_points` re-read per insert    |
-|  [06]   | `mathutils` value read from RNA      | Owner write (read live), owner removal          | `.copy()`                               |
-|  [07]   | `PropertyGroup` on an ID             | Undo                                            | Re-resolved through its ID              |
-|  [08]   | Evaluated ID                         | `Depsgraph.update()`, rewriting it in place     | Values copied out per evaluation        |
-|  [09]   | `object_instances` item              | Next iteration step                             | `Instance.read` copies                  |
-|  [10]   | `to_mesh()` result                   | Re-evaluation, `to_mesh()`, `to_mesh_clear()`   | `meshed` scope                          |
-|  [11]   | GeometrySet component                | Release of its GeometrySet                      | GeometrySet bound for the read          |
-|  [12]   | Struct with a class a write refines  | `Light.type`, `dimensions`, `socket_type`       | Re-resolved through `id_path`           |
-|  [13]   | Generated `properties.inputs` struct | Group assignment, any interface write           | `struct_at(owner, "properties.inputs")` |
-|  [14]   | Pointer an operator re-targets       | `object.convert`, importer `obj.data` swaps     | Read through its owner after the call   |
-|  [15]   | `ui_styles` item                     | Theme reset, preset load                        | Re-read from its owner                  |
-|  [16]   | Dynamic enum `EnumPropertyItem`      | End of `enum_items` iteration listing it        | Item `identifier`                       |
+| [INDEX] | [REFERENCE]                          | [STALE_AFTER]                                   | [HOLD]                                       |
+| :-----: | :----------------------------------- | :---------------------------------------------- | :------------------------------------------- |
+|  [01]   | ID                                   | `remove()`, an undo step touching it, file load | `Handle`, `IdName` across file loads         |
+|  [02]   | Vertex, bone, point, UV, attribute   | `mode_set`, container growth, ID removal        | Index or name, re-read after the change      |
+|  [03]   | `CollectionProperty` item            | `add()` on its collection                       | Index, re-read after each `add()`            |
+|  [04]   | Grease Pencil stroke or point        | `remove_strokes`, `resize_strokes`              | `frame.drawing` read again                   |
+|  [05]   | `Keyframe`                           | Next insert on its F-curve                      | `keyframe_points` re-read per insert         |
+|  [06]   | `mathutils` value read from RNA      | Owner write (read live), owner removal          | `.copy()`                                    |
+|  [07]   | `PropertyGroup` on an ID             | Undo                                            | Re-resolved through its ID                   |
+|  [08]   | Evaluated ID                         | `Depsgraph.update()`, rewriting it in place     | Values copied out per evaluation             |
+|  [09]   | `object_instances` item              | Next iteration step                             | `Instance.read` copies                       |
+|  [10]   | `to_mesh()` result                   | Re-evaluation, `to_mesh()`, `to_mesh_clear()`   | `meshed` scope                               |
+|  [11]   | GeometrySet component                | Release of its GeometrySet                      | GeometrySet bound for the read               |
+|  [12]   | Struct with a class a write refines  | `Light.type`, `dimensions`, `socket_type`       | Re-resolved through `id_path`                |
+|  [13]   | Generated `properties.inputs` struct | Group assignment, any interface write           | `struct_at(owner, ("properties", "inputs"))` |
+|  [14]   | Pointer an operator re-targets       | `object.convert`, importer `obj.data` swaps     | Read through its owner after the call        |
+|  [15]   | `ui_styles` item                     | Theme reset, preset load                        | Re-read from its owner                       |
+|  [16]   | Dynamic enum `EnumPropertyItem`      | End of `enum_items` iteration listing it        | Item `identifier`                            |
 
 Stale references fail by kind:
 - Stale ID, `object_instances` item, `to_mesh()` mesh, and GeometrySet component references raise `ReferenceError` on every read
@@ -199,8 +199,8 @@ Overrides reach the members an operator reads alone:
 ```python
 def merged(context: bpy.types.Context, target: bpy.types.Object, items: tuple[bpy.types.Object, ...]) -> BlenderResult[None]:
     joined: tuple[bpy.types.ID, ...] = tuple(item.data for item in items if item.data is not None)
-    return called(bpy.ops.object.join, {}, override=Some(context.temp_override(active_object=target, selected_editable_objects=[target, *items]))).map(
-        lambda _: bpy.data.batch_remove(ids=tuple(block for block in joined if block.users == 0))
+    return called(bpy.ops.object.join, {}, override=Some(context.temp_override(active_object=target, selected_editable_objects=[target, *items]))).bind(
+        lambda _: host(bpy.data.batch_remove, ids=tuple(block for block in joined if block.users == 0))
     )
 ```
 
@@ -306,7 +306,7 @@ Undo restores `bpy.data` alone, and each change pushes its step by form:
 |  [04]   | Window manager, screen, preference write | None, undo restoring no such state              | `Operator.undo` off                        |
 |  [05]   | Steps the operator names itself          | One per `ed.undo_push(message=...)`             | `REGISTER` without `UNDO`                  |
 |  [06]   | Repeated calls collapsing into one step  | One across consecutive calls of a group         | `UNDO_GROUPED`, no `UNDO`, `bl_undo_group` |
-|  [07]   | Deferred callback write                  | One per write answering its step name           | `deferred` write answering `Some(name)`    |
+|  [07]   | Deferred callback write                  | One per `Ok(True)`, named from its function     | `deferred` write answering `Ok(True)`      |
 |  [08]   | Background run                           | None until a script's `ed.undo_push()`          | Rollback scope                             |
 
 Undo steps act on held state:
@@ -337,7 +337,8 @@ Handler, timer, msgbus, and modal bodies return `BlenderResult` to the row holdi
 - Stock RNA writes notify msgbus subscribers coalesced after operators and outside undo
 - `PERSISTENT` subscriptions survive ID remapping, never a file load
 - Python writes to registered `bpy.props` publish no msgbus notification whether or not they declare `update`, and `written` publishes them
-- Handler, msgbus, and update callback bodies hand ID writes to `Reports.deferred`, each write returning its undo step name as `Option[str]`
+- Handler, msgbus, and update callback bodies hand ID writes to `Reports.deferred`, each write returning `BlenderResult[bool]`, `True` for a change made
+- `deferred` names the undo step from the write function
 - `bpy.ops` calls release the GIL and run any live Python thread inside the operator, and threads (`multiprocessing.Queue` feeders included) join before the next `bpy` call
 
 ## [08]-[BOUNDARIES]

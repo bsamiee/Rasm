@@ -40,12 +40,10 @@ Records declaring every governed member in chain order write and restore a forma
 
 ```python
 from collections.abc import Generator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from functools import partial
 
 import bpy
-from expression import Result
-from expression.extra.result import catch
 import msgspec
 
 
@@ -62,26 +60,21 @@ class FileFormat(msgspec.Struct, frozen=True, kw_only=True):
     linear_colorspace_settings: Colorspace
 
 
-class Unwritable(msgspec.Struct, frozen=True, kw_only=True):
-    output: FileFormat
+def imprinted(owner: Struct, record: msgspec.Struct) -> BlenderResult[None]:
+    def placed(field: msgspec.structs.FieldInfo) -> BlenderResult[None]:
+        value = getattr(record, field.name)
+        return imprinted(getattr(owner, field.name), value) if isinstance(value, msgspec.Struct) else written(owner, (field.name,), value).map(lambda _: None)
 
-
-def imprinted(owner: object, values: dict[str, object]) -> None:
-    for member, value in values.items():
-        if isinstance(value, dict):
-            imprinted(getattr(owner, member), value)
-        else:
-            setattr(owner, member, value)
+    return accumulated(placed(field) for field in msgspec.structs.fields(record)).map(lambda _: None)
 
 
 @contextmanager
-def formatted(settings: bpy.types.ImageFormatSettings, output: FileFormat) -> Generator[Result[FileFormat, Unwritable]]:
+def formatted(settings: bpy.types.ImageFormatSettings, output: FileFormat) -> Generator[BlenderResult[FileFormat]]:
     held = partial(msgspec.convert, settings, FileFormat, from_attributes=True)
     prior = held()
-    try:
-        yield catch(imprinted, exception=TypeError)(settings, msgspec.to_builtins(output)).map(lambda _: held()).map_error(lambda _: Unwritable(output=output))
-    finally:
-        imprinted(settings, msgspec.to_builtins(prior))
+    with ExitStack() as restore:
+        restore.callback(imprinted, settings, prior)
+        yield imprinted(settings, output).map(lambda _: held())
 ```
 
 `Colorspace` defaults its name to `""`, keeping an unset linear space out of the restore.
@@ -196,22 +189,12 @@ Light linking on an emitter names `obj.light_linking.receiver_collection` and `b
 from pathlib import Path
 
 import bpy
-from expression import Error, Ok, Result
-import msgspec
 
 
-class Unstocked(msgspec.Struct, frozen=True, kw_only=True):
-    group: str
-
-
-def stocked(name: str) -> Result[bpy.types.CompositorNodeTree, Unstocked]:
-    with bpy.data.libraries.load(str(Path(bpy.utils.system_resource("DATAFILES", path="assets/nodes"), "compositing_nodes_essentials.blend")), reuse_local_id=True) as (_, target):  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[invalid-context-manager, unresolved-attribute]
-        target.node_groups = [name]
-    match target.node_groups:
-        case [bpy.types.CompositorNodeTree(allow_usage_in_scene_compositor_effect=True) as group]:
-            return Ok(group)
-        case _:
-            return Error(Unstocked(group=name))
+def stocked(name: str) -> BlenderResult[bpy.types.CompositorNodeTree]:
+    return blocks_loaded(Path(bpy.utils.system_resource("DATAFILES", path="assets/nodes"), "compositing_nodes_essentials.blend"), bpy.types.CompositorNodeTree, (name,), reuse_local_id=True).bind(
+        lambda groups: required(next((group for group in groups if group.allow_usage_in_scene_compositor_effect), None), groups, "allow_usage_in_scene_compositor_effect")
+    )
 ```
 
 `CompositorNodeOutputFile` nodes in an effect group write their own files during a render:
@@ -332,20 +315,12 @@ Colors in code follow the working space and config names:
 Display encodings of a premultiplied buffer divide alpha out of a copy, run one CPU processor over it, and multiply alpha back, an unknown display or view returning a fault:
 
 ```python
-from expression import Result
-from expression.extra.result import catch
-import msgspec
 import numpy as np
 from numpy.typing import NDArray
 import PyOpenColorIO
 
 
-class Unprocessed(msgspec.Struct, frozen=True, kw_only=True):
-    display: str
-    view: str
-
-
-def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.float32], display: str, view: str) -> Result[NDArray[np.float32], Unprocessed]:
+def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.float32], display: str, view: str) -> BlenderResult[NDArray[np.float32]]:
     def encoded(processor: PyOpenColorIO.Processor) -> NDArray[np.float32]:
         buffer, alpha = np.array(pixels, np.float32, order="C"), pixels[..., 3:]
         np.divide(buffer[..., :3], alpha, out=buffer[..., :3], where=alpha > 0)
@@ -353,11 +328,7 @@ def displayed(config: PyOpenColorIO.Config, working: str, pixels: NDArray[np.flo
         np.multiply(buffer[..., :3], alpha, out=buffer[..., :3], where=alpha > 0)
         return buffer
 
-    return (
-        catch(config.getProcessor, exception=PyOpenColorIO.Exception)(PyOpenColorIO.DisplayViewTransform(src=working, display=display, view=view))
-        .map(encoded)
-        .map_error(lambda _: Unprocessed(display=display, view=view))
-    )
+    return host(config.getProcessor, PyOpenColorIO.DisplayViewTransform(src=working, display=display, view=view)).map(encoded)
 ```
 
 `PyOpenColorIO.Baker` bakes a display, view, and look into LUT text, `PyOpenColorIO.Baker.getFormats()` listing format and extension pairs:
@@ -371,45 +342,22 @@ Bakes and linear EXR exports return host refusals as values, exports writing thr
 from contextlib import ExitStack
 
 import bpy
-from expression import Result
-from expression.extra.result import catch
-import msgspec
 import PyOpenColorIO
 
 
-class Unbaked(msgspec.Struct, frozen=True, kw_only=True):
-    display: str
-    view: str
-    look: str
+def baked(config: PyOpenColorIO.Config, display: str, view: str, look: str, size: int) -> BlenderResult[str]:
+    baker = PyOpenColorIO.Baker(config=config, format="resolve_cube", inputSpace="ACEScct", targetSpace="", looks="" if look == "None" else look, cubeSize=size)
+    baker.setDisplayView(display, view)
+    return host(baker.bake)
 
 
-class UnknownSpace(msgspec.Struct, frozen=True, kw_only=True):
-    space: str
-
-
-class Unwritten(msgspec.Struct, frozen=True, kw_only=True):
-    path: str
-
-
-def baked(config: PyOpenColorIO.Config, display: str, view: str, look: str, size: int) -> Result[str, Unbaked]:
-    def cube() -> str:
-        baker = PyOpenColorIO.Baker(config=config, format="resolve_cube", inputSpace="ACEScct", targetSpace="", looks="" if look == "None" else look, cubeSize=size)
-        baker.setDisplayView(display, view)
-        return baker.bake()
-
-    return catch(cube, exception=PyOpenColorIO.Exception)().map_error(lambda _: Unbaked(display=display, view=view, look=look))
-
-
-def exported(image: bpy.types.Image, path: str, space: str) -> Result[str, UnknownSpace | Unwritten]:
+def exported(image: bpy.types.Image, path: str, space: str) -> BlenderResult[str]:
     with ExitStack() as scope:
         scene = bpy.data.scenes.new(".export")
         scope.callback(bpy.data.scenes.remove, scene)
-        settings = scene.render.image_settings
-        settings.file_format, settings.color_depth, settings.color_management = "OPEN_EXR", "32", "OVERRIDE"
         return (
-            Result[None, UnknownSpace | Unwritten](ok=None)
-            .bind(lambda _: catch(setattr, exception=TypeError)(settings.linear_colorspace_settings, "name", space).map_error(lambda _: UnknownSpace(space=space)))
-            .bind(lambda _: catch(image.save_render, exception=RuntimeError)(path, scene=scene).map_error(lambda _: Unwritten(path=path)))
+            imprinted(scene.render.image_settings, Format(file_format="OPEN_EXR", color_depth="32", color_management="OVERRIDE", linear_colorspace_settings=Colorspace(name=space)))
+            .bind(lambda _: host(image.save_render, path, scene=scene))
             .map(lambda _: path)
         )
 ```

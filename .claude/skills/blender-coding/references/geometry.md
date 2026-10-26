@@ -131,7 +131,7 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
     with ExitStack() as rollback:
         mesh: bpy.types.Mesh = bpy.data.meshes.new(name)
         rollback.callback(bpy.data.batch_remove, ids=(mesh,))
-        return committed(filled(mesh).map_error(lambda error: (BlenderEditFault(request=name, error=error),)), rollback)
+        return committed(filled(mesh), rollback)
 ```
 
 `positions` buffers not shaped `(n, 3)` raise `RuntimeError`, and `rollback` removes the mesh.
@@ -139,11 +139,11 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
 Bulk removal names objects and the data no other user holds in one `batch_remove`:
 
 ```python
-def purged(objects: tuple[bpy.types.Object, ...]) -> None:
+def purged(objects: tuple[bpy.types.Object, ...]) -> BlenderResult[None]:
     held: set[bpy.types.ID] = set(objects)
     users: dict[bpy.types.ID, set[bpy.types.ID]] = bpy.data.user_map(subset={obj.data for obj in objects if obj.data is not None})
     owned: tuple[bpy.types.ID, ...] = tuple(block for block, holders in users.items() if holders <= held)
-    bpy.data.batch_remove(ids=(*objects, *owned))
+    return host(bpy.data.batch_remove, ids=(*objects, *owned))
 ```
 
 ## [05]-[ANIMATION]

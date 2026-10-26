@@ -119,7 +119,7 @@ Returns:
     The parsed configuration, or None when the file does not exist.
 ```
 
-Functions returning `expression.Result` describe the `Ok` value and each `Error` variant under `Returns:`.
+Functions returning `expression.Result` describe the `Ok` value and each fault reason returned under `Returns:`.
 
 ### [04.2]-[RAISES]
 

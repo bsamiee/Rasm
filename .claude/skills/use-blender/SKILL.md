@@ -188,7 +188,7 @@ Log reads follow host rules:
 
 ## [09]-[EVALUATION]
 
-Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, starting Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before Blender starts:
+Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, then `BLENDER_USER_RESOURCES` naming an existing folder as user base. Lookups neither answers fail with no profile fallback. `scripts/evaluate.py` runs from the repository root, starting Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before Blender starts:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`

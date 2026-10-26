@@ -52,7 +52,7 @@ def acquisitions(identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
         yield Ok((UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Image,), body=touched),))
 ```
 
-`refreshed` stands for a `Handle[ID] -> BlenderResult[Option[str]]` write that assigns only values that differ.
+`refreshed` stands for a `Handle[ID] -> BlenderResult[bool]` write that assigns only values that differ and answers `True` for a change made. `deferred` names the undo step from the write function.
 
 ## [03]-[DEFERRED_WRITES]
 
