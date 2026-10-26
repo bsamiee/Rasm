@@ -5,16 +5,18 @@ from typing import Annotated, ClassVar, Self
 import colour
 from expression import Nothing, Ok, Option, Some
 import msgspec
+import msgspec.inspect
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color import observer
-from blender.imaging.color.processors import chromaticities, converted, DisplayView, luma, unassociated, xyz
-from blender.imaging.faults import ImagingResult, paired
-from blender.imaging.parameters import markers, Stops
-from blender.imaging.sampling import Frozen
+from blender.imaging.color.processors import chromaticities, converted, DisplayView, luma, Stops, xyz
+from blender.imaging.faults import ImagingResult
+from blender.imaging.files.images import unassociated
+from blender.records.faults import paired
+from blender.records.fields import bounds, Frozen
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -132,7 +134,7 @@ class Bands(Frozen, frozen=True, kw_only=True, eq=False):
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, view: DisplayView) -> ImagingResult[Option[Self]]:
         """Reads a stepped view's constant levels across the stop range, absent unless each level the range holds whole outlasts every step between levels."""
-        least, most = (float(bound) for meta in markers(Stops, msgspec.Meta) for bound in (meta.ge, meta.le) if bound is not None)
+        least, most = bounds(msgspec.inspect.type_info(Stops))
         exposures = np.arange(round(least * cls.resolution), round(most * cls.resolution) + 1) / cls.resolution
 
         def banded(formed: npt.NDArray[np.float32]) -> Option[Self]:

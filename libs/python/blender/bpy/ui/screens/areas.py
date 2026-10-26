@@ -15,7 +15,7 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.ui.screens.editors import EditorState
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

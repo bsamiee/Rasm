@@ -77,7 +77,7 @@ def _exported(lock: Path, *options: str) -> Result[Path, subprocess.CalledProces
 def pack(
     source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, website: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, OSError | subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]]:
-    """Builds host platform extension archive, first-party packages as submodules and the locked closure of extension dependency rows as wheels.
+    """Builds host platform extension archive, first-party packages as submodules and the locked closure of extension and first-party dependency rows as wheels.
 
     Args:
         source: Extension directory with manifest, dependency rows, and assets.
@@ -128,8 +128,8 @@ def pack(
         stage = Path(folder, "stage")
         previews = stage / icons.name
         shutil.copytree(source, stage, ignore=shutil.ignore_patterns("pyproject.toml", "*.svg"))
-        for master in (icons / "tools").glob("*.svg"):
-            (previews / master.relative_to(icons)).with_suffix(".dat").write_bytes(encoded(master))
+        for master in icons.glob("*.svg"):
+            (previews / master.name).with_suffix(".dat").write_bytes(encoded(master))
         failures = [*_ran("resvg", "--width", "256", "--height", "256", master, previews / f"{master.stem}.png").swap().to_option().to_list() for master in icons.glob("*.svg")]
         rendered: Result[None, OSError | subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]] = (
             Error(ExceptionGroup("Icon previews failed to render", failures)) if failures else Ok(None)
@@ -157,6 +157,7 @@ def pack(
                     "pip",
                     "compile",
                     source / "pyproject.toml",
+                    "pyproject.toml",
                     "--constraints",
                     pins,
                     "--python",

@@ -3,13 +3,13 @@
 from pathlib import Path, PurePath
 from typing import Annotated, Final
 
-from atomicwrites import atomic_write
 from expression import Error, Ok
+from expression.extra.result import catch
 import msgspec
 
-from blender.imaging.faults import Access, ImagingFileFault
-from blender.imaging.files.records import Record
-from blender.imaging.parameters import Case, Gated
+from blender.records.faults import FileFault
+from blender.records.fields import Case, Gated
+from blender.records.stores import committed, RecordFile
 from blender.rendering.batch.flamenco import Flamenco
 from blender.rendering.batch.processes import detached, Host, ran, RunCommand, RunFile
 from blender.rendering.batch.queue import RenderQueue
@@ -24,11 +24,10 @@ type Target = LocalMachine | Flamenco | Renderon | JobFile
 
 _LINES: Final = msgspec.json.Encoder()
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Renderon(Case, frozen=True, kw_only=True, tag=5):
+class Renderon(Case, frozen=True, kw_only=True):
     """Jobs written as B-Renderon queue."""
 
     title = "B-Renderon"
@@ -36,7 +35,7 @@ class Renderon(Case, frozen=True, kw_only=True, tag=5):
     blender: Annotated[str, msgspec.Meta(title="Blender Tag", description="B-Renderon name of rendering Blender")] = "Default"
 
 
-class JobFile(Case, frozen=True, kw_only=True, tag=6):
+class JobFile(Case, frozen=True, kw_only=True):
     """Queue job file passed to submission command."""
 
     folder: Annotated[Gated[str], msgspec.Meta(description="Job file folder, extension folder when off")] = Gated(enabled=False, value="")
@@ -72,16 +71,11 @@ def send(target: Target, queue: RenderQueue, host: Host) -> RenderingResult[tupl
         return found.map(lambda path: (Ok(str(path)),))
 
     def queued(path: Path) -> RenderingResult[Path]:
-        return Record(path=path, form=RenderQueue).written(queue)
+        return RecordFile(path=path, form=RenderQueue).written(queue)
 
     def lined(path: Path, items: tuple[QueueItem, ...]) -> RenderingResult[Path]:
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with atomic_write(path, mode="wb", overwrite=True) as file:
-                file.write(_LINES.encode_lines(items))
-        except OSError as error:
-            return Error((ImagingFileFault(access=Access.WRITE, request=path, error=error),))
-        return Ok(path)
+        lines = _LINES.encode_lines(items)
+        return committed(path, lambda stage: catch(stage.write_bytes, exception=OSError)(lines).map_error(lambda error: (FileFault(access="write", request=path, error=error),)))
 
     match target:
         case LocalMachine():

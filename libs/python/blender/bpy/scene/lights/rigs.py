@@ -24,9 +24,9 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.nodes.graphs import Graph
-from blender.bpy.render.color.spaces import config_of
+from blender.bpy.render.color.spaces import config_of, viewed
 from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.scene.collections import founded
 from blender.bpy.scene.lights.linking import LINK_STATE, linked, RECEIVERS
@@ -40,11 +40,10 @@ from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.screens.areas import AreaQuery, Located
-from blender.imaging.analysis.lighting import LightingReading
-from blender.imaging.color.processors import DisplayView
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
-from blender.imaging.hashing import content_hash
-from blender.imaging.parameters import Case, Gated, Positive, Seed, Side
+from blender.imaging.analysis.lighting import Lighting, LightingReading
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.fields import Case, Positive, Seed, Side
+from blender.records.identity import content_hash
 from blender.rendering.lighting.references import DistantLight, gray_ball, ReferenceDistribution, ReferenceImage, Roll, sphere
 from blender.rendering.lighting.rigs import Arranged, Disk, Placement, Placements, Point, Rig, rig_catalog, Spot, Sun
 
@@ -67,46 +66,46 @@ gels = Choices.named(lambda _identity, _owner, _context: ReferenceImage.gels())
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Bounds(Case, frozen=True, kw_only=True, tag=1):
+class Bounds(Case, frozen=True, kw_only=True):
     """Midpoint of evaluated bounds of target and descendants."""
 
 
-class Origin(Case, frozen=True, kw_only=True, tag=2):
+class Origin(Case, frozen=True, kw_only=True):
     """Target origin."""
 
 
-class BoneHead(Case, frozen=True, kw_only=True, tag=3):
+class BoneHead(Case, frozen=True, kw_only=True):
     """Pose bone head of armature target."""
 
     title = "Bone"
     bone: Annotated[str, msgspec.Meta(description="Pose bone centering rig")] = ""
 
 
-class Cursor(Case, frozen=True, kw_only=True, tag=4):
+class Cursor(Case, frozen=True, kw_only=True):
     """3D cursor location."""
 
     title = "3D Cursor"
 
 
-class CameraAxes(Case, frozen=True, kw_only=True, tag=1):
+class CameraAxes(Case, frozen=True, kw_only=True):
     """Scene camera axes."""
 
     title = "Camera"
 
 
-class ViewAxes(Case, frozen=True, kw_only=True, tag=2):
+class ViewAxes(Case, frozen=True, kw_only=True):
     """3D view axes."""
 
     title = "View"
 
 
-class TargetAxes(Case, frozen=True, kw_only=True, tag=3):
+class TargetAxes(Case, frozen=True, kw_only=True):
     """Target object axes."""
 
     title = "Target"
 
 
-class WorldAxes(Case, frozen=True, kw_only=True, tag=4):
+class WorldAxes(Case, frozen=True, kw_only=True):
     """World +X right, +Z up, and -Y back."""
 
     title = "World"
@@ -212,7 +211,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                     LightRig.reference,
                     call.identity,
                     f"{holder.name} Reference",
-                    content_hash(LightRig, chosen, arrays=(np.asarray(setup.size, dtype=np.int64),), config=Some(config)),
+                    content_hash(LightRig, chosen, arrays=(np.asarray(setup.size, dtype=np.int64),), config=Some(config.getCacheID())),
                     lambda: chosen.plane(setup.size).map(Some),
                     Tag(space=Some(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()), view_as_render=Some(True)),
                     of=Some(holder),
@@ -248,11 +247,9 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         """Returns preview jobs for catalog images and gray balls in scene display."""
 
         def requested(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, holder: bpy.types.Object, attached: Attached[RigSetup], config: PyOpenColorIO.Config) -> BlenderResult[tuple[Job, ...]]:
-            view, shown = scene.view_settings, scene.display_settings
             previews = PREVIEWS.of(identity)
-            display = DisplayView(display=shown.display_device, view=view.view_transform, look=Gated(enabled=Option.of_optional(config.getLook(view.look)).is_some(), value=view.look))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            exposure, gamma = view.exposure, view.gamma  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            display_key = (display, exposure, gamma, config.getCacheID())
+            display = viewed(scene)
+            display_key = (display, config.getCacheID())
 
             def rendered(source: ReferenceImage | tuple[DistantLight, ...], side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
                 result = source.plane(side) if isinstance(source, ReferenceImage) else sphere(source, side)
@@ -261,9 +258,9 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
             def job(slot: str, key: Hashable, rendered: Callable[[int], BlenderResult[Option[npt.NDArray[np.float32]]]], rank: Rank = Rank.REST) -> tuple[Job, ...]:
                 def formed(side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
                     return rendered(side).bind(
-                        lambda plane: plane.map(
-                            lambda values: display.form(config, np.pad(values, ((0, 0), (0, 0), (0, 4 - values.shape[2])), constant_values=1.0), exposure=exposure, gamma=gamma).map(Some)
-                        ).default_value(Ok(Nothing))
+                        lambda plane: plane.map(lambda values: display.form(config, np.pad(values, ((0, 0), (0, 0), (0, 4 - values.shape[2])), constant_values=1.0)).map(Some)).default_value(
+                            Ok(Nothing)
+                        )
                     )
 
                 return (
@@ -428,18 +425,18 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
     def framed() -> BlenderResult[Matrix]:
         world = Matrix(((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0)))
 
-        def viewed(found: Located) -> BlenderResult[Matrix]:
+        def oriented(found: Located) -> BlenderResult[Matrix]:
             match found.area.spaces.active:
                 case bpy.types.SpaceView3D(region_3d=bpy.types.RegionView3D(view_matrix=matrix)):
                     return Ok(matrix.inverted().to_3x3().normalized())
                 case space:
-                    return Error((BlenderChoiceFault(path=f"{found.area!r}.spaces.active.region_3d", identifier=type(space).__name__, accepted=(bpy.types.SpaceView3D.__name__,)),))
+                    return Error((DomainFault(subject=f"{found.area!r}.spaces.active.region_3d", value=type(space).__name__, accepted=bpy.types.SpaceView3D.__name__),))
 
         match setup.axes:
             case CameraAxes():
                 return Option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="camera"),))
             case ViewAxes():
-                return rooted(bpy.types.WindowManager, context).bind(lambda manager: AreaQuery(space="VIEW_3D").first(manager.windows)).bind(viewed)
+                return rooted(bpy.types.WindowManager, context).bind(lambda manager: AreaQuery(space="VIEW_3D").first(manager.windows)).bind(oriented)
             case TargetAxes():
                 return Ok(holder.matrix_world.to_3x3().normalized() @ world)
             case WorldAxes():
@@ -450,7 +447,7 @@ def target(holder: bpy.types.Object, setup: RigSetup, context: bpy.types.Context
         try:
             radius = msgspec.convert(max((Vector(corner) - center).length for corner in itertools.product(*zip(bounds.low, bounds.high))), type=Positive)  # type: ignore[call-overload]  # ty: ignore[invalid-argument-type]
         except msgspec.ValidationError as error:
-            return Error((ImagingFileFault(access=Access.READ, request=f"{holder!r}.bound_box", error=error),))
+            return Error((DomainFault(subject=f"{holder!r}.bound_box", value=bounds, accepted=str(error)),))
         return Ok(RigFrame(matrix=Matrix.LocRotScale(center, frame, None).freeze(), radius=radius))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     return (
@@ -634,7 +631,7 @@ def _serving(rig: bpy.types.Object, identity: Identity) -> tuple[tuple[bpy.types
 
 def _reading(setup: RigSetup, config: PyOpenColorIO.Config) -> BlenderResult[Option[LightingReading]]:
     """Returns reference lighting reading, `Nothing` without reference or measurable reading."""
-    return Option.of_optional(setup.reference).map(lambda image: read(image, config).bind(lambda file: LightingReading.of(config, file.pixels))).default_value(Ok(Nothing))
+    return Option.of_optional(setup.reference).map(lambda image: read(image, config).bind(lambda file: Lighting().read(config, file.pixels))).default_value(Ok(Nothing))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

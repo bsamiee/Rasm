@@ -13,7 +13,7 @@ from blender.bpy.data.ids.store import Handle, member
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.files.blends import folder_made, sourced
-from blender.imaging.faults import Access, accumulated, ImagingFileFault
+from blender.records.faults import accumulated, FileFault
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -200,7 +200,7 @@ def library_written(
         lambda _: (
             catch(lambda: bpy.data.libraries.write(str(path), set(blocks), path_remap=remap, fake_user=fake_user, compress=compress), exception=OSError)()
             .map(lambda _: path)
-            .map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),))
+            .map_error(lambda error: (FileFault(access="write", request=path, error=error),))
         )
     )
 

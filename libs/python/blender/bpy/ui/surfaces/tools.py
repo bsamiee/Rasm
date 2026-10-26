@@ -22,8 +22,8 @@ from blender.bpy.ui.drawing.handlers import Drawing, Drew
 from blender.bpy.ui.layout.rows import acquired, placed, RowContent, RowDraw
 from blender.bpy.ui.resources.icons import Icons
 from blender.bpy.ui.surfaces.gizmos import Linked
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import heading
+from blender.records.faults import accumulated, paired
+from blender.records.fields import heading
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

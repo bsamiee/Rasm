@@ -567,7 +567,10 @@ pylint                    = { allow-magic-value-types = ["str", "bytes", "int"],
     "no-self-use",                                                  # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
     "non-pep695-generic-class",                                     # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
 ]
-"apps/blender/**"                       = ["non-empty-init-module"] # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+"apps/blender/**"                       = [
+    "non-empty-init-module", # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+    "relative-imports",      # Blender imports an extension under `bl_ext.<repository>.<id>`, so its folders reach each other relatively alone
+]
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [

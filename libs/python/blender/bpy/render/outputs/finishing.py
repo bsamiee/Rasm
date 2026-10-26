@@ -19,9 +19,9 @@ from blender.bpy.faults import BlenderResult
 from blender.bpy.render.outputs.formats import compression, depth, Kind, kind
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.results import INTERMEDIATES
-from blender.imaging.faults import accumulated
 from blender.imaging.files.images import Compressions, Depth
 from blender.imaging.files.multilayer import Multilayer
+from blender.records.faults import accumulated
 from blender.rendering.outputs.conventions import Blender, Conventions
 from blender.rendering.outputs.naming import Output
 

@@ -13,9 +13,9 @@ import psdtags
 import PyOpenColorIO
 import tifffile
 
-from blender.imaging.compositing.blending import BlendMode
-from blender.imaging.faults import Access, ImagingFileFault, ImagingResult, paired
+from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import profile, written
+from blender.records.faults import FileFault, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ class Raster[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, 
     color: npt.NDArray[D]
     alpha: npt.NDArray[D]
     mask: Option[npt.NDArray[D]] = Nothing
-    mode: BlendMode = BlendMode.NORMAL
+    mode: psdtags.PsdBlendMode = psdtags.PsdBlendMode.NORMAL
     opacity: float = 1.0
     visible: bool = True
 
@@ -51,7 +51,7 @@ class Group[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True, k
 
     name: str
     layers: Layers[D]
-    mode: Option[BlendMode] = Nothing
+    mode: Option[psdtags.PsdBlendMode] = Nothing
     opacity: float = 1.0
     visible: bool = True
 
@@ -105,12 +105,12 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
                 case Raster():
                     channels = (*zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)), *((psdtags.PsdChannelId.USER_LAYER_MASK, mask) for mask in node.mask.to_list()))
                     mask = node.mask.map(lambda _: psdtags.PsdLayerMask(rectangle=canvas)).to_optional()
-                    return (record(node.name, blend=(node.mode.photoshop, node.opacity), visible=node.visible, channels=channels, rectangle=canvas, mask=mask, info=()),)
+                    return (record(node.name, blend=(node.mode, node.opacity), visible=node.visible, channels=channels, rectangle=canvas, mask=mask, info=()),)
                 case Adjustment():
                     channels = tuple(zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)))
                     return (record(node.name, blend=(psdtags.PsdBlendMode.NORMAL, 1.0), visible=node.visible, channels=channels, rectangle=canvas, mask=None, info=()),)
                 case Group():
-                    blend = (node.mode.map(lambda mode: mode.photoshop).default_value(psdtags.PsdBlendMode.PASS_THROUGH), node.opacity)
+                    blend = (node.mode.default_value(psdtags.PsdBlendMode.PASS_THROUGH), node.opacity)
                     bounding = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.BOUNDING_SECTION_DIVIDER)
                     section = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.OPEN_FOLDER, blend[0])
                     return (
@@ -150,7 +150,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
             )
 
         tagged = catch(lambda: source.tifftag(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS), exception=struct.error)().map_error(
-            lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),)
+            lambda error: (FileFault(access="write", request=path, error=error),)
         )
         return paired(tagged, profile(config, self.colorspace)).bind(lambda pair: written(path, functools.partial(tiff, *pair)))
 

@@ -17,7 +17,7 @@ from blender.bpy.data.ids.store import Handle, member, named, resolved, vacant
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

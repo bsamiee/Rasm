@@ -10,7 +10,7 @@ from expression import Option, Result, Some
 import msgspec
 
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

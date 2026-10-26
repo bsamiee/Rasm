@@ -14,8 +14,8 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.imaging.faults import Access, ImagingFileFault, paired
-from blender.imaging.parameters import heading
+from blender.records.faults import DomainFault, paired
+from blender.records.fields import heading
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         def decoded(text: bpy.types.Text) -> BlenderResult[T]:
             return catch(lambda: msgspec.json.decode(text.as_string(), type=self.form), exception=msgspec.DecodeError)().map_error(
-                lambda error: (ImagingFileFault(access=Access.READ, request=repr(text), error=error),)
+                lambda error: (DomainFault(subject=repr(text), value=text.name, accepted=str(error)),)
             )
 
         return self.ownership.found(identity).map(decoded).default_with(lambda: Ok(self.form())).bind(lambda value: attached.write(manager, value))

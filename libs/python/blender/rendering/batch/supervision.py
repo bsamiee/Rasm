@@ -15,9 +15,9 @@ from expression.extra.result import catch
 import msgspec
 from tenacity import retry_if_result, Retrying, stop_after_attempt
 
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, scoped
-from blender.imaging.files.records import Record
-from blender.imaging.parameters import Case, Presentation
+from blender.records.faults import accumulated, FileFault, scoped
+from blender.records.fields import Case, Presentation
+from blender.records.stores import RecordFile
 from blender.rendering.batch.processes import Host, ran, refused, RunCommand, RunFile, spawned
 from blender.rendering.batch.progress import Ending, Heartbeat, observed, Progress
 from blender.rendering.batch.queue import RenderQueue
@@ -29,7 +29,7 @@ if sys.platform != "win32":
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class LocalMachine(Case, frozen=True, kw_only=True, tag=4):
+class LocalMachine(Case, frozen=True, kw_only=True):
     """Background Blender process per run of job frames."""
 
     title = "This Machine"
@@ -60,7 +60,7 @@ class LocalMachine(Case, frozen=True, kw_only=True, tag=4):
         return tuple(steps)
 
 
-class Run(msgspec.Struct, frozen=True, kw_only=True, tag=1):
+class Run(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Queue path and target settings commands decode."""
 
     queue: str
@@ -72,7 +72,7 @@ class Run(msgspec.Struct, frozen=True, kw_only=True, tag=1):
 
 def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: Heartbeat) -> RenderingResult[Progress]:
     """Renders remaining frames one job group per process, restarting crashed renders."""
-    records = Record(path=host.path(queue, RunFile.PROGRESS), form=Progress)
+    records = RecordFile(path=host.path(queue, RunFile.PROGRESS), form=Progress)
     run = Run(queue=str(host.path(queue, RunFile.QUEUE)), target=target)
     schedule = target.schedule(queue)
     restarted = Retrying(
@@ -90,7 +90,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: Host, heartbeat: H
                     try:
                         records.path.touch()
                     except OSError as error:
-                        return Error((ImagingFileFault(access=Access.WRITE, request=records.path, error=error),))
+                        return Error((FileFault(access="write", request=records.path, error=error),))
                 except OSError as error:
                     return Error(refused(argv)(error))
 
@@ -135,7 +135,7 @@ def cleared(queue: RenderQueue, host: Host) -> RenderingResult[None]:
 
     def removed(file: RunFile) -> RenderingResult[None]:
         path = host.path(queue, file)
-        return catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),))
+        return catch(lambda: path.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (FileFault(access="write", request=path, error=error),))
 
     return accumulated(map(removed, (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG))).map(lambda _: None)
 

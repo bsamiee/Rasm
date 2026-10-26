@@ -1,11 +1,9 @@
-"""Working-space effect color follow-through, compositor color coordinates, and OCIO installation."""
+"""Working-space effect color follow-through, scene and display node views, Blender tint, and OCIO installation."""
 
 from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager, ExitStack
-import functools
-from math import log
 from pathlib import Path
-from typing import ClassVar, Final, Self
+from typing import ClassVar, Final
 
 import bpy
 from expression import Nothing, Ok, Option, Some
@@ -16,29 +14,28 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at
+from blender.bpy.data.rna.descriptors import assigned, Descriptor, Native, struct_at, Value, written
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.events.timers import Startup
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderResult
-from blender.bpy.nodes.graphs import Expr, INPUTS, math, mixed, NodeGroup, rgba, Term, where
-from blender.bpy.nodes.interface import Interface, Socket
-from blender.bpy.render.effects.records import inputs_of
+from blender.bpy.faults import BlenderResult
+from blender.bpy.render.compositor.inputs import inputs_of
+from blender.bpy.render.outputs.formats import owners
 from blender.bpy.settings.attachments import Stored
 from blender.imaging.color.authoring import ConfigBuild, Formation
 from blender.imaging.color.config import ConfigFile, opened, resolved
-from blender.imaging.color.processors import lin_to_log, processor
-from blender.imaging.effects.tone.film import Film
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.color.processors import ColorSpace, DisplayView, processor
+from blender.imaging.color.white import White
+from blender.imaging.faults import ImagingResult
+from blender.records.faults import accumulated
+from blender.records.fields import Gated
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-COLOR_INPUT: Final = Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor)
-COLOR_RESULT: Final = Socket(key="result", name="Image", kind=bpy.types.NodeSocketColor)
 CONFIGURED: Final = Setting(descriptor=Descriptor.declared(bpy.types.BlendData, "colorspace.is_missing_opencolorio_config", bpy.types.BoolProperty), accepted=(False,))
-WEIGHTS: Final = (0.2126, 0.7152, 0.0722)
-LUMA: Final = (0.001, 0.01)
+NO_LOOK: Final = "None"
+TINT_PER_DUV: Final = 3000.0
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -102,46 +99,41 @@ class WorkingColors(msgspec.Struct, frozen=True, kw_only=True):
             yield identity.name(Name.ATTACHMENT, self.stamp).map(lambda name: followed(Stored(name=name, decoder=msgspec.msgpack.Decoder(str))))
 
 
-class FilmView(msgspec.Struct, frozen=True, kw_only=True):
-    """Photographic formation named by its application."""
+class ConfigView(msgspec.Struct, frozen=True, kw_only=True):
+    """View transform an installation adds, its operation built over the base configuration in its process space."""
 
     name: str
     description: str
-    film: Film
+    transform: Callable[[PyOpenColorIO.Config], ImagingResult[PyOpenColorIO.Transform]]
+    space: ColorSpace = PyOpenColorIO.ROLE_SCENE_LINEAR
 
-    @property
-    def formation(self) -> BlenderResult[Formation]:
-        """Developed native formation."""
-        return self.film.transform().map(lambda transform: Formation.of(self.name, self.description, transform, self.film.space))
+    def formation(self, base: PyOpenColorIO.Config) -> BlenderResult[Formation]:
+        """Native formation of the view's operation over base."""
+        return self.transform(base).map(lambda transform: Formation.of(self.name, self.description, transform, self.space))
 
 
 class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
-    """Application OCIO rows installed over Blender's bundled configuration."""
+    """Application OCIO rows and views installed over Blender's bundled configuration."""
 
     build: ConfigBuild
-    films: tuple[FilmView, ...] = ()
-
-    @property
-    def merged(self) -> BlenderResult[ConfigBuild]:
-        """Application build with film formations added."""
-        return accumulated(view.formation for view in self.films).map(lambda formations: msgspec.structs.replace(self.build, formations=(*self.build.formations, *formations)))
+    views: tuple[ConfigView, ...] = ()
 
     @property
     def base(self) -> BlenderResult[PyOpenColorIO.Config]:
         """Bundled base configuration independent of a user installation."""
         return opened(ConfigFile(path=str(Path(bpy.utils.system_resource("DATAFILES", path="colormanagement"), "config.ocio"))), ())  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
+    def merged(self, base: PyOpenColorIO.Config) -> BlenderResult[ConfigBuild]:
+        """Application build with the views' formations added."""
+        return accumulated(view.formation(base) for view in self.views).map(lambda formations: msgspec.structs.replace(self.build, formations=(*self.build.formations, *formations)))
+
     def staged(self, stage: Path) -> BlenderResult[PyOpenColorIO.Config]:
         """Stages full build in caller's resource scope."""
-        return paired(self.base, self.merged).bind(lambda pair: pair[1].staged(pair[0], stage))
-
-    def extended(self, formation: Formation) -> Self:
-        """Returns installation with formation appended."""
-        return msgspec.structs.replace(self, build=msgspec.structs.replace(self.build, formations=(*self.build.formations, formation)))
+        return self.base.bind(lambda base: self.merged(base).bind(lambda build: build.staged(base, stage)))
 
     def written(self) -> BlenderResult[Path]:
         """Installs complete configuration read on restart."""
-        return paired(self.base, self.merged).bind(lambda pair: pair[1].installed(pair[0], Path(bpy.utils.user_resource("DATAFILES", path="colormanagement"))))
+        return self.base.bind(lambda base: self.merged(base).bind(lambda build: build.installed(base, Path(bpy.utils.user_resource("DATAFILES", path="colormanagement")))))
 
     def installed(self, _call: Call[Empty]) -> BlenderResult[Done]:
         """Installs build with a restart note."""
@@ -185,142 +177,44 @@ def effect_colors(scene: bpy.types.Scene) -> tuple[tuple[Native, Descriptor[bpy.
     )
 
 
-def space_item(config: PyOpenColorIO.Config, name: str) -> BlenderResult[str]:
-    """Returns conversion-node item of a role or colorspace."""
-    return (
-        Ok(name)
-        if name == PyOpenColorIO.ROLE_SCENE_LINEAR
-        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(lambda: (BlenderAbsentFault(owner=config.getName(), key=name),))
-    )
+def white_of(temperature: float, tint: float) -> White:
+    """Returns white of a Blender temperature and tint, the tint `TINT_PER_DUV` per unit Duv."""
+    return White(temperature=temperature, duv=tint / TINT_PER_DUV)
 
 
-# --- [GRAPHS]
+def tint_of(white: White) -> float:
+    """Returns the Blender tint of `white`."""
+    return white.duv * TINT_PER_DUV
 
 
-def converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, entering: Term) -> BlenderResult[Expr]:
-    """Converts straight RGB between colorspaces, scene-linear role resolved live."""
-    return paired(space_item(config, source), space_item(config, target)).map(
-        lambda pair: Expr(
-            kind=bpy.types.CompositorNodeConvertColorSpace, inputs=(("Image", entering),), members=(("from_color_space", pair[0]), ("to_color_space", pair[1])), socket="Image", shape="RGBA"
-        ).named(key)
-    )
+# --- [VIEWS]
 
 
-def pointwise(key: Key, entering: Term, operation: Callable[[Expr], BlenderResult[Expr]]) -> BlenderResult[Expr]:
-    """Applies straight-color graph to associated RGB, zero alpha keeping transformed RGB."""
-    alpha = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", entering),), members=(("mode", "RGB"),), socket="Alpha")
-
-    def associated(adjusted: Expr) -> Expr:
-        restored = Expr(kind=bpy.types.CompositorNodeSetAlpha, inputs=(("Image", adjusted), ("Alpha", alpha), ("Type", "Replace Alpha")), socket="Image", shape="RGBA")
-        transparent = Expr(kind=bpy.types.FunctionNodeCompare, inputs=(("A", alpha), ("B", 0.0), ("Epsilon", 0.0)), members=(("data_type", "FLOAT"), ("operation", "EQUAL")), socket="Result")
-        premultiplied = Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", restored), ("Type", "To Premultiplied")), socket="Image", shape="RGBA")
-        return where(transparent, restored, premultiplied).named(key)
-
-    return operation(Expr(kind=bpy.types.CompositorNodePremulKey, inputs=(("Image", entering), ("Type", "To Straight")), socket="Image", shape="RGBA")).map(associated)
+def viewed(holder: bpy.types.Scene | bpy.types.CompositorNodeConvertToDisplay) -> DisplayView:
+    """Reads the display, view, look, exposure, and gamma a scene or display node forms through, the host's look `NO_LOOK` as disabled."""
+    view, shown = holder.view_settings, holder.display_settings
+    return DisplayView(display=shown.display_device, view=view.view_transform, look=Gated(enabled=view.look != NO_LOOK, value=view.look), exposure=view.exposure, gamma=view.gamma)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
 
-def _converter(key: Key, name: str, body: Callable[[Expr, Expr, Expr], tuple[Expr, Expr, Expr]]) -> BlenderResult[NodeGroup]:
-    """Converts RGB channels and passes alpha unchanged."""
-    image = Expr(kind=bpy.types.NodeGroupInput, socket=COLOR_INPUT.key, shape="RGBA", label=Some(INPUTS))
-    return NodeGroup.built(key, name, Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: rgba(*body(image["Red"], image["Green"], image["Blue"]), image["Alpha"])})
+def displayed(scene: bpy.types.Scene, view: DisplayView) -> BlenderResult[None]:
+    """Writes a view to the scene and every output overriding color management in host order, the display before the view settings it governs."""
+    settings: dict[str, Value] = {
+        "display_settings.display_device": view.display,
+        "view_settings.view_transform": view.view,
+        "view_settings.look": view.look.value if view.look.enabled else NO_LOOK,
+        "view_settings.exposure": view.exposure,
+        "view_settings.gamma": view.gamma,
+    }
+    holders: tuple[bpy.types.Scene | bpy.types.ImageFormatSettings, ...] = (scene, *(owner for owner in owners(scene) if owner.color_management == "OVERRIDE"))
+    return accumulated(assigned(holder, settings) for holder in holders).map(lambda _: None)
 
 
-@functools.cache
-def logarithmic(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[NodeGroup]:
-    """Builds OCIO channel stop coordinates from LogCamera parameters."""
-    transform = lin_to_log()
-    base, forward = transform.getBase(), direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
-    log_slope, log_offset, lin_slope, lin_offset, lin_break, linear_slope = (
-        transform.getLogSideSlopeValue(),
-        transform.getLogSideOffsetValue(),
-        transform.getLinSideSlopeValue(),
-        transform.getLinSideOffsetValue(),
-        transform.getLinSideBreakValue(),
-        transform.getLinearSlopeValue(),
-    )
-    log_break = tuple(side * log(slope * point + offset, base) + shift for side, shift, slope, offset, point in zip(log_slope, log_offset, lin_slope, lin_offset, lin_break))
-    linear_offset = tuple(held - slope * point for held, slope, point in zip(log_break, linear_slope, lin_break))
-
-    def channel(value: Expr, at: int) -> Expr:
-        if forward:
-            logged = math("MULTIPLY_ADD", math("LOGARITHM", math("MULTIPLY_ADD", value, lin_slope[at], lin_offset[at]), base), log_slope[at], log_offset[at])
-            return where(value < lin_break[at], math("MULTIPLY_ADD", value, linear_slope[at], linear_offset[at]), logged)
-        powered = math("POWER", base, math("MULTIPLY_ADD", value, 1.0 / log_slope[at], -log_offset[at] / log_slope[at]))
-        linear = math("MULTIPLY_ADD", value, 1.0 / linear_slope[at], -linear_offset[at] / linear_slope[at])
-        return where(value < log_break[at], linear, math("MULTIPLY_ADD", powered, 1.0 / lin_slope[at], -lin_offset[at] / lin_slope[at]))
-
-    return _converter(
-        "lin_to_log" if forward else "log_to_lin", "Lin to Log" if forward else "Log to Lin", lambda *channels: (channel(channels[0], 0), channel(channels[1], 1), channel(channels[2], 2))
-    )
-
-
-@functools.cache
-def hsy(direction: PyOpenColorIO.TransformDirection) -> BlenderResult[NodeGroup]:
-    """Builds OCIO linear HSY coordinates as compositor math nodes."""
-    low_luma, high_luma = LUMA
-    forward = direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
-
-    def luminance(values: tuple[Expr, Expr, Expr]) -> Expr:
-        red, green, blue = (value * weight for value, weight in zip(values, WEIGHTS))
-        return red + green + blue
-
-    def lit(luma: Expr) -> Expr:
-        return math("MULTIPLY_ADD", luma, 1.0 / (high_luma - low_luma), -low_luma / (high_luma - low_luma), clamp=True)
-
-    def converted(first: Expr, second: Expr, third: Expr) -> tuple[Expr, Expr, Expr]:
-        channels = first, second, third
-        luma = luminance(channels)
-        distance = abs(first - luma) + abs(second - luma) + abs(third - luma)
-        high = math("MAXIMUM", first, math("MAXIMUM", second, third))
-        low = math("MINIMUM", first, math("MINIMUM", second, third))
-        delta = high - low
-        sectors = tuple((channels[(index + 1) % 3] - channels[(index + 2) % 3]) / delta + float(2 * index + 1) for index in range(3))
-        hue = where(low < high, where(first < high, where(second < high, sectors[2], sectors[1]), sectors[0]), 0.0) / 6.0
-        high_saturation = distance / math("MAXIMUM", math("MULTIPLY_ADD", distance, 0.07, 1e-6), first + second + third + 0.15)
-        return hue, mixed(lit(luma), distance * 5.0, high_saturation) * 1.4, luma
-
-    def inverted(hue: Expr, saturation: Expr, luma: Expr) -> tuple[Expr, Expr, Expr]:
-        sector = math("FRACT", math("MULTIPLY_ADD", luma < 0.0, 0.5, hue) - 1.0 / 6.0) * 6.0
-        unit = (math("SUBTRACT", abs(sector - 3.0), 1.0, clamp=True), math("SUBTRACT", 2.0, abs(sector - 2.0), clamp=True), math("SUBTRACT", 2.0, abs(sector - 4.0), clamp=True))
-        scale = luma / luminance(unit)
-        bases = tuple(value * scale for value in unit)
-        offsets = tuple(value - luma for value in bases)
-        distance = abs(offsets[0]) + abs(offsets[1]) + abs(offsets[2])
-        chroma, triple = saturation / 1.4, luma * 3.0
-        excess, reach = bases[0] + bases[1] + bases[2] - triple, triple + 0.15
-        chroma_excess, chroma_reach = chroma * excess, chroma * reach
-        high_gain = math("MINIMUM", chroma_reach / math("MAXIMUM", distance - chroma_excess, 1e-6), 50.0)
-        low_distance = distance * 5.0
-        blend = lit(luma)
-        low_weight = low_distance * (1.0 - blend)
-        minus_b = chroma_excess - math("MULTIPLY_ADD", distance, blend, low_weight * reach)
-        discriminant = math("SQRT", math("MULTIPLY_ADD", low_weight * excess * chroma_reach, 4.0, minus_b * minus_b))
-        twice_c = chroma_reach * -2.0
-        near = twice_c / (minus_b - discriminant)
-        far = twice_c / math("MULTIPLY_ADD", discriminant, 2.0, minus_b - discriminant)
-        gain = where(blend < 1.0, where(blend > 0.0, where(near < 0.0, far, near), chroma / math("MAXIMUM", low_distance, 1e-10)), high_gain)
-        red, green, blue = (math("MULTIPLY_ADD", offset, gain, luma) for offset in offsets)
-        return red, green, blue
-
-    return _converter("rgb_to_hsy" if forward else "hsy_to_rgb", "RGB to HSY" if forward else "HSY to RGB", converted if forward else inverted)
+def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeConvertToDisplay]) -> BlenderResult[tuple[tuple[bpy.types.CompositorNodeConvertToDisplay, DisplayView], ...]]:
+    """Writes the scene display device to each display node showing another, answering each written node with the view Blender matched to the device."""
+    display = viewed(scene).display
+    return accumulated(written(node, "display_settings.display_device", display).map(lambda _: (node, viewed(node))) for node in nodes if viewed(node).display != display)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "COLOR_INPUT",
-    "COLOR_RESULT",
-    "CONFIGURED",
-    "LUMA",
-    "WEIGHTS",
-    "ConfigInstall",
-    "FilmView",
-    "WorkingColors",
-    "config_of",
-    "converted",
-    "effect_colors",
-    "hsy",
-    "logarithmic",
-    "pointwise",
-    "space_item",
-]
+__all__ = ["CONFIGURED", "NO_LOOK", "TINT_PER_DUV", "ConfigInstall", "ConfigView", "WorkingColors", "config_of", "displayed", "effect_colors", "followed", "tint_of", "viewed", "white_of"]

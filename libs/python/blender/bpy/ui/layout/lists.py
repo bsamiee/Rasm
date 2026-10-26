@@ -1,4 +1,4 @@
-"""Collection lists with computed selection, filtering, and sorting."""
+"""Collection lists with computed selection, filtering, sorting, and drag reorder."""
 
 import builtins
 from collections.abc import Callable, Generator
@@ -12,6 +12,8 @@ from expression.extra.result import catch
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from blender.bpy.commands.modal import Gesture, Modal, Travel
+from blender.bpy.commands.operators import Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Native, struct_at
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -19,8 +21,10 @@ from blender.bpy.extension.registration import Acquisition, Acquisitions, Band, 
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, pointed
 from blender.bpy.settings.shapes import field_shapes
-from blender.bpy.ui.layout.rows import acquired, alerted, At, Call, FUNCTIONS, Member, placed, Property, Reach, realized, refused, ResolvedMember, RowContent, RowDraw
-from blender.imaging.faults import accumulated, paired
+from blender.bpy.ui.layout.rows import acquired, alerted, At, Call, FUNCTIONS, Member, OperatorButton, placed, Property, Reach, realized, refused, ResolvedMember, RowContent, RowDraw
+from blender.bpy.ui.resources.theme import Metrics
+from blender.records.faults import accumulated, paired
+from blender.records.fields import heading
 
 if typing.TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -30,6 +34,13 @@ if typing.TYPE_CHECKING:
 type Where[O: "bpy.types.bpy_struct[object]"] = Condition | Callable[[bpy.types.Context, O], bool]
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Dragged(msgspec.Struct, frozen=True, kw_only=True):
+    """Dragged item's index at press and the list row pitch in device pixels."""
+
+    origin: int
+    pitch: float
 
 
 class _Listed(msgspec.Struct, frozen=True, kw_only=True):
@@ -69,6 +80,65 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
     type: "rna_enums.UilistLayoutTypeItems | UnsetType" = UNSET
     sort_reverse: bool | UnsetType = UNSET
     sort_lock: bool | UnsetType = UNSET
+    move: Option[Callable[[bpy.types.Context, int, int], BlenderResult[None]]] = Nothing
+
+    @property
+    def sides(self) -> tuple[RowContent, ...]:
+        """Side rows, with a grip dragging the active item by list rows while `move` reorders the collection."""
+        return (*self.side, *self.dragging.map(lambda command: OperatorButton(target=command, text="", icon=Some("GRIP"))).to_list())
+
+    @property
+    def dragging(self) -> Option[Operator[Empty, Dragged]]:
+        """Drag of the active item by list rows, `move` placing it at each row and the active index following it, Escape restoring its row."""
+
+        def held(context: bpy.types.Context) -> BlenderResult[tuple[int, int, ResolvedMember]]:
+            def indexed(collection: ResolvedMember[bpy.types.CollectionProperty], active: ResolvedMember) -> BlenderResult[tuple[int, int, ResolvedMember]]:
+                items = collection.at(context, context).map(lambda at: getattr(*at))
+                chosen = active.at(context, context).map(lambda at: getattr(*at))
+                return (
+                    items
+                    .bind(lambda members: chosen.map(lambda pick: (pick if isinstance(pick, int) else next((index for index, item in enumerate(members) if item == pick), -1), len(members))))
+                    .filter(lambda pair: 0 <= pair[0] < pair[1])
+                    .map(lambda pair: (*pair, active))
+                    .to_result_with(lambda: (BlenderAbsentFault(owner=collection.descriptor.path, key=active.descriptor.path),))
+                )
+
+            return paired(self.collection.resolved(bpy.types.CollectionProperty), self.active.resolved()).bind(lambda pair: indexed(*pair))
+
+        def relocated(move: Callable[[bpy.types.Context, int, int], BlenderResult[None]], context: bpy.types.Context, target: int) -> BlenderResult[None]:
+            def moved(current: int, count: int, active: ResolvedMember) -> BlenderResult[None]:
+                row = min(max(target, 0), count - 1)
+
+                def followed(_: None) -> None:
+                    for owner, key in active.at(context, context).to_list() if isinstance(active.descriptor.prop, bpy.types.IntProperty) else ():
+                        setattr(owner, key, row)
+
+                return Ok(None) if row == current else move(context, current, row).map(followed)
+
+            return held(context).bind(lambda found: moved(*found))
+
+        def gesture(move: Callable[[bpy.types.Context, int, int], BlenderResult[None]]) -> Modal[Dragged]:
+            def preview(context: bpy.types.Context, state: Dragged, travel: Travel) -> BlenderResult[Option[str]]:
+                return relocated(move, context, state.origin + round((travel.dy if self.sort_reverse is True else -travel.dy) / state.pitch)).map(lambda _: Nothing)
+
+            return Modal(
+                gesture=Gesture.DRAG_Y,
+                begin=lambda context, _travel: held(context).map(lambda found: Dragged(origin=found[0], pitch=float(Metrics.read().unit))),
+                preview=preview,
+                restore=lambda context, state: relocated(move, context, state.origin),
+            )
+
+        return self.move.map(
+            lambda move: Operator[Empty, Dragged](
+                key=f"{self.key}_drag",
+                title=f"Drag {heading(self.key)}",
+                description="Drag the active item by list rows, Escape restores its row",
+                form=Empty,
+                run=lambda _call: Ok(Done()),
+                invoke=Some(gesture(move)),
+                internal=True,
+            )
+        )
 
     def selection(self, identity: Identity) -> BlenderResult[Member]:
         """Names selection property on shared owner or window manager."""
@@ -154,7 +224,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 accumulated((
                     self.attachment.map(fielded).default_value(Ok(())),
                     accumulated(realized(row, identity) for row in self.columns),
-                    accumulated(realized(row, identity) for row in self.side),
+                    accumulated(realized(row, identity) for row in self.sides),
                 )),
             ).map(listed)
 
@@ -251,7 +321,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 case _:
                     return Ok(())
 
-        return self.active.resolved().bind(schema).map(lambda pairs: (*self.attachment.to_list(), *acquired((*self.columns, *self.side, *self.absent)), *pairs, (Band.INTERFACE, registered())))
+        return self.active.resolved().bind(schema).map(lambda pairs: (*self.attachment.to_list(), *acquired((*self.columns, *self.sides, *self.absent)), *pairs, (Band.INTERFACE, registered())))
 
     def picked(self, identity: Identity) -> BlenderResult[Reach]:
         """Returns reach of the active item the list highlights, through the selection the list draws."""
@@ -315,4 +385,4 @@ def keyed(struct: Native) -> str:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ItemList", "Where", "keyed"]
+__all__ = ["Dragged", "ItemList", "Where", "keyed"]

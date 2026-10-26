@@ -6,8 +6,8 @@ from typing import Annotated
 from expression import Option
 import msgspec
 
-from blender.imaging.hashing import content_hash, ContentHash
-from blender.imaging.parameters import Case, Side
+from blender.records.fields import Case, Side
+from blender.records.identity import content_hash, ContentHash
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -44,7 +44,7 @@ class Marker(msgspec.Struct, frozen=True, kw_only=True):
     camera: str
 
 
-class Bound(Case, frozen=True, kw_only=True, tag=1):
+class Bound(Case, frozen=True, kw_only=True):
     """Scene camera switched at camera markers."""
 
     title = "Scene Camera"
@@ -58,14 +58,14 @@ class Bound(Case, frozen=True, kw_only=True, tag=1):
         return Option.of_optional(marker).map(lambda marker: marker.camera).or_else_with(lambda: Option.of_optional(self.camera))
 
 
-class Fixed(Case, frozen=True, kw_only=True, tag=2):
+class Fixed(Case, frozen=True, kw_only=True):
     """One camera for every job frame."""
 
     title = "Fixed Camera"
     camera: str
 
 
-class RenderFrames(msgspec.Struct, frozen=True, kw_only=True, tag=2):
+class RenderFrames(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Scene frames a farm worker renders."""
 
     scene: str

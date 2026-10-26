@@ -16,8 +16,8 @@ import httpx2
 import msgspec
 from scipy.cluster.hierarchy import DisjointSet
 
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
-from blender.imaging.parameters import Case, Gated, Presentation
+from blender.records.faults import accumulated, FileFault, paired
+from blender.records.fields import Case, Gated, Presentation
 from blender.rendering.batch.exchange import Endpoint, exchange, sent
 from blender.rendering.batch.queue import Job, RenderFrames, RenderQueue
 from blender.rendering.faults import RenderingFaults, RenderingResult, RenderingSendFault
@@ -170,11 +170,11 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
                 shutil.copy2(job.file, target)
                 return job.file, f"{{jobs}}/{relative.as_posix()}"
 
-            return catch(copy, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=target, error=error),))
+            return catch(copy, exception=OSError)().map_error(lambda error: (FileFault(access="write", request=target, error=error),))
 
         def read[T](source: str, reader: Callable[[Path], T]) -> RenderingResult[T]:
             return catch(lambda: reader(Path(source)), exception=OSError)().map_error(
-                lambda error: (RenderingSendFault(request=source, error=424) if isinstance(error, FileNotFoundError) else ImagingFileFault(access=Access.READ, request=source, error=error),)
+                lambda error: (RenderingSendFault(request=source, error=424) if isinstance(error, FileNotFoundError) else FileFault(access="read", request=source, error=error),)
             )
 
         def specified(name: str, job: Job) -> RenderingResult[_ShamanFileSpec]:
@@ -183,7 +183,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
         def checked(specs: tuple[_ShamanFileSpec, ...]) -> RenderingResult[_ManagerFiles]:
             def uploaded(spec: _ShamanFileSpec) -> RenderingResult[httpx2.Response]:
                 def unlisted() -> RenderingFaults:
-                    return (ImagingFileFault(access=Access.READ, request=spec.path, error=KeyError(spec.path)),)
+                    return (FileFault(access="read", request=spec.path, error=KeyError(spec.path)),)
 
                 return (
                     Option
@@ -211,7 +211,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Flamenco(Case, frozen=True, kw_only=True, tag=3):
+class Flamenco(Case, frozen=True, kw_only=True):
     """Jobs submitted to Flamenco Manager."""
 
     script: ClassVar[str] = "rasm_render.js"

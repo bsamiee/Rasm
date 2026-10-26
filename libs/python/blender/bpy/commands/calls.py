@@ -14,7 +14,7 @@ import msgspec
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.faults import BlenderAbsentFault, BlenderOperatorFault, BlenderResult
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

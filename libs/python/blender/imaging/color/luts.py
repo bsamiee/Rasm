@@ -13,10 +13,12 @@ import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.color.processors import converted
-from blender.imaging.faults import Access, accumulated, colored, ImagingFileFault, ImagingResult, ImagingShapeFault
-from blender.imaging.files.images import emitted, ImageFile, published, read_file, Subimage
-from blender.imaging.parameters import Case, Choice
+from blender.imaging.color.processors import converted, processor
+from blender.imaging.faults import colored, ImagingResult, ImagingShapeFault
+from blender.imaging.files.images import emitted, ImageFile, read_file, Subimage
+from blender.records.faults import accumulated, FileFault
+from blender.records.fields import Case, Choice
+from blender.records.stores import committed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -119,7 +121,7 @@ class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(row for row in cls.writable() if row in cls.bakeable())
 
 
-class Uniform(Case, frozen=True, kw_only=True, tag=1):
+class Uniform(Case, frozen=True, kw_only=True):
     """Nodes evenly spaced between allocation endpoints."""
 
     limit: ClassVar[float] = float(np.nextafter(np.float32(np.inf), np.float32(0)))
@@ -127,14 +129,14 @@ class Uniform(Case, frozen=True, kw_only=True, tag=1):
     high: Annotated[float, msgspec.Meta(ge=-limit, le=limit, description="Input at last node")] = 1.0
 
 
-class Logarithmic(Case, frozen=True, kw_only=True, tag=2):
+class Logarithmic(Case, frozen=True, kw_only=True):
     """Nodes evenly spaced in stops, scene zero on first node."""
 
     low: Annotated[float, msgspec.Meta(ge=-24.0, le=16.0, description="Stops from 1.0 to first nonzero node")] = -10.0
     span: Annotated[float, msgspec.Meta(gt=0.0, le=40.0, description="Stops from low to high allocation")] = 20.0
 
 
-class Rational(Case, frozen=True, tag=3):
+class Rational(Case, frozen=True):
     """Nodes encoded by x / (x + 1) over nonnegative half floats."""
 
 
@@ -187,67 +189,86 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
         return PyOpenColorIO.GroupTransform(transforms=[*self.head.to_list(), table])
 
 
-class Bake(Case, frozen=True, kw_only=True, tag=1):
-    """Source resampled at encoded lattice nodes."""
+class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
+    """LUT file format, its sources resampled at lattice nodes when one is held, else written operator for operator."""
 
     format: LutFormat
-    lattice: Lattice = Lattice()
+    lattice: Option[Lattice] = Nothing
 
+    def written(self, sources: Mapping[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, ...]]:
+        """Encodes every source before publishing each path atomically in mapping order."""
 
-class Exact(Case, frozen=True, kw_only=True, tag=2):
-    """Source operators written without resampling."""
+        def baked(source: PyOpenColorIO.GroupTransform, lattice: Lattice) -> ImagingResult[str]:
+            def baker() -> PyOpenColorIO.Baker:
+                config = PyOpenColorIO.Config()
+                entry = PyOpenColorIO.ColorSpace(name="source")
+                target = PyOpenColorIO.ColorSpace(name="target", fromReference=source)
+                shapers = [PyOpenColorIO.ColorSpace(name="shaper", fromReference=head) for head in lattice.head.to_list()]
+                for space in (entry, target, *shapers):
+                    config.addColorSpace(space)
+                return PyOpenColorIO.Baker(
+                    config=config,
+                    format=self.format.name,
+                    inputSpace=entry.getName(),
+                    targetSpace=target.getName(),
+                    cubeSize=lattice.size,
+                    shaperSize=65536,
+                    shaperSpace=shapers[0].getName() if shapers else "",
+                )
 
-    format: LutFormat
+            return colored(self.format.name, baker).bind(lambda built: colored(built, built.bake))
 
+        def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, str]]:
+            path, source = item
+            return (
+                self.lattice
+                .map(lambda lattice: baked(source, lattice))
+                .default_with(lambda: colored(source, lambda: source.write(formatName=self.format.name, config=PyOpenColorIO.Config())))
+                .map(lambda text: (path, text))
+            )
 
-type LutOutput = Bake | Exact
+        def installed(item: tuple[str, str]) -> ImagingResult[str]:
+            path, text = item
+            return committed(
+                pathlib.Path(path),
+                lambda stage: catch(stage.write_text, exception=OSError)(text, encoding="utf-8", newline="").map_error(lambda error: (FileFault(access="write", request=path, error=error),)),
+            ).map(str)
+
+        return accumulated(map(encoded, sources.items())).bind(lambda texts: accumulated(map(installed, texts)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def written(output: LutOutput, sources: Mapping[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, ...]]:
-    """Encodes every source before publishing each path atomically in mapping order."""
+def split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> ImagingResult[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
+    """Returns the processor operations of `transform` before its first 3D table, and that table's lattice with the suffix sampled at its nodes."""
 
-    def encoded(item: tuple[str, PyOpenColorIO.GroupTransform]) -> ImagingResult[tuple[str, str]]:
-        path, source = item
-        match output:
-            case Exact():
-                text = colored(source, lambda: source.write(formatName=output.format.name, config=PyOpenColorIO.Config()))
-            case Bake():
-
-                def baker() -> PyOpenColorIO.Baker:
-                    config = PyOpenColorIO.Config()
-                    entry = PyOpenColorIO.ColorSpace(name="source")
-                    target = PyOpenColorIO.ColorSpace(name="target", fromReference=source)
-                    shapers = [PyOpenColorIO.ColorSpace(name="shaper", fromReference=head) for head in output.lattice.head.to_list()]
-                    for space in (entry, target, *shapers):
-                        config.addColorSpace(space)
-                    return PyOpenColorIO.Baker(
-                        config=config,
-                        format=output.format.name,
-                        inputSpace=entry.getName(),
-                        targetSpace=target.getName(),
-                        cubeSize=output.lattice.size,
-                        shaperSize=65536,
-                        shaperSpace=shapers[0].getName() if shapers else "",
-                    )
-
-                text = colored(output.format.name, baker).bind(lambda built: colored(built, built.bake))
-        return text.map(lambda written: (path, written))
-
-    def installed(item: tuple[str, str]) -> ImagingResult[str]:
-        path, text = item
-        return published(
-            path,
-            lambda destination: catch(lambda: pathlib.Path(destination).write_text(text, encoding="utf-8", newline=""), exception=OSError)().map_error(
-                lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),)
-            ),
+    def sampled(built: PyOpenColorIO.Processor) -> ImagingResult[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
+        operations = list(built.createGroupTransform())
+        return (
+            Option
+            .of_optional(next(((index, Lattice(size=operation.getGridSize())) for index, operation in enumerate(operations) if isinstance(operation, PyOpenColorIO.Lut3DTransform)), None))
+            .map(
+                lambda found: (
+                    found[1]
+                    .samples()
+                    .bind(lambda samples: converted(PyOpenColorIO.Config(), PyOpenColorIO.GroupTransform(transforms=operations[found[0] :]), samples))
+                    .map(lambda outputs: (PyOpenColorIO.GroupTransform(transforms=operations[: found[0]]), Some((found[1], outputs))))
+                )
+            )
+            .default_with(lambda: Ok((PyOpenColorIO.GroupTransform(transforms=operations), Nothing)))
         )
 
-    return accumulated(map(encoded, sources.items())).bind(lambda texts: accumulated(map(installed, texts)))
+    return processor(config, transform).bind(sampled)
+
+
+def corrections(path: str) -> ImagingResult[tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]]:
+    """Reads every ASC correction of a CC, CCC, or CDL file in file order, each with its ID when named."""
+    return colored(path, lambda: PyOpenColorIO.CDLTransform.CreateGroupFromFile(path)).map(
+        lambda group: tuple((Some(correction.getFormatMetadata().getID()).filter(bool), correction) for correction in group if isinstance(correction, PyOpenColorIO.CDLTransform))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bake", "Exact", "Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "written"]
+__all__ = ["Lattice", "Logarithmic", "LutFormat", "LutLayout", "LutOutput", "Rational", "Spacing", "Uniform", "corrections", "split"]

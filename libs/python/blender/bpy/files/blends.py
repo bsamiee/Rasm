@@ -19,7 +19,7 @@ from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.ids.store import Handle, STORES
 from blender.bpy.data.rna.descriptors import assigned, Value
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
+from blender.records.faults import accumulated, FileFault, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -140,11 +140,7 @@ class Project(msgspec.Struct, frozen=True, kw_only=True):
 
 def folder_made(folder: Path) -> BlenderResult[Path]:
     """Returns existing or created folder, or write fault."""
-    return (
-        catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)()
-        .map(lambda _: folder)
-        .map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=folder, error=error),))
-    )
+    return catch(lambda: folder.mkdir(parents=True, exist_ok=True), exception=OSError)().map(lambda _: folder).map_error(lambda error: (FileFault(access="write", request=folder, error=error),))
 
 
 def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path, ...]]:
@@ -154,9 +150,7 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> BlenderResult[tuple[Path
         return target if target.exists() and target.samefile(source) else Path(shutil.copytree(source, target, dirs_exist_ok=True) if source.is_dir() else shutil.copy2(source, target))
 
     def one(source: Path, target: Path) -> BlenderResult[Path]:
-        return folder_made(target.parent).bind(
-            lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=target, error=error),))
-        )
+        return folder_made(target.parent).bind(lambda _: catch(lambda: copy(source, target), exception=OSError)().map_error(lambda error: (FileFault(access="write", request=target, error=error),)))
 
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 
@@ -170,7 +164,7 @@ def sourced[T](
         try:
             source, target = loading.enter_context(load)
         except (OSError, ValueError) as error:
-            return Error((ImagingFileFault(access=Access.READ, request=path, error=error),))
+            return Error((FileFault(access="read", request=path, error=error),))
         value, chosen = take(source)
         for name, names in chosen.items():
             setattr(target, name, list(names))

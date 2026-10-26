@@ -1,4 +1,4 @@
-"""Desired group interfaces, record interfaces, stored item keys, and live interface writes."""
+"""Desired group interfaces, record interfaces, curve node markers, stored item keys, and live interface writes."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
 import itertools
@@ -16,8 +16,8 @@ from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.settings import shapes
 from blender.bpy.settings.properties import RecordGroup, Unit
-from blender.imaging.faults import accumulated
-from blender.imaging.parameters import Case, Choice, Gated, heading, Presentation, Quantity
+from blender.records.faults import accumulated
+from blender.records.fields import Case, Choice, Gated, heading, markers, Presentation, Quantity
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -194,6 +194,13 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                     return socket(bpy.types.NodeSocketString, bpy.types.NodeTreeInterfaceSocketString, given(lambda value: Ok(msgspec.convert(value, str))))
                 case shapes.Enumerated(enum=choices):
                     return socket(bpy.types.NodeSocketMenu, bpy.types.NodeTreeInterfaceSocketMenu, given(lambda value: Ok(msgspec.convert(value, choices).label)), items=Some(MenuItems.of(choices)))
+                case shapes.Literals() as literal:
+                    return socket(
+                        bpy.types.NodeSocketMenu,
+                        bpy.types.NodeTreeInterfaceSocketMenu,
+                        given(lambda value: Ok(literal.labels[msgspec.convert(value, int | str)])),
+                        items=Some(MenuItems(items=tuple(MenuItem(name=label) for label in literal.labels.values()))),
+                    )
                 case shapes.Flags(enum=choices):
                     selected = default()
                     return accumulated(
@@ -228,17 +235,17 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                         bpy.types.NodeSocketMenu,
                         bpy.types.NodeTreeInterfaceSocketMenu,
                         Ok(tagged.map(lambda value: {"default_value": type(value).title}).default_value({})),
-                        items=Some(MenuItems.of(tuple(record for record, _ in cases))),
+                        items=Some(MenuItems.of(cases)),
                     )
 
                     def branch(record: type[Case]) -> BlenderResult[tuple[Socket | InterfacePanel, ...]]:
                         chosen = selected.filter(lambda value: isinstance(value, record))
                         return panel((*path, record), record.title, Option.of_optional(record.__doc__).default_value(""), Nothing, walk((*path, record), record, chosen))
 
-                    return accumulated((menu, *(branch(record) for record, _ in cases))).map(lambda parts: tuple(itertools.chain.from_iterable(parts)))
+                    return accumulated((menu, *(branch(record) for record in cases))).map(lambda parts: tuple(itertools.chain.from_iterable(parts)))
                 case shapes.Records():
                     return panel(path, title, description, Nothing, Ok(cls()))
-                case shapes.OptionalText() | shapes.Literals() | shapes.Entries() | shapes.Pointer():
+                case shapes.OptionalText() | shapes.Entries() | shapes.Pointer():
                     return shapes.refused(field.type, declared.shape)
 
         return walk((), kind, Nothing)
@@ -278,6 +285,39 @@ class Restated(msgspec.Struct, frozen=True, kw_only=True):
     toggle: Option[bool] = Nothing
     place: Option[tuple[Option[Key], int]] = Nothing
     members: dict[Descriptor, Value] = msgspec.field(default_factory=dict)
+
+
+class CurveAxes(msgspec.Struct, frozen=True, kw_only=True):
+    """Record curve placed in its node's own axes, the shown height `scale * y + slope * x + offset`."""
+
+    scale: float = 1.0
+    slope: float = 0.0
+    offset: float = 0.0
+
+    def shown(self, x: float, y: float) -> float:
+        """Returns node height of record point."""
+        return self.scale * y + self.slope * x + self.offset
+
+    def held(self, x: float, y: float) -> float:
+        """Returns record height of node point."""
+        return (y - self.slope * x - self.offset) / self.scale
+
+
+class CurveNode(msgspec.Struct, frozen=True, kw_only=True):
+    """Annotation marker of a knot field the native curve node of `node` holds, fields marking one node class its curves in declaration order.
+
+    `view` is the node's own view in place of the record bounds.
+    """
+
+    node: type[bpy.types.Node]
+    axes: CurveAxes = CurveAxes()
+    view: Option[tuple[float, float, float, float]] = Nothing
+
+    @staticmethod
+    def marked(record: type[msgspec.Struct]) -> tuple[tuple[msgspec.structs.FieldInfo, "CurveNode", int], ...]:
+        """Returns each marked field with its marker and its curve index among the fields marking the same node class."""
+        rows = tuple((field, marker) for field in msgspec.structs.fields(record) for marker in markers(field.type, CurveNode)[:1])
+        return tuple((field, marker, sum(prior.node is marker.node for _, prior in rows[:index])) for index, (field, marker) in enumerate(rows))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -523,6 +563,8 @@ def _toggle(item: bpy.types.NodeTreeInterfaceItem) -> Option[bpy.types.NodeTreeI
 
 __all__ = [
     "Addressed",
+    "CurveAxes",
+    "CurveNode",
     "Declared",
     "DesiredItem",
     "Interface",

@@ -148,7 +148,7 @@
                 "strokes": [ { "ink": "panel.text/0.08" } ]
             },
             "toolbar": {
-                "fills": [ { "kind": "gradient", "stops": [ { "ink": "toolbar.fill", "at": 0 }, { "ink": "panel.fill", "at": 1 } ], "angle": 90 } ],
+                "fills": [ { "kind": "gradient", "stops": [ { "color": "toolbar.fill", "at": 0 }, { "color": "panel.fill", "at": 1 } ], "angle": 90 } ],
                 "strokes": [ { "ink": "panel.text/0.08" } ],
                 "shadows": [ { "kind": "drop", "y": 0.5, "blur": 1, "ink": "#00000040" } ]
             }

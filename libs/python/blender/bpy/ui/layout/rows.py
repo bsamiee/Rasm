@@ -21,11 +21,11 @@ from blender.bpy.data.rna.snapshots import Scoped, Snapshot
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.reports import rendered
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.settings import shapes
 from blender.bpy.ui.resources.icons import Glyph, Icons
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Unit
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.fields import Unit
 
 if typing.TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -842,7 +842,7 @@ class Progress(Call, frozen=True, kw_only=True):
 
 def refused(path: str, found: str, accepted: tuple[str, ...]) -> BlenderFaults:
     """Returns choice fault for an unsupported binding."""
-    return (BlenderChoiceFault(path=path, identifier=found, accepted=accepted),)
+    return (DomainFault(subject=path, value=found, accepted=", ".join(accepted)),)
 
 
 def bound(bindings: tuple[tuple[Binding, Accept], ...], place: Callable[[tuple[ResolvedMember, ...]], RowDraw]) -> BlenderResult[RowDraw]:

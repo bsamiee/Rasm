@@ -17,9 +17,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult, EditRefusal
-from blender.imaging.faults import Access, accumulated, ImagingFileFault
-from blender.imaging.parameters import Presentation, Quantity
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult, EditRefusal
+from blender.records.faults import accumulated, DomainFault
+from blender.records.fields import Presentation, Quantity
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ QUANTITIES: Final = MappingProxyType({
     "DISTANCE": Quantity.LENGTH,
     "TRANSLATION": Quantity.LENGTH,
     "XYZ_LENGTH": Quantity.LENGTH,
-    "DISTANCE_CAMERA": Quantity.CAMERA_LENGTH,
+    "DISTANCE_CAMERA": Quantity.FOCAL_LENGTH,
     "ANGLE": Quantity.ANGLE,
     "EULER": Quantity.ANGLE,
     "TIME_ABSOLUTE": Quantity.DURATION,
@@ -275,7 +275,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
         try:
             target = msgspec.convert(source, kind)
         except msgspec.ValidationError as error:
-            return Error((ImagingFileFault(access=Access.READ, request=request, error=error),))
+            return Error((DomainFault(subject=request, value=source, accepted=str(error)),))
         try:
             prior = getattr(owner, name) if isinstance(self.prop, bpy.types.PointerProperty) else self.read(owner)
         except typing.get_args(EditRefusal.__value__) as error:
@@ -302,8 +302,8 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 case bpy.types.EnumProperty() as prop, tuple() | str() as chosen, _:
                     identifiers, native = (chosen, set(chosen)) if isinstance(chosen, tuple) else ((chosen,), chosen)
                     refusals = tuple(
-                        BlenderChoiceFault(
-                            path=request, identifier=identifier, accepted=tuple(item.identifier for item in prop.enum_items if bpy.types.UILayout.enum_item_name(owner, name, item.identifier))
+                        DomainFault(
+                            subject=request, value=identifier, accepted=", ".join(item.identifier for item in prop.enum_items if bpy.types.UILayout.enum_item_name(owner, name, item.identifier))
                         )
                         for identifier in identifiers
                         if not bpy.types.UILayout.enum_item_name(owner, name, identifier)
@@ -333,18 +333,18 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
     @staticmethod
     def quantized(prop: bpy.types.FloatProperty, value: float | tuple[float, ...] | NDArray[np.float64]) -> BlenderResult[NDArray[np.float32]]:
-        """Returns float32 storage, read fault outside hard range."""
+        """Returns float32 storage, domain fault outside hard range."""
         with np.errstate(over="ignore"):
             target = np.asarray(value, dtype=np.float32)
         return (
-            Error((ImagingFileFault(access=Access.READ, request=repr(prop), error=ValueError(f"Value outside hard range [{prop.hard_min}, {prop.hard_max}]")),))
+            Error((DomainFault(subject=repr(prop), value=value, accepted=f"values within hard range [{prop.hard_min}, {prop.hard_max}]"),))
             if np.any((target < prop.hard_min) | (target > prop.hard_max))
             else Ok(target)
         )
 
     @staticmethod
     def validated[T: str | bytes](prop: bpy.types.StringProperty, value: T) -> BlenderResult[T]:
-        """Returns storable value, read fault for NUL or overlong text."""
+        """Returns storable value, domain fault for NUL or overlong text."""
         try:
             if prop.subtype != "BYTE_STRING":
                 msgspec.convert(os.fsdecode(value) if prop.subtype in {"FILE_PATH", "DIR_PATH", "FILE_NAME"} else value, Annotated[str, msgspec.Meta(pattern=r"^[^\x00]*$")])
@@ -353,7 +353,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 msgspec.convert(encoded, Annotated[bytes, msgspec.Meta(max_length=prop.length_max - 1)])
             return Ok(value)
         except msgspec.ValidationError as error:
-            return Error((ImagingFileFault(access=Access.READ, request=repr(prop), error=error),))
+            return Error((DomainFault(subject=repr(prop), value=value, accepted=str(error)),))
         except (TypeError, ValueError) as error:
             return Error((BlenderEditFault(request=repr(prop), error=error),))
 
@@ -393,7 +393,7 @@ def beneath(path: str, root: str) -> bool:
 
 def typed[T](value: object, kind: type[T], path: str) -> BlenderResult[T]:
     """Returns value of kind, choice fault otherwise."""
-    return Ok(value) if isinstance(value, kind) else Error((BlenderChoiceFault(path=path, identifier=type(value).__name__, accepted=(kind.__name__,)),))
+    return Ok(value) if isinstance(value, kind) else Error((DomainFault(subject=path, value=type(value).__name__, accepted=kind.__name__),))
 
 
 def subclass[T: "bpy.types.bpy_struct[object]"](base: type[T], identifier: str) -> BlenderResult[type[T]]:

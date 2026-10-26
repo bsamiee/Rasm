@@ -6,14 +6,14 @@ from itertools import chain, starmap
 from pathlib import Path
 import re
 import string
-from typing import Annotated, Self
+from typing import Annotated, Final, Self
 
 from expression import Error, Nothing, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Case
 from blender.rendering.faults import RenderingFaults, RenderingNameFault, RenderingResult, RenderingRootFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -56,27 +56,27 @@ class Output(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_RESERVED = r'\x00-\x1f"*:<>?|'
+RESERVED: Final = r'\x00-\x1f"*:<>?|'
 _UNLITERAL = re.compile(r"[{}\x00]")
 _SEPARATOR = re.compile(r"[\W_]")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Text(Case, frozen=True, kw_only=True, tag=1):
+class Text(Case, frozen=True, kw_only=True):
     """Literal text."""
 
     text: str
 
 
-class Slot(Case, frozen=True, kw_only=True, tag=2):
+class Slot(Case, frozen=True, kw_only=True):
     """Text field."""
 
     title = "Text Field"
     key: Word
 
 
-class Number(Case, frozen=True, kw_only=True, tag=3):
+class Number(Case, frozen=True, kw_only=True):
     """Number field zero-padded to width."""
 
     title = "Number Field"
@@ -150,7 +150,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case Slot(key=Word.DATE):
                     return re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
                 case Slot():
-                    return re.compile(rf"[^{_RESERVED}{excluded}]+")
+                    return re.compile(rf"[^{RESERVED}{excluded}]+")
                 case Number(width=width):
                     return re.compile(rf"[0-9]{{{width}}}|[1-9][0-9]{{{width},}}")
 
@@ -231,11 +231,6 @@ def stepped(text: str, offset: int) -> Option[str]:
     )
 
 
-def stored_name(name: str) -> str:
-    """Replaces characters Blender reserves in File Output item names."""
-    return re.sub(f"[{_RESERVED}]", "_", name)
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Count", "Field", "Fields", "Number", "Output", "OutputName", "Parts", "Slot", "Text", "Width", "Word", "stepped", "stored_name"]
+__all__ = ["RESERVED", "Count", "Field", "Fields", "Number", "Output", "OutputName", "Parts", "Slot", "Text", "Width", "Word", "stepped"]

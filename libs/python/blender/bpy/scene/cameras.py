@@ -29,8 +29,8 @@ from blender.bpy.ui.layout.rows import Caption, Member, Popover, Property
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.surfaces.appends import Append
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
-from blender.imaging.parameters import Case, Finite, Gated
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.fields import Case, Finite, Gated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -54,13 +54,13 @@ class View(msgspec.Struct, frozen=True, kw_only=True):
     use: Annotated[bool, msgspec.Meta(title="Render", description="Render view")] = True
 
 
-class Stereo(Case, frozen=True, kw_only=True, tag=1):
+class Stereo(Case, frozen=True, kw_only=True):
     """Left and right camera stereo views."""
 
     title = "Stereo 3D"
 
 
-class Multiview(Case, frozen=True, kw_only=True, tag=2):
+class Multiview(Case, frozen=True, kw_only=True):
     """Named views reading cameras by suffix."""
 
     title = "Multi-View"
@@ -164,7 +164,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
             try:
                 points = msgspec.convert(coordinates.tolist(), Annotated[tuple[tuple[Finite, Finite, Finite], ...], msgspec.Meta(min_length=2)])
             except msgspec.ValidationError as error:
-                return Error((ImagingFileFault(access=Access.READ, request=repr(coordinates), error=error),))
+                return Error((DomainFault(subject=f"{item!r} framing", value=coordinates, accepted=str(error)),))
 
             def fitted(fit: tuple[Vector, float]) -> BlenderResult[None]:
                 location, scale = fit

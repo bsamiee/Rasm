@@ -6,25 +6,14 @@ dynamic         = ["version"]
 requires-python = ">=3.13"
 
 dependencies = [
-    "atomicwrites",
-    "cbor2",
     "colour-science",
     "expression",
-    "httpx2",
-    "imagecodecs",
-    "matplotlib",
     "msgspec",
     "numpy",
     "opencolorio",
     "openimageio",
-    "psdtags",
-    "scikit-image",
     "scipy",
-    "structlog",
-    "tenacity",
-    "tifffile",
     "typing-extensions",
-    "typing-inspection",
 ]
 
 # --- [UV] -------------------------------------------------------------------------------

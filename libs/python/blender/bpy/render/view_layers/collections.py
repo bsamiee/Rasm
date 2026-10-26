@@ -23,13 +23,13 @@ from blender.bpy.ui.layout.rows import Branch, Caption, Flow, joined, Line, Memb
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.screens.editors import EditorState
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Choice
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Choice
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Flag(Choice):
+class Restriction(Choice):
     """Layer collection restrictions, member names deriving RNA identifiers."""
 
     EXCLUDE = 1, "Exclude"
@@ -38,7 +38,7 @@ class Flag(Choice):
     HIDE_VIEWPORT = 4, "Hide in Viewport"
 
 
-class Extent(Choice):
+class Spread(Choice):
     """Collections a restriction edit reaches."""
 
     ONE = 1, "Collection"
@@ -48,7 +48,9 @@ class Extent(Choice):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-FLAGS: Final[Mapping[Flag, Descriptor[bpy.types.BoolProperty]]] = MappingProxyType({flag: Descriptor.declared(bpy.types.LayerCollection, flag.name.lower(), bpy.types.BoolProperty) for flag in Flag})
+FLAGS: Final[Mapping[Restriction, Descriptor[bpy.types.BoolProperty]]] = MappingProxyType({
+    flag: Descriptor.declared(bpy.types.LayerCollection, flag.name.lower(), bpy.types.BoolProperty) for flag in Restriction
+})
 _VISIBLE: Final = Descriptor.declared(bpy.types.LayerCollection, "is_visible", bpy.types.BoolProperty)
 _COLUMNS: Final = {"show_restrict_column_holdout": True, "show_restrict_column_indirect_only": True}
 
@@ -60,9 +62,9 @@ class CollectionState(msgspec.Struct, frozen=True, kw_only=True):
 
     layer: Annotated[str, msgspec.Meta(min_length=1, title="View Layer", description="View layer the edit writes")]
     collection: Annotated[IdName, msgspec.Meta(title="Collection", description="Collection the edit writes")]
-    flag: Annotated[Flag, msgspec.Meta(title="Flag", description="Restriction the edit writes")]
+    flag: Annotated[Restriction, msgspec.Meta(title="Restriction", description="Restriction the edit writes")]
     value: Annotated[bool, msgspec.Meta(title="Value", description="Restriction value written")]
-    extent: Annotated[Extent, msgspec.Meta(title="Extent", description="Collections the edit reaches")] = Extent.ONE
+    extent: Annotated[Spread, msgspec.Meta(title="Extent", description="Collections the edit reaches")] = Spread.ONE
 
 
 class CollectionStates(Line, frozen=True, kw_only=True):
@@ -128,11 +130,11 @@ def applied(state: CollectionState, scene: bpy.types.Scene) -> BlenderResult[int
         inside = tuple(node for node, _ in walked(target))
         writes: tuple[tuple[bpy.types.LayerCollection, bool], ...]
         match state.extent:
-            case Extent.ONE:
+            case Spread.ONE:
                 writes = ((target, state.value),)
-            case Extent.CHILDREN:
+            case Spread.CHILDREN:
                 writes = tuple((node, state.value) for node in inside)
-            case Extent.ISOLATE:
+            case Spread.ISOLATE:
                 kept = (*inside, *ancestors[1:])
                 writes = tuple((node, state.value == (node in kept)) for node, parents in walked(layer.layer_collection) if parents)
         return accumulated(member.write(node, value) for node, value in writes if node != layer.layer_collection).map(lambda prior: sum(value.is_some() for value in prior))
@@ -145,7 +147,7 @@ def applied(state: CollectionState, scene: bpy.types.Scene) -> BlenderResult[int
     return Result[bpy.types.ViewLayer, BlenderFaults].bind(layer, located)
 
 
-def isolates(layer: bpy.types.ViewLayer, collection: bpy.types.Collection, flag: Flag) -> bool:
+def isolates(layer: bpy.types.ViewLayer, collection: bpy.types.Collection, flag: Restriction) -> bool:
     """Checks whether collection alone of top-level collections has flag cleared."""
     return all(FLAGS[flag].read(child) == (child.collection != collection) for child in layer.layer_collection.children)
 
@@ -164,7 +166,7 @@ def grid(layers: tuple[bpy.types.ViewLayer, ...]) -> tuple[Branch[bpy.types.Coll
 
 def seeded(record: CollectionState, event: bpy.types.Event, _identity: Identity) -> CollectionState:
     """Seeds the restriction extent from held modifiers, Ctrl to isolate and Shift to include children."""
-    return msgspec.structs.replace(record, extent=Extent.ISOLATE if event.ctrl else Extent.CHILDREN if event.shift else Extent.ONE)
+    return msgspec.structs.replace(record, extent=Spread.ISOLATE if event.ctrl else Spread.CHILDREN if event.shift else Spread.ONE)
 
 
 def copying(owner: Callable[[bpy.types.ViewLayer], Native]) -> Callable[[Call[Empty]], BlenderResult[Done]]:
@@ -216,4 +218,4 @@ CLIPBOARD: Final = (
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CLIPBOARD", "FLAGS", "STATE", "CollectionState", "CollectionStates", "Extent", "Flag", "applied", "copying", "found", "grid", "isolates", "pasting", "seeded"]
+__all__ = ["CLIPBOARD", "FLAGS", "STATE", "CollectionState", "CollectionStates", "Restriction", "Spread", "applied", "copying", "found", "grid", "isolates", "pasting", "seeded"]

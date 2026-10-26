@@ -10,7 +10,6 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
-import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.data.ids.ownership import kept, Ownership
@@ -19,11 +18,12 @@ from blender.bpy.data.rna.descriptors import assigned, Descriptor, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.imaging.color.processors import applied, processor, unassociated
-from blender.imaging.faults import Access, ImagingBufferFault, ImagingFileFault, ImagingResult, paired
-from blender.imaging.files.images import Depth, Format, ImageFile, read_file, Storage
-from blender.imaging.hashing import content_hash, ContentHash
-from blender.imaging.parameters import Case
+from blender.imaging.color.processors import converted
+from blender.imaging.faults import ImagingResult
+from blender.imaging.files.images import Depth, Format, ImageFile, read_file, resampled, Rounded, Storage, unassociated
+from blender.records.faults import FileFault, paired
+from blender.records.fields import Case
+from blender.records.identity import content_hash, ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Scaled(Case, frozen=True, kw_only=True, tag=1):
+class Scaled(Case, frozen=True, kw_only=True):
     """Proxy at fraction of each source side."""
 
     factor: Annotated[float, msgspec.Meta(gt=0.0, lt=1.0, description="Proxy side over source side")] = 0.5
@@ -75,7 +75,7 @@ class Scaled(Case, frozen=True, kw_only=True, tag=1):
         return Some((math.ceil(width * self.factor), math.ceil(height * self.factor)))
 
 
-class Bounded(Case, frozen=True, kw_only=True, tag=2):
+class Bounded(Case, frozen=True, kw_only=True):
     """Longest-side proxy bound."""
 
     title = "Longest Side"
@@ -185,7 +185,7 @@ def _plane(image: bpy.types.Image) -> BlenderResult[npt.NDArray[np.float32]]:
     try:
         pixels = np.empty((height, width, channels), np.float32)
     except MemoryError as error:
-        return Error((ImagingFileFault(access=Access.READ, request=repr(image), error=error),))
+        return Error((FileFault(access="read", request=repr(image), error=error),))
     image.pixels.foreach_get(pixels.reshape(-1))
     return Ok(pixels)
 
@@ -201,21 +201,12 @@ def _associated(image: bpy.types.Image) -> bool:
 def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, config: PyOpenColorIO.Config) -> BlenderResult[Option[str]]:
     """Points image at linear-light proxy beside source file, Nothing when source fits."""
 
-    def resampled(file: ImageFile[np.float32], width: int, height: int) -> ImagingResult[npt.NDArray[np.float32]]:
-        def linear(values: npt.NDArray[np.float32], direction: PyOpenColorIO.TransformDirection) -> ImagingResult[npt.NDArray[np.float32]]:
+    def linear(file: ImageFile[np.float32], width: int, height: int) -> ImagingResult[npt.NDArray[np.float32]]:
+        def moved(values: npt.NDArray[np.float32], direction: PyOpenColorIO.TransformDirection) -> ImagingResult[npt.NDArray[np.float32]]:
             transform = PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR, direction=direction)
-            return processor(config, transform).map(lambda built: applied(built.getDefaultCPUProcessor(), values)) if values.shape[2] in {3, 4} else Ok(values)
+            return converted(config, transform, values) if values.shape[2] in {3, 4} else Ok(values)
 
-        def fitted(values: npt.NDArray[np.float32]) -> ImagingResult[npt.NDArray[np.float32]]:
-            return (
-                ImagingBufferFault
-                .checked(OpenImageIO.ImageBuf(values))
-                .map(lambda source: OpenImageIO.ImageBufAlgo.fit(source, filtername="", filterwidth=0.0, fillmode="letterbox", exact=True, roi=OpenImageIO.ROI(0, width, 0, height)))
-                .bind(ImagingBufferFault.checked)
-                .bind(ImagingBufferFault.pixels)
-            )
-
-        return linear(file.pixels, PyOpenColorIO.TRANSFORM_DIR_FORWARD).bind(fitted).bind(lambda values: linear(values, PyOpenColorIO.TRANSFORM_DIR_INVERSE))
+        return moved(file.pixels, PyOpenColorIO.TRANSFORM_DIR_FORWARD).bind(lambda values: resampled(values, (width, height))).bind(lambda values: moved(values, PyOpenColorIO.TRANSFORM_DIR_INVERSE))
 
     def proxy(key: str, source: str, row: Format, file: ImageFile[np.float32], width: int, height: int) -> BlenderResult[str]:
         origin = Path(source)
@@ -224,13 +215,13 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Downscale, co
         def stored(values: npt.NDArray[np.float32]) -> ImagingResult[str]:
             match depth:
                 case Depth.UINT8 | Depth.UINT16:
-                    return ImageFile(pixels=depth.coded(unassociated(values)), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
+                    return ImageFile(pixels=depth.coded(unassociated(values), Rounded()), colorspace=file.colorspace, header=file.header).write(path, Storage(), {}, config)
                 case Depth.HALF | Depth.FLOAT as floated:
                     return ImageFile(pixels=values, colorspace=file.colorspace, header=file.header).write(path, Storage(depth=16 if floated is Depth.HALF else 32), {}, config)
 
         return (
             Result[str, BlenderFaults]
-            .bind(resampled(file, width, height).bind(stored), lambda _: BlenderEditFault.attempted(key, lambda: image.__setitem__(key, source)))
+            .bind(linear(file, width, height).bind(stored), lambda _: BlenderEditFault.attempted(key, lambda: image.__setitem__(key, source)))
             .bind(lambda _: written(image, "filepath", path).map(lambda _: path))
         )
 

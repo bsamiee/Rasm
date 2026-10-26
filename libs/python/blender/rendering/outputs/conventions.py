@@ -7,7 +7,7 @@ from typing import Annotated, ClassVar, Literal
 from expression import Option
 import msgspec
 
-from blender.imaging.parameters import Case, Choice
+from blender.records.fields import Case, Choice
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ class Convention(Case, frozen=True, kw_only=True):
         return Option.of_optional(self.channels.get(identifier))
 
 
-class Blender(Convention, frozen=True, tag=4):
+class Blender(Convention, frozen=True):
     """Blender pass names and axes."""
 
     names = MappingProxyType({})
@@ -51,7 +51,7 @@ class Blender(Convention, frozen=True, tag=4):
     motion = (1, 2, 3, 4)
 
 
-class Nuke(Convention, frozen=True, tag=5):
+class Nuke(Convention, frozen=True):
     """Nuke pass names and axes."""
 
     names = MappingProxyType({"Combined": "rgba", "Position": "Pworld", "Depth": "z"})

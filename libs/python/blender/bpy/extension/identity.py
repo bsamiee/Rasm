@@ -15,7 +15,7 @@ from structlog.typing import FilteringBoundLogger
 
 from blender.bpy.extension.reports import Reports
 from blender.bpy.faults import BlenderRegisterFault, BlenderResult
-from blender.imaging.faults import Access, ImagingFileFault
+from blender.records.faults import FileFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         try:
             manifest = msgspec.toml.decode(path.read_bytes(), type=Manifest)
         except (OSError, msgspec.DecodeError) as error:
-            return Error((ImagingFileFault(access=Access.READ, request=path, error=error),))
+            return Error((FileFault(access="read", request=path, error=error),))
         logger = structlog.get_logger(package, extension=manifest.id)
         return Ok(cls(package=package, manifest=manifest, folder=Path(bpy.utils.extension_path_user(package)), logger=logger, reports=Reports(logger)))
 

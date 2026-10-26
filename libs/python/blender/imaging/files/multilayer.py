@@ -10,9 +10,10 @@ import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, ImagingResult
+from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import Compressions, Deflate, emitted, opened, Storage, Subimage
-from blender.imaging.parameters import Choice
+from blender.records.faults import accumulated, FileFault
+from blender.records.fields import Choice
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -128,7 +129,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 Option
                 .of_optional(image.read_image(layer.part, 0, first, last, OpenImageIO.FLOAT))
                 .map(lambda span: np.ascontiguousarray(span[..., [channel.index - first for channel in channels]]))
-                .to_result_with(lambda: (ImagingFileFault(access=Access.READ, request=self.path, error=image.geterror()),))
+                .to_result_with(lambda: (FileFault(access="read", request=self.path, error=image.geterror()),))
             )
 
         return opened(self.path, pixels)
@@ -196,9 +197,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 Ok(Nothing)
                 if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
                 else accumulated(
-                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(
-                        lambda: (ImagingFileFault(access=Access.READ, request=path, error=image.geterror()),)
-                    )
+                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (FileFault(access="read", request=path, error=image.geterror()),))
                     for index, spec in enumerate(specs)
                 ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
             )

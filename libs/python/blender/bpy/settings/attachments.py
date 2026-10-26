@@ -15,14 +15,14 @@ import msgspec
 
 from blender.bpy.data.ids.store import Handle, holder
 from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at
-from blender.bpy.data.rna.edits import merge, transfer, Tree
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, native, NativeValue, Snapshot
 from blender.bpy.extension.events.timers import Startup
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.settings.properties import Changed, Choices, RecordGroup
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.trees import merge, transfer, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -80,7 +80,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
         try:
             return Ok(Some(msgspec.msgpack.decode(held[Slot.DATA], type=self.decoder.type, strict=self.decoder.strict, dec_hook=decoded, ext_hook=extended)))
         except (msgspec.DecodeError, TypeError, KeyError, UnicodeError, NotImplementedError) as error:
-            return Error((ImagingFileFault(access=Access.READ, request=f"{host!r}[{self.name!r}]", error=error),))
+            return Error((DomainFault(subject=f"{host!r}[{self.name!r}]", value=held, accepted=str(error)),))
         except ReferenceError as error:
             return Error((BlenderEditFault(request=f"{host!r}[{self.name!r}]", error=error),))
 

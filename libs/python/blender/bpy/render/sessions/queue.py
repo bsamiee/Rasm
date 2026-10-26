@@ -1,11 +1,11 @@
 """Render queue dispatch and run progress."""
 
-from collections.abc import Callable, Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager, ExitStack, nullcontext
 import datetime
 from enum import StrEnum
 from fractions import Fraction
-from functools import reduce
+from functools import cached_property, reduce
 import hashlib
 import importlib.resources
 from itertools import chain
@@ -14,7 +14,6 @@ from pathlib import Path
 import posixpath
 import shutil
 import time
-from types import MemberDescriptorType
 from typing import Annotated, ClassVar, Final, TYPE_CHECKING
 
 import bpy
@@ -32,23 +31,16 @@ from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.registries import CliCommand
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderResult, BlenderUnmetFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult, BlenderUnmetFault
 from blender.bpy.files.blends import BlendFile, OpenFile, packed, saved, SaveMode, session_loaded
-from blender.bpy.nodes.changes import made
-from blender.bpy.render.effects.detail.denoise import motioned, Plane, Rendered, VECTOR_PASS
-from blender.bpy.render.effects.rows import Enabled
-from blender.bpy.render.effects.stack import Edge, EffectStack, Pinned
-from blender.bpy.render.outputs.exports import COMBINED
-from blender.bpy.render.outputs.finishing import Written
 from blender.bpy.render.outputs.formats import Kind, kind
 from blender.bpy.render.outputs.framing import Framed, FrameSize
 from blender.bpy.render.outputs.paths import OutputPath, Pathed, ScenePaths
-from blender.bpy.render.previews.scenes import rendering
-from blender.bpy.render.sessions.execution import RenderCall, rendered
 from blender.bpy.render.sessions.preflight import checked, JobScope, Preflight, ranged
+from blender.bpy.render.sessions.renders import native, Render, RenderCall
 from blender.bpy.render.sessions.sets import Members, RenderSet
-from blender.bpy.render.view_layers.passes import pass_flags, PassRouting, PassSet, required
-from blender.bpy.settings.attachments import Attached, Attachment
+from blender.bpy.render.view_layers.passes import pass_flags, PassRequest, PassRouting, PassSet, required
+from blender.bpy.settings.attachments import Attached
 from blender.bpy.settings.properties import Choices
 from blender.bpy.settings.texts import TextRecord
 from blender.bpy.ui.layout import rows
@@ -56,19 +48,19 @@ from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.status import Status
 from blender.bpy.ui.screens.areas import AreaQuery, Located
 from blender.bpy.ui.screens.editors import EditorState
-from blender.imaging.effects.detail.denoise import TemporalDenoise
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
+from blender.bpy.ui.surfaces.preferences import PageRows
 from blender.imaging.files.images import opened
-from blender.imaging.files.records import Record
-from blender.imaging.hashing import content_hash
-from blender.imaging.parameters import Choice, Gated, Side
-from blender.rendering.batch.estimate import Estimate
+from blender.records.faults import accumulated, DomainFault, FileFault, paired
+from blender.records.fields import Choice, Gated, Side
+from blender.records.identity import content_hash
+from blender.records.stores import RecordFile
+from blender.rendering.batch.estimate import Forecast
 from blender.rendering.batch.flamenco import Flamenco, Manager
 from blender.rendering.batch.notices import Cancelled, Completed, Estimated, Exhausted, Failed, Listener, Notice, published, Started, Test
 from blender.rendering.batch.power import cancelled, PowerHold, shut
 from blender.rendering.batch.processes import detached, Host, RunCommand, RunFile
 from blender.rendering.batch.progress import Ending, Heartbeat, Liveness, observed, Progress, StageMark
-from blender.rendering.batch.queue import Bound, Fixed, Job, Marker, RenderFrames, RenderQueue
+from blender.rendering.batch.queue import Bound, Fixed, Frames, Job, Marker, RenderFrames, RenderQueue
 from blender.rendering.batch.supervision import cleared, LocalMachine, Run, stop, supervise
 from blender.rendering.batch.targets import send, Target
 from blender.rendering.faults import RenderingFaults, RenderingResult, RenderingRunFault
@@ -143,10 +135,22 @@ class Queued(msgspec.Struct, frozen=True, kw_only=True):
     plan: str | None = None
 
 
-class Denoising(msgspec.Struct, frozen=True, kw_only=True):
-    """Scene setting for temporal denoise job after render."""
+class Followup(msgspec.Struct, frozen=True, kw_only=True):
+    """Job reading a render scope's frames, planned after each scope whose scene it is wanted for, keyed on its scope.
 
-    temporal: Gated[TemporalDenoise] = Gated(enabled=False, value=TemporalDenoise())
+    The render it reads takes `passes` on every used view layer and `settings` on the scene, refusing cameras whose projection is in
+    `refused`. `staged` writes what the job reads from the rendered frames before the job's output moves to the next version, and
+    `reloaded` restores it in the job's file, under its output root, before its frames render.
+    """
+
+    key: Key
+    wanted: Callable[[Identity, bpy.types.Scene], BlenderResult[bool]]
+    passes: Callable[[str], PassRequest]
+    staged: Callable[[Identity, bpy.types.Scene, OutputPath, Frames], BlenderResult[None]]
+    reloaded: Callable[[Identity, bpy.types.Scene, Path], BlenderResult[None]]
+    settings: tuple[Setting, ...] = ()
+    refused: frozenset[str] = frozenset()
+    prerequisites: tuple[Registrable, ...] = ()
 
 
 class Queueing(msgspec.Struct, frozen=True, kw_only=True):
@@ -213,7 +217,7 @@ TAGS: Final = Choices(
 
 
 class Dispatcher(msgspec.Struct, frozen=True):
-    """Stores, routing, and settings queue operations read, with the extension's session state."""
+    """Stores, routing, render, follow-ups, and settings queue operations read, with the extension's session state."""
 
     identity: Identity
     host: Host
@@ -222,15 +226,22 @@ class Dispatcher(msgspec.Struct, frozen=True):
     routing: PassRouting
     pathed: Pathed
     queued: Attached[Queued]
-    denoise: Attached[Denoising]
-    inputs: Attached[Rendered]
-    stack: EffectStack
+    render: Render
+    follow: tuple[Followup, ...]
     settings: Callable[[Identity], BlenderResult[Queueing]]
 
     @property
     def state(self) -> QueueState:
         """Session state the extension holds."""
         return QUEUES.of(self.identity)
+
+    def followup(self, key: Key) -> BlenderResult[Followup]:
+        """Returns the follow-up a planned scope names."""
+        return Option.of_optional(next((followup for followup in self.follow if followup.key == key), None)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(self.follow), key=key),))
+
+    def refused(self, scope: JobScope) -> frozenset[str]:
+        """Camera projections the scope's follow-up refuses, none for a render scope."""
+        return frozenset(projection for followup in self.follow if followup.key == scope.follow for projection in followup.refused)
 
     # --- [ACCESS]
 
@@ -246,7 +257,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     # --- [PLANNING]
 
     def planned(self, context: bpy.types.Context, dispatch: Dispatch, moment: datetime.datetime) -> BlenderResult[Plan]:
-        """Plans reach scopes, each followed by enabled temporal denoise job."""
+        """Plans reach scopes, each followed by the follow-up jobs its scene wants."""
 
         def bound(scene: bpy.types.Scene) -> Bound:
             return Bound(
@@ -271,13 +282,16 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 case Reach.CAMERAS:
                     return Ok(tuple(JobScope(scene=scene.name, camera=Fixed(camera=camera.name)) for camera in context.selected_objects if camera.type == "CAMERA"))
 
-        def denoised(scope: JobScope) -> BlenderResult[tuple[JobScope, ...]]:
-            return self.denoise.read(bpy.data.scenes[scope.scene]).map(lambda held: (scope, *((msgspec.structs.replace(scope, temporal=held.temporal.value),) if held.temporal.enabled else ())))
+        def followed(scope: JobScope) -> BlenderResult[tuple[JobScope, ...]]:
+            scene = bpy.data.scenes[scope.scene]
+            return accumulated(followup.wanted(self.identity, scene).map(lambda wanted: (msgspec.structs.replace(scope, follow=followup.key),) if wanted else ()) for followup in self.follow).map(
+                lambda groups: (scope, *chain.from_iterable(groups))
+            )
 
         return (
             rooted(bpy.types.Scene, context)
             .bind(reached)
-            .bind(lambda scopes: accumulated(map(denoised, scopes)))
+            .bind(lambda scopes: accumulated(map(followed, scopes)))
             .map(lambda groups: tuple(chain.from_iterable(groups)))
             .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error((BlenderAbsentFault(owner=repr(context), key=dispatch.reach.name),)))
         )
@@ -289,7 +303,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
         context, identity, day = call.context, call.identity, datetime.datetime.now(datetime.UTC).astimezone().date()
 
         def gated(plan: Plan, queueing: Queueing) -> BlenderResult[None]:
-            return paired(checked(self.pathed, plan.scopes, day), Dispatcher.connected() if isinstance(queueing.target, Flamenco) else Ok(None)).map(lambda _: None)
+            return paired(checked(self.pathed, plan.scopes, day, self.refused), Dispatcher.connected() if isinstance(queueing.target, Flamenco) else Ok(None)).map(lambda _: None)
 
         def paused(manager: bpy.types.WindowManager) -> BlenderResult[None]:
             def applied(state: EditorState) -> BlenderResult[None]:
@@ -305,7 +319,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             scenes = tuple(dict.fromkeys(bpy.data.scenes[scope.scene] for scope in plan.scopes))
             return (
                 accumulated(self.pathed.took(scene, day) for scene in scenes)
-                .bind(lambda _: Record(path=path, form=Plan).written(plan))
+                .bind(lambda _: RecordFile(path=path, form=Plan).written(plan))
                 .bind(lambda _: self.queued.write(manager, Queued(plan=str(path))))
                 .bind(lambda _: saved(Path(bpy.data.filepath), SaveMode.ACTIVE))
                 .bind(lambda source: detached(self.host.argv(RunCommand.PREPARE, Preparing(plan=str(path), target=queueing.target), Some(str(source))), PlanFile.LOG.beside(path)))
@@ -321,7 +335,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     def prepared(self, arguments: Preparing, trailing: tuple[str, ...]) -> BlenderResult[Sent]:
         """Writes job files of stored plan, sends queue to target, and stores `Sent` record."""
         if trailing:
-            return Error((BlenderChoiceFault(path=RunCommand.PREPARE, identifier=repr(trailing), accepted=()),))
+            return Error((DomainFault(subject=RunCommand.PREPARE, value=repr(trailing), accepted="no trailing arguments"),))
         path = Path(arguments.plan)
         source = Path(bpy.data.filepath)
 
@@ -338,19 +352,19 @@ class Dispatcher(msgspec.Struct, frozen=True):
                                 self.identity.logger.info("Queue sent", issued=issued)
                             case Result(error=refused):
                                 self.identity.reports.hold(refused)
-                    return Record(path=PlanFile.SENT.beside(path), form=Sent).written(record).map(lambda _: record)
+                    return RecordFile(path=PlanFile.SENT.beside(path), form=Sent).written(record).map(lambda _: record)
 
         def jobs(plan: Plan) -> BlenderResult[tuple[Job, ...]]:
             return accumulated(
                 self.job(scope, plan, source, path, part).map(
                     lambda job: msgspec.structs.replace(
-                        job, prerequisites=(next(index for index, before in enumerate(plan.scopes[:part]) if before == scope.base),) if scope.temporal is not None else ()
+                        job, prerequisites=(next(index for index, before in enumerate(plan.scopes[:part]) if before == scope.base),) if scope.follow is not None else ()
                     )
                 )
                 for part, scope in enumerate(plan.scopes)
             )
 
-        loaded: BlenderResult[Plan] = Record(path=path, form=Plan).read()
+        loaded: BlenderResult[Plan] = RecordFile(path=path, form=Plan).read()
         return Result[Plan, BlenderFaults].bind(loaded, jobs).bind(sent)
 
     def routed(self, scene: bpy.types.Scene, day: datetime.date) -> BlenderResult[OutputPath]:
@@ -367,23 +381,23 @@ class Dispatcher(msgspec.Struct, frozen=True):
         """Writes scope's packed job file from saved source."""
         day = plan.moment.astimezone().date()
         render = scope.base
-        followed = render.followed(plan.scopes)
+        following = tuple(followup for other in plan.scopes if other.follow is not None and other.base == render for followup in self.follow if followup.key == other.follow)
 
-        def motion(scene: bpy.types.Scene) -> BlenderResult[None]:
-            def blurred(setting: Setting) -> BlenderResult[None]:
+        def needed(scene: bpy.types.Scene) -> BlenderResult[None]:
+            def held(setting: Setting) -> BlenderResult[None]:
                 return (
                     struct_at(scene, setting.descriptor.owner)
                     .map(lambda owner: setting.descriptor.write(owner, setting.accepted[0]).map(lambda _: None))
                     .default_with(lambda: Error((BlenderAbsentFault(owner=repr(scene), key=setting.descriptor.path),)))
                 )
 
-            pairs = tuple(motioned(layer.name) for layer in self.routing.used(scene))
-            return paired(required(scene, bpy.context, tuple(request for request, _ in pairs), self.routing.precision), accumulated(map(blurred, dict.fromkeys(setting for _, setting in pairs)))).map(
-                lambda _: None
-            )
+            requests = tuple(followup.passes(layer.name) for layer in self.routing.used(scene) for followup in following)
+            return paired(
+                required(scene, bpy.context, requests, self.routing.precision), accumulated(map(held, dict.fromkeys(setting for followup in following for setting in followup.settings)))
+            ).map(lambda _: None)
 
         def applied(scene: bpy.types.Scene) -> BlenderResult[tuple[OutputPath, tuple[Side, Side]]]:
-            if followed and scope.temporal is None:
+            if following and scope.follow is None:
                 scene.frame_step = 1
             if isinstance(render.camera, Fixed):
                 scene.camera = bpy.data.objects[render.camera.camera]
@@ -396,43 +410,15 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 .map(lambda name: accumulated(self.routing.use.write(layer, layer.name == name) for layer in scene.view_layers).map(lambda _: None))
                 .default_value(Ok(None))
             )
-            return paired(layers, self.framed.grown(scene), motion(scene) if followed else Ok(None)).bind(lambda parts: self.routed(scene, day).map(lambda path: (path, parts[1][1])))
+            return paired(layers, self.framed.grown(scene), needed(scene)).bind(lambda parts: self.routed(scene, day).map(lambda path: (path, parts[1][1])))
 
-        def denoised(scene: bpy.types.Scene, record: TemporalDenoise, copied: OutputPath) -> BlenderResult[OutputPath]:
-            def plane(files: tuple[Written, ...], source: str) -> BlenderResult[Plane]:
-                return Option.of_optional(next((Plane(path=file.path, name=item) for file in files for item, held in file.passes.items() if held == source), None)).to_result_with(
-                    lambda: (BlenderAbsentFault(owner=repr(scene), key=source),)
-                )
-
-            def muted(path: OutputPath) -> OutputPath:
-                for effect in scene.compositor_effects:
-                    if Option.of_optional(effect.node_group).filter(rendering).is_some():
-                        effect.enable_for_render = False
-                return path
-
-            frames = ranged(scene)
+        def staged(scene: bpy.types.Scene, followup: Followup, copied: OutputPath) -> BlenderResult[OutputPath]:
             return (
-                PassSet()
-                .written(scene, frames.start, self.identity, path=Some(copied))
-                .bind(lambda files: paired(plane(files, COMBINED), plane(files, VECTOR_PASS.prop.name)))
-                .map(
-                    lambda planes: Rendered(
-                        color=msgspec.structs.replace(planes[0], path=Path(planes[0].path).relative_to(copied.base).as_posix()),
-                        motion=msgspec.structs.replace(planes[1], path=Path(planes[1].path).relative_to(copied.base).as_posix()),
-                        first=frames.start,
-                        last=frames.end,
-                    )
-                )
-                .bind(
-                    lambda held: (
-                        self.pathed.attached
-                        .read(scene)
-                        .bind(lambda outputs: self.pathed.attached.write(scene, msgspec.structs.replace(outputs, version=outputs.version + 1)))
-                        .bind(lambda _: self.routed(scene, day))
-                        .map(muted)
-                        .bind(lambda path: paired(self.inputs.write(scene, held), self.denoise.write(scene, Denoising(temporal=Gated(enabled=True, value=record)))).map(lambda _: path))
-                    )
-                )
+                followup
+                .staged(self.identity, scene, copied, ranged(scene))
+                .bind(lambda _: self.pathed.attached.read(scene))
+                .bind(lambda outputs: self.pathed.attached.write(scene, msgspec.structs.replace(outputs, version=outputs.version + 1)))
+                .bind(lambda _: self.routed(scene, day))
             )
 
         def digested(path: Path) -> BlenderResult[bytes]:
@@ -440,12 +426,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 with path.open("rb") as file:
                     return hashlib.file_digest(file, "sha256").digest()
 
-            return catch(read, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.READ, request=path, error=error),))
+            return catch(read, exception=OSError)().map_error(lambda error: (FileFault(access="read", request=path, error=error),))
 
         def written(scene: bpy.types.Scene, path: OutputPath, pixels: tuple[Side, Side]) -> BlenderResult[Job]:
             used = self.routing.used(scene)
             camera = (scope.camera.camera,) if isinstance(scope.camera, Fixed) else ()
-            name = " ".join(bpy.path.clean_name(part) for part in (scope.scene, *Option.of_optional(scope.layer).to_list(), *camera, *(("temporal",) if scope.temporal else ())))
+            name = " ".join(bpy.path.clean_name(part) for part in (scope.scene, *Option.of_optional(scope.layer).to_list(), *camera, *Option.of_optional(scope.follow).to_list()))
             file = path.base / "snapshots" / plan_file.name.removesuffix(PlanFile.PLAN) / f"{part}_{name}.blend"
             layer = Option.of_optional(scope.layer).default_with(lambda: scene.view_layers[0].name)
             outputs = accumulated(path.text(layer, output) for output in Output).map(lambda texts: dict(zip(Output, (posixpath.join(path.root, text) for text in texts))))
@@ -480,7 +466,14 @@ class Dispatcher(msgspec.Struct, frozen=True):
             scene = bpy.data.scenes[scope.scene]
             return (
                 applied(scene)
-                .bind(lambda parts: Option.of_optional(scope.temporal).map(lambda record: denoised(scene, record, parts[0]).map(lambda path: (path, parts[1]))).default_value(Ok(parts)))
+                .bind(
+                    lambda parts: (
+                        Option
+                        .of_optional(scope.follow)
+                        .map(lambda key: self.followup(key).bind(lambda followup: staged(scene, followup, parts[0])).map(lambda path: (path, parts[1])))
+                        .default_value(Ok(parts))
+                    )
+                )
                 .bind(lambda parts: written(scene, *parts))
             )
 
@@ -489,17 +482,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
     # --- [BACKGROUND_RENDER]
 
     def frames[T](self, scene: bpy.types.Scene, frames: tuple[int, ...], consumed: Callable[[int, float], BlenderResult[T]], base: Option[Path] = Nothing) -> BlenderResult[tuple[T, ...]]:
-        """Renders and consumes each frame, output rerooted under `base` when set."""
+        """Renders and consumes each frame after every follow-up reloads, output rerooted under `base` when set."""
 
         def frame(number: int) -> BlenderResult[T]:
             started = time.monotonic()
             scene.frame_start = scene.frame_end = number
-            return (
-                self.stack
-                .precision(self.identity)
-                .bind(lambda precision: rendered(self.identity, self.stack, scene, precision, RenderCall(animation=True)))
-                .bind(lambda _: consumed(number, time.monotonic() - started))
-            )
+            return self.render(self.identity, scene, RenderCall(animation=True)).bind(lambda _: consumed(number, time.monotonic() - started))
 
         def prepared(original: OutputPath) -> BlenderResult[None]:
             path = base.map(original.rerooted).default_value(original)
@@ -513,19 +501,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 if base.is_some()
                 else Ok(None)
             )
-
-            def loaded(values: tuple[Rendered, Denoising]) -> BlenderResult[None]:
-                inputs, denoising = values
-                source = msgspec.structs.replace(
-                    inputs,
-                    color=msgspec.structs.replace(inputs.color, path=str(path.base / inputs.color.path)),
-                    motion=msgspec.structs.replace(inputs.motion, path=str(path.base / inputs.motion.path)),
-                )
-                return (
-                    source.group(denoising.temporal.value).bind(lambda group: made(group, self.identity, of=Some(scene))).bind(lambda _: self.stack.refreshed(self.identity, scene)).map(lambda _: None)
-                )
-
-            return rerooted.bind(lambda _: paired(self.inputs.read(scene), self.denoise.read(scene)).bind(loaded) if self.inputs.stored(scene) else Ok(None))
+            return rerooted.bind(lambda _: accumulated(followup.reloaded(self.identity, scene, path.base) for followup in self.follow)).map(lambda _: None)
 
         return (
             self.pathed.scope
@@ -539,7 +515,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
         """Runs local queue progress or farm worker frame request."""
         match arguments:
             case Run():
-                return Error((BlenderChoiceFault(path=RunCommand.RENDER, identifier=repr(trailing), accepted=()),)) if trailing else self.rendered(arguments)
+                return Error((DomainFault(subject=RunCommand.RENDER, value=repr(trailing), accepted="no trailing arguments"),)) if trailing else self.rendered(arguments)
             case RenderFrames(scene=name, frames=frames):
                 match trailing:
                     case (output_root,):
@@ -548,12 +524,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
                             Result[bpy.types.Scene, BlenderFaults].bind(scene, lambda held: self.frames(held, frames, lambda _frame, _seconds: Ok(None), Some(Path(output_root)))).map(lambda _: None)
                         )
                     case _:
-                        return Error((BlenderChoiceFault(path=RunCommand.RENDER, identifier=repr(trailing), accepted=("<output root>",)),))
+                        return Error((DomainFault(subject=RunCommand.RENDER, value=repr(trailing), accepted="<output root>"),))
 
     def supervised(self, run: Run, trailing: tuple[str, ...]) -> BlenderResult[Progress]:
         """Supervises local render processes under power hold, posting notices."""
         if trailing:
-            return Error((BlenderChoiceFault(path=RunCommand.SUPERVISE, identifier=repr(trailing), accepted=()),))
+            return Error((DomainFault(subject=RunCommand.SUPERVISE, value=repr(trailing), accepted="no trailing arguments"),))
 
         def ran(queue: RenderQueue, queueing: Queueing) -> BlenderResult[Progress]:
             def completed(progress: Progress) -> BlenderResult[Progress]:
@@ -580,13 +556,13 @@ class Dispatcher(msgspec.Struct, frozen=True):
                         self.identity.reports.reported(self.posted)(queueing.listener, Started(jobs=len(queue.jobs), frames=len(queue.steps))).to_optional()
                     return queueing.power.held(lambda: supervise(run.target, queue, self.host, queueing.heartbeat)).map(completed).default_with(failed)
 
-        return paired(Record(path=Path(run.queue), form=RenderQueue).read(), self.settings(self.identity)).bind(lambda pair: ran(*pair))
+        return paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), self.settings(self.identity)).bind(lambda pair: ran(*pair))
 
     def rendered(self, run: Run) -> BlenderResult[tuple[StageMark, ...]]:
         """Renders pending frames of first remaining job, storing each frame mark."""
 
         def ran(queue: RenderQueue, queueing: Queueing) -> BlenderResult[tuple[StageMark, ...]]:
-            records = Record(path=self.host.path(queue, RunFile.PROGRESS), form=Progress)
+            records = RecordFile(path=self.host.path(queue, RunFile.PROGRESS), form=Progress)
             holding = frozenset(part for part, job in enumerate(queue.jobs) if job.frames.numbers)
 
             def marked(part: int, frame: int, seconds: float) -> BlenderResult[StageMark]:
@@ -597,8 +573,8 @@ class Dispatcher(msgspec.Struct, frozen=True):
             def finished(progress: Progress, mark: StageMark) -> BlenderResult[StageMark]:
                 before = frozenset(held.part for held in progress.marks[:-1])
                 first = holding <= before | {mark.part} and not holding <= before
-                for estimate in Estimate.queued(progress, queue, datetime.datetime.now(datetime.UTC)).filter(lambda _: first).to_list():
-                    self.identity.reports.reported(self.posted)(queueing.listener, Estimated(estimate=estimate)).to_optional()
+                for forecast in Forecast.queued(progress, queue, datetime.datetime.now(datetime.UTC)).filter(lambda _: first).to_list():
+                    self.identity.reports.reported(self.posted)(queueing.listener, Estimated(forecast=forecast)).to_optional()
                 job = queue.jobs[mark.part]
                 scene = bpy.data.scenes[job.scene]
                 return (
@@ -627,7 +603,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             loaded: BlenderResult[Progress] = records.read()
             return Result[Progress, BlenderFaults].bind(loaded, runs)
 
-        return paired(Record(path=Path(run.queue), form=RenderQueue).read(), self.settings(self.identity)).bind(lambda pair: ran(*pair))
+        return paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), self.settings(self.identity)).bind(lambda pair: ran(*pair))
 
     # --- [SESSION_PROGRESS]
 
@@ -637,14 +613,14 @@ class Dispatcher(msgspec.Struct, frozen=True):
         def read(plan: Path) -> RenderingResult[Observed]:
             def pending(faults: RenderingFaults) -> RenderingResult[Option[Sent]]:
                 match faults:
-                    case (ImagingFileFault(access=Access.READ, error=FileNotFoundError()),):
+                    case (FileFault(access="read", error=FileNotFoundError()),):
                         return Ok(Nothing)
                     case _:
                         return Error(faults)
 
             return (
                 Result[Sent, RenderingFaults]
-                .map(Record(path=PlanFile.SENT.beside(plan), form=Sent).read(), Some)
+                .map(RecordFile(path=PlanFile.SENT.beside(plan), form=Sent).read(), Some)
                 .or_else_with(pending)
                 .bind(
                     lambda sent: (
@@ -709,7 +685,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     lambda issued: Done(notes=tuple(("INFO", value) for answer in issued for value in answer.to_option().to_list()), skipped=accumulated(issued).swap().to_option())
                 )
                 if phase in resumable
-                else Error((BlenderChoiceFault(path=str(self.host.path(queue, RunFile.PROGRESS)), identifier=phase.name, accepted=tuple(value.name for value in resumable)),))
+                else Error((DomainFault(subject=str(self.host.path(queue, RunFile.PROGRESS)), value=phase.name, accepted=", ".join(value.name for value in resumable)),))
             )
 
         return paired(self.kept(), self.settings(call.identity)).bind(lambda pair: resent(*pair[0], pair[1]))
@@ -719,7 +695,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
         def halted(queue: RenderQueue, progress: Progress, queueing: Queueing) -> BlenderResult[Done]:
             def ended(_: None) -> BlenderResult[Done]:
-                persisted = Record(path=self.host.path(queue, RunFile.PROGRESS), form=Progress).revised(lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED))
+                persisted = RecordFile(path=self.host.path(queue, RunFile.PROGRESS), form=Progress).revised(lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED))
                 return paired(persisted, self.posted(queueing.listener, Cancelled(frames=len(progress.marks)))).map(lambda _: Done(notes=(("INFO", f"Stopped {queue.stem}"),)))
 
             stopped: BlenderResult[None] = stop(progress)
@@ -782,7 +758,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 case Flamenco() as target:
                     return Ok(target)
                 case other:
-                    return Error((BlenderChoiceFault(path=repr(queueing), identifier=other.title, accepted=(Flamenco.title,)),))
+                    return Error((DomainFault(subject=repr(queueing), value=other.title, accepted=Flamenco.title),))
 
         def held(manager: Manager) -> Done:
             self.state.manager = Some(manager)
@@ -798,9 +774,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 with importlib.resources.as_file(importlib.resources.files(Flamenco.__module__).joinpath(Flamenco.script)) as script:
                     return Path(shutil.copy(script, Path(folder) / Flamenco.script))
 
-            return (
-                catch(written, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=folder, error=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
-            )
+            return catch(written, exception=OSError)().map_error(lambda error: (FileFault(access="write", request=folder, error=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
 
         return self.settings(call.identity).bind(
             lambda queueing: copied(queueing.scripts.value) if queueing.scripts.enabled else Error((BlenderAbsentFault(owner=repr(call.context.preferences), key="scripts"),))
@@ -811,23 +785,22 @@ class Dispatcher(msgspec.Struct, frozen=True):
         return self.settings(call.identity).bind(lambda queueing: self.posted(queueing.listener, Test())).map(lambda _: Done(notes=(("INFO", "Notice posted"),)))
 
 
-class QueueRun:
-    """Render queue commands, status timer, section with its progress row, and preferences section."""
+class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Render queue commands, status timer, section with its progress row, and preferences section, each frame running through `render`."""
 
+    sets: RenderSet[C]
+    settings: Callable[[Identity], BlenderResult[Queueing]]
+    render: Render = native
+    follow: tuple[Followup, ...] = ()
     record: ClassVar[TextRecord[Queued]] = TextRecord(key="queue", form=Queued)
-    denoise: ClassVar[Attachment[Denoising]] = Attachment(key="queue_denoise", form=Denoising, owner=bpy.types.Scene)
-    inputs: ClassVar[Attachment[Rendered]] = Attachment(key="queue_inputs", form=Rendered, owner=bpy.types.Scene)
-    pinned: ClassVar[Pinned] = Pinned(ownership=Rendered.ownership, title=TemporalDenoise.title, edge=Edge.HEAD, enables=frozenset({Enabled.RENDER}))
     key: ClassVar[Key] = "queue"
     title: ClassVar[str] = "Render Queue"
-    sets: RenderSet
-    stack: EffectStack
-    settings: Callable[[Identity], BlenderResult[Queueing]]
-    commands: QueueCommands
 
-    def __init__(self, *, sets: RenderSet, stack: EffectStack, settings: Callable[[Identity], BlenderResult[Queueing]]) -> None:
-        """Declares queue operators, each binding its dispatcher on call."""
-        self.sets, self.stack, self.settings = sets, stack, settings
+    # --- [COMMANDS]
+
+    @cached_property
+    def commands(self) -> QueueCommands:
+        """Queue operators, each binding its dispatcher on call."""
 
         def run[T: msgspec.Struct](step: Callable[[Dispatcher, Call[T]], BlenderResult[Done]]) -> Callable[[Call[T]], BlenderResult[Done]]:
             return lambda call: self.bound(call.identity).bind(lambda dispatcher: step(dispatcher, call))
@@ -847,7 +820,7 @@ class QueueRun:
         def control(key: Key, title: str, description: str, icon: "rna_enums.IconItems", step: Callable[[Dispatcher, Call[Empty]], BlenderResult[Done]]) -> Operator[Empty]:
             return Operator(key=key, title=title, description=description, icon=Some(icon), undo=False, form=Empty, run=run(step))
 
-        self.commands = QueueCommands(
+        return QueueCommands(
             dispatch=Operator[Dispatch](
                 key="dispatch",
                 title="Render Queue",
@@ -874,22 +847,18 @@ class QueueRun:
 
     @property
     def prerequisites(self) -> tuple[Registrable, ...]:
-        """Queue, denoise, and input stores with render set, frame size, routing, and path bindings read."""
-        return (self.record, self.denoise, self.inputs, QUEUES, *self.sets.prerequisites, FrameSize.attachment, PassSet.attachment, ScenePaths.attachment)
-
-    @property
-    def bindings(self) -> Option[Mapping[MemberDescriptorType, Choices]]:
-        """Cached Manager tags as `Flamenco.tag` choices."""
-        return Some({vars(Flamenco)["tag"]: TAGS})
+        """Queue store and follow-up rows with render set, frame size, routing, and path bindings read."""
+        return (self.record, QUEUES, *(row for followup in self.follow for row in followup.prerequisites), *self.sets.prerequisites, FrameSize.attachment, PassSet.attachment, ScenePaths.attachment)
 
     def bound(self, identity: Identity) -> BlenderResult[Dispatcher]:
-        """Binds dispatcher to identity stores, row sets, stack, and settings."""
+        """Binds dispatcher to identity stores, render sets, routing, render, follow-ups, and settings."""
         host = accumulated(identity.name(Name.CLI, command) for command in RunCommand).map(
             lambda names: Host(binary=bpy.app.binary_path, folder=str(identity.folder), commands=dict(zip(RunCommand, names)))
         )
-        stores = paired(QueueRun.record.attachment.bound(identity), QueueRun.denoise.bound(identity), QueueRun.inputs.bound(identity))
-        return paired(host, self.sets.bound(identity), FrameSize().bound(identity), PassSet().bound(identity), ScenePaths().bound(identity), stores).map(
-            lambda parts: Dispatcher(identity, *parts[:5], *parts[5], self.stack, self.settings)
+        return paired(host, self.sets.bound(identity), FrameSize().bound(identity), PassSet().bound(identity), ScenePaths().bound(identity), QueueRun.record.attachment.bound(identity)).map(
+            lambda parts: Dispatcher(
+                identity=identity, host=parts[0], members=parts[1], framed=parts[2], routing=parts[3], pathed=parts[4], queued=parts[5], render=self.render, follow=self.follow, settings=self.settings
+            )
         )
 
     @staticmethod
@@ -909,7 +878,7 @@ class QueueRun:
 
         def local(sent: Sent, progress: Progress, beat: datetime.datetime, heartbeat: Heartbeat) -> rows.Work:
             remaining, phase = progress.remaining(sent.queue), progress.phase(beat, now, heartbeat)
-            finish = Estimate.queued(progress, sent.queue, now).bind(lambda estimate: estimate.finish).map(lambda moment: f"finishing {moment.astimezone():%H:%M}").to_list()
+            finish = Forecast.queued(progress, sent.queue, now).bind(lambda forecast: forecast.finish).map(lambda moment: f"finishing {moment.astimezone():%H:%M}").to_list()
             return rows.Work(text=" · ".join((*(sent.queue.jobs[part].title for part, _ in remaining[:1]), phase.label, *finish)), done=float(progress.done(sent.queue)))
 
         def work(held: Observed, heartbeat: Heartbeat) -> rows.Work:
@@ -941,12 +910,17 @@ class QueueRun:
         )
 
     @property
-    def setup(self) -> Single:
-        """Preferences section of Manager reads, job type install, and notice test."""
-        return Single(
-            key=f"{self.key}_setup",
-            title=self.title,
-            rows=(rows.Caption(rows=tuple(rows.OperatorButton(target=command) for command in self.commands.setup), flow=rows.Flow.ALIGNED, separator=Nothing),),
+    def preferences(self) -> PageRows:
+        """Preferences section of Manager reads, job type install, and notice test, with cached Manager tags as `Flamenco.tag` choices."""
+        return PageRows(
+            sections=(
+                Single(
+                    key=f"{self.key}_setup",
+                    title=self.title,
+                    rows=(rows.Caption(rows=tuple(rows.OperatorButton(target=command) for command in self.commands.setup), flow=rows.Flow.ALIGNED, separator=Nothing),),
+                ),
+            ),
+            bindings={vars(Flamenco)["tag"]: TAGS},
         )
 
     # --- [REGISTRATION]
@@ -979,9 +953,9 @@ __all__ = [
     "PAUSABLE",
     "QUEUES",
     "TAGS",
-    "Denoising",
     "Dispatch",
     "Dispatcher",
+    "Followup",
     "Observed",
     "Plan",
     "PlanFile",

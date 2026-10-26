@@ -18,7 +18,6 @@ from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.conditions import AllOf, AnyOf, Condition, holds, Not, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, Value, written
-from blender.bpy.data.rna.edits import Owner, transfer, Tree
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import LOAD_POST, PathHandler, SAVE_POST, staged
 from blender.bpy.extension.events.subscriptions import Subscription
@@ -32,7 +31,7 @@ from blender.bpy.nodes.trees import nested, socket_at
 from blender.bpy.render.outputs.finishing import Finish, stamped, Written
 from blender.bpy.render.outputs.formats import extension, Kind, OutputFormat
 from blender.bpy.render.outputs.paths import NodePaths, OutputPath, Pathed, ScenePaths
-from blender.bpy.render.view_layers.overrides import colors, encoded, Layer, LayerOverride, Role, Spectrum
+from blender.bpy.render.view_layers.overrides import colors, encoded, LayerOverride, LayerTag, Role, Spectrum
 from blender.bpy.scene.lights.groups import used
 from blender.bpy.scene.materials import DataPass, Materials, Utility
 from blender.bpy.settings.attachments import Attached, Attachment
@@ -42,15 +41,15 @@ from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import Caption, Flow, joined, Label, Line, Member, OperatorButton, placed, Property, Row, RowDraw
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.values import Hosted, Listing, Store
-from blender.imaging.color.processors import unassociated
-from blender.imaging.faults import accumulated, paired
 from blender.imaging.files import multilayer
 from blender.imaging.files.cryptomatte import Matte
 from blender.imaging.files.documents import Document, Group, Raster
-from blender.imaging.files.images import Deflate, Depth, Storage
+from blender.imaging.files.images import Deflate, Depth, Rounded, Storage, unassociated
 from blender.imaging.files.multilayer import Multilayer
-from blender.imaging.hashing import content_hash, rng
-from blender.imaging.parameters import Choice, Gated, Rgb
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Choice, Gated, heading, Rgb
+from blender.records.identity import content_hash, rng
+from blender.records.trees import Owner, transfer, Tree
 from blender.rendering.outputs.conventions import Axis, Blender, Conventions, Space
 from blender.rendering.outputs.naming import Output
 
@@ -60,7 +59,7 @@ type ItemKind = Literal["FLOAT", "RGBA"]
 
 
 class Family(Choice):
-    """Light pass family, member name matching `Terms` field of its summed term."""
+    """Light pass family of direct, indirect, and color passes, each a term recombined beauty sums under its own gain."""
 
     prefix: str
     direct: tuple[str, ...]
@@ -74,7 +73,7 @@ class Family(Choice):
 
     def socket(self, slot: Key) -> str:
         """Returns Render Layers socket name of a family pass slot."""
-        return f"{self.prefix} {slot.title()}"
+        return f"{self.prefix} {heading(slot)}"
 
     DIFFUSE = 1, "Diffuse Total", "Diffuse", ("use_pass_diffuse_direct",), ("use_pass_diffuse_indirect",), ("use_pass_diffuse_color",)
     GLOSSY = 2, "Glossy Total", "Glossy", ("use_pass_glossy_direct",), ("use_pass_glossy_indirect",), ("use_pass_glossy_color",)
@@ -263,7 +262,7 @@ class PassName(msgspec.Struct, frozen=True, kw_only=True):
     name: Annotated[str, msgspec.Meta(title="Pass", description="Pass the file row names"), offered] = ""
 
 
-class Source(msgspec.Struct, frozen=True, kw_only=True):
+class FileSocket(msgspec.Struct, frozen=True, kw_only=True):
     """Socket a layer's files write."""
 
     name: str
@@ -278,7 +277,7 @@ class Filing(msgspec.Struct, frozen=True, kw_only=True):
 
     output: Output
     kind: Kind
-    sources: tuple[Source, ...]
+    sources: tuple[FileSocket, ...]
 
 
 class LayerPlan(msgspec.Struct, frozen=True, kw_only=True):
@@ -301,7 +300,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
     identity: Identity
     routing: Attached[Routing]
     pathed: Pathed
-    layers: Attached[Layer]
+    layers: Attached[LayerTag]
     flags: PassFlags
     lobe: NodeGroup
 
@@ -336,7 +335,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         prefix = f"layer_{index}"
         rendered = Expr(kind=bpy.types.CompositorNodeRLayers, members=(("scene", IdName.of(scene)), ("layer", layer.name)), label=Some(f"{prefix}_render"))
 
-        def filed_all(routing: Routing, record: Layer, found: tuple[Source, ...]) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
+        def filed_all(routing: Routing, record: LayerTag, found: tuple[FileSocket, ...]) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
             plan = {f"{prefix}_{filing.output.name.lower()}_{filing.kind.name.lower()}": filing for filing in filings(found, routing.split)}
             return (
                 accumulated(filed(self.pathed, path, layer.name, filing, key, routing.convention, self.dimensions) for key, filing in plan.items())
@@ -350,7 +349,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        def routed(routing: Routing, record: Layer) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
+        def routed(routing: Routing, record: LayerTag) -> BlenderResult[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
             return (
                 Option
                 .of_optional(held.get(f"{prefix}_render"))
@@ -548,7 +547,7 @@ class PassSet(Line, frozen=True):
     def document(self, _identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
         """Builds ID document of a written frame with one group per matte, the `Documents` port."""
         size = (frame.parts[0].height, frame.parts[0].width)
-        coded = depth.coded
+        coded = functools.partial(depth.coded, coding=Rounded())
 
         def grouped(index: int, matte: Matte) -> BlenderResult[tuple[Group[np.uint8 | np.uint16 | np.float32], npt.NDArray[np.float32]]]:
             def cover(name: str, color: Rgb) -> BlenderResult[tuple[str, Rgb, npt.NDArray[np.float32]]]:
@@ -670,7 +669,7 @@ def lobe() -> BlenderResult[NodeGroup]:
     interface = Interface(
         outputs=(Socket(key="total", name="Total", kind=bpy.types.NodeSocketColor),),
         inputs=tuple(
-            Socket(key=key, name=key.title(), kind=bpy.types.NodeSocketColor, members={_DEFAULT: value})
+            Socket(key=key, name=heading(key), kind=bpy.types.NodeSocketColor, members={_DEFAULT: value})
             for key, value in (("direct", (0.0, 0.0, 0.0, 1.0)), ("indirect", (0.0, 0.0, 0.0, 1.0)), ("color", (1.0, 1.0, 1.0, 1.0)))
         ),
     )
@@ -714,7 +713,7 @@ def reordered(vector: Expr, order: tuple[int, int, int, int]) -> Expr:
     return rgba(red, green, blue, alpha)
 
 
-def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, live: bpy.types.Node, routing: Routing, role: Role, group: NodeGroup) -> BlenderResult[tuple[Source, ...]]:
+def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, live: bpy.types.Node, routing: Routing, role: Role, group: NodeGroup) -> BlenderResult[tuple[FileSocket, ...]]:
     """Returns sources layer files write in socket order, derived layers and ID images after, each under its file row's gate."""
     convention = routing.convention
     offered = {socket.name: socket for socket in live.outputs if socket.enabled and socket.name != "Alpha" and socket.type in _KINDS}
@@ -725,12 +724,12 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
     def missing(name: str) -> BlenderFaults:
         return (BlenderAbsentFault(owner=repr(live.outputs), key=name),)
 
-    def sourced(expr: Expr, name: str, kind: DataType, output: Output, dimensions: Option[int] = Nothing) -> BlenderResult[tuple[Source, ...]]:
+    def sourced(expr: Expr, name: str, kind: DataType, output: Output, dimensions: Option[int] = Nothing) -> BlenderResult[tuple[FileSocket, ...]]:
         match gates.get(name):
             case None:
-                return Ok((Source(name=name, term=expr, kind=kind, dimensions=dimensions, output=output),))
+                return Ok((FileSocket(name=name, term=expr, kind=kind, dimensions=dimensions, output=output),))
             case Gated(enabled=True, value=held):
-                return Ok((Source(name=name, term=expr, kind=kind, dimensions=dimensions, output=held.output),))
+                return Ok((FileSocket(name=name, term=expr, kind=kind, dimensions=dimensions, output=held.output),))
             case _:
                 return Ok(())
 
@@ -751,7 +750,7 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
             case None:
                 return Ok(read)
 
-    def passed(name: str, socket: bpy.types.NodeSocket) -> BlenderResult[tuple[Source, ...]]:
+    def passed(name: str, socket: bpy.types.NodeSocket) -> BlenderResult[tuple[FileSocket, ...]]:
         dimensions = Descriptor.resolve(socket, "default_value", bpy.types.FloatProperty).map(lambda member: Some(member.prop.array_length)) if socket.type == "VECTOR" else Ok(Nothing)
         classed = (
             Output.MATTE
@@ -762,14 +761,14 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
         )
         return paired(oriented(name), dimensions).bind(lambda pair: sourced(pair[0], name, _KINDS[socket.type], classed, pair[1]))
 
-    def totaled(family: Family) -> BlenderResult[tuple[Source, ...]]:
+    def totaled(family: Family) -> BlenderResult[tuple[FileSocket, ...]]:
         return (
             lobed(family, ("direct", "indirect", "color"), outputs, group)
             .to_result_with(lambda: missing(family.socket("direct")))
             .bind(lambda total: sourced(total, family.label, "RGBA", Output.BEAUTY))
         )
 
-    def derived(item: Derived) -> BlenderResult[tuple[Source, ...]]:
+    def derived(item: Derived) -> BlenderResult[tuple[FileSocket, ...]]:
         depth = Option.of_optional(outputs.get(DataPass.DEPTH.name.lower())).to_result_with(lambda: missing(DataPass.DEPTH.name.lower()))
         match item:
             case Derived.DIRECT | Derived.INDIRECT:
@@ -783,7 +782,7 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
             case Derived.INVERSE:
                 return depth.bind(lambda read: sourced(1.0 / read, item.label, item.kind, item.output))
 
-    def identified(entity: Entity) -> BlenderResult[tuple[Source, ...]]:
+    def identified(entity: Entity) -> BlenderResult[tuple[FileSocket, ...]]:
         return colored(scene, layer, entity, named(layer, entity)).bind(lambda found: found.map(lambda image: sourced(image, f"{entity.label} IDs", "RGBA", Output.MATTE)).default_with(lambda: Ok(())))
 
     return accumulated((*itertools.starmap(passed, offered.items()), *map(totaled, sorted(routing.totals)), *map(derived, sorted(routing.derived)), *map(identified, sorted(routing.ids)))).map(
@@ -833,7 +832,7 @@ def added(call: Call[PassName]) -> BlenderResult[Done]:
 # --- [FILES]
 
 
-def filings(found: tuple[Source, ...], split: FileSplit) -> tuple[Filing, ...]:
+def filings(found: tuple[FileSocket, ...], split: FileSplit) -> tuple[Filing, ...]:
     """Splits layer sources into File Output nodes, one per output class unless `ONE`."""
     match split:
         case FileSplit.ONE:
@@ -1092,6 +1091,7 @@ __all__ = [
     "Derived",
     "Entity",
     "Family",
+    "FileSocket",
     "FileSplit",
     "Filing",
     "LayerPlan",
@@ -1104,7 +1104,6 @@ __all__ = [
     "PassRouting",
     "PassSet",
     "Routing",
-    "Source",
     "added",
     "colored",
     "exported",

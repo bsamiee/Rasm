@@ -26,7 +26,7 @@ from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderRegisterFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.settings.attachments import preferred
 from blender.bpy.settings.properties import RecordGroup
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
+from blender.records.faults import accumulated, FileFault, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -271,9 +271,7 @@ class Save[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         def existing(operator: bpy.types.Operator, record: T) -> BlenderResult[tuple[Path, ...]]:
             return located(operator, record).bind(
-                lambda paths: catch(lambda: tuple(path for path in paths if path.exists()), exception=OSError)().map_error(
-                    lambda error: (ImagingFileFault(access=Access.READ, request=repr(paths), error=error),)
-                )
+                lambda paths: catch(lambda: tuple(path for path in paths if path.exists()), exception=OSError)().map_error(lambda error: (FileFault(access="read", request=repr(paths), error=error),))
             )
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:

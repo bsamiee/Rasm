@@ -19,8 +19,8 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderResult
 from blender.bpy.render.outputs.results import built
-from blender.imaging.faults import accumulated
-from blender.imaging.parameters import Presentation, Quantity
+from blender.records.faults import accumulated
+from blender.records.fields import Presentation, Quantity
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

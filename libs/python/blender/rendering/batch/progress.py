@@ -9,10 +9,10 @@ from typing import Annotated, Self
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 
-from blender.imaging.faults import Access, ImagingFileFault
-from blender.imaging.files.records import Record
-from blender.imaging.hashing import ContentHash
-from blender.imaging.parameters import Choice, NonNegative, Presentation, Quantity
+from blender.records.faults import FileFault
+from blender.records.fields import Choice, NonNegative, Presentation, Quantity
+from blender.records.identity import ContentHash
+from blender.records.stores import RecordFile
 from blender.rendering.batch.queue import RenderQueue
 from blender.rendering.faults import RenderingResult
 
@@ -104,8 +104,8 @@ def observed(path: Path) -> RenderingResult[Option[tuple[Progress, datetime.date
     except FileNotFoundError:
         return Ok(Nothing)
     except OSError as error:
-        return Error((ImagingFileFault(access=Access.READ, request=path, error=error),))
-    return Record(path=path, form=Progress).read().map(lambda progress: Some((progress, beat)))
+        return Error((FileFault(access="read", request=path, error=error),))
+    return RecordFile(path=path, form=Progress).read().map(lambda progress: Some((progress, beat)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

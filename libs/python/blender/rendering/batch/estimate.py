@@ -1,4 +1,4 @@
-"""Queue time and memory estimates from stage marks."""
+"""Queue duration and memory forecasts from stage marks."""
 
 from collections import Counter
 import datetime
@@ -15,8 +15,8 @@ from blender.rendering.batch.queue import RenderQueue
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Estimate(msgspec.Struct, frozen=True, kw_only=True):
-    """Time left with measured peak memory."""
+class Forecast(msgspec.Struct, frozen=True, kw_only=True):
+    """Render duration left with finish time and measured peak memory."""
 
     seconds: Fraction
     finish: Option[datetime.datetime]
@@ -24,7 +24,7 @@ class Estimate(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def queued(cls, progress: Progress, queue: RenderQueue, now: datetime.datetime) -> Option[Self]:
-        """Estimates renders progress leaves at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark."""
+        """Forecasts renders progress leaves at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark."""
         counts = Counter(part for part, _ in progress.remaining(queue))
         jobs = dict(enumerate(queue.jobs))
         timed = {part: times for part in jobs if (times := tuple(Fraction(mark.seconds) for mark in progress.marks if mark.part == part))}
@@ -43,4 +43,4 @@ class Estimate(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Estimate"]
+__all__ = ["Forecast"]

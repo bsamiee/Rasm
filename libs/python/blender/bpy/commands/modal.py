@@ -14,7 +14,7 @@ import msgspec
 from blender.bpy.commands.forms import Opening, Plan, Returns
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

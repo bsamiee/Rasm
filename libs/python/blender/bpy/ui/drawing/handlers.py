@@ -21,7 +21,7 @@ from blender.bpy.faults import BlenderFaults, BlenderRegisterFault, BlenderResul
 from blender.bpy.ui.drawing.canvas import Canvas, PROGRAMS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

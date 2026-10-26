@@ -17,7 +17,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, rooted, Scalar
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisition, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

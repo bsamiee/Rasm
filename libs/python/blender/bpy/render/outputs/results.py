@@ -18,8 +18,8 @@ from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.faults import scoped
-from blender.imaging.files.images import published
+from blender.records.faults import scoped
+from blender.records.stores import committed
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ class Production(msgspec.Struct, frozen=True, kw_only=True):
     scene: Handle[bpy.types.Scene]
     space: str
     layer: Option[str] = Nothing
-    view: Option[tuple[DisplayView, float, float]] = Nothing
+    view: Option[DisplayView] = Nothing
 
 
 class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
@@ -97,12 +97,12 @@ def built(kind: str) -> BlenderResult[bpy.types.Image]:
 
 def saved(scene: bpy.types.Scene) -> BlenderResult[str]:
     """Exports displayed render result passes to temporary multilayer EXR, the scene's format restored after."""
-    settings, path = scene.render.image_settings, str(Path(bpy.app.tempdir, f"{scene.session_uid}.exr"))
+    settings, path = scene.render.image_settings, Path(bpy.app.tempdir, f"{scene.session_uid}.exr")
     form: dict[str, Value] = {"media_type": "MULTI_LAYER_IMAGE", "color_depth": "32", "exr_codec": "ZIP", "use_exr_interleave": False, "views_format": "MULTIVIEW", "color_management": "FOLLOW_SCENE"}
     direct = Descriptor.saved(bpy.types.ImageFormatSettings, lambda prop: not isinstance(prop, bpy.types.PointerProperty))
 
     def exported(image: bpy.types.Image) -> BlenderResult[str]:
-        return assigned(settings, form).bind(lambda _: published(path, lambda stage: BlenderEditFault.attempted(repr(image), lambda: image.save_render(stage, scene=scene))))
+        return assigned(settings, form).bind(lambda _: committed(path, lambda stage: BlenderEditFault.attempted(repr(image), lambda: image.save_render(str(stage), scene=scene))).map(str))
 
     return built("RENDER_RESULT").bind(lambda image: scoped(Snapshot.capture(settings, Some(direct)), lambda _: exported(image), lambda capture: capture.apply(settings).outcome))
 

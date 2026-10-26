@@ -14,9 +14,10 @@ import PyOpenColorIO
 
 from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.processors import applied, processor
-from blender.imaging.faults import accumulated, guarded, ImagingNumericFault, paired
-from blender.imaging.parameters import Case, Choice, Elevation, Finite, Gated, NonNegative, Positive, Presentation, Quantity, Rgb, Stops, Turn, Unit
+from blender.imaging.color.processors import processor, Stops
+from blender.imaging.files.images import applied
+from blender.records.faults import accumulated, guarded, NumericFault, paired
+from blender.records.fields import Case, Choice, Elevation, Finite, Gated, NonNegative, Positive, Presentation, Quantity, Rgb, Turn, Unit
 from blender.rendering.faults import RenderingResult
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -40,24 +41,24 @@ class Role(Choice):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Point(Case, frozen=True, tag=1):
+class Point(Case, frozen=True):
     """Sphere light emitting in every direction."""
 
 
-class Spot(Case, frozen=True, kw_only=True, tag=2):
+class Spot(Case, frozen=True, kw_only=True):
     """Sphere light with beam limited to cone."""
 
     cone: Annotated[float, msgspec.Meta(ge=math.radians(1.0), le=math.pi, description="Beam angular diameter"), Presentation(quantity=Some(Quantity.ANGLE))] = math.pi / 4.0
     blend: Annotated[Unit, msgspec.Meta(description="Share of beam softened at edge")] = 0.15
 
 
-class Disk(Case, frozen=True, tag=3):
+class Disk(Case, frozen=True):
     """Disk area light facing target."""
 
     title = "Area"
 
 
-class Sun(Case, frozen=True, tag=4):
+class Sun(Case, frozen=True):
     """Distant light at uniform irradiance."""
 
 
@@ -94,14 +95,14 @@ class Ambient(msgspec.Struct, frozen=True, kw_only=True):
     stops: Finite = 0.0
 
 
-class Arranged(Case, frozen=True, kw_only=True, tag=5):
+class Arranged(Case, frozen=True, kw_only=True):
     """Lights and world light as stated."""
 
     lights: tuple[Light, ...] = (Light(),)
     ambient: Gated[Ambient] = Gated(enabled=False, value=Ambient())
 
 
-class Matched(Case, frozen=True, kw_only=True, tag=6):
+class Matched(Case, frozen=True, kw_only=True):
     """Lights derived from reference reading."""
 
     count: Annotated[int, msgspec.Meta(ge=1, le=8, title="Lights")] = 3
@@ -158,9 +159,7 @@ class Matched(Case, frozen=True, kw_only=True, tag=6):
             )
 
         return guarded(
-            ImagingNumericFault,
-            (self, reading),
-            lambda: Ok(lit(reading.hardness) if reading.hardness > 0.0 else Arranged(lights=(), ambient=Gated(enabled=True, value=Ambient(color=filtered(reading.key))))),
+            NumericFault, (self, reading), lambda: Ok(lit(reading.hardness) if reading.hardness > 0.0 else Arranged(lights=(), ambient=Gated(enabled=True, value=Ambient(color=filtered(reading.key)))))
         )
 
 
@@ -244,7 +243,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
 
             def graded(color: Rgb[Finite]) -> RenderingResult[Rgb[Finite]]:
                 return guarded(
-                    ImagingNumericFault,
+                    NumericFault,
                     (self.color_strength, self.color_saturation, color),
                     lambda: Ok(msgspec.convert(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=Rgb[Finite])),
                 )
@@ -337,7 +336,7 @@ def rig_catalog() -> Mapping[str, Rig]:
 
 def _scaled(factors: tuple[float, ...], stops: float = 0.0) -> RenderingResult[float]:
     """Returns product times 2**stops as float, overflow as numeric fault."""
-    return guarded(ImagingNumericFault, (*factors, stops), lambda: Ok(float(np.prod(factors) * np.exp2(stops))))
+    return guarded(NumericFault, (*factors, stops), lambda: Ok(float(np.prod(factors) * np.exp2(stops))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

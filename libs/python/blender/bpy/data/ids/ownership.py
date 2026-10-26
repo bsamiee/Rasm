@@ -18,7 +18,7 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
-from blender.imaging.hashing import ContentHash
+from blender.records.identity import ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

@@ -25,8 +25,8 @@ from blender.bpy.scene.lights.emitters import emitters, picked
 from blender.bpy.scene.objects import focused, ObjectState, reconciled, spawned
 from blender.bpy.ui.layout.rows import Member, OperatorButton, SearchField
 from blender.bpy.ui.layout.sections import Section, Single
-from blender.imaging.faults import accumulated
-from blender.imaging.parameters import Case, Choice, Gated
+from blender.records.faults import accumulated
+from blender.records.fields import Case, Choice, Gated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -45,17 +45,17 @@ class Lobe(Choice):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class PerEmitter(Case, frozen=True, kw_only=True, tag=1):
+class PerEmitter(Case, frozen=True, kw_only=True):
     """Group per holder, named after holder."""
 
 
-class Shared(Case, frozen=True, kw_only=True, tag=2):
+class Shared(Case, frozen=True, kw_only=True):
     """Named group every holder of kind joins."""
 
     name: Annotated[str, msgspec.Meta(min_length=1, title="Group", description="Group every holder joins")] = "Emission"
 
 
-class Ungrouped(Case, frozen=True, kw_only=True, tag=3):
+class Ungrouped(Case, frozen=True, kw_only=True):
     """No group, holder reaching Combined alone."""
 
     title = "None"

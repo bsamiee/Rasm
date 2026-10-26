@@ -30,8 +30,8 @@ from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import Line, OperatorButton, RowDraw
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Gated, NonNegative, Presentation, Quantity
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Case, Gated, NonNegative, Presentation, Quantity
 from blender.rendering.lighting.solar import Daylight, DayStudy, LocalTime, moments, Polar, SeasonStudy, Site, SolarDay, SunPaths, SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -51,7 +51,7 @@ zones = Choices.named(lambda _identity, _owner, _context: sorted(zoneinfo.availa
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Moment(Case, frozen=True, kw_only=True, tag=3):
+class Moment(Case, frozen=True, kw_only=True):
     """Single sun moment."""
 
     start: Annotated[LocalTime, msgspec.Meta(title="Moment", description="Local date and time")] = LocalTime()

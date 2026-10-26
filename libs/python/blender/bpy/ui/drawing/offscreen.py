@@ -16,7 +16,7 @@ from blender.bpy.ui.drawing.canvas import Canvas, Rect
 from blender.bpy.ui.resources.theme import Metrics, Theme
 from blender.bpy.ui.screens.areas import Located
 from blender.bpy.ui.screens.editors import EditorState
-from blender.imaging.faults import paired
+from blender.records.faults import paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

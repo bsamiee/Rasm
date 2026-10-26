@@ -9,7 +9,7 @@ from expression.extra.result import catch
 import httpx2
 import msgspec
 
-from blender.imaging.parameters import Positive, Presentation, Quantity
+from blender.records.fields import Positive, Presentation, Quantity
 from blender.rendering.faults import RenderingResult, RenderingSendFault
 
 # --- [MODELS] ---------------------------------------------------------------------------

@@ -1,7 +1,6 @@
 """Owned surface setups, texture classification, shader AOVs, and color matrices."""
 
 from contextlib import ExitStack
-import math
 from pathlib import PurePath
 import re
 from typing import Annotated, ClassVar, Final, get_args, Literal
@@ -19,7 +18,7 @@ from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.conditions import Present
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.snapshots import Scenes, Snapshot
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderResult
 from blender.bpy.nodes.changes import reconciled
@@ -30,9 +29,8 @@ from blender.bpy.render.color.spaces import config_of
 from blender.bpy.scene.objects import fanned, ObjectState, Reconciled
 from blender.bpy.settings.attachments import Attachment, reconciling
 from blender.bpy.settings.properties import Definition
-from blender.imaging.calibration import Calibration
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Choice, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb, Unit
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Case, Choice, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -114,7 +112,7 @@ class DisplacementMap(msgspec.Struct, frozen=True, kw_only=True):
     midlevel: Finite = 0.5
 
 
-class Textured(Case, frozen=True, kw_only=True, tag=1):
+class Textured(Case, frozen=True, kw_only=True):
     """Principled surface from texture set."""
 
     title = "Texture Set"
@@ -126,7 +124,7 @@ class Textured(Case, frozen=True, kw_only=True, tag=1):
     displacement: Gated[DisplacementMap] = Gated(enabled=False, value=DisplacementMap())
 
 
-class Clay(Case, frozen=True, kw_only=True, tag=2):
+class Clay(Case, frozen=True, kw_only=True):
     """Plain Principled surface shared by layer overrides."""
 
     ownership: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="clay", saved=Saved.USED)
@@ -134,7 +132,7 @@ class Clay(Case, frozen=True, kw_only=True, tag=2):
     roughness: Unit = 0.5
 
 
-class Emissive(Case, frozen=True, kw_only=True, tag=3):
+class Emissive(Case, frozen=True, kw_only=True):
     """Emission surface from color or enabled image."""
 
     title = "Emission"
@@ -144,7 +142,7 @@ class Emissive(Case, frozen=True, kw_only=True, tag=3):
     image: Annotated[Gated[str], Definition(text="FILE_PATH")] = Gated(enabled=False, value="")
 
 
-class Utility(Case, frozen=True, kw_only=True, tag=4):
+class Utility(Case, frozen=True, kw_only=True):
     """Data passes written through shader AOVs beside black surface."""
 
     title = "Data Passes"
@@ -370,11 +368,6 @@ def matrix() -> BlenderResult[NodeGroup]:
     return NodeGroup.built("color_matrix", "Color Matrix", interface, {"transformed": transformed}, bpy.types.ShaderNodeTree)
 
 
-def matrix_inputs(calibration: Calibration) -> dict[Key, Value]:
-    """Returns matrix rows and exposure gain as color matrix group inputs."""
-    return {**{name: msgspec.structs.astuple(row) for name, row in zip(Rgb.__struct_fields__, calibration.matrix)}, "gain": math.exp2(calibration.exposure)}
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
@@ -407,7 +400,6 @@ __all__ = [
     "material",
     "material_graph",
     "matrix",
-    "matrix_inputs",
     "referenced",
     "shaded",
     "texture_setup",

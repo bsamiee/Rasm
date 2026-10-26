@@ -1,27 +1,29 @@
-"""Image files, storage settings, and atomic publication."""
+"""Image files, storage settings, integer coding, buffer operations, and atomic writes."""
 
 from collections.abc import Callable, Mapping
 import functools
 import pathlib
 import struct
-import tempfile
 import typing
-from typing import Annotated, IO, Literal, Self
+from typing import Annotated, IO, Literal, overload, Self
 
-from atomicwrites import atomic_write, replace_atomic
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
+import imagecodecs
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.imaging.effects.quantization import codes
-from blender.imaging.faults import Access, Faults, ImagingFaults, ImagingFileFault, ImagingResult, ImagingUnresolvedFault, paired, scoped
-from blender.imaging.parameters import Case, Choice
+from blender.imaging.faults import ImagingFaults, ImagingImageFault, ImagingResult, ImagingUnresolvedFault
+from blender.records.faults import FileFault, paired, RecordResult, scoped
+from blender.records.fields import Case, Choice
+from blender.records.stores import committed
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+type IntegerDepth = Literal[8, 16]
 
 
 class Writable(Choice):
@@ -38,18 +40,18 @@ class Writable(Choice):
 class Depth(Writable):
     """Stored channel type, its lowercased name an OpenImageIO type name."""
 
-    UINT8 = 1, ("bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"), "8-bit Integer"
-    UINT16 = 2, ("dpx", "iff", "jpeg2000", "png", "pnm", "rla", "sgi", "tiff"), "16-bit Integer"
-    HALF = 3, ("openexr", "tiff"), "16-bit Float"
-    FLOAT = 4, ("dpx", "fits", "hdr", "openexr", "pnm", "rla", "tiff"), "32-bit Float"
+    UINT8 = 1, ("bmp", "dpx", "fits", "ico", "iff", "jpeg", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "targa", "tiff", "webp"), "8-bit Integer"
+    UINT16 = 2, ("dpx", "iff", "jpeg2000", "jpegxl", "png", "pnm", "rla", "sgi", "tiff"), "16-bit Integer"
+    HALF = 3, ("jpegxl", "openexr", "tiff"), "16-bit Float"
+    FLOAT = 4, ("dpx", "fits", "hdr", "jpegxl", "openexr", "pnm", "rla", "tiff"), "32-bit Float"
 
-    def coded(self, plane: npt.NDArray[np.float32]) -> npt.NDArray[np.uint8 | np.uint16 | np.float32]:
-        """Returns display values coded at depth."""
+    def coded(self, plane: npt.NDArray[np.float32], coding: "Coding") -> npt.NDArray[np.uint8 | np.uint16 | np.float32]:
+        """Returns straight display values stored at depth, integer depths coded through `coding`."""
         match self:
             case Depth.UINT8:
-                return codes(plane, 8)
+                return coding.coded(plane, 8)
             case Depth.UINT16:
-                return codes(plane, 16)
+                return coding.coded(plane, 16)
             case Depth.HALF | Depth.FLOAT:
                 return plane
 
@@ -81,7 +83,7 @@ class Blocks(Choice):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Plain(Case, frozen=True, kw_only=True, tag=1):
+class Plain(Case, frozen=True, kw_only=True):
     """Codec without level."""
 
     writers = frozenset[str]().union(*(codec.writers for codec in Codec))
@@ -99,7 +101,7 @@ class Plain(Case, frozen=True, kw_only=True, tag=1):
         return (("compression", OpenImageIO.TypeString, self.codec.name.lower()),)
 
 
-class Deflate(Case, frozen=True, kw_only=True, tag=2):
+class Deflate(Case, frozen=True, kw_only=True):
     """Lossless zlib deflate at a level."""
 
     writers = frozenset({"openexr", "png", "tiff"})
@@ -113,7 +115,7 @@ class Deflate(Case, frozen=True, kw_only=True, tag=2):
         return (("compression", OpenImageIO.TypeString, f"zip:{self.level}"), ("png:compressionLevel", OpenImageIO.TypeInt, self.level))
 
 
-class Dwa(Case, frozen=True, kw_only=True, tag=3):
+class Dwa(Case, frozen=True, kw_only=True):
     """Lossy DCT compression of OpenEXR color channels."""
 
     title = "DWA"
@@ -133,7 +135,7 @@ class Dwa(Case, frozen=True, kw_only=True, tag=3):
         return (("compression", OpenImageIO.TypeString, f"{self.blocks.name.lower()}:{self.level}"),)
 
 
-class Quality(Case, frozen=True, kw_only=True, tag=4):
+class Quality(Case, frozen=True, kw_only=True):
     """Lossy compression at an encoder quality."""
 
     writers = frozenset({"jpeg", "webp"})
@@ -211,6 +213,51 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(form for form in typing.get_args(Compressions.__value__) if self.name in form.writers)
 
 
+class Rounded(Case, frozen=True, kw_only=True):
+    """Integer codes rounding each straight display value half up."""
+
+    @overload
+    def coded(self, plane: npt.NDArray[np.float32], depth: Literal[8]) -> npt.NDArray[np.uint8]: ...
+    @overload
+    def coded(self, plane: npt.NDArray[np.float32], depth: Literal[16]) -> npt.NDArray[np.uint16]: ...
+    def coded(self, plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np.uint8 | np.uint16]:
+        """Returns clamped integer codes of the same shape."""
+        dtype = np.uint8 if depth == 8 else np.uint16
+        limits = np.iinfo(dtype)
+        scaled = np.floor(plane * limits.max + 0.5)
+        return np.clip(scaled, 0, limits.max, out=scaled).astype(dtype)
+
+
+class Diffused(Case, frozen=True, kw_only=True):
+    """Floyd-Steinberg diffusion of separate color errors in raster order, alpha rounded."""
+
+    title = "Error Diffusion"
+
+    def coded(self, plane: npt.NDArray[np.float32], depth: IntegerDepth) -> npt.NDArray[np.uint8 | np.uint16]:
+        """Returns codes of a straight BW, RGB, or RGBA frame, each color error spread over unvisited neighbors along anti-diagonal wavefronts."""
+        height, width, _ = plane.shape
+        coded = Rounded().coded(plane, 8) if depth == 8 else Rounded().coded(plane, 16)
+        levels = float(np.iinfo(coded.dtype).max)
+        color = levels * plane[..., :3]
+        ring = np.zeros((height + 1, 4, color.shape[2]), np.float32)
+        for step in range(width + 2 * height - 2):
+            low, high = max(0, (step - width + 2) // 2), min(height - 1, step // 2)
+            rows, ahead = np.arange(low, high + 1), min(high, (step - 1) // 2) + 1
+            columns = step - 2 * rows
+            visited = np.clip(color[rows, columns] + ring[low : high + 1, step % 4], 0.0, levels)
+            rounded = np.floor(visited + 0.5)
+            coded[rows, columns, :3], error = rounded, visited - rounded
+            ring[low : high + 1, step % 4] = 0.0
+            ring[low + 1 : ahead + 1, (step + 1) % 4] += error[: ahead - low] * (3 / 16)
+            ring[low + 1 : high + 2, (step + 2) % 4] += error * (5 / 16)
+            ring[low + 1 : high + 2, (step + 3) % 4] += error * (1 / 16)
+            ring[low : high + 1, (step + 1) % 4] += error * (7 / 16)
+        return coded
+
+
+type Coding = Rounded | Diffused
+
+
 class Subimage[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Written subimage with pixels on demand."""
 
@@ -279,6 +326,88 @@ class ImageFile[D: np.float32 | np.uint8 | np.uint16](msgspec.Struct, frozen=Tru
         return profile(config, self.colorspace).bind(lambda icc: emitted(path, lambda output: subimages(output, icc.filter(lambda _: channels >= 3))))
 
 
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [BUFFERS]
+
+
+def checked(image: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
+    """Returns buffer, or image fault when buffer holds an error."""
+    return Error((ImagingImageFault(request=image, error=image.geterror()),)) if image.has_error else Ok(image)
+
+
+def located(values: npt.NDArray[np.float32 | np.uint8], like: OpenImageIO.ImageBuf) -> ImagingResult[OpenImageIO.ImageBuf]:
+    """Returns values as buffer with metadata, origin, and full window of `like`."""
+    image = OpenImageIO.ImageBuf(values)
+    image.copy_metadata(like)
+    image.set_origin(like.xbegin, like.ybegin, like.zbegin)
+    image.roi_full = like.roi_full
+    return checked(image)
+
+
+def pixels(image: OpenImageIO.ImageBuf) -> ImagingResult[npt.NDArray[np.float32]]:
+    """Returns float32 pixels of buffer, or image fault."""
+    return Option.of_optional(image.get_pixels(OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingImageFault(request=image, error=image.geterror()),))
+
+
+def resampled(values: npt.NDArray[np.float32], size: tuple[int, int]) -> ImagingResult[npt.NDArray[np.float32]]:
+    """Returns values fitted exactly into `size` width and height, letterboxed at their aspect, for linear-light planes."""
+    return (
+        checked(OpenImageIO.ImageBuf(values))
+        .map(lambda source: OpenImageIO.ImageBufAlgo.fit(source, filtername="", filterwidth=0.0, fillmode="letterbox", exact=True, roi=OpenImageIO.ROI(0, size[0], 0, size[1])))
+        .bind(checked)
+        .bind(pixels)
+    )
+
+
+def fitted(values: npt.NDArray[np.float32], side: int) -> ImagingResult[npt.NDArray[np.float32]]:
+    """Returns values shrunk so their longest side fits `side`, unchanged within it."""
+    height, width, channels = values.shape
+    longest = max(width, height)
+    size = tuple(-(-extent * side // longest) for extent in (width, height))
+    return checked(OpenImageIO.ImageBufAlgo.resize(OpenImageIO.ImageBuf(values), roi=OpenImageIO.ROI(0, size[0], 0, size[1], 0, 1, 0, channels))).bind(pixels) if longest > side else Ok(values)
+
+
+def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: tuple[int, int], count: int) -> ImagingResult[npt.NDArray[np.uint8]]:
+    """Returns contiguous eight-bit RGB after `count` JPEG encode and decode cycles at IJG `quality` and chroma block `subsampling`."""
+
+    def cycled(held: npt.NDArray[np.uint8], _: int) -> npt.NDArray[np.uint8]:
+        coded = imagecodecs.jpeg8_encode(held, level=quality, colorspace=imagecodecs.JPEG8.CS.RGB, outcolorspace=imagecodecs.JPEG8.CS.YCbCr, subsampling=subsampling)
+        return np.asarray(imagecodecs.jpeg8_decode(coded, outcolorspace=imagecodecs.JPEG8.CS.RGB), dtype=np.uint8)
+
+    try:
+        return Ok(functools.reduce(cycled, range(count), rgb))
+    except imagecodecs.Jpeg8Error as error:
+        return Error((ImagingImageFault(request=rgb.shape, error=error),))
+
+
+def unassociated(values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+    """Returns contiguous straight copy of RGB or RGBA, color kept at zero alpha."""
+    if (straight := (values.copy())).shape[-1] == 4:
+        alpha = straight[..., 3:]
+        np.divide(straight[..., :3], alpha, out=straight[..., :3], where=alpha != 0.0)
+    return straight
+
+
+def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.float32]], npt.NDArray[np.float32]], values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+    """Applies OCIO processor or straight-RGB operation to associated colors."""
+    formed = unassociated(values)
+    if isinstance(operation, PyOpenColorIO.CPUProcessor):
+        if formed.shape[-1] == 4:
+            operation.applyRGBA(formed)
+        else:
+            operation.applyRGB(formed)
+    else:
+        formed[..., :3] = operation(formed[..., :3])
+    if formed.shape[-1] == 4:
+        alpha = formed[..., 3:]
+        np.multiply(formed[..., :3], alpha, out=formed[..., :3], where=alpha != 0.0)
+    return formed
+
+
+# --- [IO]
+
+
 def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str] = Nothing, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[ImageFile[np.float32]]:
     """Reads every channel of first subimage as float32 with its colorspace.
 
@@ -312,15 +441,10 @@ def read_file(path: str, config: PyOpenColorIO.Config, *, colorspace: Option[str
             .map(PyOpenColorIO.ColorSpace.getName)
             .to_result_with(lambda: (ImagingUnresolvedFault(request=config, error=(requested,)),))
         )
-        pixels = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingFileFault(access=Access.READ, request=path, error=image.geterror()),))
-        return paired(resolved, pixels).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
+        read = Option.of_optional(image.read_image(0, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (FileFault(access="read", request=path, error=image.geterror()),))
+        return paired(resolved, read).map(lambda pair: ImageFile(pixels=pair[1], colorspace=pair[0], header=tuple(spec.extra_attribs)))
 
     return opened(path, decoded, options=options)
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [IO]
 
 
 def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> ImagingResult[T]:
@@ -336,61 +460,9 @@ def opened[T](path: str, use: Callable[[OpenImageIO.ImageInput], ImagingResult[T
     """
     image = options.map(lambda spec: OpenImageIO.ImageInput.open(path, spec)).default_with(lambda: OpenImageIO.ImageInput.open(path))
     return scoped(
-        Option.of_optional(image).to_result_with(lambda: (ImagingFileFault(access=Access.READ, request=path, error=OpenImageIO.geterror()),)),
+        Option.of_optional(image).to_result_with(lambda: (FileFault(access="read", request=path, error=OpenImageIO.geterror()),)),
         use,
-        lambda held: Ok(None) if held.close() else Error((ImagingFileFault(access=Access.READ, request=path, error=held.geterror()),)),
-    )
-
-
-def published[T, F](path: str, encode: Callable[[str], Result[T, Faults[F]]]) -> Result[str, Faults[F | ImagingFileFault]]:
-    """Replaces file with encoded sibling.
-
-    Args:
-        path: File to replace.
-        encode: Encoder of supplied sibling, returning after its resources close.
-
-    Returns:
-        Path, or encoder faults with replace and cleanup `write` faults.
-    """
-    target = pathlib.Path(path)
-
-    def committed(sibling: pathlib.Path) -> Result[str, Faults[F | ImagingFileFault]]:
-        return (
-            Result[T, Faults[F | ImagingFileFault]]
-            .bind(
-                encode(str(sibling)),
-                lambda _: catch(lambda: replace_atomic(str(sibling), path), exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=path, error=error),)),
-            )
-            .map(lambda _: path)
-        )
-
-    return staging(target, committed)
-
-
-def staging[T, F](target: pathlib.Path, use: Callable[[pathlib.Path], Result[T, Faults[F | ImagingFileFault]]]) -> Result[T, Faults[F | ImagingFileFault]]:
-    """Runs `use` on target-named path in temporary sibling folder removed on every path.
-
-    Args:
-        target: File the staged path takes its name from.
-        use: Work on staged path.
-
-    Returns:
-        `use` result, with `write` fault for folder creation or cleanup.
-    """
-
-    def refused(error: OSError) -> Faults[F | ImagingFileFault]:
-        return (ImagingFileFault(access=Access.WRITE, request=target, error=error),)
-
-    return (
-        catch(lambda: target.parent.mkdir(parents=True, exist_ok=True), exception=OSError)()
-        .map_error(refused)
-        .bind(
-            lambda _: scoped(
-                catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=target.parent).map_error(refused),
-                lambda stage: use(pathlib.Path(stage.name) / target.name),
-                lambda stage: catch(stage.cleanup, exception=OSError)().map_error(refused),
-            )
-        )
+        lambda held: Ok(None) if held.close() else Error((FileFault(access="read", request=path, error=held.geterror()),)),
     )
 
 
@@ -404,13 +476,16 @@ def written(path: str, write: Callable[[IO[bytes]], None]) -> ImagingResult[str]
     Returns:
         Path, or `write` fault for folder creation, encoding, or commit.
     """
-    try:
-        pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
-        with atomic_write(path, mode="wb", overwrite=True) as output:
-            write(output)
-    except (OSError, ValueError, OverflowError, struct.error) as error:
-        return Error((ImagingFileFault(access=Access.WRITE, request=path, error=error),))
-    return Ok(path)
+
+    def streamed(stage: pathlib.Path) -> RecordResult[None]:
+        try:
+            with stage.open("wb") as output:
+                write(output)
+        except (OSError, ValueError, OverflowError, struct.error) as error:
+            return Error((FileFault(access="write", request=path, error=error),))
+        return Ok(None)
+
+    return committed(pathlib.Path(path), streamed).map(str)
 
 
 def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage[D], ...]]) -> ImagingResult[str]:
@@ -425,7 +500,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
     """
 
     def refused(error: str) -> ImagingFaults:
-        return (ImagingFileFault(access=Access.WRITE, request=path, error=error),)
+        return (FileFault(access="write", request=path, error=error),)
 
     def encode(stage: str) -> ImagingResult[str]:
         def into(output: OpenImageIO.ImageOutput) -> ImagingResult[str]:
@@ -455,7 +530,7 @@ def emitted[D: np.float32 | np.uint8 | np.uint16](path: str, subimages: Callable
             lambda output: Ok(None) if output.close() else Error(refused(output.geterror())),
         )
 
-    return published(path, encode)
+    return committed(pathlib.Path(path), lambda stage: encode(str(stage))).map(str)
 
 
 # --- [COLOR_TAGS]
@@ -495,7 +570,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
                 Nothing,
             )
         )
-        .map(lambda location: catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.READ, request=location, error=error),)).map(Some))
+        .map(lambda location: catch(pathlib.Path(location).read_bytes, exception=OSError)().map_error(lambda error: (FileFault(access="read", request=location, error=error),)).map(Some))
         .default_value(Ok(Nothing))
     )
 
@@ -505,22 +580,32 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> ImagingResult[Opti
 __all__ = [
     "Blocks",
     "Codec",
+    "Coding",
     "Compressions",
     "Deflate",
     "Depth",
+    "Diffused",
     "Dwa",
     "Format",
     "ImageFile",
+    "IntegerDepth",
     "Plain",
     "Quality",
+    "Rounded",
     "Storage",
     "Subimage",
     "Writable",
+    "applied",
+    "checked",
     "emitted",
+    "fitted",
+    "generations",
+    "located",
     "opened",
+    "pixels",
     "profile",
-    "published",
     "read_file",
-    "staging",
+    "resampled",
+    "unassociated",
     "written",
 ]

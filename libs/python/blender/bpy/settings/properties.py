@@ -11,14 +11,14 @@ import bpy
 from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
-import msgspec.inspect as native
+import msgspec.inspect
 import numpy as np
 import PyOpenColorIO
 
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.faults import BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.shapes import (
     Color,
     Components,
@@ -48,8 +48,8 @@ from blender.bpy.settings.shapes import (
     unwrapped,
     Vector,
 )
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
-from blender.imaging.parameters import Choice, Gated, heading, markers, Presentation, Quantity, Rgb
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.fields import bounds, Choice, Gated, heading, markers, Presentation, Quantity, Rgb
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -126,19 +126,19 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
     precision: ClassVar[int] = 2
 
     @classmethod
-    def of(cls, annotation: object, kind: native.Type) -> Self:
+    def of(cls, annotation: object, kind: msgspec.inspect.Type) -> Self:
         """Returns display units of annotation and numeric kind."""
         match kind:
-            case native.Metadata(type=inner):
+            case msgspec.inspect.Metadata(type=inner):
                 return cls.of(annotation, inner)
-            case native.StructType(cls=record) if (typing.get_origin(record) or record) is Rgb:
+            case msgspec.inspect.StructType(cls=record) if (typing.get_origin(record) or record) is Rgb:
                 return cls(vector="COLOR")
-            case native.IntType():
+            case msgspec.inspect.IntType():
                 return cls(number="FACTOR" if (kind.ge, kind.le) == (0, 1) else "NONE")
-            case native.FloatType(ge=low, le=high):
+            case msgspec.inspect.FloatType(ge=low, le=high):
                 return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if (low, high) == (0, 1) else "NONE"))
-            case native.TupleType(item_types=items):
-                factor = all(isinstance(item, native.FloatType) and (item.ge, item.le) == (0, 1) for item in map(unwrapped, items))
+            case msgspec.inspect.TupleType(item_types=items):
+                factor = all(isinstance(item, msgspec.inspect.FloatType) and (item.ge, item.le) == (0, 1) for item in map(unwrapped, items))
                 return cls.quantified(annotation).default_with(lambda: cls(number="FACTOR" if factor else "NONE"))
             case _:
                 return cls.quantified(annotation).default_with(cls)
@@ -149,7 +149,7 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
         match Presentation.of(annotation).quantity:
             case Option(tag="some", some=Quantity.LENGTH):
                 return Some(cls(number="DISTANCE", vector="XYZ_LENGTH"))
-            case Option(tag="some", some=Quantity.CAMERA_LENGTH):
+            case Option(tag="some", some=Quantity.FOCAL_LENGTH):
                 return Some(cls(number="DISTANCE_CAMERA", unit="CAMERA", scale=1000.0))
             case Option(tag="some", some=Quantity.ANGLE):
                 return Some(cls(number="ANGLE", vector="EULER"))
@@ -174,10 +174,12 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
         low, high = presentation.soft.map(lambda limits: (limits[0] * self.scale, limits[1] * self.scale)).default_value(bounds)
         return low, high, self if self.number != "FACTOR" or self.extent(low, high).is_some() else msgspec.structs.replace(self, number="NONE")
 
-    def counted(self, presentation: Presentation, kind: native.IntType) -> tuple[int, int, Self]:
-        """Returns whole-value soft span else valid range, with units."""
-        low, high, shown = self.spanned(presentation, self.integral(kind))
-        return round(low), round(high), shown
+    def counted(self, presentation: Presentation, kind: msgspec.inspect.IntType) -> tuple[tuple[int, int], tuple[int, int], Self]:
+        """Returns valid range clamped to int32 storage, whole-value soft span else that range, and units."""
+        storage = np.iinfo(np.int32)
+        low, high = (int(np.clip(end, storage.min, storage.max)) for end in bounds(kind))
+        soft_low, soft_high, shown = self.spanned(presentation, (low, high))
+        return (low, high), (round(soft_low), round(soft_high)), shown
 
     def drawn(self, presentation: Presentation, span: tuple[float, float], default: Option[float | tuple[float, ...]]) -> dict[str, float]:
         """Returns step and precision keywords over a drawn span.
@@ -210,85 +212,46 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
 
     largest: ClassVar[float] = float(np.nextafter(np.float32(np.inf), np.float32(0)))
 
-    @staticmethod
-    def endpoints(kind: native.Type) -> tuple[Option[tuple[float, bool]], Option[tuple[float, bool]]]:
-        """Returns declared low and high endpoints with inclusiveness, tightest across items."""
-        match kind:
-            case native.Metadata(type=inner):
-                return Unit.endpoints(inner)
-            case native.TupleType() | native.StructType():
-                sides = tuple(map(Unit.endpoints, kind.item_types if isinstance(kind, native.TupleType) else tuple(field.type for field in kind.fields)))
-                lows = tuple(end for low, _ in sides for end in low.to_list())
-                highs = tuple(end for _, high in sides for end in high.to_list())
-                return (Some(max(lows, key=lambda end: (end[0], not end[1]))) if lows else Nothing, Some(min(highs)) if highs else Nothing)
-            case native.FloatType() | native.IntType():
-                low = Some((float(kind.ge), True)) if kind.ge is not None else Some((float(kind.gt), False)) if kind.gt is not None else Nothing
-                high = Some((float(kind.le), True)) if kind.le is not None else Some((float(kind.lt), False)) if kind.lt is not None else Nothing
-                return low, high
-            case _:
-                return Nothing, Nothing
+    def bounds(self, kind: msgspec.inspect.Type) -> BlenderResult[tuple[float, float]]:
+        """Returns first and last valid float32 host values of the declared bounds, open ends at range limit."""
 
-    @staticmethod
-    def integral(kind: native.Type) -> tuple[int, int]:
-        """Returns first and last valid integers clamped to int32, open ends at limit."""
-        storage = np.iinfo(np.int32)
-        low, high = Unit.endpoints(kind)
-
-        def included(side: Option[tuple[float, bool]], inward: int, limit: int) -> int:
-            return side.map(lambda end: min(max(int(end[0]) + (0 if end[1] else inward), int(storage.min)), int(storage.max))).default_value(limit)
-
-        return included(low, 1, int(storage.min)), included(high, -1, int(storage.max))
-
-    @staticmethod
-    def interval(kind: native.Type) -> tuple[float | None, float | None]:
-        """Returns first and last valid doubles."""
-        low, high = Unit.endpoints(kind)
-
-        def included(side: Option[tuple[float, bool]], inward: float) -> float | None:
-            return side.map(lambda end: end[0] if end[1] else math.nextafter(end[0], inward)).default_value(None)
-
-        return included(low, math.inf), included(high, -math.inf)
-
-    def bounds(self, kind: native.Type) -> BlenderResult[tuple[float, float]]:
-        """Returns first and last valid float32 values, open ends at range limit."""
-
-        def bound(endpoint: float | None, inward: float) -> BlenderResult[float]:
-            if endpoint is None:
+        def bound(endpoint: float, inward: float) -> BlenderResult[float]:
+            if math.isinf(endpoint):
                 return Ok(-self.largest if inward > 0 else self.largest)
             limited = max(endpoint * self.scale, -self.largest) if inward > 0 else min(endpoint * self.scale, self.largest)
             candidate = np.float32(limited)
             outside = float(candidate) / self.scale < endpoint if inward > 0 else float(candidate) / self.scale > endpoint
             with np.errstate(over="ignore"):
                 boundary = float(np.nextafter(candidate, np.float32(inward))) if outside else float(candidate)
-            return Ok(boundary) if -self.largest <= boundary <= self.largest else _refused(kind, ValueError("Endpoint has no finite float32 value"))
+            return Ok(boundary) if -self.largest <= boundary <= self.largest else _refused(kind, endpoint, "endpoints with a finite float32 value")
 
         def ordered(ends: tuple[float, float]) -> BlenderResult[tuple[float, float]]:
-            return _refused(kind, ValueError("Interval holds no float32 value")) if ends[0] > ends[1] else Ok(ends)
+            return _refused(kind, ends, "intervals holding a float32 value") if ends[0] > ends[1] else Ok(ends)
 
-        low, high = self.interval(kind)
+        low, high = bounds(kind)
         return paired(bound(low, math.inf), bound(high, -math.inf)).bind(ordered)
 
     @overload
-    def stored(self, value: object, kind: native.FloatType) -> BlenderResult[float]: ...
+    def stored(self, value: object, kind: msgspec.inspect.FloatType) -> BlenderResult[float]: ...
 
     @overload
-    def stored(self, value: object, kind: native.TupleType | native.StructType) -> BlenderResult[tuple[float, ...]]: ...
+    def stored(self, value: object, kind: msgspec.inspect.TupleType | msgspec.inspect.StructType) -> BlenderResult[tuple[float, ...]]: ...
 
-    def stored(self, value: object, kind: native.FloatType | native.TupleType | native.StructType) -> BlenderResult[float | tuple[float, ...]]:
-        """Returns float32 host value of a domain value, read fault outside declared interval."""
+    def stored(self, value: object, kind: msgspec.inspect.FloatType | msgspec.inspect.TupleType | msgspec.inspect.StructType) -> BlenderResult[float | tuple[float, ...]]:
+        """Returns float32 host value of a domain value, domain fault outside declared interval."""
         return self.converted(value, kind, inward=True)
 
     @overload
-    def restored(self, value: object, kind: native.FloatType) -> BlenderResult[float]: ...
+    def restored(self, value: object, kind: msgspec.inspect.FloatType) -> BlenderResult[float]: ...
 
     @overload
-    def restored(self, value: object, kind: native.TupleType | native.StructType) -> BlenderResult[tuple[float, ...]]: ...
+    def restored(self, value: object, kind: msgspec.inspect.TupleType | msgspec.inspect.StructType) -> BlenderResult[tuple[float, ...]]: ...
 
-    def restored(self, value: object, kind: native.FloatType | native.TupleType | native.StructType) -> BlenderResult[float | tuple[float, ...]]:
-        """Returns domain value of a host value, read fault outside declared interval."""
+    def restored(self, value: object, kind: msgspec.inspect.FloatType | msgspec.inspect.TupleType | msgspec.inspect.StructType) -> BlenderResult[float | tuple[float, ...]]:
+        """Returns domain value of a host value, domain fault outside declared interval."""
         return self.converted(value, kind, inward=False)
 
-    def converted(self, value: object, kind: native.FloatType | native.TupleType | native.StructType, *, inward: bool) -> BlenderResult[float | tuple[float, ...]]:
+    def converted(self, value: object, kind: msgspec.inspect.FloatType | msgspec.inspect.TupleType | msgspec.inspect.StructType, *, inward: bool) -> BlenderResult[float | tuple[float, ...]]:
         """Checks the host value against the float32 interval, scaling a domain value into host units first when inward and the host value out after otherwise.
 
         Args:
@@ -297,24 +260,24 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
             inward: Domain to host direction.
 
         Returns:
-            Host or domain value, read fault for a value outside the interval or of another length.
+            Host or domain value, domain fault for a value outside the interval or of another length.
         """
 
         def checked(interval: tuple[float, float]) -> BlenderResult[float | tuple[float, ...]]:
             bounded = typing.Annotated[float, msgspec.Meta(ge=interval[0], le=interval[1])]
             match kind:
-                case native.FloatType():
+                case msgspec.inspect.FloatType():
                     shape: object = bounded
-                case native.TupleType(item_types=members) | native.StructType(fields=members):
+                case msgspec.inspect.TupleType(item_types=members) | msgspec.inspect.StructType(fields=members):
                     shape = typing.Annotated[tuple[bounded, ...], msgspec.Meta(min_length=len(members), max_length=len(members))]
             try:
                 source = np.asarray(value, dtype=np.float64)
             except (TypeError, ValueError) as error:
-                return _refused(kind, error)
+                return _refused(kind, value, str(error))
             with np.errstate(over="ignore"):
                 host = (source * self.scale).astype(np.float32) if inward else source
             held = catch(lambda: msgspec.convert(host.tolist(), shape), exception=msgspec.ValidationError)().map_error(
-                lambda error: (ImagingFileFault(access=Access.READ, request=repr(kind), error=error),)
+                lambda error: (DomainFault(subject=repr(kind), value=host.tolist(), accepted=str(error)),)
             )
             return held if inward else held.map(lambda checked: checked / self.scale if isinstance(checked, float) else tuple(item / self.scale for item in checked))
 
@@ -616,9 +579,9 @@ def _given(default: object, absent: object) -> object:
     return absent if default is msgspec.NODEFAULT else default
 
 
-def _refused[T](request: object, error: ValueError | TypeError) -> BlenderResult[T]:
-    """Returns read fault of a declaration Blender cannot hold."""
-    return Error((ImagingFileFault(access=Access.READ, request=repr(request), error=error),))
+def _refused[T](request: object, value: object, accepted: str) -> BlenderResult[T]:
+    """Returns domain fault of a declaration or value Blender cannot hold."""
+    return Error((DomainFault(subject=repr(request), value=value, accepted=accepted),))
 
 
 def _loaded[R: msgspec.Struct](owner: "bpy.types.bpy_struct[object]", record: type[R], struct: "type[bpy.types.bpy_struct[object]]") -> BlenderResult[R]:
@@ -639,7 +602,7 @@ def _stored(owner: "bpy.types.bpy_struct[object]", desired: object, struct: "typ
     )
 
 
-def _floating(kind: native.FloatType | native.TupleType | native.StructType) -> Callable[[_Field], BlenderResult[bpy.props._PropertyDeferred]]:
+def _floating(kind: msgspec.inspect.FloatType | msgspec.inspect.TupleType | msgspec.inspect.StructType) -> Callable[[_Field], BlenderResult[bpy.props._PropertyDeferred]]:
     """Returns float or float vector definition over declared and soft bounds, units, step, and precision."""
 
     def defined(at: _Field) -> BlenderResult[bpy.props._PropertyDeferred]:
@@ -649,16 +612,18 @@ def _floating(kind: native.FloatType | native.TupleType | native.StructType) -> 
             low, high = bounds
             soft_low, soft_high, spanned = unit.spanned(at.presentation, bounds)
             match kind:
-                case native.TupleType(item_types=members) | native.StructType(fields=members):
+                case msgspec.inspect.TupleType(item_types=members) | msgspec.inspect.StructType(fields=members):
                     prop = bpy.props.FloatVectorProperty(size=len(members), subtype=spanned.vector)
-                case native.FloatType():
+                case msgspec.inspect.FloatType():
                     prop = bpy.props.FloatProperty(subtype=spanned.number)
             prop.keywords.update(min=low, max=high, soft_min=soft_low, soft_max=soft_high, unit=unit.unit)
             prop.keywords.update(unit.drawn(at.presentation, (soft_low, soft_high), stored))
             prop.keywords.update(stored.map(lambda value: {"default": value}).default_value({}))
             return prop
 
-        host = unit.converted(msgspec.to_builtins(default) if isinstance(kind, native.StructType) else default, kind, inward=True).map(Some) if default is not msgspec.NODEFAULT else Ok(Nothing)
+        host = (
+            unit.converted(msgspec.to_builtins(default) if isinstance(kind, msgspec.inspect.StructType) else default, kind, inward=True).map(Some) if default is not msgspec.NODEFAULT else Ok(Nothing)
+        )
         return paired(unit.bounds(kind), host).map(lambda pair: ranged(*pair))
 
     return defined
@@ -687,8 +652,7 @@ def _codec(shape: Shape) -> _Codec:
         case Integer(kind=whole):
 
             def counted(at: _Field) -> BlenderResult[bpy.props._PropertyDeferred]:
-                soft_low, soft_high, units = Unit.of(at.field.type, whole).counted(at.presentation, whole)
-                low, high = Unit.integral(whole)
+                (low, high), (soft_low, soft_high), units = Unit.of(at.field.type, whole).counted(at.presentation, whole)
                 prop = bpy.props.IntProperty(min=low, max=high, soft_min=soft_low, soft_max=soft_high, subtype=units.number)
                 prop.keywords.update(at.presentation.step.map(lambda step: {"step": round(step)}).default_value({}))
                 return at.defaulted(prop, at.field.default)
@@ -715,9 +679,12 @@ def _codec(shape: Shape) -> _Codec:
                 lambda held, _: Ok(enum[msgspec.convert(held, str)]),
                 lambda desired, _: msgspec.convert(desired, enum).name,
             )
-        case Literals(values=values):
+        case Literals(values=values) as literal:
+            stored = {str(value): value for value in values}
             return _Codec.leaf(
-                lambda at: at.enumerated(tuple((str(value), str(value), "", value) for value in values), str), lambda held, _: Ok(int(msgspec.convert(held, str))), lambda desired, _: str(desired)
+                lambda at: at.enumerated(tuple((str(value), label, "", value if isinstance(value, int) else index) for index, (value, label) in enumerate(literal.labels.items())), str),
+                lambda held, _: Ok(stored[msgspec.convert(held, str)]),
+                lambda desired, _: str(desired),
             )
         case Text(space=space):
 
@@ -727,7 +694,7 @@ def _codec(shape: Shape) -> _Codec:
             def text(owner: "bpy.types.bpy_struct[object]", field: msgspec.structs.FieldInfo, default: object) -> BlenderResult[object]:
                 held = chosen(owner, field, default).default_with(lambda: getattr(owner, field.name))
                 return catch(lambda: msgspec.convert(held, field.type), exception=msgspec.ValidationError)().map_error(
-                    lambda error: (ImagingFileFault(access=Access.READ, request=f"{owner!r}.{field.name}", error=error),)
+                    lambda error: (DomainFault(subject=f"{owner!r}.{field.name}", value=held, accepted=str(error)),)
                 )
 
             def wrote(owner: "bpy.types.bpy_struct[object]", field: msgspec.structs.FieldInfo, desired: object, default: object) -> BlenderResult[None]:
@@ -757,7 +724,7 @@ def _codec(shape: Shape) -> _Codec:
 
             def gate(at: _Field) -> BlenderResult[bpy.props._PropertyDeferred]:
                 if gated.is_none() and at.field.default is msgspec.NODEFAULT:
-                    return _refused(at.field, TypeError("Gate with graph-owned value needs record default"))
+                    return _refused(at.field, at.field.default, "a record default for a gate whose graph owns the value")
                 return _pointer(at.build.recorded(at.path, gating, at.field.default, Some(at.name)))
 
             def opened(owner: "bpy.types.bpy_struct[object]", field: msgspec.structs.FieldInfo, default: object) -> BlenderResult[object]:
@@ -766,7 +733,7 @@ def _codec(shape: Shape) -> _Codec:
                     Ok(default.value)
                     if gated.is_none() and isinstance(default, Gated)
                     else gated.starmap(lambda leaf, inner: _codec(inner.shape).read(held, leaf, RecordGroup.default(type(held), leaf.name))).default_with(
-                        lambda: Error((ImagingFileFault(access=Access.READ, request=f"{owner!r}.{field.name}", error=KeyError(field.name)),))
+                        lambda: Error((BlenderAbsentFault(owner=repr(held), key=field.name),))
                     )
                 )
                 return value.map(lambda kept: Gated(enabled=getattr(held, ENABLED), value=kept))
@@ -845,24 +812,24 @@ def _codec(shape: Shape) -> _Codec:
 
             def tagged(at: _Field) -> BlenderResult[bpy.props._PropertyDeferred]:
                 selector = bpy.props.EnumProperty(items=(), name=at.name, override={"LIBRARY_OVERRIDABLE"})
-                selector.keywords["items"] = [(case.__name__, case.title, case.__doc__ or "", tag) for case, tag in cases]
+                selector.keywords["items"] = [(case.__name__, case.title, case.__doc__ or "", number) for number, case in enumerate(cases)]
                 selector.keywords.update({} if at.field.default is msgspec.NODEFAULT else {"default": type(at.field.default).__name__})
                 selector.keywords.update(at.build.updating(tag_field))
                 branches = accumulated(
                     _pointer(at.build.recorded(f"{at.path}_{case.__name__.lower()}", case, at.field.default if isinstance(at.field.default, case) else msgspec.NODEFAULT)).map(
                         lambda prop: (case.__name__, prop)
                     )
-                    for case, _ in cases
+                    for case in cases
                 )
                 return _pointer(branches.bind(lambda props: at.build.group(at.path, {tag_field: selector} | dict(props))))
 
             def selected(owner: "bpy.types.bpy_struct[object]", field: msgspec.structs.FieldInfo, _: object) -> BlenderResult[object]:
                 group = getattr(owner, field.name)
-                chosen = next(case for case, _ in cases if case.__name__ == getattr(group, tag_field))
+                chosen = next(case for case in cases if case.__name__ == getattr(group, tag_field))
                 return _loaded(held := getattr(group, chosen.__name__), chosen, type(held))
 
             def switched(owner: "bpy.types.bpy_struct[object]", field: msgspec.structs.FieldInfo, desired: object, _: object) -> BlenderResult[None]:
-                chosen, group = next(case for case, _ in cases if isinstance(desired, case)), getattr(owner, field.name)
+                chosen, group = next(case for case in cases if isinstance(desired, case)), getattr(owner, field.name)
                 return _put(group, tag_field, chosen.__name__).bind(lambda _: _stored(held := getattr(group, chosen.__name__), desired, type(held), chosen))
 
             return _Codec(defined=tagged, read=selected, write=switched)

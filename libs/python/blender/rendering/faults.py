@@ -9,7 +9,8 @@ from expression import Option, Result
 import httpx2
 import msgspec
 
-from blender.imaging.faults import Faults, ImagingFault, Refusal
+from blender.imaging.faults import ImagingFault
+from blender.records.faults import Faults, Refusal
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

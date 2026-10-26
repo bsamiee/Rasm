@@ -22,7 +22,7 @@ from blender.bpy.nodes.trees import tree_of
 from blender.bpy.ui.drawing.handlers import hooked
 from blender.bpy.ui.screens.areas import Located
 from blender.bpy.ui.screens.regions import RegionView
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

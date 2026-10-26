@@ -9,7 +9,7 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor, Native, struct_at, Value
 from blender.bpy.faults import BlenderResult
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

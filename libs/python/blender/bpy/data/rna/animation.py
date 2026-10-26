@@ -13,9 +13,9 @@ from numpy.typing import NDArray
 
 from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import Descriptor, member_path, struct_at, Value, written
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.fields import Case
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -27,7 +27,7 @@ type Source = Keys | Driven
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Keys(Case, frozen=True, kw_only=True, tag=1):
+class Keys(Case, frozen=True, kw_only=True):
     """Keyframes as frame and value pairs."""
 
     title = "Keyframes"
@@ -46,7 +46,7 @@ class Variable(msgspec.Struct, frozen=True, kw_only=True):
     path: str
 
 
-class Driven(Case, frozen=True, kw_only=True, tag=2):
+class Driven(Case, frozen=True, kw_only=True):
     """Scripted driver over variables."""
 
     title = "Driver"
@@ -166,7 +166,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                     .map(lambda made: accumulated(written(made, name, value) for name, value in row.values.items()).map(lambda _: None))
                     .default_with(
                         lambda: Descriptor.resolve(bpy.types.FModifier, "type", bpy.types.EnumProperty).bind(
-                            lambda kind: Error((BlenderChoiceFault(path=repr(curve.modifiers), identifier=row.kind, accepted=tuple(item.identifier for item in kind.prop.enum_items if item.value)),))
+                            lambda kind: Error((DomainFault(subject=repr(curve.modifiers), value=row.kind, accepted=", ".join(item.identifier for item in kind.prop.enum_items if item.value)),))
                         )
                     )
                 )
@@ -314,10 +314,10 @@ def sampled(owner: bpy.types.ID, path: str, frames: Iterable[float], index: int 
                     return Ok(tuple(float(int(value)) for value in values))
                 case _:
                     return Error((
-                        BlenderChoiceFault(
-                            path=path,
-                            identifier=type(prop).__name__,
-                            accepted=tuple(kind.__name__ for kind in (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)),
+                        DomainFault(
+                            subject=path,
+                            value=type(prop).__name__,
+                            accepted=", ".join(kind.__name__ for kind in (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.EnumProperty)),
                         ),
                     ))
 

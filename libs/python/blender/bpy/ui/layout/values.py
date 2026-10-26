@@ -24,7 +24,7 @@ from blender.bpy.settings.attachments import Attached, Attachment, Host, Slot
 from blender.bpy.settings.history import Retention, ValueHistory
 from blender.bpy.settings.presets import copied, pasted, Preset, PresetName, removed
 from blender.bpy.ui.layout.rows import acquired, alerted, invoking, Line, Member, OperatorButton, Popover, pressed, realized, refused, RowContent, RowDraw
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
 
 if typing.TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import IconItems
@@ -469,7 +469,7 @@ class Values[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                             each(line, holder, context)
                     held = found.bind(history.held)
                     entries = held.map(
-                        lambda value: tuple((index, moment) for index, (moment, _) in enumerate(value.past, 1)) + tuple((-index, moment) for index, (moment, _) in enumerate(value.future, 1))
+                        lambda value: tuple((index, entry.moment) for index, entry in enumerate(value.past, 1)) + tuple((-index, entry.moment) for index, entry in enumerate(value.future, 1))
                     ).default_value(())
                     for offset, moment in entries:
                         line, chosen = layout.row(align=True), Picked(offset=offset)

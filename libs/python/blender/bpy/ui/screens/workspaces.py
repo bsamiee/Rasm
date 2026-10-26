@@ -15,7 +15,7 @@ from blender.bpy.extension.events.timers import Startup
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

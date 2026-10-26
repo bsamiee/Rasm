@@ -1,5 +1,7 @@
 """Displayed-render exports as Linear Raw DNG, tagged stills, and layered documents, and the Combined plane of saved renders."""
 
+from collections.abc import Callable
+from functools import cached_property
 from typing import Annotated, Final, Protocol, Self
 
 import bpy
@@ -11,27 +13,26 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator, Save
 from blender.bpy.data.ids.images import read
-from blender.bpy.data.rna.conditions import AllOf, Job, Setting
+from blender.bpy.data.rna.conditions import AllOf, Job
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
-from blender.bpy.render.color.spaces import config_of
-from blender.bpy.render.effects.rows import CompositorEffect, stops
+from blender.bpy.render.color.spaces import config_of, viewed
 from blender.bpy.render.outputs.finishing import stamped
 from blender.bpy.render.outputs.formats import display_space, displays, readouts, sample, writer, writers
 from blender.bpy.render.outputs.results import built, Production, production, PRODUCTIONS, saved
 from blender.bpy.settings.properties import Choices, RecordGroup
+from blender.bpy.ui.images.views import RESULT
 from blender.bpy.ui.layout.rows import alerted, placed, RowDraw
 from blender.bpy.ui.layout.sections import fields, Nest
-from blender.imaging.color.processors import converted, DisplayView, unassociated
-from blender.imaging.effects.tone.exposure import Exposure
-from blender.imaging.faults import accumulated, paired
+from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.dng import LinearRaw, Optics
 from blender.imaging.files.documents import Document
-from blender.imaging.files.images import Compressions, Deflate, Depth, Format, ImageFile, Storage
+from blender.imaging.files.images import Compressions, Deflate, Depth, Format, ImageFile, Rounded, Storage, unassociated
 from blender.imaging.files.multilayer import Channel, Layer, Multilayer
-from blender.imaging.parameters import Choice, Gated
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Gated, heading
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -44,19 +45,13 @@ class Documents(Protocol):
         ...
 
 
-class Source(Choice):
-    """Combined plane owner, a saved render's output or a view layer ahead of scene effects."""
-
-    RENDER = 1, "Stored Render"
-    LAYER = 2, "View Layer"
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 COMBINED: Final = bpy.types.ViewLayer.bl_rna.properties["use_pass_combined"].name
 COMPOSITE: Final = "Composite"
-IMAGE_TYPE: Final = Descriptor.declared(bpy.types.SpaceImageEditor, "image.type", bpy.types.EnumProperty)
 STILLS: Final = ("RENDER_RESULT", "COMPOSITING")
+IDLE: Final = Job(kind="RENDER")
+SAVABLE: Final = AllOf(conditions=(RESULT, IDLE))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -64,7 +59,9 @@ STILLS: Final = ("RENDER_RESULT", "COMPOSITING")
 class Still(msgspec.Struct, frozen=True, kw_only=True):
     """Source, writer, stored depth, display encoding, and formation policy."""
 
-    source: Annotated[str, msgspec.Meta(description="Image the still writes"), Choices.mirrored(IMAGE_TYPE.prop, lambda kind: kind in STILLS)] = "RENDER_RESULT"
+    source: Annotated[
+        str, msgspec.Meta(description="Image the still writes"), Choices.mirrored(Descriptor.declared(bpy.types.Image, "type", bpy.types.EnumProperty).prop, lambda kind: kind in STILLS)
+    ] = "RENDER_RESULT"
     format: Annotated[str, msgspec.Meta(description="File format the still writes"), writers] = "png"
     depth: Annotated[Depth, msgspec.Meta(description="Storage of each channel")] = Depth.UINT8
     display: Annotated[str, msgspec.Meta(description="Display encoding at selected depth"), displays] = msgspec.field(default_factory=lambda: PyOpenColorIO.GetCurrentConfig().getDefaultDisplay())
@@ -101,13 +98,25 @@ class Sheet(msgspec.Struct, frozen=True, kw_only=True):
     depth: Annotated[Depth, msgspec.Meta(description="Storage of each layer channel")] = Depth.UINT16
 
 
-class Layering(msgspec.Struct, frozen=True, kw_only=True):
-    """Document source with its export action."""
+class Layering(msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Layered TIFF export of a document source over the saved frame, its command named for the source's kind."""
 
-    key: Key
-    title: str
-    description: str
     source: Documents
+
+    @cached_property
+    def command(self) -> Operator[Sheet]:
+        """Command writing the source's document of the displayed render."""
+        kind = heading(type(self.source).__name__)
+        return Operator(
+            key=f"export_{'_'.join(kind.lower().split())}",
+            title=f"Export {kind} Document",
+            description=f"Write {kind.lower()} document of displayed render as layered TIFF",
+            form=Sheet,
+            run=self.exported,
+            condition=Some(SAVABLE),
+            invoke=Some(Save[Sheet](extensions=lambda _: (".tif",))),
+            undo=False,
+        )
 
     def exported(self, call: Call[Sheet]) -> BlenderResult[Done]:
         """Writes layered TIFF from saved frame."""
@@ -124,47 +133,50 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Export:
-    """Render and Viewer export actions."""
+class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Render and Viewer export actions, the DNG exposure adding `gain` stops to the scene view's exposure."""
 
-    gain: CompositorEffect[Exposure]
-    linear: Operator[Empty]
-    still: Operator[Still]
-    layered: tuple[Operator[Sheet], ...]
+    gain: Callable[[Identity, bpy.types.Scene], BlenderResult[float]] = lambda _identity, _scene: Ok(0.0)
+    layering: tuple[Layering, ...] = ()
 
-    def __init__(self, *, gain: CompositorEffect[Exposure], layering: tuple[Layering, ...] = ()) -> None:
-        """Declares linear raw, still, and layered document commands on save browser without undo."""
-        self.gain = gain
-        idle = Job(kind="RENDER")
-        result = Some(AllOf(conditions=(Setting(descriptor=IMAGE_TYPE, accepted=("RENDER_RESULT",)), idle)))
-        self.linear = Operator(
+    # --- [COMMANDS]
+
+    @cached_property
+    def linear(self) -> Operator[Empty]:
+        """Command writing the scene-linear render as DNG."""
+        return Operator(
             key="export_dng",
             title="Export Linear Raw DNG",
             description="Write scene-linear render as DNG",
             form=Empty,
             run=self.raw,
-            condition=result,
+            condition=Some(SAVABLE),
             invoke=Some(Save[Empty](extensions=lambda _: (".dng",))),
             undo=False,
         )
-        self.still = Operator(
+
+    @cached_property
+    def still(self) -> Operator[Still]:
+        """Command writing the render or Viewer image with chosen encoding."""
+        return Operator(
             key="export_still",
             title="Export Still",
             description="Write render or Viewer image with chosen encoding",
             form=Still,
             run=self.exported,
-            condition=Some(idle),
+            condition=Some(IDLE),
             invoke=Some(Save[Still](extensions=Still.extensions)),
             seed=Some(Still.seeded),
             draw=Some(self.drawn),
             undo=False,
         )
-        self.layered = tuple(
-            Operator(
-                key=each.key, title=each.title, description=each.description, form=Sheet, run=each.exported, condition=result, invoke=Some(Save[Sheet](extensions=lambda _: (".tif",))), undo=False
-            )
-            for each in layering
-        )
+
+    @property
+    def layered(self) -> tuple[Operator[Sheet], ...]:
+        """Layered document commands in layering order."""
+        return tuple(each.command for each in self.layering)
+
+    # --- [WRITES]
 
     def raw(self, call: Call[Empty]) -> BlenderResult[Done]:
         """Writes scene-linear Combined RGB with total exposure and camera optics."""
@@ -179,11 +191,9 @@ class Export:
             return LinearRaw(make="Blender", model=bpy.app.version_string, exposure=exposure, optics=optics).written(target, frame, config).map(lambda _: Done.wrote((target,)))
 
         def exported(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Done]:
-            return paired(
-                saved(scene).bind(lambda path: combined(path, Source.LAYER, Some(layer.name))),
-                stops(call.identity, scene, self.gain).map(lambda gained: scene.view_settings.exposure + gained),  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                config_of(),
-            ).bind(lambda found: wrote(scene, found[0][1][..., :3], found[1], found[2]))
+            return paired(saved(scene).bind(lambda path: combined(path, Some(layer.name))), self.gain(call.identity, scene).map(lambda gained: viewed(scene).exposure + gained), config_of()).bind(
+                lambda found: wrote(scene, found[0][1][..., :3], found[1], found[2])
+            )
 
         return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(lambda roots: exported(*roots))
 
@@ -195,7 +205,9 @@ class Export:
         def stored(file: ImageFile[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[str]:
             match record.depth:
                 case Depth.UINT8 | Depth.UINT16 as integer:
-                    return ImageFile(pixels=integer.coded(unassociated(file.pixels)), colorspace=file.colorspace).write(target, Storage(compression=compressed), stamped(call.identity), config)
+                    return ImageFile(pixels=integer.coded(unassociated(file.pixels), Rounded()), colorspace=file.colorspace).write(
+                        target, Storage(compression=compressed), stamped(call.identity), config
+                    )
                 case Depth.HALF | Depth.FLOAT as floated:
                     return file.write(target, Storage(depth=16 if floated is Depth.HALF else 32, compression=compressed), stamped(call.identity), config)
 
@@ -209,17 +221,12 @@ class Export:
             )
 
         def image(native: bpy.types.Image, origin: Production, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
-            pixels = origin.layer.map(lambda layer: origin.scene.resolve().bind(saved).bind(lambda path: combined(path, Source.LAYER, Some(layer))).map(lambda found: found[1])).default_with(
+            pixels = origin.layer.map(lambda layer: origin.scene.resolve().bind(saved).bind(lambda path: combined(path, Some(layer))).map(lambda found: found[1])).default_with(
                 lambda: read(native, config).map(lambda file: file.pixels)
             )
             match origin.view:
-                case Option(tag="some", some=(view, exposure, gamma)) if record.save_as_render:
-                    return pixels.bind(
-                        lambda values: paired(
-                            view.form(config, values, source=origin.space, exposure=exposure, gamma=gamma),
-                            view.colorspace(config).to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"{view.display}/{view.view}"),)),
-                        )
-                    ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
+                case Option(tag="some", some=view) if record.save_as_render:
+                    return pixels.bind(lambda values: formed(view, values, origin.space, config))
                 case _:
                     return pixels.map(lambda values: ImageFile(pixels=values, colorspace=origin.space))
 
@@ -261,17 +268,14 @@ class Export:
                 layout.label(text=row.text)
         alerted(layout, paired(form, verdicts))
 
+    # --- [REGISTRATION]
+
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns export commands and render production tracking."""
         return Ok((self.linear, self.still, *self.layered, PRODUCTIONS))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def image_type(kinds: tuple[str, ...]) -> Setting:
-    """Returns image-editor condition over displayed image type."""
-    return Setting(descriptor=IMAGE_TYPE, accepted=kinds)
 
 
 def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> BlenderResult[npt.NDArray[np.float32]]:
@@ -291,13 +295,12 @@ def plane(path: str, names: tuple[str, ...], channels: tuple[str, ...]) -> Blend
     return Result[Multilayer, BlenderFaults].bind(Multilayer.read(path), picked)
 
 
-def combined(path: str, source: Source, layer: Option[str] = Nothing) -> BlenderResult[tuple[str, npt.NDArray[np.float32]]]:
+def combined(path: str, layer: Option[str] = Nothing) -> BlenderResult[tuple[str, npt.NDArray[np.float32]]]:
     """Reads a saved render's Combined RGBA with its owner.
 
     Args:
         path: Saved multilayer render.
-        source: `Source.RENDER` reads the compositor's output, else the unnamed sequencer layer, else the first view layer; `Source.LAYER` the view layer alone.
-        layer: View layer `Source.LAYER` reads, the first one without it.
+        layer: View layer to read, else the compositor's output, then the unnamed sequencer layer, then the first view layer.
 
     Returns:
         Owner name and RGBA plane, absent fault without a matching Combined layer.
@@ -305,8 +308,8 @@ def combined(path: str, source: Source, layer: Option[str] = Nothing) -> Blender
 
     def selected(file: Multilayer) -> BlenderResult[tuple[str, npt.NDArray[np.float32]]]:
         owners = {owner: found for found in file.layers for owner, _, kind in (found.name.rpartition("."),) if kind in {COMBINED, ""}}
-        views = layer.map(lambda name: (name,)).default_with(lambda: tuple(owner for owner in owners if owner not in {COMPOSITE, ""})[:1])
-        match views if source is Source.LAYER else (*(owner for owner in (COMPOSITE, "") if owner in owners), *views):
+        rendered = (*(owner for owner in (COMPOSITE, "") if owner in owners), *tuple(owner for owner in owners if owner not in {COMPOSITE, ""})[:1])
+        match layer.map(lambda name: (name,)).default_value(rendered):
             case (owner, *_) if owner in owners:
                 return plane(path, (owners[owner].name,), ("R", "G", "B", "A")).map(lambda pixels: (owner, pixels))
             case _:
@@ -316,36 +319,14 @@ def combined(path: str, source: Source, layer: Option[str] = Nothing) -> Blender
     return Result[Multilayer, BlenderFaults].bind(file, selected)
 
 
-def displayed(
-    formation: CompositorEffect[DisplayView], identity: Identity, scene: bpy.types.Scene, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config
-) -> BlenderResult[ImageFile[np.float32]]:
-    """Forms display values through owned formation entry, else scene view with its exposure and gamma."""
-
-    def named(view: DisplayView, pixels: npt.NDArray[np.float32]) -> BlenderResult[ImageFile[np.float32]]:
-        return (
-            view
-            .colorspace(config)
-            .map(lambda space: ImageFile(pixels=pixels, colorspace=space.getName()))
-            .to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"{view.display}/{view.view}"),))
-        )
-
-    def formed(shown: Option[DisplayView]) -> BlenderResult[ImageFile[np.float32]]:
-        def native() -> BlenderResult[ImageFile[np.float32]]:
-            exposure, gamma = scene.view_settings.exposure, scene.view_settings.gamma  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-            return formation.seeded(scene).bind(
-                lambda view: Result[npt.NDArray[np.float32], BlenderFaults].bind(view.form(config, plane, source=source, exposure=exposure, gamma=gamma), lambda pixels: named(view, pixels))
-            )
-
-        return shown.map(
-            lambda view: Result[npt.NDArray[np.float32], BlenderFaults].bind(
-                converted(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), plane), lambda pixels: named(view, pixels)
-            )
-        ).default_with(native)
-
-    return formation.current(identity, scene).bind(formed)
+def formed(view: DisplayView, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
+    """Forms a plane in `source` through a view into the view's display colorspace."""
+    return paired(view.form(config, plane, source), view.colorspace(config).to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"{view.display}/{view.view}"),))).map(
+        lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName())
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 
-__all__ = ["COMBINED", "COMPOSITE", "IMAGE_TYPE", "STILLS", "Documents", "Export", "Layering", "Sheet", "Source", "Still", "combined", "displayed", "image_type", "plane"]
+__all__ = ["COMBINED", "COMPOSITE", "IDLE", "SAVABLE", "STILLS", "Documents", "Export", "Layering", "Sheet", "Still", "combined", "formed", "plane"]

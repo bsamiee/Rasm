@@ -25,14 +25,14 @@ from blender.bpy.settings.attachments import Attached, Attachment, Recovery, Sto
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import Label
 from blender.bpy.ui.surfaces.appends import Append
-from blender.imaging.analysis import metering
-from blender.imaging.faults import accumulated, guarded, ImagingNumericFault, paired
-from blender.imaging.parameters import Case, Choice, NonNegative, Positive, Presentation, Side
+from blender.imaging.geometry.regions import Region
+from blender.records.faults import accumulated, guarded, NumericFault, paired
+from blender.records.fields import Case, Choice, NonNegative, Positive, Presentation, Side
 from blender.rendering.faults import RenderingSizeFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Extents = Whole | Region
+type Extents = Whole | Border
 
 
 class Broadcast(Choice):
@@ -68,16 +68,18 @@ EDGES: Final = (("left", "border_min_x"), ("bottom", "border_min_y"), ("right", 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Whole(Case, frozen=True, kw_only=True, tag=5):
+class Whole(Case, frozen=True, kw_only=True):
     """Whole frame grown on each side by overscan."""
 
     title = "Whole Frame"
     overscan: Annotated[NonNegative, msgspec.Meta(description="Share of frame side added past each edge, camera widened to keep view"), Presentation(soft=Some((0.0, 0.25)), precision=Some(3))] = 0.0
 
 
-class Region(metering.Region, Case, frozen=True, kw_only=True, tag=6):
-    """Frame rectangle from bottom-left, rendered alone."""
+class Border(Case, frozen=True, kw_only=True):
+    """Render border rectangle, rendered alone."""
 
+    title = "Region"
+    region: Annotated[Region, msgspec.Meta(description="Frame rectangle from bottom-left")] = Region()
     crop: Annotated[bool, msgspec.Meta(description="Write region pixels alone")] = False
 
 
@@ -106,7 +108,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
             case Whole(overscan=overscan):
                 fraction = Fraction(overscan)
                 return round(width * fraction), round(height * fraction)
-            case Region():
+            case Border():
                 return 0, 0
 
     def pixels(self) -> BlenderResult[tuple[int, int]]:
@@ -115,13 +117,13 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
         match self.extent:
             case Whole():
                 return Ok((width + 2 * pad_x, height + 2 * pad_y))
-            case Region(left=left, bottom=bottom, right=right, top=top):
+            case Border(region=Region(left=left, bottom=bottom, right=right, top=top)):
 
                 def counted() -> BlenderResult[tuple[int, int]]:
                     across, up = np.float32(width), np.float32(height)
                     return Ok((int(np.float32(right) * across) - int(np.float32(left) * across), int(np.float32(top) * up) - int(np.float32(bottom) * up)))
 
-                return guarded(ImagingNumericFault, (width, height), counted)
+                return guarded(NumericFault, (width, height), counted)
 
     def rendered(self, bounds: tuple[int, int]) -> BlenderResult[tuple[Self, tuple[Side, Side]]]:
         """Validates pixels, folding overscan into resolution within renderer bounds."""
@@ -151,8 +153,8 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
     def snapshot(self, ppm_base: float) -> Snapshot:
         """Returns native framing settings keeping user's density unit."""
         match self.extent:
-            case Region() as region:
-                extent = {member: getattr(region, field) for field, member in EDGES} | {"use_crop_to_border": region.crop, "use_border": True}
+            case Border(region=region, crop=crop):
+                extent = {member: getattr(region, field) for field, member in EDGES} | {"use_crop_to_border": crop, "use_border": True}
             case Whole():
                 extent = {"use_border": False}
         return Snapshot.of(bpy.types.RenderSettings, {member: getattr(self, member) for member in Framing.native} | {"ppm_factor": self.density * ppm_base} | extent)
@@ -205,7 +207,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
         """Reads native framing and attached overscan."""
         render = scene.render
         area: BlenderResult[Extents] = extent.map(Ok).default_with(
-            lambda: Ok(Region(**{field: getattr(render, member) for field, member in EDGES}, crop=render.use_crop_to_border)) if render.use_border else self.attached.read(scene)
+            lambda: Ok(Border(region=Region(**{field: getattr(render, member) for field, member in EDGES}), crop=render.use_crop_to_border)) if render.use_border else self.attached.read(scene)
         )
         return area.map(lambda held: Framing(**{member: getattr(render, member) for member in Framing.native}, density=render.ppm_factor / render.ppm_base, extent=held))
 
@@ -227,7 +229,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
         def grow(base: Framing, held: Option[Grown]) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
             def wrote(formed: tuple[Framing, tuple[Side, Side]]) -> BlenderResult[tuple[Framing, tuple[Side, Side]]]:
                 bigger, covered = formed
-                result = (bigger, bigger.size if isinstance(bigger.extent, Region) and not bigger.extent.crop else covered)
+                result = (bigger, bigger.size if isinstance(bigger.extent, Border) and not bigger.extent.crop else covered)
                 if held.is_some() or not any(base.padding):
                     return capacity(scene, result[1]).map(lambda _: result)
                 writes = (
@@ -254,7 +256,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
 
     def bordered(self, scene: bpy.types.Scene, region: Region) -> BlenderResult[Outcome]:
         """Writes region with scene's existing crop preference."""
-        extent = msgspec.structs.replace(region, crop=scene.render.use_crop_to_border)
+        extent = Border(region=region, crop=scene.render.use_crop_to_border)
         return self.read(scene).bind(
             lambda framing: answered(
                 msgspec.structs.replace(framing, extent=extent).snapshot(scene.render.ppm_base).apply(scene.render), "Render region already covers area", (("INFO", "Render region set"),)
@@ -292,7 +294,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
                 f"{width} x {height} px",
                 *((f"{shown_width} x {shown_height} rendered",) if shown != (width, height) else ()),
                 *((f"pixel aspect {aspect_x:g}:{aspect_y:g}",) if aspect_x != aspect_y else ()),
-                *(("cropped",) if isinstance(framing.extent, Region) and framing.extent.crop else ()),
+                *(("cropped",) if isinstance(framing.extent, Border) and framing.extent.crop else ()),
             ))
 
         return Option.of_optional(context.scene).bind(lambda scene: self.read(scene).bind(lambda framing: framing.pixels().map(lambda shown: text(framing, shown))).map(Some).default_with(summarized))
@@ -401,6 +403,7 @@ __all__ = [
     "RESOLUTION_Y",
     "SAFE_AREAS",
     "SCALE",
+    "Border",
     "Broadcast",
     "Extents",
     "FrameSize",
@@ -408,7 +411,6 @@ __all__ = [
     "Framing",
     "Grown",
     "Oversize",
-    "Region",
     "Standard",
     "Unseen",
     "Whole",

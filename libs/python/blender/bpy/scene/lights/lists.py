@@ -21,8 +21,8 @@ from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton, Property, SearchField
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.surfaces.appends import Append
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Gated, NonNegative, Presentation
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Gated, NonNegative, Presentation
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

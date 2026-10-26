@@ -18,7 +18,7 @@ from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.files.blends import folder_made
 from blender.bpy.files.libraries import blocks_loaded, library_written, LibraryLink, Linked, listed, LocalCopy
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
+from blender.records.faults import accumulated, FileFault, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -151,7 +151,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
     fresh = () if kept else tuple(block for block, _ in entries if block.asset_data is None)
 
     def unread(error: msgspec.ValidationError | ValueError) -> BlenderFaults:
-        return (ImagingFileFault(access=Access.READ, request=target, error=error),)
+        return (FileFault(access="read", request=target, error=error),)
 
     def ensured(_: Path) -> BlenderResult[dict[str, UUID]]:
         try:
@@ -163,7 +163,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
                 for catalog in parse_catalogs(folder)  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[not-iterable]
             ).map(dict)
         except (OSError, UnicodeError) as error:
-            return Error((ImagingFileFault(access=Access.READ, request=target, error=error),))
+            return Error((FileFault(access="read", request=target, error=error),))
 
     def appended(held: dict[str, UUID]) -> BlenderResult[dict[str, UUID]]:
         added = {path: uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}") for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
@@ -173,7 +173,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
                 file.write(("VERSION 1\n\n" if file.tell() == 0 else "\n") + "".join(f"{uid}:{path}:{path.replace('/', '-')}\n" for path, uid in added.items()))
             return held | added
 
-        return catch(written, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=target, error=error),)) if added else Ok(held)
+        return catch(written, exception=OSError)().map_error(lambda error: (FileFault(access="write", request=target, error=error),)) if added else Ok(held)
 
     def marked(catalogs: dict[str, UUID]) -> BlenderResult[Path]:
         try:
@@ -244,7 +244,7 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
     try:
         paths = tuple(sorted(root.rglob("*.blend")))
     except OSError as error:
-        return Error((ImagingFileFault(access=Access.READ, request=root, error=error),))
+        return Error((FileFault(access="read", request=root, error=error),))
     return (
         accumulated(listed(path, kind, assets_only=True) for path in paths)
         .bind(lambda listings: Option.of_optional(next((path for path, names in zip(paths, listings) if name in names), None)).to_result_with(lambda: (BlenderAbsentFault(owner=str(root), key=name),)))

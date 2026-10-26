@@ -13,7 +13,7 @@ from expression import Error, Ok
 from expression.extra.result import catch
 import msgspec
 
-from blender.imaging.faults import paired, scoped
+from blender.records.faults import paired, scoped
 from blender.rendering.batch.processes import ran, refused, spawned
 from blender.rendering.batch.progress import Progress
 from blender.rendering.batch.supervision import stop

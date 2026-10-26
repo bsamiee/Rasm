@@ -1,14 +1,15 @@
-"""LUT formats, stack sampling, sequencer exports, and changed-file reads."""
+"""LUT formats, compositor and sequencer bakes, and changed-file reads."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from functools import cached_property
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Annotated, ClassVar, Final, override, Self
 
 import bpy
-from expression import Error, Ok, Option, Result, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -16,7 +17,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Call, Done, Operator, Properties, Save
+from blender.bpy.commands.operators import Call, Done, Operator, Save
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.conditions import AllOf, Count, Job
@@ -24,18 +25,15 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.bpy.render.color.spaces import config_of, ConfigInstall
-from blender.bpy.render.effects.rows import Enabled
-from blender.bpy.render.effects.stack import EffectStack
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.render.color.spaces import config_of
+from blender.bpy.render.compositor.effects import Enabled
 from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.settings.properties import Choices
-from blender.imaging.chain import Stage
-from blender.imaging.color.authoring import Formation
-from blender.imaging.color.luts import Bake, Exact, Lattice, LutFormat, LutOutput, written
-from blender.imaging.color.processors import applied, processor
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
-from blender.imaging.files.images import ImageFile, read_file, Storage
+from blender.imaging.color.luts import Lattice, LutFormat, LutOutput
+from blender.imaging.color.processors import processor
+from blender.imaging.files.images import applied, ImageFile, read_file, Storage
+from blender.records.faults import accumulated, DomainFault, FileFault, paired
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
@@ -65,7 +63,7 @@ class Formatted(msgspec.Struct, frozen=True, kw_only=True):
         """Returns requested format, a choice fault when absent."""
         rows = type(self).formats()
         return Option.of_optional(next((row for row in rows if row.name == self.format), None)).to_result_with(
-            lambda: (BlenderChoiceFault(path="format", identifier=self.format, accepted=tuple(row.name for row in rows)),)
+            lambda: (DomainFault(subject="format", value=self.format, accepted=", ".join(row.name for row in rows)),)
         )
 
     def seeded(self, _event: bpy.types.Event, _identity: Identity) -> Self:
@@ -78,7 +76,7 @@ class Formatted(msgspec.Struct, frozen=True, kw_only=True):
 
     def output(self) -> BlenderResult[LutOutput]:
         """Returns exact writer for chosen native format."""
-        return self.chosen().map(lambda row: Exact(format=row))
+        return self.chosen().map(lambda row: LutOutput(format=row))
 
 
 class Baking(Formatted, frozen=True, kw_only=True):
@@ -91,7 +89,7 @@ class Baking(Formatted, frozen=True, kw_only=True):
     @override
     def output(self) -> BlenderResult[LutOutput]:
         """Returns exact writer for a writable format, else a lattice bake."""
-        return self.chosen().map(lambda row: Exact(format=row) if row in LutFormat.writable() else Bake(format=row, lattice=self.lattice))
+        return self.chosen().map(lambda row: LutOutput(format=row, lattice=Nothing if row in LutFormat.writable() else Some(self.lattice)))
 
 
 class Writing(Formatted, frozen=True, kw_only=True):
@@ -101,117 +99,71 @@ class Writing(Formatted, frozen=True, kw_only=True):
     format: Annotated[str, msgspec.Meta(title="Format"), matrices]
 
 
-class ToneView(msgspec.Struct, frozen=True, kw_only=True):
-    """Tone entry sampled into a named installed OCIO formation."""
+class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Formation and strip LUT outputs, the formation baked from the transform a caller states or sampled through the scene's enabled compositor entries."""
 
-    entry: Annotated[str, msgspec.Meta(min_length=1, title="Effect")]
-    view: Annotated[str, msgspec.Meta(min_length=1, title="View")]
-    description: str = ""
-    lattice: Lattice = Lattice()
-
-
-class LutExport:
-    """Formation, strip, and tone-view LUT outputs."""
-
-    stack: EffectStack
-    sampling: PreviewScene
-    install: ConfigInstall
-    forming: Operator[Baking]
-    stripping: Operator[Baking]
-    toning: Operator[ToneView]
+    sampling: PreviewScene = PreviewScene()
+    transform: Callable[[Identity, bpy.types.Scene, Enabled], BlenderResult[Option[PyOpenColorIO.Transform]]] = lambda _identity, _scene, _enabled: Ok(Nothing)
     lattices: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="lattice", saved=Saved.NEVER, single=False)
     modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor.declared(bpy.types.WorkSpace, "sequencer_scene.sequence_editor.active_strip.modifiers", bpy.types.CollectionProperty)
 
-    def __init__(self, *, stack: EffectStack, sampling: PreviewScene, install: ConfigInstall) -> None:
-        """Declares formation, strip, and tone-view commands."""
-        self.stack, self.sampling, self.install = stack, sampling, install
-        saved, seed, available = Some(Save[Baking](extensions=Baking.extensions)), Some(Baking.seeded), Job(kind="RENDER")
-        self.forming = Operator(
+    # --- [COMMANDS]
+
+    @cached_property
+    def forming(self) -> Operator[Baking]:
+        """Command baking the enabled scene formation."""
+        return Operator(
             key="bake_formation",
             title="Bake Formation LUT",
             description="Bake enabled scene formation into a native LUT",
             form=Baking,
             run=self.formed,
-            condition=Some(available),
-            invoke=saved,
-            seed=seed,
+            condition=Some(Job(kind="RENDER")),
+            invoke=Some(Save[Baking](extensions=Baking.extensions)),
+            seed=Some(Baking.seeded),
             undo=False,
         )
-        self.stripping = Operator(
+
+    @cached_property
+    def stripping(self) -> Operator[Baking]:
+        """Command baking the active strip's modifiers."""
+        return Operator(
             key="bake_strip",
             title="Bake Strip LUT",
             description="Bake active strip modifiers in sequencer space",
             form=Baking,
             run=self.stripped,
-            condition=Some(AllOf(conditions=(Count(collection=self.modifiers), available))),
-            invoke=saved,
-            seed=seed,
-            undo=False,
-        )
-        self.toning = Operator(
-            key="install_tone_view",
-            title="Install Tone View",
-            description="Install sampled tone entry as a view read on restart",
-            form=ToneView,
-            run=self.viewed,
-            condition=Some(available),
-            invoke=Some(Properties()),
-            seed=Some(
-                lambda record, _event, identity: (
-                    Option
-                    .of_optional(bpy.context.scene)
-                    .bind(lambda scene: Option.of_optional(next(iter(self.stack.entries(identity, scene, Stage.TONE)), None)))
-                    .map(lambda entry: msgspec.structs.replace(record, entry=entry.name))
-                    .default_value(record)
-                )
-            ),
+            condition=Some(AllOf(conditions=(Count(collection=self.modifiers), Job(kind="RENDER")))),
+            invoke=Some(Save[Baking](extensions=Baking.extensions)),
+            seed=Some(Baking.seeded),
             undo=False,
         )
 
+    # --- [BAKES]
+
     def toned(self, identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], lattice: Lattice) -> BlenderResult[PyOpenColorIO.GroupTransform]:
-        """Samples every RGB channel over lattice domain."""
+        """Samples every RGB channel through entries over lattice domain."""
         samples: BlenderResult[npt.NDArray[np.float32]] = lattice.samples()
         return Result[npt.NDArray[np.float32], BlenderFaults].bind(samples, lambda plane: self.sampling.sampled(identity, scene, entries, plane)).map(lattice.transform)
 
     def formed(self, call: Call[Baking]) -> BlenderResult[Done]:
-        """Writes enabled scene formation through atomic LUT writer."""
+        """Writes enabled scene formation through atomic LUT writer, a lattice output or an unstated transform sampling the enabled entries."""
         lattice = call.record.lattice
 
-        def baked(scene: bpy.types.Scene, config: PyOpenColorIO.Config, output: LutOutput) -> BlenderResult[PyOpenColorIO.GroupTransform]:
+        def baked(scene: bpy.types.Scene, output: LutOutput) -> BlenderResult[PyOpenColorIO.GroupTransform]:
             def sampled() -> BlenderResult[PyOpenColorIO.GroupTransform]:
                 return self.toned(call.identity, scene, tuple(entry for entry in scene.compositor_effects if bool(Enabled.RENDER.descriptor.read(entry))), lattice)
 
-            return self.stack.forming(call.identity, scene, config, Enabled.RENDER).bind(
-                lambda chain: chain.map(lambda transform: Ok(PyOpenColorIO.GroupTransform([transform]))).default_with(sampled) if isinstance(output, Exact) else sampled()
+            return self.transform(call.identity, scene, Enabled.RENDER).bind(
+                lambda stated: stated.map(lambda transform: Ok(PyOpenColorIO.GroupTransform([transform]))).default_with(sampled) if output.lattice.is_none() else sampled()
             )
 
         return (
-            paired(call.root(bpy.types.Scene), self.stack.config(), call.record.output())
-            .bind(lambda parts: baked(*parts).map(lambda built: (parts[2], built)))
-            .bind(lambda pair: written(pair[0], {str(call.paths[0]): pair[1]}))
+            paired(call.root(bpy.types.Scene), call.record.output())
+            .bind(lambda parts: baked(*parts).map(lambda built: (parts[1], built)))
+            .bind(lambda pair: pair[0].written({str(call.paths[0]): pair[1]}))
             .map(Done.wrote)
         )
-
-    def viewed(self, call: Call[ToneView]) -> BlenderResult[Done]:
-        """Installs pointwise tone entry as a view read on restart."""
-        record = call.record
-
-        def installed(scene: bpy.types.Scene) -> BlenderResult[Done]:
-            entry: BlenderResult[bpy.types.SceneCompositorEffect] = Option.of_optional(
-                next((entry for entry in self.stack.entries(call.identity, scene, Stage.TONE) if entry.name == record.entry), None)
-            ).to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=record.entry),))
-            return (
-                paired(self.stack.config(), Result[bpy.types.SceneCompositorEffect, BlenderFaults].bind(entry, lambda item: self.stack.pointwise(call.identity, scene, item)))
-                .bind(
-                    lambda pair: self.toned(call.identity, scene, (pair[1],), record.lattice).map(
-                        lambda table: Formation.of(record.view, record.description, table, pair[0].getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName())
-                    )
-                )
-                .bind(lambda formation: self.install.extended(formation).written())
-                .map(lambda path: Done(notes=(("INFO", f"Installed view {record.view} into {path}, restart Blender to read it"),)))
-            )
-
-        return call.root(bpy.types.Scene).bind(installed)
 
     @contextmanager
     def staged(self, identity: Identity) -> Generator[BlenderResult[bpy.types.Scene]]:
@@ -263,7 +215,7 @@ class LutExport:
             return (
                 paired(paired(made, config_of((space,))), call.record.output())
                 .bind(lambda parts: rendered(*parts[0], Path(folder)).bind(lambda look: tabled(parts[0][1], look)).map(lambda built: (parts[1], built)))
-                .bind(lambda pair: written(pair[0], {str(call.paths[0]): pair[1]}))
+                .bind(lambda pair: pair[0].written({str(call.paths[0]): pair[1]}))
                 .map(Done.wrote)
             )
 
@@ -276,8 +228,8 @@ class LutExport:
                 return Error((BlenderAbsentFault(owner=repr(self.modifiers.root), key=self.modifiers.owner),))
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns lattice ownership and LUT commands."""
-        return Ok((self.lattices, self.forming, self.stripping, self.toning))
+        """Returns sampling scene, lattice ownership, and LUT commands."""
+        return Ok((self.sampling, self.lattices, self.forming, self.stripping))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -298,9 +250,9 @@ def current(path: str, config: PyOpenColorIO.Config) -> BlenderResult[str]:
             STAMPS[str(resolved)] = stamp
         return str(resolved)
 
-    return catch(resolved.stat, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.READ, request=str(resolved), error=error),)).map(held)
+    return catch(resolved.stat, exception=OSError)().map_error(lambda error: (FileFault(access="read", request=str(resolved), error=error),)).map(held)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["STAMPS", "Baking", "Formatted", "LutExport", "ToneView", "Writing", "bakeable", "current", "matrices", "writable"]
+__all__ = ["STAMPS", "Baking", "Formatted", "LutExport", "Writing", "bakeable", "current", "matrices", "writable"]

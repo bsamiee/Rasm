@@ -21,7 +21,7 @@ from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.bpy.ui.layout.rows import Member, ResolvedMember
 from blender.bpy.ui.resources.icons import Glyph, Icons
 from blender.bpy.ui.resources.theme import color
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums

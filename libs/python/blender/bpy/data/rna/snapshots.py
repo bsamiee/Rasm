@@ -11,10 +11,10 @@ import msgspec
 import numpy as np
 
 from blender.bpy.data.rna.descriptors import beneath, Descriptor, effective, id_path, LEADING, member_path, Native, rooted, sequenced, struct_at, Value
-from blender.bpy.data.rna.edits import Owner, revert, transfer, Tree
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
-from blender.imaging.parameters import Case
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.fields import Case
+from blender.records.trees import Owner, revert, transfer, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -91,7 +91,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             selection: Members to capture, every saved member when Nothing.
 
         Returns:
-            Snapshot, read fault for an undecodable value, edit fault for a stale owner.
+            Snapshot, domain fault for an undecodable value, edit fault for a stale owner.
         """
 
         def stored(descriptor: Descriptor, struct: Native, _: frozenset[tuple[int, str]]) -> Option[Value]:
@@ -130,7 +130,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             case Result(tag="ok", ok=identifier) if identifier == self.struct:
                 return self._applied(owner, self.tree, lambda _, value: value)
             case Result(tag="ok", ok=identifier):
-                return Applied.refused((BlenderChoiceFault(path=repr(owner), identifier=self.struct, accepted=(identifier,)),))
+                return Applied.refused((DomainFault(subject=repr(owner), value=self.struct, accepted=identifier),))
             case Result(error=faults):
                 return Applied.refused(faults)
 
@@ -163,7 +163,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             return any(path == root or beneath(path, root) for root in roots)
 
         def split(identifier: str) -> BlenderResult[tuple[Snapshot, Snapshot]]:
-            if incompatible := tuple(BlenderChoiceFault(path=repr(owner), identifier=snapshot.struct, accepted=(identifier,)) for snapshot in (self, current) if snapshot.struct != identifier):
+            if incompatible := tuple(DomainFault(subject=repr(owner), value=snapshot.struct, accepted=identifier) for snapshot in (self, current) if snapshot.struct != identifier):
                 return Error((incompatible[0], *incompatible[1:]))
             free = {
                 key: Owner(
@@ -238,7 +238,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                     added = lambda _: items.add()
                 case bpy.types.bpy_struct():
                     present = sum(item is not None for item in items)
-                    return Ok(None) if present == len(keys) else Error((BlenderChoiceFault(path=f"{struct!r}.{prop.identifier}", identifier=str(len(keys)), accepted=(str(present),)),))
+                    return Ok(None) if present == len(keys) else Error((DomainFault(subject=f"{struct!r}.{prop.identifier}", value=str(len(keys)), accepted=str(present)),))
 
             def changed() -> None:
                 properties = fixed.bl_rna.properties
@@ -289,11 +289,11 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         def member(row: NativeValue) -> BlenderResult[tuple[tuple[object, str], object]]:
             target, value = row
             if not isinstance(target, tuple):
-                return Error((BlenderChoiceFault(path=repr(target), identifier=type(target).__name__, accepted=(bpy.types.ID.__name__,)),))
+                return Error((DomainFault(subject=repr(target), value=type(target).__name__, accepted=bpy.types.ID.__name__),))
             if isinstance(value, Tree):
                 return Snapshot.persisted(value).map(lambda held: (target, held))
             if isinstance(value, bpy.types.bpy_struct) and not isinstance(value, bpy.types.ID):
-                return Error((BlenderChoiceFault(path=repr(target), identifier=type(value).__name__, accepted=(bpy.types.ID.__name__,)),))
+                return Error((DomainFault(subject=repr(target), value=type(value).__name__, accepted=bpy.types.ID.__name__),))
             return Ok((target, value))
 
         return accumulated(
@@ -311,7 +311,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             if block is None:
                 return Ok(None)
             if not isinstance(block, bpy.types.ID):
-                return Error((BlenderChoiceFault(path=path, identifier=type(block).__name__, accepted=(bpy.types.ID.__name__,)),))
+                return Error((DomainFault(subject=path, value=type(block).__name__, accepted=bpy.types.ID.__name__),))
             descriptors = (
                 Descriptor.resolve(type(block), member_path(path, name), bpy.types.Property).to_option()
                 if compound
@@ -325,7 +325,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                     case bpy.types.PointerProperty() if value is None or isinstance(value, bpy.types.ID):
                         answer = Ok(value)
                     case bpy.types.PointerProperty():
-                        return Error((BlenderChoiceFault(path=member_path(path, name), identifier=type(value).__name__, accepted=(bpy.types.ID.__name__,)),))
+                        return Error((DomainFault(subject=member_path(path, name), value=type(value).__name__, accepted=bpy.types.ID.__name__),))
                     case bpy.types.FloatProperty() as prop:
                         size = (prop.array_length if prop.is_array and descriptor.index.is_none() else 1) * _FLOAT_STORAGE.itemsize
                         answer = Ok(msgspec.convert(value, Annotated[bytes, msgspec.Meta(min_length=size, max_length=size)]))
@@ -343,7 +343,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
                 lambda _: Tree(roots=tree.roots if compound else tuple(owners), owners=owners)
             )
         except (msgspec.ValidationError, TypeError) as error:
-            return Error((ImagingFileFault(access=Access.READ, request=repr(tree), error=error),))
+            return Error((DomainFault(subject="Snapshot members", value=tree, accepted=str(error)),))
         except ReferenceError as error:
             return Error((BlenderEditFault(request=repr(tree), error=error),))
 
@@ -448,7 +448,7 @@ class Endpoints(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
         return paired(Snapshot.decoded(self.before), self.completed(owner, key).bind(Snapshot.decoded))
 
 
-class Scenes(Case, frozen=True, kw_only=True, tag=1):
+class Scenes(Case, frozen=True, kw_only=True):
     """Named or every non-runtime scene in file order."""
 
     owner_type: ClassVar[type[bpy.types.Scene]] = bpy.types.Scene
@@ -464,7 +464,7 @@ class Scenes(Case, frozen=True, kw_only=True, tag=1):
         )
 
 
-class ViewLayers(Case, frozen=True, kw_only=True, tag=2):
+class ViewLayers(Case, frozen=True, kw_only=True):
     """View layers of selected scenes."""
 
     owner_type: ClassVar[type[bpy.types.ViewLayer]] = bpy.types.ViewLayer
@@ -475,7 +475,7 @@ class ViewLayers(Case, frozen=True, kw_only=True, tag=2):
         return Scenes(names=self.scenes).owners(context).map(lambda owners: tuple(layer for scene in owners for layer in scene.view_layers))
 
 
-class Selection(Case, frozen=True, kw_only=True, tag=3):
+class Selection(Case, frozen=True, kw_only=True):
     """Objects selected in context view layer."""
 
     owner_type: ClassVar[type[bpy.types.Object]] = bpy.types.Object
@@ -486,7 +486,7 @@ class Selection(Case, frozen=True, kw_only=True, tag=3):
         return rooted(bpy.types.ViewLayer, context).map(lambda layer: tuple(layer.objects.selected))
 
 
-class Objects(Case, frozen=True, kw_only=True, tag=4):
+class Objects(Case, frozen=True, kw_only=True):
     """Objects of named collection and its descendants."""
 
     title = "Collection Objects"
@@ -524,17 +524,17 @@ def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, p
         prior: Tree whose values the capture keeps, adding paths it lacks.
 
     Returns:
-        Native tree, read fault for an undecodable value, edit fault for a stale owner.
+        Native tree, domain fault for an undecodable value, edit fault for a stale owner.
     """
     return _attempted(owner, lambda: _walked(owner, owner, _Walk(read=_actual(owner), native=True), selection, prior))
 
 
 def _attempted[T](owner: Native, call: Callable[[], T]) -> BlenderResult[T]:
-    """Runs one walk or definition read, an undecodable value as read fault and a stale owner as edit fault."""
+    """Runs one walk or definition read, an undecodable value as domain fault and a stale owner as edit fault."""
     try:
         return Ok(call())
     except msgspec.ValidationError as error:
-        return Error((ImagingFileFault(access=Access.READ, request=repr(owner), error=error),))
+        return Error((DomainFault(subject="Snapshot members", value=owner, accepted=str(error)),))
     except ReferenceError as error:
         return Error((BlenderEditFault(request=repr(owner), error=error),))
 

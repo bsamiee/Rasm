@@ -14,10 +14,11 @@ import numpy.typing as npt
 import OpenImageIO
 from skimage.metrics import structural_similarity
 
-from blender.imaging.chain import Domain
-from blender.imaging.faults import ImagingBufferFault, ImagingResult, ImagingShapeFault, paired
-from blender.imaging.parameters import Choice
-from blender.imaging.sampling import Frozen
+from blender.imaging.color.processors import Domain
+from blender.imaging.faults import ImagingImageFault, ImagingResult, ImagingShapeFault
+from blender.imaging.files.images import checked, pixels
+from blender.records.faults import paired
+from blender.records.fields import Choice, Frozen
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -73,7 +74,6 @@ class Bar(msgspec.Struct, frozen=True, kw_only=True):
 class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     """Axis measures, difference planes, and SSIM map."""
 
-    bars: ClassVar[tuple[Bar, ...]] = (Bar(axis=Axis.PSNR, advisory=35.0, refuse=30.0), Bar(axis=Axis.NRMSE, advisory=0.05, refuse=0.10), Bar(axis=Axis.SSIM, advisory=0.98, refuse=0.95))
     structural_window: ClassVar[int] = 7
     measures: Mapping[Axis, float]
     difference: npt.NDArray[np.float32]
@@ -87,7 +87,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
             return Error((ImagingShapeFault(subject="Image", shape=test.shape, expected=Some(reference.shape)),))
         first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
         result = OpenImageIO.ImageBufAlgo.compare(first, second, math.inf, math.inf)
-        compared: ImagingResult[OpenImageIO.CompareResults] = Error((ImagingBufferFault(request=reference.shape, error=OpenImageIO.geterror()),)) if result.error else Ok(result)
+        compared: ImagingResult[OpenImageIO.CompareResults] = Error((ImagingImageFault(request=reference.shape, error=OpenImageIO.geterror()),)) if result.error else Ok(result)
 
         def measured(parts: tuple[OpenImageIO.CompareResults, npt.NDArray[np.float32], npt.NDArray[np.float32]]) -> ImagingResult[Self]:
             signal, difference, flip = parts
@@ -95,7 +95,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
             scale = math.sqrt(float(np.square(reference_color).mean(dtype=np.float64)))
             side = min(cls.structural_window, *reference.shape[:2])
             window = side - 1 + side % 2
-            structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing  # type: ignore[no-untyped-call]
+            structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing
             measures = {
                 Axis.MEAN_ERROR: signal.meanerror,
                 Axis.RMS_ERROR: signal.rms_error,
@@ -109,8 +109,8 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
 
         return paired(
             compared,
-            ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.absdiff(first, second)).bind(ImagingBufferFault.pixels),
-            ImagingBufferFault.checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(ImagingBufferFault.pixels),
+            checked(OpenImageIO.ImageBufAlgo.absdiff(first, second)).bind(pixels),
+            checked(OpenImageIO.ImageBufAlgo.FLIP_diff(first, second, hdr=int(domain is Domain.SCENE_LINEAR))).bind(pixels),
         ).bind(measured)
 
     def verdict(self, bars: Iterable[Bar]) -> Verdict:

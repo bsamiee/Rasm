@@ -12,9 +12,10 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, ImagingResult
+from blender.imaging.faults import ImagingResult
 from blender.imaging.files.multilayer import Layer, Multilayer
-from blender.imaging.parameters import Rgb
+from blender.records.faults import accumulated, FileFault
+from blender.records.fields import Rgb
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -48,7 +49,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             )
             return (
                 catch(lambda: msgspec.json.decode(manifest, type=dict[str, Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{8}$")]]), exception=msgspec.DecodeError)()
-                .map_error(lambda error: (ImagingFileFault(access=Access.READ, request=file.path, error=error),))
+                .map_error(lambda error: (FileFault(access="read", request=file.path, error=error),))
                 .map(
                     lambda entries: cls(
                         name=name,

@@ -20,7 +20,7 @@ from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout import rows
 from blender.bpy.ui.layout.rows import Member, OperatorButton
 from blender.bpy.ui.layout.templates import LightLinking
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

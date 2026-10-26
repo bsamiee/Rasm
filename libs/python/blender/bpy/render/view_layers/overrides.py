@@ -22,14 +22,14 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.render.color.spaces import config_of
-from blender.bpy.render.view_layers.collections import applied, CollectionState, copying, Extent, Flag, isolates, pasting
+from blender.bpy.render.view_layers.collections import applied, CollectionState, copying, isolates, pasting, Restriction, Spread
 from blender.bpy.scene.materials import Clay, material, Utility
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.rows import Caption, Flow, joined, Line, Matrix, Member, OperatorButton, placed, Property, RowDraw
 from blender.bpy.ui.layout.sections import Single
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Choice, Rgb
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Case, Choice, Rgb
 from blender.rendering.outputs.naming import Count, Fields, OutputName, Word
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -44,7 +44,7 @@ class Role(Choice):
     DATA = 2, "Data"
 
 
-class Direction(Choice):
+class MoveDirection(Choice):
     """Direction active layer moves in list."""
 
     UP = 1, "Up", "Move active view layer up the list"
@@ -91,7 +91,7 @@ _LAYERS: Final = Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.C
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Spectrum(Case, frozen=True, kw_only=True, tag=1):
+class Spectrum(Case, frozen=True, kw_only=True):
     """Hues spaced evenly on color wheel."""
 
     title = "Spectrum"
@@ -99,14 +99,14 @@ class Spectrum(Case, frozen=True, kw_only=True, tag=1):
     value: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, title="Value", description="Brightness of every hue")] = 0.36
 
 
-class Published(Case, frozen=True, kw_only=True, tag=2):
+class Published(Case, frozen=True, kw_only=True):
     """Color-blind safe palette cycled over layers."""
 
     title = "Published"
     swatches: Annotated[Swatch, msgspec.Meta(title="Palette", description="Published palette the layers cycle through")] = Swatch.IBM
 
 
-class Layer(msgspec.Struct, frozen=True, kw_only=True):
+class LayerTag(msgspec.Struct, frozen=True, kw_only=True):
     """Purpose and tag of a view layer."""
 
     role: Annotated[Role, msgspec.Meta(title="Role", description="Beauty layers form image, data layers hold data passes and mattes")] = Role.BEAUTY
@@ -116,7 +116,7 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True):
 class Moving(msgspec.Struct, frozen=True, kw_only=True):
     """Active layer move."""
 
-    direction: Annotated[Direction, msgspec.Meta(title="Direction", description="Direction active layer moves in list")] = Direction.UP
+    direction: Annotated[MoveDirection, msgspec.Meta(title="MoveDirection", description="Direction active layer moves in list")] = MoveDirection.UP
 
 
 class Renaming(msgspec.Struct, frozen=True, kw_only=True):
@@ -141,10 +141,10 @@ class Splitting(msgspec.Struct, frozen=True, kw_only=True):
 class LayerOverride(Line, frozen=True, kw_only=True):
     """Row of layer list with move buttons and layer commands."""
 
-    layer: ClassVar[Attachment[Layer]] = Attachment(key="layer", form=Layer, owner=bpy.types.ViewLayer)
+    layer: ClassVar[Attachment[LayerTag]] = Attachment(key="layer", form=LayerTag, owner=bpy.types.ViewLayer)
     prerequisites: ClassVar[tuple[Registrable, ...]] = (layer,)
 
-    def listed(self) -> ItemList[Layer, bpy.types.ViewLayer]:
+    def listed(self) -> ItemList[LayerTag, bpy.types.ViewLayer]:
         """Returns layer list with use column and move buttons."""
         return ItemList(
             key="layers",
@@ -154,7 +154,8 @@ class LayerOverride(Line, frozen=True, kw_only=True):
             attachment=Some(self.layer),
             columns=(Property(target=Member(root=bpy.types.ViewLayer, path="use"), text=""),),
             side=tuple(
-                OperatorButton(target=Own(command=MOVE, values=Moving(direction=direction)), text="", icon=Some("TRIA_UP" if direction is Direction.UP else "TRIA_DOWN")) for direction in Direction
+                OperatorButton(target=Own(command=MOVE, values=Moving(direction=direction)), text="", icon=Some("TRIA_UP" if direction is MoveDirection.UP else "TRIA_DOWN"))
+                for direction in MoveDirection
             ),
         )
 
@@ -208,11 +209,11 @@ def encoded(color: Rgb) -> tuple[float, float, float]:
     return (shown.r, shown.g, shown.b)
 
 
-def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[Layer]) -> BlenderResult[Outcome]:
+def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[LayerTag]) -> BlenderResult[Outcome]:
     """Writes palette tags onto layers in list order where they differ."""
     layers = tuple(scene.view_layers)
 
-    def wrote(held: tuple[Layer, ...]) -> BlenderResult[Outcome]:
+    def wrote(held: tuple[LayerTag, ...]) -> BlenderResult[Outcome]:
         if not (differing := tuple((layer, record, color) for layer, record, color in zip(layers, held, colors(palette, len(layers))) if record.color != color)):
             return Ok(Unchanged(reason=f"View layers of {scene.name} hold palette tags"))
         return tallied(tuple(attached.write(layer, msgspec.structs.replace(record, color=color)) for layer, record, color in differing))
@@ -231,7 +232,7 @@ def renamed(scene: bpy.types.Scene, grammar: OutputName) -> BlenderResult[int]:
     return accumulated(itertools.starmap(named, enumerate(scene.view_layers))).map(sum)
 
 
-def split(scene: bpy.types.Scene, flag: Flag) -> BlenderResult[tuple[str, ...]]:
+def split(scene: bpy.types.Scene, flag: Restriction) -> BlenderResult[tuple[str, ...]]:
     """Adds one layer per top-level collection no layer isolates, removing every added layer on fault."""
     lone = tuple(collection for collection in scene.collection.children if not any(isolates(layer, collection, flag) for layer in scene.view_layers))
     with ExitStack() as rollback:
@@ -239,7 +240,7 @@ def split(scene: bpy.types.Scene, flag: Flag) -> BlenderResult[tuple[str, ...]]:
         def made(collection: bpy.types.Collection) -> BlenderResult[str]:
             layer = scene.view_layers.new(vacant(collection.name, scene.view_layers.keys()))
             rollback.callback(scene.view_layers.remove, layer)
-            return applied(CollectionState(layer=layer.name, collection=IdName.of(collection), flag=flag, value=False, extent=Extent.ISOLATE), scene).map(lambda _: layer.name)
+            return applied(CollectionState(layer=layer.name, collection=IdName.of(collection), flag=flag, value=False, extent=Spread.ISOLATE), scene).map(lambda _: layer.name)
 
         if (added := (accumulated(map(made, lone)))).is_ok():
             rollback.pop_all()
@@ -271,9 +272,9 @@ def moved(call: Call[Moving]) -> BlenderResult[Outcome]:
     def shifted(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Outcome]:
         index = scene.view_layers.find(layer.name)
         match call.record.direction:
-            case Direction.UP:
+            case MoveDirection.UP:
                 target = index - 1
-            case Direction.DOWN:
+            case MoveDirection.DOWN:
                 target = index + 1
         if not 0 <= target < len(scene.view_layers):
             return Ok(Unchanged(reason=f"{layer.name} is at list end"))
@@ -339,7 +340,7 @@ ACTIONS: Final[tuple[Operator[Empty] | Operator[Renaming] | Operator[Tinting] | 
         form=Splitting,
         run=lambda call: (
             Result[bpy.types.Scene, BlenderFaults]
-            .bind(call.root(bpy.types.Scene), lambda scene: split(scene, Flag[call.record.others.name]))
+            .bind(call.root(bpy.types.Scene), lambda scene: split(scene, Restriction[call.record.others.name]))
             .map(lambda added: Done(notes=tuple(("INFO", f"Added {name}") for name in added)) if added else Unchanged(reason="Each top-level collection has a layer isolating it"))
         ),
     ),
@@ -374,9 +375,9 @@ ACTIONS: Final[tuple[Operator[Empty] | Operator[Renaming] | Operator[Tinting] | 
 __all__ = [
     "ACTIONS",
     "MOVE",
-    "Direction",
-    "Layer",
     "LayerOverride",
+    "LayerTag",
+    "MoveDirection",
     "Moving",
     "Others",
     "Palette",

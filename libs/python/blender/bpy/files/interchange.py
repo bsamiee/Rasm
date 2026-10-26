@@ -20,9 +20,9 @@ from blender.bpy.data.ids.ownership import committed
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, Value
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions, Band
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderResult
 from blender.bpy.files.blends import files_copied
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
+from blender.records.faults import accumulated, DomainFault, FileFault, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -154,7 +154,7 @@ def scale(scene: bpy.types.Scene, source: str) -> BlenderResult[float]:
     return (
         catch(lambda: bpy.utils.units.to_value(bpy.utils.units.systems.METRIC, bpy.utils.units.categories.LENGTH, source), exception=ValueError)()  # type: ignore[attr-defined]
         .map(lambda meters: meters / scene.unit_settings.scale_length)
-        .map_error(lambda error: (ImagingFileFault(access=Access.READ, request=source, error=error),))
+        .map_error(lambda error: (FileFault(access="read", request=source, error=error),))
     )
 
 
@@ -179,10 +179,10 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
                 item = held.new(type=handler, name=name)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             except TypeError:
                 return Error((
-                    BlenderChoiceFault(
-                        path=request,
-                        identifier=handler,
-                        accepted=tuple(item.identifier for item in bpy.types.CollectionExports.bl_rna.functions["new"].parameters["type"].enum_items),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    DomainFault(
+                        subject=request,
+                        value=handler,
+                        accepted=", ".join(item.identifier for item in bpy.types.CollectionExports.bl_rna.functions["new"].parameters["type"].enum_items),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
                     ),
                 ))
             except (RuntimeError, ReferenceError) as error:

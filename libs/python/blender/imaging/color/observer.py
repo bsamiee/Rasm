@@ -1,4 +1,4 @@
-"""CIE 1931 2° matching functions, spectral locus, and XYZ chromaticity."""
+"""CIE 1931 2° matching functions, spectral samples, blackbody emission, spectral locus, and XYZ chromaticity."""
 
 import functools
 
@@ -16,6 +16,22 @@ def table() -> npt.NDArray[np.float64]:
     rows = np.column_stack((matching.wavelengths, matching.values)).astype(np.float64)
     rows.setflags(write=False)
     return rows
+
+
+def sampled(count: int) -> npt.NDArray[np.float64]:
+    """Returns rows (λ, x̄, ȳ, z̄) at `count` midpoint wavelengths spanning the table, long wavelengths first."""
+    rows = table()
+    wavelengths = rows[-1, 0] - (np.arange(count, dtype=np.float64) + 0.5) * (rows[-1, 0] - rows[0, 0]) / count
+    return np.column_stack((wavelengths, *(np.interp(wavelengths, rows[:, 0], column) for column in rows[:, 1:].T)))
+
+
+def blackbody(temperatures: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """Returns float64 XYZ at Y = 1 of Planckian emission at each kelvin temperature, integrated against the observer."""
+    rows = table()
+    shape = colour.SpectralShape(rows[0, 0], rows[-1, 0], 1.0)
+    emitted = np.stack([colour.sd_blackbody(float(temperature), shape).values for temperature in temperatures.reshape(-1)]).reshape(*temperatures.shape, len(rows))
+    tristimulus = emitted @ rows[:, 1:]
+    return tristimulus / tristimulus[..., 1:2]
 
 
 def locus() -> npt.NDArray[np.float64]:
@@ -42,4 +58,4 @@ def coordinates(xyz: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.flo
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["coordinates", "frame", "locus", "table"]
+__all__ = ["blackbody", "coordinates", "frame", "locus", "sampled", "table"]

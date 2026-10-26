@@ -16,14 +16,14 @@ from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import Descriptor, subclass
 from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisitions, Band, entered, Registrable
-from blender.bpy.faults import BlenderChoiceFault, BlenderResult
+from blender.bpy.faults import BlenderResult
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.drawing.handlers import Signal
 from blender.bpy.ui.layout.rows import acquired, Caption, painted, placed, RowContent, RowDraw
-from blender.bpy.ui.layout.sections import Drawn, Each, Section, Single
+from blender.bpy.ui.layout.sections import Each, Section, SectionDraws, Single
 from blender.bpy.ui.resources.icons import Icons
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, heading, markers
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.fields import Case, heading, markers
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -51,7 +51,7 @@ categories = Choices(
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Tab(Case, frozen=True, kw_only=True, tag=1):
+class Tab(Case, frozen=True, kw_only=True):
     """Stock Properties tab panels join."""
 
     title: ClassVar[str] = "Properties Tab"
@@ -63,7 +63,7 @@ class Tab(Case, frozen=True, kw_only=True, tag=1):
         return cls(context=panel.bl_context)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
-class Sidebar(Case, frozen=True, kw_only=True, tag=2):
+class Sidebar(Case, frozen=True, kw_only=True):
     """Extension Sidebar tab with product mark icon."""
 
     title: ClassVar[str] = "Sidebar Tab"
@@ -71,7 +71,7 @@ class Sidebar(Case, frozen=True, kw_only=True, tag=2):
     category: str
 
 
-class Joined(Case, frozen=True, kw_only=True, tag=3):
+class Joined(Case, frozen=True, kw_only=True):
     """Stock Sidebar tab panels join."""
 
     title: ClassVar[str] = "Shared Sidebar Tab"
@@ -166,9 +166,9 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
         def accepted(at: PanelPlacement) -> BlenderResult[PanelPlacement]:
             match at:
                 case Joined(space=space, category=tab) if tab not in (listed := sidebars().get(space, ())):
-                    return Error((BlenderChoiceFault(path=space, identifier=tab, accepted=listed),))
+                    return Error((DomainFault(subject=space, value=tab, accepted=", ".join(listed)),))
                 case Tab(context=context) if context not in (offered := contexts()):
-                    return Error((BlenderChoiceFault(path="PROPERTIES", identifier=context, accepted=offered),))
+                    return Error((DomainFault(subject="PROPERTIES", value=context, accepted=", ".join(offered)),))
             return Ok(at)
 
         def preceding(placing: dict[str, object]) -> int:
@@ -176,7 +176,7 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
             beside = (placing["bl_space_type"], placing["bl_region_type"], Option.of_optional(placing.get("bl_parent_id")))
             return max((0, *(order for at, held in rows if at == beside for order in held.filter(lambda order: order < PropertiesAnimationMixin.bl_order).to_list())))
 
-        def sited(drawn: tuple[tuple[Drawn, tuple[tuple[Section, Drawn], ...]], tuple[RowDraw, ...]]) -> BlenderResult[tuple[PanelSite, ...]]:
+        def sited(drawn: tuple[tuple[SectionDraws, tuple[tuple[Section, SectionDraws], ...]], tuple[RowDraw, ...]]) -> BlenderResult[tuple[PanelSite, ...]]:
             (top, children), header = drawn
 
             def site(stem: str, at: PanelPlacement, condition: Option[Condition]) -> BlenderResult[PanelSite]:
@@ -284,7 +284,7 @@ class Drawing(msgspec.Struct, frozen=True, kw_only=True):
 
     name: str
     section: Section
-    drawn: Drawn
+    drawn: SectionDraws
 
 
 class PanelSite(msgspec.Struct, frozen=True, kw_only=True):

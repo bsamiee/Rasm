@@ -16,9 +16,9 @@ from blender.bpy.data.ids import images
 from blender.bpy.data.ids.store import embedded, IdName
 from blender.bpy.data.rna.descriptors import Descriptor, member_path, written
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.hashing import content_hash, ContentHash
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.identity import content_hash, ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -82,7 +82,7 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Blend
             case _:
                 replaced = made.bl_idname
                 tree.nodes.remove(made)
-                return Error((BlenderChoiceFault(path=repr(tree.nodes), identifier=replaced, accepted=(identifier,)),))
+                return Error((DomainFault(subject=repr(tree.nodes), value=replaced, accepted=identifier),))
 
     made: BlenderResult[bpy.types.Node] = catch(lambda: tree.nodes.new(identifier), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(tree.nodes), error=error),))
     return Result[bpy.types.Node, BlenderFaults].bind(made, narrowed)

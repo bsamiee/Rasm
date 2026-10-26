@@ -9,7 +9,7 @@ import zoneinfo
 from expression import Error, Ok, Result
 import msgspec
 
-from blender.imaging.faults import Fault, Faults, Refusal
+from blender.records.faults import Fault, Faults, Refusal
 from blender.rendering.faults import RenderingFault
 
 if TYPE_CHECKING:
@@ -28,9 +28,7 @@ class Requirement(Protocol):
 
 
 type EditRefusal = AttributeError | ReferenceError | RuntimeError | KeyError | TypeError | ValueError | SystemError | msgspec.EncodeError | OverflowError | MemoryError
-type BlenderFault = (
-    BlenderRegisterFault | BlenderEditFault | BlenderChoiceFault | BlenderAbsentFault | BlenderCollisionFault | BlenderUnmetFault | BlenderOperatorFault | BlenderZoneFault | RenderingFault
-)
+type BlenderFault = BlenderRegisterFault | BlenderEditFault | BlenderAbsentFault | BlenderCollisionFault | BlenderUnmetFault | BlenderOperatorFault | BlenderZoneFault | RenderingFault
 type BlenderFaults = Faults[BlenderFault]
 type BlenderResult[T] = Result[T, BlenderFaults]
 
@@ -59,20 +57,6 @@ class BlenderEditFault(Refusal[str, EditRefusal], frozen=True):
             return Ok(call())
         except typing.get_args(EditRefusal.__value__) as error:
             return Error((cls(request=request, error=error),))
-
-
-class BlenderChoiceFault(Fault, frozen=True, kw_only=True):
-    """Identifier outside the set a host path accepts."""
-
-    path: str
-    identifier: str
-    accepted: tuple[str, ...]
-
-    @property
-    @override
-    def message(self) -> str:
-        """Report text listing the accepted identifiers."""
-        return f"{self.path} accepts {', '.join(self.accepted)}, not {self.identifier}"
 
 
 class BlenderAbsentFault(Fault, frozen=True, kw_only=True):
@@ -130,7 +114,6 @@ class BlenderZoneFault(Refusal[str, ValueError | zoneinfo.ZoneInfoNotFoundError]
 
 __all__ = [
     "BlenderAbsentFault",
-    "BlenderChoiceFault",
     "BlenderCollisionFault",
     "BlenderEditFault",
     "BlenderFault",

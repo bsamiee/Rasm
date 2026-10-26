@@ -1,4 +1,4 @@
-"""Robertson temperature and tint, scene-linear white picks, and Bradford adaptation."""
+"""Robertson temperature and Duv, scene-linear white picks, and Bradford adaptation."""
 
 from typing import Annotated, ClassVar, Self
 
@@ -12,13 +12,13 @@ import PyOpenColorIO
 
 from blender.imaging.color.processors import basis
 from blender.imaging.faults import ImagingResult
-from blender.imaging.parameters import Presentation, Quantity, Rgb
+from blender.records.fields import Presentation, Quantity, Rgb
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class White(msgspec.Struct, frozen=True, kw_only=True):
-    """Color temperature and signed tint from Planckian locus."""
+    """Color temperature and signed Duv from the Planckian locus."""
 
     hottest: ClassVar[float] = 100000.0
     temperature: Annotated[
@@ -26,12 +26,12 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
         msgspec.Meta(ge=1800.0, le=hottest, description="Correlated color temperature"),
         Presentation(soft=Some((2000.0, 11000.0)), step=Some(1.0), precision=Some(0), quantity=Some(Quantity.COLOR_TEMPERATURE)),
     ] = 6500.0
-    tint: Annotated[float, msgspec.Meta(ge=-150.0, le=150.0, description="Planckian locus offset, positive toward green"), Presentation(step=Some(0.01), precision=Some(1))] = 10.0
+    duv: Annotated[float, msgspec.Meta(ge=-0.05, le=0.05, title="Duv", description="Distance from the Planckian locus in CIE 1960 uv, positive toward green"), Presentation(precision=Some(5))] = 0.0
 
     @property
     def xyz(self) -> npt.NDArray[np.float64]:
-        """Float64 XYZ at Y = 1 with Blender's tint of 3000 per unit Duv."""
-        return np.asarray(colour.xy_to_XYZ(colour.UCS_uv_to_xy(colour.temperature.CCT_to_uv_Robertson1968(np.array((self.temperature, self.tint / 3000.0))))), dtype=np.float64)
+        """Float64 XYZ at Y = 1."""
+        return np.asarray(colour.xy_to_XYZ(colour.UCS_uv_to_xy(colour.temperature.CCT_to_uv_Robertson1968(np.array((self.temperature, self.duv))))), dtype=np.float64)
 
     @classmethod
     def of(cls, config: PyOpenColorIO.Config, color: Rgb) -> ImagingResult[Option[Self]]:
@@ -43,7 +43,7 @@ class White(msgspec.Struct, frozen=True, kw_only=True):
                 .filter(lambda ucs: float(ucs.sum()) > 0.0)
                 .bind(
                     lambda ucs: catch(
-                        lambda: msgspec.convert(dict(zip(cls.__struct_fields__, (colour.temperature.uv_to_CCT_Robertson1968(colour.UCS_to_uv(ucs)) * (1.0, 3000.0)).tolist())), type=cls),
+                        lambda: msgspec.convert(dict(zip(cls.__struct_fields__, colour.temperature.uv_to_CCT_Robertson1968(colour.UCS_to_uv(ucs)).tolist())), type=cls),
                         exception=msgspec.ValidationError,
                     )().to_option()
                 )

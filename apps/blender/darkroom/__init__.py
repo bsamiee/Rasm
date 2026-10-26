@@ -3,14 +3,16 @@
 from pathlib import Path
 
 from expression import Some
-import msgspec
 
 from blender.bpy.extension.registration import scope
 from blender.bpy.nodes.placement import Arranger
 from blender.bpy.render.previews.queue import PreviewQueue
 from blender.bpy.ui.resources.icons import Icons
 
-from . import color, effects, preferences, rendering, review
+from . import catalog, preferences
+from .color import films, looks, luts, response
+from .rendering import outputs, queue
+from .review import calibration, charts, history, metering
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -18,13 +20,20 @@ register, unregister = scope(
     __name__,
     (
         Icons(brand=Some(Path("mark.svg"))),
-        msgspec.structs.replace(preferences.page, sections=(*preferences.page.sections, rendering.batch.setup), bindings=rendering.batch.bindings),
+        preferences.page,
         PreviewQueue(),
         Arranger(),
-        *color.rows,
-        *effects.rows,
-        *rendering.rows,
-        *review.rows,
+        *catalog.rows,
+        *outputs.rows,
+        *queue.rows,
+        *films.rows,
+        *luts.rows,
+        *looks.rows,
+        *response.rows,
+        *metering.rows,
+        *charts.rows,
+        *calibration.rows,
+        *history.rows,
     ),
 )
 

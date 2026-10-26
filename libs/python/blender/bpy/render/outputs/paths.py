@@ -29,9 +29,9 @@ from blender.bpy.files.blends import BlendFile
 from blender.bpy.render.outputs.formats import Kind
 from blender.bpy.settings.attachments import Attached, Attachment, Stored
 from blender.bpy.settings.properties import Changed
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, paired
-from blender.imaging.parameters import Gated
-from blender.rendering.outputs.naming import Count, Field, Fields, Number, Output, OutputName, Slot, stepped, stored_name, Word
+from blender.records.faults import accumulated, FileFault, paired
+from blender.records.fields import Gated
+from blender.rendering.outputs.naming import Count, Field, Fields, Number, Output, OutputName, RESERVED, Slot, stepped, Word
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -210,7 +210,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
                     lambda error: (BlenderEditFault(request=repr(scene.render), error=error),)
                 ),
                 lambda file: (
-                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=file, error=error),))
+                    catch(lambda: file.unlink(missing_ok=True), exception=OSError)().map_error(lambda error: (FileFault(access="write", request=file, error=error),))
                     if bpy.path.is_subdir(str(file), str(self.base))
                     else Ok(None)
                 ),
@@ -311,7 +311,7 @@ def predicted(requested: Iterable[str], held: tuple[str, ...] = ()) -> tuple[str
     asked = tuple(requested)
 
     def stored(done: tuple[str, ...], name: str) -> tuple[str, ...]:
-        index, safe = len(done), stored_name(name.encode()[:1023].decode(errors="ignore"))
+        index, safe = len(done), re.sub(f"[{RESERVED}]", "_", name.encode()[:1023].decode(errors="ignore"))
         taken = {*done, *(kept for later, kept in enumerate(held) if later > index and asked[later] == kept)}
         base, number = (found[1], int(found[2])) if (found := re.fullmatch(r"(.*)_(\d+)", safe)) else (safe, 0)
         return (*done, safe if held[index : index + 1] == (name,) or safe not in taken else next(f"{base}_{number:03d}" for number in count(number + 1) if f"{base}_{number:03d}" not in taken))

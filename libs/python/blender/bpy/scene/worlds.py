@@ -28,7 +28,7 @@ from blender.bpy.settings.properties import Choices, Definition
 from blender.bpy.ui.layout.rows import Member, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
-from blender.imaging.parameters import Case, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb
+from blender.records.fields import Case, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb
 from blender.rendering.lighting.solar import SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -52,14 +52,14 @@ _RAYS: Final[Mapping[str, str]] = MappingProxyType({"glossy": "Is Glossy Ray", "
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Still(Case, frozen=True, kw_only=True, tag=1):
+class Still(Case, frozen=True, kw_only=True):
     """Sun at fixed scene angles."""
 
     sun_elevation: Annotated[Finite, msgspec.Meta(title="Elevation"), Presentation(quantity=Some(Quantity.ANGLE))] = math.radians(15.0)
     sun_rotation: Annotated[Finite, msgspec.Meta(title="Rotation"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
 
 
-class Solar(Case, frozen=True, kw_only=True, tag=2):
+class Solar(Case, frozen=True, kw_only=True):
     """Sky following scene sun light."""
 
     title = "Sun Light"
@@ -72,7 +72,7 @@ class Disc(msgspec.Struct, frozen=True, kw_only=True):
     sun_intensity: Annotated[float, _SKY["sun_intensity"].meta, _SKY["sun_intensity"].presentation] = _SKY["sun_intensity"].prop.default
 
 
-class Scattering(Case, frozen=True, kw_only=True, tag=2):
+class Scattering(Case, frozen=True, kw_only=True):
     """Scattering sky."""
 
     title = "Sky"
@@ -93,13 +93,13 @@ class Analytic(Case, frozen=True, kw_only=True):
     turbidity: Annotated[float, _SKY["turbidity"].meta, _SKY["turbidity"].presentation] = _SKY["turbidity"].prop.default
 
 
-class Preetham(Analytic, frozen=True, kw_only=True, tag=3):
+class Preetham(Analytic, frozen=True, kw_only=True):
     """Preetham analytic sky."""
 
     sky_type = "PREETHAM"
 
 
-class HosekWilkie(Analytic, frozen=True, kw_only=True, tag=4):
+class HosekWilkie(Analytic, frozen=True, kw_only=True):
     """Hosek-Wilkie analytic sky."""
 
     title = "Hosek / Wilkie"
@@ -107,21 +107,21 @@ class HosekWilkie(Analytic, frozen=True, kw_only=True, tag=4):
     ground_albedo: Annotated[float, _SKY["ground_albedo"].meta, _SKY["ground_albedo"].presentation] = _SKY["ground_albedo"].prop.default
 
 
-class FixedTurn(Case, frozen=True, kw_only=True, tag=1):
+class FixedTurn(Case, frozen=True, kw_only=True):
     """Fixed image rotation."""
 
     title = "Fixed"
     rotation: Annotated[Finite, Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
 
 
-class SolarTurn(Case, frozen=True, kw_only=True, tag=2):
+class SolarTurn(Case, frozen=True, kw_only=True):
     """Image turned to align its sun with scene sun."""
 
     title = "Sun Light"
     heading: Annotated[Finite, msgspec.Meta(title="Sun Heading"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
 
 
-class Hdri(Case, frozen=True, kw_only=True, tag=1):
+class Hdri(Case, frozen=True, kw_only=True):
     """Environment image with projection and rotation."""
 
     title = "HDRI"
@@ -130,14 +130,14 @@ class Hdri(Case, frozen=True, kw_only=True, tag=1):
     turn: ImageTurn = FixedTurn()
 
 
-class FlatColor(Case, frozen=True, kw_only=True, tag=5):
+class FlatColor(Case, frozen=True, kw_only=True):
     """Scene-linear world color."""
 
     title = "Color"
     color: Rgb[Finite] = Rgb(red=0.0508761, green=0.0508761, blue=0.0508761)
 
 
-class FrameGradient(Case, frozen=True, kw_only=True, tag=6):
+class FrameGradient(Case, frozen=True, kw_only=True):
     """Vertical camera frame gradient."""
 
     title = "Gradient"
@@ -145,7 +145,7 @@ class FrameGradient(Case, frozen=True, kw_only=True, tag=6):
     bottom: Rgb[Finite] = Rgb(red=0.02, green=0.02, blue=0.02)
 
 
-class Plate(Case, frozen=True, kw_only=True, tag=7):
+class Plate(Case, frozen=True, kw_only=True):
     """Image filling camera frame."""
 
     title = "Image"

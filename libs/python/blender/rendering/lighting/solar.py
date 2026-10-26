@@ -13,7 +13,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.imaging.parameters import Case, Elevation, Turn
+from blender.records.fields import Case, Elevation, Turn
 from blender.rendering.faults import RenderingResult, RenderingTimeFault
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -234,7 +234,7 @@ class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return cls(analemmas=SunPosition.of(site, declination, hour).vectors, surface=SunPosition.of(site, rows, half_day * np.linspace(-1.0, 1.0, round(math.tau / cls.spacing) + 1)).vectors)
 
 
-class DayStudy(Case, frozen=True, kw_only=True, tag=1):
+class DayStudy(Case, frozen=True, kw_only=True):
     """Moments stepped by elapsed minutes."""
 
     title = "Day"
@@ -243,7 +243,7 @@ class DayStudy(Case, frozen=True, kw_only=True, tag=1):
     frames: Annotated[int, msgspec.Meta(ge=1, description="Frames the study keys")] = 25
 
 
-class SeasonStudy(Case, frozen=True, kw_only=True, tag=2):
+class SeasonStudy(Case, frozen=True, kw_only=True):
     """Moments stepped by days at one clock time."""
 
     title = "Season"

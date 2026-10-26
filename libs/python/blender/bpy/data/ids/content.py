@@ -12,8 +12,8 @@ from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.faults import BlenderResult
-from blender.imaging.faults import accumulated
-from blender.imaging.hashing import content_hash, ContentHash
+from blender.records.faults import accumulated
+from blender.records.identity import content_hash, ContentHash
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

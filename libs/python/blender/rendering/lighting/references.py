@@ -12,13 +12,13 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.imaging.chain import GREY
-from blender.imaging.color.processors import converted, xyz
+from blender.imaging.color.processors import converted, GREY, xyz
 from blender.imaging.color.white import White
-from blender.imaging.faults import accumulated, guarded, ImagingNumericFault
-from blender.imaging.hashing import content_hash, rng
-from blender.imaging.parameters import Choice, Finite, Gated, NonNegative, Position, Presentation, Rgb, Seed, Side, Unit
-from blender.imaging.sampling import smoothstep
+from blender.imaging.geometry.regions import Position
+from blender.imaging.sampling.integration import smoothstep
+from blender.records.faults import accumulated, guarded, NumericFault
+from blender.records.fields import Choice, Finite, Gated, NonNegative, Presentation, Rgb, Seed, Side, Unit
+from blender.records.identity import content_hash, rng
 from blender.rendering.faults import RenderingFaults, RenderingResult
 from blender.rendering.lighting.rigs import Disk, Placement, Placements, Point, Spot, Sun
 
@@ -406,7 +406,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             rimmed = shaded + rim.amount * np.maximum(reach - rim.radius, 0.0)[..., None] ** rim.falloff * np.array(rim.color) if self.rim.enabled and rim.amount != 0.0 else shaded
             return Ok(np.ascontiguousarray(rimmed * (1.0 - self.vignette * np.minimum(reach**2, 1.0))[..., None], dtype=np.float32))
 
-        return guarded(ImagingNumericFault, self, formed)
+        return guarded(NumericFault, self, formed)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -441,7 +441,7 @@ def sphere(lights: tuple[DistantLight, ...], size: Side) -> RenderingResult[npt.
         lit = sum((np.maximum(normals @ light.direction, 0.0)[..., None] * coverage * np.array(light.color) * np.exp2(light.stops) for light in lights), np.zeros((*normals.shape[:2], 3)))
         return Ok(np.ascontiguousarray(np.concatenate((lit, coverage), axis=-1), dtype=np.float32))
 
-    return guarded(ImagingNumericFault, lights, formed)
+    return guarded(NumericFault, lights, formed)
 
 
 def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) -> RenderingResult[npt.NDArray[np.float32]]:
@@ -493,9 +493,9 @@ def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) 
         return Ok(np.ascontiguousarray(lit, dtype=np.float32))
 
     def validated(row: npt.NDArray[np.float32]) -> RenderingResult[npt.NDArray[np.float64]]:
-        return guarded(ImagingNumericFault, placements, lambda: Ok(np.asarray(msgspec.convert(row.tolist(), type=Rgb[Finite]), dtype=np.float64)))
+        return guarded(NumericFault, placements, lambda: Ok(np.asarray(msgspec.convert(row.tolist(), type=Rgb[Finite]), dtype=np.float64)))
 
-    temperatures = tuple(White(temperature=placement.light.temperature.value, tint=0.0).xyz for placement in placements.lights if placement.light.temperature.enabled)
+    temperatures = tuple(White(temperature=placement.light.temperature.value).xyz for placement in placements.lights if placement.light.temperature.enabled)
     colors = (
         Result[npt.NDArray[np.float32], RenderingFaults].bind(
             converted(config, PyOpenColorIO.GroupTransform([xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE), np.array(temperatures, dtype=np.float32)),
@@ -504,7 +504,7 @@ def gray_ball(placements: Placements, config: PyOpenColorIO.Config, size: Side) 
         if temperatures
         else Ok(())
     )
-    return colors.bind(lambda found: guarded(ImagingNumericFault, placements, lambda: rendered(found)))
+    return colors.bind(lambda found: guarded(NumericFault, placements, lambda: rendered(found)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

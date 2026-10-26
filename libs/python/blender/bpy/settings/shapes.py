@@ -1,5 +1,6 @@
 """Field shapes parsed once from record declarations."""
 
+from enum import auto, Enum
 import functools
 from types import GenericAlias
 import typing
@@ -7,14 +8,24 @@ import typing
 import bpy
 from expression import Error, Nothing, Ok, Option
 import msgspec
-import msgspec.inspect as native
+import msgspec.inspect
 from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from blender.bpy.faults import BlenderResult
-from blender.imaging.faults import Access, accumulated, ImagingFileFault
-from blender.imaging.parameters import Case, Choice, Gated, GraphForm, Knot, markers, Ramp, Rgb
+from blender.bpy.nodes.ramps import Ramp
+from blender.records.faults import accumulated, DomainFault
+from blender.records.fields import Case, Choice, Gated, heading, Knot, markers, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+
+class GraphForm(Enum):
+    """Field a node graph holds in place of a socket: an image node it shows, a node member, or text naming an OCIO color space."""
+
+    IMAGE = auto()
+    SETTING = auto()
+    COLOR_SPACE = auto()
+
 
 type Record = type[msgspec.Struct] | GenericAlias
 type Shape = Number | Vector | Color | Integer | Flag | Text | OptionalText | Enumerated | Literals | Components | Nested | Gate | Records | Entries | Flags | Pointer | Tagged
@@ -39,25 +50,25 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
 class Number(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Float scalar."""
 
-    kind: native.FloatType
+    kind: msgspec.inspect.FloatType
 
 
 class Vector(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Tuple of 2 to 4 floats."""
 
-    kind: native.TupleType
+    kind: msgspec.inspect.TupleType
 
 
 class Color(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Color record of float channels."""
 
-    kind: native.StructType
+    kind: msgspec.inspect.StructType
 
 
 class Integer(msgspec.Struct, frozen=True, kw_only=True, tag=True):
     """Integer scalar."""
 
-    kind: native.IntType
+    kind: msgspec.inspect.IntType
 
 
 class Flag(msgspec.Struct, frozen=True, kw_only=True, tag=True):
@@ -81,9 +92,14 @@ class Enumerated(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Literals(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Literal integer choice."""
+    """Literal integers or host identifiers, each shown under its heading."""
 
-    values: tuple[int, ...]
+    values: tuple[int, ...] | tuple[str, ...]
+
+    @property
+    def labels(self) -> dict[object, str]:
+        """Display text per value."""
+        return labelled(self.values)
 
 
 class Components(msgspec.Struct, frozen=True, kw_only=True, tag=True):
@@ -131,32 +147,37 @@ class Pointer(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Tagged(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Tagged union of case records and their integer tags."""
+    """Tagged union of case records in declared order."""
 
     tag_field: str
-    cases: tuple[tuple[type[Case], int], ...]
+    cases: tuple[type[Case], ...]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def unwrapped(kind: native.Type) -> native.Type:
+def labelled(values: tuple[object, ...]) -> dict[object, str]:
+    """Display text per literal value, its heading."""
+    return {value: heading(str(value)) for value in values}
+
+
+def unwrapped(kind: msgspec.inspect.Type) -> msgspec.inspect.Type:
     """Returns type info without metadata layers."""
-    return unwrapped(kind.type) if isinstance(kind, native.Metadata) else kind
+    return unwrapped(kind.type) if isinstance(kind, msgspec.inspect.Metadata) else kind
 
 
-def vector(kind: native.Type) -> bool:
+def vector(kind: msgspec.inspect.Type) -> bool:
     """Returns whether tuple has Blender float vector shape."""
     match unwrapped(kind):
-        case native.TupleType(item_types=(native.FloatType() as component, *tail)):
+        case msgspec.inspect.TupleType(item_types=(msgspec.inspect.FloatType() as component, *tail)):
             return len(tail) in {1, 2, 3} and all(item == component for item in tail)
         case _:
             return False
 
 
 def refused[T](annotation: object, kind: object) -> BlenderResult[T]:
-    """Returns read fault for annotation with no supported shape."""
-    return Error((ImagingFileFault(access=Access.READ, request=repr(annotation), error=TypeError(f"{annotation!r} has no supported field shape ({kind!r})")),))
+    """Returns domain fault for annotation with no supported shape."""
+    return Error((DomainFault(subject="Blender property binding", value=f"{annotation!r} ({kind!r})", accepted="annotations with a supported field shape"),))
 
 
 def inherited(annotation: object) -> tuple[object, ...]:
@@ -180,22 +201,18 @@ def gate(record: Record) -> BlenderResult[Gate]:
 def field_shape(annotation: object) -> BlenderResult[Declared]:
     """Parses field annotation into field shape."""
 
-    def tagged(kind: native.UnionType) -> Option[Tagged]:
-        def members(union: native.UnionType) -> tuple[native.Type, ...]:
-            return tuple(inner for member in union.types for inner in (members(member) if isinstance(member, native.UnionType) else (member,)))
+    def tagged(kind: msgspec.inspect.UnionType) -> Option[Tagged]:
+        def members(union: msgspec.inspect.UnionType) -> tuple[msgspec.inspect.Type, ...]:
+            return tuple(inner for member in union.types for inner in (members(member) if isinstance(member, msgspec.inspect.UnionType) else (member,)))
 
         flat = members(kind)
-        cases = tuple(
-            (member.cls, member.tag, member.tag_field)
-            for member in flat
-            if isinstance(member, native.StructType) and isinstance(member.tag, int) and isinstance(member.tag_field, str) and issubclass(member.cls, Case)
-        )
-        fields = {tag_field for _, _, tag_field in cases}
+        cases = tuple((member.cls, member.tag_field) for member in flat if isinstance(member, msgspec.inspect.StructType) and isinstance(member.tag_field, str) and issubclass(member.cls, Case))
+        fields = {tag_field for _, tag_field in cases}
         return (
             Option
             .of_optional(next(iter(fields), None))
             .filter(lambda _: len(cases) == len(flat) and len(fields) == 1)
-            .map(lambda tag_field: Tagged(tag_field=tag_field, cases=tuple((record, tag) for record, tag, _ in cases)))
+            .map(lambda tag_field: Tagged(tag_field=tag_field, cases=tuple(record for record, _ in cases)))
         )
 
     def titled(held: Declared, schema: dict[str, object] | None) -> Declared:
@@ -209,48 +226,50 @@ def field_shape(annotation: object) -> BlenderResult[Declared]:
     def leaf(shape: Shape) -> BlenderResult[Declared]:
         return Ok(Declared(shape=shape))
 
-    def parsed(kind: native.Type) -> BlenderResult[Declared]:
+    def parsed(kind: msgspec.inspect.Type) -> BlenderResult[Declared]:
         match kind:
-            case native.Metadata(type=inner, extra_json_schema=schema):
+            case msgspec.inspect.Metadata(type=inner, extra_json_schema=schema):
                 return parsed(inner).map(lambda held: titled(held, schema))
-            case native.FloatType():
+            case msgspec.inspect.FloatType():
                 return leaf(Number(kind=kind))
-            case native.TupleType():
+            case msgspec.inspect.TupleType():
                 return leaf(Vector(kind=kind)) if vector(kind) else accumulated(map(field_shape, items(annotation))).map(lambda parts: Declared(shape=Components(items=parts)))
-            case native.StructType(cls=record) if (typing.get_origin(record) or record) is Gated:
+            case msgspec.inspect.StructType(cls=record) if (typing.get_origin(record) or record) is Gated:
                 inner, extra = typing.get_args(record)[0], inherited(annotation)
                 return gate(GenericAlias(Gated, typing.Annotated[inner, *extra]) if extra else record).bind(leaf)
-            case native.StructType(cls=record):
+            case msgspec.inspect.StructType(cls=record):
                 return leaf(Color(kind=kind) if (typing.get_origin(record) or record) is Rgb else Nested(record=record))
-            case native.IntType():
+            case msgspec.inspect.IntType():
                 return leaf(Integer(kind=kind))
-            case native.BoolType():
+            case msgspec.inspect.BoolType():
                 return leaf(Flag())
-            case native.StrType():
+            case msgspec.inspect.StrType():
                 return leaf(Text(space=GraphForm.COLOR_SPACE in markers(annotation, GraphForm)))
-            case native.EnumType(cls=enum) if issubclass(enum, Choice):
+            case msgspec.inspect.EnumType(cls=enum) if issubclass(enum, Choice):
                 return leaf(Enumerated(enum=enum))
-            case native.LiteralType(values=values):
-                integers = tuple(value for value in values if type(value) is int)
-                return leaf(Literals(values=integers)) if len(integers) == len(values) else refused(annotation, kind)
-            case native.VarTupleType(item_type=native.StructType(cls=record)):
+            case msgspec.inspect.LiteralType(values=values):
+                integers, identifiers = tuple(value for value in values if type(value) is int), tuple(value for value in values if type(value) is str)
+                return leaf(Literals(values=integers or identifiers)) if len(integers or identifiers) == len(values) else refused(annotation, kind)
+            case msgspec.inspect.VarTupleType(item_type=msgspec.inspect.StructType(cls=record)):
                 return leaf(Records(record=record))
-            case native.DictType(key_type=native.EnumType(cls=keys)) if issubclass(keys, Choice):
+            case msgspec.inspect.DictType(key_type=msgspec.inspect.EnumType(cls=keys)) if issubclass(keys, Choice):
                 return gate(GenericAlias(Gated, typing.get_args(inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").type)[1])).bind(
                     lambda held: leaf(Entries(enum=keys, gate=held))
                 )
-            case native.FrozenSetType(item_type=native.EnumType(cls=enum)) | native.SetType(item_type=native.EnumType(cls=enum)) if issubclass(enum, Choice):
+            case msgspec.inspect.FrozenSetType(item_type=msgspec.inspect.EnumType(cls=enum)) | msgspec.inspect.SetType(item_type=msgspec.inspect.EnumType(cls=enum)) if issubclass(enum, Choice):
                 return leaf(Flags(enum=enum))
-            case native.UnionType(types=(native.CustomType(cls=block), native.NoneType()) | (native.NoneType(), native.CustomType(cls=block))) if issubclass(block, bpy.types.ID):
+            case msgspec.inspect.UnionType(types=(msgspec.inspect.CustomType(cls=block), msgspec.inspect.NoneType()) | (msgspec.inspect.NoneType(), msgspec.inspect.CustomType(cls=block))) if (
+                issubclass(block, bpy.types.ID)
+            ):
                 return leaf(Pointer(block=block))
-            case native.UnionType(types=(native.StrType(), native.NoneType()) | (native.NoneType(), native.StrType())):
+            case msgspec.inspect.UnionType(types=(msgspec.inspect.StrType(), msgspec.inspect.NoneType()) | (msgspec.inspect.NoneType(), msgspec.inspect.StrType())):
                 return leaf(OptionalText())
-            case native.UnionType():
+            case msgspec.inspect.UnionType():
                 return tagged(kind).map(leaf).default_with(lambda: refused(annotation, kind))
             case _:
                 return refused(annotation, kind)
 
-    return parsed(native.type_info(annotation))
+    return parsed(msgspec.inspect.type_info(annotation))
 
 
 @functools.cache
@@ -278,6 +297,7 @@ __all__ = [
     "Flag",
     "Flags",
     "Gate",
+    "GraphForm",
     "Integer",
     "Literals",
     "Nested",
@@ -294,6 +314,7 @@ __all__ = [
     "field_shapes",
     "inherited",
     "items",
+    "labelled",
     "refused",
     "unwrapped",
     "vector",

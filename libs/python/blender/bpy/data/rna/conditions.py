@@ -14,8 +14,7 @@ import PyOpenColorIO
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.faults import BlenderResult, BlenderUnmetFault
 from blender.imaging.color.authoring import DynamicRange
-from blender.imaging.color.processors import DisplayView
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import WmJobTypeItems
@@ -118,9 +117,9 @@ class Folder(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class HdrWindow(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """HDR window showing frame formed for absolute PQ display."""
+    """Window with HDR color showing a frame in an absolute PQ display space."""
 
-    formed: Callable[[bpy.types.Context], Option[DisplayView]]
+    space: Callable[[bpy.types.Context], Option[str]]
 
     @property
     def message(self) -> str:
@@ -187,9 +186,9 @@ def holds(condition: Condition, context: bpy.types.Context, item: "Option[bpy.ty
                 .filter(lambda folder: os.access(folder, os.W_OK) and shutil.disk_usage(folder).free >= least)
                 .is_some()
             )
-        case HdrWindow(formed=formed):
+        case HdrWindow(space=space):
             return (
-                formed(context).bind(lambda view: view.colorspace(PyOpenColorIO.GetCurrentConfig())).filter(DynamicRange.absolute).is_some()
+                space(context).bind(lambda name: Option.of_optional(PyOpenColorIO.GetCurrentConfig().getColorSpace(name))).filter(DynamicRange.absolute).is_some()
                 and Option.of_optional(context.window).filter(lambda window: window.support_hdr_color).is_some()
             )
         case AnyOf(conditions=members):

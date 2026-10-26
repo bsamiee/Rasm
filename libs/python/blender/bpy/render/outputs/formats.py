@@ -11,18 +11,18 @@ import PyOpenColorIO
 
 from blender.bpy.commands.operators import answered
 from blender.bpy.data.rna.descriptors import Descriptor, rooted
-from blender.bpy.data.rna.edits import transfer
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.nodes.graphs import DataType
 from blender.bpy.nodes.trees import nested
 from blender.bpy.settings.presets import Preset
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.values import Listing
 from blender.imaging.color.processors import DisplayView
-from blender.imaging.faults import paired
 from blender.imaging.files.images import Codec, Compressions, Depth, Format, Plain
-from blender.imaging.parameters import Choice
+from blender.records.faults import DomainFault, paired
+from blender.records.fields import Choice
+from blender.records.trees import transfer
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -85,14 +85,14 @@ class OutputFormat(msgspec.Struct, frozen=True, kw_only=True):
             case Kind.EXR:
                 container = Ok({"media_type": "IMAGE", "file_format": "OPEN_EXR"})
             case Kind.IMAGE:
-                container = Error((BlenderChoiceFault(path="File Output format", identifier=kind.name, accepted=(Kind.LAYERED.name, Kind.EXR.name)),))
+                container = Error((DomainFault(subject="File Output format", value=kind.name, accepted=f"{Kind.LAYERED.name}, {Kind.EXR.name}"),))
         match output:
             case Output.BEAUTY:
                 stored = Ok({"color_depth": "16", "exr_codec": "DWAB"})
             case Output.DATA | Output.MATTE:
                 stored = Ok({"color_depth": "32", "exr_codec": "ZIP"})
             case Output.PREVIEW:
-                stored = Error((BlenderChoiceFault(path="File Output class", identifier=output.name, accepted=tuple(member.name for member in Output if member is not Output.PREVIEW)),))
+                stored = Error((DomainFault(subject="File Output class", value=output.name, accepted=", ".join(member.name for member in Output if member is not Output.PREVIEW)),))
         return paired(container, stored).map(lambda pair: cls(own=Snapshot.of(bpy.types.CompositorNodeOutputFile, {}), format=Snapshot.of(bpy.types.ImageFormatSettings, pair[0] | pair[1])))
 
     @classmethod
@@ -134,7 +134,7 @@ def writer(name: str) -> Option[Format]:
 def sample(selected: Format, depth: Depth) -> BlenderResult[Depth]:
     """Accepts a depth the writer stores."""
     accepted = selected.depths
-    return Ok(depth) if depth in accepted else Error((BlenderChoiceFault(path=selected.name, identifier=depth.name, accepted=tuple(member.name for member in accepted)),))
+    return Ok(depth) if depth in accepted else Error((DomainFault(subject=selected.name, value=depth.name, accepted=", ".join(member.name for member in accepted)),))
 
 
 def display_space(config: PyOpenColorIO.Config, display: str) -> BlenderResult[str]:

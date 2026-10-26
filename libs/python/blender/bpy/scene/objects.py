@@ -18,11 +18,11 @@ from blender.bpy.data.ids.ownership import kept
 from blender.bpy.data.ids.store import Handle, vacant
 from blender.bpy.data.rna.conditions import Not, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, written
-from blender.bpy.data.rna.edits import Deleted, diff, Edit, Owner, Reparametrized, Tree
 from blender.bpy.data.rna.snapshots import Applied, Objects, Scenes, Scope, Selection, Snapshot, ViewLayers
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult, BlenderUnmetFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult, BlenderUnmetFault
 from blender.bpy.scene.collections import joined
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, DomainFault, paired
+from blender.records.trees import Deleted, diff, Edit, Owner, Reparametrized, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -190,7 +190,9 @@ def restacked(stack: Stack, move: Option[Mover], entries: Entries) -> BlenderRes
     trees = tuple(Tree(roots=tuple(key for key, _ in pairs), owners={key: Owner(values=values) for key, values in pairs}) for pairs in (live, live if move.is_some() else live[:prefix], wanted))
     edits = (*diff(trees[0], trees[1]), *diff(trees[1], trees[2]))
     return accumulated(
-        Ok(value) if value in choices[key] else Error((BlenderChoiceFault(path=repr(stack), identifier=value, accepted=choices[key]),)) for _, parameters in wanted for key, value in parameters.items()
+        Ok(value) if value in choices[key] else Error((DomainFault(subject=repr(stack), value=value, accepted=", ".join(choices[key])),))
+        for _, parameters in wanted
+        for key, value in parameters.items()
     ).map(lambda _: (Restacked(stack=stack, move=move, edits=edits, wanted=wanted),) if edits else ())
 
 
@@ -242,7 +244,7 @@ def diverged(
         return (
             Ok(())
             if item.parent == block
-            else Error((BlenderChoiceFault(path=f"{item!r}.parent", identifier=block.name, accepted=()),))
+            else Error((DomainFault(subject=f"{item!r}.parent", value=block.name, accepted="objects outside its own hierarchy"),))
             if block == item or block in item.children_recursive
             else Ok((Parented(parent=block),))
         )

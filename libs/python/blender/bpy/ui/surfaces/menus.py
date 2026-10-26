@@ -19,8 +19,8 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import acquired, OperatorButton, painted, placed, Property, Pulldown, realized, RowContent, RowDraw, SurfaceDraw
 from blender.bpy.ui.layout.values import Listing, Store
-from blender.imaging.faults import accumulated
-from blender.imaging.parameters import heading
+from blender.records.faults import accumulated
+from blender.records.fields import heading
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

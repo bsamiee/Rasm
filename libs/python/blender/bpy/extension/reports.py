@@ -10,7 +10,8 @@ import bpy
 from expression import identity, Nothing, Ok, Option
 from structlog.typing import FilteringBoundLogger
 
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderCollisionFault, BlenderFault, BlenderFaults, BlenderResult, BlenderUnmetFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFault, BlenderFaults, BlenderResult, BlenderUnmetFault
+from blender.records.faults import DomainFault
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -156,10 +157,10 @@ def level(fault: BlenderFault) -> "rna_enums.WmReportItems":
         fault: Blender, rendering, or imaging fault.
 
     Returns:
-        `ERROR_INVALID_INPUT` for refused choices, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`.
+        `ERROR_INVALID_INPUT` for values outside their domain, absences, and collisions, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`.
     """
     match fault:
-        case BlenderChoiceFault() | BlenderAbsentFault() | BlenderCollisionFault():
+        case DomainFault() | BlenderAbsentFault() | BlenderCollisionFault():
             return "ERROR_INVALID_INPUT"
         case BlenderUnmetFault():
             return "ERROR_INVALID_CONTEXT"

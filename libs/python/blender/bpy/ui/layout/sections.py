@@ -22,7 +22,7 @@ from blender.bpy.settings.shapes import ENABLED, Entries, EXPANDED, field_shapes
 from blender.bpy.ui.layout.lists import ItemList, keyed
 from blender.bpy.ui.layout.rows import acquired, At, Member, placed, Property, realized, refused, ResolvedMember, Row, RowContent, RowDraw, SurfaceDraw
 from blender.bpy.ui.layout.values import Hosted, Replacement, Slots, Store, Values
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -56,14 +56,14 @@ class Section(Row, Registrable, Protocol):
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
         """Values popovers of section store."""
 
-    def realized(self, identity: Identity) -> BlenderResult["Drawn"]:
+    def realized(self, identity: Identity) -> BlenderResult["SectionDraws"]:
         """Realizes section into panel and layout panel draws."""
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Drawn(msgspec.Struct, frozen=True, kw_only=True):
+class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
     """Section draws for panel header, body, and layout panel, and whether a context holds its holder."""
 
     head: Option[SurfaceDraw]
@@ -175,7 +175,7 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
             *(row for hosted in self.store.to_list() for row in (hosted.store.attachment, hosted.store)),
         ))
 
-    def realized(self, identity: Identity) -> BlenderResult[Drawn]:
+    def realized(self, identity: Identity) -> BlenderResult[SectionDraws]:
         """Realizes section into panel and layout panel draws, the store host read from its member or the context root of the store's owner."""
 
         def reading(bound: ResolvedMember) -> Holding:
@@ -202,7 +202,7 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
 
         holding = self.holder.map(reached).default_value(Ok(lambda holder, _context: Some(holder)))
 
-        def drawn(parts: tuple[tuple[_Frame[T], Option[Hosting]], Holding]) -> Drawn:
+        def drawn(parts: tuple[tuple[_Frame[T], Option[Hosting]], Holding]) -> SectionDraws:
             (frame, host), held = parts
 
             def found(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[Host]:
@@ -228,7 +228,7 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
                     for shown in frame.framed(layout, frame.name, self.title, holder, host, context, opened=self.opened, active=active).to_list():
                         frame.body(shown, holder, host, context, frame.name)
 
-            return Drawn(
+            return SectionDraws(
                 head=frame.gate.map(lambda _: head),
                 tail=Some(tail) if self.header or self.store.is_some() else Nothing,
                 body=body,
@@ -274,7 +274,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
         """Acquires registrable rows and store rows."""
         return Ok((*acquired((*self.rows, *self.header, *self.empty)), *(row for store in self.store.to_list() for row in (store.attachment, store))))
 
-    def realized(self, identity: Identity) -> BlenderResult[Drawn]:
+    def realized(self, identity: Identity) -> BlenderResult[SectionDraws]:
         """Realizes layout panel per item, store bound to item type."""
 
         def items(
@@ -295,7 +295,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
                         paired(opened, stored),
                     ).map(lambda pair: (bound, pair[0], *pair[1]))
 
-        def drawn(parts: tuple[tuple[ResolvedMember, bpy.types.StringProperty, ResolvedMember, Option[Slots[T]]], tuple[_Frame[T], tuple[RowDraw, ...]]]) -> Drawn:
+        def drawn(parts: tuple[tuple[ResolvedMember, bpy.types.StringProperty, ResolvedMember, Option[Slots[T]]], tuple[_Frame[T], tuple[RowDraw, ...]]]) -> SectionDraws:
             ((collection, named, opened, _), (frame, empties)) = parts
 
             def section(layout: bpy.types.UILayout, item: Host, context: bpy.types.Context) -> None:
@@ -313,7 +313,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
                     for item in members:
                         section(layout, item, context)
 
-            return Drawn(head=Nothing, tail=Nothing, body=lambda layout, context: listed(layout, context, context), inline=listed)
+            return SectionDraws(head=Nothing, tail=Nothing, body=lambda layout, context: listed(layout, context, context), inline=listed)
 
         return (
             self.collection
@@ -438,7 +438,7 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
                     .map(lambda nest: reached(row.name, nest))
                 )
             case Tagged(tag_field=tag, cases=cases):
-                found = accumulated(nested(case, grouped(native, case.__name__)).map(lambda nest: (case.__name__, nest)) for case, _ in cases).map(lambda parts: chosen(row.name, parts, tag))
+                found = accumulated(nested(case, grouped(native, case.__name__)).map(lambda nest: (case.__name__, nest)) for case in cases).map(lambda parts: chosen(row.name, parts, tag))
             case Records(record=record):
                 found = nested(record, native).map(lambda nest: each(row.name, nest))
         return found.map(lambda nest: paneled(row.name, nest, gated=False) if panel else nest)
@@ -462,4 +462,4 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Drawn", "Each", "Nest", "Nesting", "Section", "Single", "fields", "grouped", "nesting", "popover"]
+__all__ = ["Each", "Nest", "Nesting", "Section", "SectionDraws", "Single", "fields", "grouped", "nesting", "popover"]

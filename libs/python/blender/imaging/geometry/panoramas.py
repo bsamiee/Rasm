@@ -1,4 +1,4 @@
-"""Image projections and oriented perspective views into panoramas."""
+"""Image projections, mirror folds, polar maps, perspective cameras, and oriented views into panoramas, written once over any namespace."""
 
 import math
 import sys
@@ -8,24 +8,27 @@ from expression import Nothing, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
-from scipy.spatial.transform import Rotation
+import OpenImageIO
+from scipy.spatial.transform import RigidTransform, Rotation
 
+from blender.imaging.geometry.arithmetic import Field, Namespace
 from blender.imaging.geometry.homography import Quad
-from blender.imaging.geometry.stmaps import Extension
-from blender.imaging.parameters import Case, Elevation, Finite, NonNegative, Positive, Presentation, Quantity, Turn, Unit
+from blender.records.fields import Case, Elevation, Finite, NonNegative, Positive, Presentation, Quantity, Turn, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type FieldOfView = Annotated[float, msgspec.Meta(gt=0.0, lt=math.pi), Presentation(quantity=Some(Quantity.ANGLE))]
 type SensorDimension = Annotated[float, msgspec.Meta(ge=0.001, le=sys.float_info.max)]
+type Ray[V] = tuple[V, V, V, V]
+type Point[V] = tuple[V, V, V]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Panorama(Case, frozen=True, kw_only=True):
-    """Projection between camera-space rays and image positions."""
+    """Projection between camera-space rays (x, y, z, coverage) and image points (s, t, coverage)."""
 
-    extension: ClassVar[tuple[Extension, Extension]] = (Extension.CLIP, Extension.CLIP)
+    extension: ClassVar[tuple[OpenImageIO.Wrap, OpenImageIO.Wrap]] = (OpenImageIO.Wrap.Black, OpenImageIO.Wrap.Black)
     upright: ClassVar[bool] = False
     centered: ClassVar[bool] = False
 
@@ -38,7 +41,7 @@ class Fisheye(Panorama, frozen=True, kw_only=True):
     )
 
 
-class Rectilinear(Panorama, frozen=True, kw_only=True, tag=1):
+class Rectilinear(Panorama, frozen=True, kw_only=True):
     """Pinhole projection of a perspective camera."""
 
     aspect: Annotated[Positive, msgspec.Meta(description="Frame width over height")] = 4.0 / 3.0
@@ -46,154 +49,149 @@ class Rectilinear(Panorama, frozen=True, kw_only=True, tag=1):
     shift: Annotated[tuple[Finite, Finite], Presentation(quantity=Some(Quantity.FRAME))] = (0.0, 0.0)
 
     @property
-    def scale(self) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int32]]:
-        """Binary mantissas and exponents of frame sides at unit depth."""
-        mantissa, exponent = math.frexp(self.field_of_view * float(np.sinc(self.field_of_view / (2.0 * math.pi))) / math.cos(self.field_of_view / 2.0))
-        sides, powers = np.frexp(np.array((1.0, self.aspect)))
-        return mantissa / sides, exponent - powers
+    def sides(self) -> tuple[float, float]:
+        """Frame width and height at unit depth."""
+        width = 2.0 * math.tan(self.field_of_view / 2.0)
+        return width, width / self.aspect
 
     @property
     def displayed(self) -> npt.NDArray[np.float64]:
         """Frame sides as shares of greater side."""
         return np.array((self.aspect, 1.0)) / max(self.aspect, 1.0)
 
-    def to_image(self, rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](self, ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Projects rays to frame, zero coverage at and behind camera."""
-        depth = -rays[..., 2:3]
-        numerator, power = np.frexp(rays[..., :2])
-        denominator, depth_power = np.frexp(depth)
-        scale, scale_power = self.scale
-        planar = np.ldexp(np.divide(numerator, denominator * scale, out=np.zeros_like(numerator), where=depth > 0.0), power - depth_power - scale_power)
-        return np.concatenate((planar + 0.5 - self.shift, rays[..., 3:] * (depth > 0.0)), axis=-1)
+        x, y, z, coverage = ray
+        (width, height), depth = self.sides, ns.negative(z)
+        ahead = ns.greater(depth, 0.0)
+        return _over(ns, x, depth * width, ahead) + (0.5 - self.shift[0]), _over(ns, y, depth * height, ahead) + (0.5 - self.shift[1]), ns.where(ahead, coverage, 0.0)
 
-    def to_ray(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](self, point: Point[V], ns: Namespace[V, B]) -> Ray[V]:
         """Lifts frame positions to unit rays."""
-        mantissa, exponent = np.frexp(samples[..., :2] - 0.5 + self.shift)
-        scale, power = self.scale
-        mantissa = np.concatenate((mantissa * scale, -np.ones_like(samples[..., :1])), axis=-1)
-        exponent = np.concatenate((exponent + power, np.zeros_like(samples[..., :1], dtype=np.int32)), axis=-1)
-        common = np.max(exponent, axis=-1, keepdims=True, where=mantissa != 0.0, initial=0)
-        length = np.hypot.reduce(np.ldexp(mantissa, exponent - common), axis=-1, keepdims=True)
-        return np.concatenate((np.ldexp(mantissa / length, exponent - common), samples[..., 2:]), axis=-1)
+        s, t, coverage = point
+        width, height = self.sides
+        return (*_normalized(ns, (s + (self.shift[0] - 0.5)) * width, (t + (self.shift[1] - 0.5)) * height, -1.0), coverage)
 
 
-class Equirectangular(Panorama, frozen=True, kw_only=True, tag=2):
+class Equirectangular(Panorama, frozen=True, kw_only=True):
     """Latitude and longitude over full sphere."""
 
     title = "Lat-Long"
-    extension = (Extension.REPEAT, Extension.EXTEND)
+    extension = (OpenImageIO.Wrap.Periodic, OpenImageIO.Wrap.Clamp)
     upright = True
 
     @staticmethod
-    def to_image(rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Maps rays to longitude and latitude."""
-        longitude = np.arctan2(rays[..., 0], -rays[..., 2])
-        latitude = np.arctan2(rays[..., 1], np.hypot(rays[..., 0], rays[..., 2]))
-        return np.stack((longitude / (2.0 * math.pi) + 0.5, latitude / math.pi + 0.5, rays[..., 3]), axis=-1)
+        x, y, z, coverage = ray
+        return ns.atan2(x, ns.negative(z)) / (2.0 * math.pi) + 0.5, ns.atan2(y, ns.hypot(x, z)) / math.pi + 0.5, coverage
 
     @staticmethod
-    def to_ray(samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](point: Point[V], ns: Namespace[V, B]) -> Ray[V]:
         """Maps longitude and latitude to unit rays."""
-        longitude, latitude = (samples[..., 0] - 0.5) * 2.0 * math.pi, (samples[..., 1] - 0.5) * math.pi
-        return np.stack((np.cos(latitude) * np.sin(longitude), np.sin(latitude), -np.cos(latitude) * np.cos(longitude), samples[..., 2]), axis=-1)
+        s, t, coverage = point
+        longitude, latitude = (s - 0.5) * (2.0 * math.pi), (t - 0.5) * math.pi
+        return ns.cos(latitude) * ns.sin(longitude), ns.sin(latitude), ns.negative(ns.cos(latitude) * ns.cos(longitude)), coverage
 
 
-class CentralCylindrical(Panorama, frozen=True, kw_only=True, tag=3):
+class CentralCylindrical(Panorama, frozen=True, kw_only=True):
     """Projection from cylinder center about vertical axis."""
 
     title = "Cylindrical"
-    extension = (Extension.REPEAT, Extension.CLIP)
+    extension = (OpenImageIO.Wrap.Periodic, OpenImageIO.Wrap.Black)
     upright = True
     height_min: Annotated[float, msgspec.Meta(ge=-10.0, le=10.0, title="Height Minimum", description="Lowest height over radius")] = -1.0
     height_max: Annotated[float, msgspec.Meta(ge=-10.0, le=10.0, title="Height Maximum", description="Highest height over radius")] = 1.0
 
-    def to_image(self, rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](self, ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Projects rays, zero coverage on axis or for zero-height cylinder."""
-        radial = np.hypot(rays[..., 0], rays[..., 2])
-        span = self.height_max - self.height_min
-        defined = (radial > 0.0) & (span != 0.0)
-        height = np.divide(rays[..., 1], radial, out=np.zeros_like(radial), where=radial > 0.0)
-        vertical = np.divide(height - self.height_min, span, out=np.zeros_like(height), where=defined)
-        return np.stack((np.arctan2(rays[..., 0], -rays[..., 2]) / (2.0 * math.pi) + 0.5, vertical, rays[..., 3] * defined), axis=-1)
+        x, y, z, coverage = ray
+        radial, span = ns.hypot(x, z), self.height_max - self.height_min
+        around = ns.greater(radial, 0.0)
+        vertical = (_over(ns, y, radial, around) - self.height_min) / (span or 1.0)
+        return ns.atan2(x, ns.negative(z)) / (2.0 * math.pi) + 0.5, vertical, ns.where(around, coverage, 0.0) * float(span != 0.0)
 
-    def to_ray(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](self, point: Point[V], ns: Namespace[V, B]) -> Ray[V]:
         """Lifts cylinder positions to rays, reversed or equal heights included."""
-        longitude = (samples[..., 0] - 0.5) * 2.0 * math.pi
-        local = np.stack((np.sin(longitude), self.height_min + samples[..., 1] * (self.height_max - self.height_min), -np.cos(longitude)), axis=-1)
-        return np.concatenate((local / np.hypot.reduce(local, axis=-1, keepdims=True), samples[..., 2:]), axis=-1)
+        s, t, coverage = point
+        longitude = (s - 0.5) * (2.0 * math.pi)
+        return (*_normalized(ns, ns.sin(longitude), t * (self.height_max - self.height_min) + self.height_min, ns.negative(ns.cos(longitude))), coverage)
 
 
-class MirrorBall(Panorama, frozen=True, kw_only=True, tag=4):
+class MirrorBall(Panorama, frozen=True, kw_only=True):
     """Mirrored sphere seen along view axis."""
 
     @staticmethod
-    def to_image(rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Maps rays to ball circle, zero coverage straight behind."""
-        normal = rays[..., :3] + (0.0, 0.0, -1.0)
-        length = np.linalg.norm(normal, axis=-1, keepdims=True)
-        planar = np.divide(normal[..., :2], length, out=np.zeros_like(normal[..., :2]), where=length > 0.0)
-        return np.concatenate((0.5 + 0.5 * planar, rays[..., 3:] * (length > 0.0)), axis=-1)
+        x, y, z, coverage = ray
+        length = ns.sqrt(x * x + y * y + (z - 1.0) * (z - 1.0))
+        defined = ns.greater(length, 0.0)
+        return _over(ns, x, length, defined) * 0.5 + 0.5, _over(ns, y, length, defined) * 0.5 + 0.5, ns.where(defined, coverage, 0.0)
 
     @staticmethod
-    def to_ray(samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](point: Point[V], ns: Namespace[V, B]) -> Ray[V]:
         """Reflects positions into unit rays, zero coverage outside ball."""
-        planar = 2.0 * samples[..., :2] - 1.0
-        rest = 1.0 - np.sum(planar**2, axis=-1, keepdims=True)
-        normal = np.concatenate((planar, -np.sqrt(rest, out=np.zeros_like(rest), where=rest >= 0.0)), axis=-1)
-        return np.concatenate((-2.0 * normal[..., 2:] * normal + (0.0, 0.0, 1.0), samples[..., 2:] * (rest >= 0.0)), axis=-1)
+        s, t, coverage = point
+        across, up = s * 2.0 - 1.0, t * 2.0 - 1.0
+        rest = 1.0 - across * across - up * up
+        normal = ns.negative(ns.sqrt(ns.maximum(rest, 0.0)))
+        return normal * across * -2.0, normal * up * -2.0, normal * normal * -2.0 + 1.0, ns.where(ns.greater_equal(rest, 0.0), coverage, 0.0)
 
 
-class FisheyeEquidistant(Fisheye, frozen=True, kw_only=True, tag=5):
+class FisheyeEquidistant(Fisheye, frozen=True, kw_only=True):
     """Fisheye with radius proportional to view axis angle."""
 
-    def to_image(self, rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](self, ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Maps rays to image circle, zero coverage past half field of view."""
-        radial = np.hypot(rays[..., :1], rays[..., 1:2])
-        angle = np.arctan2(radial, -rays[..., 2:3])
-        planar = np.divide(rays[..., :2], radial, out=np.zeros_like(rays[..., :2]), where=radial > 0.0)
-        defined = (angle <= self.field_of_view / 2.0) & ((radial > 0.0) | (rays[..., 2:3] < 0.0))
-        return np.concatenate((0.5 + angle / self.field_of_view * planar, rays[..., 3:] * defined), axis=-1)
+        x, y, z, coverage = ray
+        radial = ns.hypot(x, y)
+        angle, off = ns.atan2(radial, ns.negative(z)), ns.greater(radial, 0.0)
+        reach = angle / self.field_of_view
+        held = ns.where(ns.logical_and(ns.less_equal(angle, self.field_of_view / 2.0), _forward(ns, off, z)), coverage, 0.0)
+        return _over(ns, x, radial, off) * reach + 0.5, _over(ns, y, radial, off) * reach + 0.5, held
 
-    def to_ray(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](self, point: Point[V], ns: Namespace[V, B]) -> Ray[V]:
         """Lifts positions to unit rays, zero coverage outside image circle."""
-        planar = 2.0 * samples[..., :2] - 1.0
-        radial = np.linalg.norm(planar, axis=-1, keepdims=True)
-        angle = radial * self.field_of_view / 2.0
-        unit = np.divide(planar, radial, out=np.zeros_like(planar), where=radial > 0.0)
-        return np.concatenate((np.sin(angle) * unit, -np.cos(angle), samples[..., 2:] * (radial <= 1.0)), axis=-1)
+        s, t, coverage = point
+        across, up = s * 2.0 - 1.0, t * 2.0 - 1.0
+        radial = ns.hypot(across, up)
+        angle, off = radial * (self.field_of_view / 2.0), ns.greater(radial, 0.0)
+        return ns.sin(angle) * _over(ns, across, radial, off), ns.sin(angle) * _over(ns, up, radial, off), ns.negative(ns.cos(angle)), ns.where(ns.less_equal(radial, 1.0), coverage, 0.0)
 
 
-class FisheyeEquisolid(Fisheye, frozen=True, kw_only=True, tag=6):
+class FisheyeEquisolid(Fisheye, frozen=True, kw_only=True):
     """Fisheye with equisolid image radius on physical sensor."""
 
-    lens: Annotated[float, msgspec.Meta(ge=0.00001, le=0.1, description="Focal length"), Presentation(quantity=Some(Quantity.CAMERA_LENGTH))] = 0.0105
-    sensor: Annotated[tuple[SensorDimension, SensorDimension], Presentation(quantity=Some(Quantity.CAMERA_LENGTH))] = (0.036, 0.024)
+    lens: Annotated[float, msgspec.Meta(ge=0.00001, le=0.1, description="Focal length"), Presentation(quantity=Some(Quantity.FOCAL_LENGTH))] = 0.0105
+    sensor: Annotated[tuple[SensorDimension, SensorDimension], Presentation(quantity=Some(Quantity.FOCAL_LENGTH))] = (0.036, 0.024)
 
     @property
     def radius(self) -> float:
         """Image circle radius on sensor at field of view."""
         return 2.0 * self.lens * math.sin(self.field_of_view / 4.0)
 
-    def to_image(self, rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](self, ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Maps rays to sensor, zero coverage outside image circle."""
-        radial = np.hypot(rays[..., :1], rays[..., 1:2])
-        angle = np.arctan2(radial, -rays[..., 2:3])
-        planar = np.divide(rays[..., :2], radial, out=np.zeros_like(rays[..., :2]), where=radial > 0.0)
-        radius = 2.0 * self.lens * np.sin(angle / 2.0)
-        defined = (radius <= self.radius) & ((radial > 0.0) | (rays[..., 2:3] < 0.0))
-        return np.concatenate((0.5 + radius * planar / self.sensor, rays[..., 3:] * defined), axis=-1)
+        x, y, z, coverage = ray
+        radial = ns.hypot(x, y)
+        off = ns.greater(radial, 0.0)
+        reach = ns.sin(ns.atan2(radial, ns.negative(z)) / 2.0) * (2.0 * self.lens)
+        held = ns.where(ns.logical_and(ns.less_equal(reach, self.radius), _forward(ns, off, z)), coverage, 0.0)
+        return reach * _over(ns, x, radial, off) / self.sensor[0] + 0.5, reach * _over(ns, y, radial, off) / self.sensor[1] + 0.5, held
 
-    def to_ray(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](self, point: Point[V], ns: Namespace[V, B]) -> Ray[V]:
         """Lifts sensor positions to rays, zero coverage outside image circle."""
-        planar = (samples[..., :2] - 0.5) * self.sensor
-        radial = np.hypot(planar[..., :1], planar[..., 1:2])
-        inside = radial <= self.radius
-        angle = 2.0 * np.arcsin(radial / (2.0 * self.lens), out=np.zeros_like(radial), where=inside)
-        unit = np.divide(planar, radial, out=np.zeros_like(planar), where=inside & (radial > 0.0))
-        return np.concatenate((np.sin(angle) * unit, -np.cos(angle), samples[..., 2:] * inside), axis=-1)
+        s, t, coverage = point
+        across, up = (s - 0.5) * self.sensor[0], (t - 0.5) * self.sensor[1]
+        radial = ns.hypot(across, up)
+        outside = ns.greater(radial, self.radius)
+        angle = ns.where(outside, 0.0, ns.asin(ns.minimum(radial / (2.0 * self.lens), 1.0)) * 2.0)
+        off = ns.greater(radial, 0.0)
+        return ns.sin(angle) * _over(ns, across, radial, off), ns.sin(angle) * _over(ns, up, radial, off), ns.negative(ns.cos(angle)), ns.where(outside, 0.0, coverage)
 
 
-class Stereographic(Panorama, frozen=True, kw_only=True, tag=7):
+class Stereographic(Panorama, frozen=True, kw_only=True):
     """Conformal projection of sphere from point behind viewer."""
 
     centered = True
@@ -204,30 +202,24 @@ class Stereographic(Panorama, frozen=True, kw_only=True, tag=7):
     @property
     def scale(self) -> float:
         """Twice greater-side extent on projection plane."""
-        return self.field_of_view * float(np.sinc(self.field_of_view / (4.0 * math.pi))) / math.cos(self.field_of_view / 4.0)
+        return 4.0 * math.tan(self.field_of_view / 4.0)
 
-    def to_image(self, rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](self, ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Projects rays to centered positions, zero coverage straight behind."""
-        pole = 1.0 - rays[..., 2:3]
-        numerator, power = np.frexp(rays[..., :2])
-        denominator, pole_power = np.frexp(pole)
-        scale, scale_power = math.frexp(self.scale)
-        planar = np.ldexp(np.divide(numerator, denominator * scale, out=np.zeros_like(numerator), where=pole > 0.0), power - pole_power - scale_power + 1)
-        return np.concatenate((planar, rays[..., 3:] * (pole > 0.0)), axis=-1)
+        x, y, z, coverage = ray
+        pole = 1.0 - z
+        ahead = ns.greater(pole, 0.0)
+        return _over(ns, x * 2.0, pole * self.scale, ahead), _over(ns, y * 2.0, pole * self.scale, ahead), ns.where(ahead, coverage, 0.0)
 
-    def to_ray(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](self, point: Point[V], _ns: Namespace[V, B]) -> Ray[V]:
         """Lifts centered positions to covered unit rays."""
-        mantissa, exponent = np.frexp(samples[..., :2])
-        scale, power = math.frexp(self.scale)
-        mantissa, exponent = mantissa * scale, exponent + power - 1
-        common = np.max(exponent, axis=-1, keepdims=True, where=mantissa != 0.0, initial=0)
-        planar = np.ldexp(mantissa, exponent - common)
-        pole = np.ldexp(np.ones_like(samples[..., :1]), -common)
-        denominator = np.hypot(np.hypot(planar[..., :1], planar[..., 1:2]), pole) ** 2
-        return np.concatenate((np.ldexp(2.0 * mantissa / denominator, exponent - 2 * common), 1.0 - 2.0 * pole**2 / denominator, samples[..., 2:]), axis=-1)
+        s, t, coverage = point
+        across, up = s * (self.scale / 2.0), t * (self.scale / 2.0)
+        denominator = across * across + up * up + 1.0
+        return across * 2.0 / denominator, up * 2.0 / denominator, 1.0 - 2.0 / denominator, coverage
 
 
-class Panini(Panorama, frozen=True, kw_only=True, tag=8):
+class Panini(Panorama, frozen=True, kw_only=True):
     """Cylinder projection from behind axis, keeping verticals straight."""
 
     upright = True
@@ -245,44 +237,57 @@ class Panini(Panorama, frozen=True, kw_only=True, tag=8):
     @property
     def span(self) -> float:
         """Greater-side extent on projection plane."""
-        half = self.field_of_view / 2.0
         perspective, cylindrical = self.weights
-        return self.field_of_view * float(np.sinc(self.field_of_view / (2.0 * math.pi))) / (cylindrical + perspective * math.cos(half))
+        return 2.0 * math.sin(self.field_of_view / 2.0) / (cylindrical + perspective * math.cos(self.field_of_view / 2.0))
 
-    def to_image(self, rays: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_image[V: Field, B](self, ray: Ray[V], ns: Namespace[V, B]) -> Point[V]:
         """Projects rays, zero coverage at and behind camera."""
-        depth, horizontal = -rays[..., 2:3], np.hypot(rays[..., :1], rays[..., 2:3])
+        x, y, z, coverage = ray
+        depth, horizontal = ns.negative(z), ns.hypot(x, z)
+        ahead = ns.greater(depth, 0.0)
         perspective, cylindrical = self.weights
-        ratio = np.divide(depth, horizontal, out=np.zeros_like(depth), where=depth > 0.0)
-        projection, projection_power = np.frexp(cylindrical + perspective * ratio)
-        vertical = (1.0 - self.compression) * ratio + self.compression
-        numerator, power = np.frexp(rays[..., :2])
-        weight, weight_power = np.frexp(np.concatenate((np.ones_like(depth), vertical), axis=-1))
-        denominator, denominator_power = np.frexp(np.concatenate((horizontal, depth), axis=-1))
-        span, span_power = math.frexp(self.span)
-        planar = np.ldexp(
-            np.divide(numerator * weight, denominator * projection * span, out=np.zeros_like(numerator), where=depth > 0.0), power + weight_power - denominator_power - projection_power - span_power
-        )
-        return np.concatenate((planar, rays[..., 3:] * (depth > 0.0)), axis=-1)
+        ratio = _over(ns, depth, horizontal, ahead)
+        projection = ratio * perspective + cylindrical
+        vertical = ratio * (1.0 - self.compression) + self.compression
+        return _over(ns, x, horizontal * projection * self.span, ahead), _over(ns, y * vertical, depth * projection * self.span, ahead), ns.where(ahead, coverage, 0.0)
 
-    def to_ray(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def to_ray[V: Field, B](self, point: Point[V], ns: Namespace[V, B]) -> Ray[V]:
         """Lifts centered positions to rays, zero coverage without forward ray."""
-        planar = samples[..., :2] * self.span
-        horizontal = planar[..., :1]
+        s, t, coverage = point
+        across, up = s * self.span, t * self.span
         perspective, cylindrical = self.weights
-        length = np.hypot(1.0, perspective * horizontal)
-        tangent, distant = perspective * horizontal / length, cylindrical * horizontal / length
-        rest = (1.0 - distant) * (1.0 + distant)
-        root = np.sqrt(rest, out=np.zeros_like(rest), where=rest >= 0.0)
+        length = ns.sqrt(across * across * (perspective * perspective) + 1.0)
+        tangent, distant = across * perspective / length, across * cylindrical / length
+        rest = (1.0 - distant) * (distant + 1.0)
+        root = ns.sqrt(ns.maximum(rest, 0.0))
         cosine = root / length - tangent * distant
-        sine = (horizontal / length) * (perspective * root + cylindrical / length)
-        ahead = (rest >= 0.0) & (cosine > 0.0)
-        vertical = np.divide(cosine, (1.0 - self.compression) * cosine + self.compression, out=np.zeros_like(cosine), where=ahead)
-        local = np.concatenate((sine, planar[..., 1:] * (cylindrical + perspective * cosine) * vertical, -cosine), axis=-1)
-        return np.concatenate((np.divide(local, np.hypot.reduce(local, axis=-1, keepdims=True), out=np.zeros_like(local), where=ahead), samples[..., 2:] * ahead), axis=-1)
+        sine = across / length * (root * perspective + cylindrical / length)
+        ahead = ns.logical_and(ns.greater(cosine, 0.0), ns.greater_equal(rest, 0.0))
+        vertical = _over(ns, cosine, cosine * (1.0 - self.compression) + self.compression, ahead)
+        x, y, z = _normalized(ns, sine, up * (cosine * perspective + cylindrical) * vertical, ns.negative(cosine))
+        return ns.where(ahead, x, 0.0), ns.where(ahead, y, 0.0), ns.where(ahead, z, 0.0), ns.where(ahead, coverage, 0.0)
 
 
 type Panoramas = Rectilinear | Equirectangular | CentralCylindrical | MirrorBall | FisheyeEquidistant | FisheyeEquisolid | Stereographic | Panini
+
+
+class Camera(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Perspective lens with rigid camera-to-world placement."""
+
+    placement: "RigidTransform[tuple[()]]"
+    lens: Rectilinear
+
+    def to_screen(self, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Returns s, t, camera-space depth, and coverage, zero coverage at and behind camera."""
+        local = self.placement.apply(points, inverse=True)
+        s, t, coverage = self.lens.to_image((local[..., 0], local[..., 1], local[..., 2], np.ones_like(local[..., 0])), np)
+        return np.stack((s, t, -local[..., 2], coverage), axis=-1)
+
+    def to_world(self, screen: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Lifts s, t, and camera-space depth to world points in meters."""
+        (width, height), depth = self.lens.sides, screen[..., 2]
+        across, up = (screen[..., 0] + (self.lens.shift[0] - 0.5)) * width * depth, (screen[..., 1] + (self.lens.shift[1] - 0.5)) * height * depth
+        return self.placement.apply(np.stack((across, up, -depth), axis=-1))
 
 
 class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
@@ -306,41 +311,92 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
 
     def to_panorama(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps view positions to source, keeping coverage."""
-        (origin, scale), rays = self.frame, self.view.to_ray(samples)
-        positions = self.source.to_image(np.concatenate((self.rotation.apply(rays[..., :3]), rays[..., 3:]), axis=-1))
-        return np.concatenate((positions[..., :2] / scale + origin, positions[..., 2:]), axis=-1)
+        origin, scale = self.frame
+        *ray, coverage = self.view.to_ray((samples[..., 0], samples[..., 1], samples[..., 2]), np)
+        turned = self.rotation.apply(np.stack(ray, axis=-1))
+        s, t, held = self.source.to_image((turned[..., 0], turned[..., 1], turned[..., 2], coverage), np)
+        return np.stack((s / scale[0] + origin, t / scale[1] + origin, held), axis=-1)
 
     def to_view(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps source positions into view, zero coverage behind view."""
-        origin, scale = self.frame
-        rays = self.source.to_ray(np.concatenate(((samples[..., :2] - origin) * scale, samples[..., 2:]), axis=-1))
-        return self.view.to_image(np.concatenate((self.rotation.apply(rays[..., :3], inverse=True), rays[..., 3:]), axis=-1))
+        return np.stack(self.view.to_image(self._rays(samples), np), axis=-1)
 
     def framing(self, quad: Quad, share: Annotated[float, msgspec.Meta(gt=0.0)]) -> Option[Self]:
         """Aims view at quad filling `share` of frame, `Nothing` for undefined, rearward, or zero-span corner rays."""
-        origin, scale = self.frame
-        samples = quad.samples
-        rays = self.source.to_ray(np.concatenate(((samples[:, :2] - origin) * scale, samples[:, 2:]), axis=-1))
-        sides = rays[[0, 1], :3] + rays[[3, 2], :3]
+        *ray, coverage = self.source.to_ray(self._source(quad.samples), np)
+        rays = np.stack(ray, axis=-1)
+        sides = rays[[0, 1]] + rays[[3, 2]]
         forward = sides.sum(axis=0)
         level = msgspec.structs.replace(self, heading=math.atan2(forward[0], -forward[2]), elevation=math.atan2(forward[1], math.hypot(forward[0], forward[2])), roll=0.0)
         leveled_sides = level.rotation.apply(sides, inverse=True)
         across = np.diff(leveled_sides, axis=0)[0]
         aimed = msgspec.structs.replace(level, roll=math.atan2(across[1], across[0]))
-        rotation = aimed.rotation
-        local = rotation.apply(rays[:, :3], inverse=True)
+        local = aimed.rotation.apply(rays, inverse=True)
         planar = np.divide(local[:, :2], -local[:, 2:], out=np.zeros_like(local[:, :2]), where=local[:, 2:] < 0.0)
         spread = max(float(np.ptp(planar[:, 0])), float(np.ptp(planar[:, 1])) * self.view.aspect)
         return (
             Some(msgspec.structs.replace(aimed, view=msgspec.structs.replace(self.view, field_of_view=2.0 * math.atan(spread / (2.0 * share)))))
-            if bool(spread > 0.0 and np.all(rays[:, 3] > 0.0) and np.all(local[:, 2] < 0.0) and np.all(leveled_sides[:, 2] < 0.0))
+            if bool(spread > 0.0 and np.all(coverage > 0.0) and np.all(local[:, 2] < 0.0) and np.all(leveled_sides[:, 2] < 0.0))
             else Nothing
         )
+
+    def _source(self, samples: npt.NDArray[np.float64]) -> Point[npt.NDArray[np.float64]]:
+        origin, scale = self.frame
+        return (samples[..., 0] - origin) * scale[0], (samples[..., 1] - origin) * scale[1], samples[..., 2]
+
+    def _rays(self, samples: npt.NDArray[np.float64]) -> Ray[npt.NDArray[np.float64]]:
+        *ray, coverage = self.source.to_ray(self._source(samples), np)
+        local = self.rotation.apply(np.stack(ray, axis=-1), inverse=True)
+        return local[..., 0], local[..., 1], local[..., 2], coverage
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [FOLDS]
+
+
+def folded[V: Field, B](x: V, y: V, *, mirrors: int, angle: float, zoom: float, ns: Namespace[V, B]) -> tuple[V, V]:
+    """Reflects centered offsets into the first of `mirrors` wedges from `angle`, magnified by `zoom`."""
+    wedge = math.pi / mirrors
+    bearing = ns.abs(ns.remainder(ns.atan2(y, x) + (wedge - angle), 2.0 * wedge) - wedge) + angle
+    radius = ns.hypot(x, y) / zoom
+    return radius * ns.cos(bearing), radius * ns.sin(bearing)
+
+
+def to_polar[V: Field, B](point: Point[V], span: tuple[float, float], ns: Namespace[V, B]) -> Point[V]:
+    """Wraps a full rectangular turn into the frame's inscribed disc, seam above center, for frame sides `span` over the greater side."""
+    s, t, coverage = point
+    across, up, short = (s - 0.5) * span[0], (t - 0.5) * span[1], min(span)
+    return ns.remainder(ns.atan2(across, up), 2.0 * math.pi) / (2.0 * math.pi), 1.0 - ns.hypot(across, up) * (2.0 / short), coverage
+
+
+def from_polar[V: Field, B](point: Point[V], span: tuple[float, float], ns: Namespace[V, B]) -> Point[V]:
+    """Unwraps the frame's inscribed disc into a full rectangular turn, inverse of `to_polar`."""
+    s, t, coverage = point
+    bearing, radius = s * (2.0 * math.pi), (1.0 - t) * (min(span) / 2.0)
+    return radius * ns.sin(bearing) / span[0] + 0.5, radius * ns.cos(bearing) / span[1] + 0.5, coverage
+
+
+# --- [ARITHMETIC]
+
+
+def _over[V: Field, B](ns: Namespace[V, B], numerator: V, denominator: V, defined: B) -> V:
+    return ns.where(defined, numerator / ns.where(defined, denominator, 1.0), 0.0)
+
+
+def _normalized[V: Field, B](ns: Namespace[V, B], x: V, y: V, z: V | float) -> tuple[V, V, V]:
+    length = ns.sqrt(x * x + y * y + z * z)
+    return x / length, y / length, z / length
+
+
+def _forward[V: Field, B](ns: Namespace[V, B], off: B, z: V) -> B:
+    return ns.logical_or(off, ns.less(z, 0.0))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "Camera",
     "CentralCylindrical",
     "Equirectangular",
     "FieldOfView",
@@ -352,7 +408,12 @@ __all__ = [
     "Panorama",
     "PanoramaView",
     "Panoramas",
+    "Point",
+    "Ray",
     "Rectilinear",
     "SensorDimension",
     "Stereographic",
+    "folded",
+    "from_polar",
+    "to_polar",
 ]

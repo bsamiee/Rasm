@@ -28,8 +28,8 @@ from blender.bpy.ui.layout.rows import acquired, Member, OperatorButton
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.bpy.ui.layout.values import Hosted, Store
 from blender.bpy.ui.surfaces.appends import Append
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Finite, Gated, NonNegative, Presentation, Quantity, Rgb
+from blender.records.faults import accumulated, paired
+from blender.records.fields import Finite, Gated, NonNegative, Presentation, Quantity, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

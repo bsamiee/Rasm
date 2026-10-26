@@ -7,8 +7,8 @@ from typing import Annotated, ClassVar, override
 from expression import Ok, Some
 import msgspec
 
-from blender.imaging.parameters import Gated
-from blender.rendering.batch.estimate import Estimate
+from blender.records.fields import Gated
+from blender.rendering.batch.estimate import Forecast
 from blender.rendering.batch.exchange import Endpoint, sent
 from blender.rendering.faults import RenderingResult
 
@@ -52,17 +52,17 @@ class Started(Posted, frozen=True, kw_only=True):
 
 
 class Estimated(Posted, frozen=True, kw_only=True):
-    """First estimate over every job."""
+    """First forecast over every job."""
 
     title = "Render Estimated"
     tags = ("hourglass",)
-    estimate: Estimate
+    forecast: Forecast
 
     @property
     @override
     def message(self) -> str:
         """Seconds left with the clock time of the finish when it is representable."""
-        return f"{self.estimate.seconds:,.0f} s left{self.estimate.finish.map(lambda moment: f', done at {moment:%H:%M}').default_value('')}"
+        return f"{self.forecast.seconds:,.0f} s left{self.forecast.finish.map(lambda moment: f', done at {moment:%H:%M}').default_value('')}"
 
 
 class Completed(Posted, frozen=True, kw_only=True):

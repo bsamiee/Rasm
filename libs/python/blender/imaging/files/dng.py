@@ -13,8 +13,9 @@ import PyOpenColorIO
 import tifffile
 
 from blender.imaging.color.processors import basis
-from blender.imaging.faults import ImagingNumericFault, ImagingResult
+from blender.imaging.faults import ImagingResult
 from blender.imaging.files.images import written
+from blender.records.faults import NumericFault
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -88,7 +89,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def inverted(matrix: npt.NDArray[np.float64]) -> ImagingResult[npt.NDArray[np.float64]]:
-            return catch(lambda: np.linalg.inv(matrix), exception=np.linalg.LinAlgError)().map_error(lambda error: (ImagingNumericFault(request=matrix, error=error),))
+            return catch(lambda: np.linalg.inv(matrix), exception=np.linalg.LinAlgError)().map_error(lambda error: (NumericFault(request=matrix, error=error),))
 
         return basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR).bind(inverted).bind(lambda matrix: written(path, functools.partial(tiff, matrix)))
 

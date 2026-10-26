@@ -1,5 +1,6 @@
 """Audits and measures before render dispatch."""
 
+from collections.abc import Callable
 import datetime
 from functools import partial
 from itertools import groupby, starmap
@@ -18,17 +19,16 @@ from blender.bpy.data.ids.evaluation import evaluated, Instance
 from blender.bpy.data.ids.store import resolved
 from blender.bpy.data.rna import conditions
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderResult, BlenderUnmetFault
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.files.blends import dependencies, Dependency
 from blender.bpy.nodes.trees import nested
 from blender.bpy.render.outputs.paths import OutputPath, Pathed
 from blender.bpy.settings.properties import Choices
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section, Single
-from blender.imaging.effects.detail.denoise import TemporalDenoise
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, DomainFault, paired
 from blender.rendering.batch.processes import detached
 from blender.rendering.batch.queue import Bound, Fixed, Frames, JobCamera
 from blender.rendering.outputs.naming import Count, Number, Output, Slot, Word
@@ -88,21 +88,21 @@ class Shader(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class JobScope(msgspec.Struct, frozen=True, kw_only=True):
-    """Planned job render scope."""
+    """Planned job render scope, a follow-up's key on the job reading another scope's rendered frames."""
 
     scene: str
     camera: JobCamera
     layer: str | None = None
-    temporal: TemporalDenoise | None = None
+    follow: Key | None = None
 
     @property
     def base(self) -> Self:
-        """Render scope a temporal denoise job follows."""
-        return msgspec.structs.replace(self, temporal=None)
+        """Render scope a follow-up job reads."""
+        return msgspec.structs.replace(self, follow=None)
 
     def followed(self, scopes: tuple["JobScope", ...]) -> bool:
-        """Whether a temporal denoise job among scopes follows this render scope."""
-        return any(other.base == self for other in scopes if other.temporal is not None)
+        """Whether a follow-up job among scopes reads this render scope."""
+        return any(other.base == self for other in scopes if other.follow is not None)
 
 
 class Preflight(msgspec.Struct, frozen=True, kw_only=True):
@@ -279,9 +279,8 @@ def measured(view_layer: bpy.types.ViewLayer) -> BlenderResult[Measure]:
 # --- [CAMERAS]
 
 
-def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> BlenderResult[None]:
-    """Accumulates frames without camera, missing or non-camera bindings, and Custom projection under temporal denoise."""
-    custom = "CUSTOM"
+def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames, refused: frozenset[str] = frozenset()) -> BlenderResult[None]:
+    """Accumulates frames without camera, missing or non-camera bindings, and projections the scope refuses."""
     match scope.camera:
         case Bound(camera=camera, markers=markers) as bound:
             numbers = frames.numbers
@@ -301,8 +300,8 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> BlenderR
                 return (
                     Error((BlenderUnmetFault(requirement=NotCamera(binding=binding, kind=bound_object.type)),))
                     if not isinstance(camera, bpy.types.Camera)
-                    else Error((BlenderChoiceFault(path=f"{binding}: {camera.path_from_id('type')}", identifier=camera.type, accepted=accepted),))
-                    if scope.temporal is not None and camera.type == custom
+                    else Error((DomainFault(subject=f"{binding}: {camera.path_from_id('type')}", value=camera.type, accepted=", ".join(accepted)),))
+                    if camera.type in refused
                     else Ok(None)
                 )
 
@@ -310,7 +309,7 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> BlenderR
 
         return accumulated((*(Error((BlenderAbsentFault(owner=repr(scene), key=frame),)) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
 
-    return verified(tuple(item.identifier for item in PROJECTION.prop.enum_items if item.identifier != custom))
+    return verified(tuple(item.identifier for item in PROJECTION.prop.enum_items if item.identifier not in refused))
 
 
 # --- [DISPATCH]
@@ -336,10 +335,10 @@ def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames:
     ).map(lambda _: None)
 
 
-def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) -> BlenderResult[tuple[Measure, ...]]:
-    """Audits every scope, then measures each distinct view layer."""
+def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date, refused: Callable[[JobScope], frozenset[str]] = lambda _: frozenset()) -> BlenderResult[tuple[Measure, ...]]:
+    """Audits every scope against the camera projections it refuses, then measures each distinct view layer."""
     planned = tuple(
-        (scope, scene, msgspec.structs.replace(ranged(scene), step=1) if scope.temporal is None and scope.followed(scopes) else ranged(scene))
+        (scope, scene, msgspec.structs.replace(ranged(scene), step=1) if scope.follow is None and scope.followed(scopes) else ranged(scene))
         for scope in scopes
         for scene in (bpy.data.scenes[scope.scene],)
     )
@@ -350,7 +349,7 @@ def checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) ->
         )
     )
     return paired(
-        paired(audited(), accumulated(cameras(scene, scope, frames) for scope, scene, frames in planned)),
+        paired(audited(), accumulated(cameras(scene, scope, frames, refused(scope)) for scope, scene, frames in planned)),
         accumulated(pathed.path(scene, day).bind(partial(templated, scope=scope, scene=scene, frames=frames)) for scope, scene, frames in planned),
     ).bind(lambda _: accumulated(map(measured, layers)))
 

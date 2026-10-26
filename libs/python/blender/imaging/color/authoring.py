@@ -12,8 +12,9 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
-from blender.imaging.faults import Access, accumulated, colored, ImagingFaults, ImagingFileFault, ImagingResult, paired
-from blender.imaging.files.images import published, staging
+from blender.imaging.faults import colored, ImagingFaults, ImagingResult
+from blender.records.faults import accumulated, FileFault, paired
+from blender.records.stores import committed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -26,7 +27,7 @@ class DynamicRange(Enum):
 
     @staticmethod
     def of(space: PyOpenColorIO.ColorSpace) -> "DynamicRange":
-        """Classifies display colorspace as Blender does, HIGH for HDR or EDR video."""
+        """Classifies display colorspace by its OCIO encoding, HIGH for hdr-video or edr-video."""
         return DynamicRange.HIGH if space.getEncoding() in {"hdr-video", "edr-video"} else DynamicRange.STANDARD
 
     @staticmethod
@@ -191,7 +192,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             return request
 
         def refused(error: OSError) -> ImagingFaults:
-            return (ImagingFileFault(access=Access.WRITE, request=stage, error=error),)
+            return (FileFault(access="write", request=stage, error=error),)
 
         return colored(rows, authored).bind(
             lambda _: paired(
@@ -223,11 +224,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Published path, or `color` and `write` faults.
         """
-
-        def encoded(config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
-            return published(str(path), lambda destination: colored(config, lambda: config.archive(destination))).map(pathlib.Path)
-
-        return staging(path, lambda stage: self.staged(base, stage.parent).bind(encoded))
+        return committed(path, lambda stage: self.staged(base, stage.parent).bind(lambda config: colored(config, lambda: config.archive(str(stage)))))
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> ImagingResult[pathlib.Path]:
         """Replaces config folder whole with staged config and its files.
@@ -240,17 +237,14 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             Installed config path, or `color` and `write` faults.
         """
 
-        def replaced(stage: pathlib.Path, config: PyOpenColorIO.Config) -> ImagingResult[pathlib.Path]:
-            path = stage / "config.ocio"
+        def replaced(stage: pathlib.Path, config: PyOpenColorIO.Config) -> ImagingResult[None]:
             return (
-                catch(path.write_text, exception=OSError)(config.serialize(), encoding="utf-8", newline="")
+                catch((stage / "config.ocio").write_text, exception=OSError)(config.serialize(), encoding="utf-8", newline="")
                 .bind(lambda _: catch(shutil.rmtree, exception=OSError)(folder).or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error)))
-                .bind(lambda _: catch(stage.rename, exception=OSError)(folder))
-                .map(lambda installed: installed / path.name)
-                .map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=folder, error=error),))
+                .map_error(lambda error: (FileFault(access="write", request=folder, error=error),))
             )
 
-        return staging(folder, lambda stage: self.staged(base, stage).bind(lambda config: replaced(stage, config)))
+        return committed(folder, lambda stage: self.staged(base, stage).bind(lambda config: replaced(stage, config))).map(lambda installed: installed / "config.ocio")
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

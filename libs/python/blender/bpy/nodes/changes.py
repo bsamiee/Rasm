@@ -14,15 +14,15 @@ from blender.bpy.data.ids.images import generated, loaded
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.ids.store import vacant
 from blender.bpy.data.rna.descriptors import assigned, Descriptor, differing, struct_at, Value, written
-from blender.bpy.data.rna.edits import Owner, Tree
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.nodes.graphs import Content, CurvePoints, End, FileItems, Generated, Graph, Link, Loaded, Nested, Node, NodeGroup
 from blender.bpy.nodes.interface import Addressed, addresses, Declared, Interface, interfaced, MenuItems, Restated, revised, slot, Withdrawn
+from blender.bpy.nodes.ramps import Ramp
 from blender.bpy.nodes.trees import created, grouped, joined, ordered, socket_at
-from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Ramp
+from blender.records.faults import accumulated, paired
+from blender.records.trees import Owner, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -304,7 +304,9 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
                 curves.update()
 
     match content:
-        case Ramp() | CurvePoints():
+        case Ramp() as ramp:
+            return _ramp(live).bind(ramp.write)
+        case CurvePoints():
             return Snapshot(struct=live.bl_rna.identifier, tree=_tree(content)).apply(live).outcome.map(lambda _: refreshed(struct_at(live, "mapping")))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         case Generated(ownership=ownership, content=hashed, name=name, plane=plane, tag=tag):
             return generated(ownership, identity, name, hashed, plane, tag).bind(
@@ -369,7 +371,9 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
 
     def holding(content: Content, live: bpy.types.Node) -> BlenderResult[bool]:
         match content:
-            case Ramp() | CurvePoints():
+            case Ramp() as ramp:
+                return _ramp(live).map(ramp.holds)
+            case CurvePoints():
                 desired = _tree(content)
                 return (
                     accumulated(Descriptor.resolve(type(live), root, bpy.types.PointerProperty) for root in desired.roots)
@@ -525,36 +529,30 @@ def _read(desired: Graph | NodeGroup, keyed: Keyed, identity: Identity) -> Blend
     return accumulated(altered(key, node, parent) for key, (node, parent) in placed.items()).map(assembled)
 
 
-def _tree(content: Ramp | CurvePoints) -> Tree[Value]:
-    """Ramp or curve point settings by node RNA path, collections owning items as `Snapshot.capture` reads them."""
-    match content:
-        case Ramp(stops=stops, interpolation=interpolation, mode=mode, hue_path=hue_path):
-            elements = tuple(f"color_ramp.elements[{index}]" for index in range(len(stops)))
-            return Tree(
-                roots=("color_ramp",),
-                owners={
-                    "color_ramp": Owner(values={"interpolation": interpolation.name, "color_mode": mode.name, "hue_interpolation": hue_path.name}, children=("color_ramp.elements",)),
-                    "color_ramp.elements": Owner(values={}, children=elements),
-                    **{
-                        key: Owner(values={"position": stop.position, "color": (stop.color.red, stop.color.green, stop.color.blue, 1.0)})
-                        for key, stop in zip(elements, sorted(stops, key=lambda stop: stop.position))
-                    },
-                },
-            )
-        case CurvePoints(clip=clip, maps=maps, handle=handle, clipped=clipped):
-            curves = {f"mapping.curves[{index}]": points for index, points in enumerate(maps)}
-            keys = {curve: tuple(f"{curve}.points[{index}]" for index in range(len(points))) for curve, points in curves.items()}
-            bounds = clip.map(lambda span: dict(zip(("clip_min_x", "clip_min_y", "clip_max_x", "clip_max_y"), span))).default_value({})
-            return Tree(
-                roots=("mapping",),
-                owners={
-                    "mapping": Owner(values={"use_clip": clipped, "extend": "EXTRAPOLATED", **bounds}, children=("mapping.curves",)),
-                    "mapping.curves": Owner(values={}, children=tuple(curves)),
-                    **{curve: Owner(values={}, children=(f"{curve}.points",)) for curve in curves},
-                    **{f"{curve}.points": Owner(values={}, children=keys[curve]) for curve in curves},
-                    **{key: Owner(values={"location": point, "handle_type": handle}) for curve, points in curves.items() for key, point in zip(keys[curve], points)},
-                },
-            )
+def _tree(content: CurvePoints) -> Tree[Value]:
+    """Curve point settings by node RNA path, collections owning items as `Snapshot.capture` reads them."""
+    curves = {f"mapping.curves[{index}]": points for index, points in enumerate(content.maps)}
+    keys = {curve: tuple(f"{curve}.points[{index}]" for index in range(len(points))) for curve, points in curves.items()}
+    bounds = content.clip.map(lambda span: dict(zip(("clip_min_x", "clip_min_y", "clip_max_x", "clip_max_y"), span))).default_value({})
+    return Tree(
+        roots=("mapping",),
+        owners={
+            "mapping": Owner(values={"use_clip": content.clipped, "extend": "EXTRAPOLATED", **bounds}, children=("mapping.curves",)),
+            "mapping.curves": Owner(values={}, children=tuple(curves)),
+            **{curve: Owner(values={}, children=(f"{curve}.points",)) for curve in curves},
+            **{f"{curve}.points": Owner(values={}, children=keys[curve]) for curve in curves},
+            **{key: Owner(values={"location": point, "handle_type": content.handle}) for curve, points in curves.items() for key, point in zip(keys[curve], points)},
+        },
+    )
+
+
+def _ramp(live: bpy.types.Node) -> BlenderResult[bpy.types.ColorRamp]:
+    """Node's `color_ramp`, else `absent` fault naming it."""
+    return (
+        struct_at(live, "color_ramp")
+        .bind(lambda held: Some(held) if isinstance(held, bpy.types.ColorRamp) else Nothing)
+        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(live), key="color_ramp"),))
+    )
 
 
 def _framed(live: bpy.types.Node) -> BlenderResult[bpy.types.ImageUser | bpy.types.CompositorNodeImage]:

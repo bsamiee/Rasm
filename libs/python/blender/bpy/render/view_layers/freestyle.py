@@ -16,12 +16,12 @@ from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import joined, Line, OperatorButton, placed, RowDraw
 from blender.bpy.ui.layout.sections import Single
 from blender.bpy.ui.layout.values import Listing
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, DomainFault, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -144,7 +144,7 @@ def styled(row: LineStyle, style: bpy.types.FreestyleLineStyle) -> BlenderResult
             return (
                 BlenderEditFault.attempted(f"{style!r}.{identifier}", lambda: held.new(name=modifier.name, type=modifier.kind)).map(lambda _: None)
                 if modifier.kind in kinds
-                else Error((BlenderChoiceFault(path=f"{style!r}.{identifier}", identifier=modifier.kind, accepted=kinds),))
+                else Error((DomainFault(subject=f"{style!r}.{identifier}", value=modifier.kind, accepted=", ".join(kinds)),))
             )
 
         return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, wanted[count:]))).map(lambda _: None)

@@ -3,40 +3,19 @@
 import math
 from typing import Annotated, ClassVar, Self
 
-import colour
-from expression import Option, Some
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.imaging.chain import GREY
-from blender.imaging.color.processors import luma, unassociated
+from blender.imaging.color.processors import converted, GREY, luma
 from blender.imaging.faults import ImagingResult
-from blender.imaging.parameters import Gated, Presentation, Quantity, Unit
-from blender.imaging.sampling import Frozen
+from blender.imaging.files.images import unassociated
+from blender.imaging.geometry.regions import Region
+from blender.records.fields import Frozen, Gated, Presentation, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Region(msgspec.Struct, frozen=True, kw_only=True):
-    """Frame rectangle in shares from bottom left."""
-
-    left: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 0.0
-    bottom: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 0.0
-    right: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 1.0
-    top: Annotated[Unit, Presentation(quantity=Some(Quantity.FRAME))] = 1.0
-
-    @classmethod
-    def bounding(cls, points: npt.NDArray[np.float64]) -> Self:
-        """Returns rectangle spanning the first two components of `points`."""
-        corners = points[..., :2].reshape(-1, 2)
-        (left, bottom), (right, top) = corners.min(axis=0), corners.max(axis=0)
-        return cls(left=float(left), bottom=float(bottom), right=float(right), top=float(top))
-
-    def window(self, height: int, width: int) -> tuple["slice[int, int, None]", "slice[int, int, None]"]:
-        """Returns row and column slices of a top-first plane."""
-        return slice(round((1.0 - self.top) * height), round((1.0 - self.bottom) * height)), slice(round(self.left * width), round(self.right * width))
 
 
 class Extent(msgspec.Struct, frozen=True, kw_only=True):
@@ -78,15 +57,14 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
         rows, columns = np.arange(height, dtype=np.float64)[:, None], np.arange(width, dtype=np.float64)[None, :]
         return np.asarray((np.abs(rows + 0.5 - height / 2.0) < height / 4.0) & (np.abs(columns + 0.5 - width / 2.0) < width / 4.0), dtype=np.bool)
 
-    @property
-    def peak(self) -> Option[float]:
-        """Covered percentile PQ peak in cd/m²."""
+    def peak(self) -> ImagingResult[Option[float]]:
+        """Returns covered percentile PQ peak in cd/m², decoded through the OCIO ST-2084 curve, absent without covered samples."""
         greatest = self.color.max(axis=-1)
-        return (
-            Some(greatest[self.covered & np.isfinite(greatest)].astype(np.float64))
-            .filter(lambda found: found.size > 0)
-            .map(lambda found: float(colour.models.eotf_ST2084(np.clip(np.percentile(found, Extent.percentile, method="inverted_cdf"), 0.0, 1.0))))
-        )
+        found = greatest[self.covered & np.isfinite(greatest)]
+        if not found.size:
+            return Ok(Nothing)
+        code = np.full((1, 3), np.clip(np.percentile(found, Extent.percentile, method="inverted_cdf"), 0.0, 1.0), dtype=np.float32)
+        return converted(PyOpenColorIO.Config(), PyOpenColorIO.BuiltinTransform(style="CURVE - ST-2084_to_LINEAR"), code).map(lambda linear: Some(100.0 * float(linear[0, 0])))
 
     def percentile(self, rank: Annotated[float, msgspec.Meta(ge=0.0, le=100.0)]) -> Option[float]:
         """Returns covered luminance at `rank` percentile."""
@@ -135,4 +113,4 @@ class Meter(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Extent", "Meter", "Region", "Samples"]
+__all__ = ["Extent", "Meter", "Samples"]

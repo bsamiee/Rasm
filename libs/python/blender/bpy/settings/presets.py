@@ -1,41 +1,29 @@
 """Typed stock presets, user preset files, and snapshot clipboard transfer."""
 
 from collections.abc import Callable, Iterator, Mapping
-from itertools import repeat
 from pathlib import Path
-from typing import Annotated, Final
+import shutil
+from typing import Annotated
 
-from atomicwrites import move_atomic
 from bl_operators.presets import AddPresetBase
 import bpy
-import colour
 from expression import Error, Nothing, Ok, Option, Result
 from expression.extra.result import catch
 import msgspec
-import msgspec.inspect as native
-import numpy as np
-import numpy.typing as npt
-import PyOpenColorIO
 from typing_extensions import TypeForm
 
-from blender.bpy.data.rna.edits import merge, transfer
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderFaults, BlenderResult
-from blender.bpy.settings.properties import Unit
-from blender.imaging.color.processors import basis
-from blender.imaging.faults import Access, accumulated, ImagingFileFault, ImagingResult
-from blender.imaging.files.records import Record
-from blender.imaging.parameters import Rgb
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
+from blender.imaging.faults import ImagingResult
+from blender.records.faults import accumulated, FileFault
+from blender.records.stores import committed, RecordFile
+from blender.records.trees import merge, transfer
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]", max_length=64, description="Preset and file name")]
 type Stock[T] = Mapping[str, T | Path]
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_SWITCH: Final = 0.5
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -72,13 +60,13 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [FILES]
 
-    def file(self, path: Path) -> Record[T]:
+    def file(self, path: Path) -> RecordFile[T]:
         """Returns record file of preset form at path."""
-        return Record(path=path, form=self.form)
+        return RecordFile(path=path, form=self.form)
 
     def read(self, source: T | Path) -> BlenderResult[T]:
         """Decodes and validates user file, passing stock preset through."""
-        return self.file(source).read().bind(lambda value: self.admitted.map(lambda admit: admit(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
+        return Result[T, BlenderFaults].bind(self.file(source).read(), lambda value: self.admitted.map(lambda admit: admit(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
 
     def written(self, target: Path, value: T) -> BlenderResult[Path]:
         """Writes JSON at target through one atomic commit."""
@@ -92,13 +80,10 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     def renamed(source: Path, name: PresetName) -> BlenderResult[Path]:
         """Moves user preset to a free name."""
         target = source.with_stem(AddPresetBase.as_filename(name))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        try:
-            move_atomic(str(source), str(target))
-        except FileExistsError:
-            return Error((BlenderCollisionFault(request=name, error=target),))
-        except OSError as error:
-            return Error((ImagingFileFault(access=Access.WRITE, request=f"{source} -> {target}", error=error),))
-        return Ok(target)
+        copied = committed(
+            target, lambda stage: catch(shutil.copyfile, exception=OSError)(source, stage).map_error(lambda error: (FileFault(access="read", request=source, error=error),)), exclusive=True
+        )
+        return Result[Path, BlenderFaults].bind(copied, lambda _: removed(source)).map(lambda _: target)
 
     def imported(self, identity: Identity, source: Path) -> BlenderResult[Path]:
         """Copies validated file into user folder."""
@@ -108,38 +93,13 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Writes validated user file to target."""
         return self.read(source).bind(lambda value: self.written(target, value))
 
-    # --- [STRENGTH]
-
-    @staticmethod
-    def blended[S: msgspec.Struct](rest: S, preset: S, amount: float, config: PyOpenColorIO.Config) -> BlenderResult[S]:
-        """Moves each declared field of `rest` toward `preset` by `amount`, 1 reaching the preset.
-
-        Numbers move linearly within their declared bounds as host storage holds them, integers rounded; `Rgb` values move in Oklab over the
-        scene-linear XYZ basis of `config`; nested records and equal-length tuples move per member; every other value
-        takes the preset above half.
-
-        Args:
-            rest: Record at amount 0.
-            preset: Record at amount 1.
-            amount: Share of the move, past 1 extrapolating.
-            config: Config whose scene-linear role carries `Rgb` values.
-
-        Returns:
-            Moved record, or the base fault of a scene-linear space without an XYZ matrix.
-        """
-        match native.type_info(type(preset)):
-            case native.StructType() as kind:
-                return _record(kind, rest, preset, amount, config)
-            case _:
-                return Ok(preset if amount > _SWITCH else rest)
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def removed(source: Path) -> BlenderResult[None]:
     """Deletes file."""
-    return catch(source.unlink, exception=OSError)().map_error(lambda error: (ImagingFileFault(access=Access.WRITE, request=source, error=error),))
+    return catch(source.unlink, exception=OSError)().map_error(lambda error: (FileFault(access="write", request=source, error=error),))
 
 
 def copied(manager: bpy.types.WindowManager, snapshot: Snapshot) -> None:
@@ -152,7 +112,7 @@ def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct
     try:
         clip = msgspec.json.decode(manager.clipboard, type=Snapshot)
     except msgspec.DecodeError as error:
-        return Error((ImagingFileFault(access=Access.READ, request=f"{manager!r}.clipboard", error=error),))
+        return Error((FileFault(access="read", request=f"{manager!r}.clipboard", error=error),))
     return accumulated(
         Snapshot
         .capture(owner)
@@ -160,48 +120,6 @@ def pasted(manager: bpy.types.WindowManager, owners: "tuple[bpy.types.bpy_struct
         .bind(lambda applied: applied.outcome.map(lambda _: applied))
         for owner in owners
     )
-
-
-def _record[S: msgspec.Struct](kind: native.StructType, rest: msgspec.Struct, preset: S, amount: float, config: PyOpenColorIO.Config) -> BlenderResult[S]:
-    """Moves every field of one record pair."""
-    moved = accumulated(_moved(field.type, getattr(rest, field.name), getattr(preset, field.name), amount, config) for field in kind.fields)
-    return moved.map(lambda values: msgspec.structs.replace(preset, **{field.name: value for field, value in zip(kind.fields, values)}))
-
-
-def _moved(kind: native.Type, rest: object, preset: object, amount: float, config: PyOpenColorIO.Config) -> BlenderResult[object]:
-    """Moves one value pair by its declared kind, generic and union members by their runtime kind."""
-
-    def held(value: float, declared: native.Type) -> BlenderResult[float]:
-        return Unit().bounds(declared).map(lambda ends: float(np.clip(value, *ends)))
-
-    def oklab(fields: tuple[native.Field, ...], start: Rgb[float], end: Rgb[float], matrix: npt.NDArray[np.float64]) -> BlenderResult[Rgb[float]]:
-        ends = colour.XYZ_to_Oklab(np.stack((np.asarray(start), np.asarray(end))) @ matrix.T)
-        values = np.linalg.solve(matrix, colour.Oklab_to_XYZ(ends[0] + amount * (ends[1] - ends[0])))
-        return accumulated(held(float(value), field.type) for field, value in zip(fields, values)).map(
-            lambda channels: msgspec.structs.replace(end, **{field.name: channel for field, channel in zip(fields, channels)})
-        )
-
-    match kind, rest, preset:
-        case _ if rest == preset:
-            return Ok(preset)
-        case native.Metadata(type=inner), _, _:
-            return _moved(inner, rest, preset, amount, config)
-        case native.StructType(fields=fields), Rgb() as start, Rgb() as end:
-            return Result[npt.NDArray[np.float64], BlenderFaults].bind(basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR), lambda matrix: oklab(fields, start, end, matrix))
-        case native.StructType(), msgspec.Struct(), msgspec.Struct() if type(rest) is type(preset):
-            return _record(kind, rest, preset, amount, config)
-        case native.TupleType(item_types=items), tuple(), tuple() if len(rest) == len(preset):
-            return accumulated(_moved(*each, amount, config) for each in zip(items, rest, preset)).map(tuple)
-        case native.VarTupleType(item_type=item), tuple(), tuple() if len(rest) == len(preset):
-            return accumulated(_moved(*each, amount, config) for each in zip(repeat(item), rest, preset)).map(tuple)
-        case native.FloatType(), float() | int(), float() | int():
-            return held(rest + amount * (preset - rest), kind)
-        case native.IntType(), int(), int():
-            return Ok(int(np.clip(round(rest + amount * (preset - rest)), *Unit.integral(kind))))
-        case native.UnionType() | native.AnyType(), _, _ if type(rest) is type(preset):
-            return _moved(native.type_info(type(preset)), rest, preset, amount, config)
-        case _:
-            return Ok(preset if amount > _SWITCH else rest)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

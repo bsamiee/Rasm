@@ -20,8 +20,8 @@ from blender.bpy.ui.resources.theme import Checker, Metrics
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Drawn(msgspec.Struct, frozen=True, kw_only=True):
-    """Finished preview request."""
+class PreviewKey(msgspec.Struct, frozen=True, kw_only=True):
+    """Key, tile side, and checker of a drawn preview."""
 
     key: Hashable
     side: int
@@ -70,13 +70,13 @@ class Previews(msgspec.Struct, kw_only=True, eq=False):
 
     def current(self, slot: str, key: Hashable, scale: float) -> bool:
         """Returns whether request finished at current tile side and checker."""
-        return self.drawn.get(slot) == Drawn.read(key, scale)
+        return self.drawn.get(slot) == PreviewKey.read(key, scale)
 
     # --- [WRITING]
 
     def tile(self, slot: str, key: Hashable, rendered: Callable[[int], BlenderResult[Option[Option[npt.NDArray[np.float32]]]]], scale: float) -> BlenderResult[Option[int]]:
         """Writes rendered pixels over the checker or records pixelless finish, waiting while render returns Nothing."""
-        shown = Drawn.read(key, scale)
+        shown = PreviewKey.read(key, scale)
         return (
             Ok(self.icon_id(slot))
             if self.drawn.get(slot) == shown
@@ -133,4 +133,4 @@ PREVIEWS: Final = Scoped[Previews](made=Previews.opened)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PREVIEWS", "Drawn", "Previews", "checkered", "filled"]
+__all__ = ["PREVIEWS", "PreviewKey", "Previews", "checkered", "filled"]

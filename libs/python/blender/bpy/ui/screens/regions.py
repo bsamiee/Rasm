@@ -8,9 +8,10 @@ import msgspec
 
 from blender.bpy.commands.calls import called
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import Edge, Located
+from blender.records.faults import DomainFault
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -73,10 +74,10 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
             """Writes active space visibility member."""
             return (
                 Error((
-                    BlenderChoiceFault(
-                        path=repr(space),
-                        identifier=identifier,
-                        accepted=tuple(prop.identifier for prop in space.bl_rna.properties if prop.identifier.startswith("show_region_") and prop.identifier != identifier),
+                    DomainFault(
+                        subject=repr(space),
+                        value=identifier,
+                        accepted=", ".join(prop.identifier for prop in space.bl_rna.properties if prop.identifier.startswith("show_region_") and prop.identifier != identifier),
                     ),
                 ))
                 if kind == "HUD"
@@ -96,7 +97,7 @@ class RegionView(msgspec.Struct, frozen=True, kw_only=True):
             case axis if side in axis:
                 return called(bpy.ops.screen.region_flip, {}, override=Some(self.override)).map(lambda _: None)
             case axis:
-                return Error((BlenderChoiceFault(path=repr(self.located.area), identifier=side, accepted=axis),))
+                return Error((DomainFault(subject=repr(self.located.area), value=side, accepted=", ".join(axis)),))
 
     def quadded(self, *, shown: bool) -> BlenderResult[None]:
         """Toggles quad view when state differs."""

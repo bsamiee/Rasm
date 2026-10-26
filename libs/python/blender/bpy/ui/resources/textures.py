@@ -13,7 +13,7 @@ import numpy.typing as npt
 
 from blender.bpy.extension.scoped import Scoped
 from blender.bpy.faults import BlenderEditFault, BlenderResult
-from blender.imaging.color.processors import unassociated
+from blender.imaging.files.images import unassociated
 
 # --- [SERVICES] -------------------------------------------------------------------------
 

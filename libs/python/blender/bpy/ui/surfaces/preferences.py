@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from functools import partial
 from types import MemberDescriptorType
-from typing import Annotated
+from typing import Annotated, Protocol, runtime_checkable
 
 import bpy
 from expression import Error, Nothing, Option, Some
@@ -23,13 +23,33 @@ from blender.bpy.ui.layout.sections import fields, Nest, Section, Single
 from blender.bpy.ui.layout.values import Verb
 from blender.bpy.ui.screens.areas import Located
 from blender.bpy.ui.surfaces.panels import Panel, PopoverPanel, reached
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, paired
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+@runtime_checkable
+class Preferring(Protocol):
+    """Registered row adding sections and preference field choices to its extension's preferences page."""
+
+    @property
+    def preferences(self) -> "PageRows":
+        """Sections and field choices the row adds."""
+        ...
+
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class PageRows(msgspec.Struct, frozen=True, kw_only=True):
+    """Sections and preference field choices one registered row adds to its extension's preferences page."""
+
+    sections: tuple[Section, ...] = ()
+    bindings: Mapping[MemberDescriptorType, Choices] = msgspec.field(default_factory=dict)
+
+
 class PreferencesPage[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """Preference record with sections, gathering confirmations, shortcuts, and stores every other row declares, firing `changed` on each edit."""
+    """Preference record with sections, gathering the sections, field choices, confirmations, shortcuts, and stores every other row declares, firing `changed` on each edit."""
 
     record: type[T]
     sections: tuple[Section, ...] = ()
@@ -53,6 +73,8 @@ class PreferencesPage[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=Tr
         asks = tuple(row for row in declared if isinstance(row, operators.Operator) and any(isinstance(form, operators.Suppressible) for form in row.invoke.to_list()))
         bindings = tuple(row for row in declared if isinstance(row, keymaps.Keymap))
         stores = tuple(row for row in declared if isinstance(row, Attachment))
+        added = tuple(row.preferences for row in declared if isinstance(row, Preferring))
+        choices = dict(item for mapping in (*self.bindings.to_list(), *(part.bindings for part in added)) for item in mapping.items())
         asked = msgspec.defstruct("Asks", [(row.ask, Annotated[bool, msgspec.Meta(title=row.title, description=row.description)], True) for row in asks], frozen=True, kw_only=True)
 
         def attached() -> BlenderResult[tuple[Attached[msgspec.Struct], ...]]:
@@ -116,7 +138,7 @@ class PreferencesPage[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=Tr
                 paint(layout, holder, context)
 
             kind = type(identity.package, (bpy.types.AddonPreferences,), {"bl_idname": identity.package, **RecordGroup.body(group.struct, flags.struct), "draw": draw})
-            sections = (*self.sections, *extra(kind))
+            sections = (*self.sections, *(section for part in added for section in part.sections), *extra(kind))
 
             def arranged(parts: tuple[tuple[RowDraw, ...], Nest, tuple[RowDraw, ...]]) -> None:
                 nonlocal paint
@@ -153,7 +175,7 @@ class PreferencesPage[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=Tr
 
         return paired(
             paired(
-                RecordGroup.bound(identity, "preferences", self.record, Some(lambda *_: identity.reports.reported(self.changed.fired)().to_optional()), bindings=self.bindings),
+                RecordGroup.bound(identity, "preferences", self.record, Some(lambda *_: identity.reports.reported(self.changed.fired)().to_optional()), bindings=Some(choices)),
                 RecordGroup.bound(identity, "preferences_asks", asked),
             ),
             identity.name(Name.ATTACHMENT, "preferences"),
@@ -194,4 +216,4 @@ show = operators.Operator[operators.Empty](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PreferencesPage", "read", "show", "write"]
+__all__ = ["PageRows", "PreferencesPage", "Preferring", "read", "show", "write"]

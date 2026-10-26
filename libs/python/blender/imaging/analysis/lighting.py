@@ -2,7 +2,7 @@
 
 from enum import auto, Enum
 import math
-from typing import Annotated, ClassVar, Self
+from typing import Annotated
 
 import colour
 from expression import Nothing, Ok, Option, Some
@@ -16,11 +16,13 @@ from scipy.spatial.distance import cdist
 from scipy.stats import binned_statistic
 
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.chain import GREY
-from blender.imaging.color.processors import basis
+from blender.imaging.color.processors import basis, GREY
 from blender.imaging.color.white import White
-from blender.imaging.faults import ImagingBufferFault, ImagingResult, paired
-from blender.imaging.parameters import Position, Rgb
+from blender.imaging.faults import ImagingResult
+from blender.imaging.files.images import checked, pixels
+from blender.imaging.geometry.regions import Position
+from blender.records.faults import paired
+from blender.records.fields import Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -54,11 +56,6 @@ class PaletteEntry(msgspec.Struct, frozen=True, kw_only=True):
 class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
     """Reference light colors, contrast, spatial cues, and palette."""
 
-    grid: ClassVar[int] = 256
-    chromatic: ClassVar[float] = 0.18
-    separation: ClassVar[float] = 0.08
-    split_range: ClassVar[float] = math.log2(6.0)
-    highlights: ClassVar[float] = 85.0
     key: Rgb
     fill: Rgb
     ambient: Rgb
@@ -88,20 +85,29 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             else LightingMood.NEUTRAL
         )
 
-    @property
-    def gels(self) -> Option[tuple[PaletteEntry, PaletteEntry]]:
-        """Two largest palette entries as key and accent when both are chromatic."""
-        match tuple(entry for entry in self.palette[:2] if entry.chroma >= self.chromatic):
+
+class Lighting(msgspec.Struct, frozen=True, kw_only=True):
+    """Lighting read settings: analysis grid, palette clusters and merge distance, split and rim thresholds, and gel chroma."""
+
+    grid: Annotated[int, msgspec.Meta(ge=1, description="Longest analysis side in pixels")] = 256
+    size: Annotated[int, msgspec.Meta(ge=1, description="Palette clusters before merging")] = 3
+    separation: Annotated[float, msgspec.Meta(ge=0.0, description="Oklab distance below which palette clusters merge")] = 0.08
+    split_range: Annotated[float, msgspec.Meta(gt=0.0, description="Stops of range reaching full split")] = math.log2(6.0)
+    highlights: Annotated[float, msgspec.Meta(ge=0.0, le=100.0, description="Border percentile reading rim light")] = 85.0
+    chromatic: Annotated[float, msgspec.Meta(ge=0.0, le=1.0, description="Least palette chroma a gel holds")] = 0.18
+
+    def gels(self, reading: LightingReading) -> Option[tuple[PaletteEntry, PaletteEntry]]:
+        """Two largest palette entries of `reading` as key and accent when both are chromatic."""
+        match tuple(entry for entry in reading.palette[:2] if entry.chroma >= self.chromatic):
             case (first, second):
-                return Some((first, second) if np.dot(np.subtract(first.position, second.position), self.direction) >= 0.0 else (second, first))
+                return Some((first, second) if np.dot(np.subtract(first.position, second.position), reading.direction) >= 0.0 else (second, first))
             case _:
                 return Nothing
 
-    @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], size: Annotated[int, msgspec.Meta(ge=1)] = 3) -> ImagingResult[Option[Self]]:
+    def read(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> ImagingResult[Option[LightingReading]]:
         """Reads lighting of plane fitted within `grid` pixels, or absence without covered subject."""
 
-        def read(pair: tuple[Samples, npt.NDArray[np.float64]]) -> ImagingResult[Option[Self]]:
+        def measured(pair: tuple[Samples, npt.NDArray[np.float64]]) -> ImagingResult[Option[LightingReading]]:
             samples, matrix = pair
             covered = samples.finite
             height, width = covered.shape
@@ -115,7 +121,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
                 return Ok(Nothing)
             levels = np.where(covered, np.maximum(samples.luminance, Samples.floor), np.nan)
             found = levels[subject]
-            count = min(size, found.size)
+            count = min(self.size, found.size)
             colors, points, raw = samples.color[subject].astype(np.float64), positions[subject], samples.luminance[subject]
             coordinates = 2.0 * points - 1.0
             ordered = np.argsort(found, stable=True)
@@ -146,12 +152,12 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             derivative = float(np.abs(gradients[subject[..., None] & np.isfinite(gradients)]).max(initial=0.0))
             variation = derivative + float(upper - lower)
             hardness = derivative / variation if variation > 0.0 else 0.0
-            split = float(np.linalg.norm(cues[0])) * min(1.0, spread / cls.split_range)
+            split = float(np.linalg.norm(cues[0])) * min(1.0, spread / self.split_range)
             border = covered & ~central
             rim = (
                 Some(levels[border])
                 .filter(lambda held: held.size > 0)
-                .map(lambda held: samples.color[border & (levels >= np.percentile(held, cls.highlights, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
+                .map(lambda held: samples.color[border & (levels >= np.percentile(held, self.highlights, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
                 .map(lambda mean: msgspec.convert(mean.tolist(), Rgb))
             )
             center_levels, border_levels, ring_levels = levels[central], levels[border], levels[subject & ~core]
@@ -179,7 +185,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             kept = [0]
             for index in range(1, ordered_clusters.size):
                 nearest = kept[int(np.argmin(distances[index, kept]))]
-                if distances[index, nearest] < cls.separation:
+                if distances[index, nearest] < self.separation:
                     shares[nearest] += shares[index]
                 else:
                     kept.append(index)
@@ -190,7 +196,7 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             )
             return White.of(config, key).map(
                 lambda white: Some(
-                    cls(
+                    LightingReading(
                         key=key,
                         fill=fill,
                         ambient=ambient,
@@ -211,14 +217,13 @@ class LightingReading(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return (
-            ImagingBufferFault
-            .checked(OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(plane), filtername="triangle", roi=OpenImageIO.ROI(0, min(cls.grid, plane.shape[1]), 0, min(cls.grid, plane.shape[0]))))
-            .bind(ImagingBufferFault.pixels)
-            .bind(lambda pixels: paired(Samples.of(config, pixels), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)))
-            .bind(read)
+            checked(OpenImageIO.ImageBufAlgo.fit(OpenImageIO.ImageBuf(plane), filtername="triangle", roi=OpenImageIO.ROI(0, min(self.grid, plane.shape[1]), 0, min(self.grid, plane.shape[0]))))
+            .bind(pixels)
+            .bind(lambda values: paired(Samples.of(config, values), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)))
+            .bind(measured)
         )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LightingMood", "LightingReading", "PaletteEntry"]
+__all__ = ["Lighting", "LightingMood", "LightingReading", "PaletteEntry"]

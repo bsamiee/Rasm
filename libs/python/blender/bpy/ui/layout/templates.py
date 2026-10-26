@@ -2,11 +2,15 @@
 
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from typing import Final, override
+from types import MappingProxyType
+import typing
+from typing import ClassVar, Final, override, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
+import msgspec
 from msgspec import UNSET, UnsetType
+import msgspec.inspect
 from msgspec.structs import fields
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +20,8 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import redrawn
 from blender.bpy.extension.scoped import Scoped
-from blender.bpy.faults import BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
+from blender.bpy.nodes.ramps import Ramp
 from blender.bpy.settings import shapes
 from blender.bpy.ui.drawing.canvas import PROGRAMS
 from blender.bpy.ui.drawing.handlers import Part, Refresh, refreshing
@@ -24,8 +29,8 @@ from blender.bpy.ui.drawing.offscreen import Offscreen
 from blender.bpy.ui.layout.rows import alerted, At, Binding, Bound, bound, FUNCTIONS, gridded, Line, Member, realized, refused, ResolvedMember, RowContent, RowDraw
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics, Theme
-from blender.imaging.faults import accumulated
-from blender.imaging.parameters import heading, Rgb
+from blender.records.faults import accumulated, paired
+from blender.records.fields import heading, Knot, Rgb
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -219,6 +224,53 @@ class ImageFormat(Bound, frozen=True, kw_only=True):
             layout.template_image_views(settings)
 
 
+class NodeField(msgspec.Struct, frozen=True, kw_only=True):
+    """Owned node editing one record field under its heading, the field's msgspec type choosing the editor."""
+
+    node: Key
+    heading: str
+    shape: msgspec.inspect.Type
+
+
+class NodeEditors(msgspec.Struct, frozen=True, kw_only=True):
+    """Native editors of node fields: a knot field's curve editor per curve node kind at its channel tab, a ramp field's color ramp editor, else the node's inputs."""
+
+    curves: Mapping[type[bpy.types.Node], RowDraw]
+    ramp: RowDraw
+    tabs: ClassVar[Mapping[type[bpy.types.Node], str]] = MappingProxyType({
+        bpy.types.CompositorNodeCurveRGB: "COLOR",
+        bpy.types.CompositorNodeHueCorrect: "HUE",
+        bpy.types.ShaderNodeFloatCurve: "NONE",
+        bpy.types.ShaderNodeRGBCurve: "COLOR",
+        bpy.types.ShaderNodeVectorCurve: "VECTOR",
+    })
+
+    @classmethod
+    def realized(cls, identity: Identity) -> BlenderResult[Self]:
+        """Realizes every curve editor and the ramp editor once."""
+        return paired(
+            accumulated(realized(Curve(target=Member(root=kind, path="mapping"), type=tab), identity).map(lambda draw: (kind, draw)) for kind, tab in cls.tabs.items()).map(dict),
+            realized(ColorRamp(target=Member(root=bpy.types.ShaderNodeValToRGB, path="color_ramp")), identity),
+        ).map(lambda parts: cls(curves=parts[0], ramp=parts[1]))
+
+    def drawn(self, layout: bpy.types.UILayout, node: bpy.types.Node, field: NodeField, context: bpy.types.Context) -> BlenderResult[None]:
+        """Draws the field's heading over its node's native editor, no editor for a tuple of other items."""
+        inner = layout.column()
+        inner.use_property_split = False
+        inner.label(text=field.heading)
+        match field.shape:
+            case msgspec.inspect.VarTupleType(item_type=msgspec.inspect.StructType(cls=kind)) if (typing.get_origin(kind) or kind) is Knot:
+                return Option.of_optional(self.curves.get(type(node))).map(lambda draw: draw(inner, node, context)).to_result_with(lambda: (BlenderAbsentFault(owner=repr(node), key="mapping"),))
+            case msgspec.inspect.StructType(cls=kind) if kind is Ramp:
+                self.ramp(inner, node, context)
+                return Ok(None)
+            case msgspec.inspect.VarTupleType():
+                return Ok(None)
+            case _:
+                inner.template_node_inputs(node)
+                return Ok(None)
+
+
 class Picture[S](Line, frozen=True, kw_only=True):
     """Part drawn offscreen at its size into a generated preview, shown as an icon and redrawn on each refresh."""
 
@@ -280,4 +332,21 @@ GENERATIONS: Final = Scoped[dict[Key, int]](made=lambda _identity: nullcontext({
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["GENERATIONS", "ColorRamp", "Curve", "Histogram", "IconView", "ImageFormat", "LightLinking", "Pages", "Picture", "Preview", "Shortcut", "Vectorscope", "Waveform", "Wheel"]
+__all__ = [
+    "GENERATIONS",
+    "ColorRamp",
+    "Curve",
+    "Histogram",
+    "IconView",
+    "ImageFormat",
+    "LightLinking",
+    "NodeEditors",
+    "NodeField",
+    "Pages",
+    "Picture",
+    "Preview",
+    "Shortcut",
+    "Vectorscope",
+    "Waveform",
+    "Wheel",
+]

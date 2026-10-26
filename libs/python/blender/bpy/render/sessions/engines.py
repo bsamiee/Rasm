@@ -16,7 +16,7 @@ from blender.bpy.extension.registration import Acquisitions, Band, entered
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.render.outputs.exports import COMBINED
-from blender.imaging.faults import accumulated
+from blender.records.faults import accumulated
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -60,8 +60,8 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     stamps: tuple[tuple[str, str], ...] = ()
 
 
-class Shot(msgspec.Struct, frozen=True, kw_only=True):
-    """Engine with its render depsgraph, scene, and view layer."""
+class RenderRequest(msgspec.Struct, frozen=True, kw_only=True):
+    """Engine, render depsgraph, scene, and view layer of one render call."""
 
     engine: bpy.types.RenderEngine
     depsgraph: bpy.types.Depsgraph
@@ -118,7 +118,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
     combined: ClassVar[Pass] = Pass(name=COMBINED, chanid="RGBA")
     key: Key
     title: str
-    render: Callable[[Shot], Iterable[BlenderResult[Tile]]]
+    render: Callable[[RenderRequest], Iterable[BlenderResult[Tile]]]
     enabled: frozenset[Descriptor[bpy.types.BoolProperty]] = frozenset()
     passes: tuple[Pass, ...] | Callable[[bpy.types.Scene, bpy.types.ViewLayer], tuple[Pass, ...]] = ()
     viewport: Option[Viewport] = Nothing
@@ -139,13 +139,13 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
         def render(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph) -> None:
             """Writes body tiles and reports each fault at ERROR level."""
-            shot: BlenderResult[Shot] = (
+            request: BlenderResult[RenderRequest] = (
                 Option
                 .of_optional(depsgraph.scene)
-                .bind(lambda scene: Option.of_optional(depsgraph.view_layer).map(lambda layer: Shot(engine=engine, depsgraph=depsgraph, scene=scene, layer=layer)))
+                .bind(lambda scene: Option.of_optional(depsgraph.view_layer).map(lambda layer: RenderRequest(engine=engine, depsgraph=depsgraph, scene=scene, layer=layer)))
                 .to_result_with(lambda: (BlenderAbsentFault(owner=repr(depsgraph), key="view_layer"),))
             )
-            for _, text in Result[Shot, BlenderFaults].bind(shot, lambda held: held.written(self.render(held))).swap().map(rendered).default_value(()):
+            for _, text in Result[RenderRequest, BlenderFaults].bind(request, lambda held: held.written(self.render(held))).swap().map(rendered).default_value(()):
                 engine.report({"ERROR"}, text)
 
         namespace: dict[str, object] = {
@@ -204,7 +204,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
         def passes(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> tuple[Pass, ...]:
             return tuple({held.name: held for tile in matching(scene, layer) for held, _image in tile.planes if held.name != cls.combined.name}.values())
 
-        replay = cls(key=key, title="Captured Render", render=lambda shot: map(Ok, matching(shot.scene, shot.layer)), passes=passes, enabled=frozenset({POSTPROCESS}))
+        replay = cls(key=key, title="Captured Render", render=lambda request: map(Ok, matching(request.scene, request.layer)), passes=passes, enabled=frozenset({POSTPROCESS}))
         with ExitStack() as scope:
             yield identity.name(Name.ENGINE, key).bind(lambda name: entered(scope, (replay.built(identity, name),)).map(lambda _: name))
 
@@ -233,4 +233,4 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FLAGS", "POSTPROCESS", "Baking", "Captured", "Engine", "Pass", "Shot", "Tile", "Viewport"]
+__all__ = ["FLAGS", "POSTPROCESS", "Baking", "Captured", "Engine", "Pass", "RenderRequest", "Tile", "Viewport"]

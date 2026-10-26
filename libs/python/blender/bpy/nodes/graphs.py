@@ -1,4 +1,4 @@
-"""Desired node graphs, graph content, owned groups, and the graph expression algebra lowering onto them."""
+"""Desired node graphs, graph content, owned groups, the graph expression algebra lowering onto them, and its Array API namespace."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 import inspect
@@ -19,10 +19,12 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.bpy.nodes.interface import Interface, item_key, MenuItems, Socket
+from blender.bpy.nodes.ramps import Ramp
 from blender.bpy.nodes.trees import GraphTree, GROUP_NODES
-from blender.imaging.faults import accumulated
-from blender.imaging.hashing import content_hash, ContentHash
-from blender.imaging.parameters import heading, markers, Ramp
+from blender.imaging.geometry.arithmetic import Namespace
+from blender.records.faults import accumulated
+from blender.records.fields import heading, markers
+from blender.records.identity import content_hash, ContentHash
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -592,6 +594,104 @@ def _spread(term: Term, shape: DataType) -> Term:
             return term
 
 
+# --- [NAMESPACE]
+
+
+class _Nodes:
+    """Array API elementwise functions as Math and Vector Math nodes, conditions as 0 and 1 values."""
+
+    def negative(self, x: Expr, /) -> Expr:
+        """Negation."""
+        return -x
+
+    def abs(self, x: Expr, /) -> Expr:
+        """Magnitude."""
+        return abs(x)
+
+    def sqrt(self, x: Expr, /) -> Expr:
+        """Square root."""
+        return math("SQRT", x)
+
+    def sin(self, x: Expr, /) -> Expr:
+        """Sine of radians."""
+        return math("SINE", x)
+
+    def cos(self, x: Expr, /) -> Expr:
+        """Cosine of radians."""
+        return math("COSINE", x)
+
+    def tan(self, x: Expr, /) -> Expr:
+        """Tangent of radians."""
+        return math("TANGENT", x)
+
+    def asin(self, x: Expr, /) -> Expr:
+        """Inverse sine in radians."""
+        return math("ARCSINE", x)
+
+    def atan(self, x: Expr, /) -> Expr:
+        """Inverse tangent in radians."""
+        return math("ARCTANGENT", x)
+
+    def atan2(self, x1: Expr, x2: Expr, /) -> Expr:
+        """Quadrant-aware inverse tangent of `x1 / x2`."""
+        return math("ARCTAN2", x1, x2)
+
+    def hypot(self, x1: Expr, x2: Expr, /) -> Expr:
+        """Length of the vector of `x1` and `x2`."""
+        return vector("LENGTH", xyz(x1, x2))
+
+    def log(self, x: Expr, /) -> Expr:
+        """Natural logarithm."""
+        return math("LOGARITHM", x, np.e)
+
+    def floor(self, x: Expr, /) -> Expr:
+        """Greatest integer at or below."""
+        return math("FLOOR", x)
+
+    def remainder(self, x1: Expr, x2: Expr | float, /) -> Expr:
+        """Floored modulo, taking the sign of `x2`."""
+        return x1 % x2
+
+    def minimum(self, x1: Expr, x2: Expr | float, /) -> Expr:
+        """Lesser value."""
+        return math("MINIMUM", x1, x2)
+
+    def maximum(self, x1: Expr, x2: Expr | float, /) -> Expr:
+        """Greater value."""
+        return math("MAXIMUM", x1, x2)
+
+    def less(self, x1: Expr, x2: Expr | float, /) -> Expr:
+        """1 where `x1` lies below `x2`."""
+        return x1 < x2
+
+    def greater(self, x1: Expr, x2: Expr | float, /) -> Expr:
+        """1 where `x1` lies above `x2`."""
+        return x1 > x2
+
+    def less_equal(self, x1: Expr, x2: Expr | float, /) -> Expr:
+        """1 where `x1` lies at or below `x2`."""
+        return 1.0 - (x1 > x2)
+
+    def greater_equal(self, x1: Expr, x2: Expr | float, /) -> Expr:
+        """1 where `x1` lies at or above `x2`."""
+        return 1.0 - (x1 < x2)
+
+    def logical_and(self, x1: Expr, x2: Expr, /) -> Expr:
+        """1 where both conditions hold."""
+        return x1 * x2
+
+    def logical_or(self, x1: Expr, x2: Expr, /) -> Expr:
+        """1 where either condition holds."""
+        return math("MAXIMUM", x1, x2)
+
+    def where(self, condition: Expr, x1: Expr | float, x2: Expr | float, /) -> Expr:
+        """`x1` where `condition` holds, else `x2`, per pixel."""
+        return where(condition, x1, x2)
+
+
+NODES: Final[Namespace[Expr, Expr]] = _Nodes()
+
+
 # --- [LOWERING]
 
 
@@ -695,6 +795,7 @@ def lowered(*roots: Expr) -> BlenderResult[Fragment]:
 
 __all__ = [
     "INPUTS",
+    "NODES",
     "OUTPUTS",
     "RESULT",
     "SOCKETS",

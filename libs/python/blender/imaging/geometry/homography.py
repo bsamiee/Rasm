@@ -1,14 +1,16 @@
-"""Closed-form projective maps between convex image quads and unit plane."""
+"""Projective maps between convex image quads and the unit plane."""
 
 from typing import Self
 
-from expression import Nothing, Option, Some
+from expression import Error, Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
+from skimage.transform import ProjectiveTransform
 
-from blender.imaging.analysis.metering import Region
-from blender.imaging.parameters import Position
+from blender.imaging.faults import ImagingResult
+from blender.imaging.geometry.regions import Position, Region
+from blender.records.faults import DomainFault
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -36,32 +38,32 @@ class Quad(msgspec.Struct, frozen=True, kw_only=True):
         """Corner positions with unit coverage in declaration order."""
         return np.array([(*corner, 1.0) for corner in msgspec.structs.astuple(self)])
 
-
-class Homography(msgspec.Struct, frozen=True, kw_only=True):
-    """Projective map between strictly convex quad and unit plane."""
-
-    quad: Quad
-
-    @classmethod
-    def of(cls, quad: Quad) -> Option[Self]:
-        """Returns map of quad whose corner turns share one sign."""
-        corners = quad.samples[:, :2]
+    @property
+    def convex(self) -> bool:
+        """Whether every corner turn shares one sign."""
+        corners = self.samples[:, :2]
         edges = np.roll(corners, -1, axis=0) - corners
         following = np.roll(edges, -1, axis=0)
         turns = edges[:, 0] * following[:, 1] - edges[:, 1] * following[:, 0]
-        return Some(cls(quad=quad)) if bool((turns > 0.0).all() or (turns < 0.0).all()) else Nothing
+        return bool((turns > 0.0).all() or (turns < 0.0).all())
 
-    @property
-    def matrix(self) -> npt.NDArray[np.float64]:
-        """Square-to-quad coefficients with positive near-side homogeneous scale."""
-        (x0, y0), (x1, y1), (x2, y2), (x3, y3) = self.quad.bottom_left, self.quad.bottom_right, self.quad.top_right, self.quad.top_left
-        sx, sy = x0 - x1 + x2 - x3, y0 - y1 + y2 - y3
-        turn = (x1 - x2) * (y3 - y2) - (x3 - x2) * (y1 - y2)
-        sign = 1.0 if turn > 0.0 else -1.0
-        g = (sx * (y3 - y2) - (x3 - x2) * sy) * sign
-        h = ((x1 - x2) * sy - sx * (y1 - y2)) * sign
-        i = abs(turn)
-        return np.array((((x1 - x0) * i + g * x1, (x3 - x0) * i + h * x3, x0 * i), ((y1 - y0) * i + g * y1, (y3 - y0) * i + h * y3, y0 * i), (g, h, i)), dtype=np.float64)
+
+class Homography(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Projective map from the unit plane onto a strictly convex quad, homogeneous scale one at the plane origin."""
+
+    quad: Quad
+    matrix: npt.NDArray[np.float64]
+
+    @classmethod
+    def of(cls, quad: Quad) -> ImagingResult[Option[Self]]:
+        """Returns map of `quad`, absent for a quad that is not strictly convex, domain fault when its corners admit no projective map."""
+        if not quad.convex:
+            return Ok(Nothing)
+        match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):  # type: ignore[no-untyped-call]
+            case ProjectiveTransform() as found:
+                return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))
+            case failed:
+                return Error((DomainFault(subject="Homography", value=msgspec.structs.astuple(quad), accepted=f"corners of a projective quad, {failed}"),))
 
     def to_image(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps plane samples to image, zero coverage beyond vanishing line."""

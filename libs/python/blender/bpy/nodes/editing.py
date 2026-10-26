@@ -12,7 +12,7 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.nodes.changes import made, valued
 from blender.bpy.nodes.graphs import NodeGroup
 from blender.bpy.nodes.interface import addresses, slot
@@ -20,7 +20,7 @@ from blender.bpy.nodes.placement import NodeSize, NodeSpacing
 from blender.bpy.nodes.trees import created, GraphTree, GROUP_NODES, grouped, joined, ordered
 from blender.bpy.ui.screens.areas import Located
 from blender.bpy.ui.screens.regions import RegionView
-from blender.imaging.faults import accumulated, paired
+from blender.records.faults import accumulated, DomainFault, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ class Chosen(msgspec.Struct, frozen=True, kw_only=True):
                     case None:
                         return Error((BlenderAbsentFault(owner=repr(space), key="edit_tree"),))
                     case other:
-                        return Error((BlenderChoiceFault(path="edit_tree", identifier=type(other).__name__, accepted=tuple(kind.__name__ for kind in accepted)),))
+                        return Error((DomainFault(subject="edit_tree", value=type(other).__name__, accepted=", ".join(kind.__name__ for kind in accepted)),))
             case _:
                 return Error((BlenderAbsentFault(owner=repr(context), key="SpaceNodeEditor.WINDOW"),))
 
