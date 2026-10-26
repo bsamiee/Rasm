@@ -13,7 +13,6 @@ using Grasshopper2.UI.Sparkles;
 using Rasm.Rhino;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Drawing;
-using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Geometry.Intersect;
 
@@ -180,14 +179,11 @@ public static class CanvasPainting {
         Optional(control as Control).Bind(static host => Optional(host.ParentWindow)).Map(static window => window.LogicalPixelSize);
 
     // --- [SPARKLES]
-    public static IO<Unit> Spark(FlexControl control, ISparkle sparkle) =>
-        IO.lift(static () => HostTheme.Accessibility.ReduceMotion).Bind(reduced => unless(reduced, IO.lift(() => control.AddSparkle(sparkle))).As());
-
     public static IO<Unit> Spark(
         FlexControl control, Grasshopper2.UI.Animation.Duration duration, Motion motion, bool attachedToContent,
         Func<PlotCanvas, double, IO<Unit>> marks, IPlugInSink sink) =>
         IO.lift(() => new CanvasSparkle(control, duration, motion, attachedToContent, marks, new CallbackSite(sink, typeof(CanvasSparkle), nameof(ISparkle.Draw))))
-            .Bind(sparkle => Spark(control, sparkle));
+            .Bind(sparkle => IO.lift(() => control.AddSparkle(sparkle)));
 
     // --- [WIRES]
     private static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));

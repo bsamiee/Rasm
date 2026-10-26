@@ -158,7 +158,6 @@ Identity and lookup follow host keys:
 - Struct wrappers rebuild per access and ID wrappers per class refinement
 - `bl_rna.identifier` names a refined subtype (`SunLight`), and dispatch matches base classes through `isinstance` or a class pattern
 - Collection struct type tests (`ObjectModifiers`) never match a `bpy_prop_collection` value, and code binds the collection's own member
-- `data.rna.descriptors.subclass` builds a native class on first read, and `bl_rna_get_subclass_py` answers `None` for one nothing read yet
 - RNA members of a class test through `name in T.bl_rna.properties` or `T.bl_rna.functions`
 - Pinned RNA members resolve once through module-level `Descriptor.declared`, and members named at run time through `Descriptor.resolve`
 - Operators test through `"<name>" in dir(bpy.ops.<module>)` and list parameters through `get_rna_type().properties`, `hasattr` answering true for any name

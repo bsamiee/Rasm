@@ -1,2 +1,0 @@
-#0 `conduit.Enabled = true` toggles a conduit outside `Conduits`, and a disabled conduit keeps its pixels until a redraw. Enable it through `Conduits.Enable`
-#1 `conduit.Enabled = false` toggles a conduit outside `Conduits`, and a disabled conduit keeps its pixels until a redraw. Enable it through `Conduits.Enable`

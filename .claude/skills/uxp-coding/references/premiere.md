@@ -35,8 +35,8 @@ Getters return base classes, and each class's static `cast` narrows one or retur
 import type { Project, premierepro } from '@adobe/premierepro';
 
 const folders = (host: premierepro, project: Project) =>
-    Effect.tryPromise(() => project.getRootItem()).pipe(
-        Effect.flatMap((root) => Effect.tryPromise(() => root.getItems())),
+    Effect.tryPromise({ try: () => project.getRootItem(), catch: (cause) => new HostError({ step: project.name, cause }) }).pipe(
+        Effect.flatMap((root) => Effect.tryPromise({ try: () => root.getItems(), catch: (cause) => new HostError({ step: root.name, cause }) })),
         Effect.map(Array.flatMap((item) => Array.fromNullishOr(host.FolderItem.cast(item)))),
     );
 ```
@@ -64,7 +64,7 @@ Edits are actions built and added inside one `lockedAccess` callback, and `addAc
 ```ts
 import type { Project, ProjectItem } from '@adobe/premierepro';
 
-const renamed = (project: Project, items: readonly ProjectItem[], undo: string, name: (item: ProjectItem) => string): Effect.Effect<number, Cause.UnknownError> =>
+const renamed = (project: Project, items: readonly ProjectItem[], undo: string, name: (item: ProjectItem) => string) =>
     Effect.try({
         try: () => {
             const refused: string[] = [];
@@ -76,15 +76,8 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
             });
             return refused;
         },
-        catch: (cause) => new Cause.UnknownError(cause, undo),
-    }).pipe(
-        Effect.flatMap(
-            Array.match({
-                onEmpty: () => Effect.succeed(items.length),
-                onNonEmpty: (refused) => Effect.fail(new Cause.UnknownError({ refused }, undo)),
-            }),
-        ),
-    );
+        catch: (cause) => new HostError({ step: undo, cause }),
+    }).pipe(Effect.flatMap(Array.match({ onEmpty: () => Effect.succeed(items.length), onNonEmpty: (refused) => Effect.fail(new HostError({ step: undo, cause: { refused } })) })));
 ```
 
 `renamed` returns its count over items its caller read before the lock, or fails with `refused` naming each item `addAction` refused beside a transaction that executed every other action. Actions build before the first `addAction`, where a throwing `name` adds none, and actions added before a throw inside the transaction callback still execute. `lockedAccess` returns `true` and drops its callback's value, and `refused` leaves through an outer array.
@@ -110,13 +103,9 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
 ```ts
 import type { Project, premierepro } from '@adobe/premierepro';
 
-const dirtied = <E>(
-    host: premierepro,
-    project: Project,
-    work: (event: object | undefined) => Effect.Effect<void, E>,
-): Effect.Effect<void, never, Scope.Scope> =>
+const dirtied = <E>(host: premierepro, project: Project, work: (event: object | undefined) => Effect.Effect<void, E>) =>
     listening(
-        (handler: (event?: object) => void) => host.EventManager.addEventListener(project, host.Constants.ProjectEvent.DIRTY, handler),
+        (handler) => host.EventManager.addEventListener(project, host.Constants.ProjectEvent.DIRTY, handler),
         (handler) => host.EventManager.removeEventListener(project, host.Constants.ProjectEvent.DIRTY, handler),
         work,
     );

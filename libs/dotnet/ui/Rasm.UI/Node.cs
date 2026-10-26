@@ -4,6 +4,7 @@ using System.Reflection;
 using Rasm.UI.Styling;
 using SkiaSharp;
 using Topten.RichTextKit;
+using Wacton.Unicolour;
 
 namespace Rasm.UI;
 
@@ -18,13 +19,51 @@ public sealed partial class ImageFit {
     public partial SKRect Fitted(SKRect content, SKSize natural);
 }
 
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ImageRendering {
+    private static readonly SKSamplingOptions Smooth = new(SKFilterMode.Linear, SKMipmapMode.Linear);
+    private static readonly SKSamplingOptions Nearest = new(SKFilterMode.Nearest, SKMipmapMode.None);
+
+    public static readonly ImageRendering Auto = new("auto", Smooth, Smooth);
+    public static readonly ImageRendering HighQuality = new("high-quality", new SKSamplingOptions(SKCubicResampler.Mitchell), Smooth);
+    public static readonly ImageRendering CrispEdges = new("crisp-edges", Nearest, Nearest);
+    public static readonly ImageRendering Pixelated = new("pixelated", Nearest, Smooth);
+
+    private readonly SKSamplingOptions magnified;
+    private readonly SKSamplingOptions minified;
+
+    internal SKSamplingOptions Sampling(float density) => density > 1f ? magnified : minified;
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GlyphSource {
-    public sealed record Tinted(Assembly Assembly, string Resource) : GlyphSource;
+    internal abstract Seq<(Assembly Assembly, string Resource)> Resources { get; }
 
-    public sealed record Paired(Assembly Assembly, string Light, string Dark) : GlyphSource;
+    internal abstract (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded);
 
-    public sealed record Picture(SKPicture Art) : GlyphSource;
+    public sealed record Tinted(Assembly Assembly, string Resource) : GlyphSource {
+        internal override Seq<(Assembly Assembly, string Resource)> Resources => [(Assembly, Resource)];
+
+        internal override (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded) => (recorded(Assembly, Resource), true);
+    }
+
+    public sealed record Paired(Assembly Assembly, string Light, string Dark) : GlyphSource {
+        private static readonly Unicolour White = new(ColourSpace.Rgb, 1.0, 1.0, 1.0);
+        private static readonly Unicolour Black = new(ColourSpace.Rgb, 0.0, 0.0, 0.0);
+
+        internal override Seq<(Assembly Assembly, string Resource)> Resources => [(Assembly, Light), (Assembly, Dark)];
+
+        internal override (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded) =>
+            (recorded(Assembly, ground.ToUnicolour() switch { var under => under.Contrast(White) > under.Contrast(Black) ? Dark : Light }), false);
+    }
+
+    public sealed record Picture(SKPicture Art) : GlyphSource {
+        internal override Seq<(Assembly Assembly, string Resource)> Resources => [];
+
+        internal override (SKPicture Art, bool Tinted) Shown(SKColorF ground, Func<Assembly, string, SKPicture> recorded) => (Art, true);
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -148,7 +187,7 @@ public abstract partial record Node {
     public sealed record Image(SKImage Source) : Node {
         public ImageFit Fit { get; init; } = ImageFit.Stretch;
         public float Density { get; init; } = 1f;
-        public SKSamplingOptions Sampling { get; init; } = new(SKFilterMode.Linear, SKMipmapMode.Linear);
+        public ImageRendering Rendering { get; init; } = ImageRendering.Auto;
         public Option<Series> Series { get; init; }
     }
 

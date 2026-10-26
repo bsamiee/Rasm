@@ -16,7 +16,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         Domain,
         "Catch-all arm over smart enum or union",
         "Catch-all arm over `{0}` hides unhandled cases. Call generated `Switch` or `Map` with one argument per case",
-        "Catch-all arm in a `switch` over a Thinktecture union or smart enum whose other arms name a case.");
+        "Catch-all arm in a `switch` over a Thinktecture union or smart enum with other arms naming a case.");
 
     public static readonly DiagnosticDescriptor Validation = Rule(
         "RASM1102",

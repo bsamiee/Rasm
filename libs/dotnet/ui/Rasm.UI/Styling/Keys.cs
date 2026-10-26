@@ -77,4 +77,6 @@ public sealed partial class Metric {
     public static readonly Metric FontSize = new("font-size");
     public static readonly Metric Spacing = new("spacing");
     public static readonly Metric Slop = new("slop");
+    public static readonly Metric Fine = new("fine");
+    public static readonly Metric Notch = new("notch");
 }

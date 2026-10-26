@@ -4,6 +4,7 @@ using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Imaging.Color;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI.Styling;
 using Wacton.Unicolour;
 
 namespace Rasm.Rhino.UI.Drawing;
@@ -236,19 +237,19 @@ public sealed partial class LabelSide {
 }
 
 public sealed record PlotCanvas {
-    private PlotCanvas(Graphics graphics, float scale, Font font, bool enabled, bool focused, DisplayOptions accessibility, HashMap<PaintSlot, Color> slots) =>
-        (Graphics, Scale, Font, Enabled, Focused, Accessibility, Slots) = (graphics, scale, font, enabled, focused, accessibility, slots);
+    private PlotCanvas(Graphics graphics, float scale, Font font, bool enabled, bool focused, LanguageExt.HashSet<Condition> conditions, HashMap<PaintSlot, Color> slots) =>
+        (Graphics, Scale, Font, Enabled, Focused, Conditions, Slots) = (graphics, scale, font, enabled, focused, conditions, slots);
 
     public Graphics Graphics { get; }
     public float Scale { get; }
     public Font Font { get; }
     public bool Enabled { get; }
     public bool Focused { get; }
-    public DisplayOptions Accessibility { get; }
+    public LanguageExt.HashSet<Condition> Conditions { get; }
     public HashMap<PaintSlot, Color> Slots { get; }
 
     public static IO<PlotCanvas> Of(Graphics graphics, float scale, Font font, bool enabled, bool focused) =>
-        IO.lift(() => new PlotCanvas(graphics, scale, font, enabled, focused, HostTheme.Accessibility, toHashMap(PaintSlot.Items.Select(static slot => (slot, slot.Read())))));
+        IO.lift(() => new PlotCanvas(graphics, scale, font, enabled, focused, HostTheme.Conditions, toHashMap(PaintSlot.Items.Select(static slot => (slot, slot.Read())))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -297,7 +298,7 @@ public static class Plots {
             style.Switch(
                 canvas,
                 fill: static (_, fill) => fill.Alpha,
-                stroke: static (held, stroke) => held.Accessibility.IncreaseContrast ? null : (float?)stroke.Alpha));
+                stroke: static (held, stroke) => held.Conditions.Contains(Condition.IncreaseContrast) ? null : (float?)stroke.Alpha));
 
     public static IO<Unit> Well(PlotCanvas canvas, RectangleF well) =>
         IO.lift(() => canvas.Graphics.FillRectangle(canvas.Slots[PaintSlot.ListBackground], well));
@@ -355,7 +356,7 @@ public static class Plots {
                 canvas,
                 themed: static (_, _) => DashStyles.Solid,
                 @fixed: static (_, _) => DashStyles.Solid,
-                series: static (held, series) => held.Accessibility.DifferentiateWithoutColor ? series.Dash : DashStyles.Solid),
+                series: static (held, series) => held.Conditions.Contains(Condition.DifferentiateWithoutColor) ? series.Dash : DashStyles.Solid),
         };
         canvas.Graphics.DrawPath(pen, path);
     }

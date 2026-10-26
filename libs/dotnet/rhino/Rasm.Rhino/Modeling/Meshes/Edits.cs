@@ -51,17 +51,24 @@ public static class MeshEdits {
                 : state.Token.IsCancellationRequested ? Errors.Cancelled : new Refused(nameof(Mesh.Reduce), Refused.Declined)),
             weld: static (state, of) => IO.lift(() => state.Copy.Weld(of.AngleToleranceRadians, of.PreserveSurfaceParameters)),
             unweld: static (state, of) => IO.lift(() => state.Copy.Unweld(of.AngleToleranceRadians, of.ModifyNormals)),
-            unweldEdge: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.UnweldEdge(of.EdgeIndices, of.ModifyNormals), nameof(Mesh.UnweldEdge))),
+            unweldEdge: static (state, of) =>
+                IO.lift(() => Copies.Within(state.Copy, ComponentIndexType.MeshTopologyEdge, of.EdgeIndices))
+                    .Bind(edges => IO.lift(() => Refused.Unless(state.Copy.UnweldEdge(edges, of.ModifyNormals), nameof(Mesh.UnweldEdge)))),
             healNakedEdges: static (state, of) => IO.lift(() => ignore(state.Copy.HealNakedEdges(of.Distance))),
             fillHoles: static (state, _) => IO.lift(() => Refused.Unless(state.Copy.FillHoles(), nameof(Mesh.FillHoles))),
-            fillHole: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.FillHole(of.TopologyEdgeIndex), nameof(Mesh.FillHole))),
+            fillHole: static (state, of) =>
+                IO.lift(() => Copies.Within(state.Copy, ComponentIndexType.MeshTopologyEdge, Seq(of.TopologyEdgeIndex)))
+                    .Bind(_ => IO.lift(() => Refused.Unless(state.Copy.FillHole(of.TopologyEdgeIndex), nameof(Mesh.FillHole)))),
             matchEdges: static (state, of) => IO.lift(() => ignore(state.Copy.MatchEdges(of.Distance, of.Rachet))),
             mergeAllCoplanarFaces: static (state, _) => IO.lift(() => ignore(state.Copy.MergeAllCoplanarFaces(state.Tolerances.Absolute, state.Tolerances.Angle))),
-            smooth: static (state, of) => IO.lift(() => Refused.Unless(
-                of.VertexIndices.Match(
-                    Some: vertices => state.Copy.Smooth(vertices, of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane),
-                    None: () => state.Copy.Smooth(of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane)),
-                nameof(Mesh.Smooth))),
+            smooth: static (state, of) => of.VertexIndices.Match(
+                Some: indices => IO.lift(() => Copies.Within(state.Copy, ComponentIndexType.MeshVertex, indices))
+                    .Bind(vertices => IO.lift(() => Refused.Unless(
+                        state.Copy.Smooth(vertices, of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane),
+                        nameof(Mesh.Smooth)))),
+                None: () => IO.lift(() => Refused.Unless(
+                    state.Copy.Smooth(of.Options.Factor, of.NumSteps, of.Options.X, of.Options.Y, of.Options.Z, of.Options.FixBoundaries, of.Options.Coordinates.System, of.Options.Coordinates.Plane),
+                    nameof(Mesh.Smooth)))),
             collapseFacesByEdgeLength: static (state, of) => IO.lift(() => Refused.Unless(state.Copy.CollapseFacesByEdgeLength(of.GreaterThan, of.EdgeLength) >= 0, nameof(Mesh.CollapseFacesByEdgeLength))),
             collapseFacesByArea: static (state, of) => IO.lift(() => ignore(state.Copy.CollapseFacesByArea(of.LessThanArea, of.GreaterThanArea))),
             collapseFacesByByAspectRatio: static (state, of) => IO.lift(() => ignore(state.Copy.CollapseFacesByByAspectRatio(of.AspectRatio))),
@@ -70,8 +77,8 @@ public static class MeshEdits {
             flip: static (state, of) => IO.lift(() => state.Copy.Flip(of.VertexNormals, of.FaceNormals, of.FaceOrientation, of.NgonsBoundaryDirection)),
             compact: static (state, _) => IO.lift(() => Refused.Unless(state.Copy.Compact(), nameof(Mesh.Compact))),
             subdivide: static (state, of) => of.FaceIndices.Match(
-                Some: faces => IO.lift(() => Copies.InRange(faces, state.Copy.Faces.Count, nameof(Mesh.Subdivide)))
-                    >> IO.lift(() => Refused.Unless(state.Copy.Subdivide(faces), nameof(Mesh.Subdivide))),
+                Some: indices => IO.lift(() => Copies.Within(state.Copy, ComponentIndexType.MeshFace, indices))
+                    .Bind(faces => IO.lift(() => Refused.Unless(state.Copy.Subdivide(faces), nameof(Mesh.Subdivide)))),
                 None: () => IO.lift(() => Refused.Unless(state.Copy.Subdivide(), nameof(Mesh.Subdivide)))));
 
     // --- [DERIVATIONS]
@@ -83,7 +90,8 @@ public static class MeshEdits {
             static made => DisposalOps.Release(made.Mesh), retain);
 
     public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure, Action<IDisposable> retain) =>
-        DisposalOps.Within(() => new MeshExtruder(source, components), extruder => Extruded(extruder, configure, retain));
+        IO.lift(() => Copies.Within(source, components))
+            .Bind(held => DisposalOps.Within(() => new MeshExtruder(source, held), extruder => Extruded(extruder, configure, retain)));
 
     private static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extruded(MeshExtruder extruder, Action<MeshExtruder> configure, Action<IDisposable> retain) =>
         IO.lift(() => configure(extruder)).Bind(_ => Copies.Owned(

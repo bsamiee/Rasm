@@ -157,7 +157,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
             host = (
                 {Word.SCENE: scene.name, Word.DATE: day.isoformat()}
                 | dict(Option.of_optional(scene.camera).map(lambda camera: (Word.CAMERA, camera.name)).to_list())
-                | dict(blend.map(lambda path: (Word.FILE, path.stem)).to_list())
+                | {Word.FILE: blend.map(lambda path: path.stem).default_with(lambda: bpy.app.translations.pgettext_data("Unsaved"))}
             )
             return parsed.map(
                 lambda found: cls(

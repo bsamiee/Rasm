@@ -909,7 +909,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             canvas.Graphics.DrawText(canvas.Font, Plots.Resolve(canvas, Letter), location, text);
         });
 
-    private static float Shade(PlotCanvas canvas) => canvas.Accessibility.ReduceTransparency ? 1f : 0.5f;
+    private static float Shade(PlotCanvas canvas) => canvas.Conditions.Contains(Rasm.UI.Styling.Condition.ReduceTransparency) ? 1f : 0.5f;
 
     private static IO<Unit> Glyphed(PlotCanvas canvas, FrameViewState state, SizeF size) =>
         (from caged in Caged(state)

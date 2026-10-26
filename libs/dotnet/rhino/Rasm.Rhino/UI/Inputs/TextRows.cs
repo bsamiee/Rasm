@@ -8,6 +8,7 @@ using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
@@ -76,7 +77,7 @@ public static class TextRows {
             select new RowCells(live, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None),
             caption, help, rules);
 
-    public static ControlRow Progress(string caption, string help, ReadoutSource<WorkState> source, RowRules rules) =>
+    public static ControlRow Progress<T>(string caption, string help, ReadoutSource<Content<T>> source, RowRules rules) where T : notnull =>
         new ControlRow.Readout(RowShape.Inline, (scope, retain) =>
             from live in Live(source, static (_, keep) =>
                 from bar in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.ProgressBar()), keep)
@@ -197,12 +198,15 @@ public static class TextRows {
     private static IO<Unit> Written(Func<string> read, Action<string> write, string shown) =>
         IO.lift(read).Bind(current => when(!string.Equals(current, shown, StringComparison.Ordinal), IO.lift(() => write(shown))).As());
 
-    private static IO<Unit> Indicated(Eto.Forms.ProgressBar bar, WorkState state) =>
+    private static IO<Unit> Indicated<T>(Eto.Forms.ProgressBar bar, Content<T> work) where T : notnull =>
         IO.lift(() => {
-            (bar.Visible, bar.Indeterminate, bar.MaxValue, bar.Value) = state.Switch(
-                inactive: static _ => (false, false, 1, 0),
-                indeterminate: static _ => (true, true, 1, 0),
-                counted: static counted => (true, false, counted.Meter.Total, counted.Meter.Done));
+            (bar.Visible, bar.Indeterminate, bar.MaxValue, bar.Value) = work.Switch(
+                pending: static pending => pending.Work.Match(
+                    Some: static progress => (true, false, progress.Positions.MaxValue, progress.Positions.Value),
+                    None: static () => (true, true, 1, 0)),
+                ready: static _ => (false, false, 1, 0),
+                empty: static _ => (false, false, 1, 0),
+                failed: static _ => (false, false, 1, 0));
         });
 
     private static IO<Unit> Pressed(Eto.Forms.KeyEventArgs args, HashMap<Eto.Forms.Keys, IO<Unit>> answers) =>

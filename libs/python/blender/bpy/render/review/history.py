@@ -55,7 +55,7 @@ from blender.imaging.hashing import content_hash, ContentHash
 
 entries = Choices(
     lambda identity, _owner, _context: tuple(
-        (entry.key.hex(), f"#{index}  {entry.moment.astimezone():%H:%M:%S}", entry.value, PREVIEWS.of(identity).icon_id(entry.key.hex()).default_value(0), index)
+        (entry.key.hex(), f"{named(history, entry)}  {entry.moment.astimezone():%H:%M:%S}", entry.value, PREVIEWS.of(identity).icon_id(entry.key.hex()).default_value(0), index)
         for history in identity.reports.reported(held)(identity).to_list()
         for index, entry in enumerate(history.entries, 1)
     )
@@ -146,11 +146,11 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
     folder: Operator[Empty]
 
     @classmethod
-    def of(cls, stack: EffectStack) -> Self:
-        """Builds operators binding the calling extension, the stack forming view layer frames."""
+    def of(cls, stack: EffectStack, signal: Signal) -> Self:
+        """Builds operators binding the calling extension, the stack forming view layer frames and the signal redrawing compares after each history edit."""
 
         def revised[T: msgspec.Struct](change: Callable[[Call[T], History[str], Entry[str]], History[str]]) -> Callable[[Call[T]], BlenderResult[Done]]:
-            return lambda call: chosen(call.identity, call.context).bind(lambda pair: kept(call.identity, pair[0], change(call, *pair))).map(lambda _: Done())
+            return lambda call: chosen(call.identity, call.context).bind(lambda pair: kept(call.identity, pair[0], change(call, *pair))).bind(lambda _: signal.fired()).map(lambda _: Done())
 
         def restored(call: Call[Empty]) -> BlenderResult[Outcome]:
             return (
@@ -204,7 +204,7 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def cleared(call: Call[Empty]) -> BlenderResult[Done]:
-            return held(call.identity).bind(lambda history: kept(call.identity, history, msgspec.structs.replace(history, entries=()))).map(lambda _: Done())
+            return held(call.identity).bind(lambda history: kept(call.identity, history, msgspec.structs.replace(history, entries=()))).bind(lambda _: signal.fired()).map(lambda _: Done())
 
         return cls(
             restore=Operator(key="history_restore", title="Restore Settings", description="Apply stored settings to scene", form=Empty, run=restored),
@@ -264,8 +264,8 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     @cached_property
     def commands(self) -> HistoryCommands:
-        """History operators over the stack."""
-        return HistoryCommands.of(self.stack)
+        """History operators over the stack, each edit firing the compare signal."""
+        return HistoryCommands.of(self.stack, self.signal)
 
     @cached_property
     def compare(self) -> CompareView:
@@ -446,10 +446,15 @@ def chosen(identity: Identity, context: bpy.types.Context) -> BlenderResult[tupl
     )
 
 
-def beneath(identity: Identity, context: bpy.types.Context) -> BlenderResult[Entry[str]]:
-    """Returns the stored render the editor shows, the newest for Render Result."""
+def named(history: History[str], entry: Entry[str]) -> str:
+    """Returns a stored render's note, `#n` by its newest-first place for an unnamed one."""
+    return entry.value or f"#{history.entries.index(entry) + 1}"
 
-    def shown(space: bpy.types.SpaceImageEditor, history: History[str]) -> BlenderResult[Entry[str]]:
+
+def beneath(identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[History[str], Entry[str]]]:
+    """Returns history and the stored render the editor shows, the newest for Render Result."""
+
+    def shown(space: bpy.types.SpaceImageEditor, history: History[str]) -> BlenderResult[tuple[History[str], Entry[str]]]:
         return (
             Option
             .of_optional(space.image)
@@ -458,23 +463,39 @@ def beneath(identity: Identity, context: bpy.types.Context) -> BlenderResult[Ent
                     next((entry for entry in history.entries if image.type == "RENDER_RESULT" or files(identity, entry.key)[0] == Path(bpy.path.abspath(image.filepath, library=image.library))), None)
                 )
             )
+            .map(lambda entry: (history, entry))
             .to_result_with(lambda: (BlenderAbsentFault(owner=str(record(identity).path), key=repr(space)),))
         )
 
     return paired(rooted(bpy.types.SpaceImageEditor, context), held(identity)).bind(lambda pair: shown(*pair))
 
 
+def shown(identity: Identity, context: bpy.types.Context) -> BlenderResult[str]:
+    """Returns the shown frame's history name, the image's own name for a frame history holds no entry of."""
+
+    def imaged(faults: BlenderFaults) -> BlenderResult[str]:
+        match faults:
+            case (BlenderAbsentFault(),):
+                return rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: Option.of_optional(space.image).map(lambda image: image.name).to_result_with(lambda: faults))
+            case _:
+                return Error(faults)
+
+    return Result[str, BlenderFaults].or_else_with(beneath(identity, context).map(lambda pair: named(*pair)), imaged)
+
+
 def side(identity: Identity, stack: EffectStack, context: bpy.types.Context, source: Source) -> BlenderResult[Before]:
-    """Returns the chosen stored render's output captioned by its note or number, or the shown frame's context view layer formed by scene color management."""
+    """Returns the chosen stored render's output captioned by its history name, or the shown frame's view layer ahead of effects formed by scene color management."""
     match source:
         case Source.RENDER:
-            return chosen(identity, context).bind(lambda pair: output(identity, pair[1].key).map(lambda plane: Before(plane=plane, name=pair[1].value or f"#{pair[0].entries.index(pair[1]) + 1}")))
+            return paired(chosen(identity, context), shown(identity, context)).bind(
+                lambda found: output(identity, found[0][1].key).map(lambda plane: Before(plane=plane, name=named(*found[0]), shown=found[1]))
+            )
         case Source.LAYER:
             return paired(beneath(identity, context), rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(
                 lambda found: (
-                    combined(str(files(identity, found[0].key)[0]), source, Some(found[2].name))
+                    combined(str(files(identity, found[0][1].key)[0]), source, Some(found[2].name))
                     .bind(lambda layer: managed(identity, stack, found[1], layer[1]))
-                    .map(lambda plane: Before(plane=plane, name="Before effects"))
+                    .map(lambda plane: Before(plane=plane, name="Before effects", shown=named(*found[0])))
                 )
             )
 
@@ -502,7 +523,7 @@ def compared(identity: Identity, stack: EffectStack, context: bpy.types.Context)
     """Compares the browser's before frame with the stored output of the frame the editor shows."""
     return (
         browsed(identity, context)
-        .bind(lambda browser: paired(side(identity, stack, context, browser.source), beneath(identity, context).bind(lambda entry: output(identity, entry.key))))
+        .bind(lambda browser: paired(side(identity, stack, context, browser.source), beneath(identity, context).bind(lambda pair: output(identity, pair[1].key))))
         .bind(lambda planes: Comparison.of(planes[0].plane, planes[1], Domain.DISPLAY, data_range=1.0))
     )
 

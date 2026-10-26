@@ -62,7 +62,6 @@ Daemon operations:
 - `mise daemons restart [<name>…]` registers current rows and restarts named daemons onto installed tools, starting a stopped one
 - `mise daemons stop [<name>…]` waits for each process group to exit, a stopped daemon stays down until a start
 - `mise daemons register` writes current rows to pitchfork without starting, supervisor boot reads registered rows
-- Linked worktrees take namespace `rasm-<hash>`, their fixed ports collide with the persistent checkout's daemons
 
 ## [04]-[MAINTENANCE]
 

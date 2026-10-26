@@ -42,8 +42,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     // --- [CALLS]
     private static void Calls(CompilationStartAnalysisContext context, INamedTypeSymbol logger) {
         ImmutableArray<IMethodSymbol> members = Members(logger, "Log", "BeginScope");
-        bool Logs(IMethodSymbol method) =>
-            members.Any(member => Same(method, member) || Same(method.ContainingType?.FindImplementationForInterfaceMember(member), method));
+        bool Logs(IMethodSymbol method) => members.Any(member => Implements(method, member));
         bool Forwards(ISymbol? symbol) =>
             symbol is not null && ((symbol is INamedTypeSymbol type && type.AllInterfaces.Any(face => Same(face, logger))) || Forwards(symbol.ContainingSymbol));
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>

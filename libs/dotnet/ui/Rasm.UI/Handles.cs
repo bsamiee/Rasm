@@ -115,7 +115,6 @@ public abstract record Handles {
 
 public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<Edit<TValue>, IO<Unit>> Edited) : Handles where TValue : notnull {
     // --- [STATE]
-    private const float Fine = 0.1f;
     private static readonly SKRect Square = new(0f, 0f, 1f, 1f);
 
     public Option<TValue> Rest { get; init; }
@@ -236,12 +235,13 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
 
     private Held Carried(Held start, Key key, Gesture.Press press, Aim aim, PlotFrame frame) {
         bool fine = press.Modifiers.Contains(Modifier.Common);
+        HashMap<Metric, float> metrics = Metrics(aim.Laid, Some(key));
         Seq<(Key Key, Vector2 At)> read = Points.Read(start.Value);
         LanguageExt.HashSet<Key> moving = toHashSet(read.Map(static point => point.Key).Filter(held => start.Picked.Holds(key) ? start.Picked.Holds(held) : held == key));
-        Vector2 travel = frame.Travel(press.From, press.At).IfNone(Vector2.Zero) * (fine ? Fine : 1f);
+        Vector2 travel = frame.Travel(press.From, press.At).IfNone(Vector2.Zero) * (fine ? metrics[Metric.Fine] : 1f);
         Seq<(Key Key, Vector2 To)> targets = read.Filter(point => moving.Contains(point.Key)).Map(point => (point.Key, To: Snapped(frame, frame.Plane.Held(point.At + travel), press.Modifiers, aim.Laid)));
         Seq<Vector2> detents = Rest.Map(rest => Points.Read(rest).Map(static point => point.At)).IfNone([]) + read.Filter(point => !moving.Contains(point.Key)).Map(static point => point.At);
-        Option<Vector2> detent = targets is [var only] && !fine ? frame.Nearest(only.To, detents, Metrics(aim.Laid, Some(key))[Metric.Reach]).Bind(index => detents.At(index)) : None;
+        Option<Vector2> detent = targets is [var only] && !fine ? frame.Nearest(only.To, detents, metrics[Metric.Reach]).Bind(index => detents.At(index)) : None;
         return Moved(start, detent.Match(Some: to => targets.Map(target => (target.Key, To: to)), None: () => targets), press.Modifiers, detent);
     }
 

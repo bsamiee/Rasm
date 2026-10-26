@@ -38,23 +38,21 @@ public sealed record FilletResult(Seq<Brep> Fillets, Seq<Brep> Trimmed0, Seq<Bre
 public static class Fillets {
     // --- [EDGE_FILLETS]
     public static IO<Seq<Brep>> CreateFilletEdges(Brep brep, Map<int, EdgeRadius> edges, BlendType blendType, RailType railType, bool setbackFillets, Tolerances tolerances, Action<IDisposable> retain) =>
-        toSeq(edges.Values).Traverse(static radius => radius.Switch(ends: static ends => Some(ends), stations: static _ => Option<EdgeRadius.Ends>.None)).As().Match(
+        IO.lift(() => Copies.Within(brep, ComponentIndexType.BrepEdge, toSeq(edges.Keys)))
+        >> toSeq(edges.Values).Traverse(static radius => radius.Switch(ends: static ends => Some(ends), stations: static _ => Option<EdgeRadius.Ends>.None)).As().Match(
             Some: ends => Copies.AcquireNonEmpty(
                 () => Brep.CreateFilletEdges(brep, edges.Keys, from radius in ends select radius.Start, from radius in ends select radius.End,
                     blendType, railType, setbackFillets, tolerances.Absolute, tolerances.Angle),
                 nameof(Brep.CreateFilletEdges), retain),
-            None:
-                from indices in IO.lift(() => Copies.InRange(toSeq(edges.Filter(static radius => radius is EdgeRadius.Ends).Keys), brep.Edges.Count, nameof(Brep.Edges)))
-                let distances = edges.ToDictionary(static row => row.Key, row => (IList<BrepEdgeFilletDistance>)[.. row.Value.Switch(
-                    (Brep: brep, Index: row.Key),
-                    ends: static (edge, ends) => edge.Brep.Edges[edge.Index].Domain switch {
-                        var domain => Seq(new BrepEdgeFilletDistance(domain.T0, ends.Start), new BrepEdgeFilletDistance(domain.T1, ends.End)),
-                    },
-                    stations: static (_, stations) => stations.Distances)])
-                from products in Copies.AcquireNonEmpty(
-                    () => Brep.CreateFilletEdgesVariableRadius(brep, edges.Keys, distances, blendType, railType, setbackFillets, tolerances.Absolute, tolerances.Angle),
-                    nameof(Brep.CreateFilletEdgesVariableRadius), retain)
-                select products);
+            None: () => Copies.AcquireNonEmpty(
+                () => Brep.CreateFilletEdgesVariableRadius(brep, edges.Keys, edges.ToDictionary(static row => row.Key, row => (IList<BrepEdgeFilletDistance>)[.. row.Value.Switch(
+                        (Brep: brep, Index: row.Key),
+                        ends: static (edge, ends) => edge.Brep.Edges[edge.Index].Domain switch {
+                            var domain => Seq(new BrepEdgeFilletDistance(domain.T0, ends.Start), new BrepEdgeFilletDistance(domain.T1, ends.End)),
+                        },
+                        stations: static (_, stations) => stations.Distances)]),
+                    blendType, railType, setbackFillets, tolerances.Absolute, tolerances.Angle),
+                nameof(Brep.CreateFilletEdgesVariableRadius), retain));
 
     // --- [SURFACE_FILLETS]
     public static IO<FilletResult> CreateFilletSurface(BrepFace face0, Point2d uv0, BrepFace face1, Point2d uv1, FilletProfile profile, bool trim, bool extend, bool continueAcrossTangentFaces, Tolerances tolerances, Action<IDisposable> retain) =>

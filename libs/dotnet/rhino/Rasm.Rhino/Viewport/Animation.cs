@@ -79,8 +79,7 @@ public static partial class Animations {
 
     public static IO<Committed<Unit>> Write(RhinoDoc doc, AnimationSequence sequence) =>
         Commits.Commit(doc, nameof(RhinoDoc.AnimationProperties), new RedrawPolicy.Silent(), DisposalOps.Within(() => doc.AnimationProperties, copy => IO.lift(() => {
-            (copy.FrameCount, copy.ViewportName, copy.DisplayMode) = (sequence.Frames, sequence.ViewportName, Conversions.Unset(sequence.DisplayMode));
-            copy.FolderName = Conversions.Unset(sequence.Output.Map(static output => output.Folder));
+            Update(sequence, copy);
             _ = sequence.Output.IfSome(output => Update(output, copy));
             Update(sequence.Kind, copy);
             Update(sequence.Quality, copy);
@@ -138,16 +137,28 @@ public static partial class Animations {
     [MapProperty(nameof(AnimationProperties.Dates), nameof(AnimationRecord.Dates), Use = nameof(@Conversions.Rows))]
     private static partial AnimationRecord ToRecord(AnimationProperties properties, AnimationSequence sequence);
 
+    [MapProperty(nameof(AnimationSequence.Frames), nameof(AnimationProperties.FrameCount))]
+    [MapProperty(nameof(AnimationSequence.Output), nameof(AnimationProperties.FolderName), Use = nameof(Folder))]
+    [MapperIgnoreSource(nameof(AnimationSequence.Kind), Justification = "Written per case through Switch")]
+    [MapperIgnoreSource(nameof(AnimationSequence.Quality), Justification = "Written through the quality update")]
+    private static partial void Update(AnimationSequence sequence, AnimationProperties properties);
+
     [MapProperty(nameof(AnimationOutput.Extension), nameof(AnimationProperties.FileExtension), Use = nameof(Undotted))]
     [MapProperty(nameof(AnimationOutput.Name), nameof(AnimationProperties.AnimationName))]
-    [MapperIgnoreSource(nameof(AnimationOutput.Folder), Justification = "Written with absent output as the unset folder")]
+    [MapperIgnoreSource(nameof(AnimationOutput.Folder), Justification = "Written through the sequence update")]
     private static partial void Update(AnimationOutput output, AnimationProperties properties);
 
     private static partial void Update(AnimationQuality quality, AnimationProperties properties);
+
+    [UserMapping(Default = false)]
+    private static string Folder(Option<AnimationOutput> output) => Conversions.Unset(output.Map(static held => held.Folder));
 
     [UserMapping(Default = false)]
     private static string Undotted(FileExtension extension) => ((string)extension).TrimStart(FileExtension.Mark);
 
     [UserMapping]
     private static string Text(NamePart name) => name;
+
+    [UserMapping]
+    private static int Count(FrameCount frames) => frames;
 }

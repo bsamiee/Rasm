@@ -25,9 +25,8 @@ Calls needing structured results encode JSON in ExtendScript. Source holds the b
 ```
 
 ```ts
-const Value = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Json)));
 const ran = <E, R>(send: (source: string) => Effect.Effect<string, E, R>, source: string) =>
-    Effect.flatMap(send(source), (reply) => (reply === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeEffect(Value)(reply))));
+    Effect.flatMap(send(source), (reply) => (reply === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeEffect(Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Json))))(reply))));
 ```
 
 `send` passes `source` as the direct parameter of `do javascript` through an Apple event sender, and a throw or a syntax error fails as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.

@@ -40,7 +40,49 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         Host,
         "RunScript in a command without ScriptRunner style",
         "Command `{0}` calls `RhinoApp.RunScript` without `Style.ScriptRunner`. Add `Style.ScriptRunner` to `[CommandStyle]` on `{0}`",
-        "`RhinoApp.RunScript` call in a `Command` subclass whose `CommandStyle` lacks `Style.ScriptRunner`.");
+        "`RhinoApp.RunScript` call in a `Command` subclass with a `CommandStyle` lacking `Style.ScriptRunner`.");
+
+    public static readonly DiagnosticDescriptor Override = Rule(
+        "RASM2007",
+        Host,
+        "SetDisplayModeOverride result read",
+        "`{0}` returns false after storing the override. Discard the result with `_ =`",
+        "`ObjectAttributes.SetDisplayModeOverride` result read outside a discard or an expression statement.");
+
+    public static readonly DiagnosticDescriptor Mac = Rule(
+        "RASM2008",
+        Host,
+        "macOS-breaking member outside a macOS guard",
+        "`{0}` runs outside the false branch of `OperatingSystem.IsMacOS()`, and on macOS it {1}. {2}",
+        "`NamedViewTable.RestoreWithAspectRatio` or `Environment.GetCommandLineArgs` outside the false branch of an `OperatingSystem.IsMacOS()` conditional, `!IsMacOS() &&`, or `IsMacOS() ||`.");
+
+    public static readonly DiagnosticDescriptor Grayscale = Rule(
+        "RASM2009",
+        Host,
+        "GrayscaleDib result read without a null check",
+        "`{0}` returns null on macOS. Read it through `Refused.UnlessFound`, `Optional`, or the `DisposalOps.Found` acquire",
+        "`ZBufferCapture.GrayscaleDib` result read outside the first argument of `Refused.UnlessFound` or `Optional` and the `DisposalOps.Found` acquire.");
+
+    public static readonly DiagnosticDescriptor Page = Rule(
+        "RASM2010",
+        Host,
+        "PageControl builds the page view",
+        "`{0}.PageControl` reaches `{1}`, and Rhino calls `PageControl` on panel close for every page and disposes the result. Return the held control and realize it in `OnActivate(true)`",
+        "`ObjectPropertiesPage.PageControl` getter that creates an Eto control, calls `DisposalOps.Acquire` or `Within`, or calls a `Rasm.Rhino.UI` `Open` or `Realize`, directly or through a member of its type.");
+
+    public static readonly DiagnosticDescriptor Docked = Rule(
+        "RASM2011",
+        Host,
+        "Floating view docked by assignment",
+        "`{0}` destroys a floated view on macOS in place of docking it. Delete the assignment",
+        "`false` constant assigned to `RhinoView.Floating`.");
+
+    public static readonly DiagnosticDescriptor Mode = Rule(
+        "RASM2012",
+        Host,
+        "Owned DisplayModeDescription left undisposed",
+        "`{0}` returns an owned `DisplayModeDescription` copy that no release reaches. Acquire it through `DisposalOps.Found`",
+        "`DisplayModeDescription.GetDisplayMode`, `DisplayModeDescription.FindByName`, or `RhinoViewport.DisplayMode` read reaching no `Dispose`, `using`, `DisposalOps` or `Copies.Owned` acquire, `DisposalOps` release, `new Disposal<T>`, or `retain` call.");
 
     public static readonly DiagnosticDescriptor Settings = Rule(
         "RASM2101",
@@ -63,30 +105,16 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         "Cast or type test in `{0}` narrows `{1}` to `{2}`. Bind `IO<{5}>` from `Copies.{3}({4}, <retain>)`",
         "Cast, type test, or switch narrowing a `GeometryBase.Duplicate` or `DuplicateShallow` result outside `Copies`.");
 
-    public static readonly DiagnosticDescriptor Mac = Rule(
-        "RASM2008",
-        Host,
-        "macOS-breaking member outside a macOS guard",
-        "`{0}` runs outside the false branch of `OperatingSystem.IsMacOS()`, and on macOS it {1}. {2}",
-        "`NamedViewTable.RestoreWithAspectRatio` or `Environment.GetCommandLineArgs` outside the false branch of an `OperatingSystem.IsMacOS()` conditional, `!IsMacOS() &&`, or `IsMacOS() ||`.");
-
-    public static readonly DiagnosticDescriptor Page = Rule(
-        "RASM2010",
-        Host,
-        "PageControl builds the page view",
-        "`{0}.PageControl` reaches `{1}`, and Rhino calls `PageControl` on panel close for every page and disposes the result. Return the held control and realize it in `OnActivate(true)`",
-        "`ObjectPropertiesPage.PageControl` override whose getter, or a member of its type the getter reads, creates an Eto control, calls `DisposalOps.Acquire` or `Within`, or calls a `Rasm.Rhino.UI` `Open` or `Realize`.");
-
-    public static readonly DiagnosticDescriptor Docked = Rule(
-        "RASM2011",
-        Host,
-        "Floating view docked by assignment",
-        "`{0}` destroys a floating view on macOS in place of docking it. Delete the assignment",
-        "`false` constant assigned to `RhinoView.Floating`.");
+    public static readonly DiagnosticDescriptor Toggled = Rule(
+        "RASM2104",
+        Library,
+        "Conduit toggled outside Conduits",
+        "`{0}` toggles a conduit outside `Conduits`. Declare it as a `ConduitDefinition` for `Conduits.Enable`",
+        "`DisplayConduit.Enabled` write outside `Conduits`.");
 
     private static readonly ImmutableArray<(string Owner, string Member, string Fact, string Action)> MacBroken = [
-        ("Rhino.DocObjects.Tables.NamedViewTable", "RestoreWithAspectRatio", "asserts and aborts Rhino when the target is a docked view of another aspect", "Refuse the restore where `OperatingSystem.IsMacOS()` holds"),
-        ("System.Environment", "GetCommandLineArgs", "holds only the runtime startup assembly inside Rhino", "Read macOS launch arguments through `SafeNativeMethods.Arguments()`"),
+        ("Rhino.DocObjects.Tables.NamedViewTable", "RestoreWithAspectRatio", "asserts and aborts Rhino when a docked target's aspect differs from the named view's", "Guard the call with `!OperatingSystem.IsMacOS() &&`"),
+        ("System.Environment", "GetCommandLineArgs", "returns only Rhino's .NET startup assembly", "Read macOS launch arguments through `SafeNativeMethods.Arguments()`"),
     ];
 
     private static readonly ImmutableArray<(string Owner, string Member)> Counted = [
@@ -108,26 +136,31 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         "System.Threading.Tasks.Parallel", "System.Threading.ThreadPool", "System.Threading.Thread", "System.Threading.Tasks.TaskFactory", "System.Threading.Tasks.TaskFactory`1", "System.Threading.Tasks.Task",
     ];
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Count, OffUiThread, Active, Script, Mac, Page, Docked, Settings, Redraw, Narrowed];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Count, OffUiThread, Active, Script, Override, Mac, Grayscale, Page, Docked, Mode, Settings, Redraw, Narrowed, Toggled];
 
     protected override void Start(CompilationStartAnalysisContext context) {
-        if (context.Compilation.GetTypeByMetadataName("Rhino.RhinoDoc") is not { } document) return;
+        Compilation compilation = context.Compilation;
+        if (compilation.GetTypeByMetadataName("Rhino.RhinoDoc") is not { } document) return;
         Counts(context);
         Threads(context, document);
         ActiveDocs(context, document);
         Scripts(context);
+        Overrides(context);
         Platforms(context);
+        Captures(context);
         Pages(context);
-        Floats(context);
+        Writes(context, "P:Rhino.Display.RhinoView.Floating", Docked, static (assignment, _) => assignment is ISimpleAssignmentOperation { Value.ConstantValue: { HasValue: true, Value: false } });
+        if (compilation.GetTypeByMetadataName("Rhino.Display.DisplayModeDescription") is { } description && Lifetimes.Of(compilation) is { } lifetimes) Modes(context, lifetimes, description);
         Reads(context);
         Redraws(context);
         Duplicates(context);
+        if (compilation.GetTypeByMetadataName("Rasm.Rhino.Display.Conduits") is { } conduits)
+            Writes(context, "P:Rhino.Display.DisplayConduit.Enabled", Toggled, (_, analysis) => !Within(analysis.ContainingSymbol, conduits));
     }
 
     // --- [COUNTS]
     private static void Counts(CompilationStartAnalysisContext context) {
-        static bool Collected(IParameterSymbol? parameter) =>
-            parameter is { RefKind: RefKind.None, Type: var type } && type.AllInterfaces.Append(type).Any(static face => face.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T);
+        static bool Collected(IParameterSymbol? parameter) => parameter is { RefKind: RefKind.None, Type: var type } && Enumerated(type) is not null;
         ImmutableArray<IMethodSymbol> counting = [
             .. Counted.SelectMany(row => Members(context.Compilation.GetTypeByMetadataName(row.Owner), row.Member))
                 .Where(static method => method.ReturnType.SpecialType is SpecialType.System_Int32 && method.Parameters.Any(Collected)),
@@ -147,7 +180,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
                 IInvocationOperation invocation => (invocation.TargetMethod, invocation.Arguments),
                 IObjectCreationOperation creation => (creation.Constructor, creation.Arguments),
                 _ => default,
-            } is ( { } method, var arguments) && Among(method.ContainingType, schedulers) && method.Parameters.Any(static parameter => parameter.Type.TypeKind is TypeKind.Delegate)
+            } is ( { } method, var arguments) && Among(method.ContainingType, schedulers) && Delegated(method)
                 ? arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf().OfType<IAnonymousFunctionOperation>().Take(1))
                     .SelectMany(static callback => callback.Body.Descendants())
                     .Where(reach => reach is not IConversionOperation && Same(reach.Type, document) && !Same(Consumer(reach)?.Type, document))
@@ -194,13 +227,24 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             "M:Rhino.RhinoApp.RunScript(System.UInt32,System.String,System.Boolean)",
             "M:Rhino.RhinoApp.RunScript(System.UInt32,System.String,System.String,System.Boolean)");
         bool Runs(INamedTypeSymbol? type) =>
-            type is not null && (type.GetAttributes().FirstOrDefault(data => Same(data.AttributeClass, attribute)) is { } style
+            type is not null && (Marked(type, attribute) is { } style
                 ? style.ConstructorArguments is { Length: 1 } arguments && arguments[0].Value is int styles && (styles & runner) is not 0
                 : Runs(type.BaseType));
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) =>
             Among(invocation.TargetMethod, scripts) && analysis.ContainingSymbol.ContainingType is { } owner && Derives(owner, command) && !Runs(owner)
                 ? [Diagnostic.Create(Script, invocation.Syntax.GetLocation(), owner.Name)]
                 : []);
+    }
+
+    // --- [OVERRIDES]
+    private static void Overrides(CompilationStartAnalysisContext context) {
+        ImmutableArray<ISymbol> setters = Declared(
+            context.Compilation,
+            "M:Rhino.DocObjects.ObjectAttributes.SetDisplayModeOverride(Rhino.Display.DisplayModeDescription)",
+            "M:Rhino.DocObjects.ObjectAttributes.SetDisplayModeOverride(Rhino.Display.DisplayModeDescription,System.Guid)");
+        if (setters.IsEmpty) return;
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], Override, (invocation, _) =>
+            Among(invocation.TargetMethod, setters) && Consumer(invocation) is not (IExpressionStatementOperation or ISimpleAssignmentOperation { Target: IDiscardOperation }));
     }
 
     // --- [PLATFORMS]
@@ -228,6 +272,21 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
                 : []);
     }
 
+    // --- [CAPTURES]
+    private static void Captures(CompilationStartAnalysisContext context) {
+        Compilation compilation = context.Compilation;
+        if (Declared(compilation, "M:Rhino.Display.ZBufferCapture.GrayscaleDib").FirstOrDefault() is not { } grayscale) return;
+        ImmutableArray<IMethodSymbol> checks = [
+            .. Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Refused"), "UnlessFound"), .. Members(compilation.GetTypeByMetadataName("LanguageExt.Prelude"), "Optional"),
+        ];
+        ImmutableArray<IMethodSymbol> found = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.DisposalOps"), "Found");
+        static bool First(IOperation? consumer, ImmutableArray<IMethodSymbol> owners) =>
+            consumer is IArgumentOperation { Parameter.Ordinal: 0, Parent: IInvocationOperation call } && Among(call.TargetMethod, owners);
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], Grayscale, (invocation, _) =>
+            Same(invocation.TargetMethod, grayscale) && Consumer(invocation) is var consumer && consumer is not IExpressionStatementOperation && !First(consumer, checks)
+            && !(consumer is IReturnOperation { Parent: IBlockOperation { Parent: IAnonymousFunctionOperation function } } && Consumer(function) is IDelegateCreationOperation creation && First(Consumer(creation), found)));
+    }
+
     // --- [PAGES]
     private static void Pages(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
@@ -238,7 +297,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             space?.ToDisplayString() is { } name && (string.Equals(name, "Rasm.Rhino.UI", StringComparison.Ordinal) || name.StartsWith("Rasm.Rhino.UI.", StringComparison.Ordinal));
         string? Realization(IOperation operation) =>
             operation switch {
-                IObjectCreationOperation { Type: { } made } when Derives(made, control) => $"new {made.Name}",
+                IObjectCreationOperation { Constructor: { } made } when Derives(made.ContainingType, control) => Label(made),
                 IInvocationOperation call when Among(call.TargetMethod, scopes) || (call.TargetMethod.Name is "Open" or "Realize" && Viewed(call.TargetMethod.ContainingNamespace)) => Label(call.TargetMethod),
                 _ => null,
             };
@@ -247,11 +306,11 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
                 if (start.Symbol is not INamedTypeSymbol type || !Derives(type.BaseType, page)) return;
                 ConcurrentDictionary<ISymbol, (string? Realized, ImmutableArray<ISymbol> Reads)> bodies = new(SymbolEqualityComparer.Default);
                 start.RegisterOperationBlockAction(block => {
-                    ISymbol owner = (block.OwningSymbol is IMethodSymbol { AssociatedSymbol: { } associated } ? associated : block.OwningSymbol).OriginalDefinition;
+                    ISymbol owner = Member(block.OwningSymbol).OriginalDefinition;
                     ImmutableArray<IOperation> operations = [.. block.OperationBlocks.SelectMany(static root => root.DescendantsAndSelf())];
                     (string? Realized, ImmutableArray<ISymbol> Reads) read = (
                         operations.Select(Realization).FirstOrDefault(static label => label is not null),
-                        [.. operations.Select(Target).OfType<ISymbol>().Where(member => Same(member.ContainingType, type)).Select(static member => member.OriginalDefinition).Distinct(SymbolEqualityComparer.Default)]);
+                        [.. operations.Select(Target).OfType<ISymbol>().Where(member => member is not IEventSymbol && Same(member.ContainingType, type)).Select(static member => member.OriginalDefinition).Distinct(SymbolEqualityComparer.Default)]);
                     _ = bodies.AddOrUpdate(owner, read, (_, prior) => (prior.Realized ?? read.Realized, prior.Reads.AddRange(read.Reads)));
                 });
                 start.RegisterSymbolEndAction(end => {
@@ -264,13 +323,16 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             SymbolKind.NamedType);
     }
 
-    // --- [FLOATS]
-    private static void Floats(CompilationStartAnalysisContext context) {
-        if (Declared(context.Compilation, "P:Rhino.Display.RhinoView.Floating").FirstOrDefault() is not { } floating) return;
-        Report<ISimpleAssignmentOperation>(context, [OperationKind.SimpleAssignment], (assignment, _) =>
-            assignment.Target is IPropertyReferenceOperation reference && Same(reference.Property, floating) && assignment.Value.ConstantValue is { HasValue: true, Value: false }
-                ? [Diagnostic.Create(Docked, assignment.Syntax.GetLocation(), assignment.Syntax)]
-                : []);
+    // --- [MODES]
+    private static void Modes(CompilationStartAnalysisContext context, Lifetimes lifetimes, INamedTypeSymbol description) {
+        ImmutableArray<ISymbol> owned = Declared(
+            context.Compilation,
+            "M:Rhino.Display.DisplayModeDescription.GetDisplayMode(System.Guid)",
+            "M:Rhino.Display.DisplayModeDescription.FindByName(System.String)",
+            "P:Rhino.Display.RhinoViewport.DisplayMode");
+        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.PropertyReference], Mode, (operation, analysis) =>
+            !Written(operation) && Among(Target(operation), owned) && !Inside<INameOfOperation>(operation) && operation.SemanticModel is { } model
+            && !lifetimes.Released(operation, description, new Reading(model, analysis.CancellationToken)).Any());
     }
 
     // --- [READS]
@@ -315,11 +377,8 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             "M:Rhino.DocObjects.Tables.ViewTable.EnableRedraw(System.Boolean,System.Boolean,System.Boolean)",
             "M:Rhino.Display.RhinoView.Redraw",
             "P:Rhino.DocObjects.Tables.ViewTable.RedrawEnabled");
-        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.PropertyReference], (call, analysis) =>
-            (call is not IPropertyReferenceOperation || (call.Parent is ISimpleAssignmentOperation assignment && assignment.Target == call))
-            && Among(Target(call), redraws) && !Inside<INameOfOperation>(call) && !Within(analysis.ContainingSymbol, commits)
-                ? [Diagnostic.Create(Redraw, call.Syntax.GetLocation(), call.Syntax)]
-                : []);
+        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.PropertyReference], Redraw, (call, analysis) =>
+            (call is not IPropertyReferenceOperation || Written(call)) && Among(Target(call), redraws) && !Inside<INameOfOperation>(call) && !Within(analysis.ContainingSymbol, commits));
     }
 
     // --- [DUPLICATES]
@@ -337,26 +396,21 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             };
         static (SyntaxNode Test, ITypeSymbol Narrowed)? Narrowing(IOperation operand, INamedTypeSymbol copied) =>
             operand.Parent is { } parent && Tested(operand).FirstOrDefault(type => !Same(type, copied) && Derives(type, copied)) is { } narrowed ? (parent.Syntax, narrowed) : null;
-        static string Owner(ISymbol member) => ((member as IMethodSymbol)?.AssociatedSymbol ?? member).Name;
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) => {
             if (!Overridden(invocation.TargetMethod).Any(method => Among(method, duplicates)) || Within(analysis.ContainingSymbol, copies)
                 || invocation is not { Type: INamedTypeSymbol copied, Instance: { Type: { } origin } source }) return [];
             (SyntaxNode? site, ISymbol holder, IEnumerable<IOperation> operands) = Consumer(invocation) switch {
-                IArgumentOperation { Parameter: { } parameter } argument when invocation.SemanticModel is { } model => (argument.Syntax, parameter.ContainingSymbol, parameter.ContainingSymbol.OriginalDefinition.DeclaringSyntaxReferences
-                    .Where(declared => declared.SyntaxTree == model.SyntaxTree)
-                    .SelectMany(declared => model.GetOperation(declared.GetSyntax(analysis.CancellationToken), analysis.CancellationToken)?.Descendants() ?? [])
-                    .Where(reference => reference is IParameterReferenceOperation held && Same(held.Parameter, parameter))),
-                IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol: var local } } => (null, analysis.ContainingSymbol, Root(invocation).Descendants()
-                    .Where(reference => reference is ILocalReferenceOperation held && Same(held.Local, local))
-                    .OrderBy(static reference => reference.Syntax.SpanStart)
-                    .TakeWhile(static reference => !Written(reference))),
+                IArgumentOperation { Parameter: { } parameter } argument when invocation.SemanticModel is { } model => (argument.Syntax, parameter.ContainingSymbol,
+                    Declarations(parameter.ContainingSymbol.OriginalDefinition, new Reading(model, analysis.CancellationToken)).SelectMany(body => Uses(parameter, body))),
+                IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol: var local } } => (null, analysis.ContainingSymbol,
+                    Uses(local, invocation).OrderBy(static reference => reference.Syntax.SpanStart).TakeWhile(static reference => !Written(reference))),
                 _ => (null, analysis.ContainingSymbol, [invocation]),
             };
             return operands.Select(operand => Narrowing(operand, copied)).OfType<(SyntaxNode Test, ITypeSymbol Narrowed)>().Select(found => Diagnostic.Create(
                 Narrowed,
                 (site ?? found.Test).GetLocation(),
                 additionalLocations: site is null ? null : [found.Test.GetLocation()],
-                messageArgs: [Owner(holder), invocation.Syntax, found.Narrowed.Name, invocation.TargetMethod.Name, source.Syntax, origin.Name]));
+                messageArgs: [Member(holder).Name, invocation.Syntax, found.Narrowed.Name, invocation.TargetMethod.Name, source.Syntax, origin.Name]));
         });
     }
 }

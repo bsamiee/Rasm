@@ -16,14 +16,14 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         Domain,
         "Catch-all arm over a covered enum",
         "Catch-all arm over `{0}` matches no declared member. Delete the arm",
-        "Catch-all arm of a switch expression over a non-`[Flags]` enum whose other arms name every member.");
+        "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms naming every member.");
 
     public static readonly DiagnosticDescriptor Fallback = Rule(
         "RASM3004",
         Domain,
         "Catch-all arm over an enum",
         "Catch-all arm over `{0}` maps {1} to one result. Replace it with arms naming {1}, joined by `or` per shared result",
-        "Catch-all arm of a switch expression over a non-`[Flags]` enum whose other arms leave members unnamed.");
+        "Catch-all arm of a switch expression over a non-`[Flags]` enum with other arms leaving members unnamed.");
 
     public static readonly DiagnosticDescriptor Discarded = Rule(
         "RASM3003",
@@ -51,7 +51,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             CatchesAll(arm) || (arm is { Guard: null, Test: INegatedPatternOperation { Pattern: var excluded } } && Named(excluded).Any());
         Report<ISwitchExpressionOperation>(context, [OperationKind.SwitchExpression], (dispatch, _) => {
             if (Dispatch(dispatch) is not (_, var arms) || dispatch.Value.Type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } subject
-                || !subject.Locations.Any(static location => location.IsInSource) || subject.GetAttributes().Any(data => Same(data.AttributeClass, flags))) return [];
+                || !Sourced(subject) || Marked(subject, flags) is not null) return [];
             ImmutableHashSet<object?> named = [.. arms.Where(static arm => arm.Guard is null).SelectMany(static arm => Named(arm.Test))];
             ImmutableArray<IFieldSymbol> unnamed = [.. subject.GetMembers().OfType<IFieldSymbol>().Where(member => member.HasConstantValue && !named.Contains(member.ConstantValue))];
             return named.IsEmpty ? [] : arms.Where(CatchesRest).Select(arm => Diagnostic.Create(

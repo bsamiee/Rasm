@@ -505,8 +505,6 @@ public abstract partial record Part {
     }
 
     public sealed record Viewport(PlotPlane Rest, Func<Edit<PlotPlane>, IO<Unit>> Edited) : Part {
-        private const float Notch = 1.2f;
-
         public Magnification Scales { get; init; } = Magnification.Free;
 
         internal Reply Begin(Gesture gesture, Aim aim) =>
@@ -540,11 +538,13 @@ public abstract partial record Part {
                 (Viewport: this, Aim: aim),
                 @default: Reply.Passed,
                 scroll: static (held, scroll) => Framed(held.Aim).Match(
-                    Some: frame => (held.Viewport.Tracking(frame) with {
-                        Scroll = (start, notched) => from about in frame.At(notched.At)
-                                                     from plane in held.Viewport.Scaled(start, about, MathF.Pow(Notch, -notched.Travel.Y / Handles.Metrics(held.Aim.Laid, None)[Metric.Extent]), frame)
-                                                     select plane,
-                    }).Stepped(scroll),
+                    Some: frame => Handles.Metrics(held.Aim.Laid, None) switch {
+                        var metrics => (held.Viewport.Tracking(frame) with {
+                            Scroll = (start, notched) => from about in frame.At(notched.At)
+                                                         from plane in held.Viewport.Scaled(start, about, MathF.Pow(metrics[Metric.Notch], -notched.Travel.Y / metrics[Metric.Extent]), frame)
+                                                         select plane,
+                        }).Stepped(scroll),
+                    },
                     None: static () => new Reply.Pass()));
 
         private Session<PlotPlane> Tracking(PlotFrame frame) =>

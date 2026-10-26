@@ -24,15 +24,15 @@ public abstract partial record Command<TGate, TInvoke> where TGate : notnull whe
     public CommandFace Face { get; private init; }
     public Option<TGate> Enabled { get; }
 
-    public Command<TGate, TInvoke> Faced(Func<CommandFace, CommandFace> face) =>
+    public Command<TGate, TInvoke> Faced(Func<CommandFace, Option<TInvoke>, CommandFace> face) =>
         Switch(
             face,
-            run: static (into, run) => (Command<TGate, TInvoke>)(run with { Face = into(run.Face) }),
-            choice: static (into, choice) => choice with { Face = into(choice.Face), Members = choice.Members.Map(member => member with { Face = into(member.Face) }) },
+            run: static (into, run) => (Command<TGate, TInvoke>)(run with { Face = into(run.Face, Some(run.Invoke)) }),
+            choice: static (into, choice) => choice with { Face = into(choice.Face, None), Members = choice.Members.Map(member => member with { Face = into(member.Face, Some(member.Invoke)) }) },
             menu: static (into, menu) => menu with {
-                Face = into(menu.Face),
+                Face = into(menu.Face, None),
                 Groups = menu.Groups.Map(group => group.Map(command => command.Faced(into))),
-                Primary = menu.Primary.Map(primary => primary with { Face = into(primary.Face) }),
+                Primary = menu.Primary.Map(primary => primary with { Face = into(primary.Face, Some(primary.Invoke)) }),
             });
 
     internal Option<TGate> Mark => Switch(run: static run => run.Marked, choice: static _ => Option<TGate>.None, menu: static _ => Option<TGate>.None);

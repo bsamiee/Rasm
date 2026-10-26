@@ -52,4 +52,4 @@ rule:
                         - has: {field: function, matches: converter}
                         - has: {field: arguments, kind: argument_list, has: {nthChild: 1, pattern: $VALUE, matches: coerced}}
 message: '`$VALUE` coerces RNA arrays, a 9- or 16-item `MATRIX` one to `Matrix` rows transposed from stored order'
-note: 'Read `<owner>.path_resolve(<member>, False)`, or `Descriptor.read` for a member of any kind'
+note: 'Read `<owner>.path_resolve(<member>, False)`, or `<descriptor>.read(<owner>)` for a member of any kind'

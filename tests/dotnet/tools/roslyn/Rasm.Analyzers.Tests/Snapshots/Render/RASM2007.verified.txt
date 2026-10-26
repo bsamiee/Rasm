@@ -1,2 +1,0 @@
-#0 `staged.SetDisplayModeOverride(description, viewport)` reads a result Rhino returns as false after storing the override. Discard it with `_ =`
-#1 `staged.SetDisplayModeOverride(description)` reads a result Rhino returns as false after storing the override. Discard it with `_ =`

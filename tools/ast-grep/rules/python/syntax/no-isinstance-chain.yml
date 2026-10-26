@@ -64,4 +64,4 @@ rule:
             - precedes: {matches: tested-exit}
             - not: {follows: {matches: tested-exit}}
 message: '`if` chain dispatches `$X` on `isinstance` tests'
-note: 'Write `match <subject>:` with `case <class>():` per test, `case <a>() | <b>():` for a class tuple or union, and `case _:` for remaining code other than a `TypeError` raise, `pass` when none remains and the arms leave the subject unexhausted'
+note: 'Write `match <subject>:` with `case <a>() | <b>():` per test, `case _:` holding later code except a `TypeError` raise, or `pass` for unhandled types'

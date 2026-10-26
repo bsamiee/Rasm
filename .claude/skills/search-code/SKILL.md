@@ -61,7 +61,7 @@ dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
 dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
 ```
 
-.NET decompiled files under `<main>/.artifacts/ilspy`, `<main>` is the first worktree line of `git worktree list --porcelain`:
+.NET decompiled files under `<main>/.artifacts/ilspy`, `<main>` the repository root:
 1. Assembly name and version as `<Name>/<Version>`, an existing `<main>/.artifacts/ilspy/<Name>/<Version>` skips step 2
 2. Project with one file per type, without `-p` the whole assembly as one `<Name>.decompiled.cs`
 

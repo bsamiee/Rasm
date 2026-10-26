@@ -219,7 +219,7 @@ public sealed class RenderQueueSection() : DefinedSection(Row) {
             },
                 RowRules.Always),
             new ControlRow.Group("Run", ran),
-            TextRows.Progress("Progress", "Frames rendered of queue total", new ReadoutSource<WorkState>.Scoped(static scope =>
+            TextRows.Progress("Progress", "Frames rendered of queue total", new ReadoutSource<Rasm.UI.Content<Unit>>.Scoped(static scope =>
                 QueueContext.Current.Of(scope.Sink).Bind(static context => context.Estimate.ValueIO).Map(static estimate => estimate.Work)), ran),
             TextRows.Readout("State", "Queue record state", new ReadoutSource<(RunState State, DateTimeZone Zone)>.Scoped(static scope =>
                 from current in scope.Read(Observed.Source)

@@ -1,12 +1,12 @@
-#0 `DisposalOps.Acquire` disposes the font `SystemFonts.Label` caches for every caller. Read the font without a release
-#1 `DisposalOps.Acquire` disposes the font `SystemFonts.Bold` caches for every caller. Read the font without a release
-#2 `DisposalOps.Acquire` disposes the font `SystemFonts.Label` caches for every caller. Read the font without a release
-#3 `DisposalOps.Release` disposes the font `SystemFonts.Palette` caches for every caller. Read the font without a release
-#4 `DisposalOps.Acquire` disposes the font `SystemFonts.Message` caches for every caller. Read the font without a release
-#5 `DisposalOps.Within` disposes the font `SystemFonts.User` caches for every caller. Read the font without a release
-#6 `using` disposes the font `SystemFonts.Default` caches for every caller. Read the font without a release
-#7 `Dispose` disposes the font `SystemFonts.Bold` caches for every caller. Read the font without a release
-#8 `DisposalOps.Release` disposes the font `SystemFonts.StatusBar` caches for every caller. Read the font without a release
-#9 `new Disposal` disposes the font `SystemFonts.Menu` caches for every caller. Read the font without a release
-#10 `retain` disposes the font `SystemFonts.ToolTip` caches for every caller. Read the font without a release
-#11 `Dispose` disposes the font `SystemFonts.TitleBar` caches for every caller. Read the font without a release
+#0 `DisposalOps.Acquire` disposes the font `SystemFonts.Label` caches for every caller. Read it without a release
+#1 `DisposalOps.Acquire` disposes the font `SystemFonts.Bold` caches for every caller. Read it without a release
+#2 `DisposalOps.Acquire` disposes the font `SystemFonts.Label` caches for every caller. Read it without a release
+#3 `DisposalOps.Release` disposes the font `SystemFonts.Palette` caches for every caller. Read it without a release
+#4 `DisposalOps.Acquire` disposes the font `SystemFonts.Message` caches for every caller. Read it without a release
+#5 `DisposalOps.Within` disposes the font `SystemFonts.User` caches for every caller. Read it without a release
+#6 `using` disposes the font `SystemFonts.Default` caches for every caller. Read it without a release
+#7 `Dispose` disposes the font `SystemFonts.Bold` caches for every caller. Read it without a release
+#8 `DisposalOps.Release` disposes the font `SystemFonts.StatusBar` caches for every caller. Read it without a release
+#9 `new Disposal` disposes the font `SystemFonts.Menu` caches for every caller. Read it without a release
+#10 `retain` disposes the font `SystemFonts.ToolTip` caches for every caller. Read it without a release
+#11 `Dispose` disposes the font `SystemFonts.TitleBar` caches for every caller. Read it without a release

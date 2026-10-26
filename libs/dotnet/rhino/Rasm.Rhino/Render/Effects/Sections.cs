@@ -118,12 +118,12 @@ public static class SectionRows {
                 stage => Blocks(source, stage), RowRules.Always)) + Amount(state, section));
 
     public static Func<EtoPostEffectCollapsibleSection, View.Section> Job<TState, TParameter>(
-        PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<WorkState> work)
+        PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<Rasm.UI.Content<Unit>> work)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
         section => Row(effect, state, looks, section, source =>
             Of(source, source.Fields, None, static _ => RowRules.Always)
-                .Add(TextRows.Progress("Progress", "Last effect run", new ReadoutSource<WorkState>.Cell(work), RowRules.Always)));
+                .Add(TextRows.Progress("Progress", "Last effect run", new ReadoutSource<Rasm.UI.Content<Unit>>.Cell(work), RowRules.Always)));
 
     private static View.Section Row<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,

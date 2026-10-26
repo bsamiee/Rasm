@@ -27,8 +27,8 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         "RASM2201",
         Host,
         "Cached system font disposed",
-        "`{1}` disposes the font `SystemFonts.{0}` caches for every caller. Read the font without a release",
-        "`SystemFonts` font reaching `Dispose`, a `using`, a `DisposalOps` acquire or release argument, `new Disposal<T>`, or a `retain` call, directly or through a local, range variable, or lambda parameter.");
+        "`{1}` disposes the font `SystemFonts.{0}` caches for every caller. Read it without a release",
+        "`SystemFonts` font reaching `Dispose`, `using`, a `DisposalOps` or `Copies.Owned` acquire, a `DisposalOps` release, `new Disposal<T>`, or a `retain` call, directly or through a local, range variable, or lambda parameter.");
 
     public static readonly DiagnosticDescriptor Framed = Rule(
         "RASM2202",
@@ -75,7 +75,6 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         INamedTypeSymbol? objects = compilation.GetTypeByMetadataName("Foundation.NSObject");
         INamedTypeSymbol? threads = compilation.GetTypeByMetadataName("Foundation.NSThread");
         ImmutableArray<ISymbol> mains = Declared(compilation, "P:CoreFoundation.DispatchQueue.MainQueue", "P:Foundation.NSThread.MainThread");
-        static bool Delegated(IMethodSymbol method) => method.Parameters.Any(static parameter => parameter.Type.TypeKind is TypeKind.Delegate);
         bool Main(IOperation? value) => value is IMemberReferenceOperation reference && Among(reference.Member, mains);
         Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference], (operation, analysis) =>
             operation switch {
@@ -102,7 +101,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     private static void Frames(CompilationStartAnalysisContext context, Lifetimes lifetimes, INamedTypeSymbol container, INamedTypeSymbol control, INamedTypeSymbol? stack) {
         ImmutableArray<IMethodSymbol> plain = [.. lifetimes.Acquires.Where(lifetimes.Plain)];
         bool Holding(ITypeSymbol type, int depth) =>
-            type.AllInterfaces.Append(type).OfType<INamedTypeSymbol>().FirstOrDefault(static face => face.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T) is { } items
+            Enumerated(type) is { } items
             && (Derives(items.TypeArguments[0], control)
                 || (depth > 0 && items.TypeArguments[0].GetMembers().OfType<IPropertySymbol>().Any(property => Derives(property.Type, control) || Holding(property.Type, depth - 1))));
         IEnumerable<IOperation> Seated(IOperation? initializer) =>
@@ -119,7 +118,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             property.Parent is ITupleOperation targets && Stripped(deconstruction.Value) is ITupleOperation values && targets.Elements.Length == values.Elements.Length
                 ? [values.Elements[targets.Elements.IndexOf(property)]]
                 : [deconstruction.Value];
-        static IEnumerable<IOperation> Written(IPropertyReferenceOperation property) =>
+        static IEnumerable<IOperation> Assigned(IPropertyReferenceOperation property) =>
             Consumer(property) is ISimpleAssignmentOperation assignment && assignment.Target == property ? [assignment.Value]
             : property.Parent is ITupleOperation && Ancestor<IDeconstructionAssignmentOperation>(property, assignment => assignment.Target.DescendantsAndSelf().Contains(property)) is { } deconstruction
                 ? Paired(property, deconstruction)
@@ -133,7 +132,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             };
         IEnumerable<IOperation> Attached(IOperation reference) =>
             Consumer(reference) switch {
-                IPropertyReferenceOperation property when Derives(property.Property.Type, control) => Written(property),
+                IPropertyReferenceOperation property when Derives(property.Property.Type, control) => Assigned(property),
                 IPropertyReferenceOperation property when Holding(property.Property.Type, 2) => Grouped(property),
                 IInvocationOperation call => call.Arguments.Select(static argument => argument.Value).Where(value => Derives(Stripped(value).Type, control)),
                 _ => [],
@@ -143,22 +142,14 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             || symbol.DeclaringSyntaxReferences.Any(declared => declared.Span.Start < start);
         bool Hazard(IOperation child, ITypeSymbol held, int start, Reading reading) =>
             (stack is not null && Derives(held, stack)) || child.DescendantsAndSelf().Select(value => Held(value, reading)).Any(symbol => symbol is not null && Earlier(symbol, start));
-        static IParameterSymbol? Bound(IInvocationOperation call, ITypeSymbol held) =>
-            call.Arguments.Select(static argument => Stripped(argument.Value)).OfType<IDelegateCreationOperation>()
-                .Select(static creation => creation.Target).OfType<IAnonymousFunctionOperation>()
-                .Select(static function => function.Symbol.Parameters.FirstOrDefault())
-                .FirstOrDefault(parameter => parameter is not null && SymbolEqualityComparer.Default.Equals(parameter.Type, held));
         static ISymbol? Holder(IInvocationOperation call, ITypeSymbol held, Reading reading) =>
             Clause(call.Syntax) is { } clause && reading.Model.GetDeclaredSymbol(clause, reading.Token) is { } range ? range
-            : Consumer(call) is IInvocationOperation outer && Bound(outer, held) is { } chained ? chained
-            : Bound(call, held);
+            : Consumer(call) is IInvocationOperation outer && Lifetimes.Handed(outer, held).FirstOrDefault() is { } chained ? chained
+            : Lifetimes.Handed(call, held).FirstOrDefault();
         IEnumerable<IOperation> Children(ISymbol? holder, IOperation site, IOperation? origin, Reading reading) =>
             Created(origin)
                 .Concat(holder is null ? [] : References(holder, site, reading).SelectMany(Attached))
-                .Concat(holder is ILocalSymbol local
-                    ? local.DeclaringSyntaxReferences.Select(declared => declared.GetSyntax(reading.Token)).OfType<VariableDeclaratorSyntax>()
-                        .SelectMany(declarator => declarator.Initializer is { } initial ? Created(reading.Model.GetOperation(initial.Value, reading.Token)) : [])
-                    : []);
+                .Concat(holder is ILocalSymbol local ? Bindings(local, reading).SelectMany(Created) : []);
         bool Disposing(IOperation release) =>
             Stripped(release) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.Length: 1 } function }
             && Steps(function.Body) is { Length: 1 } steps && steps[0] is IInvocationOperation { Instance: { } instance } call
@@ -216,19 +207,12 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             };
         string? Source(ISymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
             seen.Contains(held) ? null : held switch {
-                IRangeVariableSymbol => held.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax(reading.Token)).FirstOrDefault() switch {
-                    FromClauseSyntax from => Origin(reading.Model.GetOperation(from.Expression, reading.Token), reading, seen.Add(held)),
-                    LetClauseSyntax let => Origin(reading.Model.GetOperation(let.Expression, reading.Token), reading, seen.Add(held)),
-                    _ => null,
-                },
-                ILocalSymbol => held.DeclaringSyntaxReferences.Select(reference => reference.GetSyntax(reading.Token)).FirstOrDefault() is VariableDeclaratorSyntax { Initializer.Value: var initial }
-                    ? Origin(reading.Model.GetOperation(initial, reading.Token), reading, seen.Add(held))
-                    : null,
+                IRangeVariableSymbol or ILocalSymbol => Bindings(held, reading).Select(bound => Origin(bound, reading, seen.Add(held))).FirstOrDefault(),
                 IParameterSymbol { Ordinal: 0, ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.AnonymousFunction } function } => Chained(function, held, reading, seen),
                 _ => null,
             };
         string? Chained(IMethodSymbol function, ISymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
-            function.DeclaringSyntaxReferences.Select(reference => reading.Model.GetOperation(reference.GetSyntax(reading.Token), reading.Token)).FirstOrDefault() is { } lambda
+            Declarations(function, reading).FirstOrDefault() is { } lambda
             && Consumer(lambda) is IDelegateCreationOperation creation && Consumer(creation) is IArgumentOperation { Parent: IInvocationOperation call } argument
                 ? Origin(call.Instance ?? (call.TargetMethod.IsExtensionMethod && argument.Parameter?.Ordinal is not 0 ? call.Arguments[0].Value : null), reading, seen.Add(held))
                 : null;
@@ -260,38 +244,28 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         ImmutableArray<IMethodSymbol> boundaries = Members(callbacks, "Run", "Answer", "Succeeded", "Started");
         ImmutableArray<IMethodSymbol> producers = Members(callbacks, "Handler", "Synchronous");
         ImmutableArray<IMethodSymbol> adders = Members(compilation.GetTypeByMetadataName("Eto.Mac.ObjCExtensions"), "AddMethod");
-        static bool Hosted(ISymbol symbol) => !symbol.Locations.Any(static location => location.IsInSource);
-        static bool Marked(ISymbol symbol, INamedTypeSymbol? attribute) => attribute is not null && symbol.GetAttributes().Any(data => Same(data.AttributeClass, attribute));
         bool Wrapper(INamedTypeSymbol type) =>
-            type.GetAttributes().Any(data => Same(data.AttributeClass, register)
-                && ((data.ConstructorArguments.Length > 1 && data.ConstructorArguments[1].Value is true) || data.NamedArguments.Any(static named => named.Value.Value is true && string.Equals(named.Key, "IsWrapper", StringComparison.Ordinal))));
+            Marked(type, register) is { } data
+            && ((data.ConstructorArguments.Length > 1 && data.ConstructorArguments[1].Value is true) || data.NamedArguments.Any(static named => named.Value.Value is true && string.Equals(named.Key, "IsWrapper", StringComparison.Ordinal)));
         bool Bound(INamedTypeSymbol? type) => type is not null && (Wrapper(type) || Bound(type.ContainingType));
         bool Wrapped(IMethodSymbol method) => method.IsOverride && Bound(Overridden(method).Last().ContainingType);
         bool Overriding(IMethodSymbol method, INamedTypeSymbol? root) =>
-            root is not null && method.IsOverride && Overridden(method).Last() is var origin && Hosted(origin) && Derives(origin.ContainingType, root);
+            root is not null && method.IsOverride && Overridden(method).Last() is var origin && !Sourced(origin) && Derives(origin.ContainingType, root);
         bool Produced(IOperation? value, Reading reading, int depth) =>
             value is not null && depth > 0 && Stripped(value) switch {
                 IInvocationOperation call when Among(call.TargetMethod, producers) => true,
                 IInvocationOperation call when Among(call.TargetMethod, lifetimes.Lifts) => call.Arguments.Any(argument => Produced(argument.Value, reading, depth - 1)),
-                var reference when Held(reference, reading) is { } held => held.DeclaringSyntaxReferences.Select(declared => declared.GetSyntax(reading.Token)).Any(declared => declared switch {
-                    FromClauseSyntax from => Produced(reading.Model.GetOperation(from.Expression, reading.Token), reading, depth - 1),
-                    LetClauseSyntax let => Produced(reading.Model.GetOperation(let.Expression, reading.Token), reading, depth - 1),
-                    VariableDeclaratorSyntax { Initializer.Value: var initial } => Produced(reading.Model.GetOperation(initial, reading.Token), reading, depth - 1),
-                    _ => false,
-                }),
+                var reference when Held(reference, reading) is { } held => Bindings(held, reading).Any(bound => Produced(bound, reading, depth - 1)),
                 _ => false,
             };
-        IOperation? Bodied(IMethodSymbol method, Reading reading) =>
-            method.DeclaringSyntaxReferences.Where(declared => declared.SyntaxTree == reading.Model.SyntaxTree)
-                .Select(declared => reading.Model.GetOperation(declared.GetSyntax(reading.Token), reading.Token)).OfType<IMethodBodyOperation>()
-                .Select(static body => (IOperation?)body.BlockBody ?? body.ExpressionBody).FirstOrDefault();
+        IOperation? Bodied(IMethodSymbol method, Reading reading) => Declarations(method, reading).OfType<IMethodBodyOperation>().Select(Body).FirstOrDefault();
         bool Routed(IOperation step, Reading reading, int depth) =>
             step.ConstantValue.HasValue || step is IDefaultValueOperation
             || (step is IInvocationOperation call && (Among(call.TargetMethod, boundaries)
                 || (call.TargetMethod.MethodKind is MethodKind.DelegateInvoke && Produced(call.Instance, reading, 4))
-                || (depth > 0 && !Hosted(call.TargetMethod) && Bodied(call.TargetMethod, reading) is IBlockOperation body && Steps(body) is { Length: 1 } inner && Routed(inner[0], reading, depth - 1))));
+                || (depth > 0 && Sourced(call.TargetMethod) && Bodied(call.TargetMethod, reading) is IBlockOperation body && Steps(body) is { Length: 1 } inner && Routed(inner[0], reading, depth - 1))));
         static bool Rooted(IOperation? instance) => instance is not null && Stripped(instance) is IInstanceReferenceOperation;
-        static bool Inherited(ISymbol member) => Hosted(member) && member.ContainingType is { SpecialType: not SpecialType.System_Object };
+        static bool Inherited(ISymbol member) => !Sourced(member) && member.ContainingType is { SpecialType: not SpecialType.System_Object };
         static bool Read(IOperation operation) =>
             operation switch {
                 IMethodReferenceOperation => false,
@@ -313,30 +287,23 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 _ => step.Syntax.ToString().Split('\n')[0].Trim(),
             };
         IEnumerable<(IOperation Site, string Run)> Escapes(IOperation? body, Reading reading) =>
-            body switch {
-                IBlockOperation block when Steps(block) is var steps && !(steps.Length is 1 && Routed(steps[0], reading, 1)) =>
-                    [(steps.FirstOrDefault(step => !Routed(step, reading, 1)) ?? block, Shown(steps.FirstOrDefault(step => !Routed(step, reading, 1)) ?? block))],
-                _ => [],
-            };
-        static IOperation? Initialized(ISymbol symbol, Reading reading) =>
-            symbol.DeclaringSyntaxReferences.Select(declared => declared.GetSyntax(reading.Token)).OfType<VariableDeclaratorSyntax>()
-                .Select(static declarator => declarator.Initializer?.Value).OfType<ExpressionSyntax>()
-                .Select(initial => reading.Model.GetOperation(initial, reading.Token)).FirstOrDefault(static found => found is not null);
-        IOperation? Target(IOperation? value, Reading reading) =>
+            body is IBlockOperation block && Steps(block) is var steps && !(steps.Length is 1 && Routed(steps[0], reading, 1))
+            && (steps.FirstOrDefault(step => !Routed(step, reading, 1)) ?? block) is var site ? [(site, Shown(site))] : [];
+        IOperation? Implementation(IOperation? value, Reading reading) =>
             value is null ? null : Stripped(value) switch {
                 IDelegateCreationOperation { Target: IAnonymousFunctionOperation function } => function.Body,
                 IDelegateCreationOperation { Target: IMethodReferenceOperation reference } => Bodied(reference.Method, reading),
-                var held when Held(held, reading) is { } symbol => Target(Initialized(symbol, reading), reading),
+                var held when Held(held, reading) is ILocalSymbol local => Implementation(Bindings(local, reading).FirstOrDefault(), reading),
                 _ => null,
             };
         IEnumerable<(IOperation Site, string Run)> Checked(IOperation? body, Reading reading) => body is null ? [] : Escapes(body, reading).Concat(Eager(body));
         IEnumerable<(string Callback, IOperation Site, string Run)> Handed(IOperation operation, Reading reading) =>
             operation switch {
-                IDelegateCreationOperation { Type: { } type } creation when Marked(type, pointer) =>
-                    Checked(Target(creation, reading), reading).Select(escape => (type.Name, escape.Site, escape.Run)),
+                IDelegateCreationOperation { Type: { } type } creation when Marked(type, pointer) is not null =>
+                    Checked(Implementation(creation, reading), reading).Select(escape => (type.Name, escape.Site, escape.Run)),
                 IInvocationOperation call when Bound(call.TargetMethod.ContainingType) || Among(call.TargetMethod, adders) =>
-                    call.Arguments.Where(argument => argument.Parameter?.Type is { TypeKind: TypeKind.Delegate } handed && !Marked(handed, pointer) && !Produced(argument.Value, reading, 4))
-                        .SelectMany(argument => Checked(Target(argument.Value, reading), reading))
+                    call.Arguments.Where(argument => argument.Parameter?.Type is { TypeKind: TypeKind.Delegate } handed && Marked(handed, pointer) is null && !Produced(argument.Value, reading, 4))
+                        .SelectMany(argument => Checked(Implementation(argument.Value, reading), reading))
                         .Select(escape => (Label(call.TargetMethod), escape.Site, escape.Run)),
                 _ => [],
             };
@@ -347,9 +314,9 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         context.RegisterOperationBlockAction(block => {
             if (block.OwningSymbol is not IMethodSymbol method || Within(method, callbacks) || block.OperationBlocks.FirstOrDefault() is not { SemanticModel: { } model } root) return;
             Reading reading = new(model, block.CancellationToken);
-            IOperation? body = root is IMethodBodyOperation bodied ? (IOperation?)bodied.BlockBody ?? bodied.ExpressionBody : root;
+            IOperation? body = root is IMethodBodyOperation bodied ? Body(bodied) : root;
             IEnumerable<(IOperation Site, string Run)> escapes =
-                Marked(method, export) || Marked(method, callers) || Wrapped(method) ? Checked(body, reading)
+                Marked(method, export) is not null || Marked(method, callers) is not null || Wrapped(method) ? Checked(body, reading)
                 : Overriding(method, widget) && body is not null ? Eager(body)
                 : [];
             foreach ((IOperation site, string run) in escapes)
@@ -357,7 +324,22 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         });
     }
 
+    // --- [BINDINGS]
+    private static ISymbol? Held(IOperation reference, Reading reading) =>
+        Stripped(reference).Syntax is IdentifierNameSyntax name && reading.Model.GetSymbolInfo(name, reading.Token).Symbol is { } held
+        && held is ILocalSymbol or IParameterSymbol or IRangeVariableSymbol ? held : null;
+
+    private static IEnumerable<IOperation> Bindings(ISymbol symbol, Reading reading) =>
+        symbol.DeclaringSyntaxReferences.Select(declared => declared.GetSyntax(reading.Token) switch {
+            FromClauseSyntax from => from.Expression,
+            LetClauseSyntax let => let.Expression,
+            VariableDeclaratorSyntax { Initializer.Value: var initial } => initial,
+            _ => null,
+        }).OfType<ExpressionSyntax>().Select(bound => reading.Model.GetOperation(bound, reading.Token)).OfType<IOperation>();
+
     // --- [STEPS]
+    private static IOperation? Body(IMethodBodyOperation body) => (IOperation?)body.BlockBody ?? body.ExpressionBody;
+
     private static IOperation Unwrapped(IOperation step) =>
         step switch {
             IReturnOperation { ReturnedValue: { } returned } => Stripped(returned),

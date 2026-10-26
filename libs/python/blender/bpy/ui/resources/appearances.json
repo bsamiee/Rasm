@@ -50,7 +50,7 @@
                 }
             }
         },
-        "label": { "when": { "faulted": { "fills": [], "strokes": [], "text": "#FF0000FF" } } },
+        "label": { "when": { "modified": { "text": "selection.fill", "weight": "semi-bold" }, "faulted": { "fills": [], "strokes": [], "text": "#FF0000FF" } } },
         "stop": {
             "fills": [ { "kind": "solid", "ink": "panel.fill" } ],
             "strokes": [ { "ink": "panel.text" } ],
@@ -143,7 +143,7 @@
         "tab": { "strokes": [] },
         "field": { "strokes": [] }
     },
-    "defaults": { "extent": 0, "reach": 0, "inset": 0, "gap": 0, "radius": 0, "stroke": 1, "icon": 16, "font-size": 1, "spacing": 32, "slop": 3 },
+    "defaults": { "extent": 0, "reach": 0, "inset": 0, "gap": 0, "radius": 0, "stroke": 1, "icon": 16, "font-size": 1, "spacing": 32, "slop": 3, "fine": 0.1, "notch": 1.2 },
     "regular": {
         "panel": { "inset": 8, "gap": 6 },
         "toolbar": { "extent": 28, "inset": 4, "gap": 2, "radius": 6 },

@@ -1,6 +1,6 @@
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Rhino;
 using Rhino.Runtime.Notifications;
 using Rhino.UI;
@@ -10,28 +10,13 @@ using NativeNotificationCenter = Rhino.Runtime.Notifications.NotificationCenter;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[Union]
-public abstract partial record WorkState {
-    public sealed record Inactive : WorkState;
-
-    public sealed record Indeterminate : WorkState;
-
-    public sealed record Counted(long Done, long Total) : WorkState {
-        public (int Done, int Total) Meter => Total <= int.MaxValue
-            ? ((int)Done, (int)Total)
-            : ((int)((decimal)Done * int.MaxValue / Total), int.MaxValue);
-    }
-}
-
 public sealed record Notice(string Title, string Description, Option<string> Message, Notification.Severity Severity, Option<IGlyph> Glyph, Option<View.Panel> Reveal);
 
 public sealed record NoticeReplies(Option<string> Confirm, Option<string> Alternate, Option<string> Cancel, Func<ButtonType, IO<Unit>> Clicked);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class WorkProgress(Atom<WorkState> work, int total) : IProgress<int>, IDisposable {
-    public void Report(int value) => _ = work.Swap(_ => new WorkState.Counted(value, total));
-
-    public void Dispose() => _ = work.Swap(static _ => new WorkState.Inactive());
+public sealed class WorkProgress<T>(Atom<Content<T>> work, long total) : IProgress<int> where T : notnull {
+    public void Report(int value) => _ = work.Swap(held => held.Requested(Some(Progress.Create(value, total))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -46,34 +31,40 @@ internal static partial class NoticeMapper {
 
 public static class Status {
     // --- [PACING]
-    public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<IProgress<int>, IO<T>> work, IPlugInSink sink) =>
+    public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<IProgress<int>, IO<T>> work, IPlugInSink sink) where T : notnull =>
         DisposalOps.Within<IDisposable, T>(retain =>
-            from reading in atomIO<WorkState>(new WorkState.Indeterminate())
-            from progress in DisposalOps.Acquire(IO.lift(() => new WorkProgress(reading, total)), retain)
-            from forked in DisposalOps.Fork(work(progress), retain)
+            from reading in atomIO<Content<T>>(new Content<T>.Pending(None, None))
+            from forked in DisposalOps.Fork(work(new WorkProgress<T>(reading, total)), retain)
             from metered in Metered(doc, label, total, reading, sink, retain).OnUiThread()
             from attached in EventKind.EscapeKeyPressed.Inline(_ => forked.Cancel, sink, retain).OnUiThread()
             from value in forked.Await
             select value, static held => DisposalOps.Release(held).OnUiThread());
 
-    private static IO<Unit> Metered(RhinoDoc doc, string label, int total, Atom<WorkState> reading, IPlugInSink sink, Action<IDisposable> retain) =>
-        from window in IO.lift(() => Refused.UnlessFound(RhinoEtoApp.MainWindowForDocument(doc), nameof(RhinoEtoApp.MainWindowForDocument)))
+    private static IO<Unit> Metered<T>(RhinoDoc doc, string label, int total, Atom<Content<T>> reading, IPlugInSink sink, Action<IDisposable> retain) where T : notnull =>
         from answer in DisposalOps.Acquire(
             IO.lift(() => StatusBar.ShowProgressMeter(doc.RuntimeSerialNumber, 0, total, RowText.Localize(label, sink).Local, embedLabel: true, showPercentComplete: true)),
             answer => when(answer is 1, IO.lift(() => StatusBar.HideProgressMeter(doc.RuntimeSerialNumber))).As(), retain)
-        from sampled in answer switch {
-            1 => FrameClocks.Sample(window, Moved(reading, doc.RuntimeSerialNumber), new CallbackSite(sink, typeof(StatusBar), nameof(StatusBar.UpdateProgressMeter)), retain),
+        from moved in answer switch {
+            1 => Subscriptions.Changed(reading, nameof(reading.Change)).Inline(work => Moved(work, doc.RuntimeSerialNumber).OnUiThread(), sink, retain),
             -1 => IO.pure(unit),
             _ => IO.fail<Unit>(new Refused(nameof(StatusBar.ShowProgressMeter), Refused.Declined)),
         }
-        select sampled;
+        select moved;
 
-    private static IO<Unit> Moved(Atom<WorkState> reading, uint serial) =>
-        IO.lift(() => reading.Value.Switch(
+    private static IO<Unit> Moved<T>(Content<T> work, uint serial) where T : notnull =>
+        IO.lift(() => work.Switch(
             serial,
-            inactive: static (_, _) => unit,
-            indeterminate: static (_, _) => unit,
-            counted: static (held, counted) => ignore(StatusBar.UpdateProgressMeter(held, counted.Meter.Done, absolute: true))));
+            pending: static (held, pending) => pending.Work.Iter(progress => StatusBar.UpdateProgressMeter(held, progress.Positions.Value, absolute: true)),
+            ready: static (_, _) => unit,
+            empty: static (_, _) => unit,
+            failed: static (_, _) => unit));
+
+    // --- [METER]
+    extension(Progress progress) {
+        internal (int Value, int MaxValue) Positions => progress.Total <= int.MaxValue
+            ? ((int)progress.Done, (int)progress.Total)
+            : ((int)((decimal)progress.Done * int.MaxValue / progress.Total), int.MaxValue);
+    }
 
     // --- [NOTICES]
     public static IO<Disposal<Notification>> Show(Notice notice, Option<NoticeReplies> replies, IPlugInSink sink, Action<Disposal<Notification>> retain) =>

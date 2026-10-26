@@ -1,6 +1,7 @@
 using System.Drawing;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.UI;
+using Rasm.UI;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
@@ -19,7 +20,7 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
     // --- [RESOURCE]
     private readonly Retained<Disposal<TResource>> opened;
 
-    private readonly Atom<WorkState> work = Atom<WorkState>(new WorkState.Inactive());
+    private readonly Atom<Content<Unit>> work = Atom<Content<Unit>>(new Content<Unit>.Empty("Effect has not run"));
 
     protected JobEffect() =>
         opened = new(held => DisposalOps.Release(held).IfFail(error => IO.lift(() => IPlugInSink.Of(this).Report(error, typeof(TResource), nameof(IDisposable.Dispose)))));
@@ -59,13 +60,17 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
     // --- [JOBS]
     private Func<Rectangle, PostEffectJobChannels, bool> Rewrite(TState state, PixelExtent extent, Option<float> meters, CallbackSite site) =>
         (rect, access) => Callbacks.Succeeded(
-            opened.Held.ToOption().Bind(static held => held.Head).Bind(static cell => cell.Held).Map(resource => DisposalOps.Within(() => new WorkProgress(work, rect.Height), rows =>
-                from started in work.SwapIO(static _ => new WorkState.Indeterminate())
-                from color in EffectPipeline.Read(access.GetChannel, extent, RenderWindow.StandardChannels.RGBA, rect)
-                from guides in EffectPipeline.Guides(access.GetChannel, extent, rect, TResource.Channels(state), meters)
-                from result in resource.Run(state, color, guides, rows)
-                from written in EffectPipeline.Opened(access.GetChannel, RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA), (_, cpu) => EffectPipeline.Put(cpu, result))
-                select unit)),
+            opened.Held.ToOption().Bind(static held => held.Head).Bind(static cell => cell.Held).Map(resource =>
+                from started in work.SwapIO(static held => held.Requested(None))
+                from arrival in (
+                    from color in EffectPipeline.Read(access.GetChannel, extent, RenderWindow.StandardChannels.RGBA, rect)
+                    from guides in EffectPipeline.Guides(access.GetChannel, extent, rect, TResource.Channels(state), meters)
+                    from result in resource.Run(state, color, guides, new WorkProgress<Unit>(work, rect.Height))
+                    from written in EffectPipeline.Opened(access.GetChannel, RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA), (_, cpu) => EffectPipeline.Put(cpu, result))
+                    select unit).Try().Run().As()
+                from arrived in work.SwapIO(_ => Content<Unit>.Arrived(arrival))
+                from settled in IO.lift(arrival)
+                select settled),
             static () => false,
             site);
 

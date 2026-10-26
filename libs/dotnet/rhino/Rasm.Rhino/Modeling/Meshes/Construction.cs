@@ -85,12 +85,10 @@ public static class MeshConstruction {
             static products => DisposalOps.Release(products.ToSeq().Bind(static rows => Conversions.Rows(rows))), retain);
 
     public static IO<Mesh> CreateFromFilteredFaceList(Mesh mesh, Seq<int> faces, Action<IDisposable> retain) =>
-        from count in IO.lift(() => mesh.Faces.Count)
-        from filtered in Copies.Acquire(
-            () => Copies.InRange(faces, count, nameof(Mesh.CreateFromFilteredFaceList))
-                .Map(_ => Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, count)).Map(toHashSet(faces).Contains))),
-            nameof(Mesh.CreateFromFilteredFaceList), retain)
-        select filtered;
+        Copies.Acquire(
+            () => Copies.Within(mesh, ComponentIndexType.MeshFace, faces)
+                .Map(held => Mesh.CreateFromFilteredFaceList(mesh, toSeq(Range(0, mesh.Faces.Count)).Map(toHashSet(held).Contains))),
+            nameof(Mesh.CreateFromFilteredFaceList), retain);
 
     public static IO<Mesh> Refine(Mesh mesh, Option<LoopFormula> loop, RefinementLevel level, CreaseEdges nakedEdgeMode, Action<IDisposable> retain) =>
         loop.Match(

@@ -122,41 +122,43 @@ class ClipEnds(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Before(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Before frame's top-first associated RGBA plane and caption."""
+    """Before frame's top-first associated RGBA plane, its caption, and the shown frame's caption."""
 
     plane: npt.NDArray[np.float32]
     name: str
+    shown: str
 
 
 class Plate(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Uploaded before frame and its caption."""
+    """Uploaded before frame with the before and shown captions."""
 
     texture: gpu.types.GPUTexture
     name: str
+    shown: str
 
 
 class Sides(msgspec.Struct, frozen=True, kw_only=True):
     """Compare draw layout with plate, clip, rule, and captions."""
 
-    after: ClassVar[str] = "After"
     plate: Rect
     clip: Rect
     rule: Option[tuple[tuple[float, float], tuple[float, float]]]
     captions: tuple[tuple[str, float, float, Align], ...]
 
     @classmethod
-    def of(cls, compare: Compare, frame: Rect, bounds: Rect, size: tuple[float, float], name: str, gap: float, inset: float, text: float) -> Self:
-        """Lays out compare over a frame inside visible bounds."""
+    def of(cls, compare: Compare, frame: Rect, bounds: Rect, size: tuple[float, float], state: Plate, gap: float, inset: float, text: float) -> Self:
+        """Lays out compare over a frame inside visible bounds, captioned by the plate's before and shown names."""
         (width, height), right, top = size, bounds.x + bounds.width, bounds.y + bounds.height
         plate = Rect(x=frame.x + (frame.width - width) / 2, y=frame.y + (frame.height - height) / 2, width=width, height=height)
         low, high, left = max(frame.y, bounds.y), min(frame.y + frame.height, top), max(frame.x, bounds.x)
-        first, last = (cls.after, name) if compare.swapped else (name, cls.after)
+        name, shown = state.name, state.shown
+        first, last = (shown, name) if compare.swapped else (name, shown)
         match compare.mode:
             case Mode.SIDE:
                 beside = msgspec.structs.replace(plate, x=frame.x + frame.width + gap if compare.swapped else frame.x - gap - width)
                 outer = (beside.x + inset, Align.START) if compare.swapped else (beside.x + width - inset, Align.END)
                 inner = (frame.x + frame.width - inset, Align.END) if compare.swapped else (frame.x + inset, Align.START)
-                return cls(plate=beside, clip=beside, rule=Nothing, captions=((name, outer[0], high - inset - text, outer[1]), (cls.after, inner[0], high - inset - text, inner[1])))
+                return cls(plate=beside, clip=beside, rule=Nothing, captions=((name, outer[0], high - inset - text, outer[1]), (shown, inner[0], high - inset - text, inner[1])))
             case Mode.VERTICAL:
                 at = frame.x + compare.split * frame.width
                 clip = msgspec.structs.replace(bounds, x=at, width=max(right - at, 0.0)) if compare.swapped else msgspec.structs.replace(bounds, width=max(at - bounds.x, 0.0))
@@ -181,7 +183,9 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
     def read(self, metrics: Metrics) -> BlenderResult[Option[Plate]]:
         """Uploads before frame plane."""
         return self.source(metrics).bind(
-            lambda found: found.map(lambda before: uploaded(unassociated(before.plane)).map(lambda texture: Some(Plate(texture=texture, name=before.name)))).default_value(Ok(Nothing))
+            lambda found: found.map(lambda before: uploaded(unassociated(before.plane)).map(lambda texture: Some(Plate(texture=texture, name=before.name, shown=before.shown)))).default_value(
+                Ok(Nothing)
+            )
         )
 
     def drawn(self, canvas: Canvas, state: Plate) -> None:
@@ -201,7 +205,7 @@ class Wipe(msgspec.Struct, frozen=True, kw_only=True):
         ):
             size = (state.texture.width * space.zoom[0], state.texture.height * space.zoom[1])  # type: ignore[index]
             frame = framed(region)
-            sides = compare.map(lambda held: Sides.of(held, frame, canvas.extent, size, state.name, gap, canvas.metrics.unit * 0.4, text)).default_with(
+            sides = compare.map(lambda held: Sides.of(held, frame, canvas.extent, size, state, gap, canvas.metrics.unit * 0.4, text)).default_with(
                 lambda: Sides(
                     plate=Rect(x=frame.x + (frame.width - size[0]) / 2, y=frame.y + (frame.height - size[1]) / 2, width=size[0], height=size[1]), clip=canvas.extent, rule=Nothing, captions=()
                 )

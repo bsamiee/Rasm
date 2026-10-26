@@ -198,7 +198,6 @@ Comments state intent or constraint code cannot show:
 - Structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
 - Section dividers follow `CLAUDE.md` file organization
 - Doc comment summaries are one sentence that states what the member returns or does without restating its name, remarks keep one fact per sentence
-- Use `Skill(python-document)` for a doc comment's tags, sections, period, and presence, `/dotnet-document` and `/typescript-document` hold the C# and TypeScript forms
 - Messages (log, error, exception, diagnostic) state what happened and its cause when known, then after a comma one action when a reader has one
 - Commit subjects open `<type>(<project>): ` with an imperative subject, `!` before the colon marks a breaking change
 - Commit and pull request bodies state past facts

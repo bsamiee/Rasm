@@ -44,7 +44,7 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
 - Files: `<macros>` goes under `<main>/.artifacts/ghidra/<name>/`
-- Files: Main worktree `<main>` is the line `dirname "$(git rev-parse --path-format=absolute --git-common-dir)"` prints
+- Files: `<main>` is the repository root
 - Files: Scripts and `-log` create their file's folder, `lipo` and redirects need `mkdir -p`
 - Logs: `ghidra.log` appends each run's messages and its scripts' printed lines, `ghidra-script.log` the printed lines alone
 - Logs: Runs without `-log` or `-scriptlog` append to `application.log` or `script.log` under `<main>/.cache/ghidra/settings/ghidra/<release>/`

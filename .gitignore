@@ -61,7 +61,6 @@ Thumbs.db
 
 .claude/agent-memory-local/
 .claude/settings.local.json
-.claude/worktrees/
 docs/research
 
 # --- [PLAN] -----------------------------------------------------------------------------

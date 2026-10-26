@@ -8,6 +8,9 @@ const register: Register = (on, options) => {
     const project = String(options.project);
     on('tool.call', { tool: 'EnterWorktree' }, () => ({ deny: `EnterWorktree ${WORKTREE}` }));
     on('tool.call', { tool: 'Agent', isolation: 'worktree' }, () => ({ deny: `Agent with isolation worktree ${WORKTREE}` }));
+    on('tool.call', { tool: 'Workflow' }, async ($, e, next) =>
+        /isolation\s*:\s*['"`]worktree['"`]/u.test(e.scriptPath === undefined ? (e.script ?? '') : await $.fs.read(e.scriptPath)) ? { deny: `Workflow agent with isolation worktree ${WORKTREE}` } : next(e),
+    );
     on('tool.call', { tool: ['Bash', 'Monitor'] }, async ($, e, next) => {
         if (e.command === undefined) {
             return next(e);

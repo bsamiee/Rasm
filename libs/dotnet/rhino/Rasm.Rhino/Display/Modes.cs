@@ -41,10 +41,11 @@ public sealed record ModeEdit {
             .ToFin(new Refused(nameof(DisplayModeDescription), Refused.Declined))
             .Bind(_ => Written(live, Path.Tail));
 
-    private Fin<Unit> Written(object root, Seq<PropertyInfo> path) =>
-        path.Fold(root, static (owner, step) => step.GetValue(owner)!) switch {
-            var target => Fin.Succ(ignore(Setter.IsStatic ? Setter.Invoke(null, [target, .. Arguments]) : Setter.Invoke(target, [.. Arguments]))),
-        };
+    private Fin<Unit> Written(object root, Seq<PropertyInfo> path) {
+        object target = path.Fold(root, static (owner, step) => step.GetValue(owner)!);
+        _ = Setter.Invoke(Setter.IsStatic ? null : target, Setter.IsStatic ? [target, .. Arguments] : [.. Arguments]);
+        return unit;
+    }
 
     // --- [PARSE]
     private static Seq<PropertyInfo> Chain(Expression node) =>
@@ -106,13 +107,10 @@ public static class TechnicalLines {
 }
 
 public static class DisplayModes {
-    // --- [IDENTITY]
-    public static Guid Id(Guid owner, string name) => Uuid.NewNameBased(owner, name);
-
     // --- [RECONCILE]
     public static IO<Seq<Guid>> Reconcile(Guid owner, DisplayModeSpec spec, Func<Seq<Guid>, IO<Unit>> reassign) =>
         from named in IO.lift(() => Callbacks.Unique(spec.Modes.Map(static row => row.Name) + spec.Retired, identity, nameof(DisplayModeDescription.EnglishName), StringComparer.OrdinalIgnoreCase))
-        let rows = spec.Modes.Map(row => (Id: Id(owner, row.Name), row.Name, row.Definition)).Strict()
+        let rows = spec.Modes.Map(row => (Id: Uuid.NewNameBased(owner, row.Name), row.Name, row.Definition)).Strict()
         from imported in unless(rows.IsEmpty, Imported(rows)).As()
         from written in Callbacks.Each(rows.Map(static row => With(row.Id, staged =>
             from renamed in IO.lift(() => { staged.EnglishName = row.Name; })
@@ -120,7 +118,7 @@ public static class DisplayModes {
             from updated in IO.lift(() => Refused.Unless(DisplayModeDescription.UpdateDisplayMode(staged, bSave: false), nameof(DisplayModeDescription.UpdateDisplayMode)))
             select updated)))
         from present in GetDisplayModes(static mode => mode.Id)
-        let retired = spec.Retired.Map(name => Id(owner, name)).Filter(toHashSet(present).Contains).Strict()
+        let retired = spec.Retired.Map(name => Uuid.NewNameBased(owner, name)).Filter(toHashSet(present).Contains).Strict()
         from moved in reassign(retired)
         from deleted in Callbacks.Each(retired.Map(static id => IO.lift(() => Refused.Unless(DisplayModeDescription.DeleteDisplayMode(id), nameof(DisplayModeDescription.DeleteDisplayMode)))))
         from saved in IO.lift(DisplayModeDescription.SaveDisplayModes)
@@ -130,9 +128,7 @@ public static class DisplayModes {
         DisposalOps.Within(static () => Directory.CreateTempSubdirectory(nameof(DisplayModes)), folder =>
             from bases in Callbacks.Each(rows.Map(static row => row.Definition.Base).Distinct().Map(id => Exported(id, Path.Join(folder.FullName, $"{id:D}.ini"))))
             let texts = toHashMap(bases)
-            let file = Path.Join(folder.FullName, "declared.ini")
-            from written in IO.lift(() => File.WriteAllText(file, string.Join("\r\n", rows.Map(row => texts[row.Definition.Base].Replace(Section(row.Definition.Base), Section(row.Id), StringComparison.Ordinal)))))
-            from imported in IO.lift(() => Conversions.Required(DisplayModeDescription.ImportFromFile(file, interactive: false), nameof(DisplayModeDescription.ImportFromFile)))
+            from imported in Callbacks.Each(rows.Map(row => Declared(Path.Join(folder.FullName, $"{row.Id:D}.ini"), texts[row.Definition.Base].Replace(Section(row.Definition.Base), Section(row.Id), StringComparison.Ordinal))))
             select unit,
             static folder => IO.lift(() => folder.Delete(recursive: true)));
 
@@ -140,6 +136,11 @@ public static class DisplayModes {
         from exported in ExportToFile(id, file)
         from text in IO.lift(() => File.ReadAllText(file))
         select (id, text);
+
+    private static IO<Guid> Declared(string file, string text) =>
+        from written in IO.lift(() => File.WriteAllText(file, text))
+        from imported in IO.lift(() => Conversions.Required(DisplayModeDescription.ImportFromFile(file, interactive: false), nameof(DisplayModeDescription.ImportFromFile)))
+        select imported;
 
     private static string Section(Guid id) => $@"[DisplayMode\{id:D}";
 

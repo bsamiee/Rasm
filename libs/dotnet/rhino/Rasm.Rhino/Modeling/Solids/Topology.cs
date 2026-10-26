@@ -117,7 +117,7 @@ public static class SolidTopology {
 
     public static IO<Brep> CreateFromJoinedEdges(Brep brep0, int edgeIndex0, Brep brep1, int edgeIndex1, Tolerances tolerances, Action<IDisposable> retain) =>
         Copies.Acquire(
-            () => (Conversions.Within(edgeIndex0, brep0.Edges.Count, nameof(Brep.CreateFromJoinedEdges)), Conversions.Within(edgeIndex1, brep1.Edges.Count, nameof(Brep.CreateFromJoinedEdges)))
+            () => (Copies.Within(brep0, ComponentIndexType.BrepEdge, Seq(edgeIndex0)), Copies.Within(brep1, ComponentIndexType.BrepEdge, Seq(edgeIndex1)))
                 .Apply((_, _) => Brep.CreateFromJoinedEdges(brep0, edgeIndex0, brep1, edgeIndex1, tolerances.Absolute))
                 .As(),
             nameof(Brep.CreateFromJoinedEdges), retain);
@@ -133,7 +133,7 @@ public static class SolidTopology {
 
     public static IO<(Brep Face0, Brep Face1)> ExtendBrepFacesToConnect(BrepFace face0, int edgeIndex0, BrepFace face1, int edgeIndex1, Tolerances tolerances, Action<IDisposable> retain) =>
         from indices in IO.lift(() =>
-                (Conversions.Within(edgeIndex0, face0.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)), Conversions.Within(edgeIndex1, face1.Brep.Edges.Count, nameof(Brep.ExtendBrepFacesToConnect)))
+                (Copies.Within(face0.Brep, ComponentIndexType.BrepEdge, Seq(edgeIndex0)), Copies.Within(face1.Brep, ComponentIndexType.BrepEdge, Seq(edgeIndex1)))
                     .Apply(static (_, _) => unit)
                     .As())
         from connected in Connected(() => (Brep.ExtendBrepFacesToConnect(face0, edgeIndex0, face1, edgeIndex1, tolerances.Absolute, tolerances.Angle, out Brep? first, out Brep? second), first, second), retain)
@@ -188,7 +188,7 @@ public static class SolidTopology {
 
     public static IO<Seq<Brep>> UnjoinEdges(Brep brep, Set<int> edgesToUnjoin, Action<IDisposable> retain) =>
         Copies.AcquireNonEmpty(
-            () => Copies.InRange(toSeq(edgesToUnjoin), brep.Edges.Count, nameof(Brep.UnjoinEdges)).Map(_ => brep.UnjoinEdges(edgesToUnjoin)),
+            () => Copies.Within(brep, ComponentIndexType.BrepEdge, toSeq(edgesToUnjoin)).Map(_ => brep.UnjoinEdges(edgesToUnjoin)),
             nameof(Brep.UnjoinEdges), retain);
 
     private static IO<(Seq<Brep> Kept, Seq<Brep> CutAway)> Cut(Func<(bool Accepted, Brep[]? Kept, Brep[]? CutAway)> wireCut, Action<IDisposable> retain) =>
@@ -213,18 +213,18 @@ public static class SolidTopology {
             (Copy: copy, Tolerances: tolerances),
             joinNakedEdges: static (edited, _) => IO.lift(() => EditResult<int>.CreateCount(edited.Copy.JoinNakedEdges(edited.Tolerances.Absolute))),
             joinEdges: static (edited, joining) =>
-                (IO.lift(() => Copies.InRange(joining.Pairs.Bind(static pair => Seq(pair.Edge0, pair.Edge1)), edited.Copy.Edges.Count, nameof(Brep.JoinEdges)))
+                (IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepEdge, joining.Pairs.Bind(static pair => Seq(pair.Edge0, pair.Edge1))))
                  >> IO.lift(() => Callbacks.Each(joining.Pairs, pair => edited.Copy.JoinEdges(pair.Edge0, pair.Edge1, edited.Tolerances.Absolute, compact: false), nameof(Brep.JoinEdges)))).Map(EditResult<int>.CreateCompleted()),
             mergeCoplanarFaces: static (edited, merge) =>
-                IO.lift(() => Copies.InRange(merge.Face.ToSeq(), edited.Copy.Faces.Count, nameof(Brep.MergeCoplanarFaces)))
+                IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepFace, merge.Face.ToSeq()))
                  >> IO.lift(() => new EditResult<int>(merge.Face.Match(
                      Some: face => edited.Copy.MergeCoplanarFaces(face, edited.Tolerances.Absolute, edited.Tolerances.Angle),
                      None: () => edited.Copy.MergeCoplanarFaces(edited.Tolerances.Absolute, edited.Tolerances.Angle)))),
             mergeCoplanarFacePair: static (edited, pair) =>
-                IO.lift(() => Copies.InRange(Seq(pair.Face0, pair.Face1), edited.Copy.Faces.Count, nameof(Brep.MergeCoplanarFaces)))
+                IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepFace, Seq(pair.Face0, pair.Face1)))
                  >> IO.lift(() => new EditResult<int>(edited.Copy.MergeCoplanarFaces(pair.Face0, pair.Face1, edited.Tolerances.Absolute, edited.Tolerances.Angle))),
             mergeEdges: static (edited, merge) =>
-                IO.lift(() => Copies.InRange(merge.Edge.ToSeq(), edited.Copy.Edges.Count, nameof(BrepEdgeList.MergeEdge)))
+                IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepEdge, merge.Edge.ToSeq()))
                  >> IO.lift(() => EditResult<int>.CreateCount(merge.Edge.Match(
                      Some: edge => edited.Copy.Edges.MergeEdge(edge, edited.Tolerances.Angle),
                      None: () => edited.Copy.Edges.MergeAllEdges(edited.Tolerances.Angle)))),
@@ -236,24 +236,24 @@ public static class SolidTopology {
             removeSlits: static (edited, _) => IO.lift(() => new EditResult<int>(edited.Copy.Faces.RemoveSlits())),
             shrinkFaces: static (edited, _) => IO.lift(() => Refused.Unless(edited.Copy.Faces.ShrinkFaces(), nameof(BrepFaceList.ShrinkFaces))).Map(EditResult<int>.CreateCompleted()),
             splitKinkyFaces: static (edited, split) =>
-                (IO.lift(() => Copies.InRange(split.Face.ToSeq(), edited.Copy.Faces.Count, nameof(BrepFaceList.SplitKinkyFace)))
+                (IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepFace, split.Face.ToSeq()))
                  >> IO.lift(() => split.Face.Match(
                      Some: face => Refused.Unless(edited.Copy.Faces.SplitKinkyFace(face, edited.Tolerances.Angle), nameof(BrepFaceList.SplitKinkyFace)),
                      None: () => Refused.Unless(edited.Copy.Faces.SplitKinkyFaces(edited.Tolerances.Angle), nameof(BrepFaceList.SplitKinkyFaces)))))
                     .Map(EditResult<int>.CreateCompleted()),
             splitKinkyEdge: static (edited, split) =>
-                (IO.lift(() => Conversions.Within(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitKinkyEdge)))
+                (IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepEdge, Seq(split.Edge)))
                  >> IO.lift(() => Refused.Unless(edited.Copy.Edges.SplitKinkyEdge(split.Edge, edited.Tolerances.Angle), nameof(BrepEdgeList.SplitKinkyEdge))))
                     .Map(EditResult<int>.CreateCompleted()),
             splitEdgeAtParameters: static (edited, split) =>
-                (IO.lift(() => Conversions.Within(split.Edge, edited.Copy.Edges.Count, nameof(BrepEdgeList.SplitEdgeAtParameters)))
+                (IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepEdge, Seq(split.Edge)))
                  >> IO.lift(() => edited.Copy.Edges.SplitEdgeAtParameters(split.Edge, split.Parameters)))
                     .Bind(static count => IO.lift(Refused.Unless(count > 0, count, nameof(BrepEdgeList.SplitEdgeAtParameters))))
                     .Map(EditResult<int>.CreateCount),
             splitClosedFaces: static (edited, split) => IO.lift(() => Refused.Unless(edited.Copy.Faces.SplitClosedFaces(split.MinimumDegree), nameof(BrepFaceList.SplitClosedFaces))).Map(EditResult<int>.CreateCompleted()),
             splitBipolarFaces: static (edited, _) => IO.lift(() => Refused.Unless(edited.Copy.Faces.SplitBipolarFaces(), nameof(BrepFaceList.SplitBipolarFaces))).Map(EditResult<int>.CreateCompleted()),
             splitFacesAtTangents: static (edited, split) =>
-                (IO.lift(() => Copies.InRange(split.Face.ToSeq(), edited.Copy.Faces.Count, nameof(BrepFaceList.SplitFaceAtTangents)))
+                (IO.lift(() => Copies.Within(edited.Copy, ComponentIndexType.BrepFace, split.Face.ToSeq()))
                  >> IO.lift(() => split.Face.Match(
                      Some: face => Refused.Unless(edited.Copy.Faces.SplitFaceAtTangents(face, split.AggressiveMode), nameof(BrepFaceList.SplitFaceAtTangents)),
                      None: () => Refused.Unless(edited.Copy.Faces.SplitFacesAtTangents(split.AggressiveMode), nameof(BrepFaceList.SplitFacesAtTangents)))))
@@ -263,38 +263,38 @@ public static class SolidTopology {
             flip: static (edited, flip) => IO.lift(() => edited.Copy.Faces.Flip(flip.OnlyReversedFaces)).Map(EditResult<int>.CreateCompleted()),
             repair: static (edited, _) => IO.lift(() => Refused.Unless(edited.Copy.Repair(edited.Tolerances.Absolute), nameof(Brep.Repair))).Map(EditResult<int>.CreateCompleted()),
             prepareForBooleans: static (edited, _) => IO.lift(() => Refused.Unless(edited.Copy.PrepareForBooleans(), nameof(Brep.PrepareForBooleans))).Map(EditResult<int>.CreateCompleted()),
-            transformComponent: static (edited, move) => IO.lift(() => Refused.Unless(
-                edited.Copy.TransformComponent(move.Components, move.Transform, edited.Tolerances.Absolute, Conversions.Unset(move.TimeLimit.Map(static limit => limit.TotalSeconds)), move.UseMultipleThreads),
-                nameof(Brep.TransformComponent))).Map(EditResult<int>.CreateCompleted()));
+            transformComponent: static (edited, move) => IO.lift(() => Copies.Within(edited.Copy, move.Components)).Bind(components => IO.lift(() => Refused.Unless(
+                edited.Copy.TransformComponent(components, move.Transform, edited.Tolerances.Absolute, Conversions.Unset(move.TimeLimit.Map(static limit => limit.TotalSeconds)), move.UseMultipleThreads),
+                nameof(Brep.TransformComponent)))).Map(EditResult<int>.CreateCompleted()));
 
     // --- [DERIVATIONS]
     public static IO<Brep> Derive(Brep source, SolidDerivation derivation, Tolerances tolerances, Action<IDisposable> retain) =>
         derivation.Switch(
             (Source: source, Tolerances: tolerances, Retain: retain),
             removeHoles: static (of, holes) =>
-                IO.lift(() => Callbacks.Each(toSeq(holes.Loops), (loop, _) =>
-                    Conversions.Within(loop, of.Source.Loops.Count, nameof(Brep.RemoveHoles))
-                        .Bind(_ => Refused.Unless(of.Source.Loops[loop].LoopType is BrepLoopType.Inner, nameof(Brep.RemoveHoles), loop))))
-                 >> Copies.Acquire(() => of.Source.RemoveHoles(toSeq(holes.Loops).Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop)), of.Tolerances.Absolute), nameof(Brep.RemoveHoles), of.Retain),
+                from loops in IO.lift(() => Copies.Within(of.Source, toSeq(holes.Loops).Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop))))
+                from inner in IO.lift(() => Callbacks.Each(loops, loop => of.Source.Loops[loop.Index].LoopType is BrepLoopType.Inner, nameof(Brep.RemoveHoles)))
+                from removed in Copies.Acquire(() => of.Source.RemoveHoles(loops, of.Tolerances.Absolute), nameof(Brep.RemoveHoles), of.Retain)
+                select removed,
             untrimFace: static (of, untrim) =>
-                IO.lift(() => Conversions.Within(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimFace)))
+                IO.lift(() => Copies.Within(of.Source, ComponentIndexType.BrepFace, Seq(untrim.Face)))
                  >> Copies.Acquire(() => of.Source.UntrimFace(untrim.Face, of.Tolerances.Absolute), nameof(Brep.UntrimFace), of.Retain),
             untrimOuterLoop: static (of, untrim) =>
-                IO.lift(() => Conversions.Within(untrim.Face, of.Source.Faces.Count, nameof(Brep.UntrimOuterLoop)))
+                IO.lift(() => Copies.Within(of.Source, ComponentIndexType.BrepFace, Seq(untrim.Face)))
                  >> Copies.Acquire(() => of.Source.UntrimOuterLoop(untrim.Face), nameof(Brep.UntrimOuterLoop), of.Retain),
             insetFaces: static (of, inset) =>
-                IO.lift(() => Copies.InRange(toSeq(inset.Faces), of.Source.Faces.Count, nameof(Brep.InsetFaces)))
+                IO.lift(() => Copies.Within(of.Source, ComponentIndexType.BrepFace, toSeq(inset.Faces)))
                  >> Copies.Acquire(() => of.Source.InsetFaces(inset.Faces, inset.Distance, inset.Loose, inset.IgnoreSeams, inset.CreaseCorners, of.Tolerances.Absolute, of.Tolerances.Angle), nameof(Brep.InsetFaces), of.Retain),
             pushPullExtend: static (of, push) =>
-                IO.lift(() => Conversions.Within(push.Face, of.Source.Faces.Count, nameof(Brep.PushPullExtend)))
+                IO.lift(() => Copies.Within(of.Source, ComponentIndexType.BrepFace, Seq(push.Face)))
                  >> Copies.Acquire(() => of.Source.PushPullExtend(push.Face, push.Transform, of.Tolerances.Absolute), nameof(Brep.PushPullExtend), of.Retain),
             replaceEdge: static (of, replace) =>
-                IO.lift(() => Copies.InRange(toSeq(replace.Edges), of.Source.Edges.Count, nameof(Brep.ReplaceEdge)))
+                IO.lift(() => Copies.Within(of.Source, ComponentIndexType.BrepEdge, toSeq(replace.Edges)))
                  >> Copies.Acquire(() => replace.Replacement.Arguments switch {
                      var (method, curve) => of.Source.ReplaceEdge(replace.Edges, method, curve, of.Tolerances.Absolute),
                  }, nameof(Brep.ReplaceEdge), of.Retain),
             duplicateSubBrep: static (of, sub) =>
-                IO.lift(() => Copies.InRange(toSeq(sub.Faces), of.Source.Faces.Count, nameof(Brep.DuplicateSubBrep)))
+                IO.lift(() => Copies.Within(of.Source, ComponentIndexType.BrepFace, toSeq(sub.Faces)))
                  >> Copies.Acquire(() => of.Source.DuplicateSubBrep(sub.Faces), nameof(Brep.DuplicateSubBrep), of.Retain));
 
     public static IO<Brep> TryConvertBrep(GeometryBase geometry, Action<IDisposable> retain) =>

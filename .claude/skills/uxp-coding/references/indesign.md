@@ -22,45 +22,23 @@ InDesign holds its running object model as ExtendScript's `$.dictionary`, read t
 Collection members are specifiers that resolve at each member read, and an unmatched lookup returns a specifier with `isValid` false:
 
 ```ts
-import type { BaseCollection, Document, InDesignDOMObject, PageItem } from 'adobe:indesign';
+import type { Document, InDesignDOMObject } from 'adobe:indesign';
 
 const IDENTIFIED = /(?<kind>[\w-]+)\[@id=\d+\]$/u;
-class Model extends Context.Service<Model>()('Model', {
-    make: (indesign: typeof import('adobe:indesign')) =>
-        Effect.sync(() => {
-            const model: typeof indesign = Object.create(indesign);
-            const prototypes = Record.map(
-                Array.groupBy(
-                    Array.flatMap(Object.getOwnPropertyNames(indesign), (name): readonly (readonly [string, object])[] => {
-                        const type: unknown = Reflect.get(indesign, name);
-                        return Predicate.isFunction(type) ? Array.map(Object.getOwnPropertyNames(type.prototype), (member) => [member, type.prototype] as const) : [];
-                    }),
-                    ([member]) => member,
-                ),
-                (owners) => new Set(Array.map(owners, ([, prototype]) => prototype)),
-            );
-            const owning = <A>(member: keyof A & string): (<T>(value: T) => value is T & A) => {
-                const owners = Option.getOrElse(Record.get(prototypes, member), () => new Set<unknown>());
-                return <T>(value: T): value is T & A => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
-            };
-            return Object.assign(model, { owning, host: owning<InDesignDOMObject<unknown>>('toSpecifier'), collection: owning<BaseCollection<unknown>>('everyItem') });
-        }),
-}) {}
-const pageItem = (document: Document, id: number): Option.Option<PageItem> => {
-    const found = document.pageItems.itemByID(id);
-    return found.isValid ? Array.head(found.getElements()) : Option.none();
-};
+class Model extends Context.Service<Model, typeof import('adobe:indesign')>()('Model') {}
+const owning = <A>(member: keyof A & string) => <T>(value: T): value is T & A => Predicate.isObject(value) && Predicate.hasProperty(Object.getPrototypeOf(value), member);
+const pageItem = (document: Document, id: number) => Option.flatMap(Option.liftPredicate(document.pageItems.itemByID(id), (found) => found.isValid), (found) => Array.head(found.getElements()));
 const located = (specifier: string) =>
-    Effect.map(Model, ({ app, ScriptLanguage, host }) => {
+    Model.useSync(({ app, ScriptLanguage }) => {
         const kind = (path: string): string | undefined => IDENTIFIED.exec(path)?.groups?.kind;
         return Option.filter(
             Option.liftThrowable((): unknown => app.doScript('resolve(arguments[0])', ScriptLanguage.JAVASCRIPT, [specifier]))(),
-            (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] => Array.ensure<unknown>(found).every((each) => host(each) && (kind(specifier) === undefined || kind(each.toSpecifier()) === kind(specifier))),
+            (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] => Array.ensure<unknown>(found).every((each) => owning<InDesignDOMObject<unknown>>('toSpecifier')(each) && (kind(specifier) === undefined || kind(each.toSpecifier()) === kind(specifier))),
         );
     });
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object whose prototype is an exported class prototype declaring the member: `toSpecifier` for a DOM object, `everyItem` for a collection. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object whose prototype declares the member: `toSpecifier` for a DOM object, `everyItem` for a collection. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
 | [INDEX] | [NEED]                     | [FORM]                                          | [DECIDING_FACT]                                |
 | :-----: | :------------------------- | :---------------------------------------------- | :--------------------------------------------- |
@@ -116,22 +94,13 @@ Throws inside a step roll back every change in every document and record no undo
 ```ts
 const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
     const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Model;
-    const [opened, done, sync] = [
-        app.documents.everyItem().id,
-        yield* Deferred.make<A, E | HostError>(),
-        Effect.runSyncWith(yield* Effect.context<R>()),
-    ];
-    const closed = (id: number) => Effect.sync(() => app.documents.itemByID(id).close(SaveOptions.NO));
-    const running = () => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done)));
-    yield* Effect.try({
-        try: (): unknown => app.doScript(running, ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label),
-        catch: (cause) => new HostError({ step: label, cause }),
-    }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
-    return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
+    const [opened, done, sync] = [app.documents.everyItem().id, yield* Deferred.make<A, E | HostError>(), Effect.runSyncWith(yield* Effect.context<R>())];
+    yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: (cause) => new HostError({ step: label, cause }) }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
+    return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), (id) => Effect.sync(() => app.documents.itemByID(id).close(SaveOptions.NO)), { discard: true })));
 });
 ```
 
-`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. Host refusals fail the package's `HostError` with `label` as step, `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Plugins repeat ExtendScript `$.sleep(5)` to hold the same step until a call InDesign completes enters it, and a peer call runs the step inside the sleep.
+`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Plugins repeat ExtendScript `$.sleep(5)` to hold the same step until a call InDesign completes enters it, and a peer call runs the step inside the sleep.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
@@ -145,19 +114,22 @@ ExtendScript writes and rolled-back reads send source text with arguments as dat
 ```ts
 import type { InDesignDOMObject } from 'adobe:indesign';
 
-const based = (target: InDesignDOMObject<unknown>, field: string): Effect.Effect<unknown, HostError, Model> => {
-    const source = `var target = resolve(arguments[0]), field = arguments[1], value = null, done = false;
+const based = (target: InDesignDOMObject<unknown>, field: string) =>
+    Model.use(({ app, ScriptLanguage }) =>
+        Effect.try({
+            try: (): unknown =>
+                app.doScript(
+                    `var target = resolve(arguments[0]), field = arguments[1], value = null, done = false;
 try {
     app.doScript(function () { target.clearOverrides(); value = target[field]; done = true; throw 0; }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT);
 } catch (error) { if (!done) throw error; }
-value`;
-    return Effect.flatMap(Model, ({ app, ScriptLanguage }) =>
-        Effect.try({
-            try: (): unknown => app.doScript(source, ScriptLanguage.JAVASCRIPT, [target.toSpecifier(), field]),
+value`,
+                    ScriptLanguage.JAVASCRIPT,
+                    [target.toSpecifier(), field],
+                ),
             catch: (cause) => new HostError({ step: `${target.toSpecifier()} ${field}`, cause }),
         }),
     );
-};
 ```
 
 `based` clears overrides on `target` in a step its throw rolls back and returns `field` as styles set it.
@@ -174,11 +146,12 @@ value`;
 `app.scriptPreferences` and app-wide export and find/change preferences are shared with the user's dialogs and persist across scripts and launches. Export and scripting scopes restore written keys:
 
 ```ts
-const preserve = <T extends object>(target: T, replacements: Partial<T>) =>
-    Effect.acquireRelease(
-        Effect.try(() => Record.fromIterableWith(Struct.keys(replacements), (key) => [key, target[key]])),
-        (saved) => Effect.orDie(Effect.try(() => Object.assign(target, saved))),
-    ).pipe(Effect.tap(() => Effect.try(() => Object.assign(target, replacements))));
+const preserve = <T extends object>(target: T, replacements: Partial<T>) => {
+    const refused = (cause: unknown) => new HostError({ step: Struct.keys(replacements).join(', '), cause });
+    return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(Struct.keys(replacements), (key) => [key, target[key]]), catch: refused }), (saved) => Effect.sync(() => Object.assign(target, saved))).pipe(
+        Effect.tap(() => Effect.try({ try: () => Object.assign(target, replacements), catch: refused })),
+    );
+};
 ```
 
 Preference members are prototype accessors that own-key copies (`Struct.pick`, a spread) skip. `preserve` reads each key by name before writing any, and the scope restores every key whether its write succeeded or failed.
@@ -201,18 +174,21 @@ Find/Change scopes save, load, and delete a native query. Native serialization p
 import type { Page, PageItem } from 'adobe:indesign';
 
 class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite)) {
-    static readonly of = Effect.fn('Extent.of')(function* (...placed: readonly (Page | PageItem)[]) {
-        const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
-        return yield* Effect.try({
-            try: () => {
-                const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
-                    each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES),
-                );
-                return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
-            },
-            catch: (cause) => new HostError({ step: `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`, cause }),
-        });
-    });
+    static readonly of = Effect.fn('Extent.of')((...placed: readonly (Page | PageItem)[]) =>
+        Model.use(({ AnchorPoint, BoundingBoxLimits, CoordinateSpaces }) =>
+            Effect.try({
+                try: () =>
+                    Extent.make(
+                        Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(
+                            Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
+                                Array.map(each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES), ([x, y]) => ({ top: y, left: x, bottom: y, right: x })),
+                            ),
+                        ),
+                    ),
+                catch: (cause) => new HostError({ step: `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`, cause }),
+            }),
+        ),
+    );
 }
 ```
 
@@ -236,24 +212,17 @@ import type { Page } from 'adobe:indesign';
 import { temporary } from '#/dom/files';
 
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
-    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }] = yield* Effect.all([Model, Uxp]);
-    const { top, left, bottom, right } = yield* Extent.of(page);
+    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }, { top, left, bottom, right }, path] = yield* Effect.all([Model, Uxp, Extent.of(page), temporary('render.png')]);
     const refused = (cause: unknown) => new HostError({ step: `export of ${page.toSpecifier()}`, cause });
-    const pointsPerInch = 72;
-    const path = yield* temporary('render.png');
     yield* preserve(app.pngExportPreferences, {
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pageString: `+${page.documentOffset + 1}`,
         exportingSpread: false,
-        exportResolution: (pixels * pointsPerInch) / Math.max(right - left, bottom - top),
+        exportResolution: (pixels * 72) / Math.max(right - left, bottom - top),
         useDocumentBleeds: false,
-    }).pipe(Effect.mapError(refused));
+    });
     yield* Effect.try({ try: () => page.parent.parent.exportFile(ExportFormat.PNG_FORMAT, path), catch: refused });
-    return yield* Effect.filterOrFail(
-        Effect.try({ try: () => new Uint8Array(fs.readFileSync(`file:${path}`)), catch: refused }),
-        (image) => image.length > 0,
-        refused,
-    );
+    return yield* Effect.filterOrFail(Effect.try({ try: () => new Uint8Array(fs.readFileSync(`file:${path}`)), catch: refused }), (image) => image.length > 0, refused);
 }, Effect.scoped);
 ```
 
@@ -325,11 +294,17 @@ import { temporary } from '#/dom/files';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
     const [{ FontStatus }, { fs }] = yield* Effect.all([Model, Uxp]);
-    const bytes = (path: string) => Effect.try(() => new Uint8Array(fs.readFileSync(path)));
-    const subset = Effect.flatMap(temporary('font.otf'), (path) => Effect.andThen(Effect.try(() => face.createSubsetFont(characters, path)), bytes(`file:${path}`)));
+    const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => new HostError({ step: path, cause }) });
     return face.status.equals(FontStatus.INSTALLED)
-        ? Option.some(yield* bytes(`file:${face.location}`).pipe(Effect.catchIf(({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => subset)))
-        : Option.none<Uint8Array>();
+        ? Option.some(
+            yield* bytes(`file:${face.location}`).pipe(
+                Effect.catchIf(
+                    ({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause),
+                    () => Effect.flatMap(temporary('font.otf'), (path) => Effect.andThen(Effect.try({ try: () => face.createSubsetFont(characters, path), catch: (cause) => new HostError({ step: path, cause }) }), bytes(`file:${path}`))),
+                ),
+            ),
+        )
+        : Option.none();
 }, Effect.scoped);
 ```
 
@@ -368,20 +343,20 @@ import uxp from 'adobe:uxp';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 
 const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
-    const target: unknown = Reflect.get(uxp, 'script');
     Effect.gen(function* () {
-        const [{ args, setResult }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))(target), RpcSerialization.RpcSerialization]);
-        const answer = (chunk: string | Uint8Array) => Effect.sync(() => Reflect.apply(setResult, target, [Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)]));
-        const stdio = Stdio.make({ args: Effect.succeed(args), stdin: Stream.encodeText(Stream.fromIterable(args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) });
+        const [{ script }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) }))(uxp), RpcSerialization.RpcSerialization]);
+        const answer = (chunk: string | Uint8Array) => Effect.sync(() => script.setResult(Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)));
         yield* Layer.launch(server).pipe(
-            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(stdio)))),
-            Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), (cause) => Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer)))),
+            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(script.args), stdin: Stream.encodeText(Stream.fromIterable(script.args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) }))))),
+            Effect.catchCause((cause) =>
+                Cause.hasInterruptsOnly(cause) ? Effect.failCause(cause) : Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer))),
+            ),
         );
     }).pipe(Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
 };
 ```
 
-`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber, and `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
+`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber, and `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Schema.declare` over `Schema.is` keeps the host's `script` object as `setResult` receiver. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
 
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test

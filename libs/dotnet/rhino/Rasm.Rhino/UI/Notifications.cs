@@ -3,6 +3,7 @@ using Eto.Forms;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Styling;
+using Rasm.UI;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.UI;
@@ -32,10 +33,16 @@ public static class Notifications {
     public static IO<Disposal<Application>> Acquire(Action<Disposal<Application>> retain) =>
         DisposalOps.Acquire(IO.lift(static () => new Disposal<Application>(Application.Instance, Cleared)), retain);
 
-    public static IO<Unit> SetProgress(Disposal<Application> hold, WorkState work, Option<TaskbarProgressState> state = default) =>
-        IO.lift(() => hold.Held.Iter(_ => Taskbar.SetProgress(
-            state.IfNone(work.Map(inactive: TaskbarProgressState.None, indeterminate: TaskbarProgressState.Indeterminate, counted: TaskbarProgressState.Progress)),
-            work.Switch(inactive: static _ => 0f, indeterminate: static _ => 0f, counted: static counted => (float)counted.Done / counted.Total))));
+    public static IO<Unit> SetProgress<T>(Disposal<Application> hold, Content<T> work) where T : notnull =>
+        work.Switch(
+            pending: static pending => pending.Work.Match(
+                Some: static progress => (State: TaskbarProgressState.Progress, Progress: (float)progress.Fraction),
+                None: static () => (State: TaskbarProgressState.Indeterminate, Progress: 0f)),
+            ready: static _ => (State: TaskbarProgressState.None, Progress: 0f),
+            empty: static _ => (State: TaskbarProgressState.None, Progress: 0f),
+            failed: static _ => (State: TaskbarProgressState.Error, Progress: 0f)) switch {
+                var shown => IO.lift(() => hold.Held.Iter(_ => Taskbar.SetProgress(shown.State, shown.Progress))),
+            };
 
     public static IO<Unit> BadgeLabel(Disposal<Application> hold, Option<string> label) =>
         IO.lift(() => hold.Held.Iter(app => app.BadgeLabel = Conversions.Unset(label)));

@@ -231,6 +231,8 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [ROUND_TRIPS]
+    private static bool Parameterless(IInvocationOperation call) => call.Arguments.Length == (call.Instance is null ? 1 : 0);
+
     private static void RoundTrips(CompilationStartAnalysisContext context, INamedTypeSymbol fin, INamedTypeSymbol validation, INamedTypeSymbol kind) {
         static IOperation? Source(IOperation operation, INamedTypeSymbol from, INamedTypeSymbol to) =>
             operation is IInvocationOperation call && Parameterless(call) && Receiver(call) is { } held && Same(held.Type, from) && Same(call.Type, to) ? Stripped(held) : null;

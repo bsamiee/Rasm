@@ -29,6 +29,15 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
             },
             kinds);
 
+    protected static void Report<T>(CompilationStartAnalysisContext context, ImmutableArray<OperationKind> kinds, DiagnosticDescriptor rule, Func<T, OperationAnalysisContext, bool> found) where T : IOperation =>
+        Report<T>(context, kinds, (operation, analysis) => found(operation, analysis) ? [Diagnostic.Create(rule, operation.Syntax.GetLocation(), operation.Syntax)] : []);
+
+    protected static void Writes(CompilationStartAnalysisContext context, string property, DiagnosticDescriptor rule, Func<IAssignmentOperation, OperationAnalysisContext, bool> wrong) {
+        if (Declared(context.Compilation, property).FirstOrDefault() is not { } written) return;
+        Report<IAssignmentOperation>(context, [OperationKind.SimpleAssignment, OperationKind.CompoundAssignment, OperationKind.CoalesceAssignment], rule, (assignment, analysis) =>
+            assignment.Target is IPropertyReferenceOperation reference && Same(reference.Property, written) && wrong(assignment, analysis));
+    }
+
     protected static Location Named(IInvocationOperation call) =>
         call.Syntax is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } syntax
             ? Location.Create(syntax.SyntaxTree, TextSpan.FromBounds(access.Name.SpanStart, syntax.Span.End))
@@ -51,6 +60,19 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
 
     protected static bool Derives(ITypeSymbol? type, INamedTypeSymbol root) =>
         type is not null && (Same(type, root) || Derives(type.BaseType, root));
+
+    protected static AttributeData? Marked(ISymbol symbol, INamedTypeSymbol? attribute) => symbol.GetAttributes().FirstOrDefault(data => attribute is not null && Same(data.AttributeClass, attribute));
+
+    protected static bool Sourced(ISymbol symbol) => symbol.Locations.Any(static location => location.IsInSource);
+
+    protected static bool Delegated(IMethodSymbol method) => method.Parameters.Any(static parameter => parameter.Type.TypeKind is TypeKind.Delegate);
+
+    protected static INamedTypeSymbol? Enumerated(ITypeSymbol type) =>
+        type.AllInterfaces.Append(type).OfType<INamedTypeSymbol>().FirstOrDefault(static face => face.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T);
+
+    protected static bool Implements(IMethodSymbol method, ISymbol member) => Same(method, member) || Same(method.ContainingType?.FindImplementationForInterfaceMember(member), method);
+
+    protected static ISymbol Member(ISymbol symbol) => symbol is IMethodSymbol { AssociatedSymbol: { } associated } ? associated : symbol;
 
     protected static IEnumerable<ISymbol> Overridden(ISymbol? member) =>
         member is null ? [] : Overridden(member switch { IMethodSymbol method => method.OverriddenMethod, IPropertySymbol property => property.OverriddenProperty, _ => null }).Prepend(member);
@@ -80,8 +102,6 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
     protected static IOperation? Receiver(IInvocationOperation call) =>
         call.Instance ?? (call.Arguments.IsEmpty ? null : call.Arguments[0].Value);
 
-    protected static bool Parameterless(IInvocationOperation call) => call.Arguments.Length == (call.Instance is null ? 1 : 0);
-
     protected static IOperation Root(IOperation operation) => operation.Parent is { } parent ? Root(parent) : operation;
 
     protected static bool Written(IOperation reference) =>
@@ -98,16 +118,19 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
             _ => null,
         };
 
+    protected static IEnumerable<IOperation> Uses(ISymbol symbol, IOperation within) =>
+        Root(within).Descendants().Where(reference => Same(reference switch { ILocalReferenceOperation local => local.Local, IParameterReferenceOperation parameter => parameter.Parameter, _ => null }, symbol));
+
+    private protected static IEnumerable<IOperation> Declarations(ISymbol symbol, Reading reading) =>
+        symbol.DeclaringSyntaxReferences.Where(declared => declared.SyntaxTree == reading.Model.SyntaxTree)
+            .Select(declared => reading.Model.GetOperation(declared.GetSyntax(reading.Token), reading.Token)).OfType<IOperation>();
+
     private protected static IEnumerable<IOperation> References(ISymbol symbol, IOperation within, Reading reading) =>
         Root(within).Syntax.DescendantNodes().OfType<IdentifierNameSyntax>()
             .Where(name => string.Equals(name.Identifier.ValueText, symbol.Name, StringComparison.Ordinal)
                 && SymbolEqualityComparer.Default.Equals(reading.Model.GetSymbolInfo(name, reading.Token).Symbol, symbol))
             .Select(name => reading.Model.GetOperation(name, reading.Token))
             .OfType<IOperation>();
-
-    private protected static ISymbol? Held(IOperation reference, Reading reading) =>
-        Stripped(reference).Syntax is IdentifierNameSyntax name && reading.Model.GetSymbolInfo(name, reading.Token).Symbol is { } held
-        && held is ILocalSymbol or IParameterSymbol or IRangeVariableSymbol ? held : null;
 
     private protected static QueryClauseSyntax? Clause(SyntaxNode syntax) =>
         syntax.Parent switch {
@@ -200,11 +223,14 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
         public bool Plain(IMethodSymbol method) =>
             method.TypeParameters.Length > 0 && method.TypeParameters[0].ConstraintTypes.Any(constraint => Same(constraint, Dispose.ContainingType));
 
-        public bool Disposes(IMethodSymbol method) =>
-            Same(method, Dispose) || Same(method.ContainingType?.FindImplementationForInterfaceMember(Dispose), method);
+        public bool Disposes(IMethodSymbol method) => Implements(method, Dispose);
 
         public bool Retaining(IInvocationOperation call, IParameterSymbol parameter) =>
             Among(call.TargetMethod, Retains) || (call.TargetMethod.MethodKind is MethodKind.DelegateInvoke && Same(parameter.Type, Dispose.ContainingType));
+
+        public static IEnumerable<IParameterSymbol> Handed(IInvocationOperation call, ITypeSymbol held) =>
+            call.Arguments.Select(static argument => Stripped(argument.Value)).OfType<IDelegateCreationOperation>().Select(static creation => creation.Target).OfType<IAnonymousFunctionOperation>()
+                .Select(static function => function.Symbol.Parameters.FirstOrDefault()).OfType<IParameterSymbol>().Where(parameter => Same(parameter.Type, held));
 
         public IEnumerable<string> Released(IOperation value, ITypeSymbol held, Reading reading) => Released(value, held, reading, []);
 
@@ -232,10 +258,7 @@ public abstract class RasmAnalyzer(GeneratedCodeAnalysisFlags generated = Genera
             seen.Contains(carrier) ? [] : References(carrier, value, reading).SelectMany(reference => Released(reference, held, reading, seen.Add(carrier)));
 
         private IEnumerable<string> Passed(IInvocationOperation call, ITypeSymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
-            call.Arguments.Select(static argument => Stripped(argument.Value)).OfType<IDelegateCreationOperation>()
-                .Select(static creation => creation.Target).OfType<IAnonymousFunctionOperation>()
-                .Where(function => function.Symbol.Parameters.Length > 0 && Same(function.Symbol.Parameters[0].Type, held))
-                .SelectMany(function => Followed(function.Symbol.Parameters[0], function, held, reading, seen));
+            Handed(call, held).SelectMany(parameter => Followed(parameter, call, held, reading, seen));
 
         private IEnumerable<string> Argued(IInvocationOperation call, IParameterSymbol parameter, ITypeSymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
             (Among(call.TargetMethod, Acquires) && parameter.Ordinal is 0) || Among(call.TargetMethod, Releases) || Retaining(call, parameter) ? [Label(call)]

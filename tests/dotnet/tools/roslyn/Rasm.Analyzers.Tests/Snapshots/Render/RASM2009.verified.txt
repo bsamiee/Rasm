@@ -1,3 +1,0 @@
-#0 `capture.GrayscaleDib()` returns null on macOS on every call. Pass it to `Refused.UnlessFound`, `Optional`, or `DisposalOps.Found`
-#1 `capture.GrayscaleDib()` returns null on macOS on every call. Pass it to `Refused.UnlessFound`, `Optional`, or `DisposalOps.Found`
-#2 `capture.GrayscaleDib()` returns null on macOS on every call. Pass it to `Refused.UnlessFound`, `Optional`, or `DisposalOps.Found`

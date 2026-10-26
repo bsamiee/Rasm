@@ -9,32 +9,21 @@ Photoshop's UXP DOM uses Action Manager descriptors: `action.batchPlay` plays ch
 ```ts
 import { type ActionDescriptor, action, core, type ExecutionContext } from 'adobe:photoshop';
 
-const Failed = Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int });
-const played = (commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[], Cause.UnknownError> =>
-    Effect.flatMap(Effect.tryPromise(() => action.batchPlay(commands, {})), (replies) =>
+const played = (commands: ActionDescriptor[]) =>
+    Effect.flatMap(Effect.tryPromise({ try: () => action.batchPlay(commands, {}), catch: (cause) => new HostError({ step: Array.map(commands, Struct.get('_obj')).join(', '), cause }) }), (replies) =>
         Option.match(
-            Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) => Option.map(Schema.decodeUnknownOption(Failed)(reply), (failed) => new Cause.UnknownError(failed, command))),
+            Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) => Option.map(Schema.decodeUnknownOption(Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int }))(reply), (cause) => new HostError({ step: command, cause }))),
             { onNone: () => Effect.succeed(replies), onSome: Effect.fail },
         ),
     );
-const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>): Effect.Effect<A, E | Cause.UnknownError, R> =>
-    Effect.flatMap(Effect.context<R>(), (services) =>
-        Effect.flatten(
-            Effect.tryPromise({
-                try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }),
-                catch: (cause) => new Cause.UnknownError(cause, commandName),
-            }),
-        ),
-    );
-const committed = (documentID: number, name: string, commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[], Cause.UnknownError> =>
+const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>) =>
+    Effect.flatMap(Effect.context<R>(), (services) => Effect.flatten(Effect.tryPromise({ try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }), catch: (cause) => new HostError({ step: commandName, cause }) })));
+const committed = (documentID: number, name: string, commands: ActionDescriptor[]) =>
     modal(name, ({ hostControl }) =>
-        Effect.scoped(
-            Effect.andThen(
-                Effect.acquireRelease(Effect.tryPromise(() => hostControl.suspendHistory({ documentID, name })), (suspension, exit) =>
-                    Effect.promise(() => hostControl.resumeHistory(suspension, Exit.isSuccess(exit))),
-                ),
-                played(commands),
-            ),
+        Effect.acquireUseRelease(
+            Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID, name }), catch: (cause) => new HostError({ step: name, cause }) }),
+            () => played(commands),
+            (suspension, exit) => Effect.promise(() => hostControl.resumeHistory(suspension, Exit.isSuccess(exit))),
         ),
     );
 ```
@@ -64,9 +53,6 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
 Descriptors are plain records in Action JSON, and one `multiGet` returns named properties of every element under a target:
 
 ```ts
-const Listed = Schema.Tuple([
-    Schema.Struct({ list: Schema.Array(Schema.Struct({ layerID: Schema.Int, name: Schema.String, visible: Schema.Boolean })) }),
-]);
 const layers = (documentID: number) =>
     played([
         {
@@ -76,7 +62,7 @@ const layers = (documentID: number) =>
             options: { failOnMissingProperty: false, failOnMissingElement: false },
         },
     ]).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Listed)),
+        Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([Schema.Struct({ list: Schema.Array(Schema.Struct({ layerID: Schema.Int, name: Schema.String, visible: Schema.Boolean })) })]))),
         Effect.map(([{ list }]) => list),
     );
 ```

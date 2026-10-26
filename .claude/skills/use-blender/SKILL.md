@@ -193,5 +193,3 @@ Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BL
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
 - Crash reports sit in the tree's `tmp`, output in its `blender.log`
-- Crash reproductions run in plain CPython with the extension's wheel versions, one Blender run confirms the fix
-- Crashes on a `Stack Guard` region reproduce in Blender's bundled `python3.13`, where C recursion past Blender's 1 MB stack raises `RecursionError`

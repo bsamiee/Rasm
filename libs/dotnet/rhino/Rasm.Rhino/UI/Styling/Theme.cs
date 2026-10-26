@@ -4,13 +4,16 @@ using Eto.Drawing;
 using Eto.Forms;
 using Microsoft.Win32;
 using Rasm.Rhino.Events;
+using Rasm.UI.Styling;
 using Rhino.UI;
 
 namespace Rasm.Rhino.UI.Styling;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IThemeHandler {
-    public DisplayOptions Accessibility { get; }
+    public LanguageExt.HashSet<Condition> Conditions { get; }
+
+    public Color Faulted { get; }
 
     public HostEvent<EventArgs> Changed { get; }
 
@@ -18,8 +21,6 @@ public interface IThemeHandler {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct DisplayOptions(bool ReduceMotion, bool IncreaseContrast, bool DifferentiateWithoutColor, bool ReduceTransparency, bool InvertColors);
-
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class PaintSlot {
     public static readonly PaintSlot Text = new(static () => ThemeSettings.Content.Text.Enabled);
@@ -66,8 +67,8 @@ public static class HostTheme {
     // --- [FONTS]
     public static Font Digits(Font font) => Handler.Match(Some: handler => handler.Digits(font), None: () => font);
 
-    // --- [ACCESSIBILITY]
-    public static DisplayOptions Accessibility => Handler.Match(Some: static handler => handler.Accessibility, None: static () => default);
+    // --- [CONDITIONS]
+    public static LanguageExt.HashSet<Condition> Conditions => Handler.Match(Some: static handler => handler.Conditions, None: static () => []);
 
     // --- [CHANGE]
     public static readonly HostEvent<Unit> Changed =

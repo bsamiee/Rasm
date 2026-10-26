@@ -120,12 +120,9 @@ public sealed class SingleReaderAnalyzer : RasmAnalyzer {
                 or IArrayCreationOperation or ICollectionExpressionOperation or IAssignmentOperation or IIncrementOrDecrementOperation or IAwaitOperation or IAnonymousFunctionOperation
                 or IDelegateCreationOperation or IThrowOperation or IDynamicInvocationOperation);
         static bool Plain(IOperation value) =>
-            value.Syntax is IdentifierNameSyntax && value switch {
-                ILocalReferenceOperation local => !Root(value).Descendants().Any(write => write is ILocalReferenceOperation other && Same(other.Local, local.Local) && Written(other)),
-                IParameterReferenceOperation { Parameter.RefKind: RefKind.None } parameter =>
-                    !Root(value).Descendants().Any(write => write is IParameterReferenceOperation other && Same(other.Parameter, parameter.Parameter) && Written(other)),
-                _ => false,
-            };
+            value.Syntax is IdentifierNameSyntax
+            && value switch { ILocalReferenceOperation local => local.Local, IParameterReferenceOperation { Parameter.RefKind: RefKind.None } parameter => (ISymbol)parameter.Parameter, _ => null } is { } held
+            && !Uses(held, value).Any(Written);
         static bool Deferred(SyntaxNode node, SyntaxNode root) =>
             node != root && node.Parent is { } parent && (parent switch {
                 ConditionalExpressionSyntax conditional => conditional.Condition != node,
@@ -153,11 +150,7 @@ public sealed class SingleReaderAnalyzer : RasmAnalyzer {
             && initializer.Descendants().OfType<IMethodReferenceOperation>().Select(static group => group.Method.OriginalDefinition).Distinct(SymbolEqualityComparer.Default).Skip(1).Any();
         static ISymbol Enclosing(ISymbol symbol) => symbol is IMethodSymbol { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction } nested ? Enclosing(nested.ContainingSymbol) : symbol;
         static string Named(ISymbol symbol) =>
-            symbol switch {
-                IMethodSymbol { AssociatedSymbol: { } owner } => owner.Name,
-                IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } constructor => constructor.ContainingType.Name,
-                _ => symbol.Name,
-            };
+            symbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } constructor ? constructor.ContainingType.Name : Member(symbol).Name;
         static bool Free(SyntaxNode moved, ImmutableHashSet<string> bound, ImmutableHashSet<string> local) =>
             !Scopes.Referenced(moved).Any(used => !bound.Contains(used.Identifier.ValueText) && local.Contains(used.Identifier.ValueText));
         static bool Bound(IArgumentOperation argument, ImmutableArray<IdentifierNameSyntax> used, SyntaxNode body) =>
@@ -212,7 +205,7 @@ public sealed class SingleReaderAnalyzer : RasmAnalyzer {
                 ConcurrentDictionary<ISymbol, IOperation> values = new(SymbolEqualityComparer.Default);
                 ConcurrentDictionary<ISymbol, (IOperation Read, ISymbol Reader)> reads = new(SymbolEqualityComparer.Default);
                 start.RegisterOperationBlockAction(block => {
-                    ISymbol owner = block.OwningSymbol is IMethodSymbol { AssociatedSymbol: IPropertySymbol property } ? property : block.OwningSymbol;
+                    ISymbol owner = Member(block.OwningSymbol);
                     if (candidates.Contains(owner) && block.OperationBlocks is { Length: 1 } blocks && Expressed(blocks[0]) is { } value) values[owner] = value;
                 });
                 start.RegisterOperationAction(

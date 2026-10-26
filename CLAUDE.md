@@ -9,7 +9,6 @@
 - Fix defects at root cause, a wrapper, fallback, guard, or retry that hides the cause is a defect
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
-- Reductions are proven by one metric measured before and after with its command named, a move, rename, or copy counts as none
 - Run applications and hosts live as work needs them
 
 ## [01]-[LANGUAGE_STANDARDS]
@@ -75,7 +74,6 @@
 - ALWAYS call the owning type or package directly, a function between them stands only for a boundary conversion or steps every caller repeats
 - ALWAYS name the real type, an alias renaming a declared type exists only to resolve a name collision between referenced namespaces
 - ALWAYS reach a dependency through the function or runtime that supplies it, a service locator or a layer forwarding a call unchanged is a defect
-- ALWAYS declare a record, enum, or struct only where no host type, derived form, or existing member states the fact
 
 [DERIVATION]: Values derive from the declaration or host API that states them
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
@@ -85,7 +83,6 @@
 [CAPABILITY]: Libraries hold general capability in layers independent of any consumer, specific instances sit where a composition uses them
 - ALWAYS build each part once in the layer of what it does, on whole layers, packages, or hosts beneath and on nothing beside or above
 - ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
-- ALWAYS keep a declaration with no consumer until its shape fails on its merits, consumer counts decide nothing
 
 [PRODUCTS]: Products are the artifacts their host installs or serves to a person holding no checkout
 - ALWAYS give a product the identity its host reads from an installed one (identifier, version, signature)

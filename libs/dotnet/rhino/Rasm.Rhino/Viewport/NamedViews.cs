@@ -32,10 +32,10 @@ public static class NamedViews {
             select saved);
 
     public static IO<Unit> Rename(RhinoDoc doc, string name, string newName) =>
-        Find(doc, name).Bind(index => IO.lift(() => Refused.Unless(doc.NamedViews.Rename(index, newName), nameof(NamedViewTable.Rename))));
+        IO.lift(() => Refused.Unless(doc.NamedViews.Rename(name, newName), nameof(NamedViewTable.Rename)));
 
     public static IO<Unit> Delete(RhinoDoc doc, string name) =>
-        Find(doc, name).Bind(index => IO.lift(() => Refused.Unless(doc.NamedViews.Delete(index), nameof(NamedViewTable.Delete))));
+        IO.lift(() => Refused.Unless(doc.NamedViews.Delete(name), nameof(NamedViewTable.Delete)));
 
     private static IO<int> Find(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name)).ToFin(new Refused(nameof(NamedViewTable.FindByName), Refused.Absent)));

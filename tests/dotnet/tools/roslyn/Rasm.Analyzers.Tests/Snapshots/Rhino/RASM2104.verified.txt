@@ -1,0 +1,2 @@
+#0 `conduit.Enabled = true` toggles a conduit outside `Conduits`. Declare it as a `ConduitDefinition` for `Conduits.Enable`
+#1 `conduit.Enabled = false` toggles a conduit outside `Conduits`. Declare it as a `ConduitDefinition` for `Conduits.Enable`

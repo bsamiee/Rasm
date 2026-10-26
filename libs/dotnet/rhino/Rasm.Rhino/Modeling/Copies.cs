@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Rasm.Rhino.Modeling;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -75,8 +77,51 @@ public static class Copies {
             static answer => Released(answer.Results), retain);
 
     // --- [INDICES]
-    public static Fin<Unit> InRange(Seq<int> indices, int itemCount, string member) =>
-        Callbacks.Each(indices, (index, _) => Conversions.Within(index, itemCount, member)).Map(static _ => unit);
+    public static Fin<Seq<ComponentIndex>> Within(GeometryBase geometry, Seq<ComponentIndex> components) =>
+        Callbacks.Each(components, (component, at) => Holds(geometry, component).Match(
+            Some: held => held
+                ? Fin.Succ(component)
+                : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{component.ComponentIndexType} {component.Index} at element {at} is absent from {geometry.ObjectType}")),
+            None: () => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{component.ComponentIndexType} at element {at} names no {geometry.ObjectType} component"))));
+
+    public static Fin<Seq<int>> Within(GeometryBase geometry, ComponentIndexType type, Seq<int> indices) =>
+        Within(geometry, indices.Map(index => new ComponentIndex(type, index))).Map(static held => held.Map(static component => component.Index));
+
+    private static Option<bool> Holds(GeometryBase geometry, ComponentIndex component) =>
+        component.ComponentIndexType switch {
+            ComponentIndexType.BrepVertex => Counted<Brep>(geometry, component.Index, static brep => brep.Vertices.Count),
+            ComponentIndexType.BrepEdge => Counted<Brep>(geometry, component.Index, static brep => brep.Edges.Count),
+            ComponentIndexType.BrepFace => Counted<Brep>(geometry, component.Index, static brep => brep.Faces.Count),
+            ComponentIndexType.BrepTrim => Counted<Brep>(geometry, component.Index, static brep => brep.Trims.Count),
+            ComponentIndexType.BrepLoop => Counted<Brep>(geometry, component.Index, static brep => brep.Loops.Count),
+            ComponentIndexType.MeshVertex => Counted<Mesh>(geometry, component.Index, static mesh => mesh.Vertices.Count),
+            ComponentIndexType.MeshTopologyVertex => Counted<Mesh>(geometry, component.Index, static mesh => mesh.TopologyVertices.Count),
+            ComponentIndexType.MeshTopologyEdge => Counted<Mesh>(geometry, component.Index, static mesh => mesh.TopologyEdges.Count),
+            ComponentIndexType.MeshFace => Counted<Mesh>(geometry, component.Index, static mesh => mesh.Faces.Count),
+            ComponentIndexType.MeshNgon => Counted<Mesh>(geometry, component.Index, static mesh => mesh.Ngons.Count),
+            ComponentIndexType.PolycurveSegment => Counted<PolyCurve>(geometry, component.Index, static polycurve => polycurve.SegmentCount),
+            ComponentIndexType.PointCloudPoint => Counted<PointCloud>(geometry, component.Index, static cloud => cloud.Count),
+            ComponentIndexType.ExtrusionBottomProfile or ComponentIndexType.ExtrusionTopProfile or ComponentIndexType.ExtrusionWallSurface =>
+                Counted<Extrusion>(geometry, component.Index, static extrusion => extrusion.ProfileCount),
+            ComponentIndexType.ExtrusionWallEdge => Counted<Extrusion>(geometry, component.Index, static extrusion => 2 * extrusion.ProfileCount),
+            ComponentIndexType.ExtrusionCapSurface => Held<Extrusion>(geometry, component.Index, static (extrusion, index) =>
+                index is 0 ? extrusion.IsCappedAtBottom : index is 1 && extrusion.IsCappedAtTop),
+            ComponentIndexType.ExtrusionPath => Held<Extrusion>(geometry, component.Index, static (_, index) => index is >= -1 and <= 1),
+            ComponentIndexType.SubdVertex => Held<SubD>(geometry, component.Index, static (subd, id) => id > 0 && subd.Vertices.Find((uint)id) is not null),
+            ComponentIndexType.SubdEdge => Held<SubD>(geometry, component.Index, static (subd, id) => id > 0 && subd.Edges.Find((uint)id) is not null),
+            ComponentIndexType.SubdFace => Held<SubD>(geometry, component.Index, static (subd, id) => id > 0 && subd.Faces.Find((uint)id) is not null),
+            ComponentIndexType.HatchLoop => Counted<Hatch>(geometry, component.Index, static hatch =>
+                hatch.Get2dCurves(outer: true).Count(DisposalOps.Present) + hatch.Get2dCurves(outer: false).Count(DisposalOps.Present)),
+            ComponentIndexType.InvalidType or ComponentIndexType.NoType or ComponentIndexType.InstanceDefinitionPart or ComponentIndexType.GroupMember
+                or ComponentIndexType.DimLinearPoint or ComponentIndexType.DimRadialPoint or ComponentIndexType.DimAngularPoint or ComponentIndexType.DimOrdinatePoint
+                or ComponentIndexType.DimTextPoint or ComponentIndexType.DimCentermarkPoint or ComponentIndexType.DimLeaderPoint => None,
+        };
+
+    private static Option<bool> Counted<T>(GeometryBase geometry, int index, Func<T, int> count) where T : GeometryBase =>
+        Held<T>(geometry, index, (held, at) => at >= 0 && at < count(held));
+
+    private static Option<bool> Held<T>(GeometryBase geometry, int index, Func<T, int, bool> holds) where T : GeometryBase =>
+        geometry is T held ? Some(holds(held, index)) : None;
 
     // --- [OWNERSHIP]
     public static IO<TKept> Owned<TMade, TKept>(Func<TMade> create, Func<TMade, Fin<TKept>> accept, Func<TMade, IO<Unit>> release, Action<IDisposable> retain) =>
